@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "xayn-ai",
+]
+
+[workspace.metadata]
+# minimum supported rust version
+msrv = "1.49.0"
