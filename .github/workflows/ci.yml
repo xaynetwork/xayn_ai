@@ -55,8 +55,6 @@ jobs:
     needs: registry-cache
     timeout-minutes: 10
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -197,4 +195,3 @@ jobs:
           cargo test --all-targets
           cargo test --all-targets --all-features
           cargo test --all-features --doc
-
