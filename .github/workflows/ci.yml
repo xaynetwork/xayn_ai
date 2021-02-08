@@ -123,8 +123,6 @@ jobs:
     needs: [registry-cache, check]
     timeout-minutes: 20
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
