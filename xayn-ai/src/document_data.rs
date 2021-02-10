@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentId(pub String);
@@ -65,7 +67,10 @@ pub(crate) trait GetMabComponent {
     fn mab(&self) -> &MabComponent;
 }
 
-// states definition
+// States definition
+// The transation order is:
+// WithDocument -> WithEmbedding -> WithCenterOfInterest ->
+// -> WithLtr -> WithContext -> WithMab
 
 pub(crate) struct WithDocument {
     document: DocumentComponent,
@@ -77,19 +82,8 @@ impl GetDocumentComponent for WithDocument {
     }
 }
 
-pub(crate) struct WithLtr {
-    prev_state: WithDocument,
-    ltr: LtrComponent,
-}
-
-impl GetLtrComponent for WithLtr {
-    fn ltr(&self) -> &LtrComponent {
-        &self.ltr
-    }
-}
-
 pub(crate) struct WithEmbedding {
-    prev_state: WithLtr,
+    prev_state: WithDocument,
     embedding: EmbeddingComponent,
 }
 
@@ -110,8 +104,19 @@ impl GetCenterOfInterestComponent for WithCenterOfInterest {
     }
 }
 
-pub(crate) struct WithContext {
+pub(crate) struct WithLtr {
     prev_state: WithCenterOfInterest,
+    ltr: LtrComponent,
+}
+
+impl GetLtrComponent for WithLtr {
+    fn ltr(&self) -> &LtrComponent {
+        &self.ltr
+    }
+}
+
+pub(crate) struct WithContext {
+    prev_state: WithLtr,
     context: ContextComponent,
 }
 
@@ -191,9 +196,8 @@ impl DocumentDataState<WithDocument> {
     }
 }
 
-impl_add_component!(WithDocument, WithLtr, add_ltr, ltr, LtrComponent);
 impl_add_component!(
-    WithLtr,
+    WithDocument,
     WithEmbedding,
     add_embedding,
     embedding,
@@ -206,31 +210,17 @@ impl_add_component!(
     center_of_interest,
     CenterOfInterestComponent
 );
-impl_add_component!(
-    WithCenterOfInterest,
-    WithContext,
-    add_context,
-    context,
-    ContextComponent
-);
+impl_add_component!(WithCenterOfInterest, WithLtr, add_ltr, ltr, LtrComponent);
+impl_add_component!(WithLtr, WithContext, add_context, context, ContextComponent);
 impl_add_component!(WithContext, WithMab, add_mab, mab, MabComponent);
 
 impl_get_component!(
     GetDocumentComponent,
     document,
     DocumentComponent,
+    WithEmbedding,
+    WithCenterOfInterest,
     WithLtr,
-    WithEmbedding,
-    WithCenterOfInterest,
-    WithContext,
-    WithMab
-);
-impl_get_component!(
-    GetLtrComponent,
-    ltr,
-    LtrComponent,
-    WithEmbedding,
-    WithCenterOfInterest,
     WithContext,
     WithMab
 );
@@ -239,6 +229,7 @@ impl_get_component!(
     embedding,
     EmbeddingComponent,
     WithCenterOfInterest,
+    WithLtr,
     WithContext,
     WithMab
 );
@@ -246,9 +237,11 @@ impl_get_component!(
     GetCenterOfInterestComponent,
     center_of_interest,
     CenterOfInterestComponent,
+    WithLtr,
     WithContext,
     WithMab
 );
+impl_get_component!(GetLtrComponent, ltr, LtrComponent, WithContext, WithMab);
 impl_get_component!(GetContextComponent, context, ContextComponent, WithMab);
 impl_get_component!(GetMabComponent, mab, MabComponent);
 
@@ -265,17 +258,11 @@ mod tests {
         let document_data = DocumentDataState::<WithDocument>::new(document_component.clone());
         assert_eq!(&document_component, document_data.document());
 
-        let ltr_component = LtrComponent { context_value: 0.3 };
-        let document_data = document_data.add_ltr(ltr_component.clone());
-        assert_eq!(&document_component, document_data.document());
-        assert_eq!(&ltr_component, document_data.ltr());
-
         let embedding_component = EmbeddingComponent {
             embedding: vec![1., 2., 3., 4.],
         };
         let document_data = document_data.add_embedding(embedding_component.clone());
         assert_eq!(&document_component, document_data.document());
-        assert_eq!(&ltr_component, document_data.ltr());
         assert_eq!(&embedding_component, document_data.embedding());
 
         let coi_component = CenterOfInterestComponent {
@@ -285,9 +272,15 @@ mod tests {
         };
         let document_data = document_data.add_center_of_interest(coi_component.clone());
         assert_eq!(&document_component, document_data.document());
-        assert_eq!(&ltr_component, document_data.ltr());
         assert_eq!(&embedding_component, document_data.embedding());
         assert_eq!(&coi_component, document_data.center_of_interest());
+
+        let ltr_component = LtrComponent { context_value: 0.3 };
+        let document_data = document_data.add_ltr(ltr_component.clone());
+        assert_eq!(&document_component, document_data.document());
+        assert_eq!(&embedding_component, document_data.embedding());
+        assert_eq!(&coi_component, document_data.center_of_interest());
+        assert_eq!(&ltr_component, document_data.ltr());
 
         let context_component = ContextComponent {
             context_value: 1.23,
