@@ -10,26 +10,14 @@ pub(crate) struct DocumentComponent {
     pub snippet: String,
 }
 
-pub(crate) trait GetDocumentComponent {
-    fn document(&self) -> &DocumentComponent;
-}
-
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub(crate) struct LtrComponent {
     pub context_value: f32,
 }
 
-pub(crate) trait GetLtrComponent {
-    fn ltr(&self) -> &LtrComponent;
-}
-
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub(crate) struct EmbeddingComponent {
     pub embedding: Vec<f32>,
-}
-
-pub(crate) trait GetEmbeddingComponent {
-    fn embedding(&self) -> &EmbeddingComponent;
 }
 
 #[repr(transparent)]
@@ -45,26 +33,14 @@ pub(crate) struct CenterOfInterestComponent {
     pub(crate) neg_distance: f32,
 }
 
-pub(crate) trait GetCenterOfInterestComponent {
-    fn center_of_interest(&self) -> &CenterOfInterestComponent;
-}
-
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub(crate) struct ContextComponent {
     pub(crate) context_value: f32,
 }
 
-pub(crate) trait GetContextComponent {
-    fn context(&self) -> &ContextComponent;
-}
-
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub(crate) struct MabComponent {
     pub(crate) rank: usize,
-}
-
-pub(crate) trait GetMabComponent {
-    fn mab(&self) -> &MabComponent;
 }
 
 // States definition
@@ -76,7 +52,7 @@ pub(crate) struct WithDocument {
     document: DocumentComponent,
 }
 
-impl GetDocumentComponent for WithDocument {
+impl WithDocument {
     fn document(&self) -> &DocumentComponent {
         &self.document
     }
@@ -87,7 +63,7 @@ pub(crate) struct WithEmbedding {
     embedding: EmbeddingComponent,
 }
 
-impl GetEmbeddingComponent for WithEmbedding {
+impl WithEmbedding {
     fn embedding(&self) -> &EmbeddingComponent {
         &self.embedding
     }
@@ -98,7 +74,7 @@ pub(crate) struct WithCenterOfInterest {
     center_of_interest: CenterOfInterestComponent,
 }
 
-impl GetCenterOfInterestComponent for WithCenterOfInterest {
+impl WithCenterOfInterest {
     fn center_of_interest(&self) -> &CenterOfInterestComponent {
         &self.center_of_interest
     }
@@ -109,7 +85,7 @@ pub(crate) struct WithLtr {
     ltr: LtrComponent,
 }
 
-impl GetLtrComponent for WithLtr {
+impl WithLtr {
     fn ltr(&self) -> &LtrComponent {
         &self.ltr
     }
@@ -120,7 +96,7 @@ pub(crate) struct WithContext {
     context: ContextComponent,
 }
 
-impl GetContextComponent for WithContext {
+impl WithContext {
     fn context(&self) -> &ContextComponent {
         &self.context
     }
@@ -131,7 +107,7 @@ pub(crate) struct WithMab {
     mab: MabComponent,
 }
 
-impl GetMabComponent for WithMab {
+impl WithMab {
     fn mab(&self) -> &MabComponent {
         &self.mab
     }
@@ -165,26 +141,29 @@ macro_rules! impl_add_component {
 
 /// Implements a trait to get a component that is present in a previous state
 macro_rules! impl_get_component {
-    ($get_component_trait:ident, $method:ident, $component:ty $(, $state:ty)*) => {
-        // implement the trait for every inner state
+    ($method:ident, $component:ident, $first_state:ty $(, $state:ty)* $(,)* ) => {
         $(
-        impl $get_component_trait for $state {
+        impl $state {
             #[inline(always)]
             fn $method(&self) -> &$component {
                 &self.prev_state.$method()
             }
         }
         )*
-        // implement the trait for DocumentData
-        impl<S> $get_component_trait for DocumentDataState<S>
-        where S: $get_component_trait
-        {
+        impl DocumentDataState<$first_state> {
             #[inline(always)]
             fn $method(&self) -> &$component {
                 &self.inner.$method()
             }
         }
-
+        $(
+        impl DocumentDataState<$state> {
+            #[inline(always)]
+            fn $method(&self) -> &$component {
+                &self.inner.$method()
+            }
+        }
+        )*
     };
 }
 
@@ -215,9 +194,9 @@ impl_add_component!(WithLtr, WithContext, add_context, context, ContextComponent
 impl_add_component!(WithContext, WithMab, add_mab, mab, MabComponent);
 
 impl_get_component!(
-    GetDocumentComponent,
     document,
     DocumentComponent,
+    WithDocument,
     WithEmbedding,
     WithCenterOfInterest,
     WithLtr,
@@ -225,25 +204,25 @@ impl_get_component!(
     WithMab
 );
 impl_get_component!(
-    GetEmbeddingComponent,
     embedding,
     EmbeddingComponent,
+    WithEmbedding,
     WithCenterOfInterest,
     WithLtr,
     WithContext,
     WithMab
 );
 impl_get_component!(
-    GetCenterOfInterestComponent,
     center_of_interest,
     CenterOfInterestComponent,
+    WithCenterOfInterest,
     WithLtr,
     WithContext,
     WithMab
 );
-impl_get_component!(GetLtrComponent, ltr, LtrComponent, WithContext, WithMab);
-impl_get_component!(GetContextComponent, context, ContextComponent, WithMab);
-impl_get_component!(GetMabComponent, mab, MabComponent);
+impl_get_component!(ltr, LtrComponent, WithLtr, WithContext, WithMab);
+impl_get_component!(context, ContextComponent, WithContext, WithMab);
+impl_get_component!(mab, MabComponent, WithMab);
 
 #[cfg(test)]
 mod tests {
