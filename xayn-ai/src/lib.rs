@@ -1,3 +1,7 @@
-pub mod document_data;
+mod database;
+mod document;
+mod document_data;
+mod reranker;
 
-pub struct Reranker;
+pub use document::{Document, DocumentId};
+pub use reranker::{DocumentHistory, Reranker};
