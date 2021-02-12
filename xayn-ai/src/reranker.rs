@@ -56,8 +56,8 @@ impl RerankerInner {
     fn rerank<CS>(
         self,
         common_systems: &CS,
-        history: &Vec<DocumentHistory>,
-        documents: &Vec<Document>,
+        history: &[DocumentHistory],
+        documents: &[Document],
     ) -> Result<(RerankerInner, DocumentsRank), Error>
     where
         CS: CommonSystems,
@@ -85,8 +85,8 @@ impl RerankerState<Empty> {
     fn rerank<CS>(
         self,
         common_systems: &CS,
-        _history: &Vec<DocumentHistory>,
-        documents: &Vec<Document>,
+        _history: &[DocumentHistory],
+        documents: &[Document],
     ) -> Result<(RerankerInner, DocumentsRank), Error>
     where
         CS: CommonSystems,
@@ -102,8 +102,8 @@ impl RerankerState<InitCentersOfInterest> {
     fn rerank<CS>(
         self,
         common_systems: &CS,
-        history: &Vec<DocumentHistory>,
-        documents: &Vec<Document>,
+        history: &[DocumentHistory],
+        documents: &[Document],
     ) -> Result<(RerankerInner, DocumentsRank), Error>
     where
         CS: CommonSystems,
@@ -127,8 +127,8 @@ impl RerankerState<Nominal> {
     fn rerank<CS>(
         self,
         common_systems: &CS,
-        history: &Vec<DocumentHistory>,
-        documents: &Vec<Document>,
+        history: &[DocumentHistory],
+        documents: &[Document],
     ) -> Result<(RerankerInner, DocumentsRank), Error>
     where
         CS: CommonSystems,
@@ -195,12 +195,12 @@ where
 
 fn to_init_centers_of_interest<CS>(
     common_systems: &CS,
-    documents: &Vec<Document>,
+    documents: &[Document],
 ) -> Result<RerankerInner, Error>
 where
     CS: CommonSystems,
 {
-    let prev_documents = documents
+    let prev_documents: Vec<_> = documents
         .iter()
         .map(|document| DocumentComponent {
             id: document.id.clone(),
@@ -221,14 +221,14 @@ where
     Ok(RerankerInner::InitCentersOfInterest(inner))
 }
 
-fn rank_from_source(documents: &Vec<Document>) -> Result<DocumentsRank, Error> {
+fn rank_from_source(documents: &[Document]) -> Result<DocumentsRank, Error> {
     Ok(documents.iter().map(|document| document.rank).collect())
 }
 
 fn rerank<CS>(
     _common_systems: &CS,
-    _history: &Vec<DocumentHistory>,
-    _documents: &Vec<Document>,
+    _history: &[DocumentHistory],
+    _documents: &[Document],
     _centers_of_interest: &CentersOfInterest,
 ) -> Result<(RerankerInner, DocumentsRank), Error>
 where

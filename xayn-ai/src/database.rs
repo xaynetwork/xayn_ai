@@ -15,7 +15,7 @@ pub trait Database {
 
     fn save_prev_documents(
         &self,
-        prev_documents: &Vec<DocumentDataState<WithDocument>>,
+        prev_documents: &[DocumentDataState<WithDocument>],
     ) -> Result<(), Error>;
 
     fn load_prev_documents(
@@ -24,7 +24,7 @@ pub trait Database {
 
     fn save_prev_documents_full(
         &self,
-        prev_documents: &Vec<DocumentDataState<WithMab>>,
+        prev_documents: &[DocumentDataState<WithMab>],
     ) -> Result<(), Error>;
 
     fn load_prev_documents_full(
