@@ -8,6 +8,10 @@ pub struct DocumentIdComponent {
     pub id: DocumentId,
 }
 
+pub trait DocumentIdentifier {
+    fn id(&self) -> &DocumentId;
+}
+
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentContentComponent {
     pub snippet: String,
@@ -26,6 +30,7 @@ pub struct LtrComponent {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct CoiComponent {
+    /// The ID of the positive center of interest
     pub id: CoiId,
     /// Distance from the positive centre of interest
     pub pos_distance: f32,
@@ -53,8 +58,14 @@ pub struct DocumentDataWithDocument {
 }
 
 pub struct DocumentDataWithEmbedding {
-    document_id: DocumentIdComponent,
-    embedding: EmbeddingComponent,
+    pub document_id: DocumentIdComponent,
+    pub embedding: EmbeddingComponent,
+}
+
+impl DocumentIdentifier for DocumentDataWithEmbedding {
+    fn id(&self) -> &DocumentId {
+        &self.document_id.id
+    }
 }
 
 impl DocumentDataWithEmbedding {
@@ -132,6 +143,12 @@ pub struct DocumentDataWithMab {
     pub mab: MabComponent,
 }
 
+impl DocumentIdentifier for DocumentDataWithMab {
+    fn id(&self) -> &DocumentId {
+        &self.document_id.id
+    }
+}
+
 impl DocumentDataWithMab {
     pub fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
         Self {
@@ -148,6 +165,7 @@ impl DocumentDataWithMab {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ndarray::array;
 
     #[test]
     fn transition_and_get() {
