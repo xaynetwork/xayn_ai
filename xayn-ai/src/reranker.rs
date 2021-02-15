@@ -3,29 +3,101 @@
 use crate::{
     database::Database,
     document::Document,
-    document_data::{DocumentComponent, DocumentDataState, WithDocument, WithMab},
+    document_data::{
+        DocumentContentComponent,
+        DocumentDataWithCenterOfInterest,
+        DocumentDataWithContext,
+        DocumentDataWithDocument,
+        DocumentDataWithEmbedding,
+        DocumentDataWithLtr,
+        DocumentDataWithMab,
+        DocumentIdComponent,
+    },
+    error::Error,
 };
 
-type DocumentsRank = Vec<usize>;
+pub type DocumentsRank = Vec<usize>;
 
 // place holders to move in their respective module
-enum CenterOfInterest {}
+struct CenterOfInterest {}
 pub enum DocumentHistory {}
-pub struct Error {}
 pub struct Analytics {}
 pub struct CentersOfInterest {
     positive: Vec<CenterOfInterest>,
     negative: Vec<CenterOfInterest>,
 }
 
+pub trait BertSystem {
+    fn add_embedding(
+        &self,
+        documents: &[DocumentDataWithDocument],
+    ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
+}
+
+pub trait CenterOfInterestSystem {
+    /// Add center of interest information to a document
+    fn add_center_of_interest(
+        &self,
+        documents: &[DocumentDataWithEmbedding],
+    ) -> Result<Vec<DocumentDataWithCenterOfInterest>, Error>;
+
+    /// Make new centers of interest from history and documents
+    fn make_centers_of_interest(
+        &self,
+        history: &[DocumentHistory],
+        documents: &[Document],
+    ) -> Result<Option<CentersOfInterest>, Error>;
+
+    /// Update centers of interest from history and documents
+    fn update_centers_of_interest(
+        &self,
+        history: &[DocumentHistory],
+        documents: &[Document],
+        centers_of_interest: &CentersOfInterest,
+    ) -> Result<CentersOfInterest, Error>;
+}
+
+pub trait LtrSystem {
+    fn add_ltr(
+        &self,
+        history: &[DocumentHistory],
+        documents: &[DocumentDataWithCenterOfInterest],
+    ) -> Result<Vec<DocumentDataWithLtr>, Error>;
+}
+
+pub trait ContextSystem {
+    fn add_context(
+        &self,
+        documents: &[DocumentDataWithLtr],
+    ) -> Result<Vec<DocumentDataWithContext>, Error>;
+}
+
+pub trait MabSystem {
+    fn add_mab(
+        &self,
+        documents: &[DocumentDataWithContext],
+        centers_of_interest: &CentersOfInterest,
+    ) -> Result<(Vec<DocumentDataWithMab>, CentersOfInterest), Error>;
+}
+
+pub trait AnalyticsSystem {
+    fn gen_analytics(
+        &self,
+        history: &[DocumentHistory],
+        documents: &[DocumentDataWithMab],
+    ) -> Result<Analytics, Error>;
+}
+
 /// Common systems that we need in the reranker
+/// At the moment this exists only to avoid to have 7+ generics around
 pub trait CommonSystems {
     fn database(&self) -> &dyn Database;
-    // bert
-    // center of intereset
-    // ltr
-    // context
-    // mab
+    fn bert(&self) -> &dyn BertSystem;
+    fn centers_of_interest(&self) -> &dyn CenterOfInterestSystem;
+    fn ltr(&self) -> &dyn LtrSystem;
+    fn context(&self) -> &dyn ContextSystem;
+    fn mab(&self) -> &dyn MabSystem;
+    fn analytics(&self) -> &dyn AnalyticsSystem;
 }
 
 /// Empty state
@@ -33,12 +105,12 @@ struct Empty {}
 
 /// In this state we have the documents from the previous query but we do not have center of interest
 struct InitCentersOfInterest {
-    prev_documents: Vec<DocumentDataState<WithDocument>>,
+    prev_documents: Vec<DocumentDataWithEmbedding>,
 }
 
 /// In this state we have all the data we need to do reranking and run the feedback loop
 struct Nominal {
-    prev_documents: Vec<DocumentDataState<WithMab>>,
+    prev_documents: Vec<DocumentDataWithMab>,
     centers_of_interest: CentersOfInterest,
 }
 
@@ -93,7 +165,7 @@ impl RerankerState<Empty> {
     {
         Ok((
             to_init_centers_of_interest(common_systems, documents)?,
-            rank_from_source(documents)?,
+            rank_from_source(documents),
         ))
     }
 }
@@ -108,16 +180,17 @@ impl RerankerState<InitCentersOfInterest> {
     where
         CS: CommonSystems,
     {
-        // try to create new coi from center of interest system
-        let centers_of_interest = None;
+        let centers_of_interest = common_systems
+            .centers_of_interest()
+            .make_centers_of_interest(history, documents)?;
 
         match centers_of_interest {
             None => Ok((
                 to_init_centers_of_interest(common_systems, documents)?,
-                rank_from_source(documents)?,
+                rank_from_source(documents),
             )),
             Some(centers_of_interest) => {
-                rerank(common_systems, history, documents, centers_of_interest)
+                rerank(common_systems, history, documents, &centers_of_interest)
             }
         }
     }
@@ -133,18 +206,18 @@ impl RerankerState<Nominal> {
     where
         CS: CommonSystems,
     {
-        // update centers of interest
-        let centers_of_interest = CentersOfInterest {
-            positive: vec![],
-            negative: vec![],
-        };
+        let centers_of_interest = common_systems
+            .centers_of_interest()
+            .update_centers_of_interest(history, documents, &self.inner.centers_of_interest)?;
 
         common_systems
             .database()
             .save_centers_of_interest(&centers_of_interest)?;
 
-        let analytics = Analytics {};
-
+        // We probably do not want to fail if analytics fails
+        let analytics = common_systems
+            .analytics()
+            .gen_analytics(history, &self.inner.prev_documents)?;
         common_systems.database().save_analytics(&analytics)?;
 
         rerank(common_systems, history, documents, &centers_of_interest)
@@ -156,11 +229,14 @@ where
     CS: CommonSystems,
 {
     fn new(common_systems: CS) -> Result<Self, Error> {
+        // load the correct state from the database
         let inner = common_systems
             .database()
             .load_prev_documents_full()
             .and_then(|prev_documents| {
                 if let Some(prev_documents) = prev_documents {
+                    // if we have documents with all the data
+                    // we need to have the center of interest
                     common_systems
                         .database()
                         .load_centers_of_interest()?
@@ -172,8 +248,11 @@ where
                                 },
                             }))
                         })
+                        // We could go to InitCentersOfInterest instead and try to recover from that
                         .unwrap_or_else(|| Err(Error {}))
                 } else {
+                    // if we have document with the embedding we need
+                    // to init the center of interest
                     Ok(common_systems
                         .database()
                         .load_prev_documents()?
@@ -193,6 +272,27 @@ where
     }
 }
 
+fn make_documents_with_embedding<BS>(
+    bert_system: &BS,
+    documents: &[Document],
+) -> Result<Vec<DocumentDataWithEmbedding>, Error>
+where
+    BS: BertSystem + ?Sized,
+{
+    let prev_documents: Vec<_> = documents
+        .iter()
+        .map(|document| DocumentDataWithDocument {
+            document_id: DocumentIdComponent {
+                id: document.id.clone(),
+            },
+            document_content: DocumentContentComponent {
+                snippet: document.snippet.clone(),
+            },
+        })
+        .collect();
+    bert_system.add_embedding(&prev_documents)
+}
+
 fn to_init_centers_of_interest<CS>(
     common_systems: &CS,
     documents: &[Document],
@@ -200,16 +300,8 @@ fn to_init_centers_of_interest<CS>(
 where
     CS: CommonSystems,
 {
-    let prev_documents: Vec<_> = documents
-        .iter()
-        .map(|document| DocumentComponent {
-            id: document.id.clone(),
-            snippet: document.snippet.clone(),
-        })
-        .map(DocumentDataState::<WithDocument>::new)
-        .collect();
+    let prev_documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
 
-    // persist prev_documents
     common_systems
         .database()
         .save_prev_documents(&prev_documents)?;
@@ -221,19 +313,42 @@ where
     Ok(RerankerInner::InitCentersOfInterest(inner))
 }
 
-fn rank_from_source(documents: &[Document]) -> Result<DocumentsRank, Error> {
-    Ok(documents.iter().map(|document| document.rank).collect())
+fn rank_from_source(documents: &[Document]) -> DocumentsRank {
+    documents.iter().map(|document| document.rank).collect()
 }
 
 fn rerank<CS>(
-    _common_systems: &CS,
-    _history: &[DocumentHistory],
-    _documents: &[Document],
-    _centers_of_interest: &CentersOfInterest,
+    common_systems: &CS,
+    history: &[DocumentHistory],
+    documents: &[Document],
+    centers_of_interest: &CentersOfInterest,
 ) -> Result<(RerankerInner, DocumentsRank), Error>
 where
     CS: CommonSystems,
 {
-    // Thiss will return a RerankerInner::Nominal
-    unimplemented!()
+    let documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
+    let documents = common_systems
+        .centers_of_interest()
+        .add_center_of_interest(&documents)?;
+    let documents = common_systems.ltr().add_ltr(history, &documents)?;
+    let documents = common_systems.context().add_context(&documents)?;
+    let (documents, centers_of_interest) = common_systems
+        .mab()
+        .add_mab(&documents, centers_of_interest)?;
+
+    let database = common_systems.database();
+    // What should we do if we can save one but not the other?
+    database.save_centers_of_interest(&centers_of_interest)?;
+    database.save_prev_documents_full(&documents)?;
+
+    let ranks = documents.iter().map(|document| document.mab.rank).collect();
+
+    let inner = RerankerInner::Nominal(RerankerState {
+        inner: Nominal {
+            prev_documents: documents,
+            centers_of_interest,
+        },
+    });
+
+    Ok((inner, ranks))
 }

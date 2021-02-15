@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-#[repr(transparent)]
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub struct DocumentId(pub String);
+use crate::document::DocumentId;
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
