@@ -1,4 +1,6 @@
-use crate::rubert::ndarray::{ArcArray, ArrayBase, Ix1, Ix2, Ix3, Ix4, IxDyn};
+#![allow(dead_code)]
+
+use crate::ndarray::{ArcArray, ArrayBase, Ix1, Ix2, Ix3, Ix4, IxDyn};
 
 pub type ArrayBase1<S> = ArrayBase<S, Ix1>;
 pub type ArrayBase2<S> = ArrayBase<S, Ix2>;

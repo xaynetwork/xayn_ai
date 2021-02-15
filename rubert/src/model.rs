@@ -13,7 +13,7 @@ use tract_onnx::prelude::{
     TypedSimplePlan,
 };
 
-use crate::rubert::{
+use crate::{
     ndarray::{s, Array2, Data},
     utils::{ArcArrayD, ArrayBase2},
 };

@@ -3,7 +3,7 @@ use std::io::{BufRead, Read};
 use tokenizers::tokenizer::EncodeInput;
 use tract_onnx::prelude::TVec;
 
-use crate::rubert::{
+use crate::{
     anyhow::{anyhow, Context, Result},
     model::RuBertModel,
     pooler::RuBertPooler,

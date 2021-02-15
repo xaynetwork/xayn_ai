@@ -12,7 +12,7 @@ use tokenizers::{
     },
 };
 
-use crate::rubert::{ndarray::Array1, utils::ArcArray2};
+use crate::{ndarray::Array1, utils::ArcArray2};
 
 #[derive(Debug)]
 /// Tokenization errors.
@@ -159,7 +159,7 @@ impl RuBertTokenizer {
 mod tests {
     use std::{fs::File, io::BufReader};
 
-    use crate::rubert::ndarray::ArrayView;
+    use crate::ndarray::ArrayView;
 
     use super::*;
 

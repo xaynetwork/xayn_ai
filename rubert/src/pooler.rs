@@ -1,4 +1,4 @@
-use crate::rubert::{
+use crate::{
     anyhow::{anyhow, Result},
     ndarray::{s, Axis, Data},
     utils::{ArcArray2, ArcArrayD, ArrayBase2, ArrayBase3, ArrayBaseD},
@@ -90,7 +90,7 @@ impl RuBertPooler {
 
 #[cfg(test)]
 mod tests {
-    use crate::rubert::ndarray::{arr2, arr3};
+    use crate::ndarray::{arr2, arr3};
 
     use super::*;
 
