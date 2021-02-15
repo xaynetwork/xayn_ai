@@ -5,224 +5,146 @@
 pub struct DocumentId(pub String);
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub(crate) struct DocumentComponent {
+pub struct DocumentIdComponent {
     pub id: DocumentId,
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+pub struct DocumentContentComponent {
     pub snippet: String,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub(crate) struct LtrComponent {
-    pub context_value: f32,
+pub struct EmbeddingComponent {
+    pub embedding: Vec<f32>,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub(crate) struct EmbeddingComponent {
-    pub embedding: Vec<f32>,
+pub struct LtrComponent {
+    pub context_value: f32,
 }
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub(crate) struct CenterOfInterestId(pub usize);
+pub struct CenterOfInterestId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub(crate) struct CenterOfInterestComponent {
-    pub(crate) id: CenterOfInterestId,
+pub struct CenterOfInterestComponent {
+    pub id: CenterOfInterestId,
     /// Distance from the positive center of interest
-    pub(crate) pos_distance: f32,
+    pub pos_distance: f32,
     /// Distance from the negative center of interest
-    pub(crate) neg_distance: f32,
+    pub neg_distance: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub(crate) struct ContextComponent {
-    pub(crate) context_value: f32,
+pub struct ContextComponent {
+    pub context_value: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub(crate) struct MabComponent {
-    pub(crate) rank: usize,
+pub struct MabComponent {
+    pub rank: usize,
 }
 
-// States definition
-// The transation order is:
-// WithDocument -> WithEmbedding -> WithCenterOfInterest ->
-// -> WithLtr -> WithContext -> WithMab
+// Document usage order:
+// DocumentDataWithDocument -> DocumentDataWithEmbedding -> DocumentDataWithCenterOfInterest ->
+// DocumentDataWithLtr -> DocumentDataWithContext -> DocumentDataWithMab
 
-pub(crate) struct WithDocument {
-    document: DocumentComponent,
+pub struct DocumentDataWithDocument {
+    pub document_id: DocumentIdComponent,
+    pub document_content: DocumentContentComponent,
 }
 
-impl WithDocument {
-    fn document(&self) -> &DocumentComponent {
-        &self.document
-    }
-}
-
-pub(crate) struct WithEmbedding {
-    prev_state: WithDocument,
+pub struct DocumentDataWithEmbedding {
+    document_id: DocumentIdComponent,
     embedding: EmbeddingComponent,
 }
 
-impl WithEmbedding {
-    fn embedding(&self) -> &EmbeddingComponent {
-        &self.embedding
-    }
-}
-
-pub(crate) struct WithCenterOfInterest {
-    prev_state: WithEmbedding,
-    center_of_interest: CenterOfInterestComponent,
-}
-
-impl WithCenterOfInterest {
-    fn center_of_interest(&self) -> &CenterOfInterestComponent {
-        &self.center_of_interest
-    }
-}
-
-pub(crate) struct WithLtr {
-    prev_state: WithCenterOfInterest,
-    ltr: LtrComponent,
-}
-
-impl WithLtr {
-    fn ltr(&self) -> &LtrComponent {
-        &self.ltr
-    }
-}
-
-pub(crate) struct WithContext {
-    prev_state: WithLtr,
-    context: ContextComponent,
-}
-
-impl WithContext {
-    fn context(&self) -> &ContextComponent {
-        &self.context
-    }
-}
-
-pub(crate) struct WithMab {
-    prev_state: WithContext,
-    mab: MabComponent,
-}
-
-impl WithMab {
-    fn mab(&self) -> &MabComponent {
-        &self.mab
-    }
-}
-
-pub(crate) struct DocumentDataState<S> {
-    inner: S,
-}
-
-pub(crate) enum DocumentData {
-    Empty,
-    WithEmbedding(DocumentDataState<WithEmbedding>),
-    WithMab(DocumentDataState<WithMab>),
-}
-
-/// Implements the transition from state `$from` to state `$to`
-macro_rules! impl_add_component {
-    ($from:ty, $to: ident, $method:ident, $field:ident, $component:ty) => {
-        impl DocumentDataState<$from> {
-            pub(crate) fn $method(self, $field: $component) -> DocumentDataState<$to> {
-                let inner = $to {
-                    prev_state: self.inner,
-                    $field,
-                };
-
-                DocumentDataState::<$to> { inner }
-            }
+impl DocumentDataWithEmbedding {
+    pub fn from_document(document: DocumentDataWithDocument, embedding: EmbeddingComponent) -> Self {
+        Self {
+            document_id: document.document_id,
+            embedding,
         }
-    };
-}
-
-/// Implements a trait to get a component that is present in a previous state
-macro_rules! impl_get_component {
-    ($method:ident, $component:ident, $first_state:ty $(, $state:ty)* $(,)* ) => {
-        $(
-        impl $state {
-            #[inline(always)]
-            fn $method(&self) -> &$component {
-                &self.prev_state.$method()
-            }
-        }
-        )*
-        impl DocumentDataState<$first_state> {
-            #[inline(always)]
-            fn $method(&self) -> &$component {
-                &self.inner.$method()
-            }
-        }
-        $(
-        impl DocumentDataState<$state> {
-            #[inline(always)]
-            fn $method(&self) -> &$component {
-                &self.inner.$method()
-            }
-        }
-        )*
-    };
-}
-
-impl DocumentDataState<WithDocument> {
-    pub(crate) fn new(document: DocumentComponent) -> Self {
-        let inner = WithDocument { document };
-
-        Self { inner }
     }
 }
 
-impl_add_component!(
-    WithDocument,
-    WithEmbedding,
-    add_embedding,
-    embedding,
-    EmbeddingComponent
-);
-impl_add_component!(
-    WithEmbedding,
-    WithCenterOfInterest,
-    add_center_of_interest,
-    center_of_interest,
-    CenterOfInterestComponent
-);
-impl_add_component!(WithCenterOfInterest, WithLtr, add_ltr, ltr, LtrComponent);
-impl_add_component!(WithLtr, WithContext, add_context, context, ContextComponent);
-impl_add_component!(WithContext, WithMab, add_mab, mab, MabComponent);
+pub struct DocumentDataWithCenterOfInterest {
+    pub document_id: DocumentIdComponent,
+    pub embedding: EmbeddingComponent,
+    pub center_of_interest: CenterOfInterestComponent,
+}
 
-impl_get_component!(
-    document,
-    DocumentComponent,
-    WithDocument,
-    WithEmbedding,
-    WithCenterOfInterest,
-    WithLtr,
-    WithContext,
-    WithMab
-);
-impl_get_component!(
-    embedding,
-    EmbeddingComponent,
-    WithEmbedding,
-    WithCenterOfInterest,
-    WithLtr,
-    WithContext,
-    WithMab
-);
-impl_get_component!(
-    center_of_interest,
-    CenterOfInterestComponent,
-    WithCenterOfInterest,
-    WithLtr,
-    WithContext,
-    WithMab
-);
-impl_get_component!(ltr, LtrComponent, WithLtr, WithContext, WithMab);
-impl_get_component!(context, ContextComponent, WithContext, WithMab);
-impl_get_component!(mab, MabComponent, WithMab);
+impl DocumentDataWithCenterOfInterest {
+    pub fn from_document(document: DocumentDataWithEmbedding, center_of_interest: CenterOfInterestComponent) -> Self {
+        Self {
+            document_id: document.document_id,
+            embedding: document.embedding,
+            center_of_interest,
+        }
+    }
+}
+
+pub struct DocumentDataWithLtr {
+    pub document_id: DocumentIdComponent,
+    pub embedding: EmbeddingComponent,
+    pub center_of_interest: CenterOfInterestComponent,
+    pub ltr: LtrComponent,
+}
+
+impl DocumentDataWithLtr {
+    pub fn from_document(document: DocumentDataWithCenterOfInterest, ltr: LtrComponent) -> Self {
+        Self {
+            document_id: document.document_id,
+            embedding: document.embedding,
+            center_of_interest: document.center_of_interest,
+            ltr,
+        }
+    }
+}
+
+pub struct DocumentDataWithContext {
+    pub document_id: DocumentIdComponent,
+    pub embedding: EmbeddingComponent,
+    pub center_of_interest: CenterOfInterestComponent,
+    pub ltr: LtrComponent,
+    pub context: ContextComponent,
+}
+
+impl DocumentDataWithContext {
+    pub fn from_document(document: DocumentDataWithLtr, context: ContextComponent) -> Self {
+        Self {
+            document_id: document.document_id,
+            embedding: document.embedding,
+            center_of_interest: document.center_of_interest,
+            ltr: document.ltr,
+            context,
+        }
+    }
+}
+
+pub struct DocumentDataWithMab {
+    pub document_id: DocumentIdComponent,
+    pub embedding: EmbeddingComponent,
+    pub center_of_interest: CenterOfInterestComponent,
+    pub ltr: LtrComponent,
+    pub context: ContextComponent,
+    pub mab: MabComponent,
+}
+
+impl DocumentDataWithMab {
+    pub fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
+        Self {
+            document_id: document.document_id,
+            embedding: document.embedding,
+            center_of_interest: document.center_of_interest,
+            ltr: document.ltr,
+            context: document.context,
+            mab
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -230,54 +152,60 @@ mod tests {
 
     #[test]
     fn transition_and_get() {
-        let document_component = DocumentComponent {
+        let document_id = DocumentIdComponent {
             id: DocumentId("id".to_string()),
+        };
+        let document_content = DocumentContentComponent {
             snippet: "snippet".to_string(),
         };
-        let document_data = DocumentDataState::<WithDocument>::new(document_component.clone());
-        assert_eq!(&document_component, document_data.document());
+        let document_data = DocumentDataWithDocument {
+            document_id: document_id.clone(),
+            document_content: document_content.clone(),
+        };
+        assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.document_content, document_content);
 
-        let embedding_component = EmbeddingComponent {
+        let embedding = EmbeddingComponent {
             embedding: vec![1., 2., 3., 4.],
         };
-        let document_data = document_data.add_embedding(embedding_component.clone());
-        assert_eq!(&document_component, document_data.document());
-        assert_eq!(&embedding_component, document_data.embedding());
+        let document_data = DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
+        assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.embedding, embedding);
 
-        let coi_component = CenterOfInterestComponent {
+        let coi = CenterOfInterestComponent {
             id: CenterOfInterestId(9),
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
-        let document_data = document_data.add_center_of_interest(coi_component.clone());
-        assert_eq!(&document_component, document_data.document());
-        assert_eq!(&embedding_component, document_data.embedding());
-        assert_eq!(&coi_component, document_data.center_of_interest());
+        let document_data = DocumentDataWithCenterOfInterest::from_document(document_data, coi.clone());
+        assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.center_of_interest, coi);
 
-        let ltr_component = LtrComponent { context_value: 0.3 };
-        let document_data = document_data.add_ltr(ltr_component.clone());
-        assert_eq!(&document_component, document_data.document());
-        assert_eq!(&embedding_component, document_data.embedding());
-        assert_eq!(&coi_component, document_data.center_of_interest());
-        assert_eq!(&ltr_component, document_data.ltr());
+        let ltr = LtrComponent { context_value: 0.3 };
+        let document_data = DocumentDataWithLtr::from_document(document_data, ltr.clone());
+        assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.center_of_interest, coi);
+        assert_eq!(document_data.ltr, ltr);
 
-        let context_component = ContextComponent {
-            context_value: 1.23,
+        let context = ContextComponent {
+             context_value: 1.23,
         };
-        let document_data = document_data.add_context(context_component.clone());
-        assert_eq!(&document_component, document_data.document());
-        assert_eq!(&ltr_component, document_data.ltr());
-        assert_eq!(&embedding_component, document_data.embedding());
-        assert_eq!(&coi_component, document_data.center_of_interest());
-        assert_eq!(&context_component, document_data.context());
+        let document_data = DocumentDataWithContext::from_document(document_data, context.clone());
+        assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.center_of_interest, coi);
+        assert_eq!(document_data.ltr, ltr);
+        assert_eq!(document_data.context, context);
 
-        let mab_component = MabComponent { rank: 3 };
-        let document_data = document_data.add_mab(mab_component.clone());
-        assert_eq!(&document_component, document_data.document());
-        assert_eq!(&ltr_component, document_data.ltr());
-        assert_eq!(&embedding_component, document_data.embedding());
-        assert_eq!(&coi_component, document_data.center_of_interest());
-        assert_eq!(&context_component, document_data.context());
-        assert_eq!(&mab_component, document_data.mab());
+        let mab = MabComponent { rank: 3 };
+        let document_data = DocumentDataWithMab::from_document(document_data, mab.clone());
+        assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.center_of_interest, coi);
+        assert_eq!(document_data.ltr, ltr);
+        assert_eq!(document_data.context, context);
+        assert_eq!(document_data.mab, mab);
     }
 }
