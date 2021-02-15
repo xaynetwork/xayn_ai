@@ -62,7 +62,10 @@ pub struct DocumentDataWithEmbedding {
 }
 
 impl DocumentDataWithEmbedding {
-    pub fn from_document(document: DocumentDataWithDocument, embedding: EmbeddingComponent) -> Self {
+    pub fn from_document(
+        document: DocumentDataWithDocument,
+        embedding: EmbeddingComponent,
+    ) -> Self {
         Self {
             document_id: document.document_id,
             embedding,
@@ -77,7 +80,10 @@ pub struct DocumentDataWithCenterOfInterest {
 }
 
 impl DocumentDataWithCenterOfInterest {
-    pub fn from_document(document: DocumentDataWithEmbedding, center_of_interest: CenterOfInterestComponent) -> Self {
+    pub fn from_document(
+        document: DocumentDataWithEmbedding,
+        center_of_interest: CenterOfInterestComponent,
+    ) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
@@ -141,7 +147,7 @@ impl DocumentDataWithMab {
             center_of_interest: document.center_of_interest,
             ltr: document.ltr,
             context: document.context,
-            mab
+            mab,
         }
     }
 }
@@ -168,7 +174,8 @@ mod tests {
         let embedding = EmbeddingComponent {
             embedding: vec![1., 2., 3., 4.],
         };
-        let document_data = DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
+        let document_data =
+            DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
 
@@ -177,7 +184,8 @@ mod tests {
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
-        let document_data = DocumentDataWithCenterOfInterest::from_document(document_data, coi.clone());
+        let document_data =
+            DocumentDataWithCenterOfInterest::from_document(document_data, coi.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
         assert_eq!(document_data.center_of_interest, coi);
@@ -190,7 +198,7 @@ mod tests {
         assert_eq!(document_data.ltr, ltr);
 
         let context = ContextComponent {
-             context_value: 1.23,
+            context_value: 1.23,
         };
         let document_data = DocumentDataWithContext::from_document(document_data, context.clone());
         assert_eq!(document_data.document_id, document_id);
