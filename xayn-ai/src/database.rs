@@ -1,7 +1,8 @@
 use crate::{
     data::{
-        Analytics, CentersOfInterest,
         document_data::{DocumentDataWithEmbedding, DocumentDataWithMab},
+        Analytics,
+        CentersOfInterest,
     },
     error::Error,
 };

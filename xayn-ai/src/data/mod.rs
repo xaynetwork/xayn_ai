@@ -12,7 +12,7 @@ pub struct EmbeddingPoint(pub Vec<f32>);
 pub struct CenterOfInterestId(pub usize);
 
 pub struct CenterOfInterest {
-    pub point: EmbeddingPoint
+    pub point: EmbeddingPoint,
 }
 
 pub struct CentersOfInterest {

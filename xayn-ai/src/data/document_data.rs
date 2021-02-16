@@ -1,10 +1,6 @@
 #![allow(dead_code)]
 
-use crate::data::{
-    document::DocumentId,
-    CenterOfInterestId,
-    EmbeddingPoint,
-};
+use crate::data::{document::DocumentId, CenterOfInterestId, EmbeddingPoint};
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {

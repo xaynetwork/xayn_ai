@@ -4,11 +4,15 @@ use crate::{
     data::{
         document::{Document, DocumentHistory},
         document_data::{
-            DocumentDataWithCenterOfInterest, DocumentDataWithContext,
-            DocumentDataWithDocument, DocumentDataWithEmbedding, DocumentDataWithLtr,
-            DocumentDataWithMab
+            DocumentDataWithCenterOfInterest,
+            DocumentDataWithContext,
+            DocumentDataWithDocument,
+            DocumentDataWithEmbedding,
+            DocumentDataWithLtr,
+            DocumentDataWithMab,
         },
-        Analytics, CentersOfInterest,
+        Analytics,
+        CentersOfInterest,
     },
     database::Database,
     error::Error,
