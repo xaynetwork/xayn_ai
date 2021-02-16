@@ -16,7 +16,7 @@ use crate::{
 pub type DocumentsRank = Vec<usize>;
 
 /// Empty state
-struct Empty {}
+enum Empty {}
 
 /// In this state we have the documents from the previous query but we do not have center of interest
 struct InitCentersOfInterest {
@@ -34,7 +34,7 @@ struct RerankerState<S> {
 }
 
 enum RerankerInner {
-    Empty(RerankerState<Empty>),
+    Empty,
     InitCentersOfInterest(RerankerState<InitCentersOfInterest>),
     Nominal(RerankerState<Nominal>),
 }
@@ -50,7 +50,9 @@ impl RerankerInner {
         CS: CommonSystems,
     {
         match self {
-            RerankerInner::Empty(state) => state.rerank(common_systems, history, documents),
+            RerankerInner::Empty => {
+                RerankerState::<Empty>::rerank(common_systems, history, documents)
+            }
             RerankerInner::InitCentersOfInterest(state) => {
                 state.rerank(common_systems, history, documents)
             }
@@ -65,12 +67,7 @@ pub struct Reranker<CS> {
 }
 
 impl RerankerState<Empty> {
-    fn new() -> Self {
-        Self { inner: Empty {} }
-    }
-
     fn rerank<CS>(
-        self,
         common_systems: &CS,
         _history: &[DocumentHistory],
         documents: &[Document],
@@ -173,7 +170,7 @@ where
                         .database()
                         .load_prev_documents()?
                         .map_or_else(
-                            || RerankerInner::Empty(RerankerState { inner: Empty {} }),
+                            || RerankerInner::Empty,
                             |prev_documents| {
                                 RerankerInner::InitCentersOfInterest(RerankerState {
                                     inner: InitCentersOfInterest { prev_documents },
