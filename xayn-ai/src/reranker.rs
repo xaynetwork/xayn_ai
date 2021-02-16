@@ -155,28 +155,31 @@ where
                     common_systems
                         .database()
                         .load_centers_of_interest()?
-                        .map(|centers_of_interest| {
-                            Ok(RerankerInner::Nominal(RerankerState {
-                                inner: Nominal {
-                                    prev_documents,
-                                    centers_of_interest,
-                                },
-                            }))
-                        })
-                        // We could go to InitCentersOfInterest instead and try to recover from that
-                        .unwrap_or_else(|| Err(Error {}))
+                        .map_or_else(
+                            // We could go to InitCentersOfInterest instead and try to recover from that
+                            || Err(Error {}),
+                            |centers_of_interest| {
+                                Ok(RerankerInner::Nominal(RerankerState {
+                                    inner: Nominal {
+                                        prev_documents,
+                                        centers_of_interest,
+                                    },
+                                }))
+                            },
+                        )
                 } else {
-                    // if we have document with the embedding we need
-                    // to init the center of interest
+                    // if we have document with the embedding we need to init the center of interest
                     Ok(common_systems
                         .database()
                         .load_prev_documents()?
-                        .map(|prev_documents| {
-                            RerankerInner::InitCentersOfInterest(RerankerState {
-                                inner: InitCentersOfInterest { prev_documents },
-                            })
-                        })
-                        .unwrap_or_else(|| RerankerInner::Empty(RerankerState { inner: Empty {} })))
+                        .map_or_else(
+                            || RerankerInner::Empty(RerankerState { inner: Empty {} }),
+                            |prev_documents| {
+                                RerankerInner::InitCentersOfInterest(RerankerState {
+                                    inner: InitCentersOfInterest { prev_documents },
+                                })
+                            },
+                        ))
                 }
             })?;
 
