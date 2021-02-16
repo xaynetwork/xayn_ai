@@ -26,6 +26,7 @@ pub trait CenterOfInterestSystem {
     fn add_center_of_interest(
         &self,
         documents: &[DocumentDataWithEmbedding],
+        centers_of_interest: &CentersOfInterest,
     ) -> Result<Vec<DocumentDataWithCenterOfInterest>, Error>;
 
     /// Make new centers of interest from history and documents

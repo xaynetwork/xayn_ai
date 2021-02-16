@@ -247,7 +247,7 @@ where
     let documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
     let documents = common_systems
         .centers_of_interest()
-        .add_center_of_interest(&documents)?;
+        .add_center_of_interest(&documents, centers_of_interest)?;
     let documents = common_systems.ltr().add_ltr(history, &documents)?;
     let documents = common_systems.context().add_context(&documents)?;
     let (documents, centers_of_interest) = common_systems
