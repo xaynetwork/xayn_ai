@@ -32,7 +32,7 @@ pub trait CenterOfInterestSystem {
     fn make_centers_of_interest(
         &self,
         history: &[DocumentHistory],
-        documents: &[Document],
+        documents: &[DocumentDataWithEmbedding],
     ) -> Result<Option<CentersOfInterest>, Error>;
 
     /// Update centers of interest from history and documents

@@ -97,7 +97,7 @@ impl RerankerState<InitCentersOfInterest> {
     {
         let centers_of_interest = common_systems
             .centers_of_interest()
-            .make_centers_of_interest(history, documents)?;
+            .make_centers_of_interest(history, &self.inner.prev_documents)?;
 
         match centers_of_interest {
             None => Ok((
