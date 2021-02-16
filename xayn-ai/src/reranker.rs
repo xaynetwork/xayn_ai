@@ -102,7 +102,7 @@ impl RerankerState<InitCentersOfInterest> {
                 rank_from_source(documents),
             )),
             Some(centers_of_interest) => {
-                rerank(common_systems, history, documents, &centers_of_interest)
+                rerank_documents(common_systems, history, documents, &centers_of_interest)
             }
         }
     }
@@ -132,7 +132,7 @@ impl RerankerState<Nominal> {
             .compute_analytics(history, &self.inner.prev_documents)?;
         common_systems.database().save_analytics(&analytics)?;
 
-        rerank(common_systems, history, documents, &centers_of_interest)
+        rerank_documents(common_systems, history, documents, &centers_of_interest)
     }
 }
 
@@ -232,7 +232,7 @@ fn rank_from_source(documents: &[Document]) -> DocumentsRank {
     documents.iter().map(|document| document.rank).collect()
 }
 
-fn rerank<CS>(
+fn rerank_documents<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     documents: &[Document],
