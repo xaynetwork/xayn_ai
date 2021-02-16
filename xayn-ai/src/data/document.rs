@@ -10,3 +10,5 @@ pub struct Document {
     pub rank: usize,
     pub snippet: String,
 }
+
+pub struct DocumentHistory {}

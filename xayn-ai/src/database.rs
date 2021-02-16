@@ -1,7 +1,9 @@
 use crate::{
-    document_data::{DocumentDataWithEmbedding, DocumentDataWithMab},
+    data::{
+        Analytics, CentersOfInterest,
+        document_data::{DocumentDataWithEmbedding, DocumentDataWithMab},
+    },
     error::Error,
-    reranker::{Analytics, CentersOfInterest},
 };
 
 pub trait Database {

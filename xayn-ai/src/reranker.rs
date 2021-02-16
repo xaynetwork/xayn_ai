@@ -1,31 +1,20 @@
 #![allow(dead_code)]
 
 use crate::{
-    database::Database,
-    document::Document,
-    document_data::{
-        DocumentContentComponent,
-        DocumentDataWithCenterOfInterest,
-        DocumentDataWithContext,
-        DocumentDataWithDocument,
-        DocumentDataWithEmbedding,
-        DocumentDataWithLtr,
-        DocumentDataWithMab,
-        DocumentIdComponent,
+    data::{
+        document::{Document, DocumentHistory},
+        document_data::{
+            DocumentContentComponent, DocumentDataWithCenterOfInterest, DocumentDataWithContext,
+            DocumentDataWithDocument, DocumentDataWithEmbedding, DocumentDataWithLtr,
+            DocumentDataWithMab, DocumentIdComponent,
+        },
+        Analytics, CentersOfInterest,
     },
+    database::Database,
     error::Error,
 };
 
 pub type DocumentsRank = Vec<usize>;
-
-// place holders to move in their respective module
-struct CenterOfInterest {}
-pub enum DocumentHistory {}
-pub struct Analytics {}
-pub struct CentersOfInterest {
-    positive: Vec<CenterOfInterest>,
-    negative: Vec<CenterOfInterest>,
-}
 
 pub trait BertSystem {
     fn add_embedding(

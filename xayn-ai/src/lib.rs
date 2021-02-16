@@ -1,8 +1,8 @@
 mod database;
-mod document;
-mod document_data;
+mod data;
 mod error;
 mod reranker;
 
-pub use document::{Document, DocumentId};
-pub use reranker::{DocumentHistory, Reranker};
+pub use data::document::{Document, DocumentId, DocumentHistory};
+pub use reranker::Reranker;
+pub use error::Error;

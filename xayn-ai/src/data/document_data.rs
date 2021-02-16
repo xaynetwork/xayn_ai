@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use crate::document::DocumentId;
+use crate::data::{
+    document::DocumentId,
+    CenterOfInterestId,
+    EmbeddingPoint,
+};
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
@@ -14,17 +18,13 @@ pub struct DocumentContentComponent {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingComponent {
-    pub embedding: Vec<f32>,
+    pub embedding: EmbeddingPoint,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct LtrComponent {
     pub context_value: f32,
 }
-
-#[repr(transparent)]
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub struct CenterOfInterestId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct CenterOfInterestComponent {
@@ -170,7 +170,7 @@ mod tests {
         assert_eq!(document_data.document_content, document_content);
 
         let embedding = EmbeddingComponent {
-            embedding: vec![1., 2., 3., 4.],
+            embedding: EmbeddingPoint(vec![1., 2., 3., 4.]),
         };
         let document_data =
             DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
