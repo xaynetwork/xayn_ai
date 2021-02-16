@@ -129,7 +129,7 @@ impl RerankerState<Nominal> {
         // We probably do not want to fail if analytics fails
         let analytics = common_systems
             .analytics()
-            .gen_analytics(history, &self.inner.prev_documents)?;
+            .compute_analytics(history, &self.inner.prev_documents)?;
         common_systems.database().save_analytics(&analytics)?;
 
         rerank(common_systems, history, documents, &centers_of_interest)
@@ -205,7 +205,7 @@ where
             },
         })
         .collect();
-    bert_system.add_embedding(&prev_documents)
+    bert_system.compute_embedding(&prev_documents)
 }
 
 fn to_init_centers_of_interest<CS>(
@@ -244,12 +244,12 @@ where
     let documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
     let documents = common_systems
         .centers_of_interest()
-        .add_center_of_interest(&documents, centers_of_interest)?;
-    let documents = common_systems.ltr().add_ltr(history, &documents)?;
-    let documents = common_systems.context().add_context(&documents)?;
+        .compute_center_of_interest(&documents, centers_of_interest)?;
+    let documents = common_systems.ltr().compute_ltr(history, &documents)?;
+    let documents = common_systems.context().compute_context(&documents)?;
     let (documents, centers_of_interest) = common_systems
         .mab()
-        .add_mab(&documents, centers_of_interest)?;
+        .compute_mab(&documents, centers_of_interest)?;
 
     let database = common_systems.database();
     // What should we do if we can save one but not the other?

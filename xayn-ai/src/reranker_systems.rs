@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub trait BertSystem {
-    fn add_embedding(
+    fn compute_embedding(
         &self,
         documents: &[DocumentDataWithDocument],
     ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
@@ -23,7 +23,7 @@ pub trait BertSystem {
 
 pub trait CenterOfInterestSystem {
     /// Add center of interest information to a document
-    fn add_center_of_interest(
+    fn compute_center_of_interest(
         &self,
         documents: &[DocumentDataWithEmbedding],
         centers_of_interest: &CentersOfInterest,
@@ -46,7 +46,7 @@ pub trait CenterOfInterestSystem {
 }
 
 pub trait LtrSystem {
-    fn add_ltr(
+    fn compute_ltr(
         &self,
         history: &[DocumentHistory],
         documents: &[DocumentDataWithCenterOfInterest],
@@ -54,14 +54,14 @@ pub trait LtrSystem {
 }
 
 pub trait ContextSystem {
-    fn add_context(
+    fn compute_context(
         &self,
         documents: &[DocumentDataWithLtr],
     ) -> Result<Vec<DocumentDataWithContext>, Error>;
 }
 
 pub trait MabSystem {
-    fn add_mab(
+    fn compute_mab(
         &self,
         documents: &[DocumentDataWithContext],
         centers_of_interest: &CentersOfInterest,
@@ -69,7 +69,7 @@ pub trait MabSystem {
 }
 
 pub trait AnalyticsSystem {
-    fn gen_analytics(
+    fn compute_analytics(
         &self,
         history: &[DocumentHistory],
         documents: &[DocumentDataWithMab],
