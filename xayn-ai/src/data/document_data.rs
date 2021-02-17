@@ -74,10 +74,7 @@ pub struct DocumentDataWithCoi {
 }
 
 impl DocumentDataWithCoi {
-    pub fn from_document(
-        document: DocumentDataWithEmbedding,
-        coi: CoiComponent,
-    ) -> Self {
+    pub fn from_document(document: DocumentDataWithEmbedding, coi: CoiComponent) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
@@ -178,8 +175,7 @@ mod tests {
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
-        let document_data =
-            DocumentDataWithCoi::from_document(document_data, coi.clone());
+        let document_data = DocumentDataWithCoi::from_document(document_data, coi.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
         assert_eq!(document_data.coi, coi);

@@ -8,10 +8,7 @@ use crate::{
 };
 
 pub trait Database {
-    fn save_user_interests(
-        &self,
-        user_interests: &UserInterests,
-    ) -> Result<(), Error>;
+    fn save_user_interests(&self, user_interests: &UserInterests) -> Result<(), Error>;
 
     fn load_user_interests(&self) -> Result<Option<UserInterests>, Error>;
 

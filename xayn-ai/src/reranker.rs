@@ -121,9 +121,11 @@ impl RerankerState<Nominal> {
     where
         CS: CommonSystems,
     {
-        let user_interests = common_systems
-            .coi()
-            .update_user_interests(history, documents, &self.inner.user_interests)?;
+        let user_interests = common_systems.coi().update_user_interests(
+            history,
+            documents,
+            &self.inner.user_interests,
+        )?;
 
         common_systems
             .database()
