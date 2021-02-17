@@ -2,7 +2,7 @@
 #[derive(Debug, PartialEq, Clone)]
 pub struct DocumentId(pub String);
 
-// This represent a result from the query
+// This represents a result from the query
 pub struct Document {
     /// unique identifier of this document
     pub id: DocumentId,
