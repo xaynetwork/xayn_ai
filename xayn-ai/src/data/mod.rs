@@ -9,15 +9,15 @@ pub struct EmbeddingPoint(pub Vec<f32>);
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub struct CenterOfInterestId(pub usize);
+pub struct CoiId(pub usize);
 
-pub struct CenterOfInterest {
+pub struct Coi {
     pub point: EmbeddingPoint,
 }
 
-pub struct CentersOfInterest {
-    positive: Vec<CentersOfInterest>,
-    negative: Vec<CentersOfInterest>,
+pub struct UserInterests {
+    positive: Vec<Coi>,
+    negative: Vec<Coi>,
 }
 
 pub struct Analytics {}

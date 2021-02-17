@@ -4,7 +4,7 @@ use crate::{
     data::{
         document::{Document, DocumentHistory},
         document_data::{
-            DocumentDataWithCenterOfInterest,
+            DocumentDataWithCoi,
             DocumentDataWithContext,
             DocumentDataWithDocument,
             DocumentDataWithEmbedding,
@@ -12,7 +12,7 @@ use crate::{
             DocumentDataWithMab,
         },
         Analytics,
-        CentersOfInterest,
+        UserInterests,
     },
     database::Database,
     error::Error,
@@ -25,35 +25,35 @@ pub trait BertSystem {
     ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
 }
 
-pub trait CenterOfInterestSystem {
+pub trait CoiSystem {
     /// Add center of interest information to a document
-    fn compute_center_of_interest(
+    fn compute_coi(
         &self,
         documents: &[DocumentDataWithEmbedding],
-        centers_of_interest: &CentersOfInterest,
-    ) -> Result<Vec<DocumentDataWithCenterOfInterest>, Error>;
+        user_interests: &UserInterests,
+    ) -> Result<Vec<DocumentDataWithCoi>, Error>;
 
-    /// Make new centers of interest from history and documents
-    fn make_centers_of_interest(
+    /// Make new user interests from history and documents
+    fn make_user_interests(
         &self,
         history: &[DocumentHistory],
         documents: &[DocumentDataWithEmbedding],
-    ) -> Result<Option<CentersOfInterest>, Error>;
+    ) -> Result<Option<UserInterests>, Error>;
 
-    /// Update centers of interest from history and documents
-    fn update_centers_of_interest(
+    /// Update cois from history and documents
+    fn update_user_interests(
         &self,
         history: &[DocumentHistory],
         documents: &[Document],
-        centers_of_interest: &CentersOfInterest,
-    ) -> Result<CentersOfInterest, Error>;
+        user_interests: &UserInterests,
+    ) -> Result<UserInterests, Error>;
 }
 
 pub trait LtrSystem {
     fn compute_ltr(
         &self,
         history: &[DocumentHistory],
-        documents: &[DocumentDataWithCenterOfInterest],
+        documents: &[DocumentDataWithCoi],
     ) -> Result<Vec<DocumentDataWithLtr>, Error>;
 }
 
@@ -68,8 +68,8 @@ pub trait MabSystem {
     fn compute_mab(
         &self,
         documents: &[DocumentDataWithContext],
-        centers_of_interest: &CentersOfInterest,
-    ) -> Result<(Vec<DocumentDataWithMab>, CentersOfInterest), Error>;
+        user_interests: &UserInterests,
+    ) -> Result<(Vec<DocumentDataWithMab>, UserInterests), Error>;
 }
 
 pub trait AnalyticsSystem {
@@ -85,7 +85,7 @@ pub trait AnalyticsSystem {
 pub trait CommonSystems {
     fn database(&self) -> &dyn Database;
     fn bert(&self) -> &dyn BertSystem;
-    fn centers_of_interest(&self) -> &dyn CenterOfInterestSystem;
+    fn coi(&self) -> &dyn CoiSystem;
     fn ltr(&self) -> &dyn LtrSystem;
     fn context(&self) -> &dyn ContextSystem;
     fn mab(&self) -> &dyn MabSystem;

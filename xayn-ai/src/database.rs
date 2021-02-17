@@ -2,18 +2,18 @@ use crate::{
     data::{
         document_data::{DocumentDataWithEmbedding, DocumentDataWithMab},
         Analytics,
-        CentersOfInterest,
+        UserInterests,
     },
     error::Error,
 };
 
 pub trait Database {
-    fn save_centers_of_interest(
+    fn save_user_interests(
         &self,
-        centers_of_interest: &CentersOfInterest,
+        user_interests: &UserInterests,
     ) -> Result<(), Error>;
 
-    fn load_centers_of_interest(&self) -> Result<Option<CentersOfInterest>, Error>;
+    fn load_user_interests(&self) -> Result<Option<UserInterests>, Error>;
 
     fn save_prev_documents(
         &self,

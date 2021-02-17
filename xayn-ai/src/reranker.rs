@@ -10,7 +10,7 @@ use crate::{
             DocumentDataWithMab,
             DocumentIdComponent,
         },
-        CentersOfInterest,
+        UserInterests,
     },
     error::Error,
     reranker_systems::{BertSystem, CommonSystems},
@@ -21,15 +21,15 @@ pub type DocumentsRank = Vec<usize>;
 /// Empty state
 enum Empty {}
 
-/// In this state we have the documents from the previous query but we do not have center of interest
-struct InitCentersOfInterest {
+/// In this state we have the documents from the previous query but we do not have user interests
+struct InitUserInterests {
     prev_documents: Vec<DocumentDataWithEmbedding>,
 }
 
 /// In this state we have all the data we need to do reranking and run the feedback loop
 struct Nominal {
     prev_documents: Vec<DocumentDataWithMab>,
-    centers_of_interest: CentersOfInterest,
+    user_interests: UserInterests,
 }
 
 struct RerankerState<S> {
@@ -38,7 +38,7 @@ struct RerankerState<S> {
 
 enum RerankerInner {
     Empty,
-    InitCentersOfInterest(RerankerState<InitCentersOfInterest>),
+    InitUserInterests(RerankerState<InitUserInterests>),
     Nominal(RerankerState<Nominal>),
 }
 
@@ -56,7 +56,7 @@ impl RerankerInner {
             RerankerInner::Empty => {
                 RerankerState::<Empty>::rerank(common_systems, history, documents)
             }
-            RerankerInner::InitCentersOfInterest(state) => {
+            RerankerInner::InitUserInterests(state) => {
                 state.rerank(common_systems, history, documents)
             }
             RerankerInner::Nominal(state) => state.rerank(common_systems, history, documents),
@@ -79,13 +79,13 @@ impl RerankerState<Empty> {
         CS: CommonSystems,
     {
         Ok((
-            to_init_centers_of_interest(common_systems, documents)?,
+            to_init_user_interests(common_systems, documents)?,
             rank_from_source(documents),
         ))
     }
 }
 
-impl RerankerState<InitCentersOfInterest> {
+impl RerankerState<InitUserInterests> {
     fn rerank<CS>(
         self,
         common_systems: &CS,
@@ -95,17 +95,17 @@ impl RerankerState<InitCentersOfInterest> {
     where
         CS: CommonSystems,
     {
-        let centers_of_interest = common_systems
-            .centers_of_interest()
-            .make_centers_of_interest(history, &self.inner.prev_documents)?;
+        let user_interests = common_systems
+            .coi()
+            .make_user_interests(history, &self.inner.prev_documents)?;
 
-        match centers_of_interest {
+        match user_interests {
             None => Ok((
-                to_init_centers_of_interest(common_systems, documents)?,
+                to_init_user_interests(common_systems, documents)?,
                 rank_from_source(documents),
             )),
-            Some(centers_of_interest) => {
-                rerank_documents(common_systems, history, documents, &centers_of_interest)
+            Some(user_interests) => {
+                rerank_documents(common_systems, history, documents, &user_interests)
             }
         }
     }
@@ -121,13 +121,13 @@ impl RerankerState<Nominal> {
     where
         CS: CommonSystems,
     {
-        let centers_of_interest = common_systems
-            .centers_of_interest()
-            .update_centers_of_interest(history, documents, &self.inner.centers_of_interest)?;
+        let user_interests = common_systems
+            .coi()
+            .update_user_interests(history, documents, &self.inner.user_interests)?;
 
         common_systems
             .database()
-            .save_centers_of_interest(&centers_of_interest)?;
+            .save_user_interests(&user_interests)?;
 
         // We probably do not want to fail if analytics fails
         let analytics = common_systems
@@ -135,7 +135,7 @@ impl RerankerState<Nominal> {
             .compute_analytics(history, &self.inner.prev_documents)?;
         common_systems.database().save_analytics(&analytics)?;
 
-        rerank_documents(common_systems, history, documents, &centers_of_interest)
+        rerank_documents(common_systems, history, documents, &user_interests)
     }
 }
 
@@ -151,32 +151,32 @@ where
             .and_then(|prev_documents| {
                 if let Some(prev_documents) = prev_documents {
                     // if we have documents with all the data
-                    // we need to have the center of interest
+                    // we need to have the user interests
                     common_systems
                         .database()
-                        .load_centers_of_interest()?
+                        .load_user_interests()?
                         .map_or_else(
-                            // We could go to InitCentersOfInterest instead and try to recover from that
+                            // We could go to InitUserInterests instead and try to recover from that
                             || Err(Error {}),
-                            |centers_of_interest| {
+                            |user_interests| {
                                 Ok(RerankerInner::Nominal(RerankerState {
                                     inner: Nominal {
                                         prev_documents,
-                                        centers_of_interest,
+                                        user_interests,
                                     },
                                 }))
                             },
                         )
                 } else {
-                    // if we have document with the embedding we need to init the center of interest
+                    // if we have document with the embedding we need to init the  interest
                     Ok(common_systems
                         .database()
                         .load_prev_documents()?
                         .map_or_else(
                             || RerankerInner::Empty,
                             |prev_documents| {
-                                RerankerInner::InitCentersOfInterest(RerankerState {
-                                    inner: InitCentersOfInterest { prev_documents },
+                                RerankerInner::InitUserInterests(RerankerState {
+                                    inner: InitUserInterests { prev_documents },
                                 })
                             },
                         ))
@@ -211,7 +211,7 @@ where
     bert_system.compute_embedding(&prev_documents)
 }
 
-fn to_init_centers_of_interest<CS>(
+fn to_init_user_interests<CS>(
     common_systems: &CS,
     documents: &[Document],
 ) -> Result<RerankerInner, Error>
@@ -224,11 +224,11 @@ where
         .database()
         .save_prev_documents(&prev_documents)?;
 
-    let inner = RerankerState::<InitCentersOfInterest> {
-        inner: InitCentersOfInterest { prev_documents },
+    let inner = RerankerState::<InitUserInterests> {
+        inner: InitUserInterests { prev_documents },
     };
 
-    Ok(RerankerInner::InitCentersOfInterest(inner))
+    Ok(RerankerInner::InitUserInterests(inner))
 }
 
 fn rank_from_source(documents: &[Document]) -> DocumentsRank {
@@ -239,24 +239,24 @@ fn rerank_documents<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     documents: &[Document],
-    centers_of_interest: &CentersOfInterest,
+    user_interests: &UserInterests,
 ) -> Result<(RerankerInner, DocumentsRank), Error>
 where
     CS: CommonSystems,
 {
     let documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
     let documents = common_systems
-        .centers_of_interest()
-        .compute_center_of_interest(&documents, centers_of_interest)?;
+        .coi()
+        .compute_coi(&documents, user_interests)?;
     let documents = common_systems.ltr().compute_ltr(history, &documents)?;
     let documents = common_systems.context().compute_context(&documents)?;
-    let (documents, centers_of_interest) = common_systems
+    let (documents, user_interests) = common_systems
         .mab()
-        .compute_mab(&documents, centers_of_interest)?;
+        .compute_mab(&documents, user_interests)?;
 
     let database = common_systems.database();
     // What should we do if we can save one but not the other?
-    database.save_centers_of_interest(&centers_of_interest)?;
+    database.save_user_interests(&user_interests)?;
     database.save_prev_documents_full(&documents)?;
 
     let ranks = documents.iter().map(|document| document.mab.rank).collect();
@@ -264,7 +264,7 @@ where
     let inner = RerankerInner::Nominal(RerankerState {
         inner: Nominal {
             prev_documents: documents,
-            centers_of_interest,
+            user_interests,
         },
     });
 
