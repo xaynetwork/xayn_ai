@@ -3,12 +3,12 @@
 pub mod document;
 pub mod document_data;
 
-#[derive(Clone)]
+#[cfg_attr(not(test), derive(Clone))]
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingPoint(pub Vec<f32>);
 
-#[derive(Clone)]
+#[cfg_attr(not(test), derive(Clone))]
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct CenterOfInterestId(pub usize);

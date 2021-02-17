@@ -2,7 +2,7 @@
 
 use crate::data::{document::DocumentId, CenterOfInterestId, EmbeddingPoint};
 
-#[derive(Clone)]
+#[cfg_attr(not(test), derive(Clone))]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
     pub id: DocumentId,
@@ -13,7 +13,7 @@ pub struct DocumentContentComponent {
     pub snippet: String,
 }
 
-#[derive(Clone)]
+#[cfg_attr(not(test), derive(Clone))]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingComponent {
     pub embedding: EmbeddingPoint,
@@ -24,7 +24,7 @@ pub struct LtrComponent {
     pub context_value: f32,
 }
 
-#[derive(Clone)]
+#[cfg_attr(not(test), derive(Clone))]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct CenterOfInterestComponent {
     pub id: CenterOfInterestId,

@@ -18,9 +18,8 @@ impl LtrSystem for DummyLtr {
         let context_value = 0.5_f32;
         Ok(documents
             .iter()
-            .map(|doc| {
-                DocumentDataWithLtr::from_document(doc.clone(), LtrComponent { context_value })
-            })
+            .cloned()
+            .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { context_value }))
             .collect())
     }
 }
