@@ -1,11 +1,25 @@
-use std::{collections::HashMap, io::BufRead};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufRead, BufReader, Error as IoError},
+    path::Path,
+};
 
+use derive_more::{Deref, From};
+use displaydoc::Display;
+use thiserror::Error;
 use tokenizers::{
     models::wordpiece::WordPiece,
     normalizers::bert::BertNormalizer,
     pre_tokenizers::bert::BertPreTokenizer,
     processors::bert::BertProcessing,
-    tokenizer::{EncodeInput, Encoding, Model, Result as TokenizerResult, Tokenizer},
+    tokenizer::{
+        EncodeInput,
+        Encoding,
+        Error as BertTokenizerError,
+        Model,
+        Tokenizer as BertTokenizer,
+    },
     utils::{
         padding::{PaddingDirection, PaddingParams, PaddingStrategy},
         truncation::{TruncationParams, TruncationStrategy},
@@ -14,52 +28,68 @@ use tokenizers::{
 
 use crate::{ndarray::Array1, utils::ArcArray2};
 
-#[derive(Debug)]
-/// Tokenization errors.
-pub enum RuBertTokenizerError {
-    MissingSepToken,
-    MissingClsToken,
+/// A [`RuBert`] tokenizer.
+///
+/// Wraps a pre-configured huggingface Bert tokenizer.
+///
+/// [`RuBert`]: crate::pipeline::RuBert
+pub struct Tokenizer {
+    tokenizer: BertTokenizer,
+    token_size: usize,
 }
 
-impl std::error::Error for RuBertTokenizerError {}
-
-impl std::fmt::Display for RuBertTokenizerError {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let tok_str = match self {
-            RuBertTokenizerError::MissingSepToken => "[SEP]",
-            RuBertTokenizerError::MissingClsToken => "[CLS]",
-        };
-
-        write!(
-            fmt,
-            "Tokenizer error: Missing {} token from the vocabulary",
-            tok_str
-        )
-    }
+/// Potential errors of the [`RuBert`] [`Tokenizer`].
+///
+/// [`RuBert`]: crate::pipeline::RuBert
+#[derive(Debug, Display, Error)]
+pub enum TokenizerError {
+    /// Failed to read the vocabulary: {0}.
+    Vocabulary(#[from] IoError),
+    /// The vocabulary is missing the `[SEP]` token.
+    SepToken,
+    /// The vocabulary is missing the `[CLS]` token.
+    ClsToken,
+    /// Failed to encode sentences: {0}.
+    Encoding(#[from] BertTokenizerError),
 }
 
-// A pre-configured wrapper around the huggingface tokenizer.
-pub struct RuBertTokenizer {
-    tokenizer: Tokenizer,
-    tokens_size: usize,
+/// The input ids of the encoded sentences.
+#[derive(Clone, Deref, From)]
+pub struct InputIds(pub(crate) ArcArray2<u32>);
+
+/// The attention masks of the encoded sentences.
+#[derive(Clone, Deref, From)]
+pub struct AttentionMasks(pub(crate) ArcArray2<u32>);
+
+/// The token type ids of the encoded sentences.
+#[derive(Clone, Deref, From)]
+pub struct TokenTypeIds(pub(crate) ArcArray2<u32>);
+
+/// The encoded sentences.
+pub struct Encodings {
+    pub(crate) input_ids: InputIds,
+    pub(crate) attention_masks: AttentionMasks,
+    pub(crate) token_type_ids: TokenTypeIds,
 }
 
-impl RuBertTokenizer {
-    /// Creates a new Bert tokenizer from a `vocab`ulary file.
+impl Tokenizer {
+    /// Creates a [`RuBert`] tokenizer from a vocabulary file.
     ///
-    /// Can be set to `strip_accents` and `lowercase` the sentences. Requires the maximum number of
-    /// tokens per tokenized sentence (`tokens_size`), which applies to padding and truncation and
-    /// includes special tokens as well.
+    /// Can be set to strip accents and to lowercase the sentences. Requires the maximum number of
+    /// tokens per tokenized sentence, which applies to padding and truncation and includes special
+    /// tokens as well.
     ///
     /// # Errors
-    /// Fails if the wordpiece model can't be build from the vocabulary file.
+    /// Fails if the Bert model can't be build from the vocabulary file.
+    ///
+    /// [`RuBert`]: crate::pipeline::RuBert
     pub fn new(
-        vocab: impl BufRead,
+        vocab: impl AsRef<Path>,
         strip_accents: bool,
         lowercase: bool,
-        tokens_size: usize,
-    ) -> TokenizerResult<Self> {
-        let vocab: HashMap<String, u32> = vocab
+        token_size: usize,
+    ) -> Result<Self, TokenizerError> {
+        let vocab: HashMap<String, u32> = BufReader::new(File::open(vocab)?)
             .lines()
             .enumerate()
             .map(|(index, line)| line.map(|line| (line, index as u32)))
@@ -70,27 +100,29 @@ impl RuBertTokenizer {
             .unk_token("[UNK]".into())
             .continuing_subword_prefix("##".into())
             .max_input_chars_per_word(100)
-            .build()?;
-        let sep = "[SEP]";
+            .build()
+            .expect("infallible: the vocab is a validated hashmap");
+        let sep_token = "[SEP]";
         let sep_id = model
-            .token_to_id(sep)
-            .ok_or(RuBertTokenizerError::MissingSepToken)?;
-        let cls = "[CLS]";
+            .token_to_id(sep_token)
+            .ok_or(TokenizerError::SepToken)?;
+        let cls_token = "[CLS]";
         let cls_id = model
-            .token_to_id(cls)
-            .ok_or(RuBertTokenizerError::MissingClsToken)?;
+            .token_to_id(cls_token)
+            .ok_or(TokenizerError::ClsToken)?;
 
         let normalizer = BertNormalizer::new(true, true, Some(strip_accents), lowercase);
         let pre_tokenizer = BertPreTokenizer;
-        let post_processor = BertProcessing::new((sep.into(), sep_id), (cls.into(), cls_id));
+        let post_processor =
+            BertProcessing::new((sep_token.into(), sep_id), (cls_token.into(), cls_id));
 
         let truncation = Some(TruncationParams {
-            max_length: tokens_size,
+            max_length: token_size,
             strategy: TruncationStrategy::LongestFirst,
             stride: 1,
         });
         let padding = Some(PaddingParams {
-            strategy: PaddingStrategy::Fixed(tokens_size),
+            strategy: PaddingStrategy::Fixed(token_size),
             direction: PaddingDirection::Right,
             pad_to_multiple_of: None,
             pad_id: 0,
@@ -98,7 +130,7 @@ impl RuBertTokenizer {
             pad_token: "[PAD]".into(),
         });
 
-        let mut tokenizer = Tokenizer::new(model);
+        let mut tokenizer = BertTokenizer::new(model);
         tokenizer
             .with_normalizer(normalizer)
             .with_pre_tokenizer(pre_tokenizer)
@@ -108,20 +140,20 @@ impl RuBertTokenizer {
 
         Ok(Self {
             tokenizer,
-            tokens_size,
+            token_size,
         })
     }
 
-    /// Encodes the `sentences` with the Bert tokenizer.
-    ///
-    /// The encodings are a triple of `input_ids`, `attention_masks` and `token_type_ids`.
+    /// Encodes the sentences.
     ///
     /// # Errors
-    /// Fails if any of the normalization, tokenization, pre- or post-processing steps fails.
+    /// Fails if any of the normalization, tokenization, pre- or post-processing steps fail.
+    ///
+    /// [`RuBert`]: crate::pipeline::RuBert
     pub fn encode<'s>(
         &self,
         sentences: Vec<impl Into<EncodeInput<'s>> + Send>,
-    ) -> TokenizerResult<(ArcArray2<u32>, ArcArray2<u32>, ArcArray2<u32>)> {
+    ) -> Result<Encodings, TokenizerError> {
         let batch_size = sentences.len();
         let encodings = self.tokenizer.encode_batch(sentences, true)?;
         let encodings = Encoding::merge(encodings, true);
@@ -131,60 +163,68 @@ impl RuBertTokenizer {
             .iter()
             .copied()
             .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.tokens_size))
-            .unwrap()
-            .into_shared();
+            .into_shape((batch_size, self.token_size))
+            .expect("infallibe: `Encoding` guarantees correct shape")
+            .into_shared()
+            .into();
         let attention_masks = encodings
             .get_attention_mask()
             .iter()
             .copied()
             .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.tokens_size))
-            .unwrap()
-            .into_shared();
+            .into_shape((batch_size, self.token_size))
+            .expect("infallibe: `Encoding` guarantees correct shape")
+            .into_shared()
+            .into();
         let token_type_ids = encodings
             .get_type_ids()
             .iter()
             .copied()
             .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.tokens_size))
-            .unwrap()
-            .into_shared();
+            .into_shape((batch_size, self.token_size))
+            .expect("infallibe: `Encoding` guarantees correct shape")
+            .into_shared()
+            .into();
 
-        Ok((input_ids, attention_masks, token_type_ids))
+        Ok(Encodings {
+            input_ids,
+            attention_masks,
+            token_type_ids,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::BufReader};
-
+    use super::*;
     use crate::ndarray::ArrayView;
 
-    use super::*;
-
-    fn tokenizer(token_size: usize) -> RuBertTokenizer {
+    fn tokenizer(token_size: usize) -> Tokenizer {
         let vocab = "../assets/rubert/rubert-uncased.txt";
-        let vocab = BufReader::new(File::open(vocab).unwrap());
-        RuBertTokenizer::new(vocab, true, true, token_size).unwrap()
+        let strip_accents = true;
+        let lowercase = true;
+        Tokenizer::new(vocab, strip_accents, lowercase, token_size).unwrap()
     }
 
     #[test]
     fn test_encode() {
         // too short
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(20)
+        let encoding = tokenizer(20)
             .encode(vec!["These are normal, common EMBEDDINGS.".to_string()])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape(
                 (1, 20),
-                &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                &[
+                    2u32, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0
+                ],
             )
             .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape(
                 (1, 20),
                 &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -192,7 +232,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape(
                 (1, 20),
                 &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -201,20 +241,20 @@ mod tests {
         );
 
         // too long
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(10)
+        let encoding = tokenizer(10)
             .encode(vec!["These are normal, common EMBEDDINGS.".to_string()])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape((1, 10), &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3])
                 .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape((1, 10), &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape((1, 10), &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
         );
     }
@@ -222,11 +262,11 @@ mod tests {
     #[test]
     fn test_encode_batch() {
         // both too short
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(10)
+        let encoding = tokenizer(10)
             .encode(vec!["a b c".to_string(), "a b c d".to_string()])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -237,7 +277,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -248,7 +288,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -260,14 +300,14 @@ mod tests {
         );
 
         // one too short and one too long
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(10)
+        let encoding = tokenizer(10)
             .encode(vec![
                 "a b c".to_string(),
                 "a b c d e f g h i j k l".to_string(),
             ])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -278,7 +318,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -289,7 +329,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -301,14 +341,14 @@ mod tests {
         );
 
         // both too long
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(10)
+        let encoding = tokenizer(10)
             .encode(vec![
                 "a b c d e f g h i j k l".to_string(),
                 "a b c d e f g h i j k l m n".to_string(),
             ])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -319,7 +359,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -330,7 +370,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape(
                 (2, 10),
                 &[
@@ -345,11 +385,11 @@ mod tests {
     #[test]
     fn test_encode_batch_edge_cases() {
         // first one too short, second fits
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(5)
+        let encoding = tokenizer(5)
             .encode(vec!["a b".to_string(), "a b c".to_string()])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape(
                 (2, 5),
                 &[
@@ -360,7 +400,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape(
                 (2, 5),
                 &[
@@ -371,7 +411,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape(
                 (2, 5),
                 &[
@@ -383,11 +423,11 @@ mod tests {
         );
 
         // first fits, second 1 too long
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(5)
+        let encoding = tokenizer(5)
             .encode(vec!["a b c".to_string(), "a b c d".to_string()])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape(
                 (2, 5),
                 &[
@@ -398,7 +438,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape(
                 (2, 5),
                 &[
@@ -409,7 +449,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape(
                 (2, 5),
                 &[
@@ -424,13 +464,13 @@ mod tests {
     #[test]
     fn test_encode_troublemakers() {
         // known troublemakers
-        let (input_ids, attention_masks, token_type_ids) = tokenizer(15)
+        let encoding = tokenizer(15)
             .encode(vec![
                 "for “life-threatening storm surge” according".to_string()
             ])
             .unwrap();
         assert_eq!(
-            input_ids,
+            encoding.input_ids.0,
             ArrayView::from_shape(
                 (1, 15),
                 &[2, 1665, 1, 3902, 1, 83775, 11123, 41373, 1, 7469, 3, 0, 0, 0, 0],
@@ -438,11 +478,11 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            attention_masks,
+            encoding.attention_masks.0,
             ArrayView::from_shape((1, 15), &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]).unwrap(),
         );
         assert_eq!(
-            token_type_ids,
+            encoding.token_type_ids.0,
             ArrayView::from_shape((1, 15), &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
         );
     }

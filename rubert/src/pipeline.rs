@@ -1,154 +1,70 @@
-use std::io::{BufRead, Read};
-
+use derive_more::Deref;
+use displaydoc::Display;
+use thiserror::Error;
 use tokenizers::tokenizer::EncodeInput;
-use tract_onnx::prelude::TVec;
 
 use crate::{
-    anyhow::{anyhow, Context, Result},
-    model::RuBertModel,
-    pooler::RuBertPooler,
-    tokenizer::RuBertTokenizer,
+    model::{Model, ModelError},
+    pooler::{Pooler, Poolings},
+    tokenizer::{Tokenizer, TokenizerError},
     utils::ArcArrayD,
 };
 
-/// A builder to create a [`RuBert`] model.
-pub struct RuBertBuilder<V, M> {
-    vocab: V,
-    model: M,
-    strip_accents: bool,
-    lowercase: bool,
-    batch_size: usize,
-    tokens_size: usize,
-    pooler: RuBertPooler,
-}
-
-impl<V, M> RuBertBuilder<V, M>
-where
-    V: BufRead,
-    M: Read,
-{
-    /// Creates a new model builder.
-    ///
-    /// The default settings are:
-    /// - Strips accents and makes lower case.
-    /// - Supports batch size of 10 and tokens size of 128.
-    /// - Applies no additional pooling.
-    pub fn new(vocab: V, model: M) -> Self {
-        Self {
-            vocab,
-            model,
-            strip_accents: true,
-            lowercase: true,
-            batch_size: 10,
-            tokens_size: 128,
-            pooler: RuBertPooler::None,
-        }
-    }
-
-    /// Toggles accent stripping for the tokenizer.
-    pub fn with_strip_accents(mut self, toggle: bool) -> Self {
-        self.strip_accents = toggle;
-        self
-    }
-
-    /// Toggles lower casing for the tokenizer.
-    pub fn with_lowercase(mut self, toggle: bool) -> Self {
-        self.lowercase = toggle;
-        self
-    }
-
-    /// Sets the batch size for the model.
-    pub fn with_batch_size(mut self, size: usize) -> Self {
-        self.batch_size = size;
-        self
-    }
-
-    /// Sets the tokens size for the tokenizer and the model.
-    pub fn with_tokens_size(mut self, size: usize) -> Self {
-        self.tokens_size = size;
-        self
-    }
-
-    /// Sets pooling for the model.
-    pub fn with_pooling(mut self, pooler: RuBertPooler) -> Self {
-        self.pooler = pooler;
-        self
-    }
-
-    /// Creates a model from the builder.
-    ///
-    /// # Errors
-    /// Fails on invalid tokenizer or model settings.
-    pub fn build(self) -> Result<RuBert> {
-        if self.batch_size == 0 {
-            return Err(anyhow!("batch size must be greater than 0"));
-        }
-        if self.tokens_size < 2 {
-            return Err(anyhow!(
-                "tokens size must be greater than 2 to allow for special tokens"
-            ));
-        }
-
-        let tokenizer = RuBertTokenizer::new(
-            self.vocab,
-            self.strip_accents,
-            self.lowercase,
-            self.tokens_size,
-        )
-        .map_err(|_| anyhow!("building tokenizer failed"))?;
-
-        let model = RuBertModel::new(self.model, self.batch_size, self.tokens_size)
-            .context("building model failed")?;
-        let pooler = self.pooler;
-
-        Ok(RuBert {
-            tokenizer,
-            model,
-            pooler,
-        })
-    }
-}
-
-/// A Bert model pipeline.
+/// A RuBert pipeline.
 ///
-/// Can be created via the [`RuBertBuilder`] and consists of a tokenizer, a model and optionally a
-/// pooler.
+/// Can be created via the [`Builder`] and consists of a tokenizer, a model and optionally a pooler.
+///
+/// [`Builder`]: crate::builder::Builder
 pub struct RuBert {
-    tokenizer: RuBertTokenizer,
-    model: RuBertModel,
-    pooler: RuBertPooler,
+    pub(crate) tokenizer: Tokenizer,
+    pub(crate) model: Model,
+    pub(crate) pooler: Pooler,
+}
+
+/// Potential errors of the [`RuBert`] pipeline.
+#[derive(Debug, Display, Error)]
+pub enum RuBertError {
+    /// Failed to run the tokenizer: {0}.
+    Tokenizer(#[from] TokenizerError),
+    /// Failed to run the model: {0}.
+    Model(#[from] ModelError),
+}
+
+/// The embeddings of the sentences.
+#[derive(Clone, Deref)]
+pub struct Embeddings(ArcArrayD<f32>);
+
+impl From<Poolings> for Embeddings {
+    fn from(poolings: Poolings) -> Self {
+        match poolings {
+            Poolings::None(pooled) => Embeddings(pooled.into_dyn()),
+            Poolings::First(pooled) => Embeddings(pooled.into_dyn()),
+            Poolings::Average(pooled) => Embeddings(pooled.into_dyn()),
+        }
+    }
 }
 
 impl RuBert {
-    /// Runs prediction on the `sentences` including tokenization and optional pooling.
+    /// Runs the pipeline to compute embeddings of the sentences.
     ///
-    /// The output dimensionality depends on the type of Bert model loaded from onnx.
+    /// The embeddings are computed from the sentences by tokenization, prediction and optional
+    /// pooling.
     ///
     /// # Errors
     /// - The tokenization fails if any of the normalization, tokenization, pre- or post-processing
-    /// steps fails.
+    /// steps fail.
     /// - The prediction fails on dimensionality mismatches for the tokenized sentences regarding
     /// the loaded onnx model.
-    /// - The pooling fails on dimensionality mismatches from the predictions regarding the loaded
-    /// onnx model.
-    pub fn predict<'s>(
+    pub fn run<'s>(
         &self,
         sentences: Vec<impl Into<EncodeInput<'s>> + Send>,
-    ) -> Result<ArcArrayD<f32>> {
-        let (input_ids, attention_masks, token_type_ids) = self
-            .tokenizer
-            .encode(sentences)
-            .map_err(|_| anyhow!("tokenization failed"))?;
-        let predictions = self
-            .model
-            .predict(input_ids, attention_masks.view(), token_type_ids)
-            .context("prediction failed")?;
-        let pooling = self
-            .pooler
-            .pool(predictions, attention_masks)
-            .context("pooling failed")?;
+    ) -> Result<Embeddings, RuBertError> {
+        let encodings = self.tokenizer.encode(sentences)?;
+        let attention_masks = encodings.attention_masks.clone();
+        let predictions = self.model.predict(encodings)?;
+        let poolings = self.pooler.pool(predictions, attention_masks);
 
-        Ok(pooling)
+        Ok(poolings.into())
     }
 
     /// Returns the batch size of the model pipeline.
@@ -156,43 +72,44 @@ impl RuBert {
         self.model.batch_size()
     }
 
-    /// Returns the tokens size of the model pipeline.
-    pub fn tokens_size(&self) -> usize {
-        self.model.tokens_size()
+    /// Returns the token size of the model pipeline.
+    pub fn token_size(&self) -> usize {
+        self.model.token_size()
     }
 
     /// Returns the embedding size of the model pipeline.
-    ///
-    /// # Panics
-    /// This assumes that the model output is not empty.
     pub fn embedding_size(&self) -> usize {
         self.model.embedding_size()
     }
+}
 
-    /// Returns the dimensionality of the model pipeline output.
-    ///
-    /// # Panics
-    /// This assumes that the model output is not empty.
-    pub fn output_rank(&self) -> usize {
-        let rank = self.model.output_rank();
-        match self.pooler {
-            RuBertPooler::None => rank,
-            RuBertPooler::Average | RuBertPooler::First => rank - 1,
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::builder::Builder;
 
-    /// Returns the shape of the model pipeline output.
-    ///
-    /// # Panics
-    /// This assumes that the model output is not empty.
-    pub fn output_shape(&self) -> TVec<usize> {
-        let mut shape = self.model.output_shape();
-        match self.pooler {
-            RuBertPooler::None => shape,
-            RuBertPooler::Average | RuBertPooler::First => {
-                shape.remove(1);
-                shape
-            }
-        }
+    #[test]
+    fn test_pipeline() {
+        let rubert = Builder::new(
+            "../assets/rubert/rubert-uncased.txt",
+            "../assets/rubert/rubert.onnx",
+        )
+        .with_strip_accents(true)
+        .with_lowercase(true)
+        .with_batch_size(10)
+        .unwrap()
+        .with_token_size(64)
+        .unwrap()
+        .with_pooling(Pooler::First)
+        .build()
+        .unwrap();
+
+        let sentences = vec!["This is a sentence."];
+        let embeddings = rubert.run(sentences).unwrap();
+        assert_eq!(embeddings.shape(), &[1, rubert.embedding_size()]);
+
+        let sentences = vec!["bank vault", "bank robber", "river bank"];
+        let embeddings = rubert.run(sentences).unwrap();
+        assert_eq!(embeddings.shape(), &[3, rubert.embedding_size()]);
     }
 }

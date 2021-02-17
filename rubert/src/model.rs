@@ -1,36 +1,74 @@
-use std::io::Read;
+use std::{
+    fs::File,
+    io::{BufReader, Error as IoError},
+    path::Path,
+};
 
+use derive_more::{Deref, From};
+use displaydoc::Display;
+use thiserror::Error;
 use tract_onnx::prelude::{
     tvec,
     Datum,
     Framework,
     InferenceFact,
     InferenceModelExt,
-    TVec,
     TractError,
-    TractResult,
     TypedModel,
     TypedSimplePlan,
 };
 
 use crate::{
-    ndarray::{s, Array2, Data},
-    utils::{ArcArrayD, ArrayBase2},
+    ndarray::{s, Array2, Data, Dim, Dimension, IntoDimension, Ix2, Ix3},
+    tokenizer::Encodings,
+    utils::{ArcArray3, ArrayBase2},
 };
 
-/// A Bert model based on an onnx definition.
-pub struct RuBertModel {
+/// A [`RuBert`] model.
+///
+/// Based on an onnx model definition.
+///
+/// [`RuBert`]: crate::pipeline::RuBert
+pub struct Model {
     plan: TypedSimplePlan<TypedModel>,
-    batch_size: usize,
-    tokens_size: usize,
+    input_shape: Ix2,
+    output_shape: Ix3,
 }
 
-impl RuBertModel {
-    pub fn new(mut model: impl Read, batch_size: usize, tokens_size: usize) -> TractResult<Self> {
-        let input_shape = tvec!(batch_size, tokens_size);
-        // the exported onnx model which we currently use expects i64 as input type
-        // TODO: generalize this for other input types
-        let input_fact = InferenceFact::dt_shape(i64::datum_type(), input_shape);
+/// Potential errors of the [`RuBert`] [`Model`].
+///
+/// [`RuBert`]: crate::pipeline::RuBert
+#[derive(Debug, Display, Error)]
+pub enum ModelError {
+    /// Failed to read the onnx model: {0}.
+    Onnx(#[from] IoError),
+    /// Failed to run a tract operation: {0}.
+    Tract(#[from] TractError),
+    /// Invalid model shapes.
+    Shape,
+}
+
+/// The predicted encodings.
+#[derive(Clone, Deref, From)]
+pub struct Predictions(pub(crate) ArcArray3<f32>);
+
+impl Model {
+    /// Creates a [`RuBert`] model from an onnx model file.
+    ///
+    /// Requires the batch and token size of the model inputs.
+    ///
+    /// # Errors
+    /// Fails if the onnx model can't be build from the model file.
+    ///
+    /// [`RuBert`]: crate::pipeline::RuBert
+    pub fn new(
+        model: impl AsRef<Path>,
+        batch_size: usize,
+        token_size: usize,
+    ) -> Result<Self, ModelError> {
+        let mut model = BufReader::new(File::open(model)?);
+        let input_shape = Dim([batch_size, token_size]);
+        let input_fact = InferenceFact::dt_shape(i64::datum_type(), input_shape.slice());
 
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
@@ -39,107 +77,79 @@ impl RuBertModel {
             .with_input_fact(2, input_fact)?
             .into_optimized()?
             .into_runnable()?;
+        let output_shape = plan
+            .model()
+            .output_fact(0)?
+            .shape
+            .as_finite()
+            .map(|os| os.get(0..3).map(|os| Dim([os[0], os[1], os[2]])))
+            .flatten()
+            .ok_or(ModelError::Shape)?;
+        // input/output shapes are guaranteed to match when a sound onnx model is loaded
+        debug_assert_eq!(input_shape.slice(), &output_shape.slice()[0..2]);
 
-        Ok(RuBertModel {
+        Ok(Model {
             plan,
-            batch_size,
-            tokens_size,
+            input_shape,
+            output_shape,
         })
     }
 
-    /// Runs prediction on the tokenized inputs.
+    /// Runs prediction on encoded sentences.
     ///
-    /// The inputs will be padded or truncated to the shape `(batch_size, tokens_size)`. The row
+    /// The inputs will be padded or truncated to the shape `(batch_size, token_size)`. The row
     /// dimension (0) of the output will be the minimum between `batch_size` and the row dimension
     /// of the inputs.
-    ///
-    /// The output dimensionality depends on the type of Bert model loaded from onnx.
-    ///
-    /// # Errors
-    /// The constraint `input_ids.shape() == attention_masks.shape() == token_type_ids.shape()` must
-    /// hold.
-    pub fn predict<S1, S2, S3>(
+    pub fn predict(
         &self,
-        input_ids: ArrayBase2<S1>,
-        attention_masks: ArrayBase2<S2>,
-        token_type_ids: ArrayBase2<S3>,
-    ) -> TractResult<ArcArrayD<f32>>
-    where
-        S1: Data<Elem = u32>,
-        S2: Data<Elem = u32>,
-        S3: Data<Elem = u32>,
-    {
-        if input_ids.shape() != attention_masks.shape()
-            || input_ids.shape() != token_type_ids.shape()
-        {
-            return Err(TractError::msg("mismatched Bert input shapes"));
-        }
+        Encodings {
+            input_ids,
+            attention_masks,
+            token_type_ids,
+        }: Encodings,
+    ) -> Result<Predictions, ModelError> {
+        // encodings shapes are guaranteed to match when coming from the rubert tokenizer
+        debug_assert_eq!(input_ids.shape(), attention_masks.shape());
+        debug_assert_eq!(input_ids.shape(), token_type_ids.shape());
 
-        let input_shape = (self.batch_size, self.tokens_size);
-        let output_rows = std::cmp::min(input_ids.dim().0, self.batch_size);
+        let output_rows = std::cmp::min(input_ids.dim().0, self.input_shape[0]);
 
         let inputs = tvec!(
-            pad_or_truncate(input_ids, input_shape).into(),
-            pad_or_truncate(attention_masks, input_shape).into(),
-            pad_or_truncate(token_type_ids, input_shape).into()
+            pad_or_truncate(input_ids.0, self.input_shape).into(),
+            pad_or_truncate(attention_masks.0, self.input_shape).into(),
+            pad_or_truncate(token_type_ids.0, self.input_shape).into()
         );
         let outputs = self.plan.run(inputs)?;
+        let predictions = outputs[0]
+            .to_array_view::<f32>()?
+            .slice(s![..output_rows, .., ..])
+            .to_shared()
+            .into();
 
-        let outputs = outputs[0].to_array_view()?;
-        let outputs = match outputs.ndim() {
-            2 => outputs.slice(s!(..output_rows, ..)).into_dyn(),
-            3 => outputs.slice(s!(..output_rows, .., ..)).into_dyn(),
-            _ => unimplemented!("unsupported Bert output dimensionality"),
-        };
-        Ok(outputs.to_shared())
+        Ok(predictions)
     }
 
     /// Returns the batch size of the model.
     pub fn batch_size(&self) -> usize {
-        self.batch_size
+        self.input_shape[0]
     }
 
-    /// Returns the tokens size of the model.
-    pub fn tokens_size(&self) -> usize {
-        self.tokens_size
+    /// Returns the token size of the model.
+    pub fn token_size(&self) -> usize {
+        self.input_shape[1]
     }
 
     /// Returns the embedding size of the model.
-    ///
-    /// # Panics
-    /// This assumes that the model output is not empty.
     pub fn embedding_size(&self) -> usize {
-        self.output_shape().pop().unwrap()
-    }
-
-    /// Returns the dimensionality of the model output.
-    ///
-    /// # Panics
-    /// This assumes that the model output is not empty.
-    pub fn output_rank(&self) -> usize {
-        self.plan.model().output_fact(0).unwrap().rank()
-    }
-
-    /// Returns the shape of the model output.
-    ///
-    /// # Panics
-    /// This assumes that the model output is not empty.
-    pub fn output_shape(&self) -> TVec<usize> {
-        self.plan
-            .model()
-            .output_fact(0)
-            .unwrap()
-            .shape
-            .as_finite()
-            .unwrap()
+        self.output_shape[2]
     }
 }
 
 /// Pads or truncates the `array` to the `shape`.
-fn pad_or_truncate<S>(array: ArrayBase2<S>, shape: (usize, usize)) -> Array2<i64>
-where
-    S: Data<Elem = u32>,
-{
+fn pad_or_truncate(
+    array: ArrayBase2<impl Data<Elem = u32>>,
+    shape: impl IntoDimension<Dim = Ix2>,
+) -> Array2<i64> {
     Array2::from_shape_fn(shape, |coords| *array.get(coords).unwrap_or(&0) as i64)
 }
 

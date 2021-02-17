@@ -159,12 +159,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41cb0e6161ad61ed084a36ba71fbba9e3ac5aee3606fb607fe08da6acbcf3d8c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "digest"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3d0c8c8752312f9713efd397ff63acb9f85585afbf179282e720e7704954dd5"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "displaydoc"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adc2ab4d5a16117f9029e9a6b5e4e79f4c67f6519bc134210d4d4a04ba31f41b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -821,6 +843,9 @@ dependencies = [
 name = "rubert"
 version = "0.1.0"
 dependencies = [
+ "derive_more",
+ "displaydoc",
+ "thiserror",
  "tokenizers",
  "tract-onnx",
 ]
@@ -938,6 +963,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76cc616c6abf8c8928e2fdcc0dbfab37175edd8fb49a4641066ad1364fdab146"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9be73a2caec27583d0046ef3796c3794f868a5bc813db689eed00c7631275cd1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "thread_local"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -974,7 +1019,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tokenizers"
 version = "0.10.1"
-source = "git+https://github.com/xaynetwork/tokenizers#58b14ec07e5439b1d390fd94a2dd987e8398df0d"
+source = "git+https://github.com/xaynetwork/tokenizers?branch=master#edb062d3a4aee08e518e6c441521588a6b5b21e8"
 dependencies = [
  "log",
  "regex",
