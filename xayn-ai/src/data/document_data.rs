@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-#[repr(transparent)]
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub struct DocumentId(pub String);
+use crate::data::{document::DocumentId, CoiId, EmbeddingPoint};
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
@@ -16,7 +14,7 @@ pub struct DocumentContentComponent {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingComponent {
-    pub embedding: Vec<f32>,
+    pub embedding: EmbeddingPoint,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -24,13 +22,9 @@ pub struct LtrComponent {
     pub context_value: f32,
 }
 
-#[repr(transparent)]
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub struct CenterOfInterestId(pub usize);
-
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-pub struct CenterOfInterestComponent {
-    pub id: CenterOfInterestId,
+pub struct CoiComponent {
+    pub id: CoiId,
     /// Distance from the positive center of interest
     pub pos_distance: f32,
     /// Distance from the negative center of interest
@@ -48,7 +42,7 @@ pub struct MabComponent {
 }
 
 // Document usage order:
-// DocumentDataWithDocument -> DocumentDataWithEmbedding -> DocumentDataWithCenterOfInterest ->
+// DocumentDataWithDocument -> DocumentDataWithEmbedding -> DocumentDataWithCoi ->
 // DocumentDataWithLtr -> DocumentDataWithContext -> DocumentDataWithMab
 
 pub struct DocumentDataWithDocument {
@@ -73,21 +67,18 @@ impl DocumentDataWithEmbedding {
     }
 }
 
-pub struct DocumentDataWithCenterOfInterest {
+pub struct DocumentDataWithCoi {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
-    pub center_of_interest: CenterOfInterestComponent,
+    pub coi: CoiComponent,
 }
 
-impl DocumentDataWithCenterOfInterest {
-    pub fn from_document(
-        document: DocumentDataWithEmbedding,
-        center_of_interest: CenterOfInterestComponent,
-    ) -> Self {
+impl DocumentDataWithCoi {
+    pub fn from_document(document: DocumentDataWithEmbedding, coi: CoiComponent) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
-            center_of_interest,
+            coi,
         }
     }
 }
@@ -95,16 +86,16 @@ impl DocumentDataWithCenterOfInterest {
 pub struct DocumentDataWithLtr {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
-    pub center_of_interest: CenterOfInterestComponent,
+    pub coi: CoiComponent,
     pub ltr: LtrComponent,
 }
 
 impl DocumentDataWithLtr {
-    pub fn from_document(document: DocumentDataWithCenterOfInterest, ltr: LtrComponent) -> Self {
+    pub fn from_document(document: DocumentDataWithCoi, ltr: LtrComponent) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
-            center_of_interest: document.center_of_interest,
+            coi: document.coi,
             ltr,
         }
     }
@@ -113,7 +104,7 @@ impl DocumentDataWithLtr {
 pub struct DocumentDataWithContext {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
-    pub center_of_interest: CenterOfInterestComponent,
+    pub coi: CoiComponent,
     pub ltr: LtrComponent,
     pub context: ContextComponent,
 }
@@ -123,7 +114,7 @@ impl DocumentDataWithContext {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
-            center_of_interest: document.center_of_interest,
+            coi: document.coi,
             ltr: document.ltr,
             context,
         }
@@ -133,7 +124,7 @@ impl DocumentDataWithContext {
 pub struct DocumentDataWithMab {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
-    pub center_of_interest: CenterOfInterestComponent,
+    pub coi: CoiComponent,
     pub ltr: LtrComponent,
     pub context: ContextComponent,
     pub mab: MabComponent,
@@ -144,7 +135,7 @@ impl DocumentDataWithMab {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
-            center_of_interest: document.center_of_interest,
+            coi: document.coi,
             ltr: document.ltr,
             context: document.context,
             mab,
@@ -172,29 +163,28 @@ mod tests {
         assert_eq!(document_data.document_content, document_content);
 
         let embedding = EmbeddingComponent {
-            embedding: vec![1., 2., 3., 4.],
+            embedding: EmbeddingPoint(vec![1., 2., 3., 4.]),
         };
         let document_data =
             DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
 
-        let coi = CenterOfInterestComponent {
-            id: CenterOfInterestId(9),
+        let coi = CoiComponent {
+            id: CoiId(9),
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
-        let document_data =
-            DocumentDataWithCenterOfInterest::from_document(document_data, coi.clone());
+        let document_data = DocumentDataWithCoi::from_document(document_data, coi.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
-        assert_eq!(document_data.center_of_interest, coi);
+        assert_eq!(document_data.coi, coi);
 
         let ltr = LtrComponent { context_value: 0.3 };
         let document_data = DocumentDataWithLtr::from_document(document_data, ltr.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
-        assert_eq!(document_data.center_of_interest, coi);
+        assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
 
         let context = ContextComponent {
@@ -203,7 +193,7 @@ mod tests {
         let document_data = DocumentDataWithContext::from_document(document_data, context.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
-        assert_eq!(document_data.center_of_interest, coi);
+        assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
         assert_eq!(document_data.context, context);
 
@@ -211,7 +201,7 @@ mod tests {
         let document_data = DocumentDataWithMab::from_document(document_data, mab.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);
-        assert_eq!(document_data.center_of_interest, coi);
+        assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
         assert_eq!(document_data.context, context);
         assert_eq!(document_data.mab, mab);
