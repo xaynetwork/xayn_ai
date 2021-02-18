@@ -170,7 +170,7 @@ where
                             },
                         )
                 } else {
-                    // if we have document with the embedding we need to init the  interest
+                    // if we have document with the embedding we need to init the user interests
                     Ok(common_systems
                         .database()
                         .load_prev_documents()?
