@@ -86,23 +86,20 @@ impl RuBert {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::builder::Builder;
+    use crate::{builder::Builder, MODEL, VOCAB};
 
     #[test]
     fn test_pipeline() {
-        let rubert = Builder::new(
-            "../assets/rubert/rubert-uncased.txt",
-            "../assets/rubert/rubert.onnx",
-        )
-        .with_strip_accents(true)
-        .with_lowercase(true)
-        .with_batch_size(10)
-        .unwrap()
-        .with_token_size(64)
-        .unwrap()
-        .with_pooling(Pooler::First)
-        .build()
-        .unwrap();
+        let rubert = Builder::new(VOCAB, MODEL)
+            .with_strip_accents(true)
+            .with_lowercase(true)
+            .with_batch_size(10)
+            .unwrap()
+            .with_token_size(64)
+            .unwrap()
+            .with_pooling(Pooler::First)
+            .build()
+            .unwrap();
 
         let sentences = vec!["This is a sentence."];
         let embeddings = rubert.run(sentences).unwrap();

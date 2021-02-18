@@ -11,15 +11,16 @@ DATA_DIR="$SELF_DIR_PATH/data/"
 
 download_rubert()
 {
-
   VERSION=$1
   ARCHIVE="rubert_${VERSION}.tgz"
   URL="http://s3-de-central.profitbricks.com/xayn-yellow-bert/rubert/$ARCHIVE"
 
+  mkdir -p $DATA_DIR
   curl $URL -o $DATA_DIR/$ARCHIVE
 
   cd $DATA_DIR
   tar -zxf $ARCHIVE
+  rm -f $ARCHIVE
 }
 
 download_rubert v0000

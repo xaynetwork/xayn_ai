@@ -197,13 +197,12 @@ impl Tokenizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ndarray::ArrayView;
+    use crate::{ndarray::ArrayView, VOCAB};
 
     fn tokenizer(token_size: usize) -> Tokenizer {
-        let vocab = "../assets/rubert/rubert-uncased.txt";
         let strip_accents = true;
         let lowercase = true;
-        Tokenizer::new(vocab, strip_accents, lowercase, token_size).unwrap()
+        Tokenizer::new(VOCAB, strip_accents, lowercase, token_size).unwrap()
     }
 
     #[test]
