@@ -88,7 +88,7 @@ where
     /// Fails if `size` is less than two.
     pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError> {
         if self.token_size < 2 {
-            return Err(BuilderError::TokenSize);
+            Err(BuilderError::TokenSize)
         } else {
             self.token_size = size;
             Ok(self)
