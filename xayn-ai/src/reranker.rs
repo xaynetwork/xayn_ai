@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use anyhow::bail;
+
 use crate::{
     data::{
         document::{Document, DocumentHistory},
@@ -159,7 +161,7 @@ where
                         .load_user_interests()?
                         .map_or_else(
                             // We could go to InitUserInterests instead and try to recover from that
-                            || Err(Error {}),
+                            || bail!(""),
                             |user_interests| {
                                 Ok(RerankerInner::Nominal(RerankerState {
                                     inner: Nominal {
@@ -199,7 +201,8 @@ fn make_documents_with_embedding<BS>(
 where
     BS: BertSystem + ?Sized,
 {
-    let prev_documents: Vec<_> = documents
+    // TODO: we should probably consume documents by value to avoid unnecessary cloning
+    let documents: Vec<_> = documents
         .iter()
         .map(|document| DocumentDataWithDocument {
             document_id: DocumentIdComponent {
@@ -210,7 +213,7 @@ where
             },
         })
         .collect();
-    bert_system.compute_embedding(&prev_documents)
+    bert_system.compute_embedding(documents)
 }
 
 fn to_init_user_interests<CS>(

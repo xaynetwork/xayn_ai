@@ -1,3 +1,4 @@
+mod bert;
 mod data;
 mod database;
 mod error;

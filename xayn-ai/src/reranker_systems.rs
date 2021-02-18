@@ -21,7 +21,7 @@ use crate::{
 pub trait BertSystem {
     fn compute_embedding(
         &self,
-        documents: &[DocumentDataWithDocument],
+        documents: Vec<DocumentDataWithDocument>,
     ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
 }
 

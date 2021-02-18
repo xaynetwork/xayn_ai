@@ -32,7 +32,7 @@ pub enum RuBertError {
 
 /// The embeddings of the sentences.
 #[derive(Clone, Deref)]
-pub struct Embeddings(ArcArrayD<f32>);
+pub struct Embeddings(pub(crate) ArcArrayD<f32>);
 
 impl From<Poolings> for Embeddings {
     fn from(poolings: Poolings) -> Self {
