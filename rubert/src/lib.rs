@@ -39,8 +39,8 @@ pub(crate) use tract_onnx::prelude::tract_ndarray as ndarray;
 
 /// Path to the current onnx model file.
 #[cfg(test)]
-static MODEL: &'static str = "../data/rubert_v0000/model.onnx";
+const MODEL: &str = "../data/rubert_v0000/model.onnx";
 
 /// Path to the current vocabulary file.
 #[cfg(test)]
-static VOCAB: &'static str = "../data/rubert_v0000/vocab.txt";
+const VOCAB: &str = "../data/rubert_v0000/vocab.txt";
