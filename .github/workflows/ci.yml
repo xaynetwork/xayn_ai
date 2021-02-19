@@ -229,10 +229,5 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
-          args: '--all-features --force-clean --lib --ignore-tests'
-          out-type: 'Stdout'
+          args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70'
 
-      # - name: Upload to codecov.io
-      #   uses: codecov/codecov-action@v1.2.1
-      #   with:
-      #     token: ${{secrets.CODECOV_TOKEN}}
