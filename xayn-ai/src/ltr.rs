@@ -7,6 +7,7 @@ use crate::{
     reranker_systems::LtrSystem,
 };
 
+/// LTR with constant value 0.5.
 struct ConstLtr;
 
 impl LtrSystem for ConstLtr {
@@ -21,5 +22,53 @@ impl LtrSystem for ConstLtr {
             .cloned()
             .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { context_value }))
             .collect())
+    }
+}
+
+#[allow(clippy::float_cmp)]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::{
+        document::DocumentId,
+        document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent},
+        CoiId,
+        EmbeddingPoint,
+    };
+
+    #[test]
+    fn test_const_value() {
+        let id = DocumentId("id1".to_string());
+        let embedding = EmbeddingPoint(vec![1., 2., 3., 4.]);
+        let coi = CoiComponent {
+            id: CoiId(9),
+            pos_distance: 0.7,
+            neg_distance: 0.2,
+        };
+        let doc1 = DocumentDataWithCoi {
+            document_id: DocumentIdComponent { id },
+            embedding: EmbeddingComponent { embedding },
+            coi,
+        };
+
+        let id = DocumentId("id2".to_string());
+        let embedding = EmbeddingPoint(vec![5., 6., 7.]);
+        let coi = CoiComponent {
+            id: CoiId(5),
+            pos_distance: 0.3,
+            neg_distance: 0.9,
+        };
+        let doc2 = DocumentDataWithCoi {
+            document_id: DocumentIdComponent { id },
+            embedding: EmbeddingComponent { embedding },
+            coi,
+        };
+
+        let res = ConstLtr.compute_ltr(&[], &[doc1, doc2]);
+        assert!(res.is_ok());
+        let ltr_docs = res.unwrap();
+        assert_eq!(ltr_docs.len(), 2);
+        assert_eq!(ltr_docs[0].ltr.context_value, 0.5);
+        assert_eq!(ltr_docs[1].ltr.context_value, 0.5);
     }
 }
