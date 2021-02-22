@@ -197,3 +197,41 @@ jobs:
           cargo test --all-targets
           cargo test --all-targets --all-features
           cargo test --all-features --doc
+
+  coverage:
+    name: cargo-tarpaulin
+    needs: [registry-cache, test]
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+          profile: minimal
+
+      - name: Use cached cargo registry
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Cache build artifacts
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.16.0'
+          args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70'
+
