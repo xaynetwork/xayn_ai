@@ -7,8 +7,8 @@ use crate::{
     decoder::WordPieceDecoder,
     encoding::Encoding,
     model::WordPiece,
-    normalizer::{BertNormalizer, NormalizedString},
-    padding::{pad_encodings, PaddingParams},
+    normalizer::{normalized_string::NormalizedString, BertNormalizer},
+    padding::Padding,
     pre_tokenizer::{BertPreTokenizer, OffsetType, PreTokenizedString},
     processor::BertProcessing,
     truncation::{truncate_encodings, TruncationParams},
@@ -119,7 +119,7 @@ pub struct TokenizerBuilder {
     added_vocabulary: AddedVocabulary,
 
     truncation: Option<TruncationParams>,
-    padding: Option<PaddingParams>,
+    padding: Option<Padding>,
 }
 
 impl TokenizerBuilder {
@@ -192,7 +192,7 @@ impl TokenizerBuilder {
     }
 
     /// Set the padding parameters.
-    pub fn with_padding(mut self, padding: Option<PaddingParams>) -> Self {
+    pub fn with_padding(mut self, padding: Option<Padding>) -> Self {
         self.padding = padding;
         self
     }
@@ -211,7 +211,7 @@ pub struct TokenizerImpl {
 
     // General processing parameters
     truncation: Option<TruncationParams>,
-    padding: Option<PaddingParams>,
+    padding: Option<Padding>,
 }
 
 impl TokenizerImpl {
@@ -303,18 +303,18 @@ impl TokenizerImpl {
     }
 
     /// Set the padding parameters
-    pub fn with_padding(&mut self, padding: Option<PaddingParams>) -> &mut Self {
+    pub fn with_padding(&mut self, padding: Option<Padding>) -> &mut Self {
         self.padding = padding;
         self
     }
 
     /// Get the currently set padding parameters
-    pub fn get_padding(&self) -> Option<&PaddingParams> {
+    pub fn get_padding(&self) -> Option<&Padding> {
         self.padding.as_ref()
     }
 
     /// Get a mutable reference to the currently set padding parameters
-    pub fn get_padding_mut(&mut self) -> Option<&mut PaddingParams> {
+    pub fn get_padding_mut(&mut self) -> Option<&mut Padding> {
         self.padding.as_mut()
     }
 
@@ -603,12 +603,10 @@ impl TokenizerImpl {
         };
 
         // 3. Then we pad if needed
-        let [final_encoding] = if let Some(params) = &self.padding {
-            let mut arr = [final_encoding];
-            pad_encodings(&mut arr, params)?;
-            arr
+        let final_encoding = if let Some(params) = &self.padding {
+            params.pad_encoding(final_encoding)
         } else {
-            [final_encoding]
+            final_encoding
         };
 
         Ok(final_encoding)
@@ -630,7 +628,7 @@ impl TokenizerImpl {
 
         if let Some(params) = &self.padding {
             // We do the padding here to make sure we handle the batch padding
-            pad_encodings(&mut encodings, &params)?;
+            encodings = params.pad_encodings(encodings);
         }
 
         Ok(encodings)
@@ -653,7 +651,7 @@ impl TokenizerImpl {
 
         if let Some(params) = &self.padding {
             // We do the padding here to make sure we handle the batch padding
-            pad_encodings(&mut encodings, &params)?;
+            encodings = params.pad_encodings(encodings);
         }
 
         Ok(encodings)

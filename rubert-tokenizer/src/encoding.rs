@@ -1,29 +1,29 @@
-use std::{collections::HashMap, ops::Range};
+use std::{collections::HashMap, iter, ops::Range};
 
-use crate::{normalizer::Offsets, padding::PaddingDirection, pipeline::Token};
+use crate::{normalizer::pattern::Offsets, pipeline::Token};
 
 /// Represents the output of a `Tokenizer`.
 #[derive(Default, PartialEq, Debug, Clone)]
 pub struct Encoding {
     /// IDs produced by the `Tokenizer`
-    ids: Vec<u32>,
+    pub(crate) ids: Vec<u32>,
     /// Type of the IDs
-    type_ids: Vec<u32>,
+    pub(crate) type_ids: Vec<u32>,
     /// Tokens associated to each ID
-    tokens: Vec<String>,
+    pub(crate) tokens: Vec<String>,
     /// Indice of the word associated to each token/ID
-    words: Vec<Option<u32>>,
+    pub(crate) words: Vec<Option<u32>>,
     /// Offsets of the token/ID from the NormalizedString
-    offsets: Vec<Offsets>,
+    pub(crate) offsets: Vec<Offsets>,
     /// Mask identifying special tokens
-    special_tokens_mask: Vec<u32>,
+    pub(crate) special_tokens_mask: Vec<u32>,
     /// Mask identifying padding tokens for the attention mechanism
-    attention_mask: Vec<u32>,
+    pub(crate) attention_mask: Vec<u32>,
     /// A list of overflowing Encoding generated when we got truncated
-    overflowing: Vec<Encoding>,
+    pub(crate) overflowing: Vec<Encoding>,
     /// Ranges of tokens covered by each sequence. If this is empty we consider
     /// there is only one sequence in this Encoding, and that it covers the entire range.
-    sequence_ranges: HashMap<usize, Range<usize>>,
+    pub(crate) sequence_ranges: HashMap<usize, Range<usize>>,
 }
 impl Encoding {
     #[allow(clippy::too_many_arguments)]
@@ -447,67 +447,38 @@ impl Encoding {
     }
 
     pub fn pad(
-        &mut self,
+        mut self,
         target_length: usize,
         pad_id: u32,
         pad_type_id: u32,
         pad_token: &str,
-        direction: PaddingDirection,
-    ) {
+    ) -> Self {
         // Dispatch call to all the overflowings first
-        self.overflowing.iter_mut().for_each(|encoding| {
-            encoding.pad(target_length, pad_id, pad_type_id, pad_token, direction)
-        });
+        self.overflowing = self
+            .overflowing
+            .into_iter()
+            .map(|encoding| encoding.pad(target_length, pad_id, pad_type_id, pad_token))
+            .collect();
 
         // Then check if we should pad ourself
         if self.ids.len() >= target_length {
             // We just do nothing if the wanted padding length is smaller than us
-            return;
+            return self;
         }
         let pad_length = target_length - self.ids.len();
 
-        match direction {
-            PaddingDirection::Left => {
-                self.ids = (0..pad_length)
-                    .map(|_| pad_id)
-                    .chain(self.ids.drain(..))
-                    .collect();
-                self.type_ids = (0..pad_length)
-                    .map(|_| pad_type_id)
-                    .chain(self.type_ids.drain(..))
-                    .collect();
-                self.tokens = (0..pad_length)
-                    .map(|_| pad_token.to_owned())
-                    .chain(self.tokens.drain(..))
-                    .collect();
-                self.words = (0..pad_length)
-                    .map(|_| None)
-                    .chain(self.words.drain(..))
-                    .collect();
-                self.attention_mask = (0..pad_length)
-                    .map(|_| 0)
-                    .chain(self.attention_mask.drain(..))
-                    .collect();
-                self.special_tokens_mask = (0..pad_length)
-                    .map(|_| 1)
-                    .chain(self.special_tokens_mask.drain(..))
-                    .collect();
-                self.offsets = (0..pad_length)
-                    .map(|_| (0, 0))
-                    .chain(self.offsets.drain(..))
-                    .collect();
-            }
-            PaddingDirection::Right => {
-                self.ids.extend((0..pad_length).map(|_| pad_id));
-                self.type_ids.extend((0..pad_length).map(|_| pad_type_id));
-                self.tokens
-                    .extend((0..pad_length).map(|_| pad_token.to_owned()));
-                self.words.extend((0..pad_length).map(|_| None));
-                self.attention_mask.extend((0..pad_length).map(|_| 0));
-                self.special_tokens_mask.extend((0..pad_length).map(|_| 1));
-                self.offsets.extend((0..pad_length).map(|_| (0, 0)));
-            }
-        }
+        self.ids.extend(iter::repeat(pad_id).take(pad_length));
+        self.type_ids
+            .extend(iter::repeat(pad_type_id).take(pad_length));
+        self.tokens
+            .extend(iter::repeat(pad_token.to_string()).take(pad_length));
+        self.words.extend(iter::repeat(None).take(pad_length));
+        self.attention_mask.extend(iter::repeat(0).take(pad_length));
+        self.special_tokens_mask
+            .extend(iter::repeat(1).take(pad_length));
+        self.offsets.extend(iter::repeat((0, 0)).take(pad_length));
+
+        self
     }
 }
 

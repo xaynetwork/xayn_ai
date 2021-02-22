@@ -5,7 +5,10 @@ use unicode_categories::UnicodeCategories;
 
 use crate::{
     encoding::Encoding,
-    normalizer::{NormalizedString, OffsetReferential, Offsets, Range, SplitDelimiterBehavior},
+    normalizer::{
+        normalized_string::{NormalizedString, OffsetReferential, Range, SplitDelimiterBehavior},
+        pattern::Offsets,
+    },
     pipeline::Token,
     Error,
 };

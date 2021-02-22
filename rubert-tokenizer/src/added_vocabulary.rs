@@ -2,7 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     model::WordPiece,
-    normalizer::{BertNormalizer, NormalizedString, Offsets, Range},
+    normalizer::{
+        normalized_string::{NormalizedString, Range},
+        pattern::Offsets,
+        BertNormalizer,
+    },
     pipeline::Token,
     pre_tokenizer::PreTokenizedString,
 };

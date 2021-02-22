@@ -1,9 +1,6 @@
 use unicode_categories::UnicodeCategories;
 
-pub use self::{
-    normalized_string::{NormalizedString, OffsetReferential, Range, SplitDelimiterBehavior},
-    pattern::{Offsets, Pattern},
-};
+use self::normalized_string::NormalizedString;
 use crate::Error;
 
 /// Checks whether a character is whitespace
@@ -136,7 +133,7 @@ impl BertNormalizer {
     }
 }
 
-mod normalized_string {
+pub mod normalized_string {
     use std::ops::{Bound, RangeBounds};
 
     use unicode_normalization_alignments::UnicodeNormalization;
@@ -2308,7 +2305,7 @@ mod normalized_string {
     }
 }
 
-mod pattern {
+pub mod pattern {
     use crate::Error;
     use regex::Regex;
 
