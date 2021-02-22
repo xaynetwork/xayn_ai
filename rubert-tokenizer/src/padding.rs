@@ -1,49 +1,48 @@
 use crate::encoding::Encoding;
 
-pub enum PaddingStrategy {
-    BatchLongest,
-    Fixed(usize),
-}
-
-pub struct Padding {
-    pub strategy: PaddingStrategy,
-    pub pad_to_multiple_of: Option<usize>,
-    pub pad_id: u32,
-    pub pad_type_id: u32,
-    pub pad_token: String,
+pub enum Padding {
+    None,
+    BatchLongest {
+        pad_id: u32,
+        pad_type_id: u32,
+        pad_token: String,
+        pad_to_multiple_of: Option<usize>,
+    },
+    Fixed {
+        size: usize,
+        pad_id: u32,
+        pad_type_id: u32,
+        pad_token: String,
+        pad_to_multiple_of: Option<usize>,
+    },
 }
 
 impl Default for Padding {
     fn default() -> Self {
-        Self {
-            strategy: PaddingStrategy::BatchLongest,
-            pad_to_multiple_of: None,
-            pad_id: 0,
-            pad_type_id: 0,
-            pad_token: String::from("[PAD]"),
-        }
+        Self::None
     }
 }
 
 impl Padding {
     pub fn pad_encoding(&self, encoding: Encoding) -> Encoding {
-        let mut pad_length = match self.strategy {
-            PaddingStrategy::Fixed(size) => size,
-            PaddingStrategy::BatchLongest => return encoding,
-        };
-
-        if let Some(multiple) = self.pad_to_multiple_of {
-            if multiple > 0 && pad_length % multiple > 0 {
-                pad_length += multiple - pad_length % multiple;
+        match *self {
+            Padding::None => encoding,
+            Padding::BatchLongest { .. } => encoding,
+            Padding::Fixed {
+                mut size,
+                pad_id,
+                pad_type_id,
+                ref pad_token,
+                pad_to_multiple_of,
+            } => {
+                if let Some(multiple) = pad_to_multiple_of {
+                    if multiple > 0 && size % multiple > 0 {
+                        size += multiple - size % multiple;
+                    }
+                }
+                encoding.pad(size, pad_id, pad_type_id, pad_token.as_str())
             }
         }
-
-        encoding.pad(
-            pad_length,
-            self.pad_id,
-            self.pad_type_id,
-            self.pad_token.as_str(),
-        )
     }
 
     pub fn pad_encodings(&self, encodings: Vec<Encoding>) -> Vec<Encoding> {
@@ -51,32 +50,50 @@ impl Padding {
             return encodings;
         }
 
-        let mut pad_length = match self.strategy {
-            PaddingStrategy::Fixed(size) => size,
-            PaddingStrategy::BatchLongest => encodings
-                .iter()
-                .map(|encoding| encoding.get_ids().len())
-                .max()
-                // safe unwrap: empty encodings have been returned early
-                .unwrap(),
+        let (mut size, pad_id, pad_type_id, pad_token, multiple) = match *self {
+            Padding::None => return encodings,
+            Padding::BatchLongest {
+                pad_id,
+                pad_type_id,
+                ref pad_token,
+                pad_to_multiple_of,
+            } => {
+                let size = encodings
+                    .iter()
+                    .map(|encoding| encoding.get_ids().len())
+                    .max()
+                    // safe unwrap: empty encodings have been returned early
+                    .unwrap();
+                (
+                    size,
+                    pad_id,
+                    pad_type_id,
+                    pad_token.as_str(),
+                    pad_to_multiple_of.unwrap_or_default(),
+                )
+            }
+            Padding::Fixed {
+                size,
+                pad_id,
+                pad_type_id,
+                ref pad_token,
+                pad_to_multiple_of,
+            } => (
+                size,
+                pad_id,
+                pad_type_id,
+                pad_token.as_str(),
+                pad_to_multiple_of.unwrap_or_default(),
+            ),
         };
 
-        if let Some(multiple) = self.pad_to_multiple_of {
-            if multiple > 0 && pad_length % multiple > 0 {
-                pad_length += multiple - pad_length % multiple;
-            }
+        if multiple > 0 && size % multiple > 0 {
+            size += multiple - size % multiple;
         }
 
         encodings
             .into_iter()
-            .map(|encoding| {
-                encoding.pad(
-                    pad_length,
-                    self.pad_id,
-                    self.pad_type_id,
-                    self.pad_token.as_str(),
-                )
-            })
+            .map(|encoding| encoding.pad(size, pad_id, pad_type_id, pad_token))
             .collect()
     }
 }
@@ -85,11 +102,22 @@ impl Padding {
 mod tests {
     use super::*;
 
-    fn padding(strategy: PaddingStrategy, pad_to_multiple_of: Option<usize>) -> Padding {
-        Padding {
-            strategy,
+    fn batch_padding(pad_to_multiple_of: Option<usize>) -> Padding {
+        Padding::BatchLongest {
+            pad_id: 0,
+            pad_type_id: 0,
+            pad_token: "[PAD]".into(),
             pad_to_multiple_of,
-            ..Padding::default()
+        }
+    }
+
+    fn fixed_padding(size: usize, pad_to_multiple_of: Option<usize>) -> Padding {
+        Padding::Fixed {
+            size,
+            pad_id: 0,
+            pad_type_id: 0,
+            pad_token: "[PAD]".into(),
+            pad_to_multiple_of,
         }
     }
 
@@ -107,31 +135,33 @@ mod tests {
     }
 
     #[test]
-    fn test_pad_fixed() {
-        let encodings = padding(PaddingStrategy::Fixed(7), None).pad_encodings(encodings());
-        assert!(encodings.iter().all(|encoding| encoding.ids.len() == 7));
-    }
-
-    #[test]
-    fn test_pad_fixed_multiple() {
-        let encodings = padding(PaddingStrategy::Fixed(7), Some(8)).pad_encodings(encodings());
-        assert!(encodings.iter().all(|encoding| encoding.ids.len() == 8));
-    }
-
-    #[test]
-    fn test_pad_batch() {
-        let encodings = padding(PaddingStrategy::BatchLongest, None).pad_encodings(encodings());
+    fn test_batch_padding() {
+        let encodings = batch_padding(None).pad_encodings(encodings());
         assert!(encodings.iter().all(|encoding| encoding.ids.len() == 5));
     }
 
     #[test]
-    fn test_pad_batch_multiple() {
-        let encodings = padding(PaddingStrategy::BatchLongest, Some(6)).pad_encodings(encodings());
+    fn test_batch_padding_multiple() {
+        let encodings = batch_padding(Some(6)).pad_encodings(encodings());
         assert!(encodings.iter().all(|encoding| encoding.ids.len() == 6));
     }
 
     #[test]
-    fn test_pad_zero() {
-        padding(PaddingStrategy::BatchLongest, Some(0)).pad_encodings(encodings());
+    fn test_fixed_padding() {
+        let encodings = fixed_padding(7, None).pad_encodings(encodings());
+        assert!(encodings.iter().all(|encoding| encoding.ids.len() == 7));
+    }
+
+    #[test]
+    fn test_fixed_padding_multiple() {
+        let encodings = fixed_padding(7, Some(8)).pad_encodings(encodings());
+        assert!(encodings.iter().all(|encoding| encoding.ids.len() == 8));
+    }
+
+    #[test]
+    fn test_padding_zero() {
+        batch_padding(Some(0)).pad_encodings(encodings());
+        fixed_padding(0, Some(0)).pad_encodings(encodings());
+        fixed_padding(7, Some(0)).pad_encodings(encodings());
     }
 }

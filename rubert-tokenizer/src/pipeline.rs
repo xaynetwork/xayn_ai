@@ -11,7 +11,7 @@ use crate::{
     padding::Padding,
     pre_tokenizer::{BertPreTokenizer, OffsetType, PreTokenizedString},
     processor::BertProcessing,
-    truncation::{truncate_encodings, TruncationParams},
+    truncation::Truncation,
     Error,
 };
 
@@ -118,8 +118,8 @@ pub struct TokenizerBuilder {
 
     added_vocabulary: AddedVocabulary,
 
-    truncation: Option<TruncationParams>,
-    padding: Option<Padding>,
+    truncation: Truncation,
+    padding: Padding,
 }
 
 impl TokenizerBuilder {
@@ -132,8 +132,8 @@ impl TokenizerBuilder {
             post_processor: None,
             decoder: None,
             added_vocabulary: AddedVocabulary::new(),
-            truncation: None,
-            padding: None,
+            truncation: Truncation::None,
+            padding: Padding::None,
         }
     }
 
@@ -186,13 +186,13 @@ impl TokenizerBuilder {
     }
 
     /// Set the trunaction parameters.
-    pub fn with_truncation(mut self, trunc: Option<TruncationParams>) -> Self {
+    pub fn with_truncation(mut self, trunc: Truncation) -> Self {
         self.truncation = trunc;
         self
     }
 
     /// Set the padding parameters.
-    pub fn with_padding(mut self, padding: Option<Padding>) -> Self {
+    pub fn with_padding(mut self, padding: Padding) -> Self {
         self.padding = padding;
         self
     }
@@ -210,8 +210,8 @@ pub struct TokenizerImpl {
     added_vocabulary: AddedVocabulary,
 
     // General processing parameters
-    truncation: Option<TruncationParams>,
-    padding: Option<Padding>,
+    truncation: Truncation,
+    padding: Padding,
 }
 
 impl TokenizerImpl {
@@ -226,8 +226,8 @@ impl TokenizerImpl {
 
             added_vocabulary: AddedVocabulary::new(),
 
-            truncation: None,
-            padding: None,
+            truncation: Truncation::None,
+            padding: Padding::None,
         }
     }
 
@@ -287,35 +287,35 @@ impl TokenizerImpl {
     }
 
     /// Set the truncation parameters
-    pub fn with_truncation(&mut self, trunc: Option<TruncationParams>) -> &mut Self {
+    pub fn with_truncation(&mut self, trunc: Truncation) -> &mut Self {
         self.truncation = trunc;
         self
     }
 
     /// Get the currently set truncation parameters
-    pub fn get_truncation(&self) -> Option<&TruncationParams> {
-        self.truncation.as_ref()
+    pub fn get_truncation(&self) -> &Truncation {
+        &self.truncation
     }
 
     /// Get a mutable reference to the currently set truncation parameters
-    pub fn get_truncation_mut(&mut self) -> Option<&mut TruncationParams> {
-        self.truncation.as_mut()
+    pub fn get_truncation_mut(&mut self) -> &mut Truncation {
+        &mut self.truncation
     }
 
     /// Set the padding parameters
-    pub fn with_padding(&mut self, padding: Option<Padding>) -> &mut Self {
+    pub fn with_padding(&mut self, padding: Padding) -> &mut Self {
         self.padding = padding;
         self
     }
 
     /// Get the currently set padding parameters
-    pub fn get_padding(&self) -> Option<&Padding> {
-        self.padding.as_ref()
+    pub fn get_padding(&self) -> &Padding {
+        &self.padding
     }
 
     /// Get a mutable reference to the currently set padding parameters
-    pub fn get_padding_mut(&mut self) -> Option<&mut Padding> {
-        self.padding.as_mut()
+    pub fn get_padding_mut(&mut self) -> &mut Padding {
+        &mut self.padding
     }
 
     /// Get the vocabulary
@@ -573,41 +573,22 @@ impl TokenizerImpl {
         add_special_tokens: bool,
     ) -> Result<Encoding, Error> {
         // 1. First we truncate if needed
-        let (encoding, pair_encoding) = {
-            if let Some(trunc) = &self.truncation {
-                let n_added_tokens = if let Some(processor) = &self.post_processor {
-                    processor.added_tokens(pair_encoding.is_some())
-                } else {
-                    0
-                };
+        let added_tokens = self
+            .post_processor
+            .as_ref()
+            .map(|processor| processor.added_tokens(false))
+            .unwrap_or_default();
+        let encoding = self.truncation.truncate_encoding(encoding, added_tokens);
 
-                if add_special_tokens && n_added_tokens > 0 {
-                    let params = TruncationParams {
-                        max_length: trunc.max_length - n_added_tokens,
-                        ..*trunc
-                    };
-                    truncate_encodings(encoding, pair_encoding, &params)?
-                } else {
-                    truncate_encodings(encoding, pair_encoding, &trunc)?
-                }
-            } else {
-                (encoding, pair_encoding)
-            }
-        };
-
-        // 2. Then We post process
-        let final_encoding = if let Some(processor) = &self.post_processor {
+        // 2. Then we post-process
+        let final_encoding = if let Some(ref processor) = self.post_processor {
             processor.process(encoding, pair_encoding, add_special_tokens)?
         } else {
             BertProcessing::default_process(encoding, pair_encoding, add_special_tokens)?
         };
 
         // 3. Then we pad if needed
-        let final_encoding = if let Some(params) = &self.padding {
-            params.pad_encoding(final_encoding)
-        } else {
-            final_encoding
-        };
+        let final_encoding = self.padding.pad_encoding(final_encoding);
 
         Ok(final_encoding)
     }
@@ -621,15 +602,13 @@ impl TokenizerImpl {
     where
         E: Into<EncodeInput<'s>> + Send,
     {
-        let mut encodings = inputs
+        let encodings = inputs
             .into_iter()
             .map(|input| self.encode(input, add_special_tokens))
             .collect::<Result<Vec<Encoding>, Error>>()?;
 
-        if let Some(params) = &self.padding {
-            // We do the padding here to make sure we handle the batch padding
-            encodings = params.pad_encodings(encodings);
-        }
+        // We do the padding here to make sure we handle the batch padding
+        let encodings = self.padding.pad_encodings(encodings);
 
         Ok(encodings)
     }
@@ -644,15 +623,13 @@ impl TokenizerImpl {
     where
         E: Into<EncodeInput<'s>> + Send,
     {
-        let mut encodings = inputs
+        let encodings = inputs
             .into_iter()
             .map(|input| self.encode_char_offsets(input, add_special_tokens))
             .collect::<Result<Vec<Encoding>, Error>>()?;
 
-        if let Some(params) = &self.padding {
-            // We do the padding here to make sure we handle the batch padding
-            encodings = params.pad_encodings(encodings);
-        }
+        // We do the padding here to make sure we handle the batch padding
+        let encodings = self.padding.pad_encodings(encodings);
 
         Ok(encodings)
     }

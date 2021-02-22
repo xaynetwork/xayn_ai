@@ -13,4 +13,4 @@ mod truncation;
 
 type Error = anyhow::Error;
 
-pub use padding::{Padding, PaddingStrategy};
+pub use crate::{padding::Padding, truncation::Truncation};
