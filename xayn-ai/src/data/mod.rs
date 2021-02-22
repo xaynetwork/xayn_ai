@@ -4,13 +4,11 @@ pub mod document;
 pub mod document_data;
 
 #[repr(transparent)]
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingPoint(pub Vec<f32>);
 
 #[repr(transparent)]
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct CoiId(pub usize);
 
 pub struct Coi {

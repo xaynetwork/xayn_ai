@@ -14,12 +14,11 @@ impl LtrSystem for ConstLtr {
     fn compute_ltr(
         &self,
         _history: &[DocumentHistory],
-        documents: &[DocumentDataWithCoi],
+        documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
         let context_value = 0.5;
         Ok(documents
-            .iter()
-            .cloned()
+            .into_iter()
             .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { context_value }))
             .collect())
     }
@@ -64,7 +63,7 @@ mod tests {
             coi,
         };
 
-        let res = ConstLtr.compute_ltr(&[], &[doc1, doc2]);
+        let res = ConstLtr.compute_ltr(&[], vec![doc1, doc2]);
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);

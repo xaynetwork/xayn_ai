@@ -2,8 +2,7 @@
 
 use crate::data::{document::DocumentId, CoiId, EmbeddingPoint};
 
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
     pub id: DocumentId,
 }
@@ -13,8 +12,7 @@ pub struct DocumentContentComponent {
     pub snippet: String,
 }
 
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingComponent {
     pub embedding: EmbeddingPoint,
 }
@@ -24,13 +22,12 @@ pub struct LtrComponent {
     pub context_value: f32,
 }
 
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct CoiComponent {
     pub id: CoiId,
-    /// Distance from the positive center of interest
+    /// Distance from the positive centre of interest
     pub pos_distance: f32,
-    /// Distance from the negative center of interest
+    /// Distance from the negative centre of interest
     pub neg_distance: f32,
 }
 
@@ -70,7 +67,6 @@ impl DocumentDataWithEmbedding {
     }
 }
 
-#[derive(Clone)]
 pub struct DocumentDataWithCoi {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
