@@ -289,6 +289,72 @@ impl Encoding {
         )
     }
 
+    /// Extends the encoding from the "slice" `&from[skip..skip+take]`.
+    #[inline]
+    fn extend(&mut self, from: &Self, skip: usize, take: usize) {
+        self.ids.extend(from.ids.iter().skip(skip).take(take));
+        self.type_ids
+            .extend(from.type_ids.iter().skip(skip).take(take));
+        self.tokens
+            .extend(from.tokens.iter().skip(skip).take(take).cloned());
+        self.words.extend(from.words.iter().skip(skip).take(take));
+        self.offsets
+            .extend(from.offsets.iter().skip(skip).take(take));
+        self.special_tokens_mask
+            .extend(from.special_tokens_mask.iter().skip(skip).take(take));
+        self.attention_mask
+            .extend(from.attention_mask.iter().skip(skip).take(take));
+    }
+
+    /// Drains the encoding and chains the drainage with the "slice" `&from[skip..skip+take]`.
+    #[inline]
+    fn drain_chain(&mut self, from: &Self, skip: usize, take: usize) -> Self {
+        Self {
+            ids: self
+                .ids
+                .drain(..)
+                .chain(from.ids.iter().skip(skip).take(take).copied())
+                .collect(),
+            type_ids: self
+                .type_ids
+                .drain(..)
+                .chain(from.type_ids.iter().skip(skip).take(take).copied())
+                .collect(),
+            tokens: self
+                .tokens
+                .drain(..)
+                .chain(from.tokens.iter().skip(skip).take(take).cloned())
+                .collect(),
+            words: self
+                .words
+                .drain(..)
+                .chain(from.words.iter().skip(skip).take(take).copied())
+                .collect(),
+            offsets: self
+                .offsets
+                .drain(..)
+                .chain(from.offsets.iter().skip(skip).take(take).copied())
+                .collect(),
+            special_tokens_mask: self
+                .special_tokens_mask
+                .drain(..)
+                .chain(
+                    from.special_tokens_mask
+                        .iter()
+                        .skip(skip)
+                        .take(take)
+                        .copied(),
+                )
+                .collect(),
+            attention_mask: self
+                .attention_mask
+                .drain(..)
+                .chain(from.attention_mask.iter().skip(skip).take(take).copied())
+                .collect(),
+            ..Self::default()
+        }
+    }
+
     /// Truncate the current `Encoding`.
     ///
     /// Panic if `stride >= max_len`
@@ -298,19 +364,22 @@ impl Encoding {
         }
 
         if max_len == 0 {
-            let o = std::mem::replace(&mut self, Encoding::with_capacity(0));
-            self.overflowing.push(o);
+            let overflowing = std::mem::replace(&mut self, Self::with_capacity(0));
+            self.overflowing.push(overflowing);
             return self;
         }
 
         // Get the main overflowing part
-        let o_ids = &self.ids.split_off(max_len);
-        let o_type_ids = &self.type_ids.split_off(max_len);
-        let o_tokens = &self.tokens.split_off(max_len);
-        let o_words = &self.words.split_off(max_len);
-        let o_offsets = &self.offsets.split_off(max_len);
-        let o_spe_toks = &self.special_tokens_mask.split_off(max_len);
-        let o_attent = &self.attention_mask.split_off(max_len);
+        let overflowings = &Self {
+            ids: self.ids.split_off(max_len),
+            type_ids: self.type_ids.split_off(max_len),
+            tokens: self.tokens.split_off(max_len),
+            words: self.words.split_off(max_len),
+            offsets: self.offsets.split_off(max_len),
+            special_tokens_mask: self.special_tokens_mask.split_off(max_len),
+            attention_mask: self.attention_mask.split_off(max_len),
+            ..Self::default()
+        };
 
         // When truncating, we loose the `sequence_ranges` information.
         self.sequence_ranges.clear();
@@ -318,56 +387,22 @@ impl Encoding {
         // Now we need to separate the overflowing part into as many Encoding as needed
         assert!(stride < max_len);
         let part_size = max_len - stride;
-        let mut overflowing = Vec::with_capacity((o_ids.len() + part_size - 1) / part_size);
-        let mut previous_encoding = &self;
+        self.overflowing = (0..overflowings.ids.len())
+            .step_by(part_size)
+            .scan(
+                {
+                    let mut initial = Self::with_capacity(stride);
+                    initial.extend(&self, part_size, stride);
+                    initial
+                },
+                |previous: &mut Self, part_id| {
+                    let overflowing = previous.drain_chain(overflowings, part_id, part_size);
+                    previous.extend(&overflowing, part_size, stride);
+                    Some(overflowing)
+                },
+            )
+            .collect();
 
-        for part_id in (0..o_ids.len()).step_by(part_size) {
-            let Encoding {
-                ids,
-                type_ids,
-                tokens,
-                words,
-                offsets,
-                special_tokens_mask,
-                attention_mask,
-                ..
-            } = previous_encoding;
-            let overflow = Encoding {
-                ids: chain(ids, o_ids, part_size, part_id, stride)
-                    .copied()
-                    .collect(),
-                type_ids: chain(type_ids, o_type_ids, part_size, part_id, stride)
-                    .copied()
-                    .collect(),
-                tokens: chain(tokens, o_tokens, part_size, part_id, stride)
-                    .cloned()
-                    .collect(),
-                words: chain(words, o_words, part_size, part_id, stride)
-                    .copied()
-                    .collect(),
-                offsets: chain(offsets, o_offsets, part_size, part_id, stride)
-                    .copied()
-                    .collect(),
-                special_tokens_mask: chain(
-                    special_tokens_mask,
-                    o_spe_toks,
-                    part_size,
-                    part_id,
-                    stride,
-                )
-                .copied()
-                .collect(),
-                attention_mask: chain(attention_mask, o_attent, part_size, part_id, stride)
-                    .copied()
-                    .collect(),
-                ..Encoding::default()
-            };
-
-            overflowing.push(overflow);
-            previous_encoding = overflowing.last().unwrap();
-        }
-
-        self.overflowing = overflowing;
         self
     }
 
@@ -503,21 +538,6 @@ impl std::iter::FromIterator<(u32, String, (usize, usize), Option<u32>, u32)> fo
 
         encoding
     }
-}
-
-#[inline]
-fn chain<'a, T>(
-    previous: &'a [T],
-    overflow: &'a [T],
-    size: usize,
-    idx: usize,
-    stride: usize,
-) -> impl iter::Iterator<Item = &'a T> {
-    previous
-        .iter()
-        .skip(size)
-        .take(stride)
-        .chain(overflow.iter().skip(idx).take(size))
 }
 
 #[cfg(test)]

@@ -3,27 +3,20 @@ use unicode_categories::UnicodeCategories;
 use self::normalized_string::NormalizedString;
 use crate::Error;
 
-/// Checks whether a character is whitespace
+/// Checks whether a character is whitespace.
+#[inline]
 fn is_whitespace(c: char) -> bool {
     // These are technically control characters but we count them as whitespace
-    if c == '\t' || c == '\n' || c == '\r' {
-        true
-    } else {
-        c.is_whitespace()
-    }
+    c == '\t' || c == '\n' || c == '\r' || c.is_whitespace()
 }
 
-/// Checks whether a character is a control character
+/// Checks whether a character is a control character.
+#[inline]
 fn is_control(c: char) -> bool {
     // These are technically control characters but we count them as whitespace
-    if c == '\t' || c == '\n' || c == '\r' {
-        false
-    } else {
-        // The definition of `is_control` here is quite large and contains also
-        // Cc, Cf, Cn or Co
-        // cf. https://unicode.org/reports/tr44/ (Table 12)
-        c.is_other()
-    }
+    // The definition of `is_control` here is quite large and contains also
+    // Cc, Cf, Cn or Co; cf. https://unicode.org/reports/tr44/ (Table 12)
+    c != '\t' && c != '\n' && c != '\r' && c.is_other()
 }
 
 /// Checks whether a character is chinese
