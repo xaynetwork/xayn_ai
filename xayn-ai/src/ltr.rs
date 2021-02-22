@@ -7,8 +7,8 @@ use crate::{
     reranker_systems::LtrSystem,
 };
 
-/// LTR with constant value 0.5.
-struct ConstLtr;
+/// LTR with constant value.
+struct ConstLtr(f32);
 
 impl LtrSystem for ConstLtr {
     fn compute_ltr(
@@ -16,7 +16,7 @@ impl LtrSystem for ConstLtr {
         _history: &[DocumentHistory],
         documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
-        let context_value = 0.5;
+        let context_value = self.0;
         Ok(documents
             .into_iter()
             .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { context_value }))
@@ -24,7 +24,6 @@ impl LtrSystem for ConstLtr {
     }
 }
 
-#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -35,6 +34,7 @@ mod tests {
         EmbeddingPoint,
     };
 
+    #[allow(clippy::float_cmp)]
     #[test]
     fn test_const_value() {
         let id = DocumentId("id1".to_string());
@@ -63,11 +63,12 @@ mod tests {
             coi,
         };
 
-        let res = ConstLtr.compute_ltr(&[], vec![doc1, doc2]);
+        let half = 0.5;
+        let res = ConstLtr(half).compute_ltr(&[], vec![doc1, doc2]);
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);
-        assert_eq!(ltr_docs[0].ltr.context_value, 0.5);
-        assert_eq!(ltr_docs[1].ltr.context_value, 0.5);
+        assert_eq!(ltr_docs[0].ltr.context_value, half);
+        assert_eq!(ltr_docs[1].ltr.context_value, half);
     }
 }
