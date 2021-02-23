@@ -1,6 +1,7 @@
 mod data;
 mod database;
 mod error;
+mod ltr;
 mod reranker;
 mod reranker_systems;
 

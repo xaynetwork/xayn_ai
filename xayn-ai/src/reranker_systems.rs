@@ -53,7 +53,7 @@ pub trait LtrSystem {
     fn compute_ltr(
         &self,
         history: &[DocumentHistory],
-        documents: &[DocumentDataWithCoi],
+        documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error>;
 }
 
