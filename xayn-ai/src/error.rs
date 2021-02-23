@@ -1,2 +1,2 @@
-#[cfg_attr(test, derive(Debug))]
-pub struct Error {}
+// temporary dummy error
+pub type Error = anyhow::Error;

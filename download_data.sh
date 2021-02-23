@@ -11,7 +11,6 @@ DATA_DIR="$SELF_DIR_PATH/data/"
 
 download_rubert()
 {
-
   VERSION=$1
   ARCHIVE="rubert_${VERSION}.tgz"
   URL="http://s3-de-central.profitbricks.com/xayn-yellow-bert/rubert/$ARCHIVE"

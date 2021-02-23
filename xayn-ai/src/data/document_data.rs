@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use crate::data::{document::DocumentId, CoiId, EmbeddingPoint};
+use crate::data::{document::DocumentId, CoiId};
+use rubert::Embeddings;
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
@@ -12,9 +13,10 @@ pub struct DocumentContentComponent {
     pub snippet: String,
 }
 
+// TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingComponent {
-    pub embedding: EmbeddingPoint,
+    pub embedding: Embeddings,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -163,7 +165,7 @@ mod tests {
         assert_eq!(document_data.document_content, document_content);
 
         let embedding = EmbeddingComponent {
-            embedding: EmbeddingPoint(vec![1., 2., 3., 4.]),
+            embedding: vec![1., 2., 3., 4.].into(),
         };
         let document_data =
             DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
