@@ -233,9 +233,12 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ needs.registry-cache.outputs.cache-date }}-
 
+      # TODO: cache this as well to avoid frequent downloading
+      - name: Download data
+        run: sh download_data.sh
+
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
           args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70'
-
