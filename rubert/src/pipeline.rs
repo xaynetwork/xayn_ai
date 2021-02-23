@@ -90,7 +90,8 @@ mod tests {
 
     #[test]
     fn test_pipeline() {
-        let rubert = Builder::new(VOCAB, MODEL)
+        let rubert = Builder::from_files(VOCAB, MODEL)
+            .unwrap()
             .with_strip_accents(true)
             .with_lowercase(true)
             .with_batch_size(10)

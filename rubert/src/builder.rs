@@ -1,4 +1,8 @@
-use std::path::Path;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader, Error as IoError, Read},
+    path::Path,
+};
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -28,16 +32,43 @@ pub enum BuilderError {
     BatchSize,
     /// The token size must be greater than two to allow for special tokens.
     TokenSize,
+    /// Failed to load a data file: {0}.
+    DataFile(#[from] IoError),
     /// Failed to build the tokenizer: {0}.
     Tokenizer(#[from] TokenizerError),
     /// Failed to build the model: {0}.
     Model(#[from] ModelError),
 }
 
+impl Builder<BufReader<File>, BufReader<File>> {
+    /// Creates a [`RuBert`] pipeline builder from files.
+    ///
+    /// The default settings are:
+    /// - Strips accents and makes lower case.
+    /// - Supports batch size of 10 and token size of 128.
+    /// - Applies no additional pooling.
+    pub fn from_files(
+        vocab: impl AsRef<Path>,
+        model: impl AsRef<Path>,
+    ) -> Result<Self, BuilderError> {
+        let vocab = BufReader::new(File::open(vocab)?);
+        let model = BufReader::new(File::open(model)?);
+        Ok(Self {
+            vocab,
+            model,
+            strip_accents: true,
+            lowercase: true,
+            batch_size: 10,
+            token_size: 128,
+            pooler: Pooler::None,
+        })
+    }
+}
+
 impl<V, M> Builder<V, M>
 where
-    V: AsRef<Path>,
-    M: AsRef<Path>,
+    V: BufRead,
+    M: Read,
 {
     /// Creates a [`RuBert`] pipeline builder.
     ///

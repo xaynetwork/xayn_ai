@@ -8,7 +8,7 @@
 //! use rubert::{Builder, Pooler};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let rubert = Builder::new("vocab.txt", "model.onnx")
+//!     let rubert = Builder::from_files("vocab.txt", "model.onnx")?
 //!         .with_strip_accents(true)
 //!         .with_lowercase(true)
 //!         .with_batch_size(10)?

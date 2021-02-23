@@ -1,8 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{BufRead, BufReader, Error as IoError},
-    path::Path,
+    io::{BufRead, Error as IoError},
 };
 
 use derive_more::{Deref, From};
@@ -26,7 +24,10 @@ use tokenizers::{
     },
 };
 
-use crate::{ndarray::Array1, utils::ArcArray2};
+use crate::{
+    ndarray::{Array1, ShapeError},
+    utils::ArcArray2,
+};
 
 /// A [`RuBert`] tokenizer.
 ///
@@ -44,13 +45,15 @@ pub struct Tokenizer {
 #[derive(Debug, Display, Error)]
 pub enum TokenizerError {
     /// Failed to read the vocabulary: {0}.
-    Vocabulary(#[from] IoError),
+    Read(#[from] IoError),
     /// The vocabulary is missing the `[SEP]` token.
     SepToken,
     /// The vocabulary is missing the `[CLS]` token.
     ClsToken,
     /// Failed to encode sentences: {0}.
     Encoding(#[from] BertTokenizerError),
+    /// Invalid encodings shapes: {0}.
+    Shape(#[from] ShapeError),
 }
 
 /// The input ids of the encoded sentences.
@@ -84,12 +87,13 @@ impl Tokenizer {
     ///
     /// [`RuBert`]: crate::pipeline::RuBert
     pub fn new(
-        vocab: impl AsRef<Path>,
+        // `BufRead` instead of `AsRef<Path>` is needed for wasm
+        vocab: impl BufRead,
         strip_accents: bool,
         lowercase: bool,
         token_size: usize,
     ) -> Result<Self, TokenizerError> {
-        let vocab: HashMap<String, u32> = BufReader::new(File::open(vocab)?)
+        let vocab: HashMap<String, u32> = vocab
             .lines()
             .enumerate()
             .map(|(index, line)| line.map(|line| (line, index as u32)))
@@ -100,8 +104,9 @@ impl Tokenizer {
             .unk_token("[UNK]".into())
             .continuing_subword_prefix("##".into())
             .max_input_chars_per_word(100)
-            .build()
-            .expect("infallible: the vocab is a validated hashmap");
+            // this is an `IoError` internally, we can't be more specific here due to how tokenizers
+            // handles its errors internally, this will change once we have extracted the tokenizer
+            .build()?;
         let sep_token = "[SEP]";
         let sep_id = model
             .token_to_id(sep_token)
@@ -163,8 +168,7 @@ impl Tokenizer {
             .iter()
             .copied()
             .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))
-            .expect("infallibe: `Encoding` guarantees correct shape")
+            .into_shape((batch_size, self.token_size))?
             .into_shared()
             .into();
         let attention_masks = encodings
@@ -172,8 +176,7 @@ impl Tokenizer {
             .iter()
             .copied()
             .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))
-            .expect("infallibe: `Encoding` guarantees correct shape")
+            .into_shape((batch_size, self.token_size))?
             .into_shared()
             .into();
         let token_type_ids = encodings
@@ -181,8 +184,7 @@ impl Tokenizer {
             .iter()
             .copied()
             .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))
-            .expect("infallibe: `Encoding` guarantees correct shape")
+            .into_shape((batch_size, self.token_size))?
             .into_shared()
             .into();
 
@@ -196,13 +198,16 @@ impl Tokenizer {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, io::BufReader};
+
     use super::*;
     use crate::{ndarray::ArrayView, VOCAB};
 
     fn tokenizer(token_size: usize) -> Tokenizer {
+        let vocab = BufReader::new(File::open(VOCAB).unwrap());
         let strip_accents = true;
         let lowercase = true;
-        Tokenizer::new(VOCAB, strip_accents, lowercase, token_size).unwrap()
+        Tokenizer::new(vocab, strip_accents, lowercase, token_size).unwrap()
     }
 
     #[test]

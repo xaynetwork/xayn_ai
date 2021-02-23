@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{BufReader, Error as IoError},
-    path::Path,
-};
+use std::io::{Error as IoError, Read};
 
 use derive_more::{Deref, From};
 use displaydoc::Display;
@@ -41,7 +37,7 @@ pub struct Model {
 #[derive(Debug, Display, Error)]
 pub enum ModelError {
     /// Failed to read the onnx model: {0}.
-    Onnx(#[from] IoError),
+    Read(#[from] IoError),
     /// Failed to run a tract operation: {0}.
     Tract(#[from] TractError),
     /// Invalid model shapes.
@@ -62,11 +58,11 @@ impl Model {
     ///
     /// [`RuBert`]: crate::pipeline::RuBert
     pub fn new(
-        model: impl AsRef<Path>,
+        // `Read` instead of `AsRef<Path>` is needed for wasm
+        mut model: impl Read,
         batch_size: usize,
         token_size: usize,
     ) -> Result<Self, ModelError> {
-        let mut model = BufReader::new(File::open(model)?);
         let input_shape = Dim([batch_size, token_size]);
         let input_fact = InferenceFact::dt_shape(i64::datum_type(), input_shape.slice());
 
@@ -100,14 +96,12 @@ impl Model {
     /// The inputs will be padded or truncated to the shape `(batch_size, token_size)`. The row
     /// dimension (0) of the output will be the minimum between `batch_size` and the row dimension
     /// of the inputs.
-    pub fn predict(
-        &self,
-        Encodings {
+    pub fn predict(&self, encodings: Encodings) -> Result<Predictions, ModelError> {
+        let Encodings {
             input_ids,
             attention_masks,
             token_type_ids,
-        }: Encodings,
-    ) -> Result<Predictions, ModelError> {
+        } = encodings;
         // encodings shapes are guaranteed to match when coming from the rubert tokenizer
         debug_assert_eq!(input_ids.shape(), attention_masks.shape());
         debug_assert_eq!(input_ids.shape(), token_type_ids.shape());
