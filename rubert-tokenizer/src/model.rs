@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::anyhow;
 
-use crate::{pipeline::Token, Error};
+use crate::{normalizer::Offsets, pipeline::Token, Error};
 
 type Vocab = HashMap<String, u32>;
 type VocabR = HashMap<u32, String>;
@@ -137,7 +137,7 @@ impl WordPiece {
                     .vocab
                     .get(&self.unk_token)
                     .ok_or(anyhow!("MissingUnkToken"))?,
-                offsets: (0, sequence.len()),
+                offsets: Offsets(0, sequence.len()),
             }]);
         }
 
@@ -159,7 +159,7 @@ impl WordPiece {
                     cur_str = Some(Token {
                         id: self.vocab[substr.as_ref()],
                         value: substr.to_string(),
-                        offsets: (start, end),
+                        offsets: Offsets(start, end),
                     });
                     break;
                 }
@@ -182,7 +182,7 @@ impl WordPiece {
                     .vocab
                     .get(&self.unk_token)
                     .ok_or(anyhow!("MissingUnkToken"))?,
-                offsets: (0, sequence.len()),
+                offsets: Offsets(0, sequence.len()),
             }])
         } else {
             Ok(sub_tokens)

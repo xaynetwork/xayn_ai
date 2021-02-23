@@ -5,10 +5,7 @@ use unicode_categories::UnicodeCategories;
 
 use crate::{
     encoding::Encoding,
-    normalizer::{
-        normalized_string::{NormalizedString, OffsetReferential, Range, SplitDelimiterBehavior},
-        pattern::Offsets,
-    },
+    normalizer::{NormalizedString, OffsetReferential, Offsets, Range, SplitDelimiterBehavior},
     pipeline::Token,
     Error,
 };
@@ -38,7 +35,6 @@ pub enum OffsetType {
 /// This Split contains the underlying `NormalizedString` as well as its offsets
 /// in the original string. These offsets are in the `original` referential.
 /// It also contains any `Token` associated to the current split
-#[derive(Debug, Clone, PartialEq)]
 pub struct Split {
     /// The underlying `NormalizedString`. Each SubString is represented by a `NormalizedString`
     /// and in the end we might be carrying a lot of SubString representing various parts of the
@@ -72,7 +68,6 @@ impl From<(NormalizedString, Option<Vec<Token>>)> for Split {
 /// Once everything has been normalized and tokenized, the `PreTokenizedString` is able
 /// to build an `Encoding` with all the relevant offsets and word ids, relative to the
 /// original string.
-#[derive(Debug, Clone, PartialEq)]
 pub struct PreTokenizedString {
     original: String,
     splits: Vec<Split>,
@@ -110,7 +105,7 @@ impl PreTokenizedString {
                     .into_iter()
                     .filter_map(|split| {
                         let split: Split = split.into();
-                        if split.normalized.is_empty() {
+                        if split.normalized.normalized.is_empty() {
                             None
                         } else {
                             Some(split)
@@ -186,7 +181,7 @@ impl PreTokenizedString {
                         let mut offsets = normalized
                             .convert_offsets(Range::Normalized(token.offsets.0..token.offsets.1))
                             .map_or(token.offsets, |range| {
-                                (offsets.0 + range.start, offsets.0 + range.end)
+                                Offsets(offsets.0 + range.start, offsets.0 + range.end)
                             });
 
                         // Convert to char offsets if relevant
@@ -231,9 +226,9 @@ impl PreTokenizedString {
                 let mut offsets = match offset_ref {
                     OffsetReferential::Original => split.normalized.offsets_original(),
                     OffsetReferential::Normalized => {
-                        let len = split.normalized.len();
+                        let len = split.normalized.normalized.len();
                         offset += len;
-                        (offset - len, offset)
+                        Offsets(offset - len, offset)
                     }
                 };
 
@@ -242,7 +237,7 @@ impl PreTokenizedString {
                     offsets = converter.convert(offsets).unwrap_or(offsets);
                 }
 
-                (split.normalized.get(), offsets, &split.tokens)
+                (split.normalized.normalized.as_str(), offsets, &split.tokens)
             })
             .collect()
     }
@@ -251,7 +246,7 @@ impl PreTokenizedString {
 impl From<NormalizedString> for PreTokenizedString {
     fn from(s: NormalizedString) -> Self {
         Self {
-            original: s.get_original().to_owned(),
+            original: s.original.clone(),
             splits: vec![Split {
                 normalized: s,
                 tokens: None,
@@ -299,12 +294,12 @@ impl BytesToCharOffsetConverter {
 
     pub fn convert(&self, offsets: Offsets) -> Option<Offsets> {
         match (self.map.get(&offsets.0), self.map.get(&offsets.1)) {
-            (Some(start), Some(end)) => Some((*start, *end)),
+            (Some(start), Some(end)) => Some(Offsets(*start, *end)),
             // If we reached the end, `end` is not in the map
             (Some(start), None) => {
                 // But the one just before should be
                 let last = self.map.get(&(offsets.1 - 1)).copied().unwrap_or(start + 1);
-                Some((*start, last + 1))
+                Some(Offsets(*start, last + 1))
             }
             _ => None,
         }
@@ -327,24 +322,25 @@ mod tests {
                 .map(|(s, o, _)| (s, o))
                 .collect::<Vec<_>>(),
             vec![
-                ("Hey", (0, 3)),
-                ("friend", (4, 10)),
-                ("!", (10, 11)),
-                ("How", (16, 19)),
-                ("are", (20, 23)),
-                ("you", (24, 27)),
-                ("?", (27, 28)),
-                ("!", (28, 29)),
-                ("?", (29, 30)),
-            ]
+                ("Hey", Offsets(0, 3)),
+                ("friend", Offsets(4, 10)),
+                ("!", Offsets(10, 11)),
+                ("How", Offsets(16, 19)),
+                ("are", Offsets(20, 23)),
+                ("you", Offsets(24, 27)),
+                ("?", Offsets(27, 28)),
+                ("!", Offsets(28, 29)),
+                ("?", Offsets(29, 30)),
+            ],
         );
     }
 
     #[test]
     fn chinese_chars() {
-        let mut n = NormalizedString::from("野口里佳 Noguchi Rika");
-        n.transform(
-            n.get().to_owned().chars().flat_map(|c| {
+        let n = NormalizedString::from("野口里佳 Noguchi Rika");
+        let string = n.normalized.clone();
+        let n = n.transform(
+            string.chars().flat_map(|c| {
                 if (c as usize) > 0x4E00 {
                     vec![(' ', 0), (c, 1), (' ', 1)]
                 } else {
@@ -363,13 +359,13 @@ mod tests {
                 .map(|(s, o, _)| (s, o))
                 .collect::<Vec<_>>(),
             vec![
-                ("野", (0, 3)),
-                ("口", (3, 6)),
-                ("里", (6, 9)),
-                ("佳", (9, 12)),
-                ("Noguchi", (13, 20)),
-                ("Rika", (21, 25))
-            ]
+                ("野", Offsets(0, 3)),
+                ("口", Offsets(3, 6)),
+                ("里", Offsets(6, 9)),
+                ("佳", Offsets(9, 12)),
+                ("Noguchi", Offsets(13, 20)),
+                ("Rika", Offsets(21, 25)),
+            ],
         );
     }
 }

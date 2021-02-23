@@ -7,7 +7,7 @@ use crate::{
     decoder::WordPieceDecoder,
     encoding::Encoding,
     model::WordPiece,
-    normalizer::{normalized_string::NormalizedString, BertNormalizer},
+    normalizer::{BertNormalizer, NormalizedString, Offsets},
     padding::Padding,
     pre_tokenizer::{BertPreTokenizer, OffsetType, PreTokenizedString},
     processor::BertProcessing,
@@ -15,14 +15,13 @@ use crate::{
     Error,
 };
 
-#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub id: u32,
     pub value: String,
-    pub offsets: (usize, usize),
+    pub offsets: Offsets,
 }
 impl Token {
-    pub fn new(id: u32, value: String, offsets: (usize, usize)) -> Self {
+    pub fn new(id: u32, value: String, offsets: Offsets) -> Self {
         Token { id, value, offsets }
     }
 }
@@ -520,22 +519,21 @@ impl TokenizerImpl {
         offsets_type: OffsetType,
     ) -> Result<Encoding, Error> {
         let mut pretokenized: PreTokenizedString = pretokenized.into();
-        pretokenized.tokenize(|normalized| self.model.tokenize(normalized.get()))?;
+        pretokenized.tokenize(|normalized| self.model.tokenize(normalized.normalized.as_str()))?;
         pretokenized.into_encoding(word_idx, type_id, offsets_type)
     }
 
     /// Normalization logic, go through all normalizers
-    pub fn do_normalize<V: Into<NormalizedString>>(
+    pub fn do_normalize(
         &self,
-        normalized: V,
+        normalized: impl Into<NormalizedString>,
     ) -> Result<NormalizedString, Error> {
-        let mut normalized: NormalizedString = normalized.into();
-
+        let normalized: NormalizedString = normalized.into();
         if let Some(ref normalizer) = self.normalizer {
-            normalizer.normalize(&mut normalized)?;
+            normalizer.normalize(normalized)
+        } else {
+            Ok(normalized)
         }
-
-        Ok(normalized)
     }
 
     /// Register the given tokens as special tokens. This is especially useful for removing

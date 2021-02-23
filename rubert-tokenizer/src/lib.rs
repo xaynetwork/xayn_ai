@@ -13,4 +13,4 @@ mod truncation;
 
 type Error = anyhow::Error;
 
-pub use crate::{padding::Padding, truncation::Truncation};
+pub use crate::{normalizer::BertNormalizer, padding::Padding, truncation::Truncation};

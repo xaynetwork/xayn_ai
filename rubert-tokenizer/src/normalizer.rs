@@ -1,6 +1,13 @@
-use unicode_categories::UnicodeCategories;
+use std::{
+    cmp::Ordering,
+    iter,
+    ops::{Bound, RangeBounds},
+};
 
-use self::normalized_string::NormalizedString;
+use regex::Regex;
+use unicode_categories::UnicodeCategories;
+use unicode_normalization_alignments::UnicodeNormalization;
+
 use crate::Error;
 
 /// Checks whether a character is whitespace.
@@ -38,7 +45,7 @@ fn is_chinese_char(c: char) -> bool {
         0x2B740..=0x2B81F |
         0x2B920..=0x2CEAF |
         0xF900..=0xFAFF |
-        0x2F800..=0x2FA1F
+        0x2F800..=0x2FA1F,
     )
 }
 
@@ -46,13 +53,13 @@ pub struct BertNormalizer {
     /// Whether to do the bert basic cleaning:
     ///   1. Remove any control characters
     ///   2. Replace all sorts of whitespace by the classic one ` `
-    pub clean_text: bool,
+    pub(crate) clean_text: bool,
     /// Whether to put spaces around chinese characters so they get split
-    pub handle_chinese_chars: bool,
+    pub(crate) handle_chinese_chars: bool,
     /// Whether to strip accents
-    pub strip_accents: Option<bool>,
+    pub(crate) strip_accents: bool,
     /// Whether to lowercase the input
-    pub lowercase: bool,
+    pub(crate) lowercase: bool,
 }
 
 impl Default for BertNormalizer {
@@ -60,7 +67,7 @@ impl Default for BertNormalizer {
         Self {
             clean_text: true,
             handle_chinese_chars: true,
-            strip_accents: None,
+            strip_accents: true,
             lowercase: true,
         }
     }
@@ -70,7 +77,7 @@ impl BertNormalizer {
     pub fn new(
         clean_text: bool,
         handle_chinese_chars: bool,
-        strip_accents: Option<bool>,
+        strip_accents: bool,
         lowercase: bool,
     ) -> Self {
         BertNormalizer {
@@ -81,13 +88,13 @@ impl BertNormalizer {
         }
     }
 
-    pub fn do_clean_text(&self, normalized: &mut NormalizedString) {
+    fn clean_text(&self, normalized: NormalizedString) -> NormalizedString {
         normalized
             .filter(|c| !(c as usize == 0 || c as usize == 0xfffd || is_control(c)))
-            .map(|c| if is_whitespace(c) { ' ' } else { c });
+            .map(|c| if is_whitespace(c) { ' ' } else { c })
     }
 
-    pub fn do_handle_chinese_chars(&self, normalized: &mut NormalizedString) {
+    fn handle_chinese_chars(&self, normalized: NormalizedString) -> NormalizedString {
         let mut new_chars: Vec<(char, isize)> = vec![];
         normalized.for_each(|c| {
             if is_chinese_char(c) {
@@ -96,591 +103,499 @@ impl BertNormalizer {
                 new_chars.push((c, 0));
             }
         });
-        normalized.transform(new_chars.into_iter(), 0);
+        normalized.transform(new_chars, 0)
     }
 
-    pub fn do_strip_accents(&self, normalized: &mut NormalizedString) {
-        normalized.nfd().filter(|c| !c.is_mark_nonspacing());
+    fn strip_accents(&self, normalized: NormalizedString) -> NormalizedString {
+        normalized.nfd().filter(|c| !c.is_mark_nonspacing())
     }
 
-    pub fn do_lowercase(&self, normalized: &mut NormalizedString) {
-        normalized.lowercase();
+    fn lowercase(&self, normalized: NormalizedString) -> NormalizedString {
+        normalized.lowercase()
     }
 
-    pub fn normalize(&self, normalized: &mut NormalizedString) -> Result<(), Error> {
+    pub fn normalize(&self, mut normalized: NormalizedString) -> Result<NormalizedString, Error> {
         if self.clean_text {
-            self.do_clean_text(normalized);
+            normalized = self.clean_text(normalized);
         }
         if self.handle_chinese_chars {
-            self.do_handle_chinese_chars(normalized);
+            normalized = self.handle_chinese_chars(normalized);
         }
-        let strip_accents = self.strip_accents.unwrap_or(self.lowercase);
-        if strip_accents {
-            self.do_strip_accents(normalized);
+        if self.strip_accents {
+            normalized = self.strip_accents(normalized);
         }
         if self.lowercase {
-            self.do_lowercase(normalized);
+            normalized = self.lowercase(normalized);
         }
 
-        Ok(())
+        Ok(normalized)
     }
 }
 
-pub mod normalized_string {
-    use std::ops::{Bound, RangeBounds};
+/// The possible offsets referential.
+pub enum OffsetReferential {
+    Original,
+    Normalized,
+}
 
-    use unicode_normalization_alignments::UnicodeNormalization;
+/// Represents a Range usable by the NormalizedString to index its content.
+/// A Range can use indices relative to either the `Original` or the `Normalized` string
+#[derive(Clone)]
+pub enum Range<T> {
+    Original(T),
+    Normalized(T),
+}
 
-    use crate::{
-        normalizer::pattern::{Offsets, Pattern},
-        Error,
-    };
+impl<T> Range<T>
+where
+    T: RangeBounds<usize> + Clone,
+{
+    fn inner(&self) -> &T {
+        match self {
+            Range::Original(range) => range,
+            Range::Normalized(range) => range,
+        }
+    }
 
-    /// Add or Substract a signed isize on a usize. Makes sure of avoiding
-    /// any substraction overflow, flooring at 0.
-    macro_rules! apply_signed {
-        ($origin: expr, $signed: expr) => {
-            if $signed.is_positive() {
-                $origin += $signed as usize;
-            } else {
-                let (result, overflow) = $origin.overflowing_sub(-($signed) as usize);
-                $origin = if overflow { 0 } else { result };
-            }
+    /// Return the length of the current Range if not Unbounded
+    fn len(&self) -> Option<usize> {
+        let range = self.inner();
+        let end = match range.end_bound() {
+            Bound::Included(idx) => *idx + 1,
+            Bound::Excluded(idx) => *idx,
+            Bound::Unbounded => return None,
         };
+        match range.start_bound() {
+            Bound::Included(idx) => Some(end - (*idx + 1)),
+            Bound::Excluded(idx) => Some(end - *idx),
+            Bound::Unbounded => Some(end),
+        }
     }
 
-    /// The possible offsets referential
-    #[derive(Debug, Clone, Copy, PartialEq)]
-    pub enum OffsetReferential {
-        Original,
-        Normalized,
+    /// Converts the current Range to a `std::ops::Range<usize>`. This requires the `max_len`
+    /// of the represented string (in chars, not bytes) in order to cover the case where the
+    /// original provided range was unbounded
+    fn into_full_range(self, max_len: usize) -> std::ops::Range<usize> {
+        let range = self.inner();
+        let start = match range.start_bound() {
+            Bound::Included(idx) => *idx,
+            Bound::Excluded(idx) => *idx + 1,
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(idx) => *idx + 1,
+            Bound::Excluded(idx) => *idx,
+            Bound::Unbounded => max_len,
+        };
+
+        start..end
+    }
+}
+
+/// Defines the expected behavior for the delimiter of a Split Pattern.
+///
+/// # Examples
+/// When splitting on `'-'` with input `the-final--countdown`:
+/// - Removed: `[ "the", "final", "countdown" ]`
+/// - Isolated: `[ "the", "-", "final", "-", "-", "countdown" ]`
+/// - MergedWithPrevious: `[ "the-", "final-", "-", "countdown" ]`
+/// - MergedWithNext: `[ "the", "-final", "-", "-countdown" ]`
+/// - Contiguous: `[ "the", "-", "final", "--", "countdown" ]`
+pub enum SplitDelimiterBehavior {
+    Removed,
+    Isolated,
+    MergedWithPrevious,
+    MergedWithNext,
+    Contiguous,
+}
+
+/// A `NormalizedString` takes care of processing an "original" string to modify
+/// it and obtain a "normalized" string. It keeps both version of the string,
+/// alignments information between both and provides an interface to retrieve
+/// ranges of each string, using offsets from any of them.
+///
+/// It is possible to retrieve a part of the original string, by indexing it with
+/// offsets from the normalized one, and the other way around too. It is also
+/// possible to convert offsets from one referential to the other one easily.
+#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
+pub struct NormalizedString {
+    /// The original version of the string, before any modification
+    pub(crate) original: String,
+    /// The normalized version of the string, after all modifications
+    pub(crate) normalized: String,
+    /// Mapping from normalized string to original one: (start, end) for each
+    /// byte of the normalized string
+    pub(crate) alignments: Vec<Offsets>,
+    /// If this NormalizedString is a slice of a bigger one, we keep the track
+    /// of the missing part, so that we can still give offsets from this original
+    /// string.
+    pub(crate) original_shift: usize,
+}
+
+impl NormalizedString {
+    /// Returns the original offsets.
+    pub(crate) fn offsets_original(&self) -> Offsets {
+        Offsets(
+            self.original_shift,
+            self.original_shift + self.original.len(),
+        )
     }
 
-    /// Represents a Range usable by the NormalizedString to index its content.
-    /// A Range can use indices relative to either the `Original` or the `Normalized` string
-    #[derive(Debug, Clone, PartialEq)]
-    pub enum Range<T: RangeBounds<usize> + Clone> {
-        Original(T),
-        Normalized(T),
-    }
-
-    #[allow(clippy::len_without_is_empty)]
-    impl<T> Range<T>
+    /// Convert the given offsets range from one referential to the other one:
+    /// `Original => Normalized` or `Normalized => Original`
+    ///
+    /// Returns `None` when targeting something that is outside range
+    pub(crate) fn convert_offsets<T>(&self, range: Range<T>) -> Option<std::ops::Range<usize>>
     where
         T: RangeBounds<usize> + Clone,
     {
-        /// Unwrap the underlying range
-        pub fn unwrap(self) -> T {
-            match self {
-                Range::Original(r) => r,
-                Range::Normalized(r) => r,
-            }
+        let len_original = self.original.len();
+        let len_normalized = self.normalized.len();
+
+        let (target, original) = match range {
+            Range::Original(_) => (range.into_full_range(len_original), true),
+            Range::Normalized(_) => (range.into_full_range(len_normalized), false),
+        };
+
+        // If we target an empty range, let's return the same
+        if target.start == target.end {
+            return Some(target);
+        }
+        // If the target goes reverse, return None
+        if target.start > target.end {
+            return None;
         }
 
-        /// Return the length of the current Range if not Unbounded
-        pub fn len(&self) -> Option<usize> {
-            let range = self.clone().unwrap();
-
-            let end = match range.end_bound() {
-                Bound::Unbounded => None,
-                Bound::Included(i) => Some(*i + 1),
-                Bound::Excluded(i) => Some(*i),
-            }?;
-
-            match range.start_bound() {
-                Bound::Unbounded => Some(end),
-                Bound::Included(i) => Some(end - (*i + 1)),
-                Bound::Excluded(i) => Some(end - *i),
-            }
+        // If we target 0..0 on an empty string, we want to expand to the entire equivalent
+        if original && self.original.is_empty() && target == (0..0) {
+            return Some(0..len_normalized);
+        }
+        if !original && self.normalized.is_empty() && target == (0..0) {
+            return Some(0..len_original);
         }
 
-        /// Converts the current Range to a `std::ops::Range<usize>`. This requires the `max_len`
-        /// of the represented string (in chars, not bytes) in order to cover the case where the
-        /// original provided range was unbounded
-        pub fn into_full_range(self, max_len: usize) -> std::ops::Range<usize> {
-            let range = self.unwrap();
+        if original {
+            let (mut start, mut end) = (None, None);
+            self.alignments
+                .iter()
+                .enumerate()
+                .take_while(|(_, alignment)| target.end >= alignment.1)
+                .for_each(|(i, alignment)| {
+                    if start.is_none() && target.start <= alignment.0 {
+                        // For now, don't update if width == 0
+                        if alignment.0 != alignment.1 {
+                            start = Some(i);
+                        }
+                    }
+                    if target.end >= alignment.1 {
+                        end = Some(i + 1);
+                    }
+                });
 
-            let start = match range.start_bound() {
-                Bound::Unbounded => 0,
-                Bound::Included(i) => *i,
-                Bound::Excluded(i) => *i + 1,
-            };
-            let end = match range.end_bound() {
-                Bound::Unbounded => max_len,
-                Bound::Included(i) => *i + 1,
-                Bound::Excluded(i) => *i,
-            };
-
-            start..end
+            match (start, end) {
+                // Targetting inexistant beginning
+                (Some(s), None) => Some(s..s),
+                // Targetting inexistant end
+                (None, Some(e)) => Some(e..e),
+                // Found the range
+                (Some(s), Some(e)) => Some(s..e),
+                _ => None,
+            }
+        } else {
+            self.alignments.get(target).map(expand_alignments).flatten()
         }
     }
 
-    /// Defines the expected behavior for the delimiter of a Split Pattern
-    /// When splitting on `'-'` for example, with input `the-final--countdown`:
-    ///  - Removed => `[ "the", "final", "countdown" ]`
-    ///  - Isolated => `[ "the", "-", "final", "-", "-", "countdown" ]`
-    ///  - MergedWithPrevious => `[ "the-", "final-", "-", "countdown" ]`
-    ///  - MergedWithNext => `[ "the", "-final", "-", "-countdown" ]`
-    ///  - Contiguous => `[ "the", "-", "final", "--", "countdown" ]`
-    #[derive(Debug, Clone, Copy, PartialEq)]
-    pub enum SplitDelimiterBehavior {
-        Removed,
-        Isolated,
-        MergedWithPrevious,
-        MergedWithNext,
-        Contiguous,
-    }
-
-    /// A `NormalizedString` takes care of processing an "original" string to modify
-    /// it and obtain a "normalized" string. It keeps both version of the string,
-    /// alignments information between both and provides an interface to retrieve
-    /// ranges of each string, using offsets from any of them.
-    ///
-    /// It is possible to retrieve a part of the original string, by indexing it with
-    /// offsets from the normalized one, and the other way around too. It is also
-    /// possible to convert offsets from one referential to the other one easily.
-    #[derive(Default, Debug, Clone, PartialEq)]
-    pub struct NormalizedString {
-        /// The original version of the string, before any modification
-        original: String,
-        /// The normalized version of the string, after all modifications
-        normalized: String,
-        /// Mapping from normalized string to original one: (start, end) for each
-        /// byte of the normalized string
-        alignments: Vec<(usize, usize)>,
-        /// If this NormalizedString is a slice of a bigger one, we keep the track
-        /// of the missing part, so that we can still give offsets from this original
-        /// string.
-        original_shift: usize,
-    }
-
-    impl NormalizedString {
-        #[cfg(test)]
-        pub(crate) fn new(
-            original: String,
-            normalized: String,
-            alignments: Vec<(usize, usize)>,
-            original_shift: usize,
-        ) -> Self {
-            Self {
-                original,
-                normalized,
-                alignments,
-                original_shift,
-            }
-        }
-        /// Return the normalized string
-        pub fn get(&self) -> &str {
-            &self.normalized
-        }
-
-        /// Return the original string
-        pub fn get_original(&self) -> &str {
-            &self.original
-        }
-
-        /// Return the original offsets
-        pub fn offsets_original(&self) -> Offsets {
-            (
-                self.original_shift,
-                self.original_shift + self.len_original(),
-            )
-        }
-
-        /// Convert the given offsets range from one referential to the other one:
-        /// `Original => Normalized` or `Normalized => Original`
-        ///
-        /// Returns `None` when targeting something that is outside range
-        pub fn convert_offsets<T>(&self, range: Range<T>) -> Option<std::ops::Range<usize>>
-        where
-            T: RangeBounds<usize> + Clone,
-        {
-            let len_original = self.len_original();
-            let len_normalized = self.len();
-
-            let (target, original) = match range {
-                Range::Original(_) => (range.into_full_range(len_original), true),
-                Range::Normalized(_) => (range.into_full_range(len_normalized), false),
-            };
-
-            // If we target an empty range, let's return the same
-            if target.start == target.end {
-                return Some(target);
-            }
-            // If the target goes reverse, return None
-            if target.start > target.end {
-                return None;
-            }
-
-            // If we target 0..0 on an empty string, we want to expand to the entire equivalent
-            if original && self.original.is_empty() && target == (0..0) {
-                return Some(0..len_normalized);
-            }
-            if !original && self.normalized.is_empty() && target == (0..0) {
-                return Some(0..len_original);
-            }
-
-            if original {
-                let (mut start, mut end) = (None, None);
-                self.alignments
-                    .iter()
-                    .enumerate()
-                    .take_while(|(_, alignment)| target.end >= alignment.1)
-                    .for_each(|(i, alignment)| {
-                        if start.is_none() && target.start <= alignment.0 {
-                            // For now, don't update if width == 0
-                            if alignment.0 != alignment.1 {
-                                start = Some(i);
-                            }
-                        }
-                        if target.end >= alignment.1 {
-                            end = Some(i + 1);
-                        }
-                    });
-
-                match (start, end) {
-                    // Targetting inexistant beginning
-                    (Some(s), None) => Some(s..s),
-                    // Targetting inexistant end
-                    (None, Some(e)) => Some(e..e),
-                    // Found the range
-                    (Some(s), Some(e)) => Some(s..e),
-                    _ => None,
-                }
-            } else {
-                self.alignments.get(target).map(expand_alignments).flatten()
-            }
-        }
-
-        /// Return a range of the normalized string
-        pub fn get_range<T>(&self, range: Range<T>) -> Option<&str>
-        where
-            T: RangeBounds<usize> + Clone,
-        {
-            match range {
-                Range::Original(_) => self.normalized.get(self.convert_offsets(range)?),
-                Range::Normalized(_) => self.normalized.get(range.into_full_range(self.len())),
-            }
-        }
-
-        /// Return a range of the original string
-        pub fn get_range_original<T>(&self, range: Range<T>) -> Option<&str>
-        where
-            T: RangeBounds<usize> + Clone,
-        {
-            match range {
-                Range::Original(_) => self
-                    .original
-                    .get(range.into_full_range(self.len_original())),
-                Range::Normalized(_) => self.original.get(self.convert_offsets(range)?),
-            }
-        }
-
-        /// Validate the given range, to make sure it is on char boundaries
-        fn validate_range<T: RangeBounds<usize> + Clone>(
-            &self,
-            range: Range<T>,
-        ) -> Option<Range<std::ops::Range<usize>>> {
-            match range {
-                Range::Original(_) => {
-                    let r = range.into_full_range(self.original.len());
-                    if !(self.original.is_char_boundary(r.start)
-                        && self.original.is_char_boundary(r.end))
-                    {
-                        None
-                    } else {
-                        Some(Range::Original(r))
-                    }
-                }
-                Range::Normalized(_) => {
-                    let r = range.into_full_range(self.normalized.len());
-                    if !(self.normalized.is_char_boundary(r.start)
-                        && self.normalized.is_char_boundary(r.end))
-                    {
-                        None
-                    } else {
-                        Some(Range::Normalized(r))
-                    }
-                }
-            }
-        }
-
-        /// Return a slice of the current NormalizedString
-        /// If the range is not on char boundaries, return None
-        pub fn slice<T>(&self, range: Range<T>) -> Option<NormalizedString>
-        where
-            T: RangeBounds<usize> + Clone,
-        {
-            let full_range = self.validate_range(range)?;
-            let (normalized_range, original_range) = match full_range {
-                Range::Original(_) => (
-                    self.convert_offsets(full_range.clone())?,
-                    full_range.clone().unwrap(),
-                ),
-                Range::Normalized(_) => (
-                    full_range.clone().unwrap(),
-                    self.convert_offsets(full_range.clone())?,
-                ),
-            };
-
-            let n_shift = original_range.start;
-
-            Some(Self {
-                original: self
-                    .get_range_original(full_range.clone())
-                    .unwrap_or_default()
-                    .into(),
-                normalized: self.get_range(full_range).unwrap_or_default().into(),
-                alignments: self
-                    .alignments
-                    .get(normalized_range)?
-                    .to_vec()
-                    .iter()
-                    .map(|(start, end)| (start - n_shift, end - n_shift))
-                    .collect(),
-                original_shift: self.original_shift + original_range.start,
-            })
-        }
-
-        /// Applies transformations to the current normalized version of the string,
-        /// while updating the alignments.
-        /// This method expect an Iterator yielding each char of the new normalized string
-        /// with a `change` isize equals to:
-        ///   - `1` if this is a new char
-        ///   - `-N` if the char is right before N removed chars
-        ///   - `0` if the char is replacing the existing one
-        /// Since it is possible that the normalized string doesn't include some of the characters at
-        /// the beginning of the original one, we need an `initial_offset` which represents the number
-        /// of removed chars at the very beginning.
-        pub fn transform_range<T, I>(&mut self, range: Range<T>, dest: I, initial_offset: usize)
-        where
-            T: RangeBounds<usize> + Clone,
-            I: IntoIterator<Item = (char, isize)>,
-        {
-            let n_range = match range {
-                Range::Normalized(_) => range.into_full_range(self.len()),
-                Range::Original(_) => match self.convert_offsets(range) {
-                    Some(range) => range,
-                    None => return,
-                },
-            };
-
-            // Retrieve the original characters that are being replaced. This let us
-            // compute the change in byte sizes along the way.
-            let mut replaced_normalized = self.normalized[n_range.clone()]
-                .chars()
-                .collect::<Vec<_>>()
-                .into_iter();
-            let initial_removed: usize = (&mut replaced_normalized)
-                .take(initial_offset)
-                .map(|c| c.len_utf8())
-                .sum();
-
-            let mut offset = (initial_removed + n_range.start) as isize;
-            let mut alignments = Vec::with_capacity(n_range.len());
-            let normalized = dest
-                .into_iter()
-                .map(|(c, changes)| {
-                    let idx = offset as usize;
-                    let align = if changes.is_positive() {
-                        if idx < 1 {
-                            (0, 0)
-                        } else {
-                            // This is a newly inserted character, so it shares the same alignment
-                            // than the previous one
-                            self.alignments[idx - 1]
-                        }
-                    } else {
-                        self.alignments[idx]
-                    };
-
-                    // If we are replacing a character, find it and compute the change in size
-                    let replaced_char = if !changes.is_positive() {
-                        replaced_normalized.next()
-                    } else {
-                        None
-                    };
-                    let replaced_char_size = replaced_char.map_or(0, |c| c.len_utf8());
-
-                    // If we are removing some characters, find them too
-                    let total_bytes_to_remove = if changes.is_negative() {
-                        (&mut replaced_normalized)
-                            .take(-changes as usize)
-                            .map(|c| c.len_utf8())
-                            .sum()
-                    } else {
-                        0
-                    };
-
-                    // Keep track of the changes for next offsets
-                    offset += replaced_char_size as isize;
-                    offset += total_bytes_to_remove as isize;
-
-                    alignments.extend((0..c.len_utf8()).map(|_| align));
-
-                    // Then we keep only the char for string reconstruction
-                    c
-                })
-                .collect::<String>();
-
-            self.alignments.splice(n_range.clone(), alignments);
-            unsafe {
-                self.normalized
-                    .as_mut_vec()
-                    .splice(n_range, normalized.bytes());
-            }
-        }
-
-        /// Applies transformations to the current normalized version of the string,
-        /// while updating the alignments.
-        /// This method expect an Iterator yielding each char of the new normalized string
-        /// with a `change` isize equals to:
-        ///   - `1` if this is a new char
-        ///   - `-N` if the char is right before N removed chars
-        ///   - `0` if the char is replacing the existing one
-        /// Since it is possible that the normalized string doesn't include some of the characters at
-        /// the beginning of the original one, we need an `initial_offset` which represents the number
-        /// of removed chars at the very beginning.
-        pub fn transform<I>(&mut self, dest: I, initial_offset: usize)
-        where
-            I: IntoIterator<Item = (char, isize)>,
-        {
-            self.transform_range(Range::Original(..), dest, initial_offset)
-        }
-
-        /// Applies NFD normalization
-        pub fn nfd(&mut self) -> &mut Self {
-            self.transform(self.get().to_owned().nfd(), 0);
-            self
-        }
-
-        /// Applies NFKD normalization
-        pub fn nfkd(&mut self) -> &mut Self {
-            self.transform(self.get().to_owned().nfkd(), 0);
-            self
-        }
-
-        /// Applies NFC normalization
-        pub fn nfc(&mut self) -> &mut Self {
-            self.transform(self.get().to_owned().nfc(), 0);
-            self
-        }
-
-        /// Applies NFKC normalization
-        pub fn nfkc(&mut self) -> &mut Self {
-            self.transform(self.get().to_owned().nfkc(), 0);
-            self
-        }
-
-        /// Applies filtering over our characters
-        pub fn filter<F: Fn(char) -> bool>(&mut self, keep: F) -> &mut Self {
-            let mut removed: isize = 0;
-            let mut removed_start: usize = 0;
-
-            let mut transforms = Vec::with_capacity(self.normalized.len());
-            let mut last_c = None;
-            for c in self.normalized.chars() {
-                if keep(c) {
-                    match last_c {
-                        Some(lc) => {
-                            transforms.push((lc, -removed));
-                        }
-                        None => {
-                            removed_start = removed as usize;
-                        }
-                    }
-                    last_c = Some(c);
-                    removed = 0;
-                } else {
-                    removed += 1;
-                }
-            }
-            if let Some(lc) = last_c {
-                transforms.push((lc, -removed));
-            }
-            self.transform(transforms, removed_start);
-            self
-        }
-
-        /// Prepend the given string to ourself
-        pub fn prepend(&mut self, s: &str) -> &mut Self {
-            if let Some(next) = self.normalized.chars().next() {
-                let transformations = s
-                    .chars()
-                    .enumerate()
-                    .map(|(i, c)| (c, if i == 0 { 0 } else { 1 }))
-                    .chain(std::iter::once((next, 1)));
-
-                self.transform_range(Range::Normalized(0..next.len_utf8()), transformations, 0);
-            }
-            self
-        }
-
-        /// Append the given string to ourself
-        pub fn append(&mut self, s: &str) -> &mut Self {
-            if let Some((b, prev)) = self.normalized.char_indices().last() {
-                let transformations = std::iter::once((prev, 0)).chain(s.chars().map(|c| (c, 1)));
-                self.transform_range(Range::Normalized(b..), transformations, 0);
-            }
-            self
-        }
-
-        /// Map our characters
-        pub fn map<F: Fn(char) -> char>(&mut self, map: F) -> &mut Self {
-            let transformations = self
+    /// Return a range of the normalized string
+    fn get_range<T>(&self, range: Range<T>) -> Option<&str>
+    where
+        T: RangeBounds<usize> + Clone,
+    {
+        match range {
+            Range::Original(_) => self.normalized.get(self.convert_offsets(range)?),
+            Range::Normalized(_) => self
                 .normalized
-                .chars()
-                .map(|c| (map(c), 0))
-                .collect::<Vec<_>>();
-            self.transform(transformations, 0);
-            self
+                .get(range.into_full_range(self.normalized.len())),
+        }
+    }
+
+    /// Return a range of the original string
+    fn get_range_original<T>(&self, range: Range<T>) -> Option<&str>
+    where
+        T: RangeBounds<usize> + Clone,
+    {
+        match range {
+            Range::Original(_) => self
+                .original
+                .get(range.into_full_range(self.original.len())),
+            Range::Normalized(_) => self.original.get(self.convert_offsets(range)?),
+        }
+    }
+
+    /// Validate the given range, to make sure it is on char boundaries
+    fn validate_range<T: RangeBounds<usize> + Clone>(
+        &self,
+        range: Range<T>,
+    ) -> Option<Range<std::ops::Range<usize>>> {
+        match range {
+            Range::Original(_) => {
+                let r = range.into_full_range(self.original.len());
+                if !(self.original.is_char_boundary(r.start)
+                    && self.original.is_char_boundary(r.end))
+                {
+                    None
+                } else {
+                    Some(Range::Original(r))
+                }
+            }
+            Range::Normalized(_) => {
+                let r = range.into_full_range(self.normalized.len());
+                if !(self.normalized.is_char_boundary(r.start)
+                    && self.normalized.is_char_boundary(r.end))
+                {
+                    None
+                } else {
+                    Some(Range::Normalized(r))
+                }
+            }
+        }
+    }
+
+    /// Return a slice of the current NormalizedString
+    /// If the range is not on char boundaries, return None
+    pub(crate) fn slice<T>(&self, range: Range<T>) -> Option<NormalizedString>
+    where
+        T: RangeBounds<usize> + Clone,
+    {
+        let full_range = self.validate_range(range)?;
+        let (normalized_range, original_range) = match full_range {
+            Range::Original(_) => (
+                self.convert_offsets(full_range.clone())?,
+                full_range.inner().clone(),
+            ),
+            Range::Normalized(_) => (
+                full_range.inner().clone(),
+                self.convert_offsets(full_range.clone())?,
+            ),
+        };
+
+        let n_shift = original_range.start;
+
+        Some(Self {
+            original: self
+                .get_range_original(full_range.clone())
+                .unwrap_or_default()
+                .into(),
+            normalized: self.get_range(full_range).unwrap_or_default().into(),
+            alignments: self
+                .alignments
+                .get(normalized_range)?
+                .iter()
+                .map(|Offsets(start, end)| Offsets(*start - n_shift, *end - n_shift))
+                .collect(),
+            original_shift: self.original_shift + original_range.start,
+        })
+    }
+
+    /// Applies transformations to the current normalized version of the string,
+    /// while updating the alignments.
+    /// This method expect an Iterator yielding each char of the new normalized string
+    /// with a `change` isize equals to:
+    ///   - `1` if this is a new char
+    ///   - `-N` if the char is right before N removed chars
+    ///   - `0` if the char is replacing the existing one
+    /// Since it is possible that the normalized string doesn't include some of the characters at
+    /// the beginning of the original one, we need an `initial_offset` which represents the number
+    /// of removed chars at the very beginning.
+    fn transform_range<T, I>(mut self, range: Range<T>, dest: I, initial_offset: usize) -> Self
+    where
+        T: RangeBounds<usize> + Clone,
+        I: IntoIterator<Item = (char, isize)>,
+    {
+        let n_range = match range {
+            Range::Normalized(_) => range.into_full_range(self.normalized.len()),
+            Range::Original(_) => match self.convert_offsets(range) {
+                Some(range) => range,
+                None => return self,
+            },
+        };
+
+        // Retrieve the original characters that are being replaced. This let us
+        // compute the change in byte sizes along the way.
+        let mut replaced_normalized = self.normalized[n_range.clone()]
+            .chars()
+            .collect::<Vec<_>>()
+            .into_iter();
+        let initial_removed: usize = (&mut replaced_normalized)
+            .take(initial_offset)
+            .map(|c| c.len_utf8())
+            .sum();
+
+        let mut offset = (initial_removed + n_range.start) as isize;
+        let mut alignments = Vec::with_capacity(n_range.len());
+        let normalized = dest
+            .into_iter()
+            .map(|(c, changes)| {
+                let idx = offset as usize;
+                let align = if changes.is_positive() {
+                    if idx < 1 {
+                        Offsets(0, 0)
+                    } else {
+                        // This is a newly inserted character, so it shares the same alignment
+                        // than the previous one
+                        self.alignments[idx - 1]
+                    }
+                } else {
+                    self.alignments[idx]
+                };
+
+                // If we are replacing a character, find it and compute the change in size
+                let replaced_char = if !changes.is_positive() {
+                    replaced_normalized.next()
+                } else {
+                    None
+                };
+                let replaced_char_size = replaced_char.map_or(0, |c| c.len_utf8());
+
+                // If we are removing some characters, find them too
+                let total_bytes_to_remove = if changes.is_negative() {
+                    (&mut replaced_normalized)
+                        .take(-changes as usize)
+                        .map(|c| c.len_utf8())
+                        .sum()
+                } else {
+                    0
+                };
+
+                // Keep track of the changes for next offsets
+                offset += replaced_char_size as isize;
+                offset += total_bytes_to_remove as isize;
+
+                alignments.extend((0..c.len_utf8()).map(|_| align));
+
+                // Then we keep only the char for string reconstruction
+                c
+            })
+            .collect::<String>();
+
+        self.alignments.splice(n_range.clone(), alignments);
+        unsafe {
+            self.normalized
+                .as_mut_vec()
+                .splice(n_range, normalized.bytes());
         }
 
-        /// Calls the given function for each characters
-        pub fn for_each<F: FnMut(char)>(&self, foreach: F) -> &Self {
-            self.normalized.chars().for_each(foreach);
-            self
-        }
+        self
+    }
 
-        /// Lowercase
-        pub fn lowercase(&mut self) -> &mut Self {
-            let mut new_chars: Vec<(char, isize)> = vec![];
-            self.for_each(|c| {
-                c.to_lowercase().enumerate().for_each(|(index, c)| {
-                    new_chars.push((c, if index > 0 { 1 } else { 0 }));
-                })
-            });
-            self.transform(new_chars.into_iter(), 0);
-            self
-        }
+    /// Applies transformations to the current normalized version of the string,
+    /// while updating the alignments.
+    /// This method expect an Iterator yielding each char of the new normalized string
+    /// with a `change` isize equals to:
+    ///   - `1` if this is a new char
+    ///   - `-N` if the char is right before N removed chars
+    ///   - `0` if the char is replacing the existing one
+    /// Since it is possible that the normalized string doesn't include some of the characters at
+    /// the beginning of the original one, we need an `initial_offset` which represents the number
+    /// of removed chars at the very beginning.
+    pub(crate) fn transform<I>(self, dest: I, initial_offset: usize) -> Self
+    where
+        I: IntoIterator<Item = (char, isize)>,
+    {
+        self.transform_range(Range::Original(..), dest, initial_offset)
+    }
 
-        /// Uppercase
-        pub fn uppercase(&mut self) -> &mut Self {
-            let mut new_chars: Vec<(char, isize)> = vec![];
-            self.for_each(|c| {
-                c.to_uppercase().enumerate().for_each(|(index, c)| {
-                    new_chars.push((c, if index > 0 { 1 } else { 0 }));
-                })
-            });
-            self.transform(new_chars.into_iter(), 0);
-            self
-        }
+    /// Applies NFD normalization
+    pub(crate) fn nfd(self) -> Self {
+        let normalized = self.normalized.clone();
+        self.transform(normalized.nfd(), 0)
+    }
 
-        /// Replace anything that matches the pattern with the given content.
-        pub fn replace<P: Pattern>(&mut self, pattern: P, content: &str) -> Result<(), Error> {
-            let mut offset: isize = 0;
-            pattern
-                .find_matches(&self.normalized)?
-                .into_iter()
-                .for_each(|((start, end), is_match)| {
+    /// Applies filtering over our characters
+    pub(crate) fn filter<F: Fn(char) -> bool>(self, keep: F) -> Self {
+        let mut removed: isize = 0;
+        let mut removed_start: usize = 0;
+
+        let mut transforms = Vec::with_capacity(self.normalized.len());
+        let mut last_c = None;
+        for c in self.normalized.chars() {
+            if keep(c) {
+                match last_c {
+                    Some(lc) => {
+                        transforms.push((lc, -removed));
+                    }
+                    None => {
+                        removed_start = removed as usize;
+                    }
+                }
+                last_c = Some(c);
+                removed = 0;
+            } else {
+                removed += 1;
+            }
+        }
+        if let Some(lc) = last_c {
+            transforms.push((lc, -removed));
+        }
+        self.transform(transforms, removed_start)
+    }
+
+    /// Map our characters
+    pub(crate) fn map<F: Fn(char) -> char>(self, f: F) -> Self {
+        let transformations = self
+            .normalized
+            .chars()
+            .map(|c| (f(c), 0))
+            .collect::<Vec<_>>();
+        self.transform(transformations, 0)
+    }
+
+    /// Calls the given function for each characters
+    pub(crate) fn for_each<F: FnMut(char)>(&self, foreach: F) -> &Self {
+        self.normalized.chars().for_each(foreach);
+        self
+    }
+
+    /// Lowercase
+    pub(crate) fn lowercase(self) -> Self {
+        let mut new_chars: Vec<(char, isize)> = vec![];
+        self.for_each(|c| {
+            c.to_lowercase().enumerate().for_each(|(index, c)| {
+                new_chars.push((c, if index > 0 { 1 } else { 0 }));
+            })
+        });
+        self.transform(new_chars, 0)
+    }
+
+    /// Replace anything that matches the pattern with the given content.
+    fn replace<P: Pattern>(self, pattern: P, content: &str) -> Result<Self, Error> {
+        let (this, _) = pattern
+            .find_matches(self.normalized.as_str())?
+            .into_iter()
+            .fold(
+                (self, 0_isize),
+                |(this, offset), (Offsets(start, end), is_match)| {
                     if is_match {
-                        let mut range = start..end;
-                        apply_signed!(range.start, offset);
-                        apply_signed!(range.end, offset);
+                        let range = match offset.cmp(&0) {
+                            Ordering::Less => {
+                                // makes sure of avoiding any substraction overflow, flooring at 0
+                                let offset = -offset as usize;
+                                match (start.overflowing_sub(offset), end.overflowing_sub(offset)) {
+                                    ((start @ _, false), (end @ _, false)) => start..end,
+                                    ((_, true), (end @ _, false)) => 0..end,
+                                    _ => 0..0,
+                                }
+                            }
+                            Ordering::Equal => start..end,
+                            Ordering::Greater => {
+                                let offset = offset as usize;
+                                start + offset..end + offset
+                            }
+                        };
 
                         let mut new_len = 0;
-                        let removed_chars = self.normalized[range.clone()].chars().count();
-                        self.transform_range(
+                        let removed_chars = this.normalized[range.clone()].chars().count();
+                        let this = this.transform_range(
                             Range::Normalized(range),
                             content.chars().map(|c| {
                                 new_len += c.len_utf8();
@@ -690,71 +605,89 @@ pub mod normalized_string {
                         );
 
                         let old_len = end - start;
-                        offset += new_len as isize - old_len as isize;
+                        let offset = offset + new_len as isize - old_len as isize;
+
+                        (this, offset)
+                    } else {
+                        (this, offset)
                     }
-                });
-            Ok(())
-        }
+                },
+            );
+        Ok(this)
+    }
 
-        /// Clear the normalized part of the string
-        pub fn clear(&mut self) -> usize {
-            let len = self.len();
-            self.transform(std::iter::empty(), len);
-            len
-        }
+    /// Split the current string in many subparts. Specify what to do with the
+    /// delimiter.
+    ///
+    /// ## Splitting Behavior for the delimiter
+    ///
+    /// The behavior can be one of the followings:
+    /// When splitting on `'-'` for example, with input `the-final--countdown`:
+    ///  - Removed => `[ "the", "", "final", "", "", "countdown" ]`
+    ///  - Isolated => `[ "the", "-", "final", "-", "-", "countdown" ]`
+    ///  - MergedWithPrevious => `[ "the-", "final-", "-", "countdown" ]`
+    ///  - MergedWithNext => `[ "the", "-final", "-", "-countdown" ]`
+    pub(crate) fn split<P: Pattern>(
+        &self,
+        pattern: P,
+        behavior: SplitDelimiterBehavior,
+    ) -> Result<Vec<NormalizedString>, Error> {
+        let matches = pattern.find_matches(&self.normalized)?;
 
-        /// Split the current string in many subparts. Specify what to do with the
-        /// delimiter.
-        ///
-        /// ## Splitting Behavior for the delimiter
-        ///
-        /// The behavior can be one of the followings:
-        /// When splitting on `'-'` for example, with input `the-final--countdown`:
-        ///  - Removed => `[ "the", "", "final", "", "", "countdown" ]`
-        ///  - Isolated => `[ "the", "-", "final", "-", "-", "countdown" ]`
-        ///  - MergedWithPrevious => `[ "the-", "final-", "-", "countdown" ]`
-        ///  - MergedWithNext => `[ "the", "-final", "-", "-countdown" ]`
-        pub fn split<P: Pattern>(
-            &self,
-            pattern: P,
-            behavior: SplitDelimiterBehavior,
-        ) -> Result<Vec<NormalizedString>, Error> {
-            let matches = pattern.find_matches(&self.normalized)?;
-
-            // Process the matches according to the selected behavior: Vec<(Offsets, should_remove)>
-            use SplitDelimiterBehavior::*;
-            let splits = match behavior {
-                Isolated => matches
+        // Process the matches according to the selected behavior: Vec<(Offsets, should_remove)>
+        use SplitDelimiterBehavior::*;
+        let splits = match behavior {
+            Isolated => matches
+                .into_iter()
+                .map(|(offsets, _)| (offsets, false))
+                .collect(),
+            Removed => matches,
+            Contiguous => {
+                let mut previous_match = false;
+                matches
                     .into_iter()
-                    .map(|(offsets, _)| (offsets, false))
-                    .collect(),
-                Removed => matches,
-                Contiguous => {
-                    let mut previous_match = false;
-                    matches
-                        .into_iter()
-                        .fold(vec![], |mut acc, (offsets, is_match)| {
-                            if is_match == previous_match {
-                                if let Some(((_, end), _)) = acc.last_mut() {
-                                    *end = offsets.1;
-                                } else {
-                                    acc.push((offsets, false));
-                                }
+                    .fold(vec![], |mut acc, (offsets, is_match)| {
+                        if is_match == previous_match {
+                            if let Some((Offsets(_, end), _)) = acc.last_mut() {
+                                *end = offsets.1;
                             } else {
                                 acc.push((offsets, false));
                             }
-                            previous_match = is_match;
-                            acc
-                        })
-                }
-                MergedWithPrevious => {
-                    let mut previous_match = false;
+                        } else {
+                            acc.push((offsets, false));
+                        }
+                        previous_match = is_match;
+                        acc
+                    })
+            }
+            MergedWithPrevious => {
+                let mut previous_match = false;
+                matches
+                    .into_iter()
+                    .fold(vec![], |mut acc, (offsets, is_match)| {
+                        if is_match && !previous_match {
+                            if let Some((Offsets(_, end), _)) = acc.last_mut() {
+                                *end = offsets.1;
+                            } else {
+                                acc.push((offsets, false));
+                            }
+                        } else {
+                            acc.push((offsets, false));
+                        }
+                        previous_match = is_match;
+                        acc
+                    })
+            }
+            MergedWithNext => {
+                let mut previous_match = false;
+                let mut matches =
                     matches
                         .into_iter()
+                        .rev()
                         .fold(vec![], |mut acc, (offsets, is_match)| {
                             if is_match && !previous_match {
-                                if let Some(((_, end), _)) = acc.last_mut() {
-                                    *end = offsets.1;
+                                if let Some((Offsets(start, _), _)) = acc.last_mut() {
+                                    *start = offsets.0;
                                 } else {
                                     acc.push((offsets, false));
                                 }
@@ -763,1726 +696,1689 @@ pub mod normalized_string {
                             }
                             previous_match = is_match;
                             acc
-                        })
-                }
-                MergedWithNext => {
-                    let mut previous_match = false;
-                    let mut matches =
-                        matches
-                            .into_iter()
-                            .rev()
-                            .fold(vec![], |mut acc, (offsets, is_match)| {
-                                if is_match && !previous_match {
-                                    if let Some(((start, _), _)) = acc.last_mut() {
-                                        *start = offsets.0;
-                                    } else {
-                                        acc.push((offsets, false));
-                                    }
-                                } else {
-                                    acc.push((offsets, false));
-                                }
-                                previous_match = is_match;
-                                acc
-                            });
-                    matches.reverse();
-                    matches
-                }
-            };
-
-            // Then we split according to the computed splits
-            Ok(splits
-                .into_iter()
-                .filter_map(|(offsets, remove)| {
-                    if !remove {
-                        Some(
-                            self.slice(Range::Normalized(offsets.0..offsets.1))
-                                .expect("NormalizedString bad split"),
-                        )
-                    } else {
-                        None
-                    }
-                })
-                .collect())
-        }
-
-        /// Remove any leading space(s) of the normalized string
-        pub fn lstrip(&mut self) -> &mut Self {
-            self.lrstrip(true, false)
-        }
-
-        /// Remove any trailing space(s) of the normalized string
-        pub fn rstrip(&mut self) -> &mut Self {
-            self.lrstrip(false, true)
-        }
-
-        /// Remove any leading and trailing space(s) of the normalized string
-        pub fn strip(&mut self) -> &mut Self {
-            self.lrstrip(true, true)
-        }
-
-        pub fn lrstrip(&mut self, left: bool, right: bool) -> &mut Self {
-            let leading_spaces = if left {
-                self.get().chars().take_while(|c| c.is_whitespace()).count()
-            } else {
-                0
-            };
-            let trailing_spaces = if right {
-                self.get()
-                    .chars()
-                    .rev()
-                    .take_while(|c| c.is_whitespace())
-                    .count()
-            } else {
-                0
-            };
-
-            if leading_spaces > 0 || trailing_spaces > 0 {
-                let transformation = self
-                    .normalized
-                    .chars()
-                    .enumerate()
-                    .filter_map(|(i, c)| {
-                        if i < leading_spaces || i >= self.len() - trailing_spaces {
-                            None
-                        } else if i == self.len() - trailing_spaces - 1 {
-                            Some((c, -(trailing_spaces as isize)))
-                        } else {
-                            Some((c, 0))
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                self.transform(transformation, leading_spaces);
+                        });
+                matches.reverse();
+                matches
             }
-            self
-        }
+        };
 
-        /// Returns the length of the normalized string (counting chars not bytes)
-        pub fn len(&self) -> usize {
-            self.normalized.len()
-        }
-
-        /// Returns the length of the original string (counting chars not bytes)
-        pub fn len_original(&self) -> usize {
-            self.original.len()
-        }
-
-        /// Whether empty
-        pub fn is_empty(&self) -> bool {
-            self.normalized.is_empty()
-        }
-
-        /// Recalculate original alignments
-        #[allow(dead_code)]
-        pub(crate) fn alignments_original(&self) -> Vec<(usize, usize)> {
-            // Start, end are in alignments
-            // offset, length are in alignments_original
-            let mut alignments_original = Vec::with_capacity(self.original.len());
-
-            // Eventual gap before first group
-            let start = self.alignments[0].0;
-            if start != 0 {
-                alignments_original.extend(vec![(0, 0); start]);
-            }
-
-            let mut last = (&self.alignments[0].0, &self.alignments[0].1);
-            let mut offset = 0;
-            let mut length = 0;
-            for (start, end) in &self.alignments {
-                if last == (start, end) {
-                    // This is the same group
-                    length += 1;
+        // Then we split according to the computed splits
+        Ok(splits
+            .into_iter()
+            .filter_map(|(offsets, remove)| {
+                if !remove {
+                    Some(
+                        self.slice(Range::Normalized(offsets.0..offsets.1))
+                            .expect("NormalizedString bad split"),
+                    )
                 } else {
-                    // This is a new group
-                    if start < last.1 {
-                        panic!("We can't have overlapping ranges.");
+                    None
+                }
+            })
+            .collect())
+    }
+
+    fn strip(self, left: bool, right: bool) -> Self {
+        let leading_spaces = if left {
+            self.normalized
+                .chars()
+                .take_while(|c| c.is_whitespace())
+                .count()
+        } else {
+            0
+        };
+        let trailing_spaces = if right {
+            self.normalized
+                .chars()
+                .rev()
+                .take_while(|c| c.is_whitespace())
+                .count()
+        } else {
+            0
+        };
+
+        if leading_spaces > 0 || trailing_spaces > 0 {
+            let transformation = self
+                .normalized
+                .chars()
+                .enumerate()
+                .filter_map(|(i, c)| {
+                    if i < leading_spaces || i >= self.normalized.len() - trailing_spaces {
+                        None
+                    } else if i == self.normalized.len() - trailing_spaces - 1 {
+                        Some((c, -(trailing_spaces as isize)))
+                    } else {
+                        Some((c, 0))
                     }
-
-                    // Add the old group
-                    alignments_original.extend(vec![(offset, offset + length); last.1 - last.0]);
-                    offset += length;
-                    length = 1;
-
-                    // Eventual gap between the 2 groups
-                    alignments_original.extend(vec![(offset, offset); start - last.1]);
-                }
-
-                last = (start, end);
-            }
-            // Add the last group
-            alignments_original.extend(vec![(offset, offset + length); last.1 - last.0]);
-
-            // Add eventual last gap
-            offset += length;
-            alignments_original.extend(vec![
-                (offset, offset);
-                self.original.len() - alignments_original.len()
-            ]);
-
-            // assert_eq!(alignments_original.len(), self.original.len());
-            alignments_original
-        }
-    }
-
-    /// Returns the range covered by a slice of alignments
-    pub fn expand_alignments(alignments: &[(usize, usize)]) -> Option<std::ops::Range<usize>> {
-        if alignments.is_empty() {
-            None
-        } else {
-            let start = alignments[0].0;
-            let end = alignments[alignments.len() - 1].1;
-            Some(start..end)
-        }
-    }
-
-    /// Returns a range of the given string slice, by indexing chars instead of bytes
-    pub fn get_range_of<T: RangeBounds<usize>>(s: &str, range: T) -> Option<&str> {
-        let len = s.chars().count();
-        let start = match range.start_bound() {
-            Bound::Unbounded => 0,
-            Bound::Included(i) => *i,
-            Bound::Excluded(i) => *i + 1,
-        };
-        let end = match range.end_bound() {
-            Bound::Unbounded => len,
-            Bound::Included(i) => *i + 1,
-            Bound::Excluded(i) => *i,
-        };
-
-        if start == 0 && end == 0 {
-            Some(&s[0..0])
-        } else if start >= len || end > len || start >= end {
-            None
-        } else {
-            let start_b = s
-                .char_indices()
-                .map(|(i, _)| i)
-                .nth(start as usize)
-                .unwrap_or(0);
-            let end_b = s
-                .char_indices()
-                .map(|(i, _)| i)
-                .nth(end as usize)
-                .unwrap_or_else(|| s.len());
-            Some(&s[start_b..end_b])
-        }
-    }
-
-    /// Convert the given range from bytes to char
-    pub fn bytes_to_char(s: &str, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
-        let (mut start, mut end) = if range == (0..0) {
-            (Some(0), Some(0))
-        } else {
-            (None, None)
-        };
-
-        s.char_indices()
-            .enumerate()
-            .take_while(|(_, (b, _))| *b <= range.end)
-            .filter(|(_, (b, _))| *b >= range.start)
-            .for_each(|(i, (b, c))| {
-                if b == range.start {
-                    start = Some(i);
-                }
-                if b == range.end {
-                    end = Some(i);
-                }
-                if b + c.len_utf8() == range.end {
-                    end = Some(i + 1);
-                }
-            });
-
-        Some(start?..end?)
-    }
-
-    /// Convert the given range from char to bytes
-    pub fn char_to_bytes(s: &str, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
-        let (mut start, mut end) = if range == (0..0) {
-            (Some(0), Some(0))
-        } else {
-            (None, None)
-        };
-
-        if range.start == range.end {
-            s.char_indices()
-                .skip(range.start)
-                .take(1)
-                .for_each(|(b, _)| {
-                    start = Some(b);
-                    end = Some(b);
-                });
-        } else {
-            s.char_indices()
-                .skip(range.start)
-                .take(range.end - range.start)
-                .for_each(|(b, c)| {
-                    if start.is_none() {
-                        start = Some(b);
-                    }
-                    end = Some(b + c.len_utf8());
-                });
-        }
-
-        Some(start?..end?)
-    }
-
-    impl From<String> for NormalizedString {
-        fn from(s: String) -> Self {
-            let alignments = s
-                .char_indices()
-                .flat_map(|(b, c)| {
-                    let len = c.len_utf8();
-                    (0..len).map(move |_| (b, b + len))
                 })
                 .collect::<Vec<_>>();
-            Self {
-                original: s.clone(),
-                normalized: s,
-                alignments,
-                original_shift: 0,
+            self.transform(transformation, leading_spaces)
+        } else {
+            self
+        }
+    }
+
+    /// Recalculate original alignments
+    fn alignments_original(&self) -> Vec<Offsets> {
+        // Start, end are in alignments
+        // offset, length are in alignments_original
+        let mut alignments_original = Vec::with_capacity(self.original.len());
+
+        // Eventual gap before first group
+        let start = self.alignments[0].0;
+        if start != 0 {
+            alignments_original.extend(vec![Offsets(0, 0); start]);
+        }
+
+        let mut last = &self.alignments[0];
+        let mut offset = 0;
+        let mut length = 0;
+        for alignment in &self.alignments {
+            if last == alignment {
+                // This is the same group
+                length += 1;
+            } else {
+                // This is a new group
+                let start = alignment.0;
+                if start < last.1 {
+                    panic!("We can't have overlapping ranges.");
+                }
+
+                // Add the old group
+                alignments_original.extend(vec![Offsets(offset, offset + length); last.1 - last.0]);
+                offset += length;
+                length = 1;
+
+                // Eventual gap between the 2 groups
+                alignments_original.extend(vec![Offsets(offset, offset); start - last.1]);
             }
+
+            last = alignment;
         }
+        // Add the last group
+        alignments_original.extend(vec![Offsets(offset, offset + length); last.1 - last.0]);
+
+        // Add eventual last gap
+        offset += length;
+        alignments_original.extend(vec![
+            Offsets(offset, offset);
+            self.original.len() - alignments_original.len()
+        ]);
+
+        // assert_eq!(alignments_original.len(), self.original.len());
+        alignments_original
+    }
+}
+
+/// Returns the range covered by a slice of alignments
+fn expand_alignments(alignments: &[Offsets]) -> Option<std::ops::Range<usize>> {
+    if alignments.is_empty() {
+        None
+    } else {
+        let start = alignments[0].0;
+        let end = alignments[alignments.len() - 1].1;
+        Some(start..end)
+    }
+}
+
+/// Returns a range of the given string slice, by indexing chars instead of bytes
+fn get_range_of<T: RangeBounds<usize>>(s: &str, range: T) -> Option<&str> {
+    let len = s.chars().count();
+    let start = match range.start_bound() {
+        Bound::Unbounded => 0,
+        Bound::Included(i) => *i,
+        Bound::Excluded(i) => *i + 1,
+    };
+    let end = match range.end_bound() {
+        Bound::Unbounded => len,
+        Bound::Included(i) => *i + 1,
+        Bound::Excluded(i) => *i,
+    };
+
+    if start == 0 && end == 0 {
+        Some(&s[0..0])
+    } else if start >= len || end > len || start >= end {
+        None
+    } else {
+        let start_b = s
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(start as usize)
+            .unwrap_or(0);
+        let end_b = s
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(end as usize)
+            .unwrap_or_else(|| s.len());
+        Some(&s[start_b..end_b])
+    }
+}
+
+/// Convert the given range from bytes to char
+fn bytes_to_char(s: &str, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
+    let (mut start, mut end) = if range == (0..0) {
+        (Some(0), Some(0))
+    } else {
+        (None, None)
+    };
+
+    s.char_indices()
+        .enumerate()
+        .take_while(|(_, (b, _))| *b <= range.end)
+        .filter(|(_, (b, _))| *b >= range.start)
+        .for_each(|(i, (b, c))| {
+            if b == range.start {
+                start = Some(i);
+            }
+            if b == range.end {
+                end = Some(i);
+            }
+            if b + c.len_utf8() == range.end {
+                end = Some(i + 1);
+            }
+        });
+
+    Some(start?..end?)
+}
+
+/// Convert the given range from char to bytes
+fn char_to_bytes(s: &str, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
+    let (mut start, mut end) = if range == (0..0) {
+        (Some(0), Some(0))
+    } else {
+        (None, None)
+    };
+
+    if range.start == range.end {
+        s.char_indices()
+            .skip(range.start)
+            .take(1)
+            .for_each(|(b, _)| {
+                start = Some(b);
+                end = Some(b);
+            });
+    } else {
+        s.char_indices()
+            .skip(range.start)
+            .take(range.end - range.start)
+            .for_each(|(b, c)| {
+                if start.is_none() {
+                    start = Some(b);
+                }
+                end = Some(b + c.len_utf8());
+            });
     }
 
-    impl From<&str> for NormalizedString {
-        fn from(s: &str) -> Self {
-            Self::from(s.to_owned())
-        }
-    }
+    Some(start?..end?)
+}
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        use regex::Regex;
-        use unicode_categories::UnicodeCategories;
-
-        #[test]
-        fn nfd_adds_new_chars() {
-            let mut n = NormalizedString::from("élégant");
-            n.nfd();
-            assert_eq!(
-                &n.alignments,
-                &[
-                    (0, 2),
-                    (0, 2),
-                    (0, 2),
-                    (2, 3),
-                    (3, 5),
-                    (3, 5),
-                    (3, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 8),
-                    (8, 9)
-                ]
-            );
-            assert_eq!(
-                n.alignments_original(),
-                vec![
-                    (0, 3),
-                    (0, 3),
-                    (3, 4),
-                    (4, 7),
-                    (4, 7),
-                    (7, 8),
-                    (8, 9),
-                    (9, 10),
-                    (10, 11)
-                ]
-            );
-        }
-
-        #[test]
-        fn remove_chars_added_by_nfd() {
-            let mut n = NormalizedString::from("élégant");
-            n.nfd().filter(|c| !c.is_mark_nonspacing());
-
-            assert_eq!(n.get(), "elegant");
-
-            assert_eq!(
-                &n.alignments,
-                &[(0, 2), (2, 3), (3, 5), (5, 6), (6, 7), (7, 8), (8, 9)]
-            );
-            assert_eq!(
-                n.alignments_original(),
-                vec![
-                    (0, 1),
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7)
-                ]
-            );
-        }
-
-        #[test]
-        fn remove_chars() {
-            let mut n = NormalizedString::from("élégant");
-            n.filter(|c| c != 'n');
-            assert_eq!(n.get(), "élégat");
-            assert_eq!(
-                &n.alignments,
-                &[
-                    (0, 2),
-                    (0, 2),
-                    (2, 3),
-                    (3, 5),
-                    (3, 5),
-                    (5, 6),
-                    (6, 7),
-                    // Skipped range
-                    (8, 9)
-                ]
-            );
-            assert_eq!(
-                n.alignments_original(),
-                vec![
-                    (0, 2),
-                    (0, 2),
-                    (2, 3),
-                    (3, 5),
-                    (3, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 7), // Eaten n
-                    (7, 8)
-                ]
-            );
-        }
-
-        #[test]
-        fn mixed_addition_and_removal() {
-            let mut n = NormalizedString::from("élégant");
-            n.nfd().filter(|c| !c.is_mark_nonspacing() && c != 'n');
-            assert_eq!(n.get(), "elegat");
-            assert_eq!(
-                &n.alignments,
-                &[(0, 2), (2, 3), (3, 5), (5, 6), (6, 7), (8, 9)]
-            );
-            assert_eq!(
-                n.alignments_original(),
-                vec![
-                    (0, 1),
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (2, 3),
-                    (3, 4), // g
-                    (4, 5), // a
-                    (5, 5), // Eaten n
-                    (5, 6)
-                ]
-            );
-        }
-
-        #[test]
-        fn range_conversion() {
-            let mut n = NormalizedString::from("    __Hello__   ");
-            n.filter(|c| !c.is_whitespace()).lowercase();
-            let hello_n = n.convert_offsets(Range::Original(6..11));
-            assert_eq!(hello_n, Some(2..7));
-            assert_eq!(
-                n.get_range(Range::Normalized(hello_n.clone().unwrap())),
-                Some("hello")
-            );
-            assert_eq!(
-                n.get_range_original(Range::Normalized(hello_n.unwrap())),
-                Some("Hello")
-            );
-            assert_eq!(n.get_range(Range::Original(6..11)), Some("hello"));
-            assert_eq!(n.get_range_original(Range::Original(6..11)), Some("Hello"));
-
-            // Make sure we get None only in specific cases
-            assert_eq!(n.convert_offsets(Range::Original(0..0)), Some(0..0));
-            assert_eq!(n.convert_offsets(Range::Original(3..3)), Some(3..3));
-            assert_eq!(n.convert_offsets(Range::Original(15..)), Some(9..9));
-            assert_eq!(n.convert_offsets(Range::Original(16..)), Some(16..16));
-            assert_eq!(n.convert_offsets(Range::Original(17..)), None);
-            assert_eq!(n.convert_offsets(Range::Normalized(0..0)), Some(0..0));
-            assert_eq!(n.convert_offsets(Range::Normalized(3..3)), Some(3..3));
-            assert_eq!(n.convert_offsets(Range::Normalized(9..)), Some(9..9));
-            assert_eq!(n.convert_offsets(Range::Normalized(10..)), None);
-        }
-
-        #[test]
-        fn original_range() {
-            let mut n = NormalizedString::from("Hello_______ World!");
-            n.filter(|c| c != '_').lowercase();
-            let world_n = n.get_range(Range::Normalized(6..11)).unwrap();
-            let world_o = n.get_range_original(Range::Normalized(6..11)).unwrap();
-            assert_eq!(world_n, "world");
-            assert_eq!(world_o, "World");
-            let original_range =
-                Range::Original(n.convert_offsets(Range::Normalized(6..11)).unwrap());
-            assert_eq!(n.get_range(original_range.clone()).unwrap(), "world");
-            assert_eq!(
-                n.get_range_original(original_range.clone()).unwrap(),
-                "World"
-            );
-            assert_eq!(original_range.into_full_range(n.len_original()), 13..18);
-        }
-
-        #[test]
-        fn added_around_edges() {
-            let mut n = NormalizedString::from("Hello");
-            n.transform(
-                vec![
-                    (' ', 1),
-                    ('H', 0),
-                    ('e', 0),
-                    ('l', 0),
-                    ('l', 0),
-                    ('o', 0),
-                    (' ', 1),
-                ]
-                .into_iter(),
-                0,
-            );
-
-            assert_eq!(&n.normalized, " Hello ");
-            assert_eq!(
-                n.get_range_original(Range::Normalized(1..n.normalized.len() - 1)),
-                Some("Hello")
-            );
-        }
-
-        #[test]
-        fn added_characters_alignment() {
-            let mut n = NormalizedString::from("野口 No");
-            n.transform(
-                n.get().to_owned().chars().flat_map(|c| {
-                    if (c as usize) > 0x4E00 {
-                        vec![(' ', 0), (c, 1), (' ', 1)]
-                    } else {
-                        vec![(c, 0)]
-                    }
-                }),
-                0,
-            );
-
-            assert_eq!(
-                n,
-                NormalizedString {
-                    original: "野口 No".into(),
-                    normalized: " 野  口  No".into(),
-                    alignments: vec![
-                        (0, 3),
-                        (0, 3),
-                        (0, 3),
-                        (0, 3),
-                        (0, 3),
-                        (3, 6),
-                        (3, 6),
-                        (3, 6),
-                        (3, 6),
-                        (3, 6),
-                        (6, 7),
-                        (7, 8),
-                        (8, 9)
-                    ],
-                    original_shift: 0
-                }
-            );
-            assert_eq!(
-                n.alignments_original(),
-                vec![
-                    (0, 5),
-                    (0, 5),
-                    (0, 5),
-                    (5, 10),
-                    (5, 10),
-                    (5, 10),
-                    (10, 11),
-                    (11, 12),
-                    (12, 13)
-                ]
-            );
-        }
-
-        #[test]
-        fn remove_at_beginning() {
-            let mut n = NormalizedString::from("     Hello");
-            n.filter(|c| !c.is_whitespace());
-            assert_eq!(
-                n.get_range_original(Range::Normalized(1.."Hello".len())),
-                Some("ello")
-            );
-            assert_eq!(
-                n.get_range_original(Range::Normalized(0..n.normalized.len())),
-                Some("Hello")
-            );
-        }
-
-        #[test]
-        fn remove_at_end() {
-            let mut n = NormalizedString::from("Hello    ");
-            n.filter(|c| !c.is_whitespace());
-            assert_eq!(n.get_range_original(Range::Normalized(0..4)), Some("Hell"));
-            assert_eq!(
-                n.get_range_original(Range::Normalized(0..n.normalized.len())),
-                Some("Hello")
-            );
-        }
-
-        #[test]
-        fn removed_around_both_edges() {
-            let mut n = NormalizedString::from("  Hello  ");
-            n.filter(|c| !c.is_whitespace());
-            assert_eq!(&n.normalized, "Hello");
-
-            assert_eq!(
-                n.get_range_original(Range::Normalized(0.."Hello".len())),
-                Some("Hello")
-            );
-            assert_eq!(
-                n.get_range_original(Range::Normalized(1.."Hell".len())),
-                Some("ell")
-            );
-        }
-
-        #[test]
-        fn lstrip() {
-            let mut n = NormalizedString::from("  This is an example  ");
-            n.lstrip();
-            assert_eq!(&n.normalized, "This is an example  ");
-            assert_eq!(
-                n.get_range_original(Range::Normalized(0..n.normalized.len())),
-                Some("This is an example  ")
-            );
-        }
-
-        #[test]
-        fn rstrip() {
-            let mut n = NormalizedString::from("  This is an example  ");
-            n.rstrip();
-            assert_eq!(&n.normalized, "  This is an example");
-            assert_eq!(
-                n.get_range_original(Range::Normalized(0..n.normalized.len())),
-                Some("  This is an example")
-            );
-        }
-
-        #[test]
-        fn strip() {
-            let mut n = NormalizedString::from("  This is an example  ");
-            n.strip();
-            assert_eq!(&n.normalized, "This is an example");
-            assert_eq!(
-                n.get_range_original(Range::Normalized(0..n.normalized.len())),
-                Some("This is an example")
-            );
-        }
-
-        #[test]
-        fn prepend() {
-            let mut n = NormalizedString::from("there");
-            n.prepend("Hey ");
-            assert_eq!(&n.normalized, "Hey there");
-            assert_eq!(
-                n.alignments,
-                vec![
-                    (0, 1),
-                    (0, 1),
-                    (0, 1),
-                    (0, 1),
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5)
-                ]
-            );
-            assert_eq!(n.convert_offsets(Range::Normalized(0..4)), Some(0..1));
-        }
-
-        #[test]
-        fn append() {
-            let mut n = NormalizedString::from("Hey");
-            n.append(" there");
-            assert_eq!(&n.normalized, "Hey there");
-            assert_eq!(
-                n.alignments,
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (2, 3),
-                    (2, 3),
-                    (2, 3),
-                    (2, 3),
-                    (2, 3),
-                    (2, 3)
-                ]
-            );
-            assert_eq!(
-                n.convert_offsets(Range::Normalized(3.." there".len())),
-                Some(2..3)
-            );
-        }
-
-        #[test]
-        fn get_range() {
-            let s = String::from("Hello my name is John 👋");
-            assert_eq!(get_range_of(&s, ..), Some(&s[..]));
-            assert_eq!(get_range_of(&s, 17..), Some("John 👋"));
-        }
-
-        #[test]
-        fn slice() {
-            let mut s = NormalizedString::from("𝔾𝕠𝕠𝕕 𝕞𝕠𝕣𝕟𝕚𝕟𝕘");
-            s.nfkc();
-
-            let original_slice = s.slice(Range::Original(0..4)).unwrap();
-            assert_eq!(original_slice.get(), "G");
-            assert_eq!(original_slice.get_original(), "𝔾");
-
-            let normalized_slice = s.slice(Range::Normalized(0..4)).unwrap();
-            assert_eq!(normalized_slice.get(), "Good");
-            assert_eq!(normalized_slice.get_original(), "𝔾𝕠𝕠𝕕");
-
-            // Make sure the sliced NormalizedString is still aligned as expected
-            let mut s = NormalizedString::from("   Good Morning!   ");
-            s.strip();
-
-            // If we keep the whole slice
-            let slice = s.slice(Range::Original(..)).unwrap();
-            assert_eq!(
-                slice.get_range_original(Range::Normalized(0..4)),
-                Some("Good")
-            );
-            let slice = s.slice(Range::Normalized(..)).unwrap();
-            assert_eq!(
-                slice.get_range_original(Range::Normalized(0..4)),
-                Some("Good")
-            );
-
-            // If we keep after the modified piece
-            let slice = s.slice(Range::Original(4..15)).unwrap();
-            assert_eq!(
-                slice.get_range_original(Range::Normalized(0..3)),
-                Some("ood")
-            );
-
-            // If we keep only the modified piece
-            let slice = s.slice(Range::Original(3..16)).unwrap();
-            assert_eq!(
-                slice.get_range_original(Range::Normalized(0..4)),
-                Some("Good")
-            );
-        }
-
-        #[test]
-        fn replace() {
-            // Simple
-            let mut s = NormalizedString::from(" Hello   friend ");
-            s.replace(' ', "_").unwrap();
-            assert_eq!(s.get(), "_Hello___friend_");
-            let mut s = NormalizedString::from("aaaab");
-            s.replace('a', "b").unwrap();
-            assert_eq!(s.get(), "bbbbb");
-
-            // Overlapping
-            let mut s = NormalizedString::from("aaaab");
-            s.replace("aaa", "b").unwrap();
-            assert_eq!(s.get(), "bab");
-
-            // Regex
-            let mut s = NormalizedString::from(" Hello   friend ");
-            let re = Regex::new(r"\s+").unwrap();
-            s.replace(&re, "_").unwrap();
-            assert_eq!(s.get(), "_Hello_friend_");
-        }
-
-        #[test]
-        fn split() {
-            use SplitDelimiterBehavior::*;
-            let s = NormalizedString::from("The-final--countdown");
-
-            let test = |behavior: SplitDelimiterBehavior, result: Vec<&str>| {
-                let splits = s.split('-', behavior).unwrap();
-                assert_eq!(splits.iter().map(|n| n.get()).collect::<Vec<_>>(), result);
-            };
-
-            test(Removed, vec!["The", "final", "countdown"]);
-            test(Isolated, vec!["The", "-", "final", "-", "-", "countdown"]);
-            test(MergedWithPrevious, vec!["The-", "final-", "-", "countdown"]);
-            test(MergedWithNext, vec!["The", "-final", "-", "-countdown"]);
-            test(Contiguous, vec!["The", "-", "final", "--", "countdown"]);
-        }
-
-        #[test]
-        fn transform_range_single_bytes() {
-            let s = NormalizedString::from("Hello friend");
-
-            // Removing at the beginning
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..4), vec![('Y', 0)], 3);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "Yo friend".into(),
-                    alignments: vec![
-                        (3, 4),
-                        (4, 5),
-                        (5, 6),
-                        (6, 7),
-                        (7, 8),
-                        (8, 9),
-                        (9, 10),
-                        (10, 11),
-                        (11, 12)
-                    ],
-                    original_shift: 0,
-                }
-            );
-
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 0),
-                    (0, 0),
-                    (0, 0),
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 8),
-                    (8, 9)
-                ]
-            );
-
-            // Removing in the middle
-            let mut current = s.clone();
-            current.transform_range(
-                Range::Original(3..10),
-                vec![('_', 0), ('F', 0), ('R', -2)],
-                2,
-            );
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "Hel_FRnd".into(),
-                    alignments: vec![
-                        (0, 1),
-                        (1, 2),
-                        (2, 3),
-                        (5, 6),
-                        (6, 7),
-                        (7, 8),
-                        (10, 11),
-                        (11, 12)
-                    ],
-                    original_shift: 0,
-                }
-            );
-
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 3),
-                    (3, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 6),
-                    (6, 6),
-                    (6, 7),
-                    (7, 8)
-                ]
-            );
-
-            // Removing at the end
-            let mut current = s.clone();
-            current.transform_range(Range::Original(5..), vec![('_', 0), ('F', -5)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "Hello_F".into(),
-                    alignments: vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7)],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 7),
-                    (7, 7),
-                    (7, 7),
-                    (7, 7),
-                    (7, 7)
-                ]
-            );
-
-            // Adding at the beginning
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..1), vec![('H', 1), ('H', 0)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "HHello friend".into(),
-                    alignments: vec![
-                        (0, 0),
-                        (0, 1),
-                        (1, 2),
-                        (2, 3),
-                        (3, 4),
-                        (4, 5),
-                        (5, 6),
-                        (6, 7),
-                        (7, 8),
-                        (8, 9),
-                        (9, 10),
-                        (10, 11),
-                        (11, 12)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 8),
-                    (8, 9),
-                    (9, 10),
-                    (10, 11),
-                    (11, 12),
-                    (12, 13)
-                ]
-            );
-            // Equivalent to the previous one
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..0), vec![('H', 1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "HHello friend".into(),
-                    alignments: vec![
-                        (0, 0),
-                        (0, 1),
-                        (1, 2),
-                        (2, 3),
-                        (3, 4),
-                        (4, 5),
-                        (5, 6),
-                        (6, 7),
-                        (7, 8),
-                        (8, 9),
-                        (9, 10),
-                        (10, 11),
-                        (11, 12)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 8),
-                    (8, 9),
-                    (9, 10),
-                    (10, 11),
-                    (11, 12),
-                    (12, 13)
-                ]
-            );
-            // Adding as part of the first character
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..1), vec![('H', 0), ('H', 1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "HHello friend".into(),
-                    alignments: vec![
-                        (0, 1),
-                        (0, 1),
-                        (1, 2),
-                        (2, 3),
-                        (3, 4),
-                        (4, 5),
-                        (5, 6),
-                        (6, 7),
-                        (7, 8),
-                        (8, 9),
-                        (9, 10),
-                        (10, 11),
-                        (11, 12)
-                    ],
-                    original_shift: 0,
-                }
-            );
-
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 8),
-                    (8, 9),
-                    (9, 10),
-                    (10, 11),
-                    (11, 12),
-                    (12, 13)
-                ]
-            );
-
-            // Adding in the middle
-            let mut current = s.clone();
-            current.transform_range(
-                Range::Original(5..6),
-                vec![('_', 0), ('m', 1), ('y', 1), ('_', 1)],
-                0,
-            );
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "Hello_my_friend".into(),
-                    alignments: vec![
-                        (0, 1),
-                        (1, 2),
-                        (2, 3),
-                        (3, 4),
-                        (4, 5),
-                        (5, 6),
-                        (5, 6),
-                        (5, 6),
-                        (5, 6),
-                        (6, 7),
-                        (7, 8),
-                        (8, 9),
-                        (9, 10),
-                        (10, 11),
-                        (11, 12)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 9),
-                    (9, 10),
-                    (10, 11),
-                    (11, 12),
-                    (12, 13),
-                    (13, 14),
-                    (14, 15)
-                ]
-            );
-
-            // Adding at the end
-            let mut current = s;
-            current.transform_range(Range::Original(11..), vec![('d', 0), ('_', 1), ('!', 1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "Hello friend".into(),
-                    normalized: "Hello friend_!".into(),
-                    alignments: vec![
-                        (0, 1),
-                        (1, 2),
-                        (2, 3),
-                        (3, 4),
-                        (4, 5),
-                        (5, 6),
-                        (6, 7),
-                        (7, 8),
-                        (8, 9),
-                        (9, 10),
-                        (10, 11),
-                        (11, 12),
-                        (11, 12),
-                        (11, 12)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (7, 8),
-                    (8, 9),
-                    (9, 10),
-                    (10, 11),
-                    (11, 14)
-                ]
-            );
-        }
-
-        #[test]
-        fn transform_range_multiple_bytes() {
-            let s = NormalizedString::from("𝔾𝕠𝕠𝕕");
-
-            // Removing at the beginning
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..8), vec![('G', -1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "G𝕠𝕕".into(),
-                    alignments: vec![
-                        (0, 4),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 1),
-                    (0, 1),
-                    (0, 1),
-                    (0, 1),
-                    (1, 1),
-                    (1, 1),
-                    (1, 1),
-                    (1, 1),
-                    (1, 5),
-                    (1, 5),
-                    (1, 5),
-                    (1, 5),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9)
-                ]
-            );
-            assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "G");
-            assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "G");
-            assert_eq!(
-                current.get_range_original(Range::Original(0..4)).unwrap(),
-                "𝔾"
-            );
-            assert_eq!(
-                current.get_range_original(Range::Original(0..8)).unwrap(),
-                "𝔾𝕠"
-            );
-
-            // Removing in the middle
-            let mut current = s.clone();
-            current.transform_range(Range::Original(4..12), vec![('o', -1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "𝔾o𝕕".into(),
-                    alignments: vec![
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (4, 8),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 4),
-                    (0, 4),
-                    (0, 4),
-                    (0, 4),
-                    (4, 5),
-                    (4, 5),
-                    (4, 5),
-                    (4, 5),
-                    (5, 5),
-                    (5, 5),
-                    (5, 5),
-                    (5, 5),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9)
-                ]
-            );
-
-            // Removing at the end
-            let mut current = s.clone();
-            current.transform_range(Range::Original(12..), vec![('d', 0), ('!', 1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "𝔾𝕠𝕠d!".into(),
-                    alignments: vec![
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-
-            // Adding at the beginning
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..4), vec![('_', 1), ('𝔾', 0)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "_𝔾𝕠𝕠𝕕".into(),
-                    alignments: vec![
-                        (0, 0),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (1, 5),
-                    (1, 5),
-                    (1, 5),
-                    (1, 5),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (9, 13),
-                    (9, 13),
-                    (9, 13),
-                    (9, 13),
-                    (13, 17),
-                    (13, 17),
-                    (13, 17),
-                    (13, 17)
-                ]
-            );
-
-            assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "𝔾𝕠");
-            assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "𝔾");
-            assert_eq!(
-                current.get_range_original(Range::Original(0..4)).unwrap(),
-                "𝔾"
-            );
-            assert_eq!(
-                current.get_range_original(Range::Original(0..8)).unwrap(),
-                "𝔾𝕠"
-            );
-            // Equivalent to the previous one
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..0), vec![('_', 1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "_𝔾𝕠𝕠𝕕".into(),
-                    alignments: vec![
-                        (0, 0),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (1, 5),
-                    (1, 5),
-                    (1, 5),
-                    (1, 5),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (9, 13),
-                    (9, 13),
-                    (9, 13),
-                    (9, 13),
-                    (13, 17),
-                    (13, 17),
-                    (13, 17),
-                    (13, 17)
-                ]
-            );
-
-            assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "𝔾𝕠");
-            assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "𝔾");
-            assert_eq!(
-                current.get_range_original(Range::Original(0..4)).unwrap(),
-                "𝔾"
-            );
-            assert_eq!(
-                current.get_range_original(Range::Original(0..8)).unwrap(),
-                "𝔾𝕠"
-            );
-            // Adding as part of the first character
-            let mut current = s.clone();
-            current.transform_range(Range::Original(0..4), vec![('𝔾', 0), ('o', 1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "𝔾o𝕠𝕠𝕕".into(),
-                    alignments: vec![
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 5),
-                    (0, 5),
-                    (0, 5),
-                    (0, 5),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (5, 9),
-                    (9, 13),
-                    (9, 13),
-                    (9, 13),
-                    (9, 13),
-                    (13, 17),
-                    (13, 17),
-                    (13, 17),
-                    (13, 17)
-                ]
-            );
-            assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "𝔾o𝕠");
-            assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "𝔾o");
-            assert_eq!(
-                current.get_range_original(Range::Original(0..4)).unwrap(),
-                "𝔾"
-            );
-            assert_eq!(
-                current.get_range_original(Range::Original(0..8)).unwrap(),
-                "𝔾𝕠"
-            );
-
-            // Adding in the middle
-            let mut current = s.clone();
-            current.transform_range(
-                Range::Original(4..8),
-                vec![('𝕠', 0), ('o', 1), ('o', 1), ('o', 1)],
-                0,
-            );
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "𝔾𝕠ooo𝕠𝕕".into(),
-                    alignments: vec![
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 4),
-                    (0, 4),
-                    (0, 4),
-                    (0, 4),
-                    (4, 11),
-                    (4, 11),
-                    (4, 11),
-                    (4, 11),
-                    (11, 15),
-                    (11, 15),
-                    (11, 15),
-                    (11, 15),
-                    (15, 19),
-                    (15, 19),
-                    (15, 19),
-                    (15, 19)
-                ]
-            );
-
-            // Adding at the end
-            let mut current = s;
-            current.transform_range(Range::Original(16..), vec![('!', 1)], 0);
-            assert_eq!(
-                current,
-                NormalizedString {
-                    original: "𝔾𝕠𝕠𝕕".into(),
-                    normalized: "𝔾𝕠𝕠𝕕!".into(),
-                    alignments: vec![
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (0, 4),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (4, 8),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (8, 12),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16),
-                        (12, 16)
-                    ],
-                    original_shift: 0,
-                }
-            );
-            assert_eq!(
-                current.alignments_original(),
-                vec![
-                    (0, 4),
-                    (0, 4),
-                    (0, 4),
-                    (0, 4),
-                    (4, 8),
-                    (4, 8),
-                    (4, 8),
-                    (4, 8),
-                    (8, 12),
-                    (8, 12),
-                    (8, 12),
-                    (8, 12),
-                    (12, 17),
-                    (12, 17),
-                    (12, 17),
-                    (12, 17)
-                ]
-            );
-        }
-
-        #[test]
-        fn transform_check() {
-            let mut s = NormalizedString::from("abc…");
-            s.nfkd();
-            let transforms = vec![('a', -2), ('.', 0), ('.', 0), ('.', 0)];
-            s.transform(transforms, 0);
-            s.lowercase();
-            assert_eq!(s.get(), "a...");
+impl From<String> for NormalizedString {
+    fn from(string: String) -> Self {
+        let alignments = string
+            .char_indices()
+            .flat_map(|(idx, chr)| {
+                let len = chr.len_utf8();
+                iter::repeat(Offsets(idx, idx + len)).take(len)
+            })
+            .collect::<Vec<_>>();
+        Self {
+            original: string.clone(),
+            normalized: string,
+            alignments,
+            original_shift: 0,
         }
     }
 }
 
-pub mod pattern {
-    use crate::Error;
-    use regex::Regex;
-
-    pub type Offsets = (usize, usize);
-
-    /// Pattern used to split a NormalizedString
-    pub trait Pattern {
-        /// Slice the given string in a list of pattern match positions, with
-        /// a boolean indicating whether this is a match or not.
-        ///
-        /// This method *must* cover the whole string in its outputs, with
-        /// contiguous ordered slices.
-        fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error>;
+impl From<&str> for NormalizedString {
+    fn from(string: &str) -> Self {
+        string.to_string().into()
     }
+}
 
-    impl Pattern for char {
-        fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-            let is_char = |c: char| -> bool { c == *self };
-            is_char.find_matches(inside)
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(test, derive(Debug))]
+pub struct Offsets(pub usize, pub usize);
+
+/// Pattern used to split a NormalizedString
+pub(crate) trait Pattern {
+    /// Slice the given string in a list of pattern match positions, with
+    /// a boolean indicating whether this is a match or not.
+    ///
+    /// This method *must* cover the whole string in its outputs, with
+    /// contiguous ordered slices.
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error>;
+}
+
+impl Pattern for char {
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        let is_char = |c: char| -> bool { c == *self };
+        is_char.find_matches(inside)
+    }
+}
+
+impl Pattern for &str {
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        if self.is_empty() {
+            // If we try to find the matches with an empty string, just don't match anything
+            return Ok(vec![(Offsets(0, inside.chars().count()), false)]);
         }
+
+        let re = Regex::new(regex::escape(self).as_str())?;
+        (&re).find_matches(inside)
     }
+}
 
-    impl Pattern for &str {
-        fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-            if self.is_empty() {
-                // If we try to find the matches with an empty string, just don't match anything
-                return Ok(vec![((0, inside.chars().count()), false)]);
-            }
+impl Pattern for String {
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        self.as_str().find_matches(inside)
+    }
+}
 
-            let re = Regex::new(&regex::escape(self))?;
-            (&re).find_matches(inside)
+impl Pattern for Regex {
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        if inside.is_empty() {
+            return Ok(vec![(Offsets(0, 0), false)]);
         }
-    }
 
-    impl Pattern for &String {
-        fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-            let s: &str = self;
-            s.find_matches(inside)
+        let mut prev = 0;
+        let mut splits = Vec::with_capacity(inside.len());
+        for m in self.find_iter(inside) {
+            if prev != m.start() {
+                splits.push((Offsets(prev, m.start()), false));
+            }
+            splits.push((Offsets(m.start(), m.end()), true));
+            prev = m.end();
         }
-    }
-
-    impl Pattern for &Regex {
-        fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-            if inside.is_empty() {
-                return Ok(vec![((0, 0), false)]);
-            }
-
-            let mut prev = 0;
-            let mut splits = Vec::with_capacity(inside.len());
-            for m in self.find_iter(inside) {
-                if prev != m.start() {
-                    splits.push(((prev, m.start()), false));
-                }
-                splits.push(((m.start(), m.end()), true));
-                prev = m.end();
-            }
-            if prev != inside.len() {
-                splits.push(((prev, inside.len()), false))
-            }
-            Ok(splits)
+        if prev != inside.len() {
+            splits.push((Offsets(prev, inside.len()), false))
         }
+        Ok(splits)
     }
+}
 
-    impl<F> Pattern for F
-    where
-        F: Fn(char) -> bool,
-    {
-        fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-            if inside.is_empty() {
-                return Ok(vec![((0, 0), false)]);
-            }
+impl Pattern for &Regex {
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        <Regex as Pattern>::find_matches(self, inside)
+    }
+}
 
-            let mut last_offset = 0;
-            let mut last_seen = 0;
+impl<F> Pattern for F
+where
+    F: Fn(char) -> bool,
+{
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        if inside.is_empty() {
+            return Ok(vec![(Offsets(0, 0), false)]);
+        }
 
-            let mut matches = inside
-                .char_indices()
-                .flat_map(|(b, c)| {
-                    last_seen = b + c.len_utf8();
-                    if self(c) {
-                        let mut events = Vec::with_capacity(2);
-                        if last_offset < b {
-                            // We need to emit what was before this match
-                            events.push(((last_offset, b), false));
-                        }
-                        events.push(((b, b + c.len_utf8()), true));
-                        last_offset = b + c.len_utf8();
-                        events
-                    } else {
-                        vec![]
+        let mut last_offset = 0;
+        let mut last_seen = 0;
+
+        let mut matches = inside
+            .char_indices()
+            .flat_map(|(idx, chr)| {
+                last_seen = idx + chr.len_utf8();
+                if self(chr) {
+                    let mut events = Vec::with_capacity(2);
+                    if last_offset < idx {
+                        // We need to emit what was before this match
+                        events.push((Offsets(last_offset, idx), false));
                     }
-                })
-                .collect::<Vec<_>>();
+                    events.push((Offsets(idx, last_seen), true));
+                    last_offset = last_seen;
+                    events
+                } else {
+                    vec![]
+                }
+            })
+            .collect::<Vec<_>>();
 
-            // Do not forget the last potential split
-            if last_seen > last_offset {
-                matches.push(((last_offset, last_seen), false));
-            }
-
-            Ok(matches)
+        // Do not forget the last potential split
+        if last_seen > last_offset {
+            matches.push((Offsets(last_offset, last_seen), false));
         }
+
+        Ok(matches)
+    }
+}
+
+/// Invert the `is_match` flags for the wrapped Pattern. This is usefull
+/// for example when we use a regex that matches words instead of a delimiter,
+/// and we want to match the delimiter.
+pub struct Invert<P>(pub(crate) P);
+
+impl<P: Pattern> Pattern for Invert<P> {
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        Ok(self
+            .0
+            .find_matches(inside)?
+            .into_iter()
+            .map(|(offsets, flag)| (offsets, !flag))
+            .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_nfd_adds_new_chars() {
+        let n = NormalizedString::from("élégant").nfd();
+        assert_eq!(
+            &n.alignments,
+            &[
+                Offsets(0, 2),
+                Offsets(0, 2),
+                Offsets(0, 2),
+                Offsets(2, 3),
+                Offsets(3, 5),
+                Offsets(3, 5),
+                Offsets(3, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+            ],
+        );
+        assert_eq!(
+            n.alignments_original(),
+            vec![
+                Offsets(0, 3),
+                Offsets(0, 3),
+                Offsets(3, 4),
+                Offsets(4, 7),
+                Offsets(4, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+                Offsets(9, 10),
+                Offsets(10, 11),
+            ],
+        );
     }
 
-    /// Invert the `is_match` flags for the wrapped Pattern. This is usefull
-    /// for example when we use a regex that matches words instead of a delimiter,
-    /// and we want to match the delimiter.
-    pub struct Invert<P: Pattern>(pub P);
-    impl<P: Pattern> Pattern for Invert<P> {
-        fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-            Ok(self
-                .0
-                .find_matches(inside)?
-                .into_iter()
-                .map(|(offsets, flag)| (offsets, !flag))
-                .collect())
-        }
+    #[test]
+    fn test_remove_chars_added_by_nfd() {
+        let n = NormalizedString::from("élégant")
+            .nfd()
+            .filter(|c| !c.is_mark_nonspacing());
+
+        assert_eq!(n.normalized, "elegant");
+
+        assert_eq!(
+            &n.alignments,
+            &[
+                Offsets(0, 2),
+                Offsets(2, 3),
+                Offsets(3, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+            ],
+        );
+        assert_eq!(
+            n.alignments_original(),
+            vec![
+                Offsets(0, 1),
+                Offsets(0, 1),
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+            ],
+        );
     }
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        use regex::Regex;
+    #[test]
+    fn test_remove_chars() {
+        let n = NormalizedString::from("élégant").filter(|c| c != 'n');
+        assert_eq!(n.normalized, "élégat");
+        assert_eq!(
+            &n.alignments,
+            &[
+                Offsets(0, 2),
+                Offsets(0, 2),
+                Offsets(2, 3),
+                Offsets(3, 5),
+                Offsets(3, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                // Skipped range
+                Offsets(8, 9),
+            ],
+        );
+        assert_eq!(
+            n.alignments_original(),
+            vec![
+                Offsets(0, 2),
+                Offsets(0, 2),
+                Offsets(2, 3),
+                Offsets(3, 5),
+                Offsets(3, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 7), // Eaten n
+                Offsets(7, 8),
+            ],
+        );
+    }
 
-        macro_rules! do_test {
-            ($inside: expr, $pattern: expr => @ERROR) => {
-                assert!($pattern.find_matches($inside).is_err());
-            };
-            ($inside: expr, $pattern: expr => $result: expr) => {
-                assert_eq!($pattern.find_matches($inside).unwrap(), $result);
-                assert_eq!(
-                    Invert($pattern).find_matches($inside).unwrap(),
-                    $result
-                        .into_iter()
-                        .map(|v: (Offsets, bool)| (v.0, !v.1))
-                        .collect::<Vec<_>>()
-                );
-            };
-        }
+    #[test]
+    fn test_mixed_addition_and_removal() {
+        let n = NormalizedString::from("élégant")
+            .nfd()
+            .filter(|c| !c.is_mark_nonspacing() && c != 'n');
+        assert_eq!(n.normalized, "elegat");
+        assert_eq!(
+            &n.alignments,
+            &[
+                Offsets(0, 2),
+                Offsets(2, 3),
+                Offsets(3, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(8, 9),
+            ],
+        );
+        assert_eq!(
+            n.alignments_original(),
+            vec![
+                Offsets(0, 1),
+                Offsets(0, 1),
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(2, 3),
+                Offsets(3, 4), // g
+                Offsets(4, 5), // a
+                Offsets(5, 5), // Eaten n
+                Offsets(5, 6),
+            ],
+        );
+    }
 
-        #[test]
-        fn char() {
-            do_test!("aba", 'a' => vec![((0, 1), true), ((1, 2), false), ((2, 3), true)]);
-            do_test!("bbbba", 'a' => vec![((0, 4), false), ((4, 5), true)]);
-            do_test!("aabbb", 'a' => vec![((0, 1), true), ((1, 2), true), ((2, 5), false)]);
-            do_test!("", 'a' => vec![((0, 0), false)]);
-            do_test!("aaa", 'b' => vec![((0, 3), false)]);
-        }
+    #[test]
+    fn test_range_conversion() {
+        let n = NormalizedString::from("    __Hello__   ")
+            .filter(|c| !c.is_whitespace())
+            .lowercase();
+        let hello_n = n.convert_offsets(Range::Original(6..11));
+        assert_eq!(hello_n, Some(2..7));
+        assert_eq!(
+            n.get_range(Range::Normalized(hello_n.clone().unwrap())),
+            Some("hello")
+        );
+        assert_eq!(
+            n.get_range_original(Range::Normalized(hello_n.unwrap())),
+            Some("Hello")
+        );
+        assert_eq!(n.get_range(Range::Original(6..11)), Some("hello"));
+        assert_eq!(n.get_range_original(Range::Original(6..11)), Some("Hello"));
 
-        #[test]
-        fn str() {
-            do_test!("aba", "a" => vec![((0, 1), true), ((1, 2), false), ((2, 3), true)]);
-            do_test!("bbbba", "a" => vec![((0, 4), false), ((4, 5), true)]);
-            do_test!("aabbb", "a" => vec![((0, 1), true), ((1, 2), true), ((2, 5), false)]);
-            do_test!("aabbb", "ab" => vec![((0, 1), false), ((1, 3), true), ((3, 5), false)]);
-            do_test!("aabbab", "ab" =>
-                vec![((0, 1), false), ((1, 3), true), ((3, 4), false), ((4, 6), true)]
+        // Make sure we get None only in specific cases
+        assert_eq!(n.convert_offsets(Range::Original(0..0)), Some(0..0));
+        assert_eq!(n.convert_offsets(Range::Original(3..3)), Some(3..3));
+        assert_eq!(n.convert_offsets(Range::Original(15..)), Some(9..9));
+        assert_eq!(n.convert_offsets(Range::Original(16..)), Some(16..16));
+        assert_eq!(n.convert_offsets(Range::Original(17..)), None);
+        assert_eq!(n.convert_offsets(Range::Normalized(0..0)), Some(0..0));
+        assert_eq!(n.convert_offsets(Range::Normalized(3..3)), Some(3..3));
+        assert_eq!(n.convert_offsets(Range::Normalized(9..)), Some(9..9));
+        assert_eq!(n.convert_offsets(Range::Normalized(10..)), None);
+    }
+
+    #[test]
+    fn test_original_range() {
+        let n = NormalizedString::from("Hello_______ World!")
+            .filter(|c| c != '_')
+            .lowercase();
+        let world_n = n.get_range(Range::Normalized(6..11)).unwrap();
+        let world_o = n.get_range_original(Range::Normalized(6..11)).unwrap();
+        assert_eq!(world_n, "world");
+        assert_eq!(world_o, "World");
+        let original_range = Range::Original(n.convert_offsets(Range::Normalized(6..11)).unwrap());
+        assert_eq!(n.get_range(original_range.clone()).unwrap(), "world");
+        assert_eq!(
+            n.get_range_original(original_range.clone()).unwrap(),
+            "World"
+        );
+        assert_eq!(original_range.into_full_range(n.original.len()), 13..18);
+    }
+
+    #[test]
+    fn test_added_around_edges() {
+        let n = NormalizedString::from("Hello").transform(
+            vec![
+                (' ', 1),
+                ('H', 0),
+                ('e', 0),
+                ('l', 0),
+                ('l', 0),
+                ('o', 0),
+                (' ', 1),
+            ]
+            .into_iter(),
+            0,
+        );
+
+        assert_eq!(&n.normalized, " Hello ");
+        assert_eq!(
+            n.get_range_original(Range::Normalized(1..n.normalized.len() - 1)),
+            Some("Hello")
+        );
+    }
+
+    #[test]
+    fn test_added_characters_alignment() {
+        let n = NormalizedString::from("野口 No");
+        let normalized = n.normalized.clone();
+        let n = n.transform(
+            normalized.chars().flat_map(|c| {
+                if (c as usize) > 0x4E00 {
+                    vec![(' ', 0), (c, 1), (' ', 1)]
+                } else {
+                    vec![(c, 0)]
+                }
+            }),
+            0,
+        );
+
+        assert_eq!(
+            n,
+            NormalizedString {
+                original: "野口 No".into(),
+                normalized: " 野  口  No".into(),
+                alignments: vec![
+                    Offsets(0, 3),
+                    Offsets(0, 3),
+                    Offsets(0, 3),
+                    Offsets(0, 3),
+                    Offsets(0, 3),
+                    Offsets(3, 6),
+                    Offsets(3, 6),
+                    Offsets(3, 6),
+                    Offsets(3, 6),
+                    Offsets(3, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(8, 9),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            n.alignments_original(),
+            vec![
+                Offsets(0, 5),
+                Offsets(0, 5),
+                Offsets(0, 5),
+                Offsets(5, 10),
+                Offsets(5, 10),
+                Offsets(5, 10),
+                Offsets(10, 11),
+                Offsets(11, 12),
+                Offsets(12, 13),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_remove_at_beginning() {
+        let n = NormalizedString::from("     Hello").filter(|c| !c.is_whitespace());
+        assert_eq!(
+            n.get_range_original(Range::Normalized(1.."Hello".len())),
+            Some("ello"),
+        );
+        assert_eq!(
+            n.get_range_original(Range::Normalized(0..n.normalized.len())),
+            Some("Hello"),
+        );
+    }
+
+    #[test]
+    fn test_remove_at_end() {
+        let n = NormalizedString::from("Hello    ").filter(|c| !c.is_whitespace());
+        assert_eq!(n.get_range_original(Range::Normalized(0..4)), Some("Hell"));
+        assert_eq!(
+            n.get_range_original(Range::Normalized(0..n.normalized.len())),
+            Some("Hello"),
+        );
+    }
+
+    #[test]
+    fn test_removed_around_both_edges() {
+        let n = NormalizedString::from("  Hello  ").filter(|c| !c.is_whitespace());
+        assert_eq!(&n.normalized, "Hello");
+
+        assert_eq!(
+            n.get_range_original(Range::Normalized(0.."Hello".len())),
+            Some("Hello"),
+        );
+        assert_eq!(
+            n.get_range_original(Range::Normalized(1.."Hell".len())),
+            Some("ell"),
+        );
+    }
+
+    #[test]
+    fn test_get_range() {
+        let s = String::from("Hello my name is John 👋");
+        assert_eq!(get_range_of(&s, ..), Some(&s[..]));
+        assert_eq!(get_range_of(&s, 17..), Some("John 👋"));
+    }
+
+    #[test]
+    fn test_slice() {
+        let s = NormalizedString::from("𝔾𝕠𝕠𝕕 𝕞𝕠𝕣𝕟𝕚𝕟𝕘").nfd();
+
+        let original_slice = s.slice(Range::Original(0..4)).unwrap();
+        assert_eq!(original_slice.normalized, "𝔾");
+        assert_eq!(original_slice.original, "𝔾");
+
+        let normalized_slice = s.slice(Range::Normalized(0..16)).unwrap();
+        assert_eq!(normalized_slice.normalized, "𝔾𝕠𝕠𝕕");
+        assert_eq!(normalized_slice.original, "𝔾𝕠𝕠𝕕");
+
+        // Make sure the sliced NormalizedString is still aligned as expected
+        let s = NormalizedString::from("   Good Morning!   ").strip(true, true);
+
+        // If we keep the whole slice
+        let slice = s.slice(Range::Original(..)).unwrap();
+        assert_eq!(
+            slice.get_range_original(Range::Normalized(0..4)),
+            Some("Good"),
+        );
+        let slice = s.slice(Range::Normalized(..)).unwrap();
+        assert_eq!(
+            slice.get_range_original(Range::Normalized(0..4)),
+            Some("Good"),
+        );
+
+        // If we keep after the modified piece
+        let slice = s.slice(Range::Original(4..15)).unwrap();
+        assert_eq!(
+            slice.get_range_original(Range::Normalized(0..3)),
+            Some("ood"),
+        );
+
+        // If we keep only the modified piece
+        let slice = s.slice(Range::Original(3..16)).unwrap();
+        assert_eq!(
+            slice.get_range_original(Range::Normalized(0..4)),
+            Some("Good"),
+        );
+    }
+
+    #[test]
+    fn test_replace() {
+        // Simple
+        let s = NormalizedString::from(" Hello   friend ")
+            .replace(' ', "_")
+            .unwrap();
+        assert_eq!(s.normalized, "_Hello___friend_");
+        let s = NormalizedString::from("aaaab").replace('a', "b").unwrap();
+        assert_eq!(s.normalized, "bbbbb");
+
+        // Overlapping
+        let s = NormalizedString::from("aaaab").replace("aaa", "b").unwrap();
+        assert_eq!(s.normalized, "bab");
+
+        // Regex
+        let re = Regex::new(r"\s+").unwrap();
+        let s = NormalizedString::from(" Hello   friend ")
+            .replace(re, "_")
+            .unwrap();
+        assert_eq!(s.normalized, "_Hello_friend_");
+    }
+
+    #[test]
+    fn test_split() {
+        use SplitDelimiterBehavior::*;
+        let s = NormalizedString::from("The-final--countdown");
+
+        let test = |behavior: SplitDelimiterBehavior, result: Vec<&str>| {
+            let splits = s.split('-', behavior).unwrap();
+            assert_eq!(
+                splits
+                    .iter()
+                    .map(|n| n.normalized.as_str())
+                    .collect::<Vec<_>>(),
+                result
             );
-            do_test!("", "" => vec![((0, 0), false)]);
-            do_test!("aaa", "" => vec![((0, 3), false)]);
-            do_test!("aaa", "b" => vec![((0, 3), false)]);
-        }
+        };
 
-        #[test]
-        fn functions() {
-            let is_b = |c| c == 'b';
-            do_test!("aba", is_b => vec![((0, 1), false), ((1, 2), true), ((2, 3), false)]);
-            do_test!("aaaab", is_b => vec![((0, 4), false), ((4, 5), true)]);
-            do_test!("bbaaa", is_b => vec![((0, 1), true), ((1, 2), true), ((2, 5), false)]);
-            do_test!("", is_b => vec![((0, 0), false)]);
-            do_test!("aaa", is_b => vec![((0, 3), false)]);
-        }
+        test(Removed, vec!["The", "final", "countdown"]);
+        test(Isolated, vec!["The", "-", "final", "-", "-", "countdown"]);
+        test(MergedWithPrevious, vec!["The-", "final-", "-", "countdown"]);
+        test(MergedWithNext, vec!["The", "-final", "-", "-countdown"]);
+        test(Contiguous, vec!["The", "-", "final", "--", "countdown"]);
+    }
 
-        #[test]
-        fn regex() {
-            let is_whitespace = Regex::new(r"\s+").unwrap();
-            do_test!("a   b", &is_whitespace => vec![((0, 1), false), ((1, 4), true), ((4, 5), false)]);
-            do_test!("   a   b   ", &is_whitespace =>
-                vec![((0, 3), true), ((3, 4), false), ((4, 7), true), ((7, 8), false), ((8, 11), true)]
+    #[test]
+    fn test_transform_range_single_bytes() {
+        let s = NormalizedString::from("Hello friend");
+
+        // Removing at the beginning
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..4), vec![('Y', 0)], 3);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "Yo friend".into(),
+                alignments: vec![
+                    Offsets(3, 4),
+                    Offsets(4, 5),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(8, 9),
+                    Offsets(9, 10),
+                    Offsets(10, 11),
+                    Offsets(11, 12),
+                ],
+                original_shift: 0,
+            },
+        );
+
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 0),
+                Offsets(0, 0),
+                Offsets(0, 0),
+                Offsets(0, 1),
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+            ],
+        );
+
+        // Removing in the middle
+        let current = s.clone().transform_range(
+            Range::Original(3..10),
+            vec![('_', 0), ('F', 0), ('R', -2)],
+            2,
+        );
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "Hel_FRnd".into(),
+                alignments: vec![
+                    Offsets(0, 1),
+                    Offsets(1, 2),
+                    Offsets(2, 3),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(10, 11),
+                    Offsets(11, 12),
+                ],
+                original_shift: 0,
+            },
+        );
+
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 1),
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(3, 3),
+                Offsets(3, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 6),
+                Offsets(6, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+            ],
+        );
+
+        // Removing at the end
+        let current = s
+            .clone()
+            .transform_range(Range::Original(5..), vec![('_', 0), ('F', -5)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "Hello_F".into(),
+                alignments: vec![
+                    Offsets(0, 1),
+                    Offsets(1, 2),
+                    Offsets(2, 3),
+                    Offsets(3, 4),
+                    Offsets(4, 5),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 1),
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 7),
+                Offsets(7, 7),
+                Offsets(7, 7),
+                Offsets(7, 7),
+                Offsets(7, 7),
+            ],
+        );
+
+        // Adding at the beginning
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..1), vec![('H', 1), ('H', 0)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "HHello friend".into(),
+                alignments: vec![
+                    Offsets(0, 0),
+                    Offsets(0, 1),
+                    Offsets(1, 2),
+                    Offsets(2, 3),
+                    Offsets(3, 4),
+                    Offsets(4, 5),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(8, 9),
+                    Offsets(9, 10),
+                    Offsets(10, 11),
+                    Offsets(11, 12),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+                Offsets(9, 10),
+                Offsets(10, 11),
+                Offsets(11, 12),
+                Offsets(12, 13),
+            ],
+        );
+
+        // Equivalent to the previous one
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..0), vec![('H', 1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "HHello friend".into(),
+                alignments: vec![
+                    Offsets(0, 0),
+                    Offsets(0, 1),
+                    Offsets(1, 2),
+                    Offsets(2, 3),
+                    Offsets(3, 4),
+                    Offsets(4, 5),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(8, 9),
+                    Offsets(9, 10),
+                    Offsets(10, 11),
+                    Offsets(11, 12),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+                Offsets(9, 10),
+                Offsets(10, 11),
+                Offsets(11, 12),
+                Offsets(12, 13),
+            ],
+        );
+        // Adding as part of the first character
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..1), vec![('H', 0), ('H', 1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "HHello friend".into(),
+                alignments: vec![
+                    Offsets(0, 1),
+                    Offsets(0, 1),
+                    Offsets(1, 2),
+                    Offsets(2, 3),
+                    Offsets(3, 4),
+                    Offsets(4, 5),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(8, 9),
+                    Offsets(9, 10),
+                    Offsets(10, 11),
+                    Offsets(11, 12),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 2),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+                Offsets(9, 10),
+                Offsets(10, 11),
+                Offsets(11, 12),
+                Offsets(12, 13),
+            ],
+        );
+
+        // Adding in the middle
+        let current = s.clone().transform_range(
+            Range::Original(5..6),
+            vec![('_', 0), ('m', 1), ('y', 1), ('_', 1)],
+            0,
+        );
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "Hello_my_friend".into(),
+                alignments: vec![
+                    Offsets(0, 1),
+                    Offsets(1, 2),
+                    Offsets(2, 3),
+                    Offsets(3, 4),
+                    Offsets(4, 5),
+                    Offsets(5, 6),
+                    Offsets(5, 6),
+                    Offsets(5, 6),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(8, 9),
+                    Offsets(9, 10),
+                    Offsets(10, 11),
+                    Offsets(11, 12),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 1),
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 9),
+                Offsets(9, 10),
+                Offsets(10, 11),
+                Offsets(11, 12),
+                Offsets(12, 13),
+                Offsets(13, 14),
+                Offsets(14, 15),
+            ],
+        );
+
+        // Adding at the end
+        let current =
+            s.transform_range(Range::Original(11..), vec![('d', 0), ('_', 1), ('!', 1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "Hello friend".into(),
+                normalized: "Hello friend_!".into(),
+                alignments: vec![
+                    Offsets(0, 1),
+                    Offsets(1, 2),
+                    Offsets(2, 3),
+                    Offsets(3, 4),
+                    Offsets(4, 5),
+                    Offsets(5, 6),
+                    Offsets(6, 7),
+                    Offsets(7, 8),
+                    Offsets(8, 9),
+                    Offsets(9, 10),
+                    Offsets(10, 11),
+                    Offsets(11, 12),
+                    Offsets(11, 12),
+                    Offsets(11, 12),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 1),
+                Offsets(1, 2),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(4, 5),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+                Offsets(8, 9),
+                Offsets(9, 10),
+                Offsets(10, 11),
+                Offsets(11, 14),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_transform_range_multiple_bytes() {
+        let s = NormalizedString::from("𝔾𝕠𝕠𝕕");
+
+        // Removing at the beginning
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..8), vec![('G', -1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "G𝕠𝕕".into(),
+                alignments: vec![
+                    Offsets(0, 4),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 1),
+                Offsets(0, 1),
+                Offsets(0, 1),
+                Offsets(0, 1),
+                Offsets(1, 1),
+                Offsets(1, 1),
+                Offsets(1, 1),
+                Offsets(1, 1),
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+            ],
+        );
+        assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "G");
+        assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "G");
+        assert_eq!(
+            current.get_range_original(Range::Original(0..4)).unwrap(),
+            "𝔾",
+        );
+        assert_eq!(
+            current.get_range_original(Range::Original(0..8)).unwrap(),
+            "𝔾𝕠",
+        );
+
+        // Removing in the middle
+        let current = s
+            .clone()
+            .transform_range(Range::Original(4..12), vec![('o', -1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "𝔾o𝕕".into(),
+                alignments: vec![
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(4, 8),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(4, 5),
+                Offsets(4, 5),
+                Offsets(4, 5),
+                Offsets(4, 5),
+                Offsets(5, 5),
+                Offsets(5, 5),
+                Offsets(5, 5),
+                Offsets(5, 5),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+            ],
+        );
+
+        // Removing at the end
+        let current = s
+            .clone()
+            .transform_range(Range::Original(12..), vec![('d', 0), ('!', 1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "𝔾𝕠𝕠d!".into(),
+                alignments: vec![
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+
+        // Adding at the beginning
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..4), vec![('_', 1), ('𝔾', 0)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "_𝔾𝕠𝕠𝕕".into(),
+                alignments: vec![
+                    Offsets(0, 0),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(13, 17),
+                Offsets(13, 17),
+                Offsets(13, 17),
+                Offsets(13, 17),
+            ],
+        );
+        assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "𝔾𝕠");
+        assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "𝔾");
+        assert_eq!(
+            current.get_range_original(Range::Original(0..4)).unwrap(),
+            "𝔾",
+        );
+        assert_eq!(
+            current.get_range_original(Range::Original(0..8)).unwrap(),
+            "𝔾𝕠",
+        );
+
+        // Equivalent to the previous one
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..0), vec![('_', 1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "_𝔾𝕠𝕠𝕕".into(),
+                alignments: vec![
+                    Offsets(0, 0),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(1, 5),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(13, 17),
+                Offsets(13, 17),
+                Offsets(13, 17),
+                Offsets(13, 17),
+            ],
+        );
+        assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "𝔾𝕠");
+        assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "𝔾");
+        assert_eq!(
+            current.get_range_original(Range::Original(0..4)).unwrap(),
+            "𝔾",
+        );
+        assert_eq!(
+            current.get_range_original(Range::Original(0..8)).unwrap(),
+            "𝔾𝕠",
+        );
+
+        // Adding as part of the first character
+        let current = s
+            .clone()
+            .transform_range(Range::Original(0..4), vec![('𝔾', 0), ('o', 1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "𝔾o𝕠𝕠𝕕".into(),
+                alignments: vec![
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 5),
+                Offsets(0, 5),
+                Offsets(0, 5),
+                Offsets(0, 5),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(5, 9),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(9, 13),
+                Offsets(13, 17),
+                Offsets(13, 17),
+                Offsets(13, 17),
+                Offsets(13, 17),
+            ],
+        );
+        assert_eq!(current.get_range(Range::Original(0..8)).unwrap(), "𝔾o𝕠");
+        assert_eq!(current.get_range(Range::Original(0..4)).unwrap(), "𝔾o");
+        assert_eq!(
+            current.get_range_original(Range::Original(0..4)).unwrap(),
+            "𝔾",
+        );
+        assert_eq!(
+            current.get_range_original(Range::Original(0..8)).unwrap(),
+            "𝔾𝕠",
+        );
+
+        // Adding in the middle
+        let current = s.clone().transform_range(
+            Range::Original(4..8),
+            vec![('𝕠', 0), ('o', 1), ('o', 1), ('o', 1)],
+            0,
+        );
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "𝔾𝕠ooo𝕠𝕕".into(),
+                alignments: vec![
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(4, 11),
+                Offsets(4, 11),
+                Offsets(4, 11),
+                Offsets(4, 11),
+                Offsets(11, 15),
+                Offsets(11, 15),
+                Offsets(11, 15),
+                Offsets(11, 15),
+                Offsets(15, 19),
+                Offsets(15, 19),
+                Offsets(15, 19),
+                Offsets(15, 19),
+            ],
+        );
+
+        // Adding at the end
+        let current = s.transform_range(Range::Original(16..), vec![('!', 1)], 0);
+        assert_eq!(
+            current,
+            NormalizedString {
+                original: "𝔾𝕠𝕠𝕕".into(),
+                normalized: "𝔾𝕠𝕠𝕕!".into(),
+                alignments: vec![
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(0, 4),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(4, 8),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(8, 12),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                    Offsets(12, 16),
+                ],
+                original_shift: 0,
+            },
+        );
+        assert_eq!(
+            current.alignments_original(),
+            vec![
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(0, 4),
+                Offsets(4, 8),
+                Offsets(4, 8),
+                Offsets(4, 8),
+                Offsets(4, 8),
+                Offsets(8, 12),
+                Offsets(8, 12),
+                Offsets(8, 12),
+                Offsets(8, 12),
+                Offsets(12, 17),
+                Offsets(12, 17),
+                Offsets(12, 17),
+                Offsets(12, 17),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_transform_check() {
+        let transforms = vec![('a', -2), ('…', 0)];
+        let s = NormalizedString::from("abc…")
+            .nfd()
+            .transform(transforms, 0)
+            .lowercase();
+        assert_eq!(s.normalized, "a…");
+    }
+
+    macro_rules! test_pattern {
+        ($inside: expr, $pattern: expr => @ERROR) => {
+            assert!($pattern.find_matches($inside).is_err());
+        };
+        ($inside: expr, $pattern: expr => $result: expr) => {
+            assert_eq!($pattern.find_matches($inside).unwrap(), $result);
+            assert_eq!(
+                Invert($pattern).find_matches($inside).unwrap(),
+                $result
+                    .into_iter()
+                    .map(|v: (Offsets, bool)| (v.0, !v.1))
+                    .collect::<Vec<_>>()
             );
-            do_test!("", &is_whitespace => vec![((0, 0), false)]);
-            do_test!("𝔾𝕠𝕠𝕕 𝕞𝕠𝕣𝕟𝕚𝕟𝕘", &is_whitespace =>
-                vec![((0, 16), false), ((16, 17), true), ((17, 45), false)]
-            );
-            do_test!("aaa", &is_whitespace => vec![((0, 3), false)]);
-        }
+        };
+    }
+
+    #[test]
+    fn test_pattern_char() {
+        test_pattern!(
+            "aba", 'a' => vec![
+                (Offsets(0, 1), true),
+                (Offsets(1, 2), false),
+                (Offsets(2, 3), true),
+            ]
+        );
+        test_pattern!("bbbba", 'a' => vec![(Offsets(0, 4), false), (Offsets(4, 5), true)]);
+        test_pattern!(
+            "aabbb", 'a' => vec![
+                (Offsets(0, 1), true),
+                (Offsets(1, 2), true),
+                (Offsets(2, 5), false),
+            ]
+        );
+        test_pattern!("", 'a' => vec![(Offsets(0, 0), false)]);
+        test_pattern!("aaa", 'b' => vec![(Offsets(0, 3), false)]);
+    }
+
+    #[test]
+    fn test_pattern_str() {
+        test_pattern!(
+            "aba", "a" => vec![
+                (Offsets(0, 1), true),
+                (Offsets(1, 2), false),
+                (Offsets(2, 3), true),
+            ]
+        );
+        test_pattern!("bbbba", "a" => vec![(Offsets(0, 4), false), (Offsets(4, 5), true)]);
+        test_pattern!(
+            "aabbb", "a" => vec![
+                (Offsets(0, 1), true),
+                (Offsets(1, 2), true),
+                (Offsets(2, 5), false),
+            ]
+        );
+        test_pattern!(
+            "aabbb", "ab" => vec![
+                (Offsets(0, 1), false),
+                (Offsets(1, 3), true),
+                (Offsets(3, 5), false),
+            ]
+        );
+        test_pattern!(
+            "aabbab", "ab" => vec![
+                (Offsets(0, 1), false),
+                (Offsets(1, 3), true),
+                (Offsets(3, 4), false),
+                (Offsets(4, 6), true),
+            ]
+        );
+        test_pattern!("", "" => vec![(Offsets(0, 0), false)]);
+        test_pattern!("aaa", "" => vec![(Offsets(0, 3), false)]);
+        test_pattern!("aaa", "b" => vec![(Offsets(0, 3), false)]);
+    }
+
+    #[test]
+    fn test_pattern_functions() {
+        let is_b = |c| c == 'b';
+        test_pattern!(
+            "aba", is_b => vec![
+                (Offsets(0, 1), false),
+                (Offsets(1, 2), true),
+                (Offsets(2, 3), false),
+            ]
+        );
+        test_pattern!("aaaab", is_b => vec![(Offsets(0, 4), false), (Offsets(4, 5), true)]);
+        test_pattern!(
+            "bbaaa", is_b => vec![
+                (Offsets(0, 1), true),
+                (Offsets(1, 2), true),
+                (Offsets(2, 5), false),
+            ]
+        );
+        test_pattern!("", is_b => vec![(Offsets(0, 0), false)]);
+        test_pattern!("aaa", is_b => vec![(Offsets(0, 3), false)]);
+    }
+
+    #[test]
+    fn test_pattern_regex() {
+        let is_whitespace = Regex::new(r"\s+").unwrap();
+        test_pattern!(
+            "a   b", &is_whitespace => vec![
+                (Offsets(0, 1), false),
+                (Offsets(1, 4), true),
+                (Offsets(4, 5), false),
+            ]
+        );
+        test_pattern!(
+            "   a   b   ", &is_whitespace => vec![
+                (Offsets(0, 3), true),
+                (Offsets(3, 4), false),
+                (Offsets(4, 7), true),
+                (Offsets(7, 8), false),
+                (Offsets(8, 11), true),
+            ]
+        );
+        test_pattern!("", &is_whitespace => vec![(Offsets(0, 0), false)]);
+        test_pattern!(
+            "𝔾𝕠𝕠𝕕 𝕞𝕠𝕣𝕟𝕚𝕟𝕘", &is_whitespace => vec![
+                (Offsets(0, 16), false),
+                (Offsets(16, 17), true),
+                (Offsets(17, 45), false),
+            ]
+        );
+        test_pattern!("aaa", &is_whitespace => vec![(Offsets(0, 3), false)]);
     }
 }

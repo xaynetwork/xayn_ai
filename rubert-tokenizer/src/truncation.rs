@@ -30,6 +30,7 @@ impl Truncation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::normalizer::Offsets;
 
     fn truncation(max_length: usize) -> Truncation {
         Truncation::Fixed {
@@ -49,7 +50,7 @@ mod tests {
                 String::from("d"),
             ],
             words: vec![Some(0), Some(1), Some(2), Some(3)],
-            offsets: vec![(0, 1), (1, 2), (2, 3), (3, 4)],
+            offsets: vec![Offsets(0, 1), Offsets(1, 2), Offsets(2, 3), Offsets(3, 4)],
             special_tokens_mask: vec![0, 0, 0, 0],
             attention_mask: vec![1, 1, 1, 1],
             ..Encoding::default()

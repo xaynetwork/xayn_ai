@@ -2,11 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     model::WordPiece,
-    normalizer::{
-        normalized_string::{NormalizedString, Range},
-        pattern::Offsets,
-        BertNormalizer,
-    },
+    normalizer::{BertNormalizer, NormalizedString, Offsets, Range},
     pipeline::Token,
     pre_tokenizer::PreTokenizedString,
 };
@@ -64,6 +60,7 @@ impl AddedToken {
         self.normalized = normalized;
         self
     }
+
     /// Retrive the pattern built for this token, according to all the specified parameters.
     pub fn get_pattern(&self, normalizer: Option<&BertNormalizer>) -> String {
         let mut r = if self.single_word {
@@ -93,9 +90,22 @@ impl AddedToken {
                 .unwrap();
 
             // Normalize the content
-            let mut content = NormalizedString::from(self.content.as_ref());
-            normalizer.map(|n| n.normalize(&mut content));
-            format!(r"{}{}{}", first_b, regex::escape(content.get()), last_b)
+            let content = NormalizedString::from(self.content.as_ref());
+            let content = if let Some(normalizer) = normalizer {
+                if let Ok(normalized) = normalizer.normalize(content) {
+                    normalized
+                } else {
+                    todo!("handle error")
+                }
+            } else {
+                content
+            };
+            format!(
+                r"{}{}{}",
+                first_b,
+                regex::escape(content.normalized.as_str()),
+                last_b
+            )
         } else {
             regex::escape(&self.content)
         };
@@ -319,7 +329,7 @@ impl AddedVocabulary {
         split_re: &'a MatchingSet,
     ) -> Vec<(Option<u32>, Offsets)> {
         if sentence.is_empty() {
-            return vec![(None, (0, 0))];
+            return vec![(None, Offsets(0, 0))];
         }
 
         let mut matches = split_re
@@ -330,14 +340,14 @@ impl AddedVocabulary {
                 regex::Regex::new(&split_re.0.patterns()[idx])
                     .unwrap()
                     .find_iter(sentence)
-                    .map(|m| (idx, (m.start(), m.end())))
+                    .map(|m| (idx, Offsets(m.start(), m.end())))
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 
         // We sort all the matches by their start and then by their pattern id
         matches.sort_by(
-            |(idxa, (sa, _)), (idxb, (sb, _))| {
+            |(idxa, Offsets(sa, _)), (idxb, Offsets(sb, _))| {
                 if sa != sb {
                     sa.cmp(sb)
                 } else {
@@ -351,7 +361,7 @@ impl AddedVocabulary {
         let mut current_offset = 0;
         let mut splits = Vec::with_capacity(matches.len());
         while i < matches.len() {
-            let (idx, (start, end)) = matches[i];
+            let (idx, Offsets(start, end)) = matches[i];
 
             // current match is before the currentt offset, let's skip it
             if start < current_offset {
@@ -363,13 +373,13 @@ impl AddedVocabulary {
             // idx, and apply it, then continue. All others will be skipped since `current_offset`
             // will have been increased
             if i + 1 < matches.len() {
-                if let Some((idx, (s, e))) = matches[i..]
+                if let Some((idx, Offsets(s, e))) = matches[i..]
                     .iter()
-                    .take_while(|(_, (s, e))| *s < end && start < *e)
+                    .take_while(|(_, Offsets(s, e))| *s < end && start < *e)
                     .min() // Order on idx first
                     .copied()
                 {
-                    splits.push((idx, (s, e)));
+                    splits.push((idx, Offsets(s, e)));
                     current_offset = e;
                     i += 1;
                     continue;
@@ -377,7 +387,7 @@ impl AddedVocabulary {
             }
 
             // We didn't find overlapping neighbors, apply ourself
-            splits.push((idx, (start, end)));
+            splits.push((idx, Offsets(start, end)));
             current_offset = end;
             i += 1;
         }
@@ -386,12 +396,12 @@ impl AddedVocabulary {
         let mut start_offset = 0;
         let mut splits = splits
             .into_iter()
-            .flat_map(|(idx, (start, end))| {
+            .flat_map(|(idx, Offsets(start, end))| {
                 let mut splits = vec![];
                 if start_offset < start {
-                    splits.push((None, (start_offset, start)));
+                    splits.push((None, Offsets(start_offset, start)));
                 }
-                splits.push((Some(split_re.1[idx] as u32), (start, end)));
+                splits.push((Some(split_re.1[idx] as u32), Offsets(start, end)));
                 start_offset = end;
 
                 splits
@@ -400,7 +410,7 @@ impl AddedVocabulary {
 
         let total_byte_len = sentence.len();
         if start_offset != total_byte_len {
-            splits.push((None, (start_offset, total_byte_len)));
+            splits.push((None, Offsets(start_offset, total_byte_len)));
         }
 
         splits
@@ -414,16 +424,16 @@ impl AddedVocabulary {
         sentence: NormalizedString,
         split_re: &MatchingSet,
     ) -> Vec<(NormalizedString, Option<Vec<Token>>)> {
-        self.find_matches(sentence.get(), split_re)
+        self.find_matches(sentence.normalized.as_str(), split_re)
             .into_iter()
             .map(|(id, byte_offsets)| {
                 let slice = sentence
                     .slice(Range::Normalized(byte_offsets.0..byte_offsets.1))
                     .expect("AddedVocabulary bad split");
                 if let Some(id) = id {
-                    let value = slice.get().to_owned();
+                    let value = slice.normalized.clone();
                     let len = value.len();
-                    (slice, Some(vec![Token::new(id, value, (0, len))]))
+                    (slice, Some(vec![Token::new(id, value, Offsets(0, len))]))
                 } else {
                     (slice, None)
                 }
@@ -451,8 +461,16 @@ impl AddedVocabulary {
 
         // 2. Then extract the normalized tokens from the normalized pieces of the string
         pretokenized
-            .split(|_, mut sequence| {
-                normalizer.map(|n| n.normalize(&mut sequence));
+            .split(|_, sequence| {
+                let sequence = if let Some(normalizer) = normalizer {
+                    if let Ok(normalized) = normalizer.normalize(sequence) {
+                        normalized
+                    } else {
+                        todo!("handle error")
+                    }
+                } else {
+                    sequence
+                };
                 Ok(self.split_with_indices(sequence, &self.split_normalized_re))
             })
             .expect("AddedVocabulary bad split");
