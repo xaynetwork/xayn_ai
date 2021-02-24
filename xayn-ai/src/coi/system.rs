@@ -1,15 +1,21 @@
 use std::cmp::Ordering;
 
-use super::utils::{
-    classify_documents_based_on_user_feedback,
-    collect_matching_documents,
-    count_coi_ids,
-    extend_user_interests_based_on_documents,
-    l2_norm,
-    update_alpha,
-    update_alpha_or_beta,
-    update_beta,
-    UserInterestsStatus,
+use rubert::Embeddings;
+use thiserror::Error;
+
+use super::{
+    config::Configuration,
+    utils::{
+        classify_documents_based_on_user_feedback,
+        collect_matching_documents,
+        count_coi_ids,
+        extend_user_interests_based_on_documents,
+        l2_norm,
+        update_alpha,
+        update_alpha_or_beta,
+        update_beta,
+        UserInterestsStatus,
+    },
 };
 
 use crate::{
@@ -21,7 +27,6 @@ use crate::{
             DocumentDataWithMab,
         },
         Coi,
-        EmbeddingPoint,
         UserInterests,
     },
     reranker_systems,
@@ -29,7 +34,13 @@ use crate::{
     Error,
 };
 
-use super::config::Configuration;
+#[derive(Error, Debug)]
+pub enum CoiSystemError {
+    #[error("No CoI could be found for the given embedding")]
+    NoCoi,
+    #[error("No matching documents could be found.")]
+    NoMatchingDocuments,
+}
 
 pub struct CoiSystem {
     config: Configuration,
@@ -51,11 +62,7 @@ impl CoiSystem {
     /// Returns the index of the CoI along with the distance between
     /// the given embedding and the CoI. If no CoI was found, `None`
     /// will be returned.
-    fn find_closest_coi_index(
-        &self,
-        embedding: &EmbeddingPoint,
-        cois: &[Coi],
-    ) -> Option<(usize, f32)> {
+    fn find_closest_coi_index(&self, embedding: &Embeddings, cois: &[Coi]) -> Option<(usize, f32)> {
         let index_and_distance = cois
             .iter()
             .enumerate()
@@ -79,7 +86,7 @@ impl CoiSystem {
     /// will be returned.
     fn find_closest_coi<'coi>(
         &self,
-        embedding: &EmbeddingPoint,
+        embedding: &Embeddings,
         cois: &'coi [Coi],
     ) -> Option<(&'coi Coi, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
@@ -92,7 +99,7 @@ impl CoiSystem {
     /// will be returned.
     fn find_closest_coi_mut<'coi>(
         &self,
-        embedding: &EmbeddingPoint,
+        embedding: &Embeddings,
         cois: &'coi mut [Coi],
     ) -> Option<(&'coi mut Coi, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
@@ -100,16 +107,16 @@ impl CoiSystem {
     }
 
     /// Creates a new CoI that is shifted towards the position of `embedding`.
-    fn shift_coi_point(&self, embedding: &EmbeddingPoint, coi: &EmbeddingPoint) -> EmbeddingPoint {
+    fn shift_coi_point(&self, embedding: &Embeddings, coi: &Embeddings) -> Embeddings {
         let updated =
             &coi.0 * (1. - self.config.update_theta) + &embedding.0 * self.config.update_theta;
-        EmbeddingPoint(updated)
+        Embeddings(updated.into_shared())
     }
 
     /// Updates the CoIs based on the given embedding. If the embedding is closer to the centroid
     /// (lower than [`Configuration.threshold`]), the centroids position gets updated,
     /// otherwise a new centroid is created.
-    fn update_coi(&self, embedding: &EmbeddingPoint, mut cois: Vec<Coi>) -> Vec<Coi> {
+    fn update_coi(&self, embedding: &Embeddings, mut cois: Vec<Coi>) -> Vec<Coi> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.point = self.shift_coi_point(embedding, &coi.point);
@@ -131,7 +138,7 @@ impl CoiSystem {
     // the CoL to along with the positive and negative distance.
     fn compute_coi_for_embedding(
         &self,
-        embedding: &EmbeddingPoint,
+        embedding: &Embeddings,
         user_interests: &UserInterests,
     ) -> Option<CoiComponent> {
         let (coi, pos_distance) = self.find_closest_coi(embedding, &user_interests.positive)?;
@@ -156,7 +163,7 @@ impl reranker_systems::CoiSystem for CoiSystem {
             .map(|document| {
                 let center_of_interest = self
                     .compute_coi_for_embedding(&document.embedding.embedding, user_interests)
-                    .ok_or(Error {})?;
+                    .ok_or(CoiSystemError::NoCoi)?;
                 Ok(DocumentDataWithCoi::from_document(
                     document,
                     center_of_interest,
@@ -174,7 +181,7 @@ impl reranker_systems::CoiSystem for CoiSystem {
         let matching_documents = collect_matching_documents(history, documents);
 
         if matching_documents.is_empty() {
-            return Err(Error {});
+            return Err(CoiSystemError::NoMatchingDocuments.into());
         }
 
         let (positive_docs, negative_docs) =
@@ -198,7 +205,7 @@ impl reranker_systems::CoiSystem for CoiSystem {
         let matching_documents = collect_matching_documents(history, documents);
 
         if matching_documents.is_empty() {
-            return Err(Error {});
+            return Err(CoiSystemError::NoMatchingDocuments.into());
         }
 
         let (positive_docs, negative_docs) =
@@ -215,77 +222,5 @@ impl reranker_systems::CoiSystem for CoiSystem {
             update_alpha_or_beta(&pos_coi_id_map, user_interests.negative, update_beta);
 
         Ok(user_interests)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use ndarray::array;
-
-    use super::*;
-
-    #[test]
-    fn find_closest_coi_index() {
-        let config = Configuration {
-            ..Default::default()
-        };
-
-        let coi_1 = Coi::new(0, EmbeddingPoint(array![1., 2., 3.].into_dyn()));
-        let coi_2 = Coi::new(1, EmbeddingPoint(array![4., 5., 6.].into_dyn()));
-        let coi_3 = Coi::new(2, EmbeddingPoint(array![7., 8., 9.].into_dyn()));
-
-        let cois = vec![coi_1, coi_2, coi_3];
-
-        let point = EmbeddingPoint(array![1., 5., 9.].into_dyn());
-
-        let coi_system = CoiSystem::new(config);
-
-        let (index, _distance) = coi_system.find_closest_coi_index(&point, &cois).unwrap();
-        assert_eq!(index, 1);
-    }
-
-    #[test]
-    fn add_point() {
-        let config = Configuration {
-            ..Default::default()
-        };
-
-        let coi_1 = Coi::new(0, EmbeddingPoint(array![20., 0., 0.].into_dyn()));
-        let coi_2 = Coi::new(1, EmbeddingPoint(array![0., 20., 0.].into_dyn()));
-        let coi_3 = Coi::new(2, EmbeddingPoint(array![0., 0., 20.].into_dyn()));
-
-        let mut cois = vec![coi_1, coi_2, coi_3];
-
-        let point = EmbeddingPoint(array![1., 1., 1.].into_dyn());
-
-        let coi_system = CoiSystem::new(config);
-
-        let (index, _distance) = coi_system.find_closest_coi_index(&point, &cois).unwrap();
-        assert_eq!(index, 0);
-
-        cois = coi_system.update_coi(&point, cois);
-
-        assert_eq!(cois.len(), 4)
-    }
-
-    #[test]
-    fn update_point() {
-        let config = Configuration {
-            ..Default::default()
-        };
-
-        let coi_1 = Coi::new(0, EmbeddingPoint(array![1., 0., 0.].into_dyn()));
-        let coi_2 = Coi::new(1, EmbeddingPoint(array![0., 1., 0.].into_dyn()));
-        let coi_3 = Coi::new(2, EmbeddingPoint(array![0., 0., 1.].into_dyn()));
-
-        let cois = vec![coi_1, coi_2, coi_3];
-
-        let point = EmbeddingPoint(array![1., 1., 1.].into_dyn());
-
-        let coi_system = CoiSystem::new(config);
-
-        let (index, _distance) = coi_system.find_closest_coi_index(&point, &cois).unwrap();
-        assert_eq!(index, 0);
-        assert_eq!(cois.len(), 3);
     }
 }

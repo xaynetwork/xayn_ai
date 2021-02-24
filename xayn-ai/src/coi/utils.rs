@@ -147,25 +147,3 @@ pub fn count_coi_ids(documents: &[&DocumentDataWithMab]) -> HashMap<usize, u16> 
         },
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use ndarray::array;
-
-    use super::*;
-
-    use crate::data::EmbeddingPoint;
-
-    #[test]
-    fn update_alpha_beta() {
-        let mut coi_1 = Coi::new(0, EmbeddingPoint(array![1., 0., 0.].into_dyn()));
-        update_alpha(&mut coi_1, 0.5);
-
-        assert!((coi_1.alpha - 0.5).abs() <= f32::EPSILON);
-
-        let mut coi_1 = Coi::new(0, EmbeddingPoint(array![1., 0., 0.].into_dyn()));
-        update_beta(&mut coi_1, 0.4);
-
-        assert!((coi_1.beta - 0.4).abs() <= f32::EPSILON);
-    }
-}

@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-use ndarray::ArrayD;
-
 pub mod document;
 pub mod document_data;
 
@@ -20,7 +18,7 @@ pub struct Coi {
 }
 
 impl Coi {
-    pub fn new(id: usize, point: EmbeddingPoint) -> Self {
+    pub fn new(id: usize, point: Embeddings) -> Self {
         Self {
             id: CoiId(id),
             point,
