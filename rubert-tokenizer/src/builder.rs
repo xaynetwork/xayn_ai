@@ -5,8 +5,8 @@ use crate::{
     model::WordPiece,
     normalizer::Normalizer,
     padding::Padding,
+    post_tokenizer::PostTokenizer,
     pre_tokenizer::PreTokenizer,
-    processor::BertProcessing,
     tokenizer::Tokenizer,
     truncation::Truncation,
     Error,
@@ -16,7 +16,7 @@ pub struct Builder {
     normalizer: Option<Normalizer>,
     pre_tokenizer: Option<PreTokenizer>,
     model: Option<WordPiece>,
-    post_processor: Option<BertProcessing>,
+    post_tokenizer: Option<PostTokenizer>,
     decoder: Option<WordPieceDecoder>,
     truncation: Truncation,
     padding: Padding,
@@ -29,17 +29,11 @@ impl Builder {
             normalizer: None,
             pre_tokenizer: None,
             model: None,
-            post_processor: None,
+            post_tokenizer: None,
             decoder: None,
             truncation: Truncation::None,
             padding: Padding::None,
         }
-    }
-
-    /// Set the model.
-    pub fn with_model(mut self, model: WordPiece) -> Self {
-        self.model = Some(model);
-        self
     }
 
     /// Set the normalizer.
@@ -54,9 +48,15 @@ impl Builder {
         self
     }
 
+    /// Set the model.
+    pub fn with_model(mut self, model: WordPiece) -> Self {
+        self.model = Some(model);
+        self
+    }
+
     /// Set the post-processor.
-    pub fn with_post_processor(mut self, post_processor: Option<BertProcessing>) -> Self {
-        self.post_processor = post_processor;
+    pub fn with_post_tokenizer(mut self, post_tokenizer: Option<PostTokenizer>) -> Self {
+        self.post_tokenizer = post_tokenizer;
         self
     }
 
@@ -86,7 +86,7 @@ impl Builder {
             normalizer: self.normalizer,
             pre_tokenizer: self.pre_tokenizer,
             model: self.model.ok_or_else(|| anyhow!("Model missing."))?,
-            post_processor: self.post_processor,
+            post_tokenizer: self.post_tokenizer,
             decoder: self.decoder,
             truncation: self.truncation,
             padding: self.padding,

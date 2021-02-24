@@ -6,8 +6,8 @@ use crate::{
     model::{Vocab, WordPiece},
     normalizer::{NormalizedString, Normalizer, Offsets},
     padding::Padding,
+    post_tokenizer::PostTokenizer,
     pre_tokenizer::{OffsetType, PreTokenizedString, PreTokenizer},
-    processor::BertProcessing,
     sequence::Sequence,
     truncation::Truncation,
     Error,
@@ -24,7 +24,7 @@ pub struct Tokenizer {
     pub(crate) normalizer: Option<Normalizer>,
     pub(crate) pre_tokenizer: Option<PreTokenizer>,
     pub(crate) model: WordPiece,
-    pub(crate) post_processor: Option<BertProcessing>,
+    pub(crate) post_tokenizer: Option<PostTokenizer>,
     pub(crate) decoder: Option<WordPieceDecoder>,
     // General processing parameters
     pub(crate) truncation: Truncation,
@@ -92,22 +92,21 @@ impl Tokenizer {
     fn post_process(
         &self,
         encoding: Encoding,
-        pair_encoding: Option<Encoding>,
         add_special_tokens: bool,
     ) -> Result<Encoding, Error> {
         // 1. First we truncate if needed
         let added_tokens = self
-            .post_processor
+            .post_tokenizer
             .as_ref()
-            .map(|processor| processor.added_tokens(false))
+            .map(|_| PostTokenizer::ADDED_TOKENS)
             .unwrap_or_default();
         let encoding = self.truncation.truncate_encoding(encoding, added_tokens);
 
         // 2. Then we post-process
-        let final_encoding = if let Some(ref processor) = self.post_processor {
-            processor.process(encoding, pair_encoding, add_special_tokens)?
+        let final_encoding = if let Some(ref processor) = self.post_tokenizer {
+            processor.process(encoding, add_special_tokens)
         } else {
-            BertProcessing::default_process(encoding, pair_encoding, add_special_tokens)?
+            encoding
         };
 
         // 3. Then we pad if needed
@@ -123,25 +122,26 @@ impl Tokenizer {
         type_id: u32,
         offsets_type: OffsetType,
     ) -> Result<Encoding, Error> {
-        let encode =
-            |is_pre_tokenized: bool, subseq_idx: usize, subseq: &str| -> Result<Encoding, Error> {
-                let normalized = self.normalize(subseq)?;
-                let pre_tokenized = self.pre_tokenize(normalized)?;
-                let subseq_encoding = self.tokenize(
-                    pre_tokenized,
-                    type_id,
-                    if is_pre_tokenized {
-                        Some(subseq_idx as u32)
-                    } else {
-                        None
-                    },
-                    offsets_type,
-                )?;
-
-                Ok(subseq_encoding)
-            };
+        let encode = |is_pre_tokenized: bool,
+                      sequence_idx: usize,
+                      sequence: &str|
+         -> Result<Encoding, Error> {
+            let normalized = self.normalize(sequence)?;
+            let pre_tokenized = self.pre_tokenize(normalized)?;
+            self.tokenize(
+                pre_tokenized,
+                type_id,
+                if is_pre_tokenized {
+                    Some(sequence_idx as u32)
+                } else {
+                    None
+                },
+                offsets_type,
+            )
+        };
 
         match sequence.into() {
+            Sequence::Raw(sequence) => encode(false, 0, sequence.as_ref()),
             Sequence::PreTokenized(sequence) => sequence
                 .into_iter()
                 .enumerate()
@@ -157,7 +157,6 @@ impl Tokenizer {
                 .enumerate()
                 .map(|(i, sequence)| encode(true, i, sequence))
                 .collect(),
-            Sequence::Raw(sequence) => encode(false, 0, sequence.as_ref()),
         }
     }
 
@@ -189,7 +188,7 @@ impl Tokenizer {
         add_special_tokens: bool,
     ) -> Result<Encoding, Error> {
         let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Byte)?;
-        self.post_process(encoding, None, add_special_tokens)
+        self.post_process(encoding, add_special_tokens)
     }
 
     /// Encode all the sentences in parallel, using multiple threads
@@ -238,7 +237,7 @@ impl Tokenizer {
         add_special_tokens: bool,
     ) -> Result<Encoding, Error> {
         let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Char)?;
-        self.post_process(encoding, None, add_special_tokens)
+        self.post_process(encoding, add_special_tokens)
     }
 
     /// Encode all the sentences in parallel, using multiple threads.

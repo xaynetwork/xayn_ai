@@ -21,6 +21,7 @@ pub struct Encoding {
     /// Mask identifying padding tokens for the attention mechanism
     pub(crate) attention_mask: Vec<u32>,
     /// A list of overflowing Encoding generated when we got truncated
+    // TODO: make overflowing an Option<_>
     pub(crate) overflowing: Vec<Encoding>,
     /// Ranges of tokens covered by each sequence. If this is empty we consider
     /// there is only one sequence in this Encoding, and that it covers the entire range.

@@ -37,6 +37,12 @@ impl<'s> From<Vec<&'s str>> for Sequence<'s> {
     }
 }
 
+impl<'s> From<Cow<'s, [&'s str]>> for Sequence<'s> {
+    fn from(input: Cow<'s, [&'s str]>) -> Self {
+        Self::PreTokenized(input)
+    }
+}
+
 impl<'s> From<&'s [String]> for Sequence<'s> {
     fn from(input: &'s [String]) -> Self {
         Self::PreTokenizedOwned(Cow::Borrowed(input))
@@ -49,6 +55,12 @@ impl<'s> From<Vec<String>> for Sequence<'s> {
     }
 }
 
+impl<'s> From<Cow<'s, [String]>> for Sequence<'s> {
+    fn from(input: Cow<'s, [String]>) -> Self {
+        Self::PreTokenizedOwned(input)
+    }
+}
+
 impl<'s> From<&'s [Cow<'s, str>]> for Sequence<'s> {
     fn from(input: &'s [Cow<'s, str>]) -> Self {
         Self::PreTokenizedCow(Cow::Borrowed(input))
@@ -58,5 +70,11 @@ impl<'s> From<&'s [Cow<'s, str>]> for Sequence<'s> {
 impl<'s> From<Vec<Cow<'s, str>>> for Sequence<'s> {
     fn from(input: Vec<Cow<'s, str>>) -> Self {
         Self::PreTokenizedCow(Cow::Owned(input))
+    }
+}
+
+impl<'s> From<Cow<'s, [Cow<'s, str>]>> for Sequence<'s> {
+    fn from(input: Cow<'s, [Cow<'s, str>]>) -> Self {
+        Self::PreTokenizedCow(input)
     }
 }
