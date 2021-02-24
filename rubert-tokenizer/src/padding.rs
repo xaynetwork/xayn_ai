@@ -60,7 +60,7 @@ impl Padding {
             } => {
                 let size = encodings
                     .iter()
-                    .map(|encoding| encoding.get_ids().len())
+                    .map(|encoding| encoding.len())
                     .max()
                     // safe unwrap: empty encodings have been returned early
                     .unwrap();

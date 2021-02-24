@@ -56,15 +56,16 @@ impl PostTokenizer {
             .collect();
         let special_tokens_mask = once(1).chain(repeat(0).take(len)).chain(once(1)).collect();
         let attention_mask = vec![1; len_added];
-        // the recursion is finite because overflowings is empty for overflowed encodings
-        let overflowing = encoding
-            .overflowing
-            .into_iter()
-            .map(|encoding| self.process(encoding, add_special_tokens))
-            .collect();
+        let overflowing = encoding.overflowing.map(|overflowing| {
+            overflowing
+                .into_iter()
+                // the recursion is finite because overflowing is None for overflowed encodings
+                .map(|encoding| self.process(encoding, add_special_tokens))
+                .collect()
+        });
         // For compatibility with `TemplateProcessing`, the sequence_ranges shouldn't contain
         // the special tokens.
-        let sequence_ranges = [(0, 1..len_added - 1)].iter().cloned().collect();
+        let sequence_ranges = Some(once((0, 1..len_added - 1)).collect());
 
         Encoding {
             ids,
