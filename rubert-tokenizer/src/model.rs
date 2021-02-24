@@ -9,7 +9,7 @@ use anyhow::anyhow;
 
 use crate::{normalizer::Offsets, tokenizer::Token, Error};
 
-type Vocab = HashMap<String, u32>;
+pub type Vocab = HashMap<String, u32>;
 type VocabR = HashMap<u32, String>;
 
 struct Config {
@@ -120,12 +120,20 @@ impl WordPiece {
         Ok(vocab)
     }
 
-    pub fn get_vocab(&self) -> HashMap<String, u32> {
-        self.vocab.clone()
+    pub fn vocab(&self) -> &Vocab {
+        &self.vocab
     }
 
-    pub fn get_vocab_size(&self) -> usize {
+    pub fn vocab_size(&self) -> usize {
         self.vocab.len()
+    }
+
+    pub fn token_to_id(&self, token: &str) -> Option<u32> {
+        self.vocab.get(token).copied()
+    }
+
+    pub fn id_to_token(&self, id: u32) -> Option<String> {
+        self.vocab_r.get(&id).cloned()
     }
 
     pub fn tokenize(&self, sequence: &str) -> Result<Vec<Token>, Error> {
@@ -187,13 +195,5 @@ impl WordPiece {
         } else {
             Ok(sub_tokens)
         }
-    }
-
-    pub fn token_to_id(&self, token: &str) -> Option<u32> {
-        self.vocab.get(token).copied()
-    }
-
-    pub fn id_to_token(&self, id: u32) -> Option<String> {
-        self.vocab_r.get(&id).cloned()
     }
 }

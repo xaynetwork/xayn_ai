@@ -1,15 +1,14 @@
-use std::{borrow::Cow, collections::HashMap, iter::IntoIterator};
-
-use anyhow::anyhow;
+use std::iter::IntoIterator;
 
 use crate::{
     decoder::WordPieceDecoder,
     encoding::Encoding,
-    model::WordPiece,
+    model::{Vocab, WordPiece},
     normalizer::{NormalizedString, Normalizer, Offsets},
     padding::Padding,
     pre_tokenizer::{OffsetType, PreTokenizedString, PreTokenizer},
     processor::BertProcessing,
+    sequence::Sequence,
     truncation::Truncation,
     Error,
 };
@@ -19,298 +18,28 @@ pub struct Token {
     pub value: String,
     pub offsets: Offsets,
 }
-impl Token {
-    pub fn new(id: u32, value: String, offsets: Offsets) -> Self {
-        Token { id, value, offsets }
-    }
-}
-
-pub enum InputSequence<'s> {
-    Raw(Cow<'s, str>),
-    PreTokenized(Cow<'s, [&'s str]>),
-    PreTokenizedOwned(Cow<'s, [String]>),
-    PreTokenizedCow(Cow<'s, [Cow<'s, str>]>),
-}
-
-impl<'s> From<Cow<'s, str>> for InputSequence<'s> {
-    fn from(input: Cow<'s, str>) -> Self {
-        InputSequence::Raw(input)
-    }
-}
-
-impl<'s> From<&'s str> for InputSequence<'s> {
-    fn from(input: &'s str) -> Self {
-        InputSequence::Raw(Cow::Borrowed(input))
-    }
-}
-
-impl From<String> for InputSequence<'_> {
-    fn from(input: String) -> Self {
-        InputSequence::Raw(Cow::Owned(input))
-    }
-}
-
-impl<'s> From<&'s [&'s str]> for InputSequence<'s> {
-    fn from(input: &'s [&'s str]) -> Self {
-        InputSequence::PreTokenized(Cow::Borrowed(input))
-    }
-}
-
-impl<'s> From<Vec<&'s str>> for InputSequence<'s> {
-    fn from(input: Vec<&'s str>) -> Self {
-        InputSequence::PreTokenized(Cow::Owned(input))
-    }
-}
-
-impl<'s> From<&'s [String]> for InputSequence<'s> {
-    fn from(input: &'s [String]) -> Self {
-        InputSequence::PreTokenizedOwned(Cow::Borrowed(input))
-    }
-}
-
-impl<'s> From<Vec<String>> for InputSequence<'s> {
-    fn from(input: Vec<String>) -> Self {
-        InputSequence::PreTokenizedOwned(Cow::Owned(input))
-    }
-}
-
-impl<'s> From<Vec<Cow<'s, str>>> for InputSequence<'s> {
-    fn from(input: Vec<Cow<'s, str>>) -> Self {
-        InputSequence::PreTokenizedCow(Cow::Owned(input))
-    }
-}
-
-impl<'s> From<&'s [Cow<'s, str>]> for InputSequence<'s> {
-    fn from(input: &'s [Cow<'s, str>]) -> Self {
-        InputSequence::PreTokenizedCow(Cow::Borrowed(input))
-    }
-}
-
-pub enum EncodeInput<'s> {
-    Single(InputSequence<'s>),
-    Dual(InputSequence<'s>, InputSequence<'s>),
-}
-
-impl<'s, I: Into<InputSequence<'s>>> From<I> for EncodeInput<'s> {
-    fn from(input: I) -> Self {
-        EncodeInput::Single(input.into())
-    }
-}
-
-impl<'s, I1, I2> From<(I1, I2)> for EncodeInput<'s>
-where
-    I1: Into<InputSequence<'s>>,
-    I2: Into<InputSequence<'s>>,
-{
-    fn from(input: (I1, I2)) -> Self {
-        EncodeInput::Dual(input.0.into(), input.1.into())
-    }
-}
-
-pub struct TokenizerBuilder {
-    normalizer: Option<Normalizer>,
-    pre_tokenizer: Option<PreTokenizer>,
-    model: Option<WordPiece>,
-    post_processor: Option<BertProcessing>,
-    decoder: Option<WordPieceDecoder>,
-    truncation: Truncation,
-    padding: Padding,
-}
-
-impl TokenizerBuilder {
-    /// Get an empty TokenizerBuilder.
-    pub fn new() -> Self {
-        TokenizerBuilder {
-            normalizer: None,
-            pre_tokenizer: None,
-            model: None,
-            post_processor: None,
-            decoder: None,
-            truncation: Truncation::None,
-            padding: Padding::None,
-        }
-    }
-
-    /// Convert the TokenizerBuilder to a Tokenizer.
-    ///
-    /// Conversion fails if the `model` is missing.
-    pub fn build(self) -> Result<Tokenizer, Error> {
-        let model = self.model.ok_or_else(|| anyhow!("Model missing."))?;
-        Ok(Tokenizer {
-            normalizer: self.normalizer,
-            pre_tokenizer: self.pre_tokenizer,
-            model,
-            post_processor: self.post_processor,
-            decoder: self.decoder,
-            truncation: self.truncation,
-            padding: self.padding,
-        })
-    }
-
-    /// Set the model.
-    pub fn with_model(mut self, model: WordPiece) -> Self {
-        self.model = Some(model);
-        self
-    }
-
-    /// Set the normalizer.
-    pub fn with_normalizer(mut self, normalizer: Option<Normalizer>) -> Self {
-        self.normalizer = normalizer;
-        self
-    }
-
-    /// Set the pre-tokenizer.
-    pub fn with_pre_tokenizer(mut self, pretokenizer: Option<PreTokenizer>) -> Self {
-        self.pre_tokenizer = pretokenizer;
-        self
-    }
-
-    /// Set the post-processor.
-    pub fn with_post_processor(mut self, post_processor: Option<BertProcessing>) -> Self {
-        self.post_processor = post_processor;
-        self
-    }
-
-    /// Set the decoder.
-    pub fn with_decoder(mut self, decoder: Option<WordPieceDecoder>) -> Self {
-        self.decoder = decoder;
-        self
-    }
-
-    /// Set the trunaction parameters.
-    pub fn with_truncation(mut self, trunc: Truncation) -> Self {
-        self.truncation = trunc;
-        self
-    }
-
-    /// Set the padding parameters.
-    pub fn with_padding(mut self, padding: Padding) -> Self {
-        self.padding = padding;
-        self
-    }
-}
 
 pub struct Tokenizer {
     // Tokenizer parts
-    normalizer: Option<Normalizer>,
-    pre_tokenizer: Option<PreTokenizer>,
-    model: WordPiece,
-    post_processor: Option<BertProcessing>,
-    decoder: Option<WordPieceDecoder>,
+    pub(crate) normalizer: Option<Normalizer>,
+    pub(crate) pre_tokenizer: Option<PreTokenizer>,
+    pub(crate) model: WordPiece,
+    pub(crate) post_processor: Option<BertProcessing>,
+    pub(crate) decoder: Option<WordPieceDecoder>,
     // General processing parameters
-    truncation: Truncation,
-    padding: Padding,
+    pub(crate) truncation: Truncation,
+    pub(crate) padding: Padding,
 }
 
 impl Tokenizer {
-    /// Instantiate a new Tokenizer, with the given Model
-    pub fn new(model: WordPiece) -> Self {
-        Tokenizer {
-            normalizer: None,
-            pre_tokenizer: None,
-            model,
-            post_processor: None,
-            decoder: None,
-            truncation: Truncation::None,
-            padding: Padding::None,
-        }
-    }
-
-    /// Set the normalizer
-    pub fn with_normalizer(&mut self, normalizer: impl Into<Normalizer>) -> &mut Self {
-        self.normalizer = Some(normalizer.into());
-        self
-    }
-
-    /// Get the normalizer
-    pub fn get_normalizer(&self) -> Option<&Normalizer> {
-        self.normalizer.as_ref()
-    }
-
-    /// Set the pre tokenizer
-    pub fn with_pre_tokenizer(&mut self, pre_tokenizer: impl Into<PreTokenizer>) -> &mut Self {
-        self.pre_tokenizer = Some(pre_tokenizer.into());
-        self
-    }
-
-    /// Get the pre tokenizer
-    pub fn get_pre_tokenizer(&self) -> Option<&PreTokenizer> {
-        self.pre_tokenizer.as_ref()
-    }
-
-    /// Set the post processor
-    pub fn with_post_processor(&mut self, post_processor: impl Into<BertProcessing>) -> &mut Self {
-        self.post_processor = Some(post_processor.into());
-        self
-    }
-
-    /// Get the post processor
-    pub fn get_post_processor(&self) -> Option<&BertProcessing> {
-        self.post_processor.as_ref()
-    }
-
-    /// Set the decoder
-    pub fn with_decoder(&mut self, decoder: impl Into<WordPieceDecoder>) -> &mut Self {
-        self.decoder = Some(decoder.into());
-        self
-    }
-
-    /// Get the decoder
-    pub fn get_decoder(&self) -> Option<&WordPieceDecoder> {
-        self.decoder.as_ref()
-    }
-
-    /// Set the model
-    pub fn with_model(&mut self, model: impl Into<WordPiece>) -> &mut Self {
-        self.model = model.into();
-        self
-    }
-
-    /// Get the model
-    pub fn get_model(&self) -> &WordPiece {
-        &self.model
-    }
-
-    /// Set the truncation parameters
-    pub fn with_truncation(&mut self, trunc: Truncation) -> &mut Self {
-        self.truncation = trunc;
-        self
-    }
-
-    /// Get the currently set truncation parameters
-    pub fn get_truncation(&self) -> &Truncation {
-        &self.truncation
-    }
-
-    /// Get a mutable reference to the currently set truncation parameters
-    pub fn get_truncation_mut(&mut self) -> &mut Truncation {
-        &mut self.truncation
-    }
-
-    /// Set the padding parameters
-    pub fn with_padding(&mut self, padding: Padding) -> &mut Self {
-        self.padding = padding;
-        self
-    }
-
-    /// Get the currently set padding parameters
-    pub fn get_padding(&self) -> &Padding {
-        &self.padding
-    }
-
-    /// Get a mutable reference to the currently set padding parameters
-    pub fn get_padding_mut(&mut self) -> &mut Padding {
-        &mut self.padding
-    }
-
     /// Get the vocabulary
-    pub fn get_vocab(&self) -> HashMap<String, u32> {
-        self.model.get_vocab()
+    pub fn vocab(&self) -> &Vocab {
+        self.model.vocab()
     }
 
     /// Get the size of the vocabulary
-    pub fn get_vocab_size(&self) -> usize {
-        self.model.get_vocab_size()
+    pub fn vocab_size(&self) -> usize {
+        self.model.vocab_size()
     }
 
     /// Converts a token in the corresponding id.
@@ -321,158 +50,6 @@ impl Tokenizer {
     /// Converts an id to the corresponding token.
     pub fn id_to_token(&self, id: u32) -> Option<String> {
         self.model.id_to_token(id)
-    }
-
-    /// Encode a single sequence
-    fn encode_single_sequence(
-        &self,
-        sequence: InputSequence,
-        type_id: u32,
-        offsets_type: OffsetType,
-    ) -> Result<Encoding, Error> {
-        let encode =
-            |is_pre_tokenized: bool, subseq_idx: usize, subseq: &str| -> Result<Encoding, Error> {
-                let normalized = self.normalize(subseq)?;
-                let pre_tokenized = self.pre_tokenize(normalized)?;
-                let subseq_encoding = self.tokenize(
-                    pre_tokenized,
-                    type_id,
-                    if is_pre_tokenized {
-                        Some(subseq_idx as u32)
-                    } else {
-                        None
-                    },
-                    offsets_type,
-                )?;
-
-                Ok(subseq_encoding)
-            };
-
-        match sequence {
-            InputSequence::PreTokenized(sequence) => sequence
-                .into_iter()
-                .enumerate()
-                .map(|(i, sequence)| encode(true, i, sequence))
-                .collect(),
-            InputSequence::PreTokenizedOwned(sequence) => sequence
-                .into_iter()
-                .enumerate()
-                .map(|(i, sequence)| encode(true, i, sequence))
-                .collect(),
-            InputSequence::PreTokenizedCow(sequence) => sequence
-                .into_iter()
-                .enumerate()
-                .map(|(i, sequence)| encode(true, i, sequence))
-                .collect(),
-            InputSequence::Raw(sequence) => encode(false, 0, sequence.as_ref()),
-        }
-    }
-
-    /// Encode the given input. This method accepts both single sequences, as well as pair
-    /// sequences. Also, a sequence can be a string, or already pre-tokenized input directly:
-    ///
-    /// ```
-    /// # use tokenizers::Tokenizer;
-    /// # use tokenizers::models::bpe::BPE;
-    /// # let mut tokenizer = Tokenizer::new(BPE::default());
-    /// #
-    /// // Sequences:
-    /// tokenizer.encode("Single sequence", false);
-    /// tokenizer.encode(("Sequence A", "Sequence B"), false);
-    ///
-    /// // Pre-tokenized sequences:
-    /// tokenizer.encode(&["Single", "sequence"][..], false);
-    /// tokenizer.encode((&["Sequence", "A"][..], &["Sequence", "B"][..]), false);
-    ///
-    /// // or even both types together:
-    /// tokenizer.encode(
-    ///     ("A complete sequence", &["And", "a", "tokenized"][..]),
-    ///     false,
-    /// );
-    /// ```
-    pub fn encode<'s, E>(&self, input: E, add_special_tokens: bool) -> Result<Encoding, Error>
-    where
-        E: Into<EncodeInput<'s>>,
-    {
-        // Extract sequences from the EncodeInput
-        let (sequence, pair) = match input.into() {
-            EncodeInput::Single(s1) => (s1, None),
-            EncodeInput::Dual(s1, s2) => (s1, Some(s2)),
-        };
-
-        // Encode each sequence
-        let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Byte)?;
-        let pair_encoding = pair
-            .map(|sequence| self.encode_single_sequence(sequence, 1, OffsetType::Byte))
-            .transpose()?;
-
-        // And finally post process
-        self.post_process(encoding, pair_encoding, add_special_tokens)
-    }
-
-    /// Encode the given input, using offsets relative to chars instead of bytes.
-    /// This method accepts both single sequences, as well as pair sequences. Also,
-    /// a sequence can be a string, or already pre-tokenized input directly:
-    ///
-    /// ```
-    /// # use tokenizers::Tokenizer;
-    /// # use tokenizers::models::bpe::BPE;
-    /// # let mut tokenizer = Tokenizer::new(BPE::default());
-    /// #
-    /// // Sequences:
-    /// tokenizer.encode("Single sequence", false);
-    /// tokenizer.encode(("Sequence A", "Sequence B"), false);
-    ///
-    /// // Pre-tokenized sequences:
-    /// tokenizer.encode(&["Single", "sequence"][..], false);
-    /// tokenizer.encode((&["Sequence", "A"][..], &["Sequence", "B"][..]), false);
-    ///
-    /// // or even both types together:
-    /// tokenizer.encode(
-    ///     ("A complete sequence", &["And", "a", "tokenized"][..]),
-    ///     false,
-    /// );
-    /// ```
-    pub fn encode_char_offsets<'s, E>(
-        &self,
-        input: E,
-        add_special_tokens: bool,
-    ) -> Result<Encoding, Error>
-    where
-        E: Into<EncodeInput<'s>>,
-    {
-        // Extract sequences from the EncodeInput
-        let (sequence, pair) = match input.into() {
-            EncodeInput::Single(s1) => (s1, None),
-            EncodeInput::Dual(s1, s2) => (s1, Some(s2)),
-        };
-
-        // Encode each sequence
-        let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Char)?;
-        let pair_encoding = pair
-            .map(|sequence| self.encode_single_sequence(sequence, 1, OffsetType::Char))
-            .transpose()?;
-
-        // And finally post process
-        self.post_process(encoding, pair_encoding, add_special_tokens)
-    }
-
-    /// Decode the given ids, back to a String
-    pub fn decode(&self, ids: Vec<u32>, skip_special_tokens: bool) -> Result<String, Error> {
-        let tokens = ids
-            .into_iter()
-            .filter_map(|id| {
-                self.model
-                    .id_to_token(id)
-                    .filter(|token| !skip_special_tokens || token != self.model.unk_token.as_str())
-            })
-            .collect::<Vec<_>>();
-
-        if let Some(decoder) = &self.decoder {
-            decoder.decode(tokens)
-        } else {
-            Ok(tokens.join(" "))
-        }
     }
 
     /// Normalization logic, go through all normalizers
@@ -512,7 +89,7 @@ impl Tokenizer {
     }
 
     /// Post processing logic, handling the case where there is no PostProcessor set
-    pub fn post_process(
+    fn post_process(
         &self,
         encoding: Encoding,
         pair_encoding: Option<Encoding>,
@@ -539,18 +116,91 @@ impl Tokenizer {
         Ok(final_encoding)
     }
 
-    /// Encode all the sentences in parallel, using multiple threads
-    pub fn encode_batch<'s, E>(
+    /// Encode a single sequence
+    fn encode_single_sequence<'s>(
         &self,
-        inputs: Vec<E>,
+        sequence: impl Into<Sequence<'s>>,
+        type_id: u32,
+        offsets_type: OffsetType,
+    ) -> Result<Encoding, Error> {
+        let encode =
+            |is_pre_tokenized: bool, subseq_idx: usize, subseq: &str| -> Result<Encoding, Error> {
+                let normalized = self.normalize(subseq)?;
+                let pre_tokenized = self.pre_tokenize(normalized)?;
+                let subseq_encoding = self.tokenize(
+                    pre_tokenized,
+                    type_id,
+                    if is_pre_tokenized {
+                        Some(subseq_idx as u32)
+                    } else {
+                        None
+                    },
+                    offsets_type,
+                )?;
+
+                Ok(subseq_encoding)
+            };
+
+        match sequence.into() {
+            Sequence::PreTokenized(sequence) => sequence
+                .into_iter()
+                .enumerate()
+                .map(|(i, sequence)| encode(true, i, sequence))
+                .collect(),
+            Sequence::PreTokenizedOwned(sequence) => sequence
+                .into_iter()
+                .enumerate()
+                .map(|(i, sequence)| encode(true, i, sequence))
+                .collect(),
+            Sequence::PreTokenizedCow(sequence) => sequence
+                .into_iter()
+                .enumerate()
+                .map(|(i, sequence)| encode(true, i, sequence))
+                .collect(),
+            Sequence::Raw(sequence) => encode(false, 0, sequence.as_ref()),
+        }
+    }
+
+    /// Encode the given input. This method accepts both single sequences, as well as pair
+    /// sequences. Also, a sequence can be a string, or already pre-tokenized input directly:
+    ///
+    /// ```
+    /// # use tokenizers::Tokenizer;
+    /// # use tokenizers::models::bpe::BPE;
+    /// # let mut tokenizer = Tokenizer::new(BPE::default());
+    /// #
+    /// // Sequences:
+    /// tokenizer.encode("Single sequence", false);
+    /// tokenizer.encode(("Sequence A", "Sequence B"), false);
+    ///
+    /// // Pre-tokenized sequences:
+    /// tokenizer.encode(&["Single", "sequence"][..], false);
+    /// tokenizer.encode((&["Sequence", "A"][..], &["Sequence", "B"][..]), false);
+    ///
+    /// // or even both types together:
+    /// tokenizer.encode(
+    ///     ("A complete sequence", &["And", "a", "tokenized"][..]),
+    ///     false,
+    /// );
+    /// ```
+    pub fn encode<'s>(
+        &self,
+        sequence: impl Into<Sequence<'s>>,
         add_special_tokens: bool,
-    ) -> Result<Vec<Encoding>, Error>
-    where
-        E: Into<EncodeInput<'s>> + Send,
-    {
-        let encodings = inputs
+    ) -> Result<Encoding, Error> {
+        let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Byte)?;
+        self.post_process(encoding, None, add_special_tokens)
+    }
+
+    /// Encode all the sentences in parallel, using multiple threads
+    pub fn encode_batch<'s>(
+        &self,
+        sequences: Vec<impl Into<Sequence<'s>>>,
+        add_special_tokens: bool,
+    ) -> Result<Vec<Encoding>, Error> {
+        let encodings = sequences
             .into_iter()
-            .map(|input| self.encode(input, add_special_tokens))
+            .map(|sequence| self.encode(sequence, add_special_tokens))
             .collect::<Result<Vec<Encoding>, Error>>()?;
 
         // We do the padding here to make sure we handle the batch padding
@@ -559,25 +209,72 @@ impl Tokenizer {
         Ok(encodings)
     }
 
+    /// Encode the given input, using offsets relative to chars instead of bytes.
+    /// This method accepts both single sequences, as well as pair sequences. Also,
+    /// a sequence can be a string, or already pre-tokenized input directly:
+    ///
+    /// ```
+    /// # use tokenizers::Tokenizer;
+    /// # use tokenizers::models::bpe::BPE;
+    /// # let mut tokenizer = Tokenizer::new(BPE::default());
+    /// #
+    /// // Sequences:
+    /// tokenizer.encode("Single sequence", false);
+    /// tokenizer.encode(("Sequence A", "Sequence B"), false);
+    ///
+    /// // Pre-tokenized sequences:
+    /// tokenizer.encode(&["Single", "sequence"][..], false);
+    /// tokenizer.encode((&["Sequence", "A"][..], &["Sequence", "B"][..]), false);
+    ///
+    /// // or even both types together:
+    /// tokenizer.encode(
+    ///     ("A complete sequence", &["And", "a", "tokenized"][..]),
+    ///     false,
+    /// );
+    /// ```
+    pub fn encode_char_offsets<'s>(
+        &self,
+        sequence: impl Into<Sequence<'s>>,
+        add_special_tokens: bool,
+    ) -> Result<Encoding, Error> {
+        let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Char)?;
+        self.post_process(encoding, None, add_special_tokens)
+    }
+
     /// Encode all the sentences in parallel, using multiple threads.
     /// The offsets on each `Encoding` will be relative to chars instead of bytes.
-    pub fn encode_batch_char_offsets<'s, E>(
+    pub fn encode_batch_char_offsets<'s>(
         &self,
-        inputs: Vec<E>,
+        sequences: Vec<impl Into<Sequence<'s>>>,
         add_special_tokens: bool,
-    ) -> Result<Vec<Encoding>, Error>
-    where
-        E: Into<EncodeInput<'s>> + Send,
-    {
-        let encodings = inputs
+    ) -> Result<Vec<Encoding>, Error> {
+        let encodings = sequences
             .into_iter()
-            .map(|input| self.encode_char_offsets(input, add_special_tokens))
+            .map(|sequence| self.encode_char_offsets(sequence, add_special_tokens))
             .collect::<Result<Vec<Encoding>, Error>>()?;
 
         // We do the padding here to make sure we handle the batch padding
         let encodings = self.padding.pad_encodings(encodings);
 
         Ok(encodings)
+    }
+
+    /// Decode the given ids, back to a String
+    pub fn decode(&self, ids: Vec<u32>, skip_special_tokens: bool) -> Result<String, Error> {
+        let tokens = ids
+            .into_iter()
+            .filter_map(|id| {
+                self.model
+                    .id_to_token(id)
+                    .filter(|token| !skip_special_tokens || token != self.model.unk_token.as_str())
+            })
+            .collect::<Vec<_>>();
+
+        if let Some(decoder) = &self.decoder {
+            decoder.decode(tokens)
+        } else {
+            Ok(tokens.join(" "))
+        }
     }
 
     /// Decode all sentences in parallel

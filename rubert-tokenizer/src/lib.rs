@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod builder;
 mod decoder;
 mod encoding;
 mod model;
@@ -7,6 +8,7 @@ mod normalizer;
 mod padding;
 mod pre_tokenizer;
 mod processor;
+mod sequence;
 mod tokenizer;
 mod truncation;
 
@@ -14,9 +16,12 @@ mod truncation;
 type Error = anyhow::Error;
 
 pub use crate::{
+    builder::Builder,
+    model::Vocab,
     normalizer::{NormalizedString, Normalizer},
     padding::Padding,
     pre_tokenizer::{PreTokenizedString, PreTokenizer},
-    tokenizer::{Tokenizer, TokenizerBuilder},
+    sequence::Sequence,
+    tokenizer::Tokenizer,
     truncation::Truncation,
 };
