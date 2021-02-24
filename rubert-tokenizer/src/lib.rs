@@ -16,5 +16,6 @@ type Error = anyhow::Error;
 pub use crate::{
     normalizer::{NormalizedString, Normalizer},
     padding::Padding,
+    pre_tokenizer::{PreTokenizedString, PreTokenizer},
     truncation::Truncation,
 };

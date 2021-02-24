@@ -10,16 +10,21 @@ use crate::{
     Error,
 };
 
-pub struct BertPreTokenizer;
+pub struct PreTokenizer;
 
-fn is_bert_punc(x: char) -> bool {
+fn is_bert_punctuation(x: char) -> bool {
     char::is_ascii_punctuation(&x) || x.is_punctuation()
 }
 
-impl BertPreTokenizer {
-    pub fn pre_tokenize(&self, pretokenized: &mut PreTokenizedString) -> Result<(), Error> {
-        pretokenized.split(|_, s| s.split(char::is_whitespace, SplitDelimiterBehavior::Removed))?;
-        pretokenized.split(|_, s| s.split(is_bert_punc, SplitDelimiterBehavior::Isolated))
+impl PreTokenizer {
+    pub fn pre_tokenize(
+        &self,
+        normalized: impl Into<PreTokenizedString>,
+    ) -> Result<PreTokenizedString, Error> {
+        normalized
+            .into()
+            .split(|_, s| s.split(char::is_whitespace, SplitDelimiterBehavior::Removed))?
+            .split(|_, s| s.split(is_bert_punctuation, SplitDelimiterBehavior::Isolated))
     }
 }
 
@@ -45,19 +50,19 @@ pub struct Split {
 }
 
 impl From<NormalizedString> for Split {
-    fn from(n: NormalizedString) -> Self {
+    fn from(normalized: NormalizedString) -> Self {
         Self {
-            normalized: n,
+            normalized: normalized,
             tokens: None,
         }
     }
 }
 
 impl From<(NormalizedString, Option<Vec<Token>>)> for Split {
-    fn from(f: (NormalizedString, Option<Vec<Token>>)) -> Self {
+    fn from(normalized: (NormalizedString, Option<Vec<Token>>)) -> Self {
         Self {
-            normalized: f.0,
-            tokens: f.1,
+            normalized: normalized.0,
+            tokens: normalized.1,
         }
     }
 }
@@ -86,7 +91,7 @@ impl PreTokenizedString {
     /// same `original` string as the original one given to `split_fn`. This concretely
     /// means that for the offset tracking to work as expected, `split_fn` must produce
     /// "splits" of the original string.
-    pub fn split<F, U, R>(&mut self, mut split_fn: F) -> Result<(), Error>
+    fn split<F, U, R>(mut self, mut split_fn: F) -> Result<Self, Error>
     where
         F: FnMut(usize, NormalizedString) -> Result<U, Error>,
         U: IntoIterator<Item = R>,
@@ -115,24 +120,25 @@ impl PreTokenizedString {
         }
         self.splits = new_splits;
 
-        Ok(())
+        Ok(self)
     }
 
     /// Normalized all the splits that do not have attached `Tokens`, using the provided
     /// `normalize` function.
-    pub fn normalize<F>(&mut self, normalize: F) -> Result<(), Error>
+    fn normalize<F>(mut self, normalize: F) -> Result<Self, Error>
     where
-        F: Fn(&mut NormalizedString) -> Result<(), Error>,
+        F: Fn(&NormalizedString) -> Result<NormalizedString, Error>,
     {
         for split in self.splits.iter_mut().filter(|s| s.tokens.is_none()) {
-            normalize(&mut split.normalized)?;
+            split.normalized = normalize(&split.normalized)?;
         }
-        Ok(())
+
+        Ok(self)
     }
 
     /// Tokenize all the splits that do not have attached `Tokens`, using the provided
     /// `tokenize` function
-    pub fn tokenize<F>(&mut self, tokenize: F) -> Result<(), Error>
+    pub(crate) fn tokenize<F>(mut self, tokenize: F) -> Result<Self, Error>
     where
         F: Fn(&NormalizedString) -> Result<Vec<Token>, Error>,
     {
@@ -140,7 +146,7 @@ impl PreTokenizedString {
             split.tokens = Some(tokenize(&split.normalized)?);
         }
 
-        Ok(())
+        Ok(self)
     }
 
     /// Transform the current `PreTokenizedString` into an `Encoding`.
@@ -150,7 +156,7 @@ impl PreTokenizedString {
     /// input, that do not need the `PreTokenizedString` to generate word ids.
     ///
     /// This method will fail if some splits do not have associated `Token`.
-    pub fn into_encoding(
+    pub(crate) fn into_encoding(
         self,
         word_idx: Option<u32>,
         type_id: u32,
@@ -209,7 +215,7 @@ impl PreTokenizedString {
     /// Returns a list of splits, each of them being a slice of the normalized
     /// string, the associated offsets either in original or normalized
     /// referential, as well as the potention tokens
-    pub fn get_splits(
+    fn get_splits(
         &self,
         offset_ref: OffsetReferential,
         offset_type: OffsetType,
@@ -244,11 +250,11 @@ impl PreTokenizedString {
 }
 
 impl From<NormalizedString> for PreTokenizedString {
-    fn from(s: NormalizedString) -> Self {
+    fn from(normalized: NormalizedString) -> Self {
         Self {
-            original: s.original.clone(),
+            original: normalized.original.clone(),
             splits: vec![Split {
-                normalized: s,
+                normalized: normalized,
                 tokens: None,
             }],
         }
@@ -256,16 +262,14 @@ impl From<NormalizedString> for PreTokenizedString {
 }
 
 impl From<&str> for PreTokenizedString {
-    fn from(s: &str) -> Self {
-        let normalized: NormalizedString = s.into();
-        normalized.into()
+    fn from(string: &str) -> Self {
+        NormalizedString::from(string).into()
     }
 }
 
 impl From<String> for PreTokenizedString {
-    fn from(s: String) -> Self {
-        let normalized: NormalizedString = s.into();
-        normalized.into()
+    fn from(string: String) -> Self {
+        NormalizedString::from(string).into()
     }
 }
 
@@ -292,7 +296,7 @@ impl BytesToCharOffsetConverter {
         }
     }
 
-    pub fn convert(&self, offsets: Offsets) -> Option<Offsets> {
+    fn convert(&self, offsets: Offsets) -> Option<Offsets> {
         match (self.map.get(&offsets.0), self.map.get(&offsets.1)) {
             (Some(start), Some(end)) => Some(Offsets(*start, *end)),
             // If we reached the end, `end` is not in the map
@@ -312,9 +316,9 @@ mod tests {
 
     #[test]
     fn basic() {
-        let pretok = BertPreTokenizer;
-        let mut pretokenized: PreTokenizedString = "Hey friend!     How are you?!?".into();
-        pretok.pre_tokenize(&mut pretokenized).unwrap();
+        let pretokenized = PreTokenizer
+            .pre_tokenize("Hey friend!     How are you?!?")
+            .unwrap();
         assert_eq!(
             pretokenized
                 .get_splits(OffsetReferential::Original, OffsetType::Byte)
@@ -337,10 +341,9 @@ mod tests {
 
     #[test]
     fn chinese_chars() {
-        let n = NormalizedString::from("野口里佳 Noguchi Rika");
-        let string = n.normalized.clone();
-        let n = n.transform(
-            string.chars().flat_map(|c| {
+        let sequence = "野口里佳 Noguchi Rika";
+        let normalized = NormalizedString::from(sequence).transform(
+            sequence.chars().flat_map(|c| {
                 if (c as usize) > 0x4E00 {
                     vec![(' ', 0), (c, 1), (' ', 1)]
                 } else {
@@ -349,9 +352,7 @@ mod tests {
             }),
             0,
         );
-        let mut pretokenized = n.into();
-        let pretok = BertPreTokenizer;
-        pretok.pre_tokenize(&mut pretokenized).unwrap();
+        let pretokenized = PreTokenizer.pre_tokenize(normalized).unwrap();
         assert_eq!(
             pretokenized
                 .get_splits(OffsetReferential::Original, OffsetType::Byte)

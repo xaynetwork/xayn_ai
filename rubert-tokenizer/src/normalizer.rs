@@ -114,7 +114,12 @@ impl Normalizer {
         normalized.lowercase()
     }
 
-    pub fn normalize(&self, mut normalized: NormalizedString) -> Result<NormalizedString, Error> {
+    pub fn normalize(
+        &self,
+        sequence: impl Into<NormalizedString>,
+    ) -> Result<NormalizedString, Error> {
+        let mut normalized = sequence.into();
+
         if self.clean_text {
             normalized = self.clean_text(normalized);
         }

@@ -8,7 +8,7 @@ use crate::{
     model::WordPiece,
     normalizer::{NormalizedString, Normalizer, Offsets},
     padding::Padding,
-    pre_tokenizer::{BertPreTokenizer, OffsetType, PreTokenizedString},
+    pre_tokenizer::{OffsetType, PreTokenizedString, PreTokenizer},
     processor::BertProcessing,
     truncation::Truncation,
     Error,
@@ -110,7 +110,7 @@ where
 pub struct TokenizerBuilder {
     model: Option<WordPiece>,
     normalizer: Option<Normalizer>,
-    pre_tokenizer: Option<BertPreTokenizer>,
+    pre_tokenizer: Option<PreTokenizer>,
     post_processor: Option<BertProcessing>,
     decoder: Option<WordPieceDecoder>,
     truncation: Truncation,
@@ -160,7 +160,7 @@ impl TokenizerBuilder {
     }
 
     /// Set the pre-tokenizer.
-    pub fn with_pre_tokenizer(mut self, pretokenizer: Option<BertPreTokenizer>) -> Self {
+    pub fn with_pre_tokenizer(mut self, pretokenizer: Option<PreTokenizer>) -> Self {
         self.pre_tokenizer = pretokenizer;
         self
     }
@@ -193,7 +193,7 @@ impl TokenizerBuilder {
 pub struct TokenizerImpl {
     // Tokenizer parts
     normalizer: Option<Normalizer>,
-    pre_tokenizer: Option<BertPreTokenizer>,
+    pre_tokenizer: Option<PreTokenizer>,
     model: WordPiece,
     post_processor: Option<BertProcessing>,
     decoder: Option<WordPieceDecoder>,
@@ -228,13 +228,13 @@ impl TokenizerImpl {
     }
 
     /// Set the pre tokenizer
-    pub fn with_pre_tokenizer(&mut self, pre_tokenizer: impl Into<BertPreTokenizer>) -> &mut Self {
+    pub fn with_pre_tokenizer(&mut self, pre_tokenizer: impl Into<PreTokenizer>) -> &mut Self {
         self.pre_tokenizer = Some(pre_tokenizer.into());
         self
     }
 
     /// Get the pre tokenizer
-    pub fn get_pre_tokenizer(&self) -> Option<&BertPreTokenizer> {
+    pub fn get_pre_tokenizer(&self) -> Option<&PreTokenizer> {
         self.pre_tokenizer.as_ref()
     }
 
@@ -332,8 +332,9 @@ impl TokenizerImpl {
     ) -> Result<Encoding, Error> {
         let encode =
             |is_pre_tokenized: bool, subseq_idx: usize, subseq: &str| -> Result<Encoding, Error> {
-                let pre_tokenized = self.do_pre_tokenize(subseq)?;
-                let subseq_encoding = self.do_tokenize(
+                let normalized = self.normalize(subseq)?;
+                let pre_tokenized = self.pre_tokenize(normalized)?;
+                let subseq_encoding = self.tokenize(
                     pre_tokenized,
                     type_id,
                     if is_pre_tokenized {
@@ -474,45 +475,40 @@ impl TokenizerImpl {
         }
     }
 
-    /// Tokenization logic, makes the bridge between the pre-tokenization phase and the real
-    /// tokenization phase, and converting offsets back to the original referential.
-    pub fn do_tokenize<P: Into<PreTokenizedString>>(
-        &self,
-        pretokenized: P,
-        type_id: u32,
-        word_idx: Option<u32>,
-        offsets_type: OffsetType,
-    ) -> Result<Encoding, Error> {
-        let mut pretokenized: PreTokenizedString = pretokenized.into();
-        pretokenized.tokenize(|normalized| self.model.tokenize(normalized.normalized.as_str()))?;
-        pretokenized.into_encoding(word_idx, type_id, offsets_type)
-    }
-
     /// Normalization logic, go through all normalizers
-    pub fn do_normalize(
-        &self,
-        normalized: impl Into<NormalizedString>,
-    ) -> Result<NormalizedString, Error> {
-        let normalized: NormalizedString = normalized.into();
+    fn normalize(&self, sequence: impl Into<NormalizedString>) -> Result<NormalizedString, Error> {
         if let Some(ref normalizer) = self.normalizer {
-            normalizer.normalize(normalized)
+            normalizer.normalize(sequence)
         } else {
-            Ok(normalized)
+            Ok(sequence.into())
         }
     }
 
     /// PreTokenization logic, handling the case where there is no PreTokenizer set
-    pub fn do_pre_tokenize<P: Into<PreTokenizedString>>(
+    fn pre_tokenize(
         &self,
-        pretokenized: P,
+        normalized: impl Into<PreTokenizedString>,
     ) -> Result<PreTokenizedString, Error> {
-        let mut pretokenized: PreTokenizedString = pretokenized.into();
-
-        if let Some(ref pretok) = self.pre_tokenizer {
-            pretok.pre_tokenize(&mut pretokenized)?;
+        if let Some(ref pretokenizer) = self.pre_tokenizer {
+            pretokenizer.pre_tokenize(normalized)
+        } else {
+            Ok(normalized.into())
         }
+    }
 
-        Ok(pretokenized)
+    /// Tokenization logic, makes the bridge between the pre-tokenization phase and the real
+    /// tokenization phase, and converting offsets back to the original referential.
+    fn tokenize(
+        &self,
+        pretokenized: impl Into<PreTokenizedString>,
+        type_id: u32,
+        word_idx: Option<u32>,
+        offsets_type: OffsetType,
+    ) -> Result<Encoding, Error> {
+        pretokenized
+            .into()
+            .tokenize(|normalized| self.model.tokenize(normalized.normalized.as_str()))?
+            .into_encoding(word_idx, type_id, offsets_type)
     }
 
     /// Post processing logic, handling the case where there is no PostProcessor set
