@@ -1,7 +1,7 @@
 use std::iter::IntoIterator;
 
 use crate::{
-    decoder::WordPieceDecoder,
+    decoder::Decoder,
     encoding::Encoding,
     model::{Vocab, WordPiece},
     normalizer::{NormalizedString, Normalizer, Offsets},
@@ -25,7 +25,7 @@ pub struct Tokenizer {
     pub(crate) pre_tokenizer: Option<PreTokenizer>,
     pub(crate) model: WordPiece,
     pub(crate) post_tokenizer: Option<PostTokenizer>,
-    pub(crate) decoder: Option<WordPieceDecoder>,
+    pub(crate) decoder: Option<Decoder>,
     // General processing parameters
     pub(crate) truncation: Truncation,
     pub(crate) padding: Padding,
@@ -258,33 +258,33 @@ impl Tokenizer {
         Ok(encodings)
     }
 
-    /// Decode the given ids, back to a String
-    pub fn decode(&self, ids: Vec<u32>, skip_special_tokens: bool) -> Result<String, Error> {
-        let tokens = ids
-            .into_iter()
-            .filter_map(|id| {
-                self.model
-                    .id_to_token(id)
-                    .filter(|token| !skip_special_tokens || token != self.model.unk_token.as_str())
+    /// Decodes an encoding back to a String.
+    pub fn decode(&self, encoding: &Encoding, skip_special_tokens: bool) -> String {
+        let unk_token = self.model.unk_token.as_str();
+        let tokens = encoding
+            .tokens
+            .iter()
+            .filter_map(|token| {
+                if !skip_special_tokens || *token != unk_token {
+                    Some(token.as_str())
+                } else {
+                    None
+                }
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         if let Some(decoder) = &self.decoder {
             decoder.decode(tokens)
         } else {
-            Ok(tokens.join(" "))
+            tokens.join(" ")
         }
     }
 
-    /// Decode all sentences in parallel
-    pub fn decode_batch(
-        &self,
-        sentences: Vec<Vec<u32>>,
-        skip_special_tokens: bool,
-    ) -> Result<Vec<String>, Error> {
-        sentences
-            .into_iter()
-            .map(|sentence| self.decode(sentence, skip_special_tokens))
+    /// Decodes the encodings back to strings.
+    pub fn decode_batch(&self, encodings: &[Encoding], skip_special_tokens: bool) -> Vec<String> {
+        encodings
+            .iter()
+            .map(|encoding| self.decode(encoding, skip_special_tokens))
             .collect()
     }
 }

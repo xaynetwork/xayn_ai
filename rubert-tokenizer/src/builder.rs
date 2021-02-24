@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 
 use crate::{
-    decoder::WordPieceDecoder,
+    decoder::Decoder,
     model::WordPiece,
     normalizer::Normalizer,
     padding::Padding,
@@ -17,7 +17,7 @@ pub struct Builder {
     pre_tokenizer: Option<PreTokenizer>,
     model: Option<WordPiece>,
     post_tokenizer: Option<PostTokenizer>,
-    decoder: Option<WordPieceDecoder>,
+    decoder: Option<Decoder>,
     truncation: Truncation,
     padding: Padding,
 }
@@ -61,7 +61,7 @@ impl Builder {
     }
 
     /// Set the decoder.
-    pub fn with_decoder(mut self, decoder: Option<WordPieceDecoder>) -> Self {
+    pub fn with_decoder(mut self, decoder: Option<Decoder>) -> Self {
         self.decoder = decoder;
         self
     }

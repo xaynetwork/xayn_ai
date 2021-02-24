@@ -1,35 +1,34 @@
-use crate::Error;
-
-#[derive(Clone, Debug)]
 /// The WordPiece decoder takes care of decoding a list of wordpiece tokens
 /// back into a readable string.
-pub struct WordPieceDecoder {
+pub struct Decoder {
     /// The prefix to be used for continuing subwords
-    pub prefix: String,
+    prefix: String,
     /// Whether to cleanup some tokenization artifacts (spaces before punctuation, ...)
-    pub cleanup: bool,
+    cleanup: bool,
 }
 
-impl WordPieceDecoder {
+impl Decoder {
     pub fn new(prefix: String, cleanup: bool) -> Self {
         Self { prefix, cleanup }
     }
 }
 
-impl Default for WordPieceDecoder {
+impl Default for Decoder {
     fn default() -> Self {
         Self {
-            prefix: String::from("##"),
+            prefix: "##".into(),
             cleanup: true,
         }
     }
 }
 
-impl WordPieceDecoder {
-    pub fn decode(&self, tokens: Vec<String>) -> Result<String, Error> {
-        let mut output = tokens.join(" ").replace(&format!(" {}", self.prefix), "");
+impl Decoder {
+    pub(crate) fn decode(&self, tokens: Vec<&str>) -> String {
+        let mut decoded = tokens
+            .join(" ")
+            .replace(format!(" {}", self.prefix).as_str(), "");
         if self.cleanup {
-            output = output
+            decoded = decoded
                 .replace(" .", ".")
                 .replace(" ?", "?")
                 .replace(" !", "!")
@@ -43,6 +42,6 @@ impl WordPieceDecoder {
                 .replace(" 're", "'re");
         }
 
-        Ok(output)
+        decoded
     }
 }
