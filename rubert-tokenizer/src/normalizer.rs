@@ -49,7 +49,7 @@ fn is_chinese_char(c: char) -> bool {
     )
 }
 
-pub struct BertNormalizer {
+pub struct Normalizer {
     /// Whether to do the bert basic cleaning:
     ///   1. Remove any control characters
     ///   2. Replace all sorts of whitespace by the classic one ` `
@@ -62,7 +62,7 @@ pub struct BertNormalizer {
     pub(crate) lowercase: bool,
 }
 
-impl Default for BertNormalizer {
+impl Default for Normalizer {
     fn default() -> Self {
         Self {
             clean_text: true,
@@ -73,14 +73,14 @@ impl Default for BertNormalizer {
     }
 }
 
-impl BertNormalizer {
+impl Normalizer {
     pub fn new(
         clean_text: bool,
         handle_chinese_chars: bool,
         strip_accents: bool,
         lowercase: bool,
     ) -> Self {
-        BertNormalizer {
+        Normalizer {
             clean_text,
             handle_chinese_chars,
             strip_accents,

@@ -3,11 +3,10 @@ use std::{borrow::Cow, collections::HashMap, iter::IntoIterator};
 use anyhow::anyhow;
 
 use crate::{
-    added_vocabulary::{AddedToken, AddedVocabulary},
     decoder::WordPieceDecoder,
     encoding::Encoding,
     model::WordPiece,
-    normalizer::{BertNormalizer, NormalizedString, Offsets},
+    normalizer::{NormalizedString, Normalizer, Offsets},
     padding::Padding,
     pre_tokenizer::{BertPreTokenizer, OffsetType, PreTokenizedString},
     processor::BertProcessing,
@@ -110,13 +109,10 @@ where
 
 pub struct TokenizerBuilder {
     model: Option<WordPiece>,
-    normalizer: Option<BertNormalizer>,
+    normalizer: Option<Normalizer>,
     pre_tokenizer: Option<BertPreTokenizer>,
     post_processor: Option<BertProcessing>,
     decoder: Option<WordPieceDecoder>,
-
-    added_vocabulary: AddedVocabulary,
-
     truncation: Truncation,
     padding: Padding,
 }
@@ -130,7 +126,6 @@ impl TokenizerBuilder {
             pre_tokenizer: None,
             post_processor: None,
             decoder: None,
-            added_vocabulary: AddedVocabulary::new(),
             truncation: Truncation::None,
             padding: Padding::None,
         }
@@ -145,10 +140,8 @@ impl TokenizerBuilder {
             normalizer: self.normalizer,
             pre_tokenizer: self.pre_tokenizer,
             model,
-
             post_processor: self.post_processor,
             decoder: self.decoder,
-            added_vocabulary: self.added_vocabulary,
             truncation: self.truncation,
             padding: self.padding,
         })
@@ -161,7 +154,7 @@ impl TokenizerBuilder {
     }
 
     /// Set the normalizer.
-    pub fn with_normalizer(mut self, normalizer: Option<BertNormalizer>) -> Self {
+    pub fn with_normalizer(mut self, normalizer: Option<Normalizer>) -> Self {
         self.normalizer = normalizer;
         self
     }
@@ -199,15 +192,11 @@ impl TokenizerBuilder {
 
 pub struct TokenizerImpl {
     // Tokenizer parts
-    normalizer: Option<BertNormalizer>,
+    normalizer: Option<Normalizer>,
     pre_tokenizer: Option<BertPreTokenizer>,
     model: WordPiece,
     post_processor: Option<BertProcessing>,
     decoder: Option<WordPieceDecoder>,
-
-    // Added Vocabulary capabilities
-    added_vocabulary: AddedVocabulary,
-
     // General processing parameters
     truncation: Truncation,
     padding: Padding,
@@ -222,22 +211,19 @@ impl TokenizerImpl {
             model,
             post_processor: None,
             decoder: None,
-
-            added_vocabulary: AddedVocabulary::new(),
-
             truncation: Truncation::None,
             padding: Padding::None,
         }
     }
 
     /// Set the normalizer
-    pub fn with_normalizer(&mut self, normalizer: impl Into<BertNormalizer>) -> &mut Self {
+    pub fn with_normalizer(&mut self, normalizer: impl Into<Normalizer>) -> &mut Self {
         self.normalizer = Some(normalizer.into());
         self
     }
 
     /// Get the normalizer
-    pub fn get_normalizer(&self) -> Option<&BertNormalizer> {
+    pub fn get_normalizer(&self) -> Option<&Normalizer> {
         self.normalizer.as_ref()
     }
 
@@ -318,40 +304,23 @@ impl TokenizerImpl {
     }
 
     /// Get the vocabulary
-    pub fn get_vocab(&self, with_added_tokens: bool) -> HashMap<String, u32> {
-        let mut final_vocab = self.model.get_vocab();
-
-        if with_added_tokens {
-            let added_vocab = self.added_vocabulary.get_vocab();
-            if !added_vocab.is_empty() {
-                final_vocab.reserve(added_vocab.len());
-                for (token, id) in added_vocab {
-                    final_vocab.insert(token.clone(), *id);
-                }
-            }
-        }
-
-        final_vocab
+    pub fn get_vocab(&self) -> HashMap<String, u32> {
+        self.model.get_vocab()
     }
 
     /// Get the size of the vocabulary
-    pub fn get_vocab_size(&self, with_added_tokens: bool) -> usize {
+    pub fn get_vocab_size(&self) -> usize {
         self.model.get_vocab_size()
-            + if with_added_tokens {
-                self.added_vocabulary.len()
-            } else {
-                0
-            }
     }
 
     /// Converts a token in the corresponding id.
     pub fn token_to_id(&self, token: &str) -> Option<u32> {
-        self.added_vocabulary.token_to_id(token, &self.model)
+        self.model.token_to_id(token)
     }
 
     /// Converts an id to the corresponding token.
     pub fn id_to_token(&self, id: u32) -> Option<String> {
-        self.added_vocabulary.id_to_token(id, &self.model)
+        self.model.id_to_token(id)
     }
 
     /// Encode a single sequence
@@ -361,42 +330,40 @@ impl TokenizerImpl {
         type_id: u32,
         offsets_type: OffsetType,
     ) -> Result<Encoding, Error> {
-        let encode = |is_pre_tokenized, subseq_idx, subseq| -> Result<Encoding, Error> {
-            let normalized = self
-                .added_vocabulary
-                .extract_and_normalize(self.normalizer.as_ref(), subseq);
-            let pre_tokenized = self.do_pre_tokenize(normalized)?;
-            let subseq_encoding = self.do_tokenize(
-                pre_tokenized,
-                type_id,
-                if is_pre_tokenized {
-                    Some(subseq_idx as u32)
-                } else {
-                    None
-                },
-                offsets_type,
-            )?;
+        let encode =
+            |is_pre_tokenized: bool, subseq_idx: usize, subseq: &str| -> Result<Encoding, Error> {
+                let pre_tokenized = self.do_pre_tokenize(subseq)?;
+                let subseq_encoding = self.do_tokenize(
+                    pre_tokenized,
+                    type_id,
+                    if is_pre_tokenized {
+                        Some(subseq_idx as u32)
+                    } else {
+                        None
+                    },
+                    offsets_type,
+                )?;
 
-            Ok(subseq_encoding)
-        };
+                Ok(subseq_encoding)
+            };
 
         match sequence {
-            InputSequence::PreTokenized(seq) => seq
-                .iter()
+            InputSequence::PreTokenized(sequence) => sequence
+                .into_iter()
                 .enumerate()
                 .map(|(i, sequence)| encode(true, i, sequence))
                 .collect(),
-            InputSequence::PreTokenizedOwned(seq) => seq
-                .iter()
+            InputSequence::PreTokenizedOwned(sequence) => sequence
+                .into_iter()
                 .enumerate()
                 .map(|(i, sequence)| encode(true, i, sequence))
                 .collect(),
-            InputSequence::PreTokenizedCow(seq) => seq
-                .iter()
+            InputSequence::PreTokenizedCow(sequence) => sequence
+                .into_iter()
                 .enumerate()
                 .map(|(i, sequence)| encode(true, i, sequence))
                 .collect(),
-            InputSequence::Raw(seq) => encode(false, 0, seq.as_ref()),
+            InputSequence::Raw(sequence) => encode(false, 0, sequence.as_ref()),
         }
     }
 
@@ -494,11 +461,9 @@ impl TokenizerImpl {
         let tokens = ids
             .into_iter()
             .filter_map(|id| {
-                self.added_vocabulary
-                    .id_to_token(id, &self.model)
-                    .filter(|token| {
-                        !skip_special_tokens || !self.added_vocabulary.is_special_token(token)
-                    })
+                self.model
+                    .id_to_token(id)
+                    .filter(|token| !skip_special_tokens || token != self.model.unk_token.as_str())
             })
             .collect::<Vec<_>>();
 
@@ -534,19 +499,6 @@ impl TokenizerImpl {
         } else {
             Ok(normalized)
         }
-    }
-
-    /// Register the given tokens as special tokens. This is especially useful for removing
-    /// these special tokens while decoding
-    pub fn add_special_tokens(&mut self, tokens: &[AddedToken]) -> usize {
-        self.added_vocabulary
-            .add_special_tokens(tokens, &self.model, self.normalizer.as_ref())
-    }
-
-    /// Add the given tokens to the added vocabulary
-    pub fn add_tokens(&mut self, tokens: &[AddedToken]) -> usize {
-        self.added_vocabulary
-            .add_tokens(tokens, &self.model, self.normalizer.as_ref())
     }
 
     /// PreTokenization logic, handling the case where there is no PreTokenizer set
