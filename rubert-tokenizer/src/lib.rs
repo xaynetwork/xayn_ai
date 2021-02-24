@@ -5,9 +5,9 @@ mod encoding;
 mod model;
 mod normalizer;
 mod padding;
-mod pipeline;
 mod pre_tokenizer;
 mod processor;
+mod tokenizer;
 mod truncation;
 
 // TODO: structured error handling
@@ -17,5 +17,6 @@ pub use crate::{
     normalizer::{NormalizedString, Normalizer},
     padding::Padding,
     pre_tokenizer::{PreTokenizedString, PreTokenizer},
+    tokenizer::{Tokenizer, TokenizerBuilder},
     truncation::Truncation,
 };

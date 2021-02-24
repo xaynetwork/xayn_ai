@@ -6,7 +6,7 @@ use unicode_categories::UnicodeCategories;
 use crate::{
     encoding::Encoding,
     normalizer::{NormalizedString, OffsetReferential, Offsets, Range, SplitDelimiterBehavior},
-    pipeline::Token,
+    tokenizer::Token,
     Error,
 };
 

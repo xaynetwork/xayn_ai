@@ -1,6 +1,6 @@
 use std::{collections::HashMap, iter, ops::Range};
 
-use crate::{normalizer::Offsets, pipeline::Token};
+use crate::{normalizer::Offsets, tokenizer::Token};
 
 /// Represents the output of a `Tokenizer`.
 #[derive(Clone, Default)]

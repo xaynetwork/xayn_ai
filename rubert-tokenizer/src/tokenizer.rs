@@ -108,9 +108,9 @@ where
 }
 
 pub struct TokenizerBuilder {
-    model: Option<WordPiece>,
     normalizer: Option<Normalizer>,
     pre_tokenizer: Option<PreTokenizer>,
+    model: Option<WordPiece>,
     post_processor: Option<BertProcessing>,
     decoder: Option<WordPieceDecoder>,
     truncation: Truncation,
@@ -121,9 +121,9 @@ impl TokenizerBuilder {
     /// Get an empty TokenizerBuilder.
     pub fn new() -> Self {
         TokenizerBuilder {
-            model: None,
             normalizer: None,
             pre_tokenizer: None,
+            model: None,
             post_processor: None,
             decoder: None,
             truncation: Truncation::None,
@@ -134,9 +134,9 @@ impl TokenizerBuilder {
     /// Convert the TokenizerBuilder to a Tokenizer.
     ///
     /// Conversion fails if the `model` is missing.
-    pub fn build(self) -> Result<TokenizerImpl, Error> {
+    pub fn build(self) -> Result<Tokenizer, Error> {
         let model = self.model.ok_or_else(|| anyhow!("Model missing."))?;
-        Ok(TokenizerImpl {
+        Ok(Tokenizer {
             normalizer: self.normalizer,
             pre_tokenizer: self.pre_tokenizer,
             model,
@@ -190,7 +190,7 @@ impl TokenizerBuilder {
     }
 }
 
-pub struct TokenizerImpl {
+pub struct Tokenizer {
     // Tokenizer parts
     normalizer: Option<Normalizer>,
     pre_tokenizer: Option<PreTokenizer>,
@@ -202,10 +202,10 @@ pub struct TokenizerImpl {
     padding: Padding,
 }
 
-impl TokenizerImpl {
+impl Tokenizer {
     /// Instantiate a new Tokenizer, with the given Model
     pub fn new(model: WordPiece) -> Self {
-        TokenizerImpl {
+        Tokenizer {
             normalizer: None,
             pre_tokenizer: None,
             model,

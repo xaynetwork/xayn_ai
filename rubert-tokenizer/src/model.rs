@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::anyhow;
 
-use crate::{normalizer::Offsets, pipeline::Token, Error};
+use crate::{normalizer::Offsets, tokenizer::Token, Error};
 
 type Vocab = HashMap<String, u32>;
 type VocabR = HashMap<u32, String>;
