@@ -21,6 +21,7 @@ pub use crate::{
     model::Vocab,
     normalizer::{NormalizedString, Normalizer},
     padding::Padding,
+    post_tokenizer::PostTokenizer,
     pre_tokenizer::{PreTokenizedString, PreTokenizer},
     sequence::Sequence,
     tokenizer::Tokenizer,

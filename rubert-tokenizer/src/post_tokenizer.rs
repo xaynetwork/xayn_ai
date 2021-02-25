@@ -23,6 +23,13 @@ impl Default for PostTokenizer {
 }
 
 impl PostTokenizer {
+    pub(crate) const fn added_tokens(&self) -> usize {
+        match self {
+            Self::None => 0,
+            Self::Bert { .. } => 2,
+        }
+    }
+
     // TODO: check and use `special_tokens_mask`, `attention_mask` and `sequence_ranges`
     pub(crate) fn process(&self, encoding: Encoding) -> Encoding {
         match self {

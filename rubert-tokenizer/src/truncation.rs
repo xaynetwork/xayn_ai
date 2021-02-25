@@ -1,8 +1,21 @@
+use std::cmp::min;
+
 use crate::encoding::Encoding;
 
+/// A truncation strategy.
 pub enum Truncation {
+    /// No truncation.
     None,
-    Fixed { max_length: usize, stride: usize },
+    /// Fixed-length truncation.
+    ///
+    /// Configurable by:
+    /// - `len`: Truncates to this length, must be greater or equal to the number of mandatory
+    /// tokens added by the [`PostTokenizer`].
+    /// - `stride`: Overlaps the truncated parts by this amount, must be zero or less than the
+    /// length minus the number of mandatory tokens added by the [`PostTokenizer`].
+    ///
+    /// [`PostTokenizer`]: crate::PostTokenizer
+    Fixed { len: usize, stride: usize },
 }
 
 impl Default for Truncation {
@@ -12,16 +25,13 @@ impl Default for Truncation {
 }
 
 impl Truncation {
-    pub fn truncate_encoding(&self, encoding: Encoding, added_tokens: usize) -> Encoding {
-        match *self {
+    pub fn truncate(&self, encoding: Encoding, added_tokens: usize) -> Encoding {
+        match self {
             Self::None => encoding,
-            Self::Fixed { max_length, stride } => {
-                // TODO: fix underflow
-                if max_length <= added_tokens || max_length < encoding.ids.len() + added_tokens {
-                    encoding.truncate(max_length - added_tokens, stride)
-                } else {
-                    encoding
-                }
+            Self::Fixed { len, stride } => {
+                let len = (*len).checked_sub(added_tokens).unwrap_or_default();
+                let stride = min(*stride, len.checked_sub(1).unwrap_or_default());
+                encoding.truncate(len, stride)
             }
         }
     }
@@ -32,23 +42,15 @@ mod tests {
     use super::*;
     use crate::normalizer::Offsets;
 
-    fn truncation(max_length: usize) -> Truncation {
-        Truncation::Fixed {
-            max_length,
-            stride: 0,
-        }
+    fn truncation(len: usize) -> Truncation {
+        Truncation::Fixed { len, stride: 0 }
     }
 
     fn encoding() -> Encoding {
         Encoding {
             ids: vec![1, 2, 3, 4],
             type_ids: vec![0, 0, 0, 0],
-            tokens: vec![
-                String::from("a"),
-                String::from("b"),
-                String::from("c"),
-                String::from("d"),
-            ],
+            tokens: vec!["a".into(), "b".into(), "c".into(), "d".into()],
             words: vec![Some(0), Some(1), Some(2), Some(3)],
             offsets: vec![Offsets(0, 1), Offsets(1, 2), Offsets(2, 3), Offsets(3, 4)],
             special_tokens_mask: vec![0, 0, 0, 0],
@@ -59,13 +61,13 @@ mod tests {
 
     #[test]
     fn test_truncate() {
-        assert_eq!(truncation(3).truncate_encoding(encoding(), 0).ids.len(), 3);
-        assert_eq!(truncation(4).truncate_encoding(encoding(), 0).ids.len(), 4);
-        assert_eq!(truncation(5).truncate_encoding(encoding(), 0).ids.len(), 4);
+        assert_eq!(truncation(3).truncate(encoding(), 0).len(), 3);
+        assert_eq!(truncation(4).truncate(encoding(), 0).len(), 4);
+        assert_eq!(truncation(5).truncate(encoding(), 0).len(), 4);
     }
 
     #[test]
     fn test_truncate_zero() {
-        assert_eq!(truncation(0).truncate_encoding(encoding(), 0).ids.len(), 0);
+        assert_eq!(truncation(0).truncate(encoding(), 0).len(), 0);
     }
 }

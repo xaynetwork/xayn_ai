@@ -82,7 +82,9 @@ impl Tokenizer {
 
     /// Post processing logic, handling the case where there is no PostProcessor set
     fn post_process(&self, encoding: Encoding) -> Encoding {
-        let encoding = self.truncation.truncate_encoding(encoding, 2);
+        let encoding = self
+            .truncation
+            .truncate(encoding, self.post_tokenizer.added_tokens());
         let encoding = self.post_tokenizer.process(encoding);
         self.padding.pad_encoding(encoding)
     }

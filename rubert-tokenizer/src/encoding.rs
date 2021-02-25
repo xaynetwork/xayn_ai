@@ -331,9 +331,10 @@ impl Encoding {
 
     /// Truncate the current `Encoding`.
     ///
-    /// Panic if `stride >= max_len`
+    /// # Panics
+    /// Panics if `stride >= max_len`.
     pub(crate) fn truncate(mut self, max_len: usize, stride: usize) -> Self {
-        if max_len >= self.ids.len() {
+        if max_len >= self.len() {
             return self;
         }
 
