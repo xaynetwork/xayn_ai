@@ -114,7 +114,7 @@ impl CoiSystem {
     }
 
     /// Updates the CoIs based on the given embedding. If the embedding is closer to the centroid
-    /// (lower than [`Configuration.threshold`]), the centroids position gets updated,
+    /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
     fn update_coi(&self, embedding: &Embeddings, mut cois: Vec<Coi>) -> Vec<Coi> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
