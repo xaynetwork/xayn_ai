@@ -133,9 +133,9 @@ impl CoiSystem {
         })
     }
 
-    // Assigns a CoI for the given embedding.
-    // Returns `None` if no CoI could be found otherwise it returns the Id of
-    // the CoL to along with the positive and negative distance.
+    /// Assigns a CoI for the given embedding.
+    /// Returns `None` if no CoI could be found otherwise it returns the Id of
+    /// the CoL along with the positive and negative distance.
     fn compute_coi_for_embedding(
         &self,
         embedding: &Embeddings,
