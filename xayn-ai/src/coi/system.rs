@@ -81,7 +81,7 @@ impl CoiSystem {
     }
 
     /// Finds the closest CoI for the given embedding.
-    /// Returns a immutable reference to the CoI along with the distance between
+    /// Returns an immutable reference to the CoI along with the distance between
     /// the given embedding and the CoI. If no CoI was found, `None`
     /// will be returned.
     fn find_closest_coi<'coi>(
