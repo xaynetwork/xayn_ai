@@ -14,7 +14,7 @@ use crate::{
 
 pub struct Builder {
     normalizer: Normalizer,
-    pre_tokenizer: Option<PreTokenizer>,
+    pre_tokenizer: PreTokenizer,
     model: Option<WordPiece>,
     post_tokenizer: Option<PostTokenizer>,
     decoder: Option<Decoder>,
@@ -27,7 +27,7 @@ impl Builder {
     pub fn new() -> Self {
         Self {
             normalizer: Normalizer::None,
-            pre_tokenizer: None,
+            pre_tokenizer: PreTokenizer::None,
             model: None,
             post_tokenizer: None,
             decoder: None,
@@ -43,8 +43,8 @@ impl Builder {
     }
 
     /// Set the pre-tokenizer.
-    pub fn with_pre_tokenizer(mut self, pretokenizer: Option<PreTokenizer>) -> Self {
-        self.pre_tokenizer = pretokenizer;
+    pub fn with_pre_tokenizer(mut self, pre_tokenizer: PreTokenizer) -> Self {
+        self.pre_tokenizer = pre_tokenizer;
         self
     }
 
