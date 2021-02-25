@@ -12,7 +12,6 @@ use super::{
         extend_user_interests_based_on_documents,
         l2_norm,
         update_alpha,
-        update_alpha_or_beta,
         update_beta,
         UserInterestsStatus,
     },
@@ -161,13 +160,10 @@ impl reranker_systems::CoiSystem for CoiSystem {
         documents
             .into_iter()
             .map(|document| {
-                let center_of_interest = self
+                let coi = self
                     .compute_coi_for_embedding(&document.embedding.embedding, user_interests)
                     .ok_or(CoiSystemError::NoCoi)?;
-                Ok(DocumentDataWithCoi::from_document(
-                    document,
-                    center_of_interest,
-                ))
+                Ok(DocumentDataWithCoi::from_document(document, coi))
             })
             .collect()
     }
@@ -216,10 +212,8 @@ impl reranker_systems::CoiSystem for CoiSystem {
 
         let pos_coi_id_map = count_coi_ids(&positive_docs);
 
-        user_interests.positive =
-            update_alpha_or_beta(&pos_coi_id_map, user_interests.positive, update_alpha);
-        user_interests.negative =
-            update_alpha_or_beta(&pos_coi_id_map, user_interests.negative, update_beta);
+        user_interests.positive = update_alpha(&pos_coi_id_map, user_interests.positive);
+        user_interests.negative = update_beta(&pos_coi_id_map, user_interests.negative);
 
         Ok(user_interests)
     }

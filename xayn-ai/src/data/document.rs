@@ -14,10 +14,10 @@ pub struct Document {
 pub struct DocumentHistory {
     /// unique identifier of this document
     pub id: DocumentId,
-    /// Relevance of the document
+    /// Relevance level of the document
     pub relevance: Relevance,
-    /// Swipe action of the user
-    pub swipe_action: SwipeAction,
+    /// A flag that indicates whether the user liked the document
+    pub is_liked: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -25,10 +25,4 @@ pub enum Relevance {
     Low,
     Medium,
     High,
-}
-
-#[derive(Clone, Copy)]
-pub enum SwipeAction {
-    Relevant,
-    Irrelevant,
 }

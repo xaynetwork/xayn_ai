@@ -24,7 +24,8 @@ pub type DocumentsRank = Vec<usize>;
 /// Empty state
 enum Empty {}
 
-/// In this state we have the documents from the previous query but we do not have user interests
+/// In this state we have the documents from the previous query with which
+/// we initialize the user interests.
 struct InitUserInterests {
     prev_documents: Vec<DocumentDataWithEmbedding>,
     user_interests: UserInterests,

@@ -4,7 +4,7 @@ use ndarray::{ArrayViewD, Ix1};
 
 use crate::{
     data::{
-        document::{Relevance, SwipeAction},
+        document::Relevance,
         document_data::{DocumentDataWithEmbedding, DocumentDataWithMab, DocumentIdentifier},
         Coi,
         UserInterests,
@@ -67,11 +67,9 @@ pub fn classify_documents_based_on_user_feedback<D>(
 
 /// Determines the user feedback based on the user actions.
 pub fn user_feedback(history: &DocumentHistory) -> UserFeedback {
-    match (history.relevance, history.swipe_action) {
-        (Relevance::Medium, _) | (Relevance::High, _) | (_, SwipeAction::Relevant) => {
-            UserFeedback::Positive
-        }
-        (_, SwipeAction::Irrelevant) => UserFeedback::Negative,
+    match (history.relevance, history.is_liked) {
+        (Relevance::Low, false) => UserFeedback::Negative,
+        _ => UserFeedback::Positive,
     }
 }
 
@@ -81,13 +79,10 @@ pub fn extend_user_interests_based_on_documents(
     negative_docs: Vec<&DocumentDataWithEmbedding>,
     user_interests: UserInterests,
 ) -> UserInterests {
-    let positive_cois = extend_user_interests(positive_docs, user_interests.positive);
-    let negative_cois = extend_user_interests(negative_docs, user_interests.negative);
+    let positive = extend_user_interests(positive_docs, user_interests.positive);
+    let negative = extend_user_interests(negative_docs, user_interests.negative);
 
-    UserInterests {
-        positive: positive_cois,
-        negative: negative_cois,
-    }
+    UserInterests { positive, negative }
 }
 
 /// Extends the user interests from the document embeddings.
@@ -107,11 +102,7 @@ fn extend_user_interests(
 }
 
 // utils for `update_user_interests`
-pub fn update_alpha_or_beta<F>(
-    counts: &HashMap<usize, u16>,
-    mut cois: Vec<Coi>,
-    mut f: F,
-) -> Vec<Coi>
+fn update_alpha_or_beta<F>(counts: &HashMap<usize, u16>, mut cois: Vec<Coi>, mut f: F) -> Vec<Coi>
 where
     F: FnMut(&mut Coi, f32),
 {
@@ -124,12 +115,20 @@ where
     cois
 }
 
-pub fn update_alpha(&mut Coi { ref mut alpha, .. }: &mut Coi, adjustment: f32) {
-    *alpha *= adjustment
+pub fn update_alpha(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
+    update_alpha_or_beta(
+        counts,
+        cois,
+        |&mut Coi { ref mut alpha, .. }: &mut Coi, adjustment: f32| *alpha *= adjustment,
+    )
 }
 
-pub fn update_beta(&mut Coi { ref mut beta, .. }: &mut Coi, adjustment: f32) {
-    *beta *= adjustment
+pub fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
+    update_alpha_or_beta(
+        counts,
+        cois,
+        |&mut Coi { ref mut beta, .. }: &mut Coi, adjustment: f32| *beta *= adjustment,
+    )
 }
 
 /// Counts CoI Ids of the given documents.
