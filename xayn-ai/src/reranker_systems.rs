@@ -27,7 +27,7 @@ pub trait BertSystem {
 }
 
 pub trait CoiSystem {
-    /// Add center of interest information to a document
+    /// Add centre of interest information to a document
     fn compute_coi(
         &self,
         documents: Vec<DocumentDataWithEmbedding>,
