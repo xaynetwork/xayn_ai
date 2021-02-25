@@ -35,6 +35,8 @@ impl PostTokenizer {
     }
 
     /// Creates a Bert post-tokenizer.
+    ///
+    /// The tokens must be part of the vocabulary.
     pub fn bert(cls: impl Into<String>, sep: impl Into<String>) -> Self {
         Self(PostTokenizers::Bert {
             cls_id: 0,

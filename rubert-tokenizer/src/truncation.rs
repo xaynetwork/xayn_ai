@@ -29,11 +29,9 @@ impl Truncation {
 
     /// Creates a fixed-length truncation strategy.
     ///
-    /// Configurable by:
-    /// - `len`: Truncates to this length. Must be greater or equal to the number of mandatory
-    /// tokens added by the [`PostTokenizer`].
-    /// - `stride`: Overlaps the truncated parts by this amount. Must be zero or less than the
-    /// length minus the number of mandatory tokens added by the [`PostTokenizer`].
+    /// The length must be greater or equal to the number of mandatory tokens added by the
+    /// [`PostTokenizer`]. The truncated parts are overlapping by the stride, which must be zero or
+    /// less than the length minus the number of mandatory tokens added by the [`PostTokenizer`].
     ///
     /// [`PostTokenizer`]: crate::PostTokenizer
     pub fn fixed(len: usize, stride: usize) -> Self {

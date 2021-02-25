@@ -32,6 +32,8 @@ impl Padding {
     }
 
     /// Creates a fixed-length padding strategy.
+    ///
+    /// The token must be part of the vocabulary.
     pub fn fixed(len: usize, pad: impl Into<String>) -> Self {
         Self(Paddings::Fixed {
             len,

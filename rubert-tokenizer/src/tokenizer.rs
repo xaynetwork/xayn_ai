@@ -18,13 +18,17 @@ pub struct Token {
     pub offsets: Offsets,
 }
 
+/// A Bert tokenizer.
+///
+/// Can be created via the [`Builder`] and consists of a normalizer, a pre-tokenizer, a Bert word
+/// piece model and a post-tokenizer including truncation and padding strategies.
+///
+/// [`Builer`]: crate::Builder
 pub struct Tokenizer {
-    // Tokenizer parts
     pub(crate) normalizer: Normalizer,
     pub(crate) pre_tokenizer: PreTokenizer,
     pub(crate) model: Model,
     pub(crate) post_tokenizer: PostTokenizer,
-    // General processing parameters
     pub(crate) truncation: Truncation,
     pub(crate) padding: Padding,
 }

@@ -8,16 +8,28 @@ pub(crate) type Vocab = HashMap<String, u32>;
 
 /// A Bert word piece model.
 pub struct Model {
-    pub(crate) vocab: Vocab,
-    pub(crate) unk_id: u32,
-    pub(crate) unk_token: String,
-    pub(crate) continuing_subword_prefix: String,
-    pub(crate) max_input_chars_per_word: usize,
+    pub vocab: Vocab,
+    pub unk_id: u32,
+    pub unk_token: String,
+    pub continuing_subword_prefix: String,
+    pub max_input_chars_per_word: usize,
 }
 
 impl Model {
+    /// Parses the in-memory vocabulary.
+    pub fn parse_vocab(vocab: impl BufRead) -> Result<Vocab, Error> {
+        vocab
+            .lines()
+            .enumerate()
+            .map(|(idx, word)| {
+                word.map(|word| (word.trim().to_string(), idx as u32))
+                    .map_err(Into::into)
+            })
+            .collect()
+    }
+
     /// Validates itself.
-    pub(crate) fn validate(mut self) -> Result<Self, Error> {
+    pub fn validate(mut self) -> Result<Self, Error> {
         if let Some(id) = self.vocab.get(self.unk_token.as_str()) {
             self.unk_id = *id;
         } else {
@@ -33,18 +45,7 @@ impl Model {
         Ok(self)
     }
 
-    pub(crate) fn parse_vocab(vocab: impl BufRead) -> Result<Vocab, Error> {
-        vocab
-            .lines()
-            .enumerate()
-            .map(|(idx, word)| {
-                word.map(|word| (word.trim().to_string(), idx as u32))
-                    .map_err(Into::into)
-            })
-            .collect()
-    }
-
-    pub(crate) fn tokenize(&self, sequence: &str) -> Result<Vec<Token>, Error> {
+    pub fn tokenize(&self, sequence: &str) -> Result<Vec<Token>, Error> {
         let char_len = sequence.chars().count();
         if char_len > self.max_input_chars_per_word {
             return Ok(vec![Token {
@@ -99,7 +100,7 @@ impl Model {
         }
     }
 
-    pub(crate) fn de_tokenize(&self, encoding: &Encoding, cleanup: bool) -> String {
+    pub fn de_tokenize(&self, encoding: &Encoding, cleanup: bool) -> String {
         let unk = self.unk_token.as_str();
         let tokens = encoding
             .tokens
