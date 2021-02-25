@@ -11,7 +11,12 @@ use crate::{
 };
 
 /// A pre-tokenizer.
-pub enum PreTokenizer {
+///
+/// Defaults to the [`none()`] pre-tokenizer.
+pub struct PreTokenizer(PreTokenizers);
+
+/// The pre-tokenizers.
+enum PreTokenizers {
     /// No pre-tokenization.
     None,
     /// Bert pre-tokenization.
@@ -20,18 +25,28 @@ pub enum PreTokenizer {
 
 impl Default for PreTokenizer {
     fn default() -> Self {
-        Self::None
+        Self::none()
     }
 }
 
 impl PreTokenizer {
+    /// Creates an inert pre-tokenizer.
+    pub fn none() -> Self {
+        Self(PreTokenizers::None)
+    }
+
+    /// Creates a Bert pre-tokenizer.
+    pub fn bert() -> Self {
+        Self(PreTokenizers::Bert)
+    }
+
     pub(crate) fn pre_tokenize(
         &self,
         normalized: impl Into<PreTokenizedString>,
     ) -> Result<PreTokenizedString, Error> {
-        match self {
-            Self::None => Ok(normalized.into()),
-            Self::Bert => normalized
+        match self.0 {
+            PreTokenizers::None => Ok(normalized.into()),
+            PreTokenizers::Bert => normalized
                 .into()
                 .split(|_, s| s.split(char::is_whitespace, SplitDelimiterBehavior::Removed))?
                 .split(|_, s| {
@@ -152,14 +167,13 @@ impl PreTokenizedString {
         Ok(self)
     }
 
-    /// Tokenize all the splits that do not have attached `Tokens`, using the provided
-    /// `tokenize` function
-    pub(crate) fn tokenize<F>(mut self, tokenize: F) -> Result<Self, Error>
-    where
-        F: Fn(&NormalizedString) -> Result<Vec<Token>, Error>,
-    {
+    /// Tokenizes all the splits that do not have attached `Tokens`, using the provided function.
+    pub(crate) fn tokenize(
+        mut self,
+        f: impl Fn(&NormalizedString) -> Result<Vec<Token>, Error>,
+    ) -> Result<Self, Error> {
         for split in self.splits.iter_mut().filter(|s| s.tokens.is_none()) {
-            split.tokens = Some(tokenize(&split.normalized)?);
+            split.tokens = Some(f(&split.normalized)?);
         }
 
         Ok(self)
@@ -332,7 +346,7 @@ mod tests {
 
     #[test]
     fn basic() {
-        let pretokenized = PreTokenizer::Bert
+        let pretokenized = PreTokenizer::bert()
             .pre_tokenize("Hey friend!     How are you?!?")
             .unwrap();
         assert_eq!(
@@ -368,7 +382,7 @@ mod tests {
             }),
             0,
         );
-        let pretokenized = PreTokenizer::Bert.pre_tokenize(normalized).unwrap();
+        let pretokenized = PreTokenizer::bert().pre_tokenize(normalized).unwrap();
         assert_eq!(
             pretokenized
                 .get_splits(OffsetReferential::Original, OffsetType::Byte)

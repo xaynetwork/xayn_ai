@@ -1,38 +1,69 @@
-use std::cmp::min;
+use anyhow::anyhow;
 
-use crate::encoding::Encoding;
+use crate::{encoding::Encoding, Error};
 
 /// A truncation strategy.
-pub enum Truncation {
+///
+/// Defaults to the [`none()`] truncation strategy.
+pub struct Truncation(Truncations);
+
+/// The truncation strategies.
+enum Truncations {
     /// No truncation.
     None,
     /// Truncation to a fixed length.
-    ///
-    /// Configurable by:
-    /// - `len`: Truncates to this length, must be greater or equal to the number of mandatory
-    /// tokens added by the [`PostTokenizer`].
-    /// - `stride`: Overlaps the truncated parts by this amount, must be zero or less than the
-    /// length minus the number of mandatory tokens added by the [`PostTokenizer`].
-    ///
-    /// [`PostTokenizer`]: crate::PostTokenizer
     Fixed { len: usize, stride: usize },
 }
 
 impl Default for Truncation {
     fn default() -> Self {
-        Self::None
+        Self::none()
     }
 }
 
 impl Truncation {
-    pub fn truncate(&self, encoding: Encoding, added_tokens: usize) -> Encoding {
-        match self {
-            Self::None => encoding,
-            Self::Fixed { len, stride } => {
-                let len = (*len).checked_sub(added_tokens).unwrap_or_default();
-                let stride = min(*stride, len.checked_sub(1).unwrap_or_default());
-                encoding.truncate(len, stride)
+    /// Creates an inert truncation strategy.
+    pub fn none() -> Self {
+        Self(Truncations::None)
+    }
+
+    /// Creates a fixed-length truncation strategy.
+    ///
+    /// Configurable by:
+    /// - `len`: Truncates to this length. Must be greater or equal to the number of mandatory
+    /// tokens added by the [`PostTokenizer`].
+    /// - `stride`: Overlaps the truncated parts by this amount. Must be zero or less than the
+    /// length minus the number of mandatory tokens added by the [`PostTokenizer`].
+    ///
+    /// [`PostTokenizer`]: crate::PostTokenizer
+    pub fn fixed(len: usize, stride: usize) -> Self {
+        Self(Truncations::Fixed { len, stride })
+    }
+
+    /// Validates itself.
+    pub(crate) fn validate(self) -> Result<Self, Error> {
+        match self.0 {
+            Truncations::None => Ok(self),
+            Truncations::Fixed { len, stride } => {
+                if len < 2 {
+                    Err(anyhow!("length must be greater or equal to the number of mandatory tokens added by the post-tokenizer"))
+                } else if stride >= len - 2 {
+                    Err(anyhow!("stride must be zero or less than the length minus the number of mandatory tokens added by the post-tokenizer"))
+                } else {
+                    Ok(self)
+                }
             }
+        }
+    }
+
+    /// Truncates the encoding.
+    ///
+    /// # Panics
+    /// May panic/underflow if the truncation strategy has not been validated.
+    pub(crate) fn truncate(&self, encoding: Encoding, added_tokens: usize) -> Encoding {
+        match self.0 {
+            Truncations::None => encoding,
+            Truncations::Fixed { len, stride } => encoding.truncate(len - added_tokens, stride),
         }
     }
 }
@@ -41,10 +72,6 @@ impl Truncation {
 mod tests {
     use super::*;
     use crate::normalizer::Offsets;
-
-    fn truncation(len: usize) -> Truncation {
-        Truncation::Fixed { len, stride: 0 }
-    }
 
     fn encoding() -> Encoding {
         Encoding {
@@ -61,13 +88,13 @@ mod tests {
 
     #[test]
     fn test_truncate() {
-        assert_eq!(truncation(3).truncate(encoding(), 0).len(), 3);
-        assert_eq!(truncation(4).truncate(encoding(), 0).len(), 4);
-        assert_eq!(truncation(5).truncate(encoding(), 0).len(), 4);
+        assert_eq!(Truncation::fixed(3, 0).truncate(encoding(), 0).len(), 3);
+        assert_eq!(Truncation::fixed(4, 0).truncate(encoding(), 0).len(), 4);
+        assert_eq!(Truncation::fixed(5, 0).truncate(encoding(), 0).len(), 4);
     }
 
     #[test]
     fn test_truncate_zero() {
-        assert_eq!(truncation(0).truncate(encoding(), 0).len(), 0);
+        assert_eq!(Truncation::fixed(0, 0).truncate(encoding(), 0).len(), 0);
     }
 }

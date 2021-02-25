@@ -1,139 +1,47 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    fs::File,
-    io::{BufRead, BufReader},
-};
+use std::{borrow::Cow, collections::HashMap, io::BufRead};
 
-use anyhow::anyhow;
+use anyhow::bail;
 
 use crate::{encoding::Encoding, normalizer::Offsets, tokenizer::Token, Error};
 
-pub type Vocab = HashMap<String, u32>;
-type VocabR = HashMap<u32, String>;
+pub(crate) type Vocab = HashMap<String, u32>;
 
-struct Config {
-    files: Option<String>,
-    vocab: Vocab,
-    unk_token: String,
-    continuing_subword_prefix: String,
-    max_input_chars_per_word: usize,
+/// A Bert word piece model.
+pub struct Model {
+    pub(crate) vocab: Vocab,
+    pub(crate) unk_id: u32,
+    pub(crate) unk_token: String,
+    pub(crate) continuing_subword_prefix: String,
+    pub(crate) max_input_chars_per_word: usize,
 }
 
-pub struct WordPieceBuilder {
-    config: Config,
-}
-
-impl Default for WordPieceBuilder {
-    fn default() -> Self {
-        Self {
-            config: Config {
-                files: None,
-                vocab: HashMap::new(),
-                unk_token: String::from("[UNK]"),
-                continuing_subword_prefix: String::from("##"),
-                max_input_chars_per_word: 100,
-            },
+impl Model {
+    /// Validates itself.
+    pub(crate) fn validate(mut self) -> Result<Self, Error> {
+        if let Some(id) = self.vocab.get(self.unk_token.as_str()) {
+            self.unk_id = *id;
+        } else {
+            bail!("padding token doesn't exist in the vocab");
         }
-    }
-}
-
-impl WordPieceBuilder {
-    /// Construct a new `WordPieceBuilder`.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the input files.
-    pub fn files(mut self, vocab: String) -> Self {
-        self.config.files = Some(vocab);
-        self
-    }
-
-    /// Set the vocab (token -> ID) mapping.
-    pub fn vocab(mut self, vocab: Vocab) -> Self {
-        self.config.vocab = vocab;
-        self
-    }
-
-    /// The the `UNK` token for the vocab.
-    pub fn unk_token(mut self, unk_token: String) -> Self {
-        self.config.unk_token = unk_token;
-        self
-    }
-
-    /// Set the prefix for continuing subwords.
-    pub fn continuing_subword_prefix(mut self, continuing_subword_prefix: String) -> Self {
-        self.config.continuing_subword_prefix = continuing_subword_prefix;
-        self
-    }
-
-    /// Set the maximum number of input characters per word.
-    pub fn max_input_chars_per_word(mut self, max_input_chars_per_word: usize) -> Self {
-        self.config.max_input_chars_per_word = max_input_chars_per_word;
-        self
-    }
-
-    /// Contructs a `WordPiece` model that uses the `WordPieceBuilder`'s configuration.
-    pub fn build(mut self) -> Result<WordPiece, Error> {
-        if let Some(vocab) = self.config.files {
-            self.config.vocab = WordPiece::read_file(&vocab)?;
-        }
-
-        let vocab_r = self
-            .config
+        if !self
             .vocab
-            .iter()
-            .map(|(key, val)| (*val, key.to_owned()))
-            .collect();
-
-        Ok(WordPiece {
-            vocab: self.config.vocab,
-            vocab_r,
-            unk_token: self.config.unk_token,
-            continuing_subword_prefix: self.config.continuing_subword_prefix,
-            max_input_chars_per_word: self.config.max_input_chars_per_word,
-        })
-    }
-}
-
-pub struct WordPiece {
-    vocab: Vocab,
-    vocab_r: VocabR,
-    pub unk_token: String,
-    pub continuing_subword_prefix: String,
-    pub max_input_chars_per_word: usize,
-}
-
-impl WordPiece {
-    /// Read the given files to extract the vocab
-    pub fn read_file(vocab: &str) -> Result<Vocab, Error> {
-        let file = File::open(vocab)?;
-        let file = BufReader::new(file);
-
-        let mut vocab = HashMap::new();
-        for (index, line) in file.lines().enumerate() {
-            let line = line?;
-            vocab.insert(line.trim_end().to_owned(), index as u32);
+            .keys()
+            .any(|word| word.contains(self.continuing_subword_prefix.as_str()))
+        {
+            bail!("continuing subword prefix doesn't exist in the vocab");
         }
-
-        Ok(vocab)
+        Ok(self)
     }
 
-    pub fn vocab(&self) -> &Vocab {
-        &self.vocab
-    }
-
-    pub fn vocab_size(&self) -> usize {
-        self.vocab.len()
-    }
-
-    pub fn token_to_id(&self, token: &str) -> Option<u32> {
-        self.vocab.get(token).copied()
-    }
-
-    pub fn id_to_token(&self, id: u32) -> Option<String> {
-        self.vocab_r.get(&id).cloned()
+    pub(crate) fn parse_vocab(vocab: impl BufRead) -> Result<Vocab, Error> {
+        vocab
+            .lines()
+            .enumerate()
+            .map(|(idx, word)| {
+                word.map(|word| (word.trim().to_string(), idx as u32))
+                    .map_err(Into::into)
+            })
+            .collect()
     }
 
     pub(crate) fn tokenize(&self, sequence: &str) -> Result<Vec<Token>, Error> {
@@ -141,10 +49,7 @@ impl WordPiece {
         if char_len > self.max_input_chars_per_word {
             return Ok(vec![Token {
                 value: self.unk_token.clone(),
-                id: *self
-                    .vocab
-                    .get(&self.unk_token)
-                    .ok_or(anyhow!("MissingUnkToken"))?,
+                id: self.unk_id,
                 offsets: Offsets(0, sequence.len()),
             }]);
         }
@@ -186,10 +91,7 @@ impl WordPiece {
         if is_bad {
             Ok(vec![Token {
                 value: self.unk_token.clone(),
-                id: *self
-                    .vocab
-                    .get(&self.unk_token)
-                    .ok_or(anyhow!("MissingUnkToken"))?,
+                id: self.unk_id,
                 offsets: Offsets(0, sequence.len()),
             }])
         } else {

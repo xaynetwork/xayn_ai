@@ -1,24 +1,73 @@
-use crate::encoding::Encoding;
+use anyhow::anyhow;
+
+use crate::{encoding::Encoding, model::Vocab, Error};
 
 /// A padding strategy.
-pub enum Padding {
+///
+/// Defaults to the [`none()`] padding strategy.
+pub struct Padding(Paddings);
+
+/// The padding strategies.
+enum Paddings {
     /// No padding.
     None,
     /// Padding to a fixed length.
-    Fixed { len: usize, pad: String, id: u32 },
+    Fixed {
+        len: usize,
+        pad_id: u32,
+        pad_token: String,
+    },
 }
 
 impl Default for Padding {
     fn default() -> Self {
-        Self::None
+        Self::none()
     }
 }
 
 impl Padding {
+    /// Creates an inert padding strategy.
+    pub fn none() -> Self {
+        Self(Paddings::None)
+    }
+
+    /// Creates a fixed-length padding strategy.
+    pub fn fixed(len: usize, pad: impl Into<String>) -> Self {
+        Self(Paddings::Fixed {
+            len,
+            pad_id: 0,
+            pad_token: pad.into(),
+        })
+    }
+
+    /// Validates itself.
+    pub(crate) fn validate(mut self, vocab: &Vocab) -> Result<Self, Error> {
+        match self.0 {
+            Paddings::None => Ok(self),
+            Paddings::Fixed {
+                ref mut pad_id,
+                ref pad_token,
+                ..
+            } => {
+                if let Some(id) = vocab.get(pad_token) {
+                    *pad_id = *id;
+                    Ok(self)
+                } else {
+                    Err(anyhow!("padding token doesn't exist in the vocab"))
+                }
+            }
+        }
+    }
+
+    /// Pads the encoding.
     pub(crate) fn pad(&self, encoding: Encoding) -> Encoding {
-        match self {
-            Padding::None => encoding,
-            Padding::Fixed { len, pad, id } => encoding.pad(*len, *id, 0, pad),
+        match self.0 {
+            Paddings::None => encoding,
+            Paddings::Fixed {
+                len,
+                pad_id,
+                ref pad_token,
+            } => encoding.pad(len, pad_id, 0, pad_token),
         }
     }
 }
@@ -27,34 +76,22 @@ impl Padding {
 mod tests {
     use super::*;
 
-    fn padding(len: usize) -> Padding {
-        Padding::Fixed {
-            len,
-            pad: "[PAD]".into(),
-            id: 0,
+    fn encoding(len: u32) -> Encoding {
+        Encoding {
+            ids: (0..len).collect(),
+            ..Encoding::default()
         }
     }
 
     #[test]
     fn test_padding() {
-        let encodings = vec![
-            Encoding {
-                ids: vec![0, 1, 2, 3, 4],
-                ..Encoding::default()
-            },
-            Encoding {
-                ids: vec![0, 1, 2],
-                ..Encoding::default()
-            },
-        ];
+        assert_eq!(Padding::fixed(3, "[PAD]").pad(encoding(3)).len(), 3);
+        assert_eq!(Padding::fixed(3, "[PAD]").pad(encoding(5)).len(), 5);
 
-        assert_eq!(padding(3).pad(encodings[0].clone()).len(), 5);
-        assert_eq!(padding(3).pad(encodings[1].clone()).len(), 3);
+        assert_eq!(Padding::fixed(5, "[PAD]").pad(encoding(3)).len(), 5);
+        assert_eq!(Padding::fixed(5, "[PAD]").pad(encoding(5)).len(), 5);
 
-        assert_eq!(padding(5).pad(encodings[0].clone()).len(), 5);
-        assert_eq!(padding(5).pad(encodings[1].clone()).len(), 5);
-
-        assert_eq!(padding(7).pad(encodings[0].clone()).len(), 7);
-        assert_eq!(padding(7).pad(encodings[1].clone()).len(), 7);
+        assert_eq!(Padding::fixed(7, "[PAD]").pad(encoding(3)).len(), 7);
+        assert_eq!(Padding::fixed(7, "[PAD]").pad(encoding(5)).len(), 7);
     }
 }

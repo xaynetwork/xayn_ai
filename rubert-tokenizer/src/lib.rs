@@ -15,7 +15,6 @@ type Error = anyhow::Error;
 
 pub use crate::{
     builder::Builder,
-    model::Vocab,
     normalizer::{NormalizedString, Normalizer},
     padding::Padding,
     post_tokenizer::PostTokenizer,

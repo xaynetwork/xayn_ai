@@ -11,16 +11,15 @@ use unicode_normalization_alignments::UnicodeNormalization;
 use crate::Error;
 
 /// A normalizer.
-pub enum Normalizer {
+///
+/// Defaults to the [`none()`] normalizer.
+pub struct Normalizer(Normalizers);
+
+/// The normalizers.
+enum Normalizers {
     /// No normalization.
     None,
     /// Bert normalization.
-    ///
-    /// Configurable by:
-    /// - `clean_text`: Removes any control characters and replaces all sorts of whitespace by ` `.
-    /// - `handle_chinese_chars`: Puts spaces around chinese characters so they get split.
-    /// - `strip_accents`: Removes accents from characters.
-    /// - `lowercase`: Lowercases characters.
     Bert {
         clean_text: bool,
         handle_chinese_chars: bool,
@@ -31,18 +30,44 @@ pub enum Normalizer {
 
 impl Default for Normalizer {
     fn default() -> Self {
-        Self::None
+        Self::none()
     }
 }
 
 impl Normalizer {
+    /// Creates an inert normalizer.
+    pub fn none() -> Self {
+        Self(Normalizers::None)
+    }
+
+    /// Creates a Bert normalizer.
+    ///
+    /// Configurable by:
+    /// - `clean_text`: Removes any control characters and replaces all sorts of whitespace by ` `.
+    /// - `handle_chinese_chars`: Puts spaces around chinese characters so they get split.
+    /// - `strip_accents`: Removes accents from characters.
+    /// - `lowercase`: Lowercases characters.
+    pub fn bert(
+        clean_text: bool,
+        handle_chinese_chars: bool,
+        strip_accents: bool,
+        lowercase: bool,
+    ) -> Self {
+        Self(Normalizers::Bert {
+            clean_text,
+            handle_chinese_chars,
+            strip_accents,
+            lowercase,
+        })
+    }
+
     fn clean_text(&self, normalized: NormalizedString) -> NormalizedString {
-        match self {
-            Self::None
-            | Self::Bert {
+        match self.0 {
+            Normalizers::None
+            | Normalizers::Bert {
                 clean_text: false, ..
             } => normalized,
-            Self::Bert {
+            Normalizers::Bert {
                 clean_text: true, ..
             } => normalized
                 .filter(|c| {
@@ -64,13 +89,13 @@ impl Normalizer {
     }
 
     fn handle_chinese_chars(&self, normalized: NormalizedString) -> NormalizedString {
-        match self {
-            Self::None
-            | Self::Bert {
+        match self.0 {
+            Normalizers::None
+            | Normalizers::Bert {
                 handle_chinese_chars: false,
                 ..
             } => normalized,
-            Self::Bert {
+            Normalizers::Bert {
                 handle_chinese_chars: true,
                 ..
             } => {
@@ -105,13 +130,13 @@ impl Normalizer {
     }
 
     fn strip_accents(&self, normalized: NormalizedString) -> NormalizedString {
-        match self {
-            Self::None
-            | Self::Bert {
+        match self.0 {
+            Normalizers::None
+            | Normalizers::Bert {
                 strip_accents: false,
                 ..
             } => normalized,
-            Self::Bert {
+            Normalizers::Bert {
                 strip_accents: true,
                 ..
             } => normalized.nfd().filter(|c| !c.is_mark_nonspacing()),
@@ -119,12 +144,12 @@ impl Normalizer {
     }
 
     fn lowercase(&self, normalized: NormalizedString) -> NormalizedString {
-        match self {
-            Self::None
-            | Self::Bert {
+        match self.0 {
+            Normalizers::None
+            | Normalizers::Bert {
                 lowercase: false, ..
             } => normalized,
-            Self::Bert {
+            Normalizers::Bert {
                 lowercase: true, ..
             } => normalized.lowercase(),
         }

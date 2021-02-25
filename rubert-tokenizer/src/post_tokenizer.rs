@@ -1,53 +1,99 @@
 use std::iter::{once, repeat};
 
-use crate::{encoding::Encoding, normalizer::Offsets};
+use anyhow::bail;
+
+use crate::{encoding::Encoding, model::Vocab, normalizer::Offsets, Error};
 
 /// A post-tokenizer.
-pub enum PostTokenizer {
+///
+/// Defaults to the [`none()`] post-tokenizer.
+pub struct PostTokenizer(PostTokenizers);
+
+/// The post-tokenizers.
+enum PostTokenizers {
     /// No post-tokenization.
     None,
     /// Bert post-tokenization.
     Bert {
-        cls: String,
-        sep: String,
         cls_id: u32,
+        cls_token: String,
         sep_id: u32,
+        sep_token: String,
     },
 }
 
 impl Default for PostTokenizer {
     fn default() -> Self {
-        Self::None
+        Self::none()
     }
 }
 
 impl PostTokenizer {
-    pub(crate) const fn added_tokens(&self) -> usize {
-        match self {
-            Self::None => 0,
-            Self::Bert { .. } => 2,
+    /// Creates an inert post-tokenizer.
+    pub fn none() -> Self {
+        Self(PostTokenizers::None)
+    }
+
+    /// Creates a Bert post-tokenizer.
+    pub fn bert(cls: impl Into<String>, sep: impl Into<String>) -> Self {
+        Self(PostTokenizers::Bert {
+            cls_id: 0,
+            cls_token: cls.into(),
+            sep_id: 0,
+            sep_token: sep.into(),
+        })
+    }
+
+    /// Validates itself.
+    pub(crate) fn validate(mut self, vocab: &Vocab) -> Result<Self, Error> {
+        match self.0 {
+            PostTokenizers::None => Ok(self),
+            PostTokenizers::Bert {
+                ref mut cls_id,
+                ref cls_token,
+                ref mut sep_id,
+                ref sep_token,
+            } => {
+                if let Some(id) = vocab.get(cls_token) {
+                    *cls_id = *id;
+                } else {
+                    bail!("class token doesn't exist in the vocab");
+                };
+                if let Some(id) = vocab.get(sep_token) {
+                    *sep_id = *id;
+                } else {
+                    bail!("separation token doesn't exist in the vocab");
+                };
+                Ok(self)
+            }
         }
     }
 
-    // TODO: check and use `special_tokens_mask`, `attention_mask` and `sequence_ranges`
+    pub(crate) const fn added_tokens(&self) -> usize {
+        match self.0 {
+            PostTokenizers::None => 0,
+            PostTokenizers::Bert { .. } => 2,
+        }
+    }
+
     pub(crate) fn process(&self, encoding: Encoding) -> Encoding {
-        match self {
-            Self::None => encoding,
-            Self::Bert {
-                cls,
-                sep,
+        match self.0 {
+            PostTokenizers::None => encoding,
+            PostTokenizers::Bert {
                 cls_id,
+                ref cls_token,
                 sep_id,
+                ref sep_token,
             } => {
                 let len = encoding.len();
-                let ids = once(*cls_id)
+                let ids = once(cls_id)
                     .chain(encoding.ids)
-                    .chain(once(*sep_id))
+                    .chain(once(sep_id))
                     .collect();
                 let type_ids = once(0).chain(encoding.type_ids).chain(once(0)).collect();
-                let tokens = once(cls.clone())
+                let tokens = once(cls_token.clone())
                     .chain(encoding.tokens)
-                    .chain(once(sep.clone()))
+                    .chain(once(sep_token.clone()))
                     .collect();
                 let words = once(None).chain(encoding.words).chain(once(None)).collect();
                 let offsets = once(Offsets(0, 0))
