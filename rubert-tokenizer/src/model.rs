@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::anyhow;
 
-use crate::{normalizer::Offsets, tokenizer::Token, Error};
+use crate::{encoding::Encoding, normalizer::Offsets, tokenizer::Token, Error};
 
 pub type Vocab = HashMap<String, u32>;
 type VocabR = HashMap<u32, String>;
@@ -136,7 +136,7 @@ impl WordPiece {
         self.vocab_r.get(&id).cloned()
     }
 
-    pub fn tokenize(&self, sequence: &str) -> Result<Vec<Token>, Error> {
+    pub(crate) fn tokenize(&self, sequence: &str) -> Result<Vec<Token>, Error> {
         let char_len = sequence.chars().count();
         if char_len > self.max_input_chars_per_word {
             return Ok(vec![Token {
@@ -195,5 +195,40 @@ impl WordPiece {
         } else {
             Ok(sub_tokens)
         }
+    }
+
+    pub(crate) fn de_tokenize(&self, encoding: &Encoding, cleanup: bool) -> String {
+        let unk = self.unk_token.as_str();
+        let tokens = encoding
+            .tokens
+            .iter()
+            .filter_map(|token| {
+                if !cleanup || token != unk {
+                    Some(token.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut string = tokens.join(" ").replace(
+            format!(" {}", self.continuing_subword_prefix.as_str()).as_str(),
+            "",
+        );
+        if cleanup {
+            string = string
+                .replace(" .", ".")
+                .replace(" ?", "?")
+                .replace(" !", "!")
+                .replace(" ,", ",")
+                .replace(" ' ", "'")
+                .replace(" n't", "n't")
+                .replace(" 'm", "'m")
+                .replace(" do not", " don't")
+                .replace(" 's", "'s")
+                .replace(" 've", "'ve")
+                .replace(" 're", "'re");
+        }
+
+        string
     }
 }

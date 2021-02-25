@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 mod builder;
-mod decoder;
 mod encoding;
 mod model;
 mod normalizer;
@@ -16,7 +15,6 @@ type Error = anyhow::Error;
 
 pub use crate::{
     builder::Builder,
-    decoder::Decoder,
     model::Vocab,
     normalizer::{NormalizedString, Normalizer},
     padding::Padding,

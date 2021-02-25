@@ -1,7 +1,6 @@
 use std::iter::IntoIterator;
 
 use crate::{
-    decoder::Decoder,
     encoding::Encoding,
     model::{Vocab, WordPiece},
     normalizer::{NormalizedString, Normalizer, Offsets},
@@ -25,7 +24,6 @@ pub struct Tokenizer {
     pub(crate) pre_tokenizer: PreTokenizer,
     pub(crate) model: WordPiece,
     pub(crate) post_tokenizer: PostTokenizer,
-    pub(crate) decoder: Option<Decoder>,
     // General processing parameters
     pub(crate) truncation: Truncation,
     pub(crate) padding: Padding,
@@ -216,32 +214,15 @@ impl Tokenizer {
     }
 
     /// Decodes an encoding back to a String.
-    pub fn decode(&self, encoding: &Encoding, skip_special_tokens: bool) -> String {
-        let unk_token = self.model.unk_token.as_str();
-        let tokens = encoding
-            .tokens
-            .iter()
-            .filter_map(|token| {
-                if !skip_special_tokens || *token != unk_token {
-                    Some(token.as_str())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        if let Some(decoder) = &self.decoder {
-            decoder.decode(tokens)
-        } else {
-            tokens.join(" ")
-        }
+    pub fn decode(&self, encoding: &Encoding, cleanup: bool) -> String {
+        self.model.de_tokenize(encoding, cleanup)
     }
 
     /// Decodes the encodings back to strings.
-    pub fn decode_batch(&self, encodings: &[Encoding], skip_special_tokens: bool) -> Vec<String> {
+    pub fn decode_batch(&self, encodings: &[Encoding], cleanup: bool) -> Vec<String> {
         encodings
             .iter()
-            .map(|encoding| self.decode(encoding, skip_special_tokens))
+            .map(|encoding| self.decode(encoding, cleanup))
             .collect()
     }
 }

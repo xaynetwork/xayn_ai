@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 
 use crate::{
-    decoder::Decoder,
     model::WordPiece,
     normalizer::Normalizer,
     padding::Padding,
@@ -17,7 +16,6 @@ pub struct Builder {
     pre_tokenizer: PreTokenizer,
     model: Option<WordPiece>,
     post_tokenizer: PostTokenizer,
-    decoder: Option<Decoder>,
     truncation: Truncation,
     padding: Padding,
 }
@@ -30,7 +28,6 @@ impl Builder {
             pre_tokenizer: PreTokenizer::None,
             model: None,
             post_tokenizer: PostTokenizer::None,
-            decoder: None,
             truncation: Truncation::None,
             padding: Padding::None,
         }
@@ -60,12 +57,6 @@ impl Builder {
         self
     }
 
-    /// Set the decoder.
-    pub fn with_decoder(mut self, decoder: Option<Decoder>) -> Self {
-        self.decoder = decoder;
-        self
-    }
-
     /// Set the trunaction parameters.
     pub fn with_truncation(mut self, trunc: Truncation) -> Self {
         self.truncation = trunc;
@@ -87,7 +78,6 @@ impl Builder {
             pre_tokenizer: self.pre_tokenizer,
             model: self.model.ok_or_else(|| anyhow!("Model missing."))?,
             post_tokenizer: self.post_tokenizer,
-            decoder: self.decoder,
             truncation: self.truncation,
             padding: self.padding,
         })
