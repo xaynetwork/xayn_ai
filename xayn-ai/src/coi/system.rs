@@ -113,7 +113,7 @@ impl CoiSystem {
         Embeddings(updated.into_shared())
     }
 
-    /// Updates the CoIs based on the given embedding. If the embedding is closer to the centroid
+    /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
     fn update_coi(&self, embedding: &Embeddings, mut cois: Vec<Coi>) -> Vec<Coi> {
