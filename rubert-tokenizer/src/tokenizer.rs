@@ -86,7 +86,7 @@ impl Tokenizer {
             .truncation
             .truncate(encoding, self.post_tokenizer.added_tokens());
         let encoding = self.post_tokenizer.process(encoding);
-        self.padding.pad_encoding(encoding)
+        self.padding.pad(encoding)
     }
 
     /// Encode a single sequence
@@ -166,15 +166,10 @@ impl Tokenizer {
         &self,
         sequences: Vec<impl Into<Sequence<'s>>>,
     ) -> Result<Vec<Encoding>, Error> {
-        let encodings = sequences
+        sequences
             .into_iter()
             .map(|sequence| self.encode(sequence))
-            .collect::<Result<Vec<Encoding>, Error>>()?;
-
-        // We do the padding here to make sure we handle the batch padding
-        let encodings = self.padding.pad_encodings(encodings);
-
-        Ok(encodings)
+            .collect()
     }
 
     /// Encode the given input, using offsets relative to chars instead of bytes.
@@ -214,15 +209,10 @@ impl Tokenizer {
         &self,
         sequences: Vec<impl Into<Sequence<'s>>>,
     ) -> Result<Vec<Encoding>, Error> {
-        let encodings = sequences
+        sequences
             .into_iter()
             .map(|sequence| self.encode_char_offsets(sequence))
-            .collect::<Result<Vec<Encoding>, Error>>()?;
-
-        // We do the padding here to make sure we handle the batch padding
-        let encodings = self.padding.pad_encodings(encodings);
-
-        Ok(encodings)
+            .collect()
     }
 
     /// Decodes an encoding back to a String.

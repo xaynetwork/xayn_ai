@@ -12,7 +12,6 @@ mod sequence;
 mod tokenizer;
 mod truncation;
 
-// TODO: structured error handling
 type Error = anyhow::Error;
 
 pub use crate::{

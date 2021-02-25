@@ -6,7 +6,7 @@ use crate::encoding::Encoding;
 pub enum Truncation {
     /// No truncation.
     None,
-    /// Fixed-length truncation.
+    /// Truncation to a fixed length.
     ///
     /// Configurable by:
     /// - `len`: Truncates to this length, must be greater or equal to the number of mandatory

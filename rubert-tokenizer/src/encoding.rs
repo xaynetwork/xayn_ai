@@ -399,11 +399,11 @@ impl Encoding {
         });
 
         // Then check if we should pad ourself
-        if self.ids.len() >= target_length {
+        if self.len() >= target_length {
             // We just do nothing if the wanted padding length is smaller than us
             return self;
         }
-        let pad_length = target_length - self.ids.len();
+        let pad_length = target_length - self.len();
 
         self.ids.extend(iter::repeat(pad_id).take(pad_length));
         self.type_ids

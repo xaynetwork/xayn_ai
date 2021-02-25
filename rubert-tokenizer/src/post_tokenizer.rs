@@ -8,10 +8,9 @@ pub enum PostTokenizer {
     None,
     /// Bert post-tokenization.
     Bert {
-        // TODO: get ids from vocab
-        cls_token: String,
+        cls: String,
+        sep: String,
         cls_id: u32,
-        sep_token: String,
         sep_id: u32,
     },
 }
@@ -35,9 +34,9 @@ impl PostTokenizer {
         match self {
             Self::None => encoding,
             Self::Bert {
-                cls_token,
+                cls,
+                sep,
                 cls_id,
-                sep_token,
                 sep_id,
             } => {
                 let len = encoding.len();
@@ -46,9 +45,9 @@ impl PostTokenizer {
                     .chain(once(*sep_id))
                     .collect();
                 let type_ids = once(0).chain(encoding.type_ids).chain(once(0)).collect();
-                let tokens = once(cls_token.clone())
+                let tokens = once(cls.clone())
                     .chain(encoding.tokens)
-                    .chain(once(sep_token.clone()))
+                    .chain(once(sep.clone()))
                     .collect();
                 let words = once(None).chain(encoding.words).chain(once(None)).collect();
                 let offsets = once(Offsets(0, 0))
