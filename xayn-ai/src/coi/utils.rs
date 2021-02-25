@@ -116,19 +116,11 @@ where
 }
 
 pub fn update_alpha(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
-    update_alpha_or_beta(
-        counts,
-        cois,
-        |&mut Coi { ref mut alpha, .. }: &mut Coi, adjustment: f32| *alpha *= adjustment,
-    )
+    update_alpha_or_beta(counts, cois, |Coi { ref mut alpha, .. }, adj| *alpha *= adj)
 }
 
 pub fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
-    update_alpha_or_beta(
-        counts,
-        cois,
-        |&mut Coi { ref mut beta, .. }: &mut Coi, adjustment: f32| *beta *= adjustment,
-    )
+    update_alpha_or_beta(counts, cois, |Coi { ref mut beta, .. }, adj| *beta *= adj)
 }
 
 /// Counts CoI Ids of the given documents.
