@@ -30,7 +30,7 @@ pub struct LtrComponent {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct CoiComponent {
-    /// The ID of the positive center of interest
+    /// The ID of the positive centre of interest
     pub id: CoiId,
     /// Distance from the positive centre of interest
     pub pos_distance: f32,
