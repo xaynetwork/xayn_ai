@@ -24,7 +24,7 @@ pub struct Tokenizer {
     pub(crate) normalizer: Normalizer,
     pub(crate) pre_tokenizer: PreTokenizer,
     pub(crate) model: WordPiece,
-    pub(crate) post_tokenizer: Option<PostTokenizer>,
+    pub(crate) post_tokenizer: PostTokenizer,
     pub(crate) decoder: Option<Decoder>,
     // General processing parameters
     pub(crate) truncation: Truncation,
@@ -81,30 +81,10 @@ impl Tokenizer {
     }
 
     /// Post processing logic, handling the case where there is no PostProcessor set
-    fn post_process(
-        &self,
-        encoding: Encoding,
-        add_special_tokens: bool,
-    ) -> Result<Encoding, Error> {
-        // 1. First we truncate if needed
-        let added_tokens = self
-            .post_tokenizer
-            .as_ref()
-            .map(|_| PostTokenizer::ADDED_TOKENS)
-            .unwrap_or_default();
-        let encoding = self.truncation.truncate_encoding(encoding, added_tokens);
-
-        // 2. Then we post-process
-        let final_encoding = if let Some(ref processor) = self.post_tokenizer {
-            processor.process(encoding, add_special_tokens)
-        } else {
-            encoding
-        };
-
-        // 3. Then we pad if needed
-        let final_encoding = self.padding.pad_encoding(final_encoding);
-
-        Ok(final_encoding)
+    fn post_process(&self, encoding: Encoding) -> Encoding {
+        let encoding = self.truncation.truncate_encoding(encoding, 2);
+        let encoding = self.post_tokenizer.process(encoding);
+        self.padding.pad_encoding(encoding)
     }
 
     /// Encode a single sequence
@@ -174,24 +154,19 @@ impl Tokenizer {
     ///     false,
     /// );
     /// ```
-    pub fn encode<'s>(
-        &self,
-        sequence: impl Into<Sequence<'s>>,
-        add_special_tokens: bool,
-    ) -> Result<Encoding, Error> {
+    pub fn encode<'s>(&self, sequence: impl Into<Sequence<'s>>) -> Result<Encoding, Error> {
         let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Byte)?;
-        self.post_process(encoding, add_special_tokens)
+        Ok(self.post_process(encoding))
     }
 
     /// Encode all the sentences in parallel, using multiple threads
     pub fn encode_batch<'s>(
         &self,
         sequences: Vec<impl Into<Sequence<'s>>>,
-        add_special_tokens: bool,
     ) -> Result<Vec<Encoding>, Error> {
         let encodings = sequences
             .into_iter()
-            .map(|sequence| self.encode(sequence, add_special_tokens))
+            .map(|sequence| self.encode(sequence))
             .collect::<Result<Vec<Encoding>, Error>>()?;
 
         // We do the padding here to make sure we handle the batch padding
@@ -226,10 +201,9 @@ impl Tokenizer {
     pub fn encode_char_offsets<'s>(
         &self,
         sequence: impl Into<Sequence<'s>>,
-        add_special_tokens: bool,
     ) -> Result<Encoding, Error> {
         let encoding = self.encode_single_sequence(sequence, 0, OffsetType::Char)?;
-        self.post_process(encoding, add_special_tokens)
+        Ok(self.post_process(encoding))
     }
 
     /// Encode all the sentences in parallel, using multiple threads.
@@ -237,11 +211,10 @@ impl Tokenizer {
     pub fn encode_batch_char_offsets<'s>(
         &self,
         sequences: Vec<impl Into<Sequence<'s>>>,
-        add_special_tokens: bool,
     ) -> Result<Vec<Encoding>, Error> {
         let encodings = sequences
             .into_iter()
-            .map(|sequence| self.encode_char_offsets(sequence, add_special_tokens))
+            .map(|sequence| self.encode_char_offsets(sequence))
             .collect::<Result<Vec<Encoding>, Error>>()?;
 
         // We do the padding here to make sure we handle the batch padding

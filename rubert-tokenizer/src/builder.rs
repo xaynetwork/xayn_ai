@@ -16,7 +16,7 @@ pub struct Builder {
     normalizer: Normalizer,
     pre_tokenizer: PreTokenizer,
     model: Option<WordPiece>,
-    post_tokenizer: Option<PostTokenizer>,
+    post_tokenizer: PostTokenizer,
     decoder: Option<Decoder>,
     truncation: Truncation,
     padding: Padding,
@@ -29,7 +29,7 @@ impl Builder {
             normalizer: Normalizer::None,
             pre_tokenizer: PreTokenizer::None,
             model: None,
-            post_tokenizer: None,
+            post_tokenizer: PostTokenizer::None,
             decoder: None,
             truncation: Truncation::None,
             padding: Padding::None,
@@ -55,7 +55,7 @@ impl Builder {
     }
 
     /// Set the post-processor.
-    pub fn with_post_tokenizer(mut self, post_tokenizer: Option<PostTokenizer>) -> Self {
+    pub fn with_post_tokenizer(mut self, post_tokenizer: PostTokenizer) -> Self {
         self.post_tokenizer = post_tokenizer;
         self
     }
