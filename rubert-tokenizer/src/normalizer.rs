@@ -16,7 +16,7 @@ pub enum Normalizer {
     None,
     /// Bert normalization.
     ///
-    /// Can be configured with:
+    /// Configurable by:
     /// - `clean_text`: Removes any control characters and replaces all sorts of whitespace by ` `.
     /// - `handle_chinese_chars`: Puts spaces around chinese characters so they get split.
     /// - `strip_accents`: Removes accents from characters.

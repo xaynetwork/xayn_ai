@@ -10,21 +10,37 @@ use crate::{
     Error,
 };
 
-pub struct PreTokenizer;
+/// A pre-tokenizer.
+pub enum PreTokenizer {
+    /// No pre-tokenization.
+    None,
+    /// Bert pre-tokenization.
+    Bert,
+}
 
-fn is_bert_punctuation(x: char) -> bool {
-    char::is_ascii_punctuation(&x) || x.is_punctuation()
+impl Default for PreTokenizer {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl PreTokenizer {
-    pub fn pre_tokenize(
+    pub(crate) fn pre_tokenize(
         &self,
         normalized: impl Into<PreTokenizedString>,
     ) -> Result<PreTokenizedString, Error> {
-        normalized
-            .into()
-            .split(|_, s| s.split(char::is_whitespace, SplitDelimiterBehavior::Removed))?
-            .split(|_, s| s.split(is_bert_punctuation, SplitDelimiterBehavior::Isolated))
+        match self {
+            Self::None => Ok(normalized.into()),
+            Self::Bert => normalized
+                .into()
+                .split(|_, s| s.split(char::is_whitespace, SplitDelimiterBehavior::Removed))?
+                .split(|_, s| {
+                    s.split(
+                        |c: char| c.is_ascii_punctuation() || c.is_punctuation(),
+                        SplitDelimiterBehavior::Isolated,
+                    )
+                }),
+        }
     }
 }
 
@@ -316,7 +332,7 @@ mod tests {
 
     #[test]
     fn basic() {
-        let pretokenized = PreTokenizer
+        let pretokenized = PreTokenizer::Bert
             .pre_tokenize("Hey friend!     How are you?!?")
             .unwrap();
         assert_eq!(
@@ -352,7 +368,7 @@ mod tests {
             }),
             0,
         );
-        let pretokenized = PreTokenizer.pre_tokenize(normalized).unwrap();
+        let pretokenized = PreTokenizer::Bert.pre_tokenize(normalized).unwrap();
         assert_eq!(
             pretokenized
                 .get_splits(OffsetReferential::Original, OffsetType::Byte)

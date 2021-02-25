@@ -22,7 +22,7 @@ pub struct Token {
 pub struct Tokenizer {
     // Tokenizer parts
     pub(crate) normalizer: Normalizer,
-    pub(crate) pre_tokenizer: Option<PreTokenizer>,
+    pub(crate) pre_tokenizer: PreTokenizer,
     pub(crate) model: WordPiece,
     pub(crate) post_tokenizer: Option<PostTokenizer>,
     pub(crate) decoder: Option<Decoder>,
@@ -62,11 +62,7 @@ impl Tokenizer {
         &self,
         normalized: impl Into<PreTokenizedString>,
     ) -> Result<PreTokenizedString, Error> {
-        if let Some(ref pretokenizer) = self.pre_tokenizer {
-            pretokenizer.pre_tokenize(normalized)
-        } else {
-            Ok(normalized.into())
-        }
+        self.pre_tokenizer.pre_tokenize(normalized)
     }
 
     /// Tokenization logic, makes the bridge between the pre-tokenization phase and the real
