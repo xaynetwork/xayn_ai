@@ -21,7 +21,7 @@ pub struct Token {
 
 pub struct Tokenizer {
     // Tokenizer parts
-    pub(crate) normalizer: Option<Normalizer>,
+    pub(crate) normalizer: Normalizer,
     pub(crate) pre_tokenizer: Option<PreTokenizer>,
     pub(crate) model: WordPiece,
     pub(crate) post_tokenizer: Option<PostTokenizer>,
@@ -53,12 +53,8 @@ impl Tokenizer {
     }
 
     /// Normalization logic, go through all normalizers
-    fn normalize(&self, sequence: impl Into<NormalizedString>) -> Result<NormalizedString, Error> {
-        if let Some(ref normalizer) = self.normalizer {
-            normalizer.normalize(sequence)
-        } else {
-            Ok(sequence.into())
-        }
+    fn normalize(&self, sequence: impl Into<NormalizedString>) -> NormalizedString {
+        self.normalizer.normalize(sequence)
     }
 
     /// PreTokenization logic, handling the case where there is no PreTokenizer set
@@ -126,7 +122,7 @@ impl Tokenizer {
                       sequence_idx: usize,
                       sequence: &str|
          -> Result<Encoding, Error> {
-            let normalized = self.normalize(sequence)?;
+            let normalized = self.normalize(sequence);
             let pre_tokenized = self.pre_tokenize(normalized)?;
             self.tokenize(
                 pre_tokenized,

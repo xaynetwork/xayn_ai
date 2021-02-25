@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub struct Builder {
-    normalizer: Option<Normalizer>,
+    normalizer: Normalizer,
     pre_tokenizer: Option<PreTokenizer>,
     model: Option<WordPiece>,
     post_tokenizer: Option<PostTokenizer>,
@@ -26,7 +26,7 @@ impl Builder {
     /// Get an empty Builder.
     pub fn new() -> Self {
         Self {
-            normalizer: None,
+            normalizer: Normalizer::None,
             pre_tokenizer: None,
             model: None,
             post_tokenizer: None,
@@ -37,7 +37,7 @@ impl Builder {
     }
 
     /// Set the normalizer.
-    pub fn with_normalizer(mut self, normalizer: Option<Normalizer>) -> Self {
+    pub fn with_normalizer(mut self, normalizer: Normalizer) -> Self {
         self.normalizer = normalizer;
         self
     }

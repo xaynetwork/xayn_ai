@@ -10,130 +10,131 @@ use unicode_normalization_alignments::UnicodeNormalization;
 
 use crate::Error;
 
-/// Checks whether a character is whitespace.
-#[inline]
-fn is_whitespace(c: char) -> bool {
-    // These are technically control characters but we count them as whitespace
-    c == '\t' || c == '\n' || c == '\r' || c.is_whitespace()
-}
-
-/// Checks whether a character is a control character.
-#[inline]
-fn is_control(c: char) -> bool {
-    // These are technically control characters but we count them as whitespace
-    // The definition of `is_control` here is quite large and contains also
-    // Cc, Cf, Cn or Co; cf. https://unicode.org/reports/tr44/ (Table 12)
-    c != '\t' && c != '\n' && c != '\r' && c.is_other()
-}
-
-/// Checks whether a character is chinese
-/// This defines a "chinese character" as anything in the CJK Unicode block:
-///   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
-///
-/// Note that the CJK Unicode block is NOT all Japanese and Korean characters,
-/// despite its name. The modern Korean Hangul alphabet is a different block,
-/// as is Japanese Hiragana and Katakana. Those alphabets are used to write
-/// space-separated words, so they are not treated specially and handled
-/// like for all of the other languages.
-fn is_chinese_char(c: char) -> bool {
-    matches!(
-        c as usize,
-        0x4E00..=0x9FFF |
-        0x3400..=0x4DBF |
-        0x20000..=0x2A6DF |
-        0x2A700..=0x2B73F |
-        0x2B740..=0x2B81F |
-        0x2B920..=0x2CEAF |
-        0xF900..=0xFAFF |
-        0x2F800..=0x2FA1F,
-    )
-}
-
-pub struct Normalizer {
-    /// Whether to do the bert basic cleaning:
-    ///   1. Remove any control characters
-    ///   2. Replace all sorts of whitespace by the classic one ` `
-    pub(crate) clean_text: bool,
-    /// Whether to put spaces around chinese characters so they get split
-    pub(crate) handle_chinese_chars: bool,
-    /// Whether to strip accents
-    pub(crate) strip_accents: bool,
-    /// Whether to lowercase the input
-    pub(crate) lowercase: bool,
-}
-
-impl Default for Normalizer {
-    fn default() -> Self {
-        Self {
-            clean_text: true,
-            handle_chinese_chars: true,
-            strip_accents: true,
-            lowercase: true,
-        }
-    }
-}
-
-impl Normalizer {
-    pub fn new(
+/// A normalizer.
+pub enum Normalizer {
+    /// No normalization.
+    None,
+    /// Bert normalization.
+    ///
+    /// Can be configured with:
+    /// - `clean_text`: Removes any control characters and replaces all sorts of whitespace by ` `.
+    /// - `handle_chinese_chars`: Puts spaces around chinese characters so they get split.
+    /// - `strip_accents`: Removes accents from characters.
+    /// - `lowercase`: Lowercases characters.
+    Bert {
         clean_text: bool,
         handle_chinese_chars: bool,
         strip_accents: bool,
         lowercase: bool,
-    ) -> Self {
-        Normalizer {
-            clean_text,
-            handle_chinese_chars,
-            strip_accents,
-            lowercase,
-        }
-    }
+    },
+}
 
+impl Default for Normalizer {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl Normalizer {
     fn clean_text(&self, normalized: NormalizedString) -> NormalizedString {
-        normalized
-            .filter(|c| !(c as usize == 0 || c as usize == 0xfffd || is_control(c)))
-            .map(|c| if is_whitespace(c) { ' ' } else { c })
+        match self {
+            Self::None
+            | Self::Bert {
+                clean_text: false, ..
+            } => normalized,
+            Self::Bert {
+                clean_text: true, ..
+            } => normalized
+                .filter(|c| {
+                    c != '\0'
+                        && c != '\u{fffd}'
+                        && (c == '\t' || c == '\n' || c == '\r' || !c.is_other())
+                })
+                .map(|c| {
+                    // These are technically control characters but we count them as whitespace
+                    // The definition of `is_control` here is quite large and contains also
+                    // Cc, Cf, Cn or Co; cf. https://unicode.org/reports/tr44/ (Table 12)
+                    if c == '\t' || c == '\n' || c == '\r' || c.is_whitespace() {
+                        ' '
+                    } else {
+                        c
+                    }
+                }),
+        }
     }
 
     fn handle_chinese_chars(&self, normalized: NormalizedString) -> NormalizedString {
-        let mut new_chars: Vec<(char, isize)> = vec![];
-        normalized.for_each(|c| {
-            if is_chinese_char(c) {
-                new_chars.extend(&[(' ', 0), (c, 1), (' ', 1)]);
-            } else {
-                new_chars.push((c, 0));
+        match self {
+            Self::None
+            | Self::Bert {
+                handle_chinese_chars: false,
+                ..
+            } => normalized,
+            Self::Bert {
+                handle_chinese_chars: true,
+                ..
+            } => {
+                let mut new_chars: Vec<(char, isize)> = vec![];
+                normalized.for_each(|c| {
+                    // Checks whether a character is chinese
+                    // This defines a "chinese character" as anything in the CJK Unicode block:
+                    //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+                    //
+                    // Note that the CJK Unicode block is NOT all Japanese and Korean characters,
+                    // despite its name. The modern Korean Hangul alphabet is a different block,
+                    // as is Japanese Hiragana and Katakana. Those alphabets are used to write
+                    // space-separated words, so they are not treated specially and handled
+                    // like for all of the other languages.
+                    if let '\u{4E00}'..='\u{9FFF}'
+                    | '\u{3400}'..='\u{4DBF}'
+                    | '\u{20000}'..='\u{2A6DF}'
+                    | '\u{2A700}'..='\u{2B73F}'
+                    | '\u{2B740}'..='\u{2B81F}'
+                    | '\u{2B920}'..='\u{2CEAF}'
+                    | '\u{F900}'..='\u{FAFF}'
+                    | '\u{2F800}'..='\u{2FA1F}' = c
+                    {
+                        new_chars.extend(&[(' ', 0), (c, 1), (' ', 1)]);
+                    } else {
+                        new_chars.push((c, 0));
+                    }
+                });
+                normalized.transform(new_chars, 0)
             }
-        });
-        normalized.transform(new_chars, 0)
+        }
     }
 
     fn strip_accents(&self, normalized: NormalizedString) -> NormalizedString {
-        normalized.nfd().filter(|c| !c.is_mark_nonspacing())
+        match self {
+            Self::None
+            | Self::Bert {
+                strip_accents: false,
+                ..
+            } => normalized,
+            Self::Bert {
+                strip_accents: true,
+                ..
+            } => normalized.nfd().filter(|c| !c.is_mark_nonspacing()),
+        }
     }
 
     fn lowercase(&self, normalized: NormalizedString) -> NormalizedString {
-        normalized.lowercase()
+        match self {
+            Self::None
+            | Self::Bert {
+                lowercase: false, ..
+            } => normalized,
+            Self::Bert {
+                lowercase: true, ..
+            } => normalized.lowercase(),
+        }
     }
 
-    pub fn normalize(
-        &self,
-        sequence: impl Into<NormalizedString>,
-    ) -> Result<NormalizedString, Error> {
-        let mut normalized = sequence.into();
-
-        if self.clean_text {
-            normalized = self.clean_text(normalized);
-        }
-        if self.handle_chinese_chars {
-            normalized = self.handle_chinese_chars(normalized);
-        }
-        if self.strip_accents {
-            normalized = self.strip_accents(normalized);
-        }
-        if self.lowercase {
-            normalized = self.lowercase(normalized);
-        }
-
-        Ok(normalized)
+    pub(crate) fn normalize(&self, sequence: impl Into<NormalizedString>) -> NormalizedString {
+        let normalized = self.clean_text(sequence.into());
+        let normalized = self.handle_chinese_chars(normalized);
+        let normalized = self.strip_accents(normalized);
+        self.lowercase(normalized)
     }
 }
 
