@@ -17,7 +17,14 @@ pub struct DocumentHistory {
     /// Relevance level of the document
     pub relevance: Relevance,
     /// A flag that indicates whether the user liked the document
-    pub is_liked: bool,
+    pub user_feedback: UserFeedback,
+}
+
+#[derive(Clone, Copy)]
+pub enum UserFeedback {
+    Relevant,
+    Irrelevant,
+    None,
 }
 
 #[derive(Clone, Copy)]

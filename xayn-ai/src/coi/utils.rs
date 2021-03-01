@@ -4,7 +4,7 @@ use ndarray::{ArrayViewD, Ix1};
 
 use crate::{
     data::{
-        document::Relevance,
+        document::{Relevance, UserFeedback},
         document_data::{DocumentDataWithEmbedding, DocumentDataWithMab, DocumentIdentifier},
         Coi,
         UserInterests,
@@ -25,7 +25,7 @@ pub enum UserInterestsStatus {
     Ready(UserInterests),
 }
 
-pub enum UserFeedback {
+pub enum DocumentRelevance {
     Positive,
     Negative,
 }
@@ -48,7 +48,8 @@ pub fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
         .collect()
 }
 
-/// Classifies the documents into positive and negative documents based on the user feedback.
+/// Classifies the documents into positive and negative documents based on the user feedback
+/// and the relevance of the results.
 pub fn classify_documents_based_on_user_feedback<D>(
     matching_documents: Vec<(&DocumentHistory, D)>,
 ) -> (Vec<D>, Vec<D>) {
@@ -57,19 +58,22 @@ pub fn classify_documents_based_on_user_feedback<D>(
 
     for (history_doc, doc) in matching_documents.into_iter() {
         match user_feedback(history_doc) {
-            UserFeedback::Positive => positive_docs.push(doc),
-            UserFeedback::Negative => negative_docs.push(doc),
+            DocumentRelevance::Positive => positive_docs.push(doc),
+            DocumentRelevance::Negative => negative_docs.push(doc),
         }
     }
 
     (positive_docs, negative_docs)
 }
 
-/// Determines the user feedback based on the user actions.
-pub fn user_feedback(history: &DocumentHistory) -> UserFeedback {
-    match (history.relevance, history.is_liked) {
-        (Relevance::Low, false) => UserFeedback::Negative,
-        _ => UserFeedback::Positive,
+/// Determines the [`DocumentRelevance`] based on the user feedback
+/// and the relevance of the result.
+pub fn user_feedback(history: &DocumentHistory) -> DocumentRelevance {
+    match (history.relevance, history.user_feedback) {
+        (Relevance::Low, UserFeedback::Irrelevant) | (Relevance::Low, UserFeedback::None) => {
+            DocumentRelevance::Negative
+        }
+        _ => DocumentRelevance::Positive,
     }
 }
 
