@@ -1,63 +1,13 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use unicode_categories::UnicodeCategories;
 
 use crate::{
     encoding::Encoding,
-    normalizer::{NormalizedString, OffsetReferential, Offsets, Range, SplitDelimiterBehavior},
+    normalizer::{NormalizedString, OffsetReferential, Offsets, Range},
     tokenizer::Token,
     Error,
 };
-
-/// A pre-tokenizer.
-///
-/// Defaults to the [`none()`] pre-tokenizer.
-pub struct PreTokenizer(PreTokenizers);
-
-/// The pre-tokenizers.
-enum PreTokenizers {
-    /// No pre-tokenization.
-    None,
-    /// Bert pre-tokenization.
-    Bert,
-}
-
-impl Default for PreTokenizer {
-    fn default() -> Self {
-        Self::none()
-    }
-}
-
-impl PreTokenizer {
-    /// Creates an inert pre-tokenizer.
-    pub fn none() -> Self {
-        Self(PreTokenizers::None)
-    }
-
-    /// Creates a Bert pre-tokenizer.
-    pub fn bert() -> Self {
-        Self(PreTokenizers::Bert)
-    }
-
-    pub(crate) fn pre_tokenize(
-        &self,
-        normalized: impl Into<PreTokenizedString>,
-    ) -> Result<PreTokenizedString, Error> {
-        match self.0 {
-            PreTokenizers::None => Ok(normalized.into()),
-            PreTokenizers::Bert => normalized
-                .into()
-                .split(|_, s| s.split(char::is_whitespace, SplitDelimiterBehavior::Removed))?
-                .split(|_, s| {
-                    s.split(
-                        |c: char| c.is_ascii_punctuation() || c.is_punctuation(),
-                        SplitDelimiterBehavior::Isolated,
-                    )
-                }),
-        }
-    }
-}
 
 /// Various possible types of offsets
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -83,17 +33,8 @@ pub struct Split {
 impl From<NormalizedString> for Split {
     fn from(normalized: NormalizedString) -> Self {
         Self {
-            normalized: normalized,
+            normalized,
             tokens: None,
-        }
-    }
-}
-
-impl From<(NormalizedString, Option<Vec<Token>>)> for Split {
-    fn from(normalized: (NormalizedString, Option<Vec<Token>>)) -> Self {
-        Self {
-            normalized: normalized.0,
-            tokens: normalized.1,
         }
     }
 }
@@ -109,6 +50,15 @@ pub struct PreTokenizedString {
     splits: Vec<Split>,
 }
 
+impl From<NormalizedString> for PreTokenizedString {
+    fn from(normalized: NormalizedString) -> Self {
+        Self {
+            original: normalized.original.clone(),
+            splits: vec![normalized.into()],
+        }
+    }
+}
+
 impl PreTokenizedString {
     /// Split the `PreTokenizedString` by providing a `split_fn` in charge of splitting
     /// each substring (`NormalizedString`) into multiple parts.
@@ -122,7 +72,7 @@ impl PreTokenizedString {
     /// same `original` string as the original one given to `split_fn`. This concretely
     /// means that for the offset tracking to work as expected, `split_fn` must produce
     /// "splits" of the original string.
-    fn split<F, U, R>(mut self, mut split_fn: F) -> Result<Self, Error>
+    pub(crate) fn split<F, U, R>(mut self, mut split_fn: F) -> Result<Self, Error>
     where
         F: FnMut(usize, NormalizedString) -> Result<U, Error>,
         U: IntoIterator<Item = R>,
@@ -150,19 +100,6 @@ impl PreTokenizedString {
             );
         }
         self.splits = new_splits;
-
-        Ok(self)
-    }
-
-    /// Normalized all the splits that do not have attached `Tokens`, using the provided
-    /// `normalize` function.
-    fn normalize<F>(mut self, normalize: F) -> Result<Self, Error>
-    where
-        F: Fn(&NormalizedString) -> Result<NormalizedString, Error>,
-    {
-        for split in self.splits.iter_mut().filter(|s| s.tokens.is_none()) {
-            split.normalized = normalize(&split.normalized)?;
-        }
 
         Ok(self)
     }
@@ -245,7 +182,7 @@ impl PreTokenizedString {
     /// Returns a list of splits, each of them being a slice of the normalized
     /// string, the associated offsets either in original or normalized
     /// referential, as well as the potention tokens
-    fn get_splits(
+    pub(crate) fn get_splits(
         &self,
         offset_ref: OffsetReferential,
         offset_type: OffsetType,
@@ -276,30 +213,6 @@ impl PreTokenizedString {
                 (split.normalized.normalized.as_str(), offsets, &split.tokens)
             })
             .collect()
-    }
-}
-
-impl From<NormalizedString> for PreTokenizedString {
-    fn from(normalized: NormalizedString) -> Self {
-        Self {
-            original: normalized.original.clone(),
-            splits: vec![Split {
-                normalized: normalized,
-                tokens: None,
-            }],
-        }
-    }
-}
-
-impl From<&str> for PreTokenizedString {
-    fn from(string: &str) -> Self {
-        NormalizedString::from(string).into()
-    }
-}
-
-impl From<String> for PreTokenizedString {
-    fn from(string: String) -> Self {
-        NormalizedString::from(string.as_str()).into()
     }
 }
 
@@ -337,66 +250,5 @@ impl BytesToCharOffsetConverter {
             }
             _ => None,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn basic() {
-        let pretokenized = PreTokenizer::bert()
-            .pre_tokenize("Hey friend!     How are you?!?")
-            .unwrap();
-        assert_eq!(
-            pretokenized
-                .get_splits(OffsetReferential::Original, OffsetType::Byte)
-                .into_iter()
-                .map(|(s, o, _)| (s, o))
-                .collect::<Vec<_>>(),
-            vec![
-                ("Hey", Offsets(0, 3)),
-                ("friend", Offsets(4, 10)),
-                ("!", Offsets(10, 11)),
-                ("How", Offsets(16, 19)),
-                ("are", Offsets(20, 23)),
-                ("you", Offsets(24, 27)),
-                ("?", Offsets(27, 28)),
-                ("!", Offsets(28, 29)),
-                ("?", Offsets(29, 30)),
-            ],
-        );
-    }
-
-    #[test]
-    fn chinese_chars() {
-        let sequence = "野口里佳 Noguchi Rika";
-        let normalized = NormalizedString::from(sequence).transform(
-            sequence.chars().flat_map(|c| {
-                if (c as usize) > 0x4E00 {
-                    vec![(' ', 0), (c, 1), (' ', 1)]
-                } else {
-                    vec![(c, 0)]
-                }
-            }),
-            0,
-        );
-        let pretokenized = PreTokenizer::bert().pre_tokenize(normalized).unwrap();
-        assert_eq!(
-            pretokenized
-                .get_splits(OffsetReferential::Original, OffsetType::Byte)
-                .into_iter()
-                .map(|(s, o, _)| (s, o))
-                .collect::<Vec<_>>(),
-            vec![
-                ("野", Offsets(0, 3)),
-                ("口", Offsets(3, 6)),
-                ("里", Offsets(6, 9)),
-                ("佳", Offsets(9, 12)),
-                ("Noguchi", Offsets(13, 20)),
-                ("Rika", Offsets(21, 25)),
-            ],
-        );
     }
 }

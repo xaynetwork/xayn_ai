@@ -39,10 +39,7 @@ impl Tokenizer {
     }
 
     /// PreTokenization logic, handling the case where there is no PreTokenizer set
-    fn pre_tokenize(
-        &self,
-        normalized: impl Into<PreTokenizedString>,
-    ) -> Result<PreTokenizedString, Error> {
+    fn pre_tokenize(&self, normalized: NormalizedString) -> Result<PreTokenizedString, Error> {
         self.pre_tokenizer.pre_tokenize(normalized)
     }
 

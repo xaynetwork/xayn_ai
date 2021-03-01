@@ -17,10 +17,6 @@ use crate::{
 
 /// A builder to create a [`Tokenizer`].
 pub struct Builder {
-    pre_tokenizer: PreTokenizer,
-    post_tokenizer: PostTokenizer,
-    truncation: Truncation,
-    padding: Padding,
     // normalizer
     clean_text: bool,
     handle_chinese_chars: bool,
@@ -31,6 +27,9 @@ pub struct Builder {
     unk: String,
     prefix: String,
     max_chars: usize,
+    post_tokenizer: PostTokenizer,
+    truncation: Truncation,
+    padding: Padding,
 }
 
 impl Builder {
@@ -46,10 +45,6 @@ impl Builder {
     /// Fails on invalid vocabularies.
     pub fn new(vocab: impl BufRead) -> Result<Self, Error> {
         Ok(Self {
-            pre_tokenizer: PreTokenizer::default(),
-            post_tokenizer: PostTokenizer::default(),
-            truncation: Truncation::default(),
-            padding: Padding::default(),
             // normalizer
             clean_text: true,
             handle_chinese_chars: true,
@@ -60,6 +55,9 @@ impl Builder {
             unk: "[UNK]".into(),
             prefix: "##".into(),
             max_chars: 100,
+            post_tokenizer: PostTokenizer::default(),
+            truncation: Truncation::default(),
+            padding: Padding::default(),
         })
     }
 
@@ -85,12 +83,6 @@ impl Builder {
         self.handle_chinese_chars = handle_chinese_chars;
         self.strip_accents = strip_accents;
         self.lowercase = lowercase;
-        self
-    }
-
-    /// Configures the pre-tokenizer.
-    pub fn with_pre_tokenizer(mut self, pre_tokenizer: PreTokenizer) -> Self {
-        self.pre_tokenizer = pre_tokenizer;
         self
     }
 
@@ -139,6 +131,13 @@ impl Builder {
     /// # Errors
     /// Fails on invalid model configurations.
     pub fn build(self) -> Result<Tokenizer, Error> {
+        let normalizer = Normalizer::new(
+            self.clean_text,
+            self.handle_chinese_chars,
+            self.strip_accents,
+            self.lowercase,
+        );
+        let pre_tokenizer = PreTokenizer;
         let model = Model {
             vocab: self.vocab,
             unk_id: 0,
@@ -147,15 +146,9 @@ impl Builder {
             max_input_chars_per_word: self.max_chars,
         }
         .validate()?;
-        let normalizer = Normalizer::new(
-            self.clean_text,
-            self.handle_chinese_chars,
-            self.strip_accents,
-            self.lowercase,
-        );
         Ok(Tokenizer {
             normalizer,
-            pre_tokenizer: self.pre_tokenizer,
+            pre_tokenizer,
             model,
             post_tokenizer: self.post_tokenizer,
             truncation: self.truncation,
