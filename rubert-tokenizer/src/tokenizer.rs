@@ -1,20 +1,17 @@
 use std::iter::IntoIterator;
 
 use crate::{
-    model::{Encoding, Model},
-    normalizer::{NormalizedString, Normalizer, Offsets},
+    model::{encoding::Encoding, Model},
+    normalizer::{string::NormalizedString, Normalizer},
     padding::Padding,
     post_tokenizer::PostTokenizer,
-    pre_tokenizer::{OffsetType, PreTokenizedString, PreTokenizer},
+    pre_tokenizer::{
+        string::{OffsetType, PreTokenizedString},
+        PreTokenizer,
+    },
     truncation::Truncation,
     Error,
 };
-
-pub struct Token {
-    pub id: u32,
-    pub value: String,
-    pub offsets: Offsets,
-}
 
 /// A Bert tokenizer.
 ///
@@ -47,13 +44,11 @@ impl Tokenizer {
     fn tokenize(
         &self,
         pre_tokenized: PreTokenizedString,
-        type_id: u32,
-        word_idx: Option<u32>,
         offsets_type: OffsetType,
     ) -> Result<Encoding, Error> {
         self.model
             .tokenize(pre_tokenized)?
-            .into_encoding(word_idx, type_id, offsets_type)
+            .into_encoding(offsets_type)
     }
 
     /// Post processing logic, handling the case where there is no PostProcessor set
@@ -69,12 +64,11 @@ impl Tokenizer {
     fn encode_single_sequence(
         &self,
         sequence: impl AsRef<str>,
-        type_id: u32,
         offsets_type: OffsetType,
     ) -> Result<Encoding, Error> {
         let normalized = self.normalize(sequence);
         let pre_tokenized = self.pre_tokenize(normalized)?;
-        let tokenized = self.tokenize(pre_tokenized, type_id, None, offsets_type);
+        let tokenized = self.tokenize(pre_tokenized, offsets_type);
         tokenized.map(|tokenized| self.post_process(tokenized))
     }
 
@@ -101,7 +95,7 @@ impl Tokenizer {
     /// );
     /// ```
     pub fn encode(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
-        self.encode_single_sequence(sequence, 0, OffsetType::Byte)
+        self.encode_single_sequence(sequence, OffsetType::Byte)
     }
 
     /// Encode all the sentences in parallel, using multiple threads
@@ -136,7 +130,7 @@ impl Tokenizer {
     /// );
     /// ```
     pub fn encode_char_offsets(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
-        self.encode_single_sequence(sequence, 0, OffsetType::Char)
+        self.encode_single_sequence(sequence, OffsetType::Char)
     }
 
     /// Encode all the sentences in parallel, using multiple threads.

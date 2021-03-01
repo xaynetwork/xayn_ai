@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-use crate::{model::Encoding, Error};
+use crate::{model::encoding::Encoding, Error};
 
 /// A truncation strategy.
 ///
@@ -69,7 +69,7 @@ impl Truncation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::normalizer::Offsets;
+    use crate::normalizer::string::Offsets;
 
     fn encoding() -> Encoding {
         Encoding {

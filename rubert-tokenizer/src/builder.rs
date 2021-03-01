@@ -72,6 +72,13 @@ impl Builder {
     }
 
     /// Configures the normalizer.
+    ///
+    /// Configurable by:
+    /// - Cleans any control characters and replaces all sorts of whitespace by ` `. Defaults to
+    /// `true`.
+    /// - Puts spaces around chinese characters so they get split. Defaults to `true`.
+    /// - Strips accents from characters. Defaults to `true`.
+    /// - Lowercases characters. Defaults to `true`.
     pub fn with_normalizer(
         mut self,
         clean_text: bool,
@@ -87,6 +94,11 @@ impl Builder {
     }
 
     /// Configures the model.
+    ///
+    /// Configurable by:
+    /// - The unknown token. Defaults to `[UNK]`.
+    /// - The continuing subword prefix. Defaults to `##`.
+    /// - The maximum number of characters per word. Defaults to `100`.
     pub fn with_model(
         mut self,
         unk: impl Into<String>,
@@ -138,14 +150,8 @@ impl Builder {
             self.lowercase,
         );
         let pre_tokenizer = PreTokenizer;
-        let model = Model {
-            vocab: self.vocab,
-            unk_id: 0,
-            unk_token: self.unk,
-            prefix: self.prefix,
-            max_chars: self.max_chars,
-        }
-        .validate()?;
+        let model = Model::new(self.vocab, self.unk, self.prefix, self.max_chars)?;
+
         Ok(Tokenizer {
             normalizer,
             pre_tokenizer,

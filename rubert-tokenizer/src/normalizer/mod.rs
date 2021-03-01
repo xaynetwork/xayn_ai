@@ -1,14 +1,8 @@
-mod string;
+pub mod string;
 
 use unicode_categories::UnicodeCategories;
 
-pub use self::string::{
-    NormalizedString,
-    OffsetReferential,
-    Offsets,
-    Range,
-    SplitDelimiterBehavior,
-};
+use crate::normalizer::string::NormalizedString;
 
 /// A Bert normalizer.
 pub struct Normalizer {
@@ -19,13 +13,6 @@ pub struct Normalizer {
 }
 
 impl Normalizer {
-    /// Creates a Bert normalizer.
-    ///
-    /// Configurable by:
-    /// - `clean_text`: Removes any control characters and replaces all sorts of whitespace by ` `.
-    /// - `handle_chinese_chars`: Puts spaces around chinese characters so they get split.
-    /// - `strip_accents`: Removes accents from characters.
-    /// - `lowercase`: Lowercases characters.
     pub(crate) fn new(
         clean_text: bool,
         handle_chinese_chars: bool,

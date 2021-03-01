@@ -1,6 +1,6 @@
 use std::{collections::HashMap, iter, ops::Range};
 
-use crate::{normalizer::Offsets, tokenizer::Token};
+use crate::{model::string::Token, normalizer::string::Offsets};
 
 /// Represents the output of a `Tokenizer`.
 #[derive(Clone, Default)]
@@ -12,7 +12,7 @@ pub struct Encoding {
     pub(crate) type_ids: Vec<u32>,
     /// Tokens associated to each ID
     pub(crate) tokens: Vec<String>,
-    /// Indice of the word associated to each token/ID
+    /// Indices of the word associated to each token/ID
     pub(crate) words: Vec<Option<u32>>,
     /// Offsets of the token/ID from the NormalizedString
     pub(crate) offsets: Vec<Offsets>,
@@ -37,34 +37,6 @@ impl Encoding {
             offsets: Vec::with_capacity(capacity),
             special_tokens_mask: Vec::with_capacity(capacity),
             attention_mask: Vec::with_capacity(capacity),
-            ..Self::default()
-        }
-    }
-
-    fn from_tokens(tokens: Vec<Token>, type_id: u32) -> Self {
-        let len = tokens.len();
-        let (ids, tokens, offsets) = tokens.into_iter().fold(
-            (
-                Vec::with_capacity(len),
-                Vec::with_capacity(len),
-                Vec::with_capacity(len),
-            ),
-            |(mut ids, mut tokens, mut offsets), token| {
-                ids.push(token.id);
-                tokens.push(token.value);
-                offsets.push(token.offsets);
-                (ids, tokens, offsets)
-            },
-        );
-
-        Self {
-            ids,
-            tokens,
-            offsets,
-            words: vec![None; len],
-            type_ids: vec![type_id; len],
-            attention_mask: vec![1; len],
-            special_tokens_mask: vec![0; len],
             ..Self::default()
         }
     }
@@ -561,26 +533,25 @@ impl std::iter::FromIterator<Encoding> for Encoding {
     }
 }
 
-impl std::iter::FromIterator<(u32, String, Offsets, Option<u32>, u32)> for Encoding {
-    fn from_iter<I: IntoIterator<Item = (u32, String, Offsets, Option<u32>, u32)>>(
-        iter: I,
-    ) -> Self {
-        let items = iter.into_iter();
-        let (lower, upper) = items.size_hint();
-        let length = upper.unwrap_or(lower);
-        let mut encoding = Self::with_capacity(length);
+impl std::iter::FromIterator<(Token, Option<u32>)> for Encoding {
+    fn from_iter<I: IntoIterator<Item = (Token, Option<u32>)>>(iter: I) -> Self {
+        let mut iter = iter.into_iter();
+        let len = iter.by_ref().count();
+        let ids = iter.by_ref().map(|(token, _)| token.id).collect::<Vec<_>>();
+        let words = iter.by_ref().map(|(_, word)| word).collect();
+        let offsets = iter.by_ref().map(|(token, _)| token.offsets).collect();
+        let tokens = iter.map(|(token, _)| token.value).collect();
 
-        for (id, token, offsets, word, type_id) in items {
-            encoding.ids.push(id);
-            encoding.tokens.push(token);
-            encoding.offsets.push(offsets);
-            encoding.type_ids.push(type_id);
-            encoding.words.push(word);
-            encoding.special_tokens_mask.push(0);
-            encoding.attention_mask.push(1);
+        Self {
+            ids,
+            type_ids: vec![0; len],
+            tokens,
+            words,
+            offsets,
+            special_tokens_mask: vec![0; len],
+            attention_mask: vec![1; len],
+            ..Self::default()
         }
-
-        encoding
     }
 }
 

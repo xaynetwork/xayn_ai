@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 
 use crate::{
-    model::{Encoding, Vocab},
+    model::{encoding::Encoding, Vocab},
     Error,
 };
 

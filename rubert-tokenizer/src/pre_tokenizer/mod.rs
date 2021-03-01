@@ -1,10 +1,10 @@
-mod string;
+pub mod string;
 
 use unicode_categories::UnicodeCategories;
 
-pub use self::string::{BytesToCharOffsetConverter, OffsetType, PreTokenizedString};
 use crate::{
-    normalizer::{NormalizedString, SplitDelimiterBehavior},
+    normalizer::string::{NormalizedString, SplitDelimiterBehavior},
+    pre_tokenizer::string::PreTokenizedString,
     Error,
 };
 
@@ -30,7 +30,10 @@ impl PreTokenizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::normalizer::{OffsetReferential, Offsets};
+    use crate::{
+        normalizer::string::{OffsetReferential, Offsets},
+        pre_tokenizer::string::OffsetType,
+    };
 
     #[test]
     fn basic() {

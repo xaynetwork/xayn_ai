@@ -3,8 +3,8 @@ use std::iter::{once, repeat};
 use anyhow::bail;
 
 use crate::{
-    model::{Encoding, Vocab},
-    normalizer::Offsets,
+    model::{encoding::Encoding, Vocab},
+    normalizer::string::Offsets,
     Error,
 };
 

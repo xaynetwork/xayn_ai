@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    normalizer::{NormalizedString, OffsetReferential, Offsets},
+    normalizer::string::{NormalizedString, OffsetReferential, Offsets},
     Error,
 };
 
