@@ -185,10 +185,10 @@ impl reranker_systems::CoiSystem for CoiSystem {
         let user_interests =
             extend_user_interests_based_on_documents(positive_docs, negative_docs, user_interests);
 
-        if user_interests.positive.len() < 2 {
-            Ok(UserInterestsStatus::NotEnough(user_interests))
-        } else {
+        if user_interests.positive.len() >= 2 && !user_interests.negative.is_empty() {
             Ok(UserInterestsStatus::Ready(user_interests))
+        } else {
+            Ok(UserInterestsStatus::NotEnough(user_interests))
         }
     }
 
