@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-use crate::{encoding::Encoding, Error};
+use crate::{model::Encoding, Error};
 
 /// A truncation strategy.
 ///

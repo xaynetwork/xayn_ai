@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 mod builder;
-mod encoding;
 mod model;
 mod normalizer;
 mod padding;
@@ -14,10 +13,10 @@ type Error = anyhow::Error;
 
 pub use crate::{
     builder::Builder,
-    normalizer::{NormalizedString, Normalizer},
+    normalizer::Normalizer,
     padding::Padding,
     post_tokenizer::PostTokenizer,
-    pre_tokenizer::{PreTokenizedString, PreTokenizer},
+    pre_tokenizer::PreTokenizer,
     tokenizer::Tokenizer,
     truncation::Truncation,
 };

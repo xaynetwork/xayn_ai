@@ -1,6 +1,9 @@
 use anyhow::anyhow;
 
-use crate::{encoding::Encoding, model::Vocab, Error};
+use crate::{
+    model::{Encoding, Vocab},
+    Error,
+};
 
 /// A padding strategy.
 ///

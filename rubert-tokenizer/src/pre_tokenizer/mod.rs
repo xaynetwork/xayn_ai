@@ -2,7 +2,7 @@ mod string;
 
 use unicode_categories::UnicodeCategories;
 
-pub use self::string::{OffsetType, PreTokenizedString};
+pub use self::string::{BytesToCharOffsetConverter, OffsetType, PreTokenizedString};
 use crate::{
     normalizer::{NormalizedString, SplitDelimiterBehavior},
     Error,
@@ -37,11 +37,7 @@ mod tests {
         let normalized = "Hey friend!     How are you?!?".into();
         let pre_tokenized = PreTokenizer.pre_tokenize(normalized).unwrap();
         assert_eq!(
-            pre_tokenized
-                .get_splits(OffsetReferential::Original, OffsetType::Byte)
-                .into_iter()
-                .map(|(s, o, _)| (s, o))
-                .collect::<Vec<_>>(),
+            pre_tokenized.get_splits(OffsetReferential::Original, OffsetType::Byte),
             vec![
                 ("Hey", Offsets(0, 3)),
                 ("friend", Offsets(4, 10)),
@@ -71,11 +67,7 @@ mod tests {
         );
         let pretokenized = PreTokenizer.pre_tokenize(normalized).unwrap();
         assert_eq!(
-            pretokenized
-                .get_splits(OffsetReferential::Original, OffsetType::Byte)
-                .into_iter()
-                .map(|(s, o, _)| (s, o))
-                .collect::<Vec<_>>(),
+            pretokenized.get_splits(OffsetReferential::Original, OffsetType::Byte),
             vec![
                 ("野", Offsets(0, 3)),
                 ("口", Offsets(3, 6)),

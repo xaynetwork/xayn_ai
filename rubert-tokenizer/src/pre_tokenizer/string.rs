@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
-
 use crate::{
-    encoding::Encoding,
-    normalizer::{NormalizedString, OffsetReferential, Offsets, Range},
-    tokenizer::Token,
+    normalizer::{NormalizedString, OffsetReferential, Offsets},
     Error,
 };
 
@@ -16,29 +12,6 @@ pub enum OffsetType {
     Char,
 }
 
-/// Wrapper for a subpart of a `NormalizedString`.
-///
-/// This Split contains the underlying `NormalizedString` as well as its offsets
-/// in the original string. These offsets are in the `original` referential.
-/// It also contains any `Token` associated to the current split
-pub struct Split {
-    /// The underlying `NormalizedString`. Each SubString is represented by a `NormalizedString`
-    /// and in the end we might be carrying a lot of SubString representing various parts of the
-    /// original input string.
-    normalized: NormalizedString,
-    /// Optional Tokens associated to this Split
-    tokens: Option<Vec<Token>>,
-}
-
-impl From<NormalizedString> for Split {
-    fn from(normalized: NormalizedString) -> Self {
-        Self {
-            normalized,
-            tokens: None,
-        }
-    }
-}
-
 /// The `PreTokenizedString` is in charge of splitting an underlying string,
 /// making sure everything is fine while doing so, and providing ways to normalize
 /// and tokenize these splits.
@@ -46,15 +19,15 @@ impl From<NormalizedString> for Split {
 /// to build an `Encoding` with all the relevant offsets and word ids, relative to the
 /// original string.
 pub struct PreTokenizedString {
-    original: String,
-    splits: Vec<Split>,
+    pub original: String,
+    pub splits: Vec<NormalizedString>,
 }
 
 impl From<NormalizedString> for PreTokenizedString {
     fn from(normalized: NormalizedString) -> Self {
         Self {
             original: normalized.original.clone(),
-            splits: vec![normalized.into()],
+            splits: vec![normalized],
         }
     }
 }
@@ -72,26 +45,19 @@ impl PreTokenizedString {
     /// same `original` string as the original one given to `split_fn`. This concretely
     /// means that for the offset tracking to work as expected, `split_fn` must produce
     /// "splits" of the original string.
-    pub(crate) fn split<F, U, R>(mut self, mut split_fn: F) -> Result<Self, Error>
+    pub(crate) fn split<F, U>(mut self, split_fn: F) -> Result<Self, Error>
     where
-        F: FnMut(usize, NormalizedString) -> Result<U, Error>,
-        U: IntoIterator<Item = R>,
-        R: Into<Split>,
+        F: Fn(usize, NormalizedString) -> Result<U, Error>,
+        U: IntoIterator<Item = NormalizedString>,
     {
         // new_splits is at least as big as self.splits
         let mut new_splits = Vec::with_capacity(self.splits.len());
         for (i, original_split) in self.splits.drain(..).enumerate() {
-            if original_split.tokens.is_some() {
-                new_splits.push(original_split);
-                continue;
-            }
-
             new_splits.extend(
-                split_fn(i, original_split.normalized)?
+                split_fn(i, original_split)?
                     .into_iter()
                     .filter_map(|split| {
-                        let split: Split = split.into();
-                        if split.normalized.normalized.is_empty() {
+                        if split.normalized.is_empty() {
                             None
                         } else {
                             Some(split)
@@ -104,81 +70,6 @@ impl PreTokenizedString {
         Ok(self)
     }
 
-    /// Tokenizes all the splits that do not have attached `Tokens`, using the provided function.
-    pub(crate) fn tokenize(
-        mut self,
-        f: impl Fn(&NormalizedString) -> Result<Vec<Token>, Error>,
-    ) -> Result<Self, Error> {
-        for split in self.splits.iter_mut().filter(|s| s.tokens.is_none()) {
-            split.tokens = Some(f(&split.normalized)?);
-        }
-
-        Ok(self)
-    }
-
-    /// Transform the current `PreTokenizedString` into an `Encoding`.
-    ///
-    /// If a `word_idx` is provided, any word in the generated `Encoding`
-    /// will be set to this value. This is generally used with pre-tokenized
-    /// input, that do not need the `PreTokenizedString` to generate word ids.
-    ///
-    /// This method will fail if some splits do not have associated `Token`.
-    pub(crate) fn into_encoding(
-        self,
-        word_idx: Option<u32>,
-        type_id: u32,
-        offset_type: OffsetType,
-    ) -> Result<Encoding, Error> {
-        if self.splits.is_empty() {
-            Ok(Encoding::default())
-        } else if !self.splits.iter().all(|split| split.tokens.is_some()) {
-            Err(anyhow!(
-                "Split has not been tokenized, call `PreTokenizedString::tokenize` first"
-            ))
-        } else {
-            let offset_converter = match offset_type {
-                OffsetType::Char => Some(BytesToCharOffsetConverter::new(&self.original)),
-                OffsetType::Byte => None,
-            };
-
-            Ok(self
-                .splits
-                .into_iter()
-                .enumerate()
-                .flat_map(|(idx, split)| {
-                    let normalized = split.normalized;
-                    let offsets = normalized.offsets_original();
-                    let offset_converter = &offset_converter;
-
-                    split.tokens.unwrap().into_iter().map(move |token| {
-                        let mut offsets = normalized
-                            .convert_offsets(Range::Normalized(token.offsets.0..token.offsets.1))
-                            .map_or(token.offsets, |range| {
-                                Offsets(offsets.0 + range.start, offsets.0 + range.end)
-                            });
-
-                        // Convert to char offsets if relevant
-                        if let Some(converter) = offset_converter {
-                            offsets = converter.convert(offsets).unwrap_or(offsets);
-                        }
-
-                        (
-                            token.id,
-                            token.value,
-                            offsets,
-                            if word_idx.is_some() {
-                                word_idx
-                            } else {
-                                Some(idx as u32)
-                            },
-                            type_id,
-                        )
-                    })
-                })
-                .collect())
-        }
-    }
-
     /// Returns a list of splits, each of them being a slice of the normalized
     /// string, the associated offsets either in original or normalized
     /// referential, as well as the potention tokens
@@ -186,7 +77,7 @@ impl PreTokenizedString {
         &self,
         offset_ref: OffsetReferential,
         offset_type: OffsetType,
-    ) -> Vec<(&str, Offsets, &Option<Vec<Token>>)> {
+    ) -> Vec<(&str, Offsets)> {
         let offset_converter = match offset_type {
             OffsetType::Char => Some(BytesToCharOffsetConverter::new(&self.original)),
             OffsetType::Byte => None,
@@ -197,9 +88,9 @@ impl PreTokenizedString {
             .iter()
             .map(|split| {
                 let mut offsets = match offset_ref {
-                    OffsetReferential::Original => split.normalized.offsets_original(),
+                    OffsetReferential::Original => split.offsets_original(),
                     OffsetReferential::Normalized => {
-                        let len = split.normalized.normalized.len();
+                        let len = split.normalized.len();
                         offset += len;
                         Offsets(offset - len, offset)
                     }
@@ -210,13 +101,13 @@ impl PreTokenizedString {
                     offsets = converter.convert(offsets).unwrap_or(offsets);
                 }
 
-                (split.normalized.normalized.as_str(), offsets, &split.tokens)
+                (split.normalized.as_str(), offsets)
             })
             .collect()
     }
 }
 
-struct BytesToCharOffsetConverter {
+pub struct BytesToCharOffsetConverter {
     map: HashMap<usize, usize>,
 }
 
@@ -239,7 +130,7 @@ impl BytesToCharOffsetConverter {
         }
     }
 
-    fn convert(&self, offsets: Offsets) -> Option<Offsets> {
+    pub fn convert(&self, offsets: Offsets) -> Option<Offsets> {
         match (self.map.get(&offsets.0), self.map.get(&offsets.1)) {
             (Some(start), Some(end)) => Some(Offsets(*start, *end)),
             // If we reached the end, `end` is not in the map

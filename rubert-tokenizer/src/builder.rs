@@ -142,8 +142,8 @@ impl Builder {
             vocab: self.vocab,
             unk_id: 0,
             unk_token: self.unk,
-            continuing_subword_prefix: self.prefix,
-            max_input_chars_per_word: self.max_chars,
+            prefix: self.prefix,
+            max_chars: self.max_chars,
         }
         .validate()?;
         Ok(Tokenizer {

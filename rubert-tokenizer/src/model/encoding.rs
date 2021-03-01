@@ -520,6 +520,39 @@ impl Encoding {
 
         self
     }
+
+    pub fn decode(&self, unk: impl AsRef<str>, prefix: impl AsRef<str>, cleanup: bool) -> String {
+        let tokens = self
+            .tokens
+            .iter()
+            .filter_map(|token| {
+                if !cleanup || token != unk.as_ref() {
+                    Some(token.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut string = tokens
+            .join(" ")
+            .replace(format!(" {}", prefix.as_ref()).as_str(), "");
+        if cleanup {
+            string = string
+                .replace(" .", ".")
+                .replace(" ?", "?")
+                .replace(" !", "!")
+                .replace(" ,", ",")
+                .replace(" ' ", "'")
+                .replace(" n't", "n't")
+                .replace(" 'm", "'m")
+                .replace(" do not", " don't")
+                .replace(" 's", "'s")
+                .replace(" 've", "'ve")
+                .replace(" 're", "'re");
+        }
+
+        string
+    }
 }
 
 impl std::iter::FromIterator<Encoding> for Encoding {

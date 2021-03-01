@@ -2,7 +2,11 @@ use std::iter::{once, repeat};
 
 use anyhow::bail;
 
-use crate::{encoding::Encoding, model::Vocab, normalizer::Offsets, Error};
+use crate::{
+    model::{Encoding, Vocab},
+    normalizer::Offsets,
+    Error,
+};
 
 /// A post-tokenizer.
 ///

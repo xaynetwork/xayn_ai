@@ -1,8 +1,7 @@
 use std::iter::IntoIterator;
 
 use crate::{
-    encoding::Encoding,
-    model::Model,
+    model::{Encoding, Model},
     normalizer::{NormalizedString, Normalizer, Offsets},
     padding::Padding,
     post_tokenizer::PostTokenizer,
@@ -47,14 +46,13 @@ impl Tokenizer {
     /// tokenization phase, and converting offsets back to the original referential.
     fn tokenize(
         &self,
-        pre_tokenized: impl Into<PreTokenizedString>,
+        pre_tokenized: PreTokenizedString,
         type_id: u32,
         word_idx: Option<u32>,
         offsets_type: OffsetType,
     ) -> Result<Encoding, Error> {
-        pre_tokenized
-            .into()
-            .tokenize(|normalized| self.model.tokenize(normalized.normalized.as_str()))?
+        self.model
+            .tokenize(pre_tokenized)?
             .into_encoding(word_idx, type_id, offsets_type)
     }
 
@@ -155,7 +153,11 @@ impl Tokenizer {
 
     /// Decodes an encoding back to a String.
     pub fn decode(&self, encoding: &Encoding, cleanup: bool) -> String {
-        self.model.de_tokenize(encoding, cleanup)
+        encoding.decode(
+            self.model.unk_token.as_str(),
+            self.model.prefix.as_str(),
+            cleanup,
+        )
     }
 
     /// Decodes the encodings back to strings.
