@@ -7,7 +7,6 @@ mod normalizer;
 mod padding;
 mod post_tokenizer;
 mod pre_tokenizer;
-mod sequence;
 mod tokenizer;
 mod truncation;
 
@@ -19,7 +18,6 @@ pub use crate::{
     padding::Padding,
     post_tokenizer::PostTokenizer,
     pre_tokenizer::{PreTokenizedString, PreTokenizer},
-    sequence::Sequence,
     tokenizer::Tokenizer,
     truncation::Truncation,
 };

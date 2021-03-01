@@ -1,165 +1,27 @@
 use std::{
     cmp::Ordering,
-    iter,
     ops::{Bound, RangeBounds},
 };
 
 use regex::Regex;
-use unicode_categories::UnicodeCategories;
 use unicode_normalization_alignments::UnicodeNormalization;
 
 use crate::Error;
 
-/// A normalizer.
-///
-/// Defaults to the [`none()`] normalizer.
-pub struct Normalizer(Normalizers);
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(test, derive(Debug))]
+pub struct Offsets(pub usize, pub usize);
 
-/// The normalizers.
-enum Normalizers {
-    /// No normalization.
-    None,
-    /// Bert normalization.
-    Bert {
-        clean_text: bool,
-        handle_chinese_chars: bool,
-        strip_accents: bool,
-        lowercase: bool,
-    },
-}
-
-impl Default for Normalizer {
-    fn default() -> Self {
-        Self::none()
-    }
-}
-
-impl Normalizer {
-    /// Creates an inert normalizer.
-    pub fn none() -> Self {
-        Self(Normalizers::None)
-    }
-
-    /// Creates a Bert normalizer.
-    ///
-    /// Configurable by:
-    /// - `clean_text`: Removes any control characters and replaces all sorts of whitespace by ` `.
-    /// - `handle_chinese_chars`: Puts spaces around chinese characters so they get split.
-    /// - `strip_accents`: Removes accents from characters.
-    /// - `lowercase`: Lowercases characters.
-    pub fn bert(
-        clean_text: bool,
-        handle_chinese_chars: bool,
-        strip_accents: bool,
-        lowercase: bool,
-    ) -> Self {
-        Self(Normalizers::Bert {
-            clean_text,
-            handle_chinese_chars,
-            strip_accents,
-            lowercase,
-        })
-    }
-
-    fn clean_text(&self, normalized: NormalizedString) -> NormalizedString {
-        match self.0 {
-            Normalizers::None
-            | Normalizers::Bert {
-                clean_text: false, ..
-            } => normalized,
-            Normalizers::Bert {
-                clean_text: true, ..
-            } => normalized
-                .filter(|c| {
-                    c != '\0'
-                        && c != '\u{fffd}'
-                        && (c == '\t' || c == '\n' || c == '\r' || !c.is_other())
-                })
-                .map(|c| {
-                    // These are technically control characters but we count them as whitespace
-                    // The definition of `is_control` here is quite large and contains also
-                    // Cc, Cf, Cn or Co; cf. https://unicode.org/reports/tr44/ (Table 12)
-                    if c == '\t' || c == '\n' || c == '\r' || c.is_whitespace() {
-                        ' '
-                    } else {
-                        c
-                    }
-                }),
+impl Offsets {
+    /// Returns the range covered by a slice of alignments
+    fn expand_alignments(alignments: &[Offsets]) -> Option<std::ops::Range<usize>> {
+        if alignments.is_empty() {
+            None
+        } else {
+            let start = alignments[0].0;
+            let end = alignments[alignments.len() - 1].1;
+            Some(start..end)
         }
-    }
-
-    fn handle_chinese_chars(&self, normalized: NormalizedString) -> NormalizedString {
-        match self.0 {
-            Normalizers::None
-            | Normalizers::Bert {
-                handle_chinese_chars: false,
-                ..
-            } => normalized,
-            Normalizers::Bert {
-                handle_chinese_chars: true,
-                ..
-            } => {
-                let mut new_chars: Vec<(char, isize)> = vec![];
-                normalized.for_each(|c| {
-                    // Checks whether a character is chinese
-                    // This defines a "chinese character" as anything in the CJK Unicode block:
-                    //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
-                    //
-                    // Note that the CJK Unicode block is NOT all Japanese and Korean characters,
-                    // despite its name. The modern Korean Hangul alphabet is a different block,
-                    // as is Japanese Hiragana and Katakana. Those alphabets are used to write
-                    // space-separated words, so they are not treated specially and handled
-                    // like for all of the other languages.
-                    if let '\u{4E00}'..='\u{9FFF}'
-                    | '\u{3400}'..='\u{4DBF}'
-                    | '\u{20000}'..='\u{2A6DF}'
-                    | '\u{2A700}'..='\u{2B73F}'
-                    | '\u{2B740}'..='\u{2B81F}'
-                    | '\u{2B920}'..='\u{2CEAF}'
-                    | '\u{F900}'..='\u{FAFF}'
-                    | '\u{2F800}'..='\u{2FA1F}' = c
-                    {
-                        new_chars.extend(&[(' ', 0), (c, 1), (' ', 1)]);
-                    } else {
-                        new_chars.push((c, 0));
-                    }
-                });
-                normalized.transform(new_chars, 0)
-            }
-        }
-    }
-
-    fn strip_accents(&self, normalized: NormalizedString) -> NormalizedString {
-        match self.0 {
-            Normalizers::None
-            | Normalizers::Bert {
-                strip_accents: false,
-                ..
-            } => normalized,
-            Normalizers::Bert {
-                strip_accents: true,
-                ..
-            } => normalized.nfd().filter(|c| !c.is_mark_nonspacing()),
-        }
-    }
-
-    fn lowercase(&self, normalized: NormalizedString) -> NormalizedString {
-        match self.0 {
-            Normalizers::None
-            | Normalizers::Bert {
-                lowercase: false, ..
-            } => normalized,
-            Normalizers::Bert {
-                lowercase: true, ..
-            } => normalized.lowercase(),
-        }
-    }
-
-    pub(crate) fn normalize(&self, sequence: impl Into<NormalizedString>) -> NormalizedString {
-        let normalized = self.clean_text(sequence.into());
-        let normalized = self.handle_chinese_chars(normalized);
-        let normalized = self.strip_accents(normalized);
-        self.lowercase(normalized)
     }
 }
 
@@ -179,7 +41,7 @@ pub enum Range<T> {
 
 impl<T> Range<T>
 where
-    T: RangeBounds<usize> + Clone,
+    T: RangeBounds<usize>,
 {
     fn inner(&self) -> &T {
         match self {
@@ -221,6 +83,97 @@ where
 
         start..end
     }
+
+    /// Returns a range of the given string slice, by indexing chars instead of bytes
+    fn get_range_of(range: T, s: &str) -> Option<&str> {
+        let len = s.chars().count();
+        let start = match range.start_bound() {
+            Bound::Unbounded => 0,
+            Bound::Included(i) => *i,
+            Bound::Excluded(i) => *i + 1,
+        };
+        let end = match range.end_bound() {
+            Bound::Unbounded => len,
+            Bound::Included(i) => *i + 1,
+            Bound::Excluded(i) => *i,
+        };
+
+        if start == 0 && end == 0 {
+            Some(&s[0..0])
+        } else if start >= len || end > len || start >= end {
+            None
+        } else {
+            let start_b = s
+                .char_indices()
+                .map(|(i, _)| i)
+                .nth(start as usize)
+                .unwrap_or(0);
+            let end_b = s
+                .char_indices()
+                .map(|(i, _)| i)
+                .nth(end as usize)
+                .unwrap_or_else(|| s.len());
+            Some(&s[start_b..end_b])
+        }
+    }
+
+    /// Convert the given range from bytes to char
+    fn bytes_to_char(range: std::ops::Range<usize>, s: &str) -> Option<std::ops::Range<usize>> {
+        let (mut start, mut end) = if range == (0..0) {
+            (Some(0), Some(0))
+        } else {
+            (None, None)
+        };
+
+        s.char_indices()
+            .enumerate()
+            .take_while(|(_, (b, _))| *b <= range.end)
+            .filter(|(_, (b, _))| *b >= range.start)
+            .for_each(|(i, (b, c))| {
+                if b == range.start {
+                    start = Some(i);
+                }
+                if b == range.end {
+                    end = Some(i);
+                }
+                if b + c.len_utf8() == range.end {
+                    end = Some(i + 1);
+                }
+            });
+
+        Some(start?..end?)
+    }
+
+    /// Convert the given range from char to bytes
+    fn char_to_bytes(range: std::ops::Range<usize>, s: &str) -> Option<std::ops::Range<usize>> {
+        let (mut start, mut end) = if range == (0..0) {
+            (Some(0), Some(0))
+        } else {
+            (None, None)
+        };
+
+        if range.start == range.end {
+            s.char_indices()
+                .skip(range.start)
+                .take(1)
+                .for_each(|(b, _)| {
+                    start = Some(b);
+                    end = Some(b);
+                });
+        } else {
+            s.char_indices()
+                .skip(range.start)
+                .take(range.end - range.start)
+                .for_each(|(b, c)| {
+                    if start.is_none() {
+                        start = Some(b);
+                    }
+                    end = Some(b + c.len_utf8());
+                });
+        }
+
+        Some(start?..end?)
+    }
 }
 
 /// Defines the expected behavior for the delimiter of a Split Pattern.
@@ -261,6 +214,28 @@ pub struct NormalizedString {
     /// of the missing part, so that we can still give offsets from this original
     /// string.
     pub(crate) original_shift: usize,
+}
+
+impl<S> From<S> for NormalizedString
+where
+    S: AsRef<str>,
+{
+    fn from(string: S) -> Self {
+        let string = string.as_ref();
+        let alignments = string
+            .char_indices()
+            .flat_map(|(idx, chr)| {
+                let len = chr.len_utf8();
+                std::iter::repeat(Offsets(idx, idx + len)).take(len)
+            })
+            .collect::<Vec<_>>();
+        Self {
+            original: string.to_string(),
+            normalized: string.to_string(),
+            alignments,
+            original_shift: 0,
+        }
+    }
 }
 
 impl NormalizedString {
@@ -333,7 +308,10 @@ impl NormalizedString {
                 _ => None,
             }
         } else {
-            self.alignments.get(target).map(expand_alignments).flatten()
+            self.alignments
+                .get(target)
+                .map(Offsets::expand_alignments)
+                .flatten()
         }
     }
 
@@ -841,137 +819,7 @@ impl NormalizedString {
     }
 }
 
-/// Returns the range covered by a slice of alignments
-fn expand_alignments(alignments: &[Offsets]) -> Option<std::ops::Range<usize>> {
-    if alignments.is_empty() {
-        None
-    } else {
-        let start = alignments[0].0;
-        let end = alignments[alignments.len() - 1].1;
-        Some(start..end)
-    }
-}
-
-/// Returns a range of the given string slice, by indexing chars instead of bytes
-fn get_range_of<T: RangeBounds<usize>>(s: &str, range: T) -> Option<&str> {
-    let len = s.chars().count();
-    let start = match range.start_bound() {
-        Bound::Unbounded => 0,
-        Bound::Included(i) => *i,
-        Bound::Excluded(i) => *i + 1,
-    };
-    let end = match range.end_bound() {
-        Bound::Unbounded => len,
-        Bound::Included(i) => *i + 1,
-        Bound::Excluded(i) => *i,
-    };
-
-    if start == 0 && end == 0 {
-        Some(&s[0..0])
-    } else if start >= len || end > len || start >= end {
-        None
-    } else {
-        let start_b = s
-            .char_indices()
-            .map(|(i, _)| i)
-            .nth(start as usize)
-            .unwrap_or(0);
-        let end_b = s
-            .char_indices()
-            .map(|(i, _)| i)
-            .nth(end as usize)
-            .unwrap_or_else(|| s.len());
-        Some(&s[start_b..end_b])
-    }
-}
-
-/// Convert the given range from bytes to char
-fn bytes_to_char(s: &str, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
-    let (mut start, mut end) = if range == (0..0) {
-        (Some(0), Some(0))
-    } else {
-        (None, None)
-    };
-
-    s.char_indices()
-        .enumerate()
-        .take_while(|(_, (b, _))| *b <= range.end)
-        .filter(|(_, (b, _))| *b >= range.start)
-        .for_each(|(i, (b, c))| {
-            if b == range.start {
-                start = Some(i);
-            }
-            if b == range.end {
-                end = Some(i);
-            }
-            if b + c.len_utf8() == range.end {
-                end = Some(i + 1);
-            }
-        });
-
-    Some(start?..end?)
-}
-
-/// Convert the given range from char to bytes
-fn char_to_bytes(s: &str, range: std::ops::Range<usize>) -> Option<std::ops::Range<usize>> {
-    let (mut start, mut end) = if range == (0..0) {
-        (Some(0), Some(0))
-    } else {
-        (None, None)
-    };
-
-    if range.start == range.end {
-        s.char_indices()
-            .skip(range.start)
-            .take(1)
-            .for_each(|(b, _)| {
-                start = Some(b);
-                end = Some(b);
-            });
-    } else {
-        s.char_indices()
-            .skip(range.start)
-            .take(range.end - range.start)
-            .for_each(|(b, c)| {
-                if start.is_none() {
-                    start = Some(b);
-                }
-                end = Some(b + c.len_utf8());
-            });
-    }
-
-    Some(start?..end?)
-}
-
-impl From<String> for NormalizedString {
-    fn from(string: String) -> Self {
-        let alignments = string
-            .char_indices()
-            .flat_map(|(idx, chr)| {
-                let len = chr.len_utf8();
-                iter::repeat(Offsets(idx, idx + len)).take(len)
-            })
-            .collect::<Vec<_>>();
-        Self {
-            original: string.clone(),
-            normalized: string,
-            alignments,
-            original_shift: 0,
-        }
-    }
-}
-
-impl From<&str> for NormalizedString {
-    fn from(string: &str) -> Self {
-        string.to_string().into()
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(test, derive(Debug))]
-pub struct Offsets(pub usize, pub usize);
-
-/// Pattern used to split a NormalizedString
+/// Pattern used to split a NormalizedString.
 pub(crate) trait Pattern {
     /// Slice the given string in a list of pattern match positions, with
     /// a boolean indicating whether this is a match or not.
@@ -1074,24 +922,10 @@ where
     }
 }
 
-/// Invert the `is_match` flags for the wrapped Pattern. This is usefull
-/// for example when we use a regex that matches words instead of a delimiter,
-/// and we want to match the delimiter.
-pub struct Invert<P>(pub(crate) P);
-
-impl<P: Pattern> Pattern for Invert<P> {
-    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-        Ok(self
-            .0
-            .find_matches(inside)?
-            .into_iter()
-            .map(|(offsets, flag)| (offsets, !flag))
-            .collect())
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use unicode_categories::UnicodeCategories;
+
     use super::*;
 
     #[test]
@@ -1398,8 +1232,8 @@ mod tests {
     #[test]
     fn test_get_range() {
         let s = String::from("Hello my name is John 👋");
-        assert_eq!(get_range_of(&s, ..), Some(&s[..]));
-        assert_eq!(get_range_of(&s, 17..), Some("John 👋"));
+        assert_eq!(Range::get_range_of(.., &s), Some(&s[..]));
+        assert_eq!(Range::get_range_of(17.., &s), Some("John 👋"));
     }
 
     #[test]
@@ -2287,129 +2121,151 @@ mod tests {
         assert_eq!(s.normalized, "a…");
     }
 
-    macro_rules! test_pattern {
-        ($inside: expr, $pattern: expr => @ERROR) => {
-            assert!($pattern.find_matches($inside).is_err());
-        };
-        ($inside: expr, $pattern: expr => $result: expr) => {
-            assert_eq!($pattern.find_matches($inside).unwrap(), $result);
-            assert_eq!(
-                Invert($pattern).find_matches($inside).unwrap(),
-                $result
-                    .into_iter()
-                    .map(|v: (Offsets, bool)| (v.0, !v.1))
-                    .collect::<Vec<_>>()
-            );
-        };
-    }
-
     #[test]
     fn test_pattern_char() {
-        test_pattern!(
-            "aba", 'a' => vec![
+        assert_eq!(
+            'a'.find_matches("aaa").unwrap(),
+            vec![
                 (Offsets(0, 1), true),
                 (Offsets(1, 2), false),
                 (Offsets(2, 3), true),
-            ]
+            ],
         );
-        test_pattern!("bbbba", 'a' => vec![(Offsets(0, 4), false), (Offsets(4, 5), true)]);
-        test_pattern!(
-            "aabbb", 'a' => vec![
+        assert_eq!(
+            'a'.find_matches("bbbba").unwrap(),
+            vec![(Offsets(0, 4), false), (Offsets(4, 5), true)],
+        );
+        assert_eq!(
+            'a'.find_matches("aabbb").unwrap(),
+            vec![
                 (Offsets(0, 1), true),
                 (Offsets(1, 2), true),
                 (Offsets(2, 5), false),
-            ]
+            ],
         );
-        test_pattern!("", 'a' => vec![(Offsets(0, 0), false)]);
-        test_pattern!("aaa", 'b' => vec![(Offsets(0, 3), false)]);
+        assert_eq!('a'.find_matches("").unwrap(), vec![(Offsets(0, 0), false)]);
+        assert_eq!(
+            'b'.find_matches("aaa").unwrap(),
+            vec![(Offsets(0, 3), false)],
+        );
     }
 
     #[test]
     fn test_pattern_str() {
-        test_pattern!(
-            "aba", "a" => vec![
+        assert_eq!(
+            "a".find_matches("aba").unwrap(),
+            vec![
                 (Offsets(0, 1), true),
                 (Offsets(1, 2), false),
                 (Offsets(2, 3), true),
-            ]
+            ],
         );
-        test_pattern!("bbbba", "a" => vec![(Offsets(0, 4), false), (Offsets(4, 5), true)]);
-        test_pattern!(
-            "aabbb", "a" => vec![
+        assert_eq!(
+            "a".find_matches("bbbba").unwrap(),
+            vec![(Offsets(0, 4), false), (Offsets(4, 5), true)],
+        );
+        assert_eq!(
+            "a".find_matches("aabbb").unwrap(),
+            vec![
                 (Offsets(0, 1), true),
                 (Offsets(1, 2), true),
                 (Offsets(2, 5), false),
-            ]
+            ],
         );
-        test_pattern!(
-            "aabbb", "ab" => vec![
+        assert_eq!(
+            "ab".find_matches("aabbb").unwrap(),
+            vec![
                 (Offsets(0, 1), false),
                 (Offsets(1, 3), true),
                 (Offsets(3, 5), false),
-            ]
+            ],
         );
-        test_pattern!(
-            "aabbab", "ab" => vec![
+        assert_eq!(
+            "ab".find_matches("aabbab").unwrap(),
+            vec![
                 (Offsets(0, 1), false),
                 (Offsets(1, 3), true),
                 (Offsets(3, 4), false),
                 (Offsets(4, 6), true),
-            ]
+            ],
         );
-        test_pattern!("", "" => vec![(Offsets(0, 0), false)]);
-        test_pattern!("aaa", "" => vec![(Offsets(0, 3), false)]);
-        test_pattern!("aaa", "b" => vec![(Offsets(0, 3), false)]);
+        assert_eq!("".find_matches("").unwrap(), vec![(Offsets(0, 0), false)]);
+        assert_eq!(
+            "".find_matches("aaa").unwrap(),
+            vec![(Offsets(0, 3), false)],
+        );
+        assert_eq!(
+            "b".find_matches("aaa").unwrap(),
+            vec![(Offsets(0, 3), false)],
+        );
     }
 
     #[test]
     fn test_pattern_functions() {
         let is_b = |c| c == 'b';
-        test_pattern!(
-            "aba", is_b => vec![
+        assert_eq!(
+            is_b.find_matches("aba").unwrap(),
+            vec![
                 (Offsets(0, 1), false),
                 (Offsets(1, 2), true),
                 (Offsets(2, 3), false),
-            ]
+            ],
         );
-        test_pattern!("aaaab", is_b => vec![(Offsets(0, 4), false), (Offsets(4, 5), true)]);
-        test_pattern!(
-            "bbaaa", is_b => vec![
+        assert_eq!(
+            is_b.find_matches("aaaab").unwrap(),
+            vec![(Offsets(0, 4), false), (Offsets(4, 5), true)],
+        );
+        assert_eq!(
+            is_b.find_matches("bbaaa").unwrap(),
+            vec![
                 (Offsets(0, 1), true),
                 (Offsets(1, 2), true),
                 (Offsets(2, 5), false),
-            ]
+            ],
         );
-        test_pattern!("", is_b => vec![(Offsets(0, 0), false)]);
-        test_pattern!("aaa", is_b => vec![(Offsets(0, 3), false)]);
+        assert_eq!(is_b.find_matches("").unwrap(), vec![(Offsets(0, 0), false)]);
+        assert_eq!(
+            is_b.find_matches("aaa").unwrap(),
+            vec![(Offsets(0, 3), false)],
+        );
     }
 
     #[test]
     fn test_pattern_regex() {
         let is_whitespace = Regex::new(r"\s+").unwrap();
-        test_pattern!(
-            "a   b", &is_whitespace => vec![
+        assert_eq!(
+            is_whitespace.find_matches("a   b").unwrap(),
+            vec![
                 (Offsets(0, 1), false),
                 (Offsets(1, 4), true),
                 (Offsets(4, 5), false),
-            ]
+            ],
         );
-        test_pattern!(
-            "   a   b   ", &is_whitespace => vec![
+        assert_eq!(
+            is_whitespace.find_matches("   a   b   ").unwrap(),
+            vec![
                 (Offsets(0, 3), true),
                 (Offsets(3, 4), false),
                 (Offsets(4, 7), true),
                 (Offsets(7, 8), false),
                 (Offsets(8, 11), true),
-            ]
+            ],
         );
-        test_pattern!("", &is_whitespace => vec![(Offsets(0, 0), false)]);
-        test_pattern!(
-            "𝔾𝕠𝕠𝕕 𝕞𝕠𝕣𝕟𝕚𝕟𝕘", &is_whitespace => vec![
+        assert_eq!(
+            is_whitespace.find_matches("").unwrap(),
+            vec![(Offsets(0, 0), false)],
+        );
+        assert_eq!(
+            is_whitespace.find_matches("𝔾𝕠𝕠𝕕 𝕞𝕠𝕣𝕟𝕚𝕟𝕘").unwrap(),
+            vec![
                 (Offsets(0, 16), false),
                 (Offsets(16, 17), true),
                 (Offsets(17, 45), false),
-            ]
+            ],
         );
-        test_pattern!("aaa", &is_whitespace => vec![(Offsets(0, 3), false)]);
+        assert_eq!(
+            is_whitespace.find_matches("aaa").unwrap(),
+            vec![(Offsets(0, 3), false)],
+        );
     }
 }

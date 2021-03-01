@@ -17,15 +17,20 @@ use crate::{
 
 /// A builder to create a [`Tokenizer`].
 pub struct Builder {
-    vocab: Vocab,
-    unk: String,
-    prefix: String,
-    max_chars: usize,
-    normalizer: Normalizer,
     pre_tokenizer: PreTokenizer,
     post_tokenizer: PostTokenizer,
     truncation: Truncation,
     padding: Padding,
+    // normalizer
+    clean_text: bool,
+    handle_chinese_chars: bool,
+    strip_accents: bool,
+    lowercase: bool,
+    // model
+    vocab: Vocab,
+    unk: String,
+    prefix: String,
+    max_chars: usize,
 }
 
 impl Builder {
@@ -41,15 +46,20 @@ impl Builder {
     /// Fails on invalid vocabularies.
     pub fn new(vocab: impl BufRead) -> Result<Self, Error> {
         Ok(Self {
-            vocab: Model::parse_vocab(vocab)?,
-            unk: "[UNK]".into(),
-            prefix: "##".into(),
-            max_chars: 100,
-            normalizer: Normalizer::default(),
             pre_tokenizer: PreTokenizer::default(),
             post_tokenizer: PostTokenizer::default(),
             truncation: Truncation::default(),
             padding: Padding::default(),
+            // normalizer
+            clean_text: true,
+            handle_chinese_chars: true,
+            strip_accents: true,
+            lowercase: true,
+            // model
+            vocab: Model::parse_vocab(vocab)?,
+            unk: "[UNK]".into(),
+            prefix: "##".into(),
+            max_chars: 100,
         })
     }
 
@@ -64,8 +74,17 @@ impl Builder {
     }
 
     /// Configures the normalizer.
-    pub fn with_normalizer(mut self, normalizer: Normalizer) -> Self {
-        self.normalizer = normalizer;
+    pub fn with_normalizer(
+        mut self,
+        clean_text: bool,
+        handle_chinese_chars: bool,
+        strip_accents: bool,
+        lowercase: bool,
+    ) -> Self {
+        self.clean_text = clean_text;
+        self.handle_chinese_chars = handle_chinese_chars;
+        self.strip_accents = strip_accents;
+        self.lowercase = lowercase;
         self
     }
 
@@ -128,8 +147,14 @@ impl Builder {
             max_input_chars_per_word: self.max_chars,
         }
         .validate()?;
+        let normalizer = Normalizer::new(
+            self.clean_text,
+            self.handle_chinese_chars,
+            self.strip_accents,
+            self.lowercase,
+        );
         Ok(Tokenizer {
-            normalizer: self.normalizer,
+            normalizer,
             pre_tokenizer: self.pre_tokenizer,
             model,
             post_tokenizer: self.post_tokenizer,

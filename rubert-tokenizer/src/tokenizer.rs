@@ -7,7 +7,6 @@ use crate::{
     padding::Padding,
     post_tokenizer::PostTokenizer,
     pre_tokenizer::{OffsetType, PreTokenizedString, PreTokenizer},
-    sequence::Sequence,
     truncation::Truncation,
     Error,
 };
@@ -35,7 +34,7 @@ pub struct Tokenizer {
 
 impl Tokenizer {
     /// Normalization logic, go through all normalizers
-    fn normalize(&self, sequence: impl Into<NormalizedString>) -> NormalizedString {
+    fn normalize(&self, sequence: impl AsRef<str>) -> NormalizedString {
         self.normalizer.normalize(sequence)
     }
 
@@ -72,49 +71,16 @@ impl Tokenizer {
     }
 
     /// Encode a single sequence
-    fn encode_single_sequence<'s>(
+    fn encode_single_sequence(
         &self,
-        sequence: impl Into<Sequence<'s>>,
+        sequence: impl AsRef<str>,
         type_id: u32,
         offsets_type: OffsetType,
     ) -> Result<Encoding, Error> {
-        let encode = |is_pre_tokenized: bool,
-                      sequence_idx: usize,
-                      sequence: &str|
-         -> Result<Encoding, Error> {
-            let normalized = self.normalize(sequence);
-            let pre_tokenized = self.pre_tokenize(normalized)?;
-            let tokenized = self.tokenize(
-                pre_tokenized,
-                type_id,
-                if is_pre_tokenized {
-                    Some(sequence_idx as u32)
-                } else {
-                    None
-                },
-                offsets_type,
-            );
-            tokenized.map(|tokenized| self.post_process(tokenized))
-        };
-
-        match sequence.into() {
-            Sequence::Raw(sequence) => encode(false, 0, sequence.as_ref()),
-            Sequence::PreTokenized(sequence) => sequence
-                .into_iter()
-                .enumerate()
-                .map(|(i, sequence)| encode(true, i, sequence))
-                .collect(),
-            Sequence::PreTokenizedOwned(sequence) => sequence
-                .into_iter()
-                .enumerate()
-                .map(|(i, sequence)| encode(true, i, sequence))
-                .collect(),
-            Sequence::PreTokenizedCow(sequence) => sequence
-                .into_iter()
-                .enumerate()
-                .map(|(i, sequence)| encode(true, i, sequence))
-                .collect(),
-        }
+        let normalized = self.normalize(sequence);
+        let pre_tokenized = self.pre_tokenize(normalized)?;
+        let tokenized = self.tokenize(pre_tokenized, type_id, None, offsets_type);
+        tokenized.map(|tokenized| self.post_process(tokenized))
     }
 
     /// Encode the given input. This method accepts both single sequences, as well as pair
@@ -139,15 +105,12 @@ impl Tokenizer {
     ///     false,
     /// );
     /// ```
-    pub fn encode<'s>(&self, sequence: impl Into<Sequence<'s>>) -> Result<Encoding, Error> {
+    pub fn encode(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
         self.encode_single_sequence(sequence, 0, OffsetType::Byte)
     }
 
     /// Encode all the sentences in parallel, using multiple threads
-    pub fn encode_batch<'s>(
-        &self,
-        sequences: Vec<impl Into<Sequence<'s>>>,
-    ) -> Result<Vec<Encoding>, Error> {
+    pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Result<Vec<Encoding>, Error> {
         sequences
             .into_iter()
             .map(|sequence| self.encode(sequence))
@@ -177,18 +140,15 @@ impl Tokenizer {
     ///     false,
     /// );
     /// ```
-    pub fn encode_char_offsets<'s>(
-        &self,
-        sequence: impl Into<Sequence<'s>>,
-    ) -> Result<Encoding, Error> {
+    pub fn encode_char_offsets(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
         self.encode_single_sequence(sequence, 0, OffsetType::Char)
     }
 
     /// Encode all the sentences in parallel, using multiple threads.
     /// The offsets on each `Encoding` will be relative to chars instead of bytes.
-    pub fn encode_batch_char_offsets<'s>(
+    pub fn encode_batch_char_offsets(
         &self,
-        sequences: Vec<impl Into<Sequence<'s>>>,
+        sequences: &[impl AsRef<str>],
     ) -> Result<Vec<Encoding>, Error> {
         sequences
             .into_iter()

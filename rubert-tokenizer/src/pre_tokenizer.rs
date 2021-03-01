@@ -299,7 +299,7 @@ impl From<&str> for PreTokenizedString {
 
 impl From<String> for PreTokenizedString {
     fn from(string: String) -> Self {
-        NormalizedString::from(string).into()
+        NormalizedString::from(string.as_str()).into()
     }
 }
 
