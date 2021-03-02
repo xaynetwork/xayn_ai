@@ -16,10 +16,10 @@ impl LtrSystem for ConstLtr {
         _history: &[DocumentHistory],
         documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
-        let context_value = self.0;
+        let ltr_score = self.0;
         Ok(documents
             .into_iter()
-            .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { context_value }))
+            .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { ltr_score }))
             .collect())
     }
 }
@@ -67,7 +67,7 @@ mod tests {
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);
-        assert_eq!(ltr_docs[0].ltr.context_value, half);
-        assert_eq!(ltr_docs[1].ltr.context_value, half);
+        assert_eq!(ltr_docs[0].ltr.ltr_score, half);
+        assert_eq!(ltr_docs[1].ltr.ltr_score, half);
     }
 }
