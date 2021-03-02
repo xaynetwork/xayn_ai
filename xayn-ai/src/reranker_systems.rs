@@ -69,8 +69,8 @@ pub trait ContextSystem {
 pub trait MabSystem {
     fn compute_mab(
         &self,
-        documents: &[DocumentDataWithContext],
-        user_interests: &UserInterests,
+        documents: Vec<DocumentDataWithContext>,
+        user_interests: UserInterests,
     ) -> Result<(Vec<DocumentDataWithMab>, UserInterests), Error>;
 }
 
