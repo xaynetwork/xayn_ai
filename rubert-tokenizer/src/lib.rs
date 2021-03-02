@@ -1,4 +1,4 @@
-// #![allow(dead_code)]
+#![allow(dead_code)]
 
 mod builder;
 mod model;
@@ -11,6 +11,7 @@ type Error = anyhow::Error;
 
 pub use crate::{
     builder::Builder,
+    model::encoding::Encoding,
     normalizer::Normalizer,
     post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
     pre_tokenizer::PreTokenizer,

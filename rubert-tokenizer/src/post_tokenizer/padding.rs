@@ -76,10 +76,9 @@ mod tests {
     use super::*;
 
     fn encoding(len: u32) -> Encoding {
-        Encoding {
-            ids: (0..len).collect(),
-            ..Encoding::default()
-        }
+        let mut encoding = Encoding::with_capacity(0);
+        encoding.ids = (0..len).collect();
+        encoding
     }
 
     fn fixed(len: usize) -> Padding {

@@ -16,9 +16,9 @@ use crate::{
 /// A builder to create a [`Tokenizer`].
 pub struct Builder {
     // normalizer
-    clean_text: bool,
-    handle_chinese_chars: bool,
-    strip_accents: bool,
+    cleanup: bool,
+    chinese: bool,
+    accents: bool,
     lowercase: bool,
     // model
     vocab: Vocab,
@@ -40,9 +40,9 @@ impl Builder {
     pub fn new(vocab: impl BufRead) -> Result<Self, Error> {
         Ok(Self {
             // normalizer
-            clean_text: true,
-            handle_chinese_chars: true,
-            strip_accents: true,
+            cleanup: true,
+            chinese: true,
+            accents: true,
             lowercase: true,
             // model
             vocab: Model::parse_vocab(vocab)?,
@@ -77,14 +77,14 @@ impl Builder {
     /// - Lowercases characters. Defaults to `true`.
     pub fn with_normalizer(
         mut self,
-        clean_text: bool,
-        handle_chinese_chars: bool,
-        strip_accents: bool,
+        cleanup: bool,
+        chinese: bool,
+        accents: bool,
         lowercase: bool,
     ) -> Self {
-        self.clean_text = clean_text;
-        self.handle_chinese_chars = handle_chinese_chars;
-        self.strip_accents = strip_accents;
+        self.cleanup = cleanup;
+        self.chinese = chinese;
+        self.accents = accents;
         self.lowercase = lowercase;
         self
     }
@@ -145,12 +145,7 @@ impl Builder {
     /// # Errors
     /// Fails on invalid model configurations.
     pub fn build(self) -> Result<Tokenizer, Error> {
-        let normalizer = Normalizer::new(
-            self.clean_text,
-            self.handle_chinese_chars,
-            self.strip_accents,
-            self.lowercase,
-        );
+        let normalizer = Normalizer::new(self.cleanup, self.chinese, self.accents, self.lowercase);
         let pre_tokenizer = PreTokenizer;
         let model = Model::new(self.vocab, self.unk, self.prefix, self.max_chars)?;
         let post_tokenizer = PostTokenizer::new(self.cls, self.sep, &model.vocab)?;

@@ -43,7 +43,7 @@ impl PostTokenizer {
         })
     }
 
-    pub(crate) fn process(&self, encoding: Encoding) -> Encoding {
+    pub(crate) fn post_tokenize(&self, encoding: Encoding) -> Encoding {
         let len = encoding.len();
         let ids = once(self.cls_id)
             .chain(encoding.ids)
@@ -71,7 +71,7 @@ impl PostTokenizer {
             overflowing
                 .into_iter()
                 // the recursion is finite because overflowing is None for overflowed encodings
-                .map(|encoding| self.process(encoding))
+                .map(|encoding| self.post_tokenize(encoding))
                 .collect()
         });
         // For compatibility with `TemplateProcessing`, the sequence_ranges shouldn't contain

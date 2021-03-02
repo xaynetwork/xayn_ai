@@ -6,30 +6,27 @@ use crate::normalizer::string::NormalizedString;
 
 /// A Bert normalizer.
 pub struct Normalizer {
-    clean_text: bool,
-    handle_chinese_chars: bool,
-    strip_accents: bool,
+    cleanup: bool,
+    chinese: bool,
+    accents: bool,
     lowercase: bool,
 }
 
 impl Normalizer {
-    pub(crate) fn new(
-        clean_text: bool,
-        handle_chinese_chars: bool,
-        strip_accents: bool,
-        lowercase: bool,
-    ) -> Self {
+    /// Creates a Bert normalizer.
+    pub(crate) fn new(cleanup: bool, chinese: bool, accents: bool, lowercase: bool) -> Self {
         Self {
-            clean_text,
-            handle_chinese_chars,
-            strip_accents,
+            cleanup,
+            chinese,
+            accents,
             lowercase,
         }
     }
 
-    fn clean_text(&self, normalized: NormalizedString) -> NormalizedString {
-        if self.clean_text {
-            normalized
+    /// Cleans the sequence from control characters.
+    fn clean(&self, sequence: NormalizedString) -> NormalizedString {
+        if self.cleanup {
+            sequence
                 .filter(|c| {
                     c != '\0'
                         && c != '\u{fffd}'
@@ -46,14 +43,15 @@ impl Normalizer {
                     }
                 })
         } else {
-            normalized
+            sequence
         }
     }
 
-    fn handle_chinese_chars(&self, normalized: NormalizedString) -> NormalizedString {
-        if self.handle_chinese_chars {
+    /// Places whitespace around chinese characters in the sequence.
+    fn handle_chinese(&self, sequence: NormalizedString) -> NormalizedString {
+        if self.chinese {
             let mut new_chars: Vec<(char, isize)> = vec![];
-            normalized.for_each(|c| {
+            sequence.for_each(|c| {
                 // Checks whether a character is chinese
                 // This defines a "chinese character" as anything in the CJK Unicode block:
                 //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
@@ -77,33 +75,35 @@ impl Normalizer {
                     new_chars.push((c, 0));
                 }
             });
-            normalized.transform(new_chars, 0)
+            sequence.transform(new_chars, 0)
         } else {
-            normalized
+            sequence
         }
     }
 
-    fn strip_accents(&self, normalized: NormalizedString) -> NormalizedString {
-        if self.strip_accents {
-            normalized.nfd().filter(|c| !c.is_mark_nonspacing())
+    /// Strips accents from the sequence.
+    fn strip_accents(&self, sequence: NormalizedString) -> NormalizedString {
+        if self.accents {
+            sequence.nfd().filter(|c| !c.is_mark_nonspacing())
         } else {
-            normalized
+            sequence
         }
     }
 
-    fn lowercase(&self, normalized: NormalizedString) -> NormalizedString {
+    /// Lowercases the sequence.
+    fn lowercase(&self, sequence: NormalizedString) -> NormalizedString {
         if self.lowercase {
-            normalized.lowercase()
+            sequence.lowercase()
         } else {
-            normalized
+            sequence
         }
     }
 
+    /// Normalizes the sequence.
     pub(crate) fn normalize(&self, sequence: impl AsRef<str>) -> NormalizedString {
-        let normalized = sequence.into();
-        let normalized = self.clean_text(normalized);
-        let normalized = self.handle_chinese_chars(normalized);
-        let normalized = self.strip_accents(normalized);
-        self.lowercase(normalized)
+        let sequence = self.clean(sequence.into());
+        let sequence = self.handle_chinese(sequence);
+        let sequence = self.strip_accents(sequence);
+        self.lowercase(sequence)
     }
 }

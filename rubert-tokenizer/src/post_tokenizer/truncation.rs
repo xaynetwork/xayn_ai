@@ -74,7 +74,8 @@ mod tests {
             offsets: vec![Offsets(0, 1), Offsets(1, 2), Offsets(2, 3), Offsets(3, 4)],
             special_tokens_mask: vec![0, 0, 0, 0],
             attention_mask: vec![1, 1, 1, 1],
-            ..Encoding::default()
+            sequence_ranges: None,
+            overflowing: None,
         }
     }
 

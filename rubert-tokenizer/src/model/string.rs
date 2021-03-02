@@ -1,6 +1,4 @@
-use std::{borrow::Cow, convert::TryFrom};
-
-use anyhow::anyhow;
+use std::borrow::Cow;
 
 use crate::{
     model::{encoding::Encoding, Model},
@@ -15,17 +13,9 @@ pub struct Token {
     pub offsets: Offsets,
 }
 
-/// Wrapper for a subpart of a `NormalizedString`.
-///
-/// This Split contains the underlying `NormalizedString` as well as its offsets
-/// in the original string. These offsets are in the `original` referential.
-/// It also contains any `Token` associated to the current split
+/// A subpart of a normalized string.
 pub struct Split {
-    /// The underlying `NormalizedString`. Each SubString is represented by a `NormalizedString`
-    /// and in the end we might be carrying a lot of SubString representing various parts of the
-    /// original input string.
     normalized: NormalizedString,
-    /// Tokens associated to this Split.
     tokens: Vec<Token>,
 }
 
@@ -38,6 +28,7 @@ impl From<NormalizedString> for Split {
     }
 }
 
+/// A tokenized sequence.
 pub struct TokenizedString {
     splits: Vec<Split>,
 }
@@ -51,6 +42,7 @@ impl From<PreTokenizedString> for TokenizedString {
 }
 
 impl TokenizedString {
+    /// Tokenizes this wrt given model parameters.
     pub fn tokenize(mut self, model: &Model) -> Result<Self, Error> {
         self.splits.iter_mut().for_each(|split| {
             let string = split.normalized.normalized.as_str();
@@ -100,36 +92,38 @@ impl TokenizedString {
     }
 }
 
-impl TryFrom<TokenizedString> for Encoding {
-    type Error = Error;
-
-    fn try_from(string: TokenizedString) -> Result<Self, Self::Error> {
+impl From<TokenizedString> for Encoding {
+    /// Creates an encoding from a tokenized sequence.
+    ///
+    /// # Panics
+    /// Panics if the sequence has not been tokenized before.
+    fn from(string: TokenizedString) -> Self {
         if string.splits.is_empty() {
-            Ok(Encoding::default())
-        } else if string.splits.iter().any(|split| split.tokens.is_empty()) {
-            Err(anyhow!(
-                "Split has not been tokenized, call `PreTokenizedString::tokenize` first"
-            ))
-        } else {
-            Ok(string
-                .splits
-                .into_iter()
-                .enumerate()
-                .flat_map(|(idx, split)| {
-                    let Split { normalized, tokens } = split;
-                    tokens.into_iter().map(move |mut token| {
-                        token.offsets = normalized
-                            .convert_offsets(Range::Normalized(token.offsets.0..token.offsets.1))
-                            .map_or(token.offsets, |range| {
-                                Offsets(
-                                    normalized.original_shift + range.start,
-                                    normalized.original_shift + range.end,
-                                )
-                            });
-                        (token, Some(idx as u32))
-                    })
-                })
-                .collect())
+            return Encoding::with_capacity(0);
         }
+        assert!(
+            string.splits.iter().all(|split| !split.tokens.is_empty()),
+            "Split has not been tokenized, call `PreTokenizedString::tokenize` first",
+        );
+
+        string
+            .splits
+            .into_iter()
+            .enumerate()
+            .flat_map(|(idx, split)| {
+                let Split { normalized, tokens } = split;
+                tokens.into_iter().map(move |mut token| {
+                    token.offsets = normalized
+                        .convert_offsets(Range::Normalized(token.offsets.0..token.offsets.1))
+                        .map_or(token.offsets, |range| {
+                            Offsets(
+                                normalized.original_shift + range.start,
+                                normalized.original_shift + range.end,
+                            )
+                        });
+                    (token, Some(idx as u32))
+                })
+            })
+            .collect()
     }
 }

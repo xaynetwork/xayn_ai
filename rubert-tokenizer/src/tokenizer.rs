@@ -1,7 +1,7 @@
-use std::{convert::TryInto, iter::IntoIterator};
+use std::iter::IntoIterator;
 
 use crate::{
-    model::{encoding::Encoding, Model},
+    model::{encoding::Encoding, string::TokenizedString, Model},
     normalizer::{string::NormalizedString, Normalizer},
     post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
     pre_tokenizer::{string::PreTokenizedString, PreTokenizer},
@@ -30,31 +30,32 @@ impl Tokenizer {
     }
 
     /// PreTokenization logic, handling the case where there is no PreTokenizer set
-    fn pre_tokenize(&self, normalized: NormalizedString) -> Result<PreTokenizedString, Error> {
-        self.pre_tokenizer.pre_tokenize(normalized)
+    fn pre_tokenize(&self, sequence: NormalizedString) -> Result<PreTokenizedString, Error> {
+        self.pre_tokenizer.pre_tokenize(sequence)
     }
 
     /// Tokenization logic, makes the bridge between the pre-tokenization phase and the real
     /// tokenization phase, and converting offsets back to the original referential.
-    fn tokenize(&self, pre_tokenized: PreTokenizedString) -> Result<Encoding, Error> {
-        self.model.tokenize(pre_tokenized)?.try_into()
+    fn tokenize(&self, sequence: PreTokenizedString) -> Result<TokenizedString, Error> {
+        self.model.tokenize(sequence)
     }
 
     /// Post processing logic, handling the case where there is no PostProcessor set
-    fn post_tokenize(&self, encoding: Encoding) -> Encoding {
+    fn post_tokenize(&self, sequence: TokenizedString) -> Encoding {
         let encoding = self
             .truncation
-            .truncate(encoding, PostTokenizer::ADDED_TOKENS);
-        let encoding = self.post_tokenizer.process(encoding);
+            .truncate(sequence.into(), PostTokenizer::ADDED_TOKENS);
+        let encoding = self.post_tokenizer.post_tokenize(encoding);
         self.padding.pad(encoding)
     }
 
     /// Encodes the sequence.
     pub fn encode(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
-        let string = self.normalize(sequence);
-        let string = self.pre_tokenize(string)?;
-        let encoding = self.tokenize(string)?;
-        let encoding = self.post_tokenize(encoding);
+        let normalized = self.normalize(sequence);
+        let pre_tokenized = self.pre_tokenize(normalized)?;
+        let tokenized = self.tokenize(pre_tokenized)?;
+        // TODO: move into encoding to post-tokenizer
+        let encoding = self.post_tokenize(tokenized);
 
         Ok(encoding)
     }
