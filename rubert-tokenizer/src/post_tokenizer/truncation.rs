@@ -1,13 +1,14 @@
 use anyhow::anyhow;
 
-use crate::{model::encoding::Encoding, Error};
+use crate::{
+    post_tokenizer::{encoding::Encoding, PostTokenizer},
+    Error,
+};
 
 /// A truncation strategy.
-///
-/// Defaults to the [`none()`] truncation strategy.
 pub struct Truncation(Truncations);
 
-/// The truncation strategies.
+/// The available truncation strategies.
 enum Truncations {
     /// No truncation.
     None,
@@ -22,24 +23,18 @@ impl Truncation {
     }
 
     /// Creates a fixed-length truncation strategy.
-    ///
-    /// The length must be greater or equal to the number of mandatory tokens added by the
-    /// [`PostTokenizer`]. The truncated parts are overlapping by the stride, which must be zero or
-    /// less than the length minus the number of mandatory tokens added by the [`PostTokenizer`].
-    ///
-    /// [`PostTokenizer`]: crate::PostTokenizer
     pub fn fixed(len: usize, stride: usize) -> Self {
         Self(Truncations::Fixed { len, stride })
     }
 
-    /// Validates itself.
+    /// Validates this strategy.
     pub(crate) fn validate(self) -> Result<Self, Error> {
         match self.0 {
             Truncations::None => Ok(self),
             Truncations::Fixed { len, stride } => {
-                if len < 2 {
+                if len < PostTokenizer::ADDED_TOKENS {
                     Err(anyhow!("length must be greater or equal to the number of mandatory tokens added by the post-tokenizer"))
-                } else if stride >= len - 2 {
+                } else if stride >= len - PostTokenizer::ADDED_TOKENS {
                     Err(anyhow!("stride must be zero or less than the length minus the number of mandatory tokens added by the post-tokenizer"))
                 } else {
                     Ok(self)

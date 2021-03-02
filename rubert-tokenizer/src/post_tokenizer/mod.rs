@@ -1,3 +1,4 @@
+pub mod encoding;
 pub mod padding;
 pub mod truncation;
 
@@ -5,11 +6,7 @@ use std::iter::once;
 
 use anyhow::bail;
 
-use crate::{
-    model::{encoding::Encoding, Vocab},
-    normalizer::string::Offsets,
-    Error,
-};
+use crate::{model::Vocab, normalizer::string::Offsets, post_tokenizer::encoding::Encoding, Error};
 
 /// A Bert post-tokenizer.
 pub struct PostTokenizer {
@@ -20,9 +17,10 @@ pub struct PostTokenizer {
 }
 
 impl PostTokenizer {
+    /// The number of added special tokens.
     pub(crate) const ADDED_TOKENS: usize = 2;
 
-    /// Validates itself.
+    /// Creates a Bert post-tokenizer.
     pub(crate) fn new(cls: String, sep: String, vocab: &Vocab) -> Result<Self, Error> {
         let cls_id = if let Some(id) = vocab.get(cls.as_str()) {
             *id
@@ -43,6 +41,7 @@ impl PostTokenizer {
         })
     }
 
+    /// Post-tokenizes the encoding.
     pub(crate) fn post_tokenize(&self, encoding: Encoding) -> Encoding {
         let len = encoding.len();
         let ids = once(self.cls_id)

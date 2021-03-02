@@ -3,7 +3,7 @@ pub mod string;
 use unicode_categories::UnicodeCategories;
 
 use crate::{
-    normalizer::string::{NormalizedString, SplitDelimiterBehavior},
+    normalizer::string::{NormalizedString, SplitDelimiter},
     pre_tokenizer::string::PreTokenizedString,
     Error,
 };
@@ -12,16 +12,17 @@ use crate::{
 pub struct PreTokenizer;
 
 impl PreTokenizer {
+    /// Pre-tokenizes the sequence.
     pub(crate) fn pre_tokenize(
         &self,
-        normalized: NormalizedString,
+        sequence: NormalizedString,
     ) -> Result<PreTokenizedString, Error> {
-        PreTokenizedString::from(normalized)
-            .split(|_, s| s.split(char::is_whitespace, SplitDelimiterBehavior::Removed))?
+        PreTokenizedString::from(sequence)
+            .split(|_, s| s.split(char::is_whitespace, SplitDelimiter::Remove))?
             .split(|_, s| {
                 s.split(
                     |c: char| c.is_ascii_punctuation() || c.is_punctuation(),
-                    SplitDelimiterBehavior::Isolated,
+                    SplitDelimiter::Isolate,
                 )
             })
     }
@@ -36,19 +37,13 @@ mod tests {
         assert_eq!(actual.splits.len(), expected.len());
         for (split, (string, offset)) in actual.splits.iter().zip(expected) {
             assert_eq!(split.normalized, string);
-            assert_eq!(
-                split.original_shift + split.alignments.first().unwrap().0,
-                offset.0,
-            );
-            assert_eq!(
-                split.original_shift + split.alignments.last().unwrap().1,
-                offset.1,
-            );
+            assert_eq!(split.offset + split.alignments.first().unwrap().0, offset.0);
+            assert_eq!(split.offset + split.alignments.last().unwrap().1, offset.1);
         }
     }
 
     #[test]
-    fn basic() {
+    fn test_basic() {
         let normalized = "Hey friend!     How are you?!?".into();
         let pre_tokenized = PreTokenizer.pre_tokenize(normalized).unwrap();
         let expected = vec![
@@ -66,7 +61,7 @@ mod tests {
     }
 
     #[test]
-    fn chinese_chars() {
+    fn test_chinese() {
         let sequence = "野口里佳 Noguchi Rika";
         let normalized = NormalizedString::from(sequence).transform(
             sequence.chars().flat_map(|c| {

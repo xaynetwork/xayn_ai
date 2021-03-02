@@ -1,3 +1,45 @@
+//! A Bert tokenizer which converts sequences into encodings.
+//!
+//! The tokenizer is based on a vocabulary and consists of a Bert normalizer, a Bert pre-tokenizer,
+//! a Bert word piece model and a Bert post-tokenizer including truncation and padding strategies.
+//!
+//! The normalizer is configurable by:
+//! - Cleans any control characters and replaces all sorts of whitespace by ` `.
+//! - Puts spaces around chinese characters so they get split.
+//! - Strips accents from characters.
+//! - Lowercases characters.
+//!
+//! The pre-tokenizer is not configurable.
+//!
+//! The word piece model is configurable by:
+//! - The unknown token.
+//! - The continuing subword prefix.
+//! - The maximum number of characters per word.
+//!
+//! The post-tokenizer is configurably by:
+//! - The class token.
+//! - The separation token.
+//! - A truncation strategy.
+//! - A padding strategy.
+//!
+//! ```no_run
+//! use rubert_tokenizer::{Builder, Padding, Truncation};
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let tokenizer = Builder::from_file("vocab.txt")?
+//!         .with_normalizer(true, true, true, true)
+//!         .with_model("[UNK]", "##", 100)
+//!         .with_post_tokenizer("[CLS]", "[SEP]")
+//!         .with_truncation(Truncation::fixed(128, 0))
+//!         .with_padding(Padding::fixed(128, "[PAD]"))
+//!         .build()?;
+//!
+//!     let encoding = tokenizer.encode("This is a sequence.")?;
+//!
+//!     Ok(())
+//! }
+//! ```
+
 mod builder;
 mod model;
 mod normalizer;
@@ -9,9 +51,6 @@ type Error = anyhow::Error;
 
 pub use crate::{
     builder::Builder,
-    model::encoding::Encoding,
-    normalizer::Normalizer,
-    post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
-    pre_tokenizer::PreTokenizer,
+    post_tokenizer::{encoding::Encoding, padding::Padding, truncation::Truncation},
     tokenizer::Tokenizer,
 };

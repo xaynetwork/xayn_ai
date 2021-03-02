@@ -2,14 +2,53 @@ use regex::Regex;
 
 use crate::{normalizer::string::Offsets, Error};
 
-/// Pattern used to split a NormalizedString.
+/// A pattern used to split a NormalizedString.
 pub trait Pattern {
-    /// Slice the given string in a list of pattern match positions, with
-    /// a boolean indicating whether this is a match or not.
+    /// Slices the sequence in a list of pattern match positions.
     ///
-    /// This method *must* cover the whole string in its outputs, with
-    /// contiguous ordered slices.
+    /// A boolean indicates whether this is a match or not. This method *must* cover the whole
+    /// string in its outputs, with contiguous ordered slices.
     fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error>;
+}
+
+impl<F> Pattern for F
+where
+    F: Fn(char) -> bool,
+{
+    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
+        if inside.is_empty() {
+            return Ok(vec![(Offsets(0, 0), false)]);
+        }
+
+        let mut last_offset = 0;
+        let mut last_seen = 0;
+
+        let mut matches = inside
+            .char_indices()
+            .flat_map(|(idx, chr)| {
+                last_seen = idx + chr.len_utf8();
+                if self(chr) {
+                    let mut events = Vec::with_capacity(2);
+                    if last_offset < idx {
+                        // We need to emit what was before this match
+                        events.push((Offsets(last_offset, idx), false));
+                    }
+                    events.push((Offsets(idx, last_seen), true));
+                    last_offset = last_seen;
+                    events
+                } else {
+                    vec![]
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // Do not forget the last potential split
+        if last_seen > last_offset {
+            matches.push((Offsets(last_offset, last_seen), false));
+        }
+
+        Ok(matches)
+    }
 }
 
 impl Pattern for char {
@@ -65,49 +104,39 @@ impl Pattern for &Regex {
     }
 }
 
-impl<F> Pattern for F
-where
-    F: Fn(char) -> bool,
-{
-    fn find_matches(&self, inside: &str) -> Result<Vec<(Offsets, bool)>, Error> {
-        if inside.is_empty() {
-            return Ok(vec![(Offsets(0, 0), false)]);
-        }
-
-        let mut last_offset = 0;
-        let mut last_seen = 0;
-
-        let mut matches = inside
-            .char_indices()
-            .flat_map(|(idx, chr)| {
-                last_seen = idx + chr.len_utf8();
-                if self(chr) {
-                    let mut events = Vec::with_capacity(2);
-                    if last_offset < idx {
-                        // We need to emit what was before this match
-                        events.push((Offsets(last_offset, idx), false));
-                    }
-                    events.push((Offsets(idx, last_seen), true));
-                    last_offset = last_seen;
-                    events
-                } else {
-                    vec![]
-                }
-            })
-            .collect::<Vec<_>>();
-
-        // Do not forget the last potential split
-        if last_seen > last_offset {
-            matches.push((Offsets(last_offset, last_seen), false));
-        }
-
-        Ok(matches)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_functions() {
+        let is_b = |c| c == 'b';
+        assert_eq!(
+            is_b.find_matches("aba").unwrap(),
+            vec![
+                (Offsets(0, 1), false),
+                (Offsets(1, 2), true),
+                (Offsets(2, 3), false),
+            ],
+        );
+        assert_eq!(
+            is_b.find_matches("aaaab").unwrap(),
+            vec![(Offsets(0, 4), false), (Offsets(4, 5), true)],
+        );
+        assert_eq!(
+            is_b.find_matches("bbaaa").unwrap(),
+            vec![
+                (Offsets(0, 1), true),
+                (Offsets(1, 2), true),
+                (Offsets(2, 5), false),
+            ],
+        );
+        assert_eq!(is_b.find_matches("").unwrap(), vec![(Offsets(0, 0), false)]);
+        assert_eq!(
+            is_b.find_matches("aaa").unwrap(),
+            vec![(Offsets(0, 3), false)],
+        );
+    }
 
     #[test]
     fn test_char() {
@@ -184,36 +213,6 @@ mod tests {
         );
         assert_eq!(
             "b".find_matches("aaa").unwrap(),
-            vec![(Offsets(0, 3), false)],
-        );
-    }
-
-    #[test]
-    fn test_functions() {
-        let is_b = |c| c == 'b';
-        assert_eq!(
-            is_b.find_matches("aba").unwrap(),
-            vec![
-                (Offsets(0, 1), false),
-                (Offsets(1, 2), true),
-                (Offsets(2, 3), false),
-            ],
-        );
-        assert_eq!(
-            is_b.find_matches("aaaab").unwrap(),
-            vec![(Offsets(0, 4), false), (Offsets(4, 5), true)],
-        );
-        assert_eq!(
-            is_b.find_matches("bbaaa").unwrap(),
-            vec![
-                (Offsets(0, 1), true),
-                (Offsets(1, 2), true),
-                (Offsets(2, 5), false),
-            ],
-        );
-        assert_eq!(is_b.find_matches("").unwrap(), vec![(Offsets(0, 0), false)]);
-        assert_eq!(
-            is_b.find_matches("aaa").unwrap(),
             vec![(Offsets(0, 3), false)],
         );
     }

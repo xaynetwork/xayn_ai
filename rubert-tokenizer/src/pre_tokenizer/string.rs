@@ -1,39 +1,27 @@
 use crate::{normalizer::string::NormalizedString, Error};
 
-/// The `PreTokenizedString` is in charge of splitting an underlying string,
-/// making sure everything is fine while doing so, and providing ways to normalize
-/// and tokenize these splits.
-/// Once everything has been normalized and tokenized, the `PreTokenizedString` is able
-/// to build an `Encoding` with all the relevant offsets and word ids, relative to the
-/// original string.
+/// A pre-tokenized sequence.
 pub struct PreTokenizedString {
     pub original: String,
     pub splits: Vec<NormalizedString>,
 }
 
 impl From<NormalizedString> for PreTokenizedString {
-    fn from(normalized: NormalizedString) -> Self {
+    fn from(sequence: NormalizedString) -> Self {
         Self {
-            original: normalized.original.clone(),
-            splits: vec![normalized],
+            original: sequence.original.clone(),
+            splits: vec![sequence],
         }
     }
 }
 
 impl PreTokenizedString {
-    /// Split the `PreTokenizedString` by providing a `split_fn` in charge of splitting
-    /// each substring (`NormalizedString`) into multiple parts.
+    /// Splits wrt the function.
     ///
-    /// `split_fn` takes a `NormalizedString` and is in charge of returning an iterator
-    /// over the produced `NormalizedString`. `split_fn` is free of modifying these
-    /// `NormalizedString` as relevant, as long as it respects the constraint stated below.
-    ///
-    /// There are only one constraint that *MUST* be respected:
-    /// > The produced `NormalizedString`, if combined back together, must have the
-    /// same `original` string as the original one given to `split_fn`. This concretely
-    /// means that for the offset tracking to work as expected, `split_fn` must produce
-    /// "splits" of the original string.
-    pub(crate) fn split<F, S>(mut self, split_fn: F) -> Result<Self, Error>
+    /// The function takes a normalized sequence and returns an iterator over normalized
+    /// subsequences. The combined normalized subsequences must have the same original sequence as
+    /// the normalized sequence.
+    pub fn split<F, S>(mut self, f: F) -> Result<Self, Error>
     where
         F: Fn(usize, NormalizedString) -> Result<S, Error>,
         S: IntoIterator<Item = NormalizedString>,
@@ -41,17 +29,13 @@ impl PreTokenizedString {
         // new_splits is at least as big as self.splits
         let mut new_splits = Vec::with_capacity(self.splits.len());
         for (i, original_split) in self.splits.drain(..).enumerate() {
-            new_splits.extend(
-                split_fn(i, original_split)?
-                    .into_iter()
-                    .filter_map(|split| {
-                        if split.normalized.is_empty() {
-                            None
-                        } else {
-                            Some(split)
-                        }
-                    }),
-            );
+            new_splits.extend(f(i, original_split)?.into_iter().filter_map(|split| {
+                if split.normalized.is_empty() {
+                    None
+                } else {
+                    Some(split)
+                }
+            }));
         }
         self.splits = new_splits;
 

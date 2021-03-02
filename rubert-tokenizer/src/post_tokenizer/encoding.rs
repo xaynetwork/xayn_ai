@@ -1,29 +1,32 @@
-use std::{collections::HashMap, iter, ops::Range};
+use std::{collections::HashMap, iter};
 
-use crate::{model::string::Token, normalizer::string::Offsets};
+use crate::{
+    model::string::{Split, Token, TokenizedString},
+    normalizer::string::{Offsets, Range},
+};
 
-/// Represents the output of a `Tokenizer`.
+/// An encoded sequence.
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Encoding {
-    /// IDs produced by the `Tokenizer`
+    /// The IDs of the tokens.
     pub(crate) ids: Vec<u32>,
-    /// Type of the IDs
+    /// The type of the IDs.
     pub(crate) type_ids: Vec<u32>,
-    /// Tokens associated to each ID
+    /// The tokenized sequence.
     pub(crate) tokens: Vec<String>,
-    /// Indices of the word associated to each token/ID
+    /// The indices of the word associated to the tokens.
     pub(crate) words: Vec<Option<u32>>,
-    /// Offsets of the token/ID from the NormalizedString
+    /// The offsets of the tokens in the sequence.
     pub(crate) offsets: Vec<Offsets>,
-    /// Mask identifying special tokens
+    /// The mask identifying special tokens.
     pub(crate) special_tokens_mask: Vec<u32>,
-    /// Mask identifying padding tokens for the attention mechanism
+    /// The mask identifying padding tokens.
     pub(crate) attention_mask: Vec<u32>,
-    /// Ranges of tokens covered by each sequence. If this is None or empty we consider
-    /// there is only one sequence in this Encoding, and that it covers the entire range.
-    pub(crate) sequence_ranges: Option<HashMap<usize, Range<usize>>>,
-    /// A list of overflowing Encoding generated when we got truncated
+    /// The ranges of tokens covered by each sequence. If this is None or empty, it is considered as
+    /// exactly one sequence covering the entire range.
+    pub(crate) sequence_ranges: Option<HashMap<usize, std::ops::Range<usize>>>,
+    /// A list of overflowing encodings produced by truncation.
     pub(crate) overflowing: Option<Vec<Encoding>>,
 }
 
@@ -33,6 +36,7 @@ impl std::iter::FromIterator<Encoding> for Encoding {
     }
 }
 
+#[doc(hidden)]
 impl std::iter::FromIterator<(Token, Option<u32>)> for Encoding {
     fn from_iter<I: IntoIterator<Item = (Token, Option<u32>)>>(iter: I) -> Self {
         let mut iter = iter.into_iter();
@@ -56,7 +60,44 @@ impl std::iter::FromIterator<(Token, Option<u32>)> for Encoding {
     }
 }
 
+impl From<TokenizedString> for Encoding {
+    /// Creates an encoding from a tokenized sequence.
+    ///
+    /// # Panics
+    /// Panics if the sequence has not been tokenized before.
+    fn from(sequence: TokenizedString) -> Self {
+        if sequence.splits.is_empty() {
+            return Encoding::with_capacity(0);
+        }
+        assert!(
+            sequence.splits.iter().all(|split| !split.tokens.is_empty()),
+            "Split has not been tokenized, call `PreTokenizedString::tokenize` first",
+        );
+
+        sequence
+            .splits
+            .into_iter()
+            .enumerate()
+            .flat_map(|(idx, split)| {
+                let Split { normalized, tokens } = split;
+                tokens.into_iter().map(move |mut token| {
+                    token.offsets = Range::Normalized(token.offsets.0..token.offsets.1)
+                        .convert(&normalized)
+                        .map_or(token.offsets, |range| {
+                            Offsets(
+                                normalized.offset + range.start,
+                                normalized.offset + range.end,
+                            )
+                        });
+                    (token, Some(idx as u32))
+                })
+            })
+            .collect()
+    }
+}
+
 impl Encoding {
+    /// Creates an empty encoding with capacity.
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             ids: Vec::with_capacity(capacity),
@@ -91,37 +132,37 @@ impl Encoding {
 
     /// Gets the ids.
     pub fn ids(&self) -> &[u32] {
-        &self.ids
+        self.ids.as_slice()
     }
 
     /// Gets the type ids.
     pub fn type_ids(&self) -> &[u32] {
-        &self.type_ids
+        self.type_ids.as_slice()
     }
 
     /// Gets the tokens.
     pub fn tokens(&self) -> &[String] {
-        &self.tokens[..]
+        self.tokens.as_slice()
     }
 
     /// Gets the words.
     pub fn words(&self) -> &[Option<u32>] {
-        &self.words
+        self.words.as_slice()
     }
 
     /// Gets the offsets.
     pub fn offsets(&self) -> &[Offsets] {
-        &self.offsets
+        self.offsets.as_slice()
     }
 
     /// Gets the special tokens mask.
     pub fn special_tokens_mask(&self) -> &[u32] {
-        &self.special_tokens_mask
+        self.special_tokens_mask.as_slice()
     }
 
     /// Gets the attention mask.
     pub fn attention_mask(&self) -> &[u32] {
-        &self.attention_mask
+        self.attention_mask.as_slice()
     }
 
     /// Gets the overflowing parts.
@@ -220,7 +261,7 @@ impl Encoding {
         self
     }
 
-    /// Merges the encodings together.
+    /// Merges the encodings.
     pub fn merge(encodings: impl IntoIterator<Item = Encoding>, growing_offsets: bool) -> Self {
         encodings
             .into_iter()
@@ -229,7 +270,7 @@ impl Encoding {
             })
     }
 
-    /// Extends the encoding from the "slice" `&from[skip..skip+take]`.
+    /// Extends from the "slice" `&from[skip..skip+take]`.
     #[inline]
     fn extend(&mut self, from: &Self, skip: usize, take: usize) {
         debug_assert!(self.overflowing.is_none());
@@ -249,7 +290,7 @@ impl Encoding {
             .extend(from.attention_mask.iter().skip(skip).take(take));
     }
 
-    /// Drains the encoding and chains the drainage with the "slice" `&from[skip..skip+take]`.
+    /// Drains and chains the drainage with the "slice" `&from[skip..skip+take]`.
     #[inline]
     fn drain_chain(&mut self, from: &Self, skip: usize, take: usize) -> Self {
         debug_assert!(self.overflowing.is_none());

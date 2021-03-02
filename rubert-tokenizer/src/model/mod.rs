@@ -1,4 +1,3 @@
-pub mod encoding;
 pub mod string;
 
 use std::{collections::HashMap, io::BufRead};
@@ -7,6 +6,7 @@ use anyhow::bail;
 
 use crate::{model::string::TokenizedString, pre_tokenizer::string::PreTokenizedString, Error};
 
+/// A vocabulary mapping tokens to ids.
 pub type Vocab = HashMap<String, u32>;
 
 /// A Bert word piece model.
@@ -19,6 +19,7 @@ pub struct Model {
 }
 
 impl Model {
+    /// Parses the vocabulary.
     pub fn parse_vocab(vocab: impl BufRead) -> Result<Vocab, Error> {
         vocab
             .lines()
@@ -30,6 +31,7 @@ impl Model {
             .collect()
     }
 
+    /// Creates a Bert word piece model.
     pub fn new(vocab: Vocab, unk: String, prefix: String, max_chars: usize) -> Result<Self, Error> {
         let unk_id = if let Some(id) = vocab.get(unk.as_str()) {
             *id
@@ -49,7 +51,8 @@ impl Model {
         })
     }
 
-    pub fn tokenize(&self, string: PreTokenizedString) -> Result<TokenizedString, Error> {
-        TokenizedString::from(string).tokenize(self)
+    /// Tokenizes the sequences.
+    pub fn tokenize(&self, sequence: PreTokenizedString) -> Result<TokenizedString, Error> {
+        TokenizedString::from(sequence).tokenize(self)
     }
 }

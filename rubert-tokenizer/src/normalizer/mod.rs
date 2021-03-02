@@ -48,11 +48,11 @@ impl Normalizer {
         }
     }
 
-    /// Places whitespace around chinese characters in the sequence.
+    /// Wraps whitespace around chinese characters in the sequence.
     fn handle_chinese(&self, sequence: NormalizedString) -> NormalizedString {
         if self.chinese {
             let mut new_chars: Vec<(char, isize)> = vec![];
-            sequence.for_each(|c| {
+            sequence.for_each_char(|c| {
                 // Checks whether a character is chinese
                 // This defines a "chinese character" as anything in the CJK Unicode block:
                 //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)

@@ -13,7 +13,7 @@ use crate::{
     Error,
 };
 
-/// A builder to create a [`Tokenizer`].
+/// A builder to create a Bert [`Tokenizer`].
 pub struct Builder {
     // normalizer
     cleanup: bool,
@@ -58,8 +58,6 @@ impl Builder {
     }
 
     /// Creates a [`Tokenizer`] builder from a vocabulary file.
-    ///
-    /// The default settings are the same as for [`new()`].
     ///
     /// # Errors
     /// Fails on invalid vocabularies.
@@ -121,9 +119,6 @@ impl Builder {
     /// Configures the truncation strategy.
     ///
     /// Defaults to no truncation.
-    ///
-    /// # Errors
-    /// Fails on invalid truncation configurations.
     pub fn with_truncation(mut self, trunc: Truncation) -> Self {
         self.trunc = trunc;
         self
@@ -132,9 +127,6 @@ impl Builder {
     /// Configures the padding strategy.
     ///
     /// Defaults to no padding.
-    ///
-    /// # Errors
-    /// Fails on invalid padding configurations.
     pub fn with_padding(mut self, pad: Padding) -> Self {
         self.pad = pad;
         self
@@ -143,7 +135,7 @@ impl Builder {
     /// Builds the tokenizer.
     ///
     /// # Errors
-    /// Fails on invalid model configurations.
+    /// Fails on invalid configurations.
     pub fn build(self) -> Result<Tokenizer, Error> {
         let normalizer = Normalizer::new(self.cleanup, self.chinese, self.accents, self.lowercase);
         let pre_tokenizer = PreTokenizer;

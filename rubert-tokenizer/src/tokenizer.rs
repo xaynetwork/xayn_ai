@@ -1,19 +1,19 @@
 use std::iter::IntoIterator;
 
 use crate::{
-    model::{encoding::Encoding, string::TokenizedString, Model},
+    model::{string::TokenizedString, Model},
     normalizer::{string::NormalizedString, Normalizer},
-    post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
+    post_tokenizer::{encoding::Encoding, padding::Padding, truncation::Truncation, PostTokenizer},
     pre_tokenizer::{string::PreTokenizedString, PreTokenizer},
     Error,
 };
 
 /// A Bert tokenizer.
 ///
-/// Can be created via the [`Builder`] and consists of a normalizer, a pre-tokenizer, a Bert word
-/// piece model and a post-tokenizer including truncation and padding strategies.
+/// Can be created via the [`Builder`] and consists of a Bert normalizer, a Bert pre-tokenizer, a
+/// Bert word piece model and a Bert post-tokenizer including truncation and padding strategies.
 ///
-/// [`Builer`]: crate::Builder
+/// [`Builder`]: crate::Builder
 pub struct Tokenizer {
     pub(crate) normalizer: Normalizer,
     pub(crate) pre_tokenizer: PreTokenizer,
@@ -24,23 +24,22 @@ pub struct Tokenizer {
 }
 
 impl Tokenizer {
-    /// Normalization logic, go through all normalizers
+    /// Normalizes the sequence.
     fn normalize(&self, sequence: impl AsRef<str>) -> NormalizedString {
         self.normalizer.normalize(sequence)
     }
 
-    /// PreTokenization logic, handling the case where there is no PreTokenizer set
+    /// Pre-tokenizes the sequence
     fn pre_tokenize(&self, sequence: NormalizedString) -> Result<PreTokenizedString, Error> {
         self.pre_tokenizer.pre_tokenize(sequence)
     }
 
-    /// Tokenization logic, makes the bridge between the pre-tokenization phase and the real
-    /// tokenization phase, and converting offsets back to the original referential.
+    /// Tokenizes the sequence.
     fn tokenize(&self, sequence: PreTokenizedString) -> Result<TokenizedString, Error> {
         self.model.tokenize(sequence)
     }
 
-    /// Post processing logic, handling the case where there is no PostProcessor set
+    /// Post-tokenizes the sequence
     fn post_tokenize(&self, sequence: TokenizedString) -> Encoding {
         let encoding = self
             .truncation
@@ -68,7 +67,7 @@ impl Tokenizer {
             .collect()
     }
 
-    /// Decodes an encoding.
+    /// Decodes the encoding with optional cleanup.
     pub fn decode(&self, encoding: &Encoding, cleanup: bool) -> String {
         encoding.decode(
             self.model.unk_token.as_str(),
@@ -77,7 +76,7 @@ impl Tokenizer {
         )
     }
 
-    /// Decodes the encodings.
+    /// Decodes the encodings with optional cleanup.
     pub fn decode_batch(&self, encodings: &[Encoding], cleanup: bool) -> Vec<String> {
         encodings
             .iter()

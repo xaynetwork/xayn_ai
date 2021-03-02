@@ -4,12 +4,13 @@ use unicode_normalization_alignments::UnicodeNormalization;
 
 use crate::{normalizer::pattern::Pattern, Error};
 
+/// Offsets of a subsequence relative to a sequence.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Debug))]
 pub struct Offsets(pub usize, pub usize);
 
 impl Offsets {
-    /// Returns the range covered by a slice of alignments
+    /// Returns the range covered by a slice of alignments.
     fn expand_alignments(alignments: &[Offsets]) -> Option<std::ops::Range<usize>> {
         if alignments.is_empty() {
             None
@@ -21,29 +22,28 @@ impl Offsets {
     }
 }
 
-/// Represents a Range usable by the NormalizedString to index its content.
-/// A Range can use indices relative to either the `Original` or the `Normalized` string
+/// A range for sequences, either relative to the original or the normalized sequence.
 #[derive(Clone)]
-pub enum Range<T> {
-    Original(T),
-    Normalized(T),
+pub enum Range<R> {
+    Original(R),
+    Normalized(R),
 }
 
-impl<T> Range<T>
+impl<R> Range<R>
 where
-    T: RangeBounds<usize>,
+    R: RangeBounds<usize>,
 {
-    fn inner(&self) -> &T {
+    fn inner(&self) -> &R {
         match self {
             Range::Original(range) => range,
             Range::Normalized(range) => range,
         }
     }
 
-    /// Converts the current Range to a `std::ops::Range<usize>`. This requires the `max_len`
-    /// of the represented string (in chars, not bytes) in order to cover the case where the
-    /// original provided range was unbounded
-    fn into_full_range(self, max_len: usize) -> std::ops::Range<usize> {
+    /// Converts to a standard range.
+    ///
+    /// Requires the length of the represented sequences in case the inner range is unbounded.
+    fn into_range(self, len: usize) -> std::ops::Range<usize> {
         let range = self.inner();
         let start = match range.start_bound() {
             Bound::Included(idx) => *idx,
@@ -53,84 +53,22 @@ where
         let end = match range.end_bound() {
             Bound::Included(idx) => *idx + 1,
             Bound::Excluded(idx) => *idx,
-            Bound::Unbounded => max_len,
+            Bound::Unbounded => len,
         };
 
         start..end
     }
-}
 
-/// Defines the expected behavior for the delimiter of a Split Pattern.
-///
-/// # Examples
-/// When splitting on `'-'` with input `the-final--countdown`:
-/// - Removed: `[ "the", "final", "countdown" ]`
-/// - Isolated: `[ "the", "-", "final", "-", "-", "countdown" ]`
-pub enum SplitDelimiterBehavior {
-    Removed,
-    Isolated,
-}
-
-/// A `NormalizedString` takes care of processing an "original" string to modify
-/// it and obtain a "normalized" string. It keeps both version of the string,
-/// alignments information between both and provides an interface to retrieve
-/// ranges of each string, using offsets from any of them.
-///
-/// It is possible to retrieve a part of the original string, by indexing it with
-/// offsets from the normalized one, and the other way around too. It is also
-/// possible to convert offsets from one referential to the other one easily.
-#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
-pub struct NormalizedString {
-    /// The original version of the string, before any modification
-    pub original: String,
-    /// The normalized version of the string, after all modifications
-    pub normalized: String,
-    /// Mapping from normalized string to original one: (start, end) for each
-    /// byte of the normalized string
-    pub alignments: Vec<Offsets>,
-    /// If this NormalizedString is a slice of a bigger one, we keep the track
-    /// of the missing part, so that we can still give offsets from this original
-    /// string.
-    pub original_shift: usize,
-}
-
-impl<S> From<S> for NormalizedString
-where
-    S: AsRef<str>,
-{
-    fn from(sequence: S) -> Self {
-        let sequence = sequence.as_ref();
-        let alignments = sequence
-            .char_indices()
-            .flat_map(|(idx, chr)| {
-                let len = chr.len_utf8();
-                std::iter::repeat(Offsets(idx, idx + len)).take(len)
-            })
-            .collect::<Vec<_>>();
-        Self {
-            original: sequence.to_string(),
-            normalized: sequence.to_string(),
-            alignments,
-            original_shift: 0,
-        }
-    }
-}
-
-impl NormalizedString {
-    /// Convert the given offsets range from one referential to the other one:
-    /// `Original => Normalized` or `Normalized => Original`
+    /// Converts from one referential to the other one wrt a sequence.
     ///
-    /// Returns `None` when targeting something that is outside range
-    pub fn convert_offsets(
-        &self,
-        range: Range<impl RangeBounds<usize>>,
-    ) -> Option<std::ops::Range<usize>> {
-        let len_original = self.original.len();
-        let len_normalized = self.normalized.len();
+    /// Returns `None` when targeting something that is out of range.
+    pub fn convert(self, sequence: &NormalizedString) -> Option<std::ops::Range<usize>> {
+        let len_original = sequence.original.len();
+        let len_normalized = sequence.normalized.len();
 
-        let (target, original) = match range {
-            Range::Original(_) => (range.into_full_range(len_original), true),
-            Range::Normalized(_) => (range.into_full_range(len_normalized), false),
+        let (target, original) = match self {
+            Range::Original(_) => (self.into_range(len_original), true),
+            Range::Normalized(_) => (self.into_range(len_normalized), false),
         };
 
         // If we target an empty range, let's return the same
@@ -142,17 +80,18 @@ impl NormalizedString {
             return None;
         }
 
-        // If we target 0..0 on an empty string, we want to expand to the entire equivalent
-        if original && self.original.is_empty() && target == (0..0) {
+        // If we target 0..0 on an empty sequence, we want to expand to the entire equivalent
+        if original && sequence.original.is_empty() && target == (0..0) {
             return Some(0..len_normalized);
         }
-        if !original && self.normalized.is_empty() && target == (0..0) {
+        if !original && sequence.normalized.is_empty() && target == (0..0) {
             return Some(0..len_original);
         }
 
         if original {
             let (mut start, mut end) = (None, None);
-            self.alignments
+            sequence
+                .alignments
                 .iter()
                 .enumerate()
                 .take_while(|(_, alignment)| target.end >= alignment.1)
@@ -178,114 +117,153 @@ impl NormalizedString {
                 _ => None,
             }
         } else {
-            self.alignments
+            sequence
+                .alignments
                 .get(target)
                 .map(Offsets::expand_alignments)
                 .flatten()
         }
     }
+}
 
-    /// Return a range of the normalized string
-    fn get_range(&self, range: Range<impl RangeBounds<usize>>) -> Option<&str> {
+/// The behavior for the delimiter of a split pattern.
+///
+/// # Examples
+/// When splitting `the-final--countdown` on `'-'`:
+/// - Remove: `[ "the", "final", "countdown" ]`.
+/// - Isolate: `[ "the", "-", "final", "-", "-", "countdown" ]`.
+pub enum SplitDelimiter {
+    Remove,
+    Isolate,
+}
+
+/// A normalized sequence.
+///
+/// Keeps both the original and the normalized sequence, alignment information between both and
+/// provides an interface to retrieve ranges of each sequence, using offsets from any of them.
+#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
+pub struct NormalizedString {
+    /// The original sequence.
+    pub original: String,
+    /// The normalized sequence.
+    pub normalized: String,
+    /// Byte mappings from the normalized to the original sequence.
+    pub alignments: Vec<Offsets>,
+    /// The offset of this sequence in a super-sequence.
+    pub offset: usize,
+}
+
+impl<S> From<S> for NormalizedString
+where
+    S: AsRef<str>,
+{
+    fn from(sequence: S) -> Self {
+        let sequence = sequence.as_ref();
+        let alignments = sequence
+            .char_indices()
+            .flat_map(|(idx, chr)| {
+                let len = chr.len_utf8();
+                std::iter::repeat(Offsets(idx, idx + len)).take(len)
+            })
+            .collect::<Vec<_>>();
+        Self {
+            original: sequence.to_string(),
+            normalized: sequence.to_string(),
+            alignments,
+            offset: 0,
+        }
+    }
+}
+
+impl NormalizedString {
+    /// Byte-slices into the original sequence.
+    fn slice_original(&self, range: Range<impl RangeBounds<usize>>) -> Option<&str> {
         match range {
-            Range::Original(_) => self.normalized.get(self.convert_offsets(range)?),
-            Range::Normalized(_) => self
-                .normalized
-                .get(range.into_full_range(self.normalized.len())),
+            Range::Original(_) => self.original.get(range.into_range(self.original.len())),
+            Range::Normalized(_) => self.original.get(range.convert(self)?),
         }
     }
 
-    /// Return a range of the original string
-    fn get_range_original(&self, range: Range<impl RangeBounds<usize>>) -> Option<&str> {
+    /// Byte-slices into the normalized sequence.
+    fn slice_normalized(&self, range: Range<impl RangeBounds<usize>>) -> Option<&str> {
         match range {
-            Range::Original(_) => self
-                .original
-                .get(range.into_full_range(self.original.len())),
-            Range::Normalized(_) => self.original.get(self.convert_offsets(range)?),
+            Range::Original(_) => self.normalized.get(range.convert(self)?),
+            Range::Normalized(_) => self.normalized.get(range.into_range(self.normalized.len())),
         }
     }
 
-    /// Validate the given range, to make sure it is on char boundaries
-    fn validate_range(
-        &self,
-        range: Range<impl RangeBounds<usize>>,
-    ) -> Option<Range<std::ops::Range<usize>>> {
-        match range {
+    /// Char-slices into the normalized sequence.
+    pub fn slice_char(&self, range: Range<impl RangeBounds<usize>>) -> Option<NormalizedString> {
+        let (range, original_range, normalized_range) = match range {
             Range::Original(_) => {
-                let r = range.into_full_range(self.original.len());
-                if !(self.original.is_char_boundary(r.start)
-                    && self.original.is_char_boundary(r.end))
+                let range = range.into_range(self.original.len());
+                let range = if self.original.is_char_boundary(range.start)
+                    && self.original.is_char_boundary(range.end)
                 {
-                    None
+                    Range::Original(range)
                 } else {
-                    Some(Range::Original(r))
-                }
+                    return None;
+                };
+                let original_range = range.inner().clone();
+                let normalized_range = range.clone().convert(self)?;
+                (range, original_range, normalized_range)
             }
             Range::Normalized(_) => {
-                let r = range.into_full_range(self.normalized.len());
-                if !(self.normalized.is_char_boundary(r.start)
-                    && self.normalized.is_char_boundary(r.end))
+                let range = range.into_range(self.normalized.len());
+                let range = if self.normalized.is_char_boundary(range.start)
+                    && self.normalized.is_char_boundary(range.end)
                 {
-                    None
+                    Range::Normalized(range)
                 } else {
-                    Some(Range::Normalized(r))
-                }
+                    return None;
+                };
+                let original_range = range.clone().convert(self)?;
+                let normalized_range = range.inner().clone();
+                (range, original_range, normalized_range)
             }
-        }
-    }
-
-    /// Return a slice of the current NormalizedString
-    /// If the range is not on char boundaries, return None
-    pub fn slice(&self, range: Range<impl RangeBounds<usize>>) -> Option<NormalizedString> {
-        let full_range = self.validate_range(range)?;
-        let (normalized_range, original_range) = match full_range {
-            Range::Original(_) => (
-                self.convert_offsets(full_range.clone())?,
-                full_range.inner().clone(),
-            ),
-            Range::Normalized(_) => (
-                full_range.inner().clone(),
-                self.convert_offsets(full_range.clone())?,
-            ),
         };
 
-        let n_shift = original_range.start;
+        let original = self
+            .slice_original(range.clone())
+            .unwrap_or_default()
+            .into();
+        let normalized = self.slice_normalized(range).unwrap_or_default().into();
+        let alignments = self
+            .alignments
+            .get(normalized_range)?
+            .iter()
+            .map(|Offsets(start, end)| {
+                Offsets(*start - original_range.start, *end - original_range.start)
+            })
+            .collect();
+        let offset = self.offset + original_range.start;
 
         Some(Self {
-            original: self
-                .get_range_original(full_range.clone())
-                .unwrap_or_default()
-                .into(),
-            normalized: self.get_range(full_range).unwrap_or_default().into(),
-            alignments: self
-                .alignments
-                .get(normalized_range)?
-                .iter()
-                .map(|Offsets(start, end)| Offsets(*start - n_shift, *end - n_shift))
-                .collect(),
-            original_shift: self.original_shift + original_range.start,
+            original,
+            normalized,
+            alignments,
+            offset,
         })
     }
 
-    /// Applies transformations to the current normalized version of the string,
-    /// while updating the alignments.
-    /// This method expect an Iterator yielding each char of the new normalized string
-    /// with a `change` isize equals to:
-    ///   - `1` if this is a new char
-    ///   - `-N` if the char is right before N removed chars
-    ///   - `0` if the char is replacing the existing one
-    /// Since it is possible that the normalized string doesn't include some of the characters at
-    /// the beginning of the original one, we need an `initial_offset` which represents the number
-    /// of removed chars at the very beginning.
-    fn transform_range(
+    /// Transforms the normalized sequence within the range and updates the alignments.
+    ///
+    /// Expects an iterator yielding each character of the new normalized sequence with a change of:
+    /// - `1` if this is a new char.
+    /// - `-N` if the character is right before N removed characters.
+    /// - `0` if the character is replacing the existing one.
+    ///
+    /// The offset represents the number of potentially removed characters at the beginning of this
+    /// normalized sequence.
+    fn transform_within(
         mut self,
         range: Range<impl RangeBounds<usize>>,
-        dest: impl IntoIterator<Item = (char, isize)>,
-        initial_offset: usize,
+        iter: impl IntoIterator<Item = (char, isize)>,
+        offset: usize,
     ) -> Self {
         let n_range = match range {
-            Range::Normalized(_) => range.into_full_range(self.normalized.len()),
-            Range::Original(_) => match self.convert_offsets(range) {
+            Range::Normalized(_) => range.into_range(self.normalized.len()),
+            Range::Original(_) => match range.convert(&self) {
                 Some(range) => range,
                 None => return self,
             },
@@ -298,13 +276,13 @@ impl NormalizedString {
             .collect::<Vec<_>>()
             .into_iter();
         let initial_removed: usize = (&mut replaced_normalized)
-            .take(initial_offset)
+            .take(offset)
             .map(|c| c.len_utf8())
             .sum();
 
         let mut offset = (initial_removed + n_range.start) as isize;
         let mut alignments = Vec::with_capacity(n_range.len());
-        let normalized = dest
+        let normalized = iter
             .into_iter()
             .map(|(c, changes)| {
                 let idx = offset as usize;
@@ -359,31 +337,26 @@ impl NormalizedString {
         self
     }
 
-    /// Applies transformations to the current normalized version of the string,
-    /// while updating the alignments.
-    /// This method expect an Iterator yielding each char of the new normalized string
-    /// with a `change` isize equals to:
-    ///   - `1` if this is a new char
-    ///   - `-N` if the char is right before N removed chars
-    ///   - `0` if the char is replacing the existing one
-    /// Since it is possible that the normalized string doesn't include some of the characters at
-    /// the beginning of the original one, we need an `initial_offset` which represents the number
-    /// of removed chars at the very beginning.
-    pub fn transform(
-        self,
-        dest: impl IntoIterator<Item = (char, isize)>,
-        initial_offset: usize,
-    ) -> Self {
-        self.transform_range(Range::Original(..), dest, initial_offset)
+    /// Transforms the normalized sequence and updates the alignments.
+    ///
+    /// Expects an iterator yielding each character of the new normalized sequence with a change of:
+    /// - `1` if this is a new char.
+    /// - `-N` if the character is right before N removed characters.
+    /// - `0` if the character is replacing the existing one.
+    ///
+    /// The offset represents the number of potentially removed characters at the beginning of this
+    /// normalized sequence.
+    pub fn transform(self, iter: impl IntoIterator<Item = (char, isize)>, offset: usize) -> Self {
+        self.transform_within(Range::Original(..), iter, offset)
     }
 
-    /// Applies NFD normalization
+    /// Normalizes to NFD.
     pub fn nfd(self) -> Self {
         let normalized = self.normalized.clone();
         self.transform(normalized.nfd(), 0)
     }
 
-    /// Applies filtering over our characters
+    /// Filters characters.
     pub fn filter(self, keep: impl Fn(char) -> bool) -> Self {
         let mut removed: isize = 0;
         let mut removed_start: usize = 0;
@@ -412,7 +385,7 @@ impl NormalizedString {
         self.transform(transforms, removed_start)
     }
 
-    /// Map our characters
+    /// Maps characters.
     pub fn map(self, f: impl Fn(char) -> char) -> Self {
         let transformations = self
             .normalized
@@ -422,16 +395,15 @@ impl NormalizedString {
         self.transform(transformations, 0)
     }
 
-    /// Calls the given function for each characters
-    pub fn for_each(&self, foreach: impl FnMut(char)) -> &Self {
-        self.normalized.chars().for_each(foreach);
-        self
+    /// Calls the function for each character.
+    pub fn for_each_char(&self, f: impl FnMut(char)) {
+        self.normalized.chars().for_each(f);
     }
 
-    /// Lowercase
+    /// Lowercases.
     pub fn lowercase(self) -> Self {
         let mut new_chars: Vec<(char, isize)> = vec![];
-        self.for_each(|c| {
+        self.for_each_char(|c| {
             c.to_lowercase().enumerate().for_each(|(index, c)| {
                 new_chars.push((c, if index > 0 { 1 } else { 0 }));
             })
@@ -439,45 +411,38 @@ impl NormalizedString {
         self.transform(new_chars, 0)
     }
 
-    /// Split the current string in many subparts. Specify what to do with the
-    /// delimiter.
-    ///
-    /// ## Splitting Behavior for the delimiter
-    ///
-    /// The behavior can be one of the followings:
-    /// When splitting on `'-'` for example, with input `the-final--countdown`:
-    ///  - Removed => `[ "the", "", "final", "", "", "countdown" ]`
-    ///  - Isolated => `[ "the", "-", "final", "-", "-", "countdown" ]`
+    /// Splits wrt the pattern and handles the delimiter.
     pub fn split(
         &self,
         pattern: impl Pattern,
-        behavior: SplitDelimiterBehavior,
+        behavior: SplitDelimiter,
     ) -> Result<Vec<NormalizedString>, Error> {
         let matches = pattern.find_matches(&self.normalized)?;
 
         // Process the matches according to the selected behavior: Vec<(Offsets, should_remove)>
         let splits = match behavior {
-            SplitDelimiterBehavior::Removed => matches,
-            SplitDelimiterBehavior::Isolated => matches
+            SplitDelimiter::Remove => matches,
+            SplitDelimiter::Isolate => matches
                 .into_iter()
                 .map(|(offsets, _)| (offsets, false))
                 .collect(),
         };
-
         // Then we split according to the computed splits
-        Ok(splits
+        let splits = splits
             .into_iter()
             .filter_map(|(offsets, remove)| {
                 if !remove {
                     Some(
-                        self.slice(Range::Normalized(offsets.0..offsets.1))
+                        self.slice_char(Range::Normalized(offsets.0..offsets.1))
                             .expect("NormalizedString bad split"),
                     )
                 } else {
                     None
                 }
             })
-            .collect())
+            .collect();
+
+        Ok(splits)
     }
 }
 
@@ -682,53 +647,35 @@ mod tests {
         let normalized = NormalizedString::from("    __Hello__   ")
             .filter(|c| !c.is_whitespace())
             .lowercase();
-        let range = normalized.convert_offsets(Range::Original(6..11)).unwrap();
+        let range = Range::Original(6..11).convert(&normalized).unwrap();
         assert_eq!(range, 2..7);
         assert_eq!(
-            normalized.get_range(Range::Normalized(range.clone())),
+            normalized.slice_normalized(Range::Normalized(range.clone())),
             Some("hello"),
         );
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(range)),
+            normalized.slice_original(Range::Normalized(range)),
             Some("Hello"),
         );
-        assert_eq!(normalized.get_range(Range::Original(6..11)), Some("hello"));
         assert_eq!(
-            normalized.get_range_original(Range::Original(6..11)),
+            normalized.slice_normalized(Range::Original(6..11)),
+            Some("hello")
+        );
+        assert_eq!(
+            normalized.slice_original(Range::Original(6..11)),
             Some("Hello"),
         );
 
         // Make sure we get None only in specific cases
-        assert_eq!(
-            normalized.convert_offsets(Range::Original(0..0)),
-            Some(0..0),
-        );
-        assert_eq!(
-            normalized.convert_offsets(Range::Original(3..3)),
-            Some(3..3),
-        );
-        assert_eq!(
-            normalized.convert_offsets(Range::Original(15..)),
-            Some(9..9),
-        );
-        assert_eq!(
-            normalized.convert_offsets(Range::Original(16..)),
-            Some(16..16),
-        );
-        assert_eq!(normalized.convert_offsets(Range::Original(17..)), None);
-        assert_eq!(
-            normalized.convert_offsets(Range::Normalized(0..0)),
-            Some(0..0),
-        );
-        assert_eq!(
-            normalized.convert_offsets(Range::Normalized(3..3)),
-            Some(3..3),
-        );
-        assert_eq!(
-            normalized.convert_offsets(Range::Normalized(9..)),
-            Some(9..9),
-        );
-        assert_eq!(normalized.convert_offsets(Range::Normalized(10..)), None);
+        assert_eq!(Range::Original(0..0).convert(&normalized), Some(0..0));
+        assert_eq!(Range::Original(3..3).convert(&normalized), Some(3..3));
+        assert_eq!(Range::Original(15..).convert(&normalized), Some(9..9));
+        assert_eq!(Range::Original(16..).convert(&normalized), Some(16..16));
+        assert_eq!(Range::Original(17..).convert(&normalized), None);
+        assert_eq!(Range::Normalized(0..0).convert(&normalized), Some(0..0));
+        assert_eq!(Range::Normalized(3..3).convert(&normalized), Some(3..3));
+        assert_eq!(Range::Normalized(9..).convert(&normalized), Some(9..9));
+        assert_eq!(Range::Normalized(10..).convert(&normalized), None);
     }
 
     #[test]
@@ -737,34 +684,26 @@ mod tests {
             .filter(|c| c != '_')
             .lowercase();
         assert_eq!(
-            normalized.get_range(Range::Normalized(6..11)).unwrap(),
+            normalized
+                .slice_normalized(Range::Normalized(6..11))
+                .unwrap(),
             "world",
         );
         assert_eq!(
-            normalized
-                .get_range_original(Range::Normalized(6..11))
-                .unwrap(),
+            normalized.slice_original(Range::Normalized(6..11)).unwrap(),
             "World",
         );
-        let original_range = Range::Original(
-            normalized
-                .convert_offsets(Range::Normalized(6..11))
-                .unwrap(),
-        );
+        let original_range =
+            Range::Original(Range::Normalized(6..11).convert(&normalized).unwrap());
         assert_eq!(
-            normalized.get_range(original_range.clone()).unwrap(),
+            normalized.slice_normalized(original_range.clone()).unwrap(),
             "world",
         );
         assert_eq!(
-            normalized
-                .get_range_original(original_range.clone())
-                .unwrap(),
+            normalized.slice_original(original_range.clone()).unwrap(),
             "World",
         );
-        assert_eq!(
-            original_range.into_full_range(normalized.original.len()),
-            13..18,
-        );
+        assert_eq!(original_range.into_range(normalized.original.len()), 13..18,);
     }
 
     #[test]
@@ -785,7 +724,7 @@ mod tests {
 
         assert_eq!(normalized.normalized, " Hello ");
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(1..normalized.normalized.len() - 1)),
+            normalized.slice_original(Range::Normalized(1..normalized.normalized.len() - 1)),
             Some("Hello"),
         );
     }
@@ -823,7 +762,7 @@ mod tests {
                     Offsets(7, 8),
                     Offsets(8, 9),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -846,11 +785,11 @@ mod tests {
     fn test_remove_at_beginning() {
         let normalized = NormalizedString::from("     Hello").filter(|c| !c.is_whitespace());
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(1.."Hello".len())),
+            normalized.slice_original(Range::Normalized(1.."Hello".len())),
             Some("ello"),
         );
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(0..normalized.normalized.len())),
+            normalized.slice_original(Range::Normalized(0..normalized.normalized.len())),
             Some("Hello"),
         );
     }
@@ -859,11 +798,11 @@ mod tests {
     fn test_remove_at_end() {
         let normalized = NormalizedString::from("Hello    ").filter(|c| !c.is_whitespace());
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(0..4)),
+            normalized.slice_original(Range::Normalized(0..4)),
             Some("Hell"),
         );
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(0..normalized.normalized.len())),
+            normalized.slice_original(Range::Normalized(0..normalized.normalized.len())),
             Some("Hello"),
         );
     }
@@ -873,11 +812,11 @@ mod tests {
         let normalized = NormalizedString::from("  Hello  ").filter(|c| !c.is_whitespace());
         assert_eq!(normalized.normalized, "Hello");
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(0.."Hello".len())),
+            normalized.slice_original(Range::Normalized(0.."Hello".len())),
             Some("Hello"),
         );
         assert_eq!(
-            normalized.get_range_original(Range::Normalized(1.."Hell".len())),
+            normalized.slice_original(Range::Normalized(1.."Hell".len())),
             Some("ell"),
         );
     }
@@ -885,27 +824,18 @@ mod tests {
     #[test]
     fn test_slice() {
         let normalized = NormalizedString::from("Good Morning");
-        let slice = normalized.slice(Range::Original(..)).unwrap();
-        assert_eq!(
-            slice.get_range_original(Range::Normalized(0..4)),
-            Some("Good"),
-        );
-        let slice = normalized.slice(Range::Normalized(..)).unwrap();
-        assert_eq!(
-            slice.get_range_original(Range::Normalized(0..4)),
-            Some("Good"),
-        );
-        let slice = normalized.slice(Range::Original(1..)).unwrap();
-        assert_eq!(
-            slice.get_range_original(Range::Normalized(0..3)),
-            Some("ood"),
-        );
+        let slice = normalized.slice_char(Range::Original(..)).unwrap();
+        assert_eq!(slice.slice_original(Range::Normalized(0..4)), Some("Good"),);
+        let slice = normalized.slice_char(Range::Normalized(..)).unwrap();
+        assert_eq!(slice.slice_original(Range::Normalized(0..4)), Some("Good"),);
+        let slice = normalized.slice_char(Range::Original(1..)).unwrap();
+        assert_eq!(slice.slice_original(Range::Normalized(0..3)), Some("ood"),);
 
         let normalized = NormalizedString::from("𝔾𝕠𝕠𝕕 𝕞𝕠𝕣𝕟𝕚𝕟𝕘");
-        let slice = normalized.slice(Range::Original(0..4)).unwrap();
+        let slice = normalized.slice_char(Range::Original(0..4)).unwrap();
         assert_eq!(slice.normalized, "𝔾");
         assert_eq!(slice.original, "𝔾");
-        let slice = normalized.slice(Range::Normalized(0..16)).unwrap();
+        let slice = normalized.slice_char(Range::Normalized(0..16)).unwrap();
         assert_eq!(slice.normalized, "𝔾𝕠𝕠𝕕");
         assert_eq!(slice.original, "𝔾𝕠𝕠𝕕");
     }
@@ -913,7 +843,7 @@ mod tests {
     #[test]
     fn test_split() {
         let normalized = NormalizedString::from("The-final--countdown")
-            .split('-', SplitDelimiterBehavior::Removed)
+            .split('-', SplitDelimiter::Remove)
             .unwrap();
         assert_eq!(
             normalized
@@ -924,7 +854,7 @@ mod tests {
         );
 
         let normalized = NormalizedString::from("The-final--countdown")
-            .split('-', SplitDelimiterBehavior::Isolated)
+            .split('-', SplitDelimiter::Isolate)
             .unwrap();
         assert_eq!(
             normalized
@@ -940,7 +870,7 @@ mod tests {
         let sequence = "Hello friend";
 
         // Removing at the beginning
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..4),
             vec![('Y', 0)],
             3,
@@ -961,7 +891,7 @@ mod tests {
                     Offsets(10, 11),
                     Offsets(11, 12),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -983,7 +913,7 @@ mod tests {
         );
 
         // Removing in the middle
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(3..10),
             vec![('_', 0), ('F', 0), ('R', -2)],
             2,
@@ -1003,7 +933,7 @@ mod tests {
                     Offsets(10, 11),
                     Offsets(11, 12),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1025,7 +955,7 @@ mod tests {
         );
 
         // Removing at the end
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(5..),
             vec![('_', 0), ('F', -5)],
             0,
@@ -1044,7 +974,7 @@ mod tests {
                     Offsets(5, 6),
                     Offsets(6, 7),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1066,7 +996,7 @@ mod tests {
         );
 
         // Adding at the beginning
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..1),
             vec![('H', 1), ('H', 0)],
             0,
@@ -1091,7 +1021,7 @@ mod tests {
                     Offsets(10, 11),
                     Offsets(11, 12),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1113,7 +1043,7 @@ mod tests {
         );
 
         // Equivalent to the previous one
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..0),
             vec![('H', 1)],
             0,
@@ -1138,7 +1068,7 @@ mod tests {
                     Offsets(10, 11),
                     Offsets(11, 12),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1160,7 +1090,7 @@ mod tests {
         );
 
         // Adding as part of the first character
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..1),
             vec![('H', 0), ('H', 1)],
             0,
@@ -1185,7 +1115,7 @@ mod tests {
                     Offsets(10, 11),
                     Offsets(11, 12),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1207,7 +1137,7 @@ mod tests {
         );
 
         // Adding in the middle
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(5..6),
             vec![('_', 0), ('m', 1), ('y', 1), ('_', 1)],
             0,
@@ -1234,7 +1164,7 @@ mod tests {
                     Offsets(10, 11),
                     Offsets(11, 12),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1256,7 +1186,7 @@ mod tests {
         );
 
         // Adding at the end
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(11..),
             vec![('d', 0), ('_', 1), ('!', 1)],
             0,
@@ -1282,7 +1212,7 @@ mod tests {
                     Offsets(11, 12),
                     Offsets(11, 12),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1309,7 +1239,7 @@ mod tests {
         let sequence = "𝔾𝕠𝕠𝕕";
 
         // Removing at the beginning
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..8),
             vec![('G', -1)],
             0,
@@ -1330,7 +1260,7 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1354,23 +1284,25 @@ mod tests {
                 Offsets(5, 9),
             ],
         );
-        assert_eq!(normalized.get_range(Range::Original(0..8)).unwrap(), "G");
-        assert_eq!(normalized.get_range(Range::Original(0..4)).unwrap(), "G");
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..4))
-                .unwrap(),
+            normalized.slice_normalized(Range::Original(0..8)).unwrap(),
+            "G"
+        );
+        assert_eq!(
+            normalized.slice_normalized(Range::Original(0..4)).unwrap(),
+            "G"
+        );
+        assert_eq!(
+            normalized.slice_original(Range::Original(0..4)).unwrap(),
             "𝔾",
         );
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..8))
-                .unwrap(),
+            normalized.slice_original(Range::Original(0..8)).unwrap(),
             "𝔾𝕠",
         );
 
         // Removing in the middle
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(4..12),
             vec![('o', -1)],
             0,
@@ -1391,7 +1323,7 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1417,7 +1349,7 @@ mod tests {
         );
 
         // Removing at the end
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(12..),
             vec![('d', 0), ('!', 1)],
             0,
@@ -1443,12 +1375,12 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
 
         // Adding at the beginning
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..4),
             vec![('_', 1), ('𝔾', 0)],
             0,
@@ -1477,7 +1409,7 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1501,23 +1433,25 @@ mod tests {
                 Offsets(13, 17),
             ],
         );
-        assert_eq!(normalized.get_range(Range::Original(0..8)).unwrap(), "𝔾𝕠");
-        assert_eq!(normalized.get_range(Range::Original(0..4)).unwrap(), "𝔾");
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..4))
-                .unwrap(),
+            normalized.slice_normalized(Range::Original(0..8)).unwrap(),
+            "𝔾𝕠"
+        );
+        assert_eq!(
+            normalized.slice_normalized(Range::Original(0..4)).unwrap(),
+            "𝔾"
+        );
+        assert_eq!(
+            normalized.slice_original(Range::Original(0..4)).unwrap(),
             "𝔾",
         );
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..8))
-                .unwrap(),
+            normalized.slice_original(Range::Original(0..8)).unwrap(),
             "𝔾𝕠",
         );
 
         // Equivalent to the previous one
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..0),
             vec![('_', 1)],
             0,
@@ -1546,7 +1480,7 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1570,23 +1504,25 @@ mod tests {
                 Offsets(13, 17),
             ],
         );
-        assert_eq!(normalized.get_range(Range::Original(0..8)).unwrap(), "𝔾𝕠");
-        assert_eq!(normalized.get_range(Range::Original(0..4)).unwrap(), "𝔾");
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..4))
-                .unwrap(),
+            normalized.slice_normalized(Range::Original(0..8)).unwrap(),
+            "𝔾𝕠"
+        );
+        assert_eq!(
+            normalized.slice_normalized(Range::Original(0..4)).unwrap(),
+            "𝔾"
+        );
+        assert_eq!(
+            normalized.slice_original(Range::Original(0..4)).unwrap(),
             "𝔾",
         );
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..8))
-                .unwrap(),
+            normalized.slice_original(Range::Original(0..8)).unwrap(),
             "𝔾𝕠",
         );
 
         // Adding as part of the first character
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(0..4),
             vec![('𝔾', 0), ('o', 1)],
             0,
@@ -1615,7 +1551,7 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1639,23 +1575,25 @@ mod tests {
                 Offsets(13, 17),
             ],
         );
-        assert_eq!(normalized.get_range(Range::Original(0..8)).unwrap(), "𝔾o𝕠");
-        assert_eq!(normalized.get_range(Range::Original(0..4)).unwrap(), "𝔾o");
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..4))
-                .unwrap(),
+            normalized.slice_normalized(Range::Original(0..8)).unwrap(),
+            "𝔾o𝕠"
+        );
+        assert_eq!(
+            normalized.slice_normalized(Range::Original(0..4)).unwrap(),
+            "𝔾o"
+        );
+        assert_eq!(
+            normalized.slice_original(Range::Original(0..4)).unwrap(),
             "𝔾",
         );
         assert_eq!(
-            normalized
-                .get_range_original(Range::Original(0..8))
-                .unwrap(),
+            normalized.slice_original(Range::Original(0..8)).unwrap(),
             "𝔾𝕠",
         );
 
         // Adding in the middle
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(4..8),
             vec![('𝕠', 0), ('o', 1), ('o', 1), ('o', 1)],
             0,
@@ -1686,7 +1624,7 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
@@ -1712,7 +1650,7 @@ mod tests {
         );
 
         // Adding at the end
-        let normalized = NormalizedString::from(sequence).transform_range(
+        let normalized = NormalizedString::from(sequence).transform_within(
             Range::Original(16..),
             vec![('!', 1)],
             0,
@@ -1741,7 +1679,7 @@ mod tests {
                     Offsets(12, 16),
                     Offsets(12, 16),
                 ],
-                original_shift: 0,
+                offset: 0,
             },
         );
         assert_eq!(
