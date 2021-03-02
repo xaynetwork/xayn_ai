@@ -3,13 +3,11 @@ use std::iter::IntoIterator;
 use crate::{
     model::{encoding::Encoding, Model},
     normalizer::{string::NormalizedString, Normalizer},
-    padding::Padding,
-    post_tokenizer::PostTokenizer,
+    post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
     pre_tokenizer::{
         string::{OffsetType, PreTokenizedString},
         PreTokenizer,
     },
-    truncation::Truncation,
     Error,
 };
 
@@ -55,7 +53,7 @@ impl Tokenizer {
     fn post_process(&self, encoding: Encoding) -> Encoding {
         let encoding = self
             .truncation
-            .truncate(encoding, self.post_tokenizer.added_tokens());
+            .truncate(encoding, PostTokenizer::ADDED_TOKENS);
         let encoding = self.post_tokenizer.process(encoding);
         self.padding.pad(encoding)
     }

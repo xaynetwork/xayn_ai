@@ -22,12 +22,6 @@ enum Paddings {
     },
 }
 
-impl Default for Padding {
-    fn default() -> Self {
-        Self::none()
-    }
-}
-
 impl Padding {
     /// Creates an inert padding strategy.
     pub fn none() -> Self {
@@ -88,15 +82,19 @@ mod tests {
         }
     }
 
+    fn fixed(len: usize) -> Padding {
+        Padding::fixed(len, "[PAD]")
+    }
+
     #[test]
     fn test_padding() {
-        assert_eq!(Padding::fixed(3, "[PAD]").pad(encoding(3)).len(), 3);
-        assert_eq!(Padding::fixed(3, "[PAD]").pad(encoding(5)).len(), 5);
+        assert_eq!(fixed(3).pad(encoding(3)).len(), 3);
+        assert_eq!(fixed(3).pad(encoding(5)).len(), 5);
 
-        assert_eq!(Padding::fixed(5, "[PAD]").pad(encoding(3)).len(), 5);
-        assert_eq!(Padding::fixed(5, "[PAD]").pad(encoding(5)).len(), 5);
+        assert_eq!(fixed(5).pad(encoding(3)).len(), 5);
+        assert_eq!(fixed(5).pad(encoding(5)).len(), 5);
 
-        assert_eq!(Padding::fixed(7, "[PAD]").pad(encoding(3)).len(), 7);
-        assert_eq!(Padding::fixed(7, "[PAD]").pad(encoding(5)).len(), 7);
+        assert_eq!(fixed(7).pad(encoding(3)).len(), 7);
+        assert_eq!(fixed(7).pad(encoding(5)).len(), 7);
     }
 }

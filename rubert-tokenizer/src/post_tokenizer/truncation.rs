@@ -15,12 +15,6 @@ enum Truncations {
     Fixed { len: usize, stride: usize },
 }
 
-impl Default for Truncation {
-    fn default() -> Self {
-        Self::none()
-    }
-}
-
 impl Truncation {
     /// Creates an inert truncation strategy.
     pub fn none() -> Self {
@@ -84,15 +78,19 @@ mod tests {
         }
     }
 
+    fn fixed(len: usize) -> Truncation {
+        Truncation::fixed(len, 0)
+    }
+
     #[test]
     fn test_truncate() {
-        assert_eq!(Truncation::fixed(3, 0).truncate(encoding(), 0).len(), 3);
-        assert_eq!(Truncation::fixed(4, 0).truncate(encoding(), 0).len(), 4);
-        assert_eq!(Truncation::fixed(5, 0).truncate(encoding(), 0).len(), 4);
+        assert_eq!(fixed(3).truncate(encoding(), 0).len(), 3);
+        assert_eq!(fixed(4).truncate(encoding(), 0).len(), 4);
+        assert_eq!(fixed(5).truncate(encoding(), 0).len(), 4);
     }
 
     #[test]
     fn test_truncate_zero() {
-        assert_eq!(Truncation::fixed(0, 0).truncate(encoding(), 0).len(), 0);
+        assert_eq!(fixed(0).truncate(encoding(), 0).len(), 0);
     }
 }

@@ -7,11 +7,9 @@ use std::{
 use crate::{
     model::{Model, Vocab},
     normalizer::Normalizer,
-    padding::Padding,
-    post_tokenizer::PostTokenizer,
+    post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
     pre_tokenizer::PreTokenizer,
     tokenizer::Tokenizer,
-    truncation::Truncation,
     Error,
 };
 
@@ -27,19 +25,15 @@ pub struct Builder {
     unk: String,
     prefix: String,
     max_chars: usize,
-    post_tokenizer: PostTokenizer,
-    truncation: Truncation,
-    padding: Padding,
+    // post-tokenizer
+    cls: String,
+    sep: String,
+    trunc: Truncation,
+    pad: Padding,
 }
 
 impl Builder {
     /// Creates a [`Tokenizer`] builder from an in-memory vocabulary.
-    ///
-    /// The default settings are:
-    /// - A Bert word piece model with `"[UNK]"` unknown token, `"##"` continuing subword prefix
-    /// and `100` maximum characters per word.
-    /// - The default [`Normalizer`], [`PreTokenizer`] and [`PostTokenizer`].
-    /// - The default [`Truncation`] and [`Padding`] stategies.
     ///
     /// # Errors
     /// Fails on invalid vocabularies.
@@ -55,9 +49,11 @@ impl Builder {
             unk: "[UNK]".into(),
             prefix: "##".into(),
             max_chars: 100,
-            post_tokenizer: PostTokenizer::default(),
-            truncation: Truncation::default(),
-            padding: Padding::default(),
+            // post-tokenizer
+            cls: "[CLS]".into(),
+            sep: "[SEP]".into(),
+            trunc: Truncation::none(),
+            pad: Padding::none(),
         })
     }
 
@@ -113,29 +109,35 @@ impl Builder {
 
     /// Configures the post-tokenizer.
     ///
-    /// # Errors
-    /// Fails on invalid post-tokenizer configurations.
-    pub fn with_post_tokenizer(mut self, post_tokenizer: PostTokenizer) -> Result<Self, Error> {
-        self.post_tokenizer = post_tokenizer.validate(&self.vocab)?;
-        Ok(self)
+    /// Configurable by:
+    /// - The class token. Defaults to `"[CLS]"`.
+    /// - The separation token. Defaults to `"[SEP]"`.
+    pub fn with_post_tokenizer(mut self, cls: impl Into<String>, sep: impl Into<String>) -> Self {
+        self.cls = cls.into();
+        self.sep = sep.into();
+        self
     }
 
     /// Configures the truncation strategy.
     ///
+    /// Defaults to no truncation.
+    ///
     /// # Errors
     /// Fails on invalid truncation configurations.
-    pub fn with_truncation(mut self, truncation: Truncation) -> Result<Self, Error> {
-        self.truncation = truncation.validate()?;
-        Ok(self)
+    pub fn with_truncation(mut self, trunc: Truncation) -> Self {
+        self.trunc = trunc;
+        self
     }
 
     /// Configures the padding strategy.
     ///
+    /// Defaults to no padding.
+    ///
     /// # Errors
     /// Fails on invalid padding configurations.
-    pub fn with_padding(mut self, padding: Padding) -> Result<Self, Error> {
-        self.padding = padding.validate(&self.vocab)?;
-        Ok(self)
+    pub fn with_padding(mut self, pad: Padding) -> Self {
+        self.pad = pad;
+        self
     }
 
     /// Builds the tokenizer.
@@ -151,14 +153,17 @@ impl Builder {
         );
         let pre_tokenizer = PreTokenizer;
         let model = Model::new(self.vocab, self.unk, self.prefix, self.max_chars)?;
+        let post_tokenizer = PostTokenizer::new(self.cls, self.sep, &model.vocab)?;
+        let truncation = self.trunc.validate()?;
+        let padding = self.pad.validate(&model.vocab)?;
 
         Ok(Tokenizer {
             normalizer,
             pre_tokenizer,
             model,
-            post_tokenizer: self.post_tokenizer,
-            truncation: self.truncation,
-            padding: self.padding,
+            post_tokenizer,
+            truncation,
+            padding,
         })
     }
 }
