@@ -1,13 +1,10 @@
-use std::iter::IntoIterator;
+use std::{convert::TryInto, iter::IntoIterator};
 
 use crate::{
     model::{encoding::Encoding, Model},
     normalizer::{string::NormalizedString, Normalizer},
     post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
-    pre_tokenizer::{
-        string::{OffsetType, PreTokenizedString},
-        PreTokenizer,
-    },
+    pre_tokenizer::{string::PreTokenizedString, PreTokenizer},
     Error,
 };
 
@@ -39,18 +36,12 @@ impl Tokenizer {
 
     /// Tokenization logic, makes the bridge between the pre-tokenization phase and the real
     /// tokenization phase, and converting offsets back to the original referential.
-    fn tokenize(
-        &self,
-        pre_tokenized: PreTokenizedString,
-        offsets_type: OffsetType,
-    ) -> Result<Encoding, Error> {
-        self.model
-            .tokenize(pre_tokenized)?
-            .into_encoding(offsets_type)
+    fn tokenize(&self, pre_tokenized: PreTokenizedString) -> Result<Encoding, Error> {
+        self.model.tokenize(pre_tokenized)?.try_into()
     }
 
     /// Post processing logic, handling the case where there is no PostProcessor set
-    fn post_process(&self, encoding: Encoding) -> Encoding {
+    fn post_tokenize(&self, encoding: Encoding) -> Encoding {
         let encoding = self
             .truncation
             .truncate(encoding, PostTokenizer::ADDED_TOKENS);
@@ -58,45 +49,17 @@ impl Tokenizer {
         self.padding.pad(encoding)
     }
 
-    /// Encode a single sequence
-    fn encode_single_sequence(
-        &self,
-        sequence: impl AsRef<str>,
-        offsets_type: OffsetType,
-    ) -> Result<Encoding, Error> {
-        let normalized = self.normalize(sequence);
-        let pre_tokenized = self.pre_tokenize(normalized)?;
-        let tokenized = self.tokenize(pre_tokenized, offsets_type);
-        tokenized.map(|tokenized| self.post_process(tokenized))
-    }
-
-    /// Encode the given input. This method accepts both single sequences, as well as pair
-    /// sequences. Also, a sequence can be a string, or already pre-tokenized input directly:
-    ///
-    /// ```
-    /// # use tokenizers::Tokenizer;
-    /// # use tokenizers::models::bpe::BPE;
-    /// # let mut tokenizer = Tokenizer::new(BPE::default());
-    /// #
-    /// // Sequences:
-    /// tokenizer.encode("Single sequence", false);
-    /// tokenizer.encode(("Sequence A", "Sequence B"), false);
-    ///
-    /// // Pre-tokenized sequences:
-    /// tokenizer.encode(&["Single", "sequence"][..], false);
-    /// tokenizer.encode((&["Sequence", "A"][..], &["Sequence", "B"][..]), false);
-    ///
-    /// // or even both types together:
-    /// tokenizer.encode(
-    ///     ("A complete sequence", &["And", "a", "tokenized"][..]),
-    ///     false,
-    /// );
-    /// ```
+    /// Encodes the sequence.
     pub fn encode(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
-        self.encode_single_sequence(sequence, OffsetType::Byte)
+        let string = self.normalize(sequence);
+        let string = self.pre_tokenize(string)?;
+        let encoding = self.tokenize(string)?;
+        let encoding = self.post_tokenize(encoding);
+
+        Ok(encoding)
     }
 
-    /// Encode all the sentences in parallel, using multiple threads
+    /// Encodes the sequences.
     pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Result<Vec<Encoding>, Error> {
         sequences
             .into_iter()
@@ -104,46 +67,7 @@ impl Tokenizer {
             .collect()
     }
 
-    /// Encode the given input, using offsets relative to chars instead of bytes.
-    /// This method accepts both single sequences, as well as pair sequences. Also,
-    /// a sequence can be a string, or already pre-tokenized input directly:
-    ///
-    /// ```
-    /// # use tokenizers::Tokenizer;
-    /// # use tokenizers::models::bpe::BPE;
-    /// # let mut tokenizer = Tokenizer::new(BPE::default());
-    /// #
-    /// // Sequences:
-    /// tokenizer.encode("Single sequence", false);
-    /// tokenizer.encode(("Sequence A", "Sequence B"), false);
-    ///
-    /// // Pre-tokenized sequences:
-    /// tokenizer.encode(&["Single", "sequence"][..], false);
-    /// tokenizer.encode((&["Sequence", "A"][..], &["Sequence", "B"][..]), false);
-    ///
-    /// // or even both types together:
-    /// tokenizer.encode(
-    ///     ("A complete sequence", &["And", "a", "tokenized"][..]),
-    ///     false,
-    /// );
-    /// ```
-    pub fn encode_char_offsets(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
-        self.encode_single_sequence(sequence, OffsetType::Char)
-    }
-
-    /// Encode all the sentences in parallel, using multiple threads.
-    /// The offsets on each `Encoding` will be relative to chars instead of bytes.
-    pub fn encode_batch_char_offsets(
-        &self,
-        sequences: &[impl AsRef<str>],
-    ) -> Result<Vec<Encoding>, Error> {
-        sequences
-            .into_iter()
-            .map(|sequence| self.encode_char_offsets(sequence))
-            .collect()
-    }
-
-    /// Decodes an encoding back to a String.
+    /// Decodes an encoding.
     pub fn decode(&self, encoding: &Encoding, cleanup: bool) -> String {
         encoding.decode(
             self.model.unk_token.as_str(),
@@ -152,7 +76,7 @@ impl Tokenizer {
         )
     }
 
-    /// Decodes the encodings back to strings.
+    /// Decodes the encodings.
     pub fn decode_batch(&self, encodings: &[Encoding], cleanup: bool) -> Vec<String> {
         encodings
             .iter()

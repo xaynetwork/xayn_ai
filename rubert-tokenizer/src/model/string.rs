@@ -1,11 +1,11 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, convert::TryFrom};
 
 use anyhow::anyhow;
 
 use crate::{
     model::{encoding::Encoding, Model},
     normalizer::string::{NormalizedString, Offsets, Range},
-    pre_tokenizer::string::{BytesToCharOffsetConverter, OffsetType, PreTokenizedString},
+    pre_tokenizer::string::PreTokenizedString,
     Error,
 };
 
@@ -39,14 +39,12 @@ impl From<NormalizedString> for Split {
 }
 
 pub struct TokenizedString {
-    original: String,
     splits: Vec<Split>,
 }
 
 impl From<PreTokenizedString> for TokenizedString {
     fn from(string: PreTokenizedString) -> Self {
         Self {
-            original: string.original,
             splits: string.splits.into_iter().map(Into::into).collect(),
         }
     }
@@ -100,35 +98,25 @@ impl TokenizedString {
 
         Ok(self)
     }
+}
 
-    /// Transform the current `PreTokenizedString` into an `Encoding`.
-    ///
-    /// If a `word_idx` is provided, any word in the generated `Encoding`
-    /// will be set to this value. This is generally used with pre-tokenized
-    /// input, that do not need the `PreTokenizedString` to generate word ids.
-    ///
-    /// This method will fail if some splits do not have associated `Token`.
-    pub fn into_encoding(self, offset_type: OffsetType) -> Result<Encoding, Error> {
-        if self.splits.is_empty() {
+impl TryFrom<TokenizedString> for Encoding {
+    type Error = Error;
+
+    fn try_from(string: TokenizedString) -> Result<Self, Self::Error> {
+        if string.splits.is_empty() {
             Ok(Encoding::default())
-        } else if self.splits.iter().any(|split| split.tokens.is_empty()) {
+        } else if string.splits.iter().any(|split| split.tokens.is_empty()) {
             Err(anyhow!(
                 "Split has not been tokenized, call `PreTokenizedString::tokenize` first"
             ))
         } else {
-            let offset_converter = match offset_type {
-                OffsetType::Byte => None,
-                OffsetType::Char => Some(BytesToCharOffsetConverter::new(self.original.as_str())),
-            };
-
-            Ok(self
+            Ok(string
                 .splits
                 .into_iter()
                 .enumerate()
                 .flat_map(|(idx, split)| {
                     let Split { normalized, tokens } = split;
-                    let offset_converter = offset_converter.as_ref();
-
                     tokens.into_iter().map(move |mut token| {
                         token.offsets = normalized
                             .convert_offsets(Range::Normalized(token.offsets.0..token.offsets.1))
@@ -138,13 +126,6 @@ impl TokenizedString {
                                     normalized.original_shift + range.end,
                                 )
                             });
-
-                        // Convert to char offsets if relevant
-                        if let Some(converter) = offset_converter {
-                            token.offsets =
-                                converter.convert(token.offsets).unwrap_or(token.offsets);
-                        }
-
                         (token, Some(idx as u32))
                     })
                 })

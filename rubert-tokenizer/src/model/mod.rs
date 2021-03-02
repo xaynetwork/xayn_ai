@@ -7,19 +7,19 @@ use anyhow::bail;
 
 use crate::{model::string::TokenizedString, pre_tokenizer::string::PreTokenizedString, Error};
 
-pub(crate) type Vocab = HashMap<String, u32>;
+pub type Vocab = HashMap<String, u32>;
 
 /// A Bert word piece model.
 pub struct Model {
-    pub(crate) vocab: Vocab,
-    pub(crate) unk_id: u32,
-    pub(crate) unk_token: String,
-    pub(crate) prefix: String,
-    pub(crate) max_chars: usize,
+    pub vocab: Vocab,
+    pub unk_id: u32,
+    pub unk_token: String,
+    pub prefix: String,
+    pub max_chars: usize,
 }
 
 impl Model {
-    pub(crate) fn parse_vocab(vocab: impl BufRead) -> Result<Vocab, Error> {
+    pub fn parse_vocab(vocab: impl BufRead) -> Result<Vocab, Error> {
         vocab
             .lines()
             .enumerate()
@@ -30,12 +30,7 @@ impl Model {
             .collect()
     }
 
-    pub(crate) fn new(
-        vocab: Vocab,
-        unk: String,
-        prefix: String,
-        max_chars: usize,
-    ) -> Result<Self, Error> {
+    pub fn new(vocab: Vocab, unk: String, prefix: String, max_chars: usize) -> Result<Self, Error> {
         let unk_id = if let Some(id) = vocab.get(unk.as_str()) {
             *id
         } else {
@@ -54,7 +49,7 @@ impl Model {
         })
     }
 
-    pub(crate) fn tokenize(&self, string: PreTokenizedString) -> Result<TokenizedString, Error> {
+    pub fn tokenize(&self, string: PreTokenizedString) -> Result<TokenizedString, Error> {
         TokenizedString::from(string).tokenize(self)
     }
 }
