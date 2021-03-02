@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod builder;
 mod model;
 mod normalizer;

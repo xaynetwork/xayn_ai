@@ -1,3 +1,4 @@
+pub mod pattern;
 pub mod string;
 
 use unicode_categories::UnicodeCategories;
