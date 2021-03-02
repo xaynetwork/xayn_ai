@@ -62,7 +62,7 @@ pub trait LtrSystem {
 pub trait ContextSystem {
     fn compute_context(
         &self,
-        documents: &[DocumentDataWithLtr],
+        documents: Vec<DocumentDataWithLtr>,
     ) -> Result<Vec<DocumentDataWithContext>, Error>;
 }
 
