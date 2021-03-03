@@ -1,4 +1,4 @@
-use crate::{normalizer::string::NormalizedString, Error};
+use crate::normalizer::string::NormalizedString;
 
 /// A pre-tokenized sequence.
 pub struct PreTokenizedString {
@@ -21,15 +21,15 @@ impl PreTokenizedString {
     /// The function takes a normalized sequence and returns an iterator over normalized
     /// subsequences. The combined normalized subsequences must have the same original sequence as
     /// the normalized sequence.
-    pub fn split<F, S>(mut self, f: F) -> Result<Self, Error>
+    pub fn split<F, S>(mut self, f: F) -> Self
     where
-        F: Fn(usize, NormalizedString) -> Result<S, Error>,
+        F: Fn(usize, NormalizedString) -> S,
         S: IntoIterator<Item = NormalizedString>,
     {
         // new_splits is at least as big as self.splits
         let mut new_splits = Vec::with_capacity(self.splits.len());
         for (i, original_split) in self.splits.drain(..).enumerate() {
-            new_splits.extend(f(i, original_split)?.into_iter().filter_map(|split| {
+            new_splits.extend(f(i, original_split).into_iter().filter_map(|split| {
                 if split.normalized.is_empty() {
                     None
                 } else {
@@ -39,6 +39,6 @@ impl PreTokenizedString {
         }
         self.splits = new_splits;
 
-        Ok(self)
+        self
     }
 }

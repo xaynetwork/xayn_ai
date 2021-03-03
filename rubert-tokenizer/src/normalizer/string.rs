@@ -2,7 +2,7 @@ use std::ops::{Bound, RangeBounds};
 
 use unicode_normalization_alignments::UnicodeNormalization;
 
-use crate::{normalizer::pattern::Pattern, Error};
+use crate::normalizer::pattern::Pattern;
 
 /// Offsets of a subsequence relative to a sequence.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -412,12 +412,8 @@ impl NormalizedString {
     }
 
     /// Splits wrt the pattern and handles the delimiter.
-    pub fn split(
-        &self,
-        pattern: impl Pattern,
-        behavior: SplitDelimiter,
-    ) -> Result<Vec<NormalizedString>, Error> {
-        let matches = pattern.find_matches(&self.normalized)?;
+    pub fn split(&self, pattern: impl Pattern, behavior: SplitDelimiter) -> Vec<NormalizedString> {
+        let matches = pattern.find_matches(&self.normalized);
 
         // Process the matches according to the selected behavior: Vec<(Offsets, should_remove)>
         let splits = match behavior {
@@ -427,8 +423,9 @@ impl NormalizedString {
                 .map(|(offsets, _)| (offsets, false))
                 .collect(),
         };
+
         // Then we split according to the computed splits
-        let splits = splits
+        splits
             .into_iter()
             .filter_map(|(offsets, remove)| {
                 if !remove {
@@ -440,9 +437,7 @@ impl NormalizedString {
                     None
                 }
             })
-            .collect();
-
-        Ok(splits)
+            .collect()
     }
 }
 
@@ -842,9 +837,8 @@ mod tests {
 
     #[test]
     fn test_split() {
-        let normalized = NormalizedString::from("The-final--countdown")
-            .split('-', SplitDelimiter::Remove)
-            .unwrap();
+        let normalized =
+            NormalizedString::from("The-final--countdown").split('-', SplitDelimiter::Remove);
         assert_eq!(
             normalized
                 .iter()
@@ -853,9 +847,8 @@ mod tests {
             vec!["The", "final", "countdown"],
         );
 
-        let normalized = NormalizedString::from("The-final--countdown")
-            .split('-', SplitDelimiter::Isolate)
-            .unwrap();
+        let normalized =
+            NormalizedString::from("The-final--countdown").split('-', SplitDelimiter::Isolate);
         assert_eq!(
             normalized
                 .iter()

@@ -1,12 +1,21 @@
-use anyhow::anyhow;
+use displaydoc::Display;
+use thiserror::Error;
 
-use crate::{
-    post_tokenizer::{encoding::Encoding, PostTokenizer},
-    Error,
-};
+use crate::post_tokenizer::{encoding::Encoding, PostTokenizer};
 
 /// A truncation strategy.
 pub struct Truncation(Truncations);
+
+/// The potential errors of truncation.
+#[derive(Debug, Display, Error)]
+pub enum TruncationError {
+    /// Invalid truncation length, must be greater or equal to the number of special tokens added by
+    /// the post-tokenizer
+    FixedLength,
+    /// Invalid truncation stride, must be zero or less than the truncation length minus the number
+    /// of special tokens added by the post-tokenizer
+    FixedStride,
+}
 
 /// The available truncation strategies.
 enum Truncations {
@@ -28,14 +37,14 @@ impl Truncation {
     }
 
     /// Validates this strategy.
-    pub(crate) fn validate(self) -> Result<Self, Error> {
+    pub(crate) fn validate(self) -> Result<Self, TruncationError> {
         match self.0 {
             Truncations::None => Ok(self),
             Truncations::Fixed { len, stride } => {
                 if len < PostTokenizer::ADDED_TOKENS {
-                    Err(anyhow!("length must be greater or equal to the number of mandatory tokens added by the post-tokenizer"))
-                } else if stride >= len - PostTokenizer::ADDED_TOKENS {
-                    Err(anyhow!("stride must be zero or less than the length minus the number of mandatory tokens added by the post-tokenizer"))
+                    Err(TruncationError::FixedLength)
+                } else if stride != 0 && stride >= len - PostTokenizer::ADDED_TOKENS {
+                    Err(TruncationError::FixedStride)
                 } else {
                     Ok(self)
                 }

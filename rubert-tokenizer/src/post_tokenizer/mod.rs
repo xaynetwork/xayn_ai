@@ -4,9 +4,10 @@ pub mod truncation;
 
 use std::iter::once;
 
-use anyhow::bail;
+use displaydoc::Display;
+use thiserror::Error;
 
-use crate::{model::Vocab, normalizer::string::Offsets, post_tokenizer::encoding::Encoding, Error};
+use crate::{model::Vocab, normalizer::string::Offsets, post_tokenizer::encoding::Encoding};
 
 /// A Bert post-tokenizer.
 pub struct PostTokenizer {
@@ -16,22 +17,29 @@ pub struct PostTokenizer {
     sep_token: String,
 }
 
+/// The potential erros of the post-tokenizer.
+#[derive(Debug, Display, Error)]
+pub enum PostTokenizerError {
+    /// Missing the class token in the vocabulary
+    ClsToken,
+    /// Missing the separation token in the vocabulary
+    SepToken,
+}
+
 impl PostTokenizer {
     /// The number of added special tokens.
     pub(crate) const ADDED_TOKENS: usize = 2;
 
     /// Creates a Bert post-tokenizer.
-    pub(crate) fn new(cls: String, sep: String, vocab: &Vocab) -> Result<Self, Error> {
-        let cls_id = if let Some(id) = vocab.get(cls.as_str()) {
-            *id
-        } else {
-            bail!("class token doesn't exist in the vocab");
-        };
-        let sep_id = if let Some(id) = vocab.get(sep.as_str()) {
-            *id
-        } else {
-            bail!("separation token doesn't exist in the vocab");
-        };
+    pub(crate) fn new(cls: String, sep: String, vocab: &Vocab) -> Result<Self, PostTokenizerError> {
+        let cls_id = vocab
+            .get(cls.as_str())
+            .copied()
+            .ok_or(PostTokenizerError::ClsToken)?;
+        let sep_id = vocab
+            .get(sep.as_str())
+            .copied()
+            .ok_or(PostTokenizerError::SepToken)?;
 
         Ok(PostTokenizer {
             cls_id,

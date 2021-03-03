@@ -4,7 +4,6 @@ use crate::{
     model::Model,
     normalizer::string::{NormalizedString, Offsets},
     pre_tokenizer::string::PreTokenizedString,
-    Error,
 };
 
 /// A token relative to a sequence.
@@ -44,7 +43,7 @@ impl From<PreTokenizedString> for TokenizedString {
 
 impl TokenizedString {
     /// Tokenizes wrt the model parameters.
-    pub fn tokenize(mut self, model: &Model) -> Result<Self, Error> {
+    pub fn tokenize(mut self, model: &Model) -> Self {
         self.splits.iter_mut().for_each(|split| {
             let string = split.normalized.normalized.as_str();
             let len = string.len();
@@ -89,6 +88,6 @@ impl TokenizedString {
             };
         });
 
-        Ok(self)
+        self
     }
 }

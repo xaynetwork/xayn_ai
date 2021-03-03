@@ -1,9 +1,17 @@
-use anyhow::anyhow;
+use displaydoc::Display;
+use thiserror::Error;
 
-use crate::{model::Vocab, post_tokenizer::encoding::Encoding, Error};
+use crate::{model::Vocab, post_tokenizer::encoding::Encoding};
 
 /// A padding strategy.
 pub struct Padding(Paddings);
+
+/// The potential errors of padding.
+#[derive(Debug, Display, Error)]
+pub enum PaddingError {
+    /// Missing the padding token in the vocabulary
+    PadToken,
+}
 
 /// The available padding strategies.
 enum Paddings {
@@ -33,7 +41,7 @@ impl Padding {
     }
 
     /// Validates this strategy.
-    pub(crate) fn validate(mut self, vocab: &Vocab) -> Result<Self, Error> {
+    pub(crate) fn validate(mut self, vocab: &Vocab) -> Result<Self, PaddingError> {
         match self.0 {
             Paddings::None => Ok(self),
             Paddings::Fixed {
@@ -41,12 +49,11 @@ impl Padding {
                 ref pad_token,
                 ..
             } => {
-                if let Some(id) = vocab.get(pad_token) {
-                    *pad_id = *id;
-                    Ok(self)
-                } else {
-                    Err(anyhow!("padding token doesn't exist in the vocab"))
-                }
+                *pad_id = vocab
+                    .get(pad_token)
+                    .copied()
+                    .ok_or(PaddingError::PadToken)?;
+                Ok(self)
             }
         }
     }

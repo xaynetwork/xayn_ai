@@ -5,7 +5,6 @@ use unicode_categories::UnicodeCategories;
 use crate::{
     normalizer::string::{NormalizedString, SplitDelimiter},
     pre_tokenizer::string::PreTokenizedString,
-    Error,
 };
 
 /// A Bert pre-tokenizer.
@@ -13,14 +12,11 @@ pub struct PreTokenizer;
 
 impl PreTokenizer {
     /// Pre-tokenizes the sequence.
-    pub(crate) fn pre_tokenize(
-        &self,
-        sequence: NormalizedString,
-    ) -> Result<PreTokenizedString, Error> {
+    pub(crate) fn pre_tokenize(&self, sequence: NormalizedString) -> PreTokenizedString {
         PreTokenizedString::from(sequence)
-            .split(|_, s| s.split(char::is_whitespace, SplitDelimiter::Remove))?
-            .split(|_, s| {
-                s.split(
+            .split(|_, sequence| sequence.split(char::is_whitespace, SplitDelimiter::Remove))
+            .split(|_, sequence| {
+                sequence.split(
                     |c: char| c.is_ascii_punctuation() || c.is_punctuation(),
                     SplitDelimiter::Isolate,
                 )
@@ -45,7 +41,7 @@ mod tests {
     #[test]
     fn test_basic() {
         let normalized = "Hey friend!     How are you?!?".into();
-        let pre_tokenized = PreTokenizer.pre_tokenize(normalized).unwrap();
+        let pre_tokenized = PreTokenizer.pre_tokenize(normalized);
         let expected = vec![
             ("Hey", Offsets(0, 3)),
             ("friend", Offsets(4, 10)),
@@ -73,7 +69,7 @@ mod tests {
             }),
             0,
         );
-        let pre_tokenized = PreTokenizer.pre_tokenize(normalized).unwrap();
+        let pre_tokenized = PreTokenizer.pre_tokenize(normalized);
         let expected = vec![
             ("野", Offsets(0, 3)),
             ("口", Offsets(3, 6)),

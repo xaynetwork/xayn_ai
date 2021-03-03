@@ -1,11 +1,10 @@
 use std::iter::IntoIterator;
 
 use crate::{
-    model::{string::TokenizedString, Model},
-    normalizer::{string::NormalizedString, Normalizer},
+    model::Model,
+    normalizer::Normalizer,
     post_tokenizer::{encoding::Encoding, padding::Padding, truncation::Truncation, PostTokenizer},
-    pre_tokenizer::{string::PreTokenizedString, PreTokenizer},
-    Error,
+    pre_tokenizer::PreTokenizer,
 };
 
 /// A Bert tokenizer.
@@ -24,23 +23,12 @@ pub struct Tokenizer {
 }
 
 impl Tokenizer {
-    /// Normalizes the sequence.
-    fn normalize(&self, sequence: impl AsRef<str>) -> NormalizedString {
-        self.normalizer.normalize(sequence)
-    }
+    /// Encodes the sequence.
+    pub fn encode(&self, sequence: impl AsRef<str>) -> Encoding {
+        let sequence = self.normalizer.normalize(sequence);
+        let sequence = self.pre_tokenizer.pre_tokenize(sequence);
+        let sequence = self.model.tokenize(sequence);
 
-    /// Pre-tokenizes the sequence
-    fn pre_tokenize(&self, sequence: NormalizedString) -> Result<PreTokenizedString, Error> {
-        self.pre_tokenizer.pre_tokenize(sequence)
-    }
-
-    /// Tokenizes the sequence.
-    fn tokenize(&self, sequence: PreTokenizedString) -> Result<TokenizedString, Error> {
-        self.model.tokenize(sequence)
-    }
-
-    /// Post-tokenizes the sequence
-    fn post_tokenize(&self, sequence: TokenizedString) -> Encoding {
         let encoding = self
             .truncation
             .truncate(sequence.into(), PostTokenizer::ADDED_TOKENS);
@@ -48,19 +36,8 @@ impl Tokenizer {
         self.padding.pad(encoding)
     }
 
-    /// Encodes the sequence.
-    pub fn encode(&self, sequence: impl AsRef<str>) -> Result<Encoding, Error> {
-        let normalized = self.normalize(sequence);
-        let pre_tokenized = self.pre_tokenize(normalized)?;
-        let tokenized = self.tokenize(pre_tokenized)?;
-        // TODO: move into encoding to post-tokenizer
-        let encoding = self.post_tokenize(tokenized);
-
-        Ok(encoding)
-    }
-
     /// Encodes the sequences.
-    pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Result<Vec<Encoding>, Error> {
+    pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Vec<Encoding> {
         sequences
             .into_iter()
             .map(|sequence| self.encode(sequence))

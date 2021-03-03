@@ -4,13 +4,20 @@ use std::{
     path::Path,
 };
 
+use displaydoc::Display;
+use thiserror::Error;
+
 use crate::{
-    model::{Model, Vocab},
+    model::{Model, ModelError, Vocab},
     normalizer::Normalizer,
-    post_tokenizer::{padding::Padding, truncation::Truncation, PostTokenizer},
+    post_tokenizer::{
+        padding::{Padding, PaddingError},
+        truncation::{Truncation, TruncationError},
+        PostTokenizer,
+        PostTokenizerError,
+    },
     pre_tokenizer::PreTokenizer,
     tokenizer::Tokenizer,
-    Error,
 };
 
 /// A builder to create a Bert [`Tokenizer`].
@@ -32,12 +39,25 @@ pub struct Builder {
     pad: Padding,
 }
 
+/// The potential errors of the builder.
+#[derive(Debug, Display, Error)]
+pub enum BuilderError {
+    /// Failed to build the model: {0}
+    Model(#[from] ModelError),
+    /// Failed to build the post-tokenizer: {0}
+    PostTokenizer(#[from] PostTokenizerError),
+    /// Failed to build the truncation strategy: {0}
+    Truncation(#[from] TruncationError),
+    /// Failed to build the padding strategy: {0}
+    Padding(#[from] PaddingError),
+}
+
 impl Builder {
     /// Creates a [`Tokenizer`] builder from an in-memory vocabulary.
     ///
     /// # Errors
     /// Fails on invalid vocabularies.
-    pub fn new(vocab: impl BufRead) -> Result<Self, Error> {
+    pub fn new(vocab: impl BufRead) -> Result<Self, BuilderError> {
         Ok(Self {
             // normalizer
             cleanup: true,
@@ -61,8 +81,8 @@ impl Builder {
     ///
     /// # Errors
     /// Fails on invalid vocabularies.
-    pub fn from_file(vocab: impl AsRef<Path>) -> Result<Self, Error> {
-        Self::new(BufReader::new(File::open(vocab)?))
+    pub fn from_file(vocab: impl AsRef<Path>) -> Result<Self, BuilderError> {
+        Self::new(BufReader::new(File::open(vocab).map_err(ModelError::from)?))
     }
 
     /// Configures the normalizer.
@@ -136,7 +156,7 @@ impl Builder {
     ///
     /// # Errors
     /// Fails on invalid configurations.
-    pub fn build(self) -> Result<Tokenizer, Error> {
+    pub fn build(self) -> Result<Tokenizer, BuilderError> {
         let normalizer = Normalizer::new(self.cleanup, self.chinese, self.accents, self.lowercase);
         let pre_tokenizer = PreTokenizer;
         let model = Model::new(self.vocab, self.unk, self.prefix, self.max_chars)?;

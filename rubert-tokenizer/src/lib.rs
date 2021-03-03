@@ -1,5 +1,8 @@
 //! A Bert tokenizer which converts sequences into encodings.
 //!
+//! This is a very condensed and heavily refactored version of
+//! [huggingface's `tokenizers`](https://crates.io/crates/tokenizers) crate.
+//!
 //! The tokenizer is based on a vocabulary and consists of a Bert normalizer, a Bert pre-tokenizer,
 //! a Bert word piece model and a Bert post-tokenizer including truncation and padding strategies.
 //!
@@ -34,7 +37,7 @@
 //!         .with_padding(Padding::fixed(128, "[PAD]"))
 //!         .build()?;
 //!
-//!     let encoding = tokenizer.encode("This is a sequence.")?;
+//!     let encoding = tokenizer.encode("This is a sequence.");
 //!
 //!     Ok(())
 //! }
@@ -47,10 +50,14 @@ mod post_tokenizer;
 mod pre_tokenizer;
 mod tokenizer;
 
-type Error = anyhow::Error;
-
 pub use crate::{
-    builder::Builder,
-    post_tokenizer::{encoding::Encoding, padding::Padding, truncation::Truncation},
+    builder::{Builder, BuilderError},
+    model::ModelError,
+    post_tokenizer::{
+        encoding::Encoding,
+        padding::{Padding, PaddingError},
+        truncation::{Truncation, TruncationError},
+        PostTokenizerError,
+    },
     tokenizer::Tokenizer,
 };
