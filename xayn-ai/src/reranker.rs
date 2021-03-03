@@ -3,6 +3,7 @@
 use anyhow::bail;
 
 use crate::{
+    coi::UserInterestsStatus,
     data::{
         document::{Document, DocumentHistory},
         document_data::{
@@ -23,9 +24,11 @@ pub type DocumentsRank = Vec<usize>;
 /// Empty state
 enum Empty {}
 
-/// In this state we have the documents from the previous query but we do not have user interests
+/// In this state we have the documents from the previous query with which
+/// we initialize the user interests.
 struct InitUserInterests {
     prev_documents: Vec<DocumentDataWithEmbedding>,
+    user_interests: UserInterests,
 }
 
 /// In this state we have all the data we need to do reranking and run the feedback loop
@@ -81,7 +84,7 @@ impl RerankerState<Empty> {
         CS: CommonSystems,
     {
         Ok((
-            to_init_user_interests(common_systems, documents)?,
+            to_init_user_interests(common_systems, documents, UserInterests::default())?,
             rank_from_source(documents),
         ))
     }
@@ -97,16 +100,18 @@ impl RerankerState<InitUserInterests> {
     where
         CS: CommonSystems,
     {
-        let user_interests = common_systems
-            .coi()
-            .make_user_interests(history, &self.inner.prev_documents)?;
+        let status = common_systems.coi().make_user_interests(
+            history,
+            &self.inner.prev_documents,
+            self.inner.user_interests,
+        )?;
 
-        match user_interests {
-            None => Ok((
-                to_init_user_interests(common_systems, documents)?,
+        match status {
+            UserInterestsStatus::NotEnough(user_interests) => Ok((
+                to_init_user_interests(common_systems, documents, user_interests)?,
                 rank_from_source(documents),
             )),
-            Some(user_interests) => {
+            UserInterestsStatus::Ready(user_interests) => {
                 rerank_documents(common_systems, history, documents, &user_interests)
             }
         }
@@ -125,8 +130,8 @@ impl RerankerState<Nominal> {
     {
         let user_interests = common_systems.coi().update_user_interests(
             history,
-            documents,
-            &self.inner.user_interests,
+            &self.inner.prev_documents,
+            self.inner.user_interests,
         )?;
 
         common_systems
@@ -173,17 +178,22 @@ where
                         )
                 } else {
                     // if we have document with the embedding we need to init the user interests
-                    Ok(common_systems
-                        .database()
-                        .load_prev_documents()?
-                        .map_or_else(
-                            || RerankerInner::Empty,
-                            |prev_documents| {
-                                RerankerInner::InitUserInterests(RerankerState {
-                                    inner: InitUserInterests { prev_documents },
-                                })
+                    if let Some(prev_documents) = common_systems.database().load_prev_documents()? {
+                        // load the current user_interests (if any)
+                        let user_interests = common_systems
+                            .database()
+                            .load_user_interests()?
+                            .unwrap_or_default();
+
+                        Ok(RerankerInner::InitUserInterests(RerankerState {
+                            inner: InitUserInterests {
+                                prev_documents,
+                                user_interests,
                             },
-                        ))
+                        }))
+                    } else {
+                        Ok(RerankerInner::Empty)
+                    }
                 }
             })?;
 
@@ -219,6 +229,7 @@ where
 fn to_init_user_interests<CS>(
     common_systems: &CS,
     documents: &[Document],
+    user_interests: UserInterests,
 ) -> Result<RerankerInner, Error>
 where
     CS: CommonSystems,
@@ -230,7 +241,10 @@ where
         .save_prev_documents(&prev_documents)?;
 
     let inner = RerankerState::<InitUserInterests> {
-        inner: InitUserInterests { prev_documents },
+        inner: InitUserInterests {
+            prev_documents,
+            user_interests,
+        },
     };
 
     Ok(RerankerInner::InitUserInterests(inner))
@@ -252,7 +266,7 @@ where
     let documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
     let documents = common_systems
         .coi()
-        .compute_coi(&documents, user_interests)?;
+        .compute_coi(documents, user_interests)?;
     let documents = common_systems.ltr().compute_ltr(history, documents)?;
     let documents = common_systems.context().compute_context(&documents)?;
     let (documents, user_interests) = common_systems

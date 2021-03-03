@@ -1,5 +1,5 @@
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct DocumentId(pub String);
 
 // This represents a result from the query
@@ -11,4 +11,25 @@ pub struct Document {
     pub snippet: String,
 }
 
-pub struct DocumentHistory {}
+pub struct DocumentHistory {
+    /// unique identifier of this document
+    pub id: DocumentId,
+    /// Relevance level of the document
+    pub relevance: Relevance,
+    /// A flag that indicates whether the user liked the document
+    pub user_feedback: UserFeedback,
+}
+
+#[derive(Clone, Copy)]
+pub enum UserFeedback {
+    Relevant,
+    Irrelevant,
+    None,
+}
+
+#[derive(Clone, Copy)]
+pub enum Relevance {
+    Low,
+    Medium,
+    High,
+}

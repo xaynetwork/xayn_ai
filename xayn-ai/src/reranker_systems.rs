@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
 use crate::{
+    coi::UserInterestsStatus,
     data::{
-        document::{Document, DocumentHistory},
+        document::DocumentHistory,
         document_data::{
             DocumentDataWithCoi,
             DocumentDataWithContext,
@@ -26,10 +27,10 @@ pub trait BertSystem {
 }
 
 pub trait CoiSystem {
-    /// Add center of interest information to a document
+    /// Add centre of interest information to a document
     fn compute_coi(
         &self,
-        documents: &[DocumentDataWithEmbedding],
+        documents: Vec<DocumentDataWithEmbedding>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error>;
 
@@ -38,14 +39,15 @@ pub trait CoiSystem {
         &self,
         history: &[DocumentHistory],
         documents: &[DocumentDataWithEmbedding],
-    ) -> Result<Option<UserInterests>, Error>;
+        user_interests: UserInterests,
+    ) -> Result<UserInterestsStatus, Error>;
 
     /// Update cois from history and documents
     fn update_user_interests(
         &self,
         history: &[DocumentHistory],
-        documents: &[Document],
-        user_interests: &UserInterests,
+        documents: &[DocumentDataWithMab],
+        user_interests: UserInterests,
     ) -> Result<UserInterests, Error>;
 }
 

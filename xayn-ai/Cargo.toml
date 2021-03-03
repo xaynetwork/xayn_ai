@@ -8,4 +8,6 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.38"
+ndarray = "=0.13.0"
 rubert = { path = "../rubert" }
+thiserror = "1.0.23"
