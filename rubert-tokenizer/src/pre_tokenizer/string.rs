@@ -29,13 +29,11 @@ impl PreTokenizedString {
         // new_splits is at least as big as self.splits
         let mut new_splits = Vec::with_capacity(self.splits.len());
         for (i, original_split) in self.splits.drain(..).enumerate() {
-            new_splits.extend(f(i, original_split).into_iter().filter_map(|split| {
-                if split.normalized.is_empty() {
-                    None
-                } else {
-                    Some(split)
-                }
-            }));
+            new_splits.extend(
+                f(i, original_split)
+                    .into_iter()
+                    .filter(|split| !split.normalized.is_empty()),
+            );
         }
         self.splits = new_splits;
 

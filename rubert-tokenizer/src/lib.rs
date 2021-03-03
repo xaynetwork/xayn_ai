@@ -3,8 +3,9 @@
 //! This is a very condensed and heavily refactored version of
 //! [huggingface's `tokenizers`](https://crates.io/crates/tokenizers) crate.
 //!
-//! The tokenizer is based on a vocabulary and consists of a Bert normalizer, a Bert pre-tokenizer,
-//! a Bert word piece model and a Bert post-tokenizer including truncation and padding strategies.
+//! The tokenizer is based on a word piece vocabulary and consists of a Bert normalizer, a Bert
+//! pre-tokenizer, a Bert word piece model and a Bert post-tokenizer including truncation and
+//! padding strategies.
 //!
 //! The normalizer is configurable by:
 //! - Cleans any control characters and replaces all sorts of whitespace by ` `.

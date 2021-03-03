@@ -1,5 +1,3 @@
-use std::iter::IntoIterator;
-
 use crate::{
     model::Model,
     normalizer::Normalizer,
@@ -39,7 +37,7 @@ impl Tokenizer {
     /// Encodes the sequences.
     pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Vec<Encoding> {
         sequences
-            .into_iter()
+            .iter()
             .map(|sequence| self.encode(sequence))
             .collect()
     }

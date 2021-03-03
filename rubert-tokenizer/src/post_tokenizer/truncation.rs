@@ -6,7 +6,7 @@ use crate::post_tokenizer::{encoding::Encoding, PostTokenizer};
 /// A truncation strategy.
 pub struct Truncation(Truncations);
 
-/// The potential errors of truncation.
+/// The potential errors of the truncation strategy.
 #[derive(Debug, Display, Error)]
 pub enum TruncationError {
     /// Invalid truncation length, must be greater or equal to the number of special tokens added by

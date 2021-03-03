@@ -167,9 +167,7 @@ impl Encoding {
 
     /// Gets the overflowing parts.
     pub fn overflowing(&self) -> Option<&[Encoding]> {
-        self.overflowing
-            .as_ref()
-            .map(|overflowing| overflowing.as_slice())
+        self.overflowing.as_deref()
     }
 
     /// Merges with another encoding.
@@ -179,12 +177,12 @@ impl Encoding {
         let mut overflowings = vec![];
 
         // 1. All our overflowings with all the others
-        self.overflowing.as_ref().map(|overflowing| {
+        if let Some(overflowing) = self.overflowing.as_ref() {
             for this_of in overflowing {
                 // 1. The other itself
                 overflowings.push(this_of.clone().merge_with(other.clone(), growing_offsets));
                 // 2. Its overflowings (this should rarely happen...)
-                other.overflowing.as_ref().map(|overflowing| {
+                if let Some(overflowing) = other.overflowing.as_ref() {
                     for other_of in overflowing {
                         overflowings.push(
                             this_of
@@ -192,16 +190,16 @@ impl Encoding {
                                 .merge_with(other_of.clone(), growing_offsets),
                         );
                     }
-                });
+                }
             }
-        });
+        }
 
         // 2. Ourself with all the other overflowings (this should rarely happen too...)
-        other.overflowing.as_ref().map(|overflowing| {
+        if let Some(overflowing) = other.overflowing.as_ref() {
             for other_of in overflowing {
                 overflowings.push(self.clone().merge_with(other_of.clone(), growing_offsets));
             }
-        });
+        }
 
         if !overflowings.is_empty() {
             self.overflowing = Some(overflowings);

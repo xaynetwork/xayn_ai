@@ -20,7 +20,7 @@ use crate::{
     tokenizer::Tokenizer,
 };
 
-/// A builder to create a Bert [`Tokenizer`].
+/// A builder to create a Bert tokenizer.
 pub struct Builder {
     // normalizer
     cleanup: bool,

@@ -6,7 +6,7 @@ use crate::{model::Vocab, post_tokenizer::encoding::Encoding};
 /// A padding strategy.
 pub struct Padding(Paddings);
 
-/// The potential errors of padding.
+/// The potential errors of the padding strategy.
 #[derive(Debug, Display, Error)]
 pub enum PaddingError {
     /// Missing the padding token in the vocabulary
