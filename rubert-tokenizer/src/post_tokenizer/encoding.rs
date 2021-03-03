@@ -3,13 +3,12 @@ use std::{collections::HashMap, iter, ops::Range as StdRange};
 use num_traits::{FromPrimitive, Num};
 
 use crate::{
-    model::string::{Split, Token, TokenizedString},
+    model::string::{Split, TokenizedString},
     normalizer::string::{Offsets, Range},
 };
 
 /// An encoded sequence.
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Encoding<N> {
     /// The IDs of the tokens.
     pub(crate) ids: Vec<N>,
@@ -41,33 +40,6 @@ where
     }
 }
 
-#[doc(hidden)]
-impl<N> std::iter::FromIterator<(Token<N>, Option<N>)> for Encoding<N>
-where
-    N: Num + Copy,
-{
-    fn from_iter<I: IntoIterator<Item = (Token<N>, Option<N>)>>(iter: I) -> Self {
-        let mut iter = iter.into_iter();
-        let len = iter.by_ref().count();
-        let ids = iter.by_ref().map(|(token, _)| token.id).collect::<Vec<_>>();
-        let words = iter.by_ref().map(|(_, word)| word).collect();
-        let offsets = iter.by_ref().map(|(token, _)| token.offsets).collect();
-        let tokens = iter.map(|(token, _)| token.value).collect();
-
-        Self {
-            ids,
-            type_ids: vec![N::zero(); len],
-            tokens,
-            words,
-            offsets,
-            special_tokens_mask: vec![N::zero(); len],
-            attention_mask: vec![N::one(); len],
-            sequence_ranges: None,
-            overflowing: None,
-        }
-    }
-}
-
 impl<N> From<TokenizedString<N>> for Encoding<N>
 where
     N: Num + FromPrimitive + Copy,
@@ -85,25 +57,56 @@ where
             "Split has not been tokenized, call `PreTokenizedString::tokenize` first",
         );
 
-        sequence
+        let len = sequence
             .splits
-            .into_iter()
+            .iter()
+            .flat_map(|split| split.tokens.iter())
+            .count();
+        let ids = sequence
+            .splits
+            .iter()
+            .flat_map(|split| split.tokens.iter().map(|token| token.id))
+            .collect();
+        let words = sequence
+            .splits
+            .iter()
             .enumerate()
-            .flat_map(|(idx, split)| {
+            .map(|(idx, _)| Some(N::from_usize(idx).unwrap()))
+            .collect();
+        let offsets = sequence
+            .splits
+            .iter()
+            .flat_map(|split| {
                 let Split { normalized, tokens } = split;
-                tokens.into_iter().map(move |mut token| {
-                    token.offsets = Range::Normalized(token.offsets.0..token.offsets.1)
+                tokens.iter().map(move |token| {
+                    Range::Normalized(token.offsets.0..token.offsets.1)
                         .convert(&normalized)
                         .map_or(token.offsets, |range| {
                             Offsets(
                                 normalized.offset + range.start,
                                 normalized.offset + range.end,
                             )
-                        });
-                    (token, Some(N::from_usize(idx).unwrap()))
+                        })
                 })
             })
-            .collect()
+            .collect();
+        let tokens = sequence
+            .splits
+            .into_iter()
+            .flat_map(|split| split.tokens.into_iter().map(|token| token.value))
+            .collect();
+
+        Self {
+            ids,
+            type_ids: vec![N::zero(); len],
+            tokens,
+            words,
+            offsets,
+            special_tokens_mask: vec![N::zero(); len],
+            attention_mask: vec![N::one(); len],
+            sequence_ranges: None,
+            overflowing: None,
+        }
     }
 }
 

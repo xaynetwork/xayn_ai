@@ -5,8 +5,7 @@ use unicode_normalization_alignments::UnicodeNormalization;
 use crate::normalizer::pattern::Pattern;
 
 /// Offsets of a subsequence relative to a sequence.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Offsets(pub usize, pub usize);
 
 impl Offsets {
