@@ -1,4 +1,4 @@
-use std::ops::{Bound, RangeBounds};
+use std::ops::{Bound, Range as StdRange, RangeBounds};
 
 use unicode_normalization_alignments::UnicodeNormalization;
 
@@ -11,7 +11,7 @@ pub struct Offsets(pub usize, pub usize);
 
 impl Offsets {
     /// Returns the range covered by a slice of alignments.
-    fn expand_alignments(alignments: &[Offsets]) -> Option<std::ops::Range<usize>> {
+    fn expand_alignments(alignments: &[Offsets]) -> Option<StdRange<usize>> {
         if alignments.is_empty() {
             None
         } else {
@@ -43,7 +43,7 @@ where
     /// Converts to a standard range.
     ///
     /// Requires the length of the represented sequences in case the inner range is unbounded.
-    fn into_range(self, len: usize) -> std::ops::Range<usize> {
+    fn into_range(self, len: usize) -> StdRange<usize> {
         let range = self.inner();
         let start = match range.start_bound() {
             Bound::Included(idx) => *idx,
@@ -62,7 +62,7 @@ where
     /// Converts from one referential to the other one wrt a sequence.
     ///
     /// Returns `None` when targeting something that is out of range.
-    pub fn convert(self, sequence: &NormalizedString) -> Option<std::ops::Range<usize>> {
+    pub fn convert(self, sequence: &NormalizedString) -> Option<StdRange<usize>> {
         let len_original = sequence.original.len();
         let len_normalized = sequence.normalized.len();
 

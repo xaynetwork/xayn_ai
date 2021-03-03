@@ -6,6 +6,7 @@ use std::{
 };
 
 use displaydoc::Display;
+use num_traits::FromPrimitive;
 use thiserror::Error;
 
 use crate::{
@@ -15,12 +16,12 @@ use crate::{
 };
 
 /// A vocabulary mapping tokens to ids.
-pub type Vocab = HashMap<String, u32>;
+pub type Vocab<N> = HashMap<String, N>;
 
 /// A Bert word piece model.
-pub struct Model {
-    pub vocab: Vocab,
-    pub unk_id: u32,
+pub struct Model<N> {
+    pub vocab: Vocab<N>,
+    pub unk_id: N,
     pub unk_token: SmallString,
     pub prefix: SmallString,
     pub max_chars: usize,
@@ -29,6 +30,8 @@ pub struct Model {
 /// The potential errors of the word piece model.
 #[derive(Debug, Display, Error)]
 pub enum ModelError {
+    /// Overflowing output data type.
+    DataType,
     /// Failed to parse the vocabulary: {0}
     Vocab(#[from] IoError),
     /// Missing the unknown token in the vocabulary
@@ -37,24 +40,34 @@ pub enum ModelError {
     SubwordPrefix,
 }
 
-impl Model {
+impl<N> Model<N> {
     /// Parses the vocabulary.
-    pub fn parse_vocab(vocab: impl BufRead) -> Result<Vocab, ModelError> {
+    pub fn parse_vocab(vocab: impl BufRead) -> Result<Vocab<N>, ModelError>
+    where
+        N: FromPrimitive,
+    {
         vocab
             .lines()
             .enumerate()
-            .map(|(idx, word)| word.map(|word| (word.trim().to_string(), idx as u32)))
-            .collect::<Result<_, _>>()
-            .map_err(Into::into)
+            .map(|(idx, word)| -> Result<(String, N), ModelError> {
+                Ok((
+                    word?.trim().to_string(),
+                    N::from_usize(idx).ok_or(ModelError::DataType)?,
+                ))
+            })
+            .collect()
     }
 
     /// Creates a Bert word piece model.
     pub fn new(
-        vocab: Vocab,
+        vocab: Vocab<N>,
         unk_token: SmallString,
         prefix: SmallString,
         max_chars: usize,
-    ) -> Result<Self, ModelError> {
+    ) -> Result<Self, ModelError>
+    where
+        N: Copy,
+    {
         let unk_id = vocab
             .get(unk_token.as_str())
             .copied()
@@ -74,7 +87,10 @@ impl Model {
     }
 
     /// Tokenizes the sequences.
-    pub fn tokenize(&self, sequence: PreTokenizedString) -> TokenizedString {
+    pub fn tokenize(&self, sequence: PreTokenizedString) -> TokenizedString<N>
+    where
+        N: Copy,
+    {
         TokenizedString::from(sequence).tokenize(self)
     }
 }

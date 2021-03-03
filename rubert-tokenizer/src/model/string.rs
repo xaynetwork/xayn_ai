@@ -7,19 +7,19 @@ use crate::{
 };
 
 /// A token relative to a sequence.
-pub struct Token {
-    pub id: u32,
+pub struct Token<N> {
+    pub id: N,
     pub value: String,
     pub offsets: Offsets,
 }
 
 /// A subpart of a normalized string.
-pub struct Split {
+pub struct Split<N> {
     pub normalized: NormalizedString,
-    pub tokens: Vec<Token>,
+    pub tokens: Vec<Token<N>>,
 }
 
-impl From<NormalizedString> for Split {
+impl<N> From<NormalizedString> for Split<N> {
     fn from(string: NormalizedString) -> Self {
         Self {
             normalized: string,
@@ -29,11 +29,11 @@ impl From<NormalizedString> for Split {
 }
 
 /// A tokenized sequence.
-pub struct TokenizedString {
-    pub splits: Vec<Split>,
+pub struct TokenizedString<N> {
+    pub splits: Vec<Split<N>>,
 }
 
-impl From<PreTokenizedString> for TokenizedString {
+impl<N> From<PreTokenizedString> for TokenizedString<N> {
     fn from(string: PreTokenizedString) -> Self {
         Self {
             splits: string.splits.into_iter().map(Into::into).collect(),
@@ -41,9 +41,12 @@ impl From<PreTokenizedString> for TokenizedString {
     }
 }
 
-impl TokenizedString {
+impl<N> TokenizedString<N>
+where
+    N: Copy,
+{
     /// Tokenizes wrt the model parameters.
-    pub fn tokenize(mut self, model: &Model) -> Self {
+    pub fn tokenize(mut self, model: &Model<N>) -> Self {
         self.splits.iter_mut().for_each(|split| {
             let string = split.normalized.normalized.as_str();
             let len = string.len();

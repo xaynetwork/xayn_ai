@@ -1,7 +1,7 @@
 use displaydoc::Display;
 use thiserror::Error;
 
-use crate::post_tokenizer::{encoding::Encoding, PostTokenizer};
+use crate::post_tokenizer::{encoding::Encoding, ADDED_TOKENS};
 
 /// A truncation strategy.
 pub struct Truncation(Truncations);
@@ -41,9 +41,9 @@ impl Truncation {
         match self.0 {
             Truncations::None => Ok(self),
             Truncations::Fixed { len, stride } => {
-                if len < PostTokenizer::ADDED_TOKENS {
+                if len < ADDED_TOKENS {
                     Err(TruncationError::FixedLength)
-                } else if stride != 0 && stride >= len - PostTokenizer::ADDED_TOKENS {
+                } else if stride != 0 && stride >= len - ADDED_TOKENS {
                     Err(TruncationError::FixedStride)
                 } else {
                     Ok(self)
@@ -56,10 +56,13 @@ impl Truncation {
     ///
     /// # Panics
     /// May panic/underflow if the truncation strategy has not been validated.
-    pub(crate) fn truncate(&self, encoding: Encoding, added_tokens: usize) -> Encoding {
+    pub(crate) fn truncate<N>(&self, encoding: Encoding<N>) -> Encoding<N>
+    where
+        N: Copy,
+    {
         match self.0 {
             Truncations::None => encoding,
-            Truncations::Fixed { len, stride } => encoding.truncate(len - added_tokens, stride),
+            Truncations::Fixed { len, stride } => encoding.truncate(len - ADDED_TOKENS, stride),
         }
     }
 }
@@ -69,7 +72,7 @@ mod tests {
     use super::*;
     use crate::normalizer::string::Offsets;
 
-    fn encoding() -> Encoding {
+    fn encoding() -> Encoding<u32> {
         Encoding {
             ids: vec![1, 2, 3, 4],
             type_ids: vec![0, 0, 0, 0],
@@ -84,18 +87,18 @@ mod tests {
     }
 
     fn fixed(len: usize) -> Truncation {
-        Truncation::fixed(len, 0)
+        Truncation::fixed(len, 0).validate().unwrap()
     }
 
     #[test]
     fn test_truncate() {
-        assert_eq!(fixed(3).truncate(encoding(), 0).len(), 3);
-        assert_eq!(fixed(4).truncate(encoding(), 0).len(), 4);
-        assert_eq!(fixed(5).truncate(encoding(), 0).len(), 4);
+        assert_eq!(fixed(5).truncate(encoding()).len(), 3);
+        assert_eq!(fixed(6).truncate(encoding()).len(), 4);
+        assert_eq!(fixed(7).truncate(encoding()).len(), 4);
     }
 
     #[test]
     fn test_truncate_zero() {
-        assert_eq!(fixed(0).truncate(encoding(), 0).len(), 0);
+        assert_eq!(fixed(2).truncate(encoding()).len(), 0);
     }
 }

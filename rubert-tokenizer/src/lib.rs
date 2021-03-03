@@ -1,11 +1,11 @@
 //! A Bert tokenizer which converts sequences into encodings.
 //!
-//! This is a very condensed and heavily refactored version of
-//! [huggingface's `tokenizers`](https://crates.io/crates/tokenizers) crate.
+//! This is a very condensed and heavily refactored version of [huggingface's `tokenizers`] crate.
 //!
 //! The tokenizer is based on a word piece vocabulary and consists of a Bert normalizer, a Bert
 //! pre-tokenizer, a Bert word piece model and a Bert post-tokenizer including truncation and
-//! padding strategies.
+//! padding strategies. The encodings can be of any numerical data type which implements
+//! [`Num`]` + `[`FromPrimitive`]` + `[`Copy`].
 //!
 //! The normalizer is configurable by:
 //! - Cleans any control characters and replaces all sorts of whitespace by ` `.
@@ -30,7 +30,7 @@
 //! use rubert_tokenizer::{Builder, Padding, Truncation};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let tokenizer = Builder::from_file("vocab.txt")?
+//!     let tokenizer = Builder::<u32>::from_file("vocab.txt")?
 //!         .with_normalizer(true, true, true, true)
 //!         .with_model("[UNK]", "##", 100)
 //!         .with_post_tokenizer("[CLS]", "[SEP]")
@@ -43,6 +43,10 @@
 //!     Ok(())
 //! }
 //! ```
+//!
+//! [huggingface's `tokenizers`]: https://crates.io/crates/tokenizers
+//! [`Num`]: num_traits::Num
+//! [`FromPrimitive`]: num_traits::FromPrimitive
 
 mod builder;
 mod model;

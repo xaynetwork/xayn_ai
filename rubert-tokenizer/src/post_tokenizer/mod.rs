@@ -5,6 +5,7 @@ pub mod truncation;
 use std::iter::once;
 
 use displaydoc::Display;
+use num_traits::Num;
 use thiserror::Error;
 
 use crate::{
@@ -15,10 +16,10 @@ use crate::{
 };
 
 /// A Bert post-tokenizer.
-pub struct PostTokenizer {
-    cls_id: u32,
+pub struct PostTokenizer<N> {
+    cls_id: N,
     cls_token: SmallString,
-    sep_id: u32,
+    sep_id: N,
     sep_token: SmallString,
 }
 
@@ -31,15 +32,18 @@ pub enum PostTokenizerError {
     SepToken,
 }
 
-impl PostTokenizer {
-    /// The number of added special tokens.
-    pub(crate) const ADDED_TOKENS: usize = 2;
+/// The number of added special tokens.
+pub const ADDED_TOKENS: usize = 2;
 
+impl<N> PostTokenizer<N>
+where
+    N: Copy,
+{
     /// Creates a Bert post-tokenizer.
     pub(crate) fn new(
         cls_token: SmallString,
         sep_token: SmallString,
-        vocab: &Vocab,
+        vocab: &Vocab<N>,
     ) -> Result<Self, PostTokenizerError> {
         let cls_id = vocab
             .get(cls_token.as_str())
@@ -59,13 +63,19 @@ impl PostTokenizer {
     }
 
     /// Post-tokenizes the encoding.
-    pub(crate) fn post_tokenize(&self, encoding: Encoding) -> Encoding {
+    pub(crate) fn post_tokenize(&self, encoding: Encoding<N>) -> Encoding<N>
+    where
+        N: Num,
+    {
         let len = encoding.len();
         let ids = once(self.cls_id)
             .chain(encoding.ids)
             .chain(once(self.sep_id))
             .collect();
-        let type_ids = once(0).chain(encoding.type_ids).chain(once(0)).collect();
+        let type_ids = once(N::zero())
+            .chain(encoding.type_ids)
+            .chain(once(N::zero()))
+            .collect();
         let tokens = once(self.cls_token.to_string())
             .chain(encoding.tokens)
             .chain(once(self.sep_token.to_string()))
@@ -75,13 +85,13 @@ impl PostTokenizer {
             .chain(encoding.offsets)
             .chain(once(Offsets(0, 0)))
             .collect();
-        let special_tokens_mask = once(1)
+        let special_tokens_mask = once(N::one())
             .chain(encoding.special_tokens_mask)
-            .chain(once(1))
+            .chain(once(N::one()))
             .collect();
-        let attention_mask = once(1)
+        let attention_mask = once(N::one())
             .chain(encoding.attention_mask)
-            .chain(once(1))
+            .chain(once(N::one()))
             .collect();
         let overflowing = encoding.overflowing.map(|overflowing| {
             overflowing

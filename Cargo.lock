@@ -866,6 +866,7 @@ name = "rubert-tokenizer"
 version = "0.1.0"
 dependencies = [
  "displaydoc",
+ "num-traits",
  "regex",
  "regex-syntax",
  "smallstr",

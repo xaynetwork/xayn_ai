@@ -1,4 +1,6 @@
-use std::{collections::HashMap, iter};
+use std::{collections::HashMap, iter, ops::Range as StdRange};
+
+use num_traits::{FromPrimitive, Num};
 
 use crate::{
     model::string::{Split, Token, TokenizedString},
@@ -8,37 +10,43 @@ use crate::{
 /// An encoded sequence.
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
-pub struct Encoding {
+pub struct Encoding<N> {
     /// The IDs of the tokens.
-    pub(crate) ids: Vec<u32>,
+    pub(crate) ids: Vec<N>,
     /// The type of the IDs.
-    pub(crate) type_ids: Vec<u32>,
+    pub(crate) type_ids: Vec<N>,
     /// The tokenized sequence.
     pub(crate) tokens: Vec<String>,
     /// The indices of the word associated to the tokens.
-    pub(crate) words: Vec<Option<u32>>,
+    pub(crate) words: Vec<Option<N>>,
     /// The offsets of the tokens in the sequence.
     pub(crate) offsets: Vec<Offsets>,
     /// The mask identifying special tokens.
-    pub(crate) special_tokens_mask: Vec<u32>,
+    pub(crate) special_tokens_mask: Vec<N>,
     /// The mask identifying padding tokens.
-    pub(crate) attention_mask: Vec<u32>,
+    pub(crate) attention_mask: Vec<N>,
     /// The ranges of tokens covered by each sequence. If this is None or empty, it is considered as
     /// exactly one sequence covering the entire range.
-    pub(crate) sequence_ranges: Option<HashMap<usize, std::ops::Range<usize>>>,
+    pub(crate) sequence_ranges: Option<HashMap<usize, StdRange<usize>>>,
     /// A list of overflowing encodings produced by truncation.
-    pub(crate) overflowing: Option<Vec<Encoding>>,
+    pub(crate) overflowing: Option<Vec<Encoding<N>>>,
 }
 
-impl std::iter::FromIterator<Encoding> for Encoding {
-    fn from_iter<I: IntoIterator<Item = Encoding>>(iter: I) -> Self {
+impl<N> std::iter::FromIterator<Encoding<N>> for Encoding<N>
+where
+    N: Copy,
+{
+    fn from_iter<I: IntoIterator<Item = Encoding<N>>>(iter: I) -> Self {
         Self::merge(iter, false)
     }
 }
 
 #[doc(hidden)]
-impl std::iter::FromIterator<(Token, Option<u32>)> for Encoding {
-    fn from_iter<I: IntoIterator<Item = (Token, Option<u32>)>>(iter: I) -> Self {
+impl<N> std::iter::FromIterator<(Token<N>, Option<N>)> for Encoding<N>
+where
+    N: Num + Copy,
+{
+    fn from_iter<I: IntoIterator<Item = (Token<N>, Option<N>)>>(iter: I) -> Self {
         let mut iter = iter.into_iter();
         let len = iter.by_ref().count();
         let ids = iter.by_ref().map(|(token, _)| token.id).collect::<Vec<_>>();
@@ -48,24 +56,27 @@ impl std::iter::FromIterator<(Token, Option<u32>)> for Encoding {
 
         Self {
             ids,
-            type_ids: vec![0; len],
+            type_ids: vec![N::zero(); len],
             tokens,
             words,
             offsets,
-            special_tokens_mask: vec![0; len],
-            attention_mask: vec![1; len],
+            special_tokens_mask: vec![N::zero(); len],
+            attention_mask: vec![N::one(); len],
             sequence_ranges: None,
             overflowing: None,
         }
     }
 }
 
-impl From<TokenizedString> for Encoding {
+impl<N> From<TokenizedString<N>> for Encoding<N>
+where
+    N: Num + FromPrimitive + Copy,
+{
     /// Creates an encoding from a tokenized sequence.
     ///
     /// # Panics
-    /// Panics if the sequence has not been tokenized before.
-    fn from(sequence: TokenizedString) -> Self {
+    /// Panics if the sequence has not been tokenized before or if the token indices overflow `N`.
+    fn from(sequence: TokenizedString<N>) -> Self {
         if sequence.splits.is_empty() {
             return Encoding::with_capacity(0);
         }
@@ -89,14 +100,14 @@ impl From<TokenizedString> for Encoding {
                                 normalized.offset + range.end,
                             )
                         });
-                    (token, Some(idx as u32))
+                    (token, Some(N::from_usize(idx).unwrap()))
                 })
             })
             .collect()
     }
 }
 
-impl Encoding {
+impl<N> Encoding<N> {
     /// Creates an empty encoding with capacity.
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -131,12 +142,12 @@ impl Encoding {
     }
 
     /// Gets the ids.
-    pub fn ids(&self) -> &[u32] {
+    pub fn ids(&self) -> &[N] {
         self.ids.as_slice()
     }
 
     /// Gets the type ids.
-    pub fn type_ids(&self) -> &[u32] {
+    pub fn type_ids(&self) -> &[N] {
         self.type_ids.as_slice()
     }
 
@@ -146,7 +157,7 @@ impl Encoding {
     }
 
     /// Gets the words.
-    pub fn words(&self) -> &[Option<u32>] {
+    pub fn words(&self) -> &[Option<N>] {
         self.words.as_slice()
     }
 
@@ -156,22 +167,25 @@ impl Encoding {
     }
 
     /// Gets the special tokens mask.
-    pub fn special_tokens_mask(&self) -> &[u32] {
+    pub fn special_tokens_mask(&self) -> &[N] {
         self.special_tokens_mask.as_slice()
     }
 
     /// Gets the attention mask.
-    pub fn attention_mask(&self) -> &[u32] {
+    pub fn attention_mask(&self) -> &[N] {
         self.attention_mask.as_slice()
     }
 
     /// Gets the overflowing parts.
-    pub fn overflowing(&self) -> Option<&[Encoding]> {
+    pub fn overflowing(&self) -> Option<&[Encoding<N>]> {
         self.overflowing.as_deref()
     }
 
     /// Merges with another encoding.
-    pub fn merge_with(mut self, other: Encoding, growing_offsets: bool) -> Self {
+    pub fn merge_with(mut self, other: Encoding<N>, growing_offsets: bool) -> Self
+    where
+        N: Copy,
+    {
         // Handle merging the overflowing parts too: Combine them all
         // In most of the cases, we expect `other.overflowing.len() == 0`
         let mut overflowings = vec![];
@@ -260,7 +274,10 @@ impl Encoding {
     }
 
     /// Merges the encodings.
-    pub fn merge(encodings: impl IntoIterator<Item = Encoding>, growing_offsets: bool) -> Self {
+    pub fn merge(encodings: impl IntoIterator<Item = Encoding<N>>, growing_offsets: bool) -> Self
+    where
+        N: Copy,
+    {
         encodings
             .into_iter()
             .fold(Encoding::with_capacity(0), |encoding, other| {
@@ -270,7 +287,10 @@ impl Encoding {
 
     /// Extends from the "slice" `&from[skip..skip+take]`.
     #[inline]
-    fn extend(&mut self, from: &Self, skip: usize, take: usize) {
+    fn extend(&mut self, from: &Self, skip: usize, take: usize)
+    where
+        N: Copy,
+    {
         debug_assert!(self.overflowing.is_none());
         debug_assert!(self.sequence_ranges.is_none());
 
@@ -290,7 +310,10 @@ impl Encoding {
 
     /// Drains and chains the drainage with the "slice" `&from[skip..skip+take]`.
     #[inline]
-    fn drain_chain(&mut self, from: &Self, skip: usize, take: usize) -> Self {
+    fn drain_chain(&mut self, from: &Self, skip: usize, take: usize) -> Self
+    where
+        N: Copy,
+    {
         debug_assert!(self.overflowing.is_none());
         debug_assert!(self.sequence_ranges.is_none());
 
@@ -347,7 +370,10 @@ impl Encoding {
     ///
     /// # Panics
     /// Panics if `stride >= len` for `len != 0`.
-    pub(crate) fn truncate(mut self, len: usize, stride: usize) -> Self {
+    pub(crate) fn truncate(mut self, len: usize, stride: usize) -> Self
+    where
+        N: Copy,
+    {
         if len >= self.len() {
             return self;
         }
@@ -401,13 +427,10 @@ impl Encoding {
     }
 
     /// Pads to a minimum length.
-    pub(crate) fn pad(
-        mut self,
-        len: usize,
-        pad_id: u32,
-        pad_type_id: u32,
-        pad_token: &str,
-    ) -> Self {
+    pub(crate) fn pad(mut self, len: usize, pad_id: N, pad_type_id: N, pad_token: &str) -> Self
+    where
+        N: Num + Copy,
+    {
         // Dispatch call to all the overflowings first
         self.overflowing = self.overflowing.map(|overflowing| {
             overflowing
@@ -429,9 +452,10 @@ impl Encoding {
         self.tokens
             .extend(iter::repeat(pad_token.to_string()).take(pad_length));
         self.words.extend(iter::repeat(None).take(pad_length));
-        self.attention_mask.extend(iter::repeat(0).take(pad_length));
+        self.attention_mask
+            .extend(iter::repeat(N::zero()).take(pad_length));
         self.special_tokens_mask
-            .extend(iter::repeat(1).take(pad_length));
+            .extend(iter::repeat(N::one()).take(pad_length));
         self.offsets
             .extend(iter::repeat(Offsets(0, 0)).take(pad_length));
 

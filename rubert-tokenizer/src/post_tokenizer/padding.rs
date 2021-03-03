@@ -1,10 +1,11 @@
 use displaydoc::Display;
+use num_traits::Num;
 use thiserror::Error;
 
 use crate::{model::Vocab, post_tokenizer::encoding::Encoding, SmallString};
 
 /// A padding strategy.
-pub struct Padding(Paddings);
+pub struct Padding<N>(Paddings<N>);
 
 /// The potential errors of the padding strategy.
 #[derive(Debug, Display, Error)]
@@ -14,34 +15,40 @@ pub enum PaddingError {
 }
 
 /// The available padding strategies.
-enum Paddings {
+enum Paddings<N> {
     /// No padding.
     None,
     /// Padding to a fixed length.
     Fixed {
         len: usize,
-        pad_id: u32,
+        pad_id: N,
         pad_token: SmallString,
     },
 }
 
-impl Padding {
+impl<N> Padding<N> {
     /// Creates an inert padding strategy.
     pub fn none() -> Self {
         Self(Paddings::None)
     }
 
     /// Creates a fixed-length padding strategy.
-    pub fn fixed(len: usize, pad: impl AsRef<str>) -> Self {
+    pub fn fixed(len: usize, pad: impl AsRef<str>) -> Self
+    where
+        N: Num,
+    {
         Self(Paddings::Fixed {
             len,
-            pad_id: 0,
+            pad_id: N::zero(),
             pad_token: pad.as_ref().into(),
         })
     }
 
     /// Validates this strategy.
-    pub(crate) fn validate(mut self, vocab: &Vocab) -> Result<Self, PaddingError> {
+    pub(crate) fn validate(mut self, vocab: &Vocab<N>) -> Result<Self, PaddingError>
+    where
+        N: Copy,
+    {
         match self.0 {
             Paddings::None => Ok(self),
             Paddings::Fixed {
@@ -59,14 +66,17 @@ impl Padding {
     }
 
     /// Pads the encoding.
-    pub(crate) fn pad(&self, encoding: Encoding) -> Encoding {
+    pub(crate) fn pad(&self, encoding: Encoding<N>) -> Encoding<N>
+    where
+        N: Num + Copy,
+    {
         match self.0 {
             Paddings::None => encoding,
             Paddings::Fixed {
                 len,
                 pad_id,
                 ref pad_token,
-            } => encoding.pad(len, pad_id, 0, pad_token),
+            } => encoding.pad(len, pad_id, N::zero(), pad_token),
         }
     }
 }
@@ -75,14 +85,16 @@ impl Padding {
 mod tests {
     use super::*;
 
-    fn encoding(len: u32) -> Encoding {
+    fn encoding(len: u32) -> Encoding<u32> {
         let mut encoding = Encoding::with_capacity(0);
         encoding.ids = (0..len).collect();
         encoding
     }
 
-    fn fixed(len: usize) -> Padding {
+    fn fixed(len: usize) -> Padding<u32> {
         Padding::fixed(len, "[PAD]")
+            .validate(&std::iter::once(("[PAD]".into(), 0)).collect::<Vocab<u32>>())
+            .unwrap()
     }
 
     #[test]
