@@ -18,10 +18,7 @@ impl BertSystem for RuBert {
         documents
             .into_iter()
             .map(|document| {
-                // TODO: input argument to `run()` will be more flexible as soon as we have our own
-                // tokenizer module
-                let sentence = vec![document.document_content.snippet.as_str()];
-                let embedding = self.run(sentence);
+                let embedding = self.run(document.document_content.snippet.as_str());
                 embedding
                     .map(|embedding| {
                         DocumentDataWithEmbedding::from_document(

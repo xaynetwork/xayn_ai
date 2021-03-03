@@ -10,5 +10,5 @@ edition = "2018"
 derive_more = { version = "0.99.11", default-features = false, features = ["deref", "from"] }
 displaydoc = "0.1.7"
 thiserror = "1.0.23"
-tokenizers = { git = "https://github.com/xaynetwork/tokenizers", default-features = false, features = ["bert"] }
+rubert-tokenizer = { path = "../rubert-tokenizer" }
 tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }

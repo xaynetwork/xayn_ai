@@ -1,59 +1,26 @@
-use std::{
-    collections::HashMap,
-    io::{BufRead, Error as IoError},
-};
+use std::io::BufRead;
 
 use derive_more::{Deref, From};
 use displaydoc::Display;
+use rubert_tokenizer::{Builder, BuilderError, Padding, Tokenizer as BertTokenizer, Truncation};
 use thiserror::Error;
-use tokenizers::{
-    models::wordpiece::WordPiece,
-    normalizers::bert::BertNormalizer,
-    pre_tokenizers::bert::BertPreTokenizer,
-    processors::bert::BertProcessing,
-    tokenizer::{
-        EncodeInput,
-        Encoding,
-        Error as BertTokenizerError,
-        Model,
-        Tokenizer as BertTokenizer,
-    },
-    utils::{
-        padding::{PaddingDirection, PaddingParams, PaddingStrategy},
-        truncation::{TruncationParams, TruncationStrategy},
-    },
-};
 
-use crate::{
-    ndarray::{Array1, ShapeError},
-    utils::ArcArray2,
-};
+use crate::utils::ArcArray2;
 
 /// A [`RuBert`] tokenizer.
 ///
-/// Wraps a pre-configured huggingface Bert tokenizer.
+/// Wraps a pre-configured Bert tokenizer.
 ///
 /// [`RuBert`]: crate::pipeline::RuBert
-pub struct Tokenizer {
-    tokenizer: BertTokenizer,
-    token_size: usize,
-}
+pub struct Tokenizer(BertTokenizer<u32>);
 
 /// Potential errors of the [`RuBert`] [`Tokenizer`].
 ///
 /// [`RuBert`]: crate::pipeline::RuBert
 #[derive(Debug, Display, Error)]
 pub enum TokenizerError {
-    /// Failed to read the vocabulary: {0}.
-    Read(#[from] IoError),
-    /// The vocabulary is missing the `[SEP]` token.
-    SepToken,
-    /// The vocabulary is missing the `[CLS]` token.
-    ClsToken,
-    /// Failed to encode sentences: {0}.
-    Encoding(#[from] BertTokenizerError),
-    /// Invalid encodings shapes: {0}.
-    Shape(#[from] ShapeError),
+    /// Failed to build the tokenizer: {0}
+    Builder(#[from] BuilderError),
 }
 
 /// The input ids of the encoded sentences.
@@ -78,8 +45,8 @@ pub struct Encodings {
 impl Tokenizer {
     /// Creates a [`RuBert`] tokenizer from a vocabulary file.
     ///
-    /// Can be set to strip accents and to lowercase the sentences. Requires the maximum number of
-    /// tokens per tokenized sentence, which applies to padding and truncation and includes special
+    /// Can be set to strip accents and to lowercase the sequences. Requires the maximum number of
+    /// tokens per tokenized sequence, which applies to padding and truncation and includes special
     /// tokens as well.
     ///
     /// # Errors
@@ -89,110 +56,80 @@ impl Tokenizer {
     pub fn new(
         // `BufRead` instead of `AsRef<Path>` is needed for wasm
         vocab: impl BufRead,
-        strip_accents: bool,
+        accents: bool,
         lowercase: bool,
         token_size: usize,
     ) -> Result<Self, TokenizerError> {
-        let vocab: HashMap<String, u32> = vocab
-            .lines()
-            .enumerate()
-            .map(|(index, line)| line.map(|line| (line, index as u32)))
-            .collect::<Result<_, _>>()?;
-
-        let model = WordPiece::builder()
-            .vocab(vocab)
-            .unk_token("[UNK]".into())
-            .continuing_subword_prefix("##".into())
-            .max_input_chars_per_word(100)
-            // this is an `IoError` internally, we can't be more specific here due to how tokenizers
-            // handles its errors internally, this will change once we have extracted the tokenizer
-            .build()?;
-        let sep_token = "[SEP]";
-        let sep_id = model
-            .token_to_id(sep_token)
-            .ok_or(TokenizerError::SepToken)?;
-        let cls_token = "[CLS]";
-        let cls_id = model
-            .token_to_id(cls_token)
-            .ok_or(TokenizerError::ClsToken)?;
-
-        let normalizer = BertNormalizer::new(true, true, Some(strip_accents), lowercase);
-        let pre_tokenizer = BertPreTokenizer;
-        let post_processor =
-            BertProcessing::new((sep_token.into(), sep_id), (cls_token.into(), cls_id));
-
-        let truncation = Some(TruncationParams {
-            max_length: token_size,
-            strategy: TruncationStrategy::LongestFirst,
-            stride: 1,
-        });
-        let padding = Some(PaddingParams {
-            strategy: PaddingStrategy::Fixed(token_size),
-            direction: PaddingDirection::Right,
-            pad_to_multiple_of: None,
-            pad_id: 0,
-            pad_type_id: 0,
-            pad_token: "[PAD]".into(),
-        });
-
-        let mut tokenizer = BertTokenizer::new(model);
-        tokenizer
-            .with_normalizer(normalizer)
-            .with_pre_tokenizer(pre_tokenizer)
-            .with_post_processor(post_processor)
-            .with_truncation(truncation)
-            .with_padding(padding);
-
-        Ok(Self {
-            tokenizer,
-            token_size,
-        })
+        Ok(Tokenizer(
+            Builder::new(vocab)?
+                .with_normalizer(true, false, accents, lowercase)
+                .with_model("[UNK]", "##", 100)
+                .with_post_tokenizer("[CLS]", "[SEP]")
+                .with_truncation(Truncation::fixed(token_size, 0))
+                .with_padding(Padding::fixed(token_size, "[PAD]"))
+                .build()?,
+        ))
     }
 
-    /// Encodes the sentences.
-    ///
-    /// # Errors
-    /// Fails if any of the normalization, tokenization, pre- or post-processing steps fail.
-    ///
-    /// [`RuBert`]: crate::pipeline::RuBert
-    pub fn encode<'s>(
-        &self,
-        sentences: Vec<impl Into<EncodeInput<'s>> + Send>,
-    ) -> Result<Encodings, TokenizerError> {
-        let batch_size = sentences.len();
-        let encodings = self.tokenizer.encode_batch(sentences, true)?;
-        let encodings = Encoding::merge(encodings, true);
+    /// Encodes the sequence.
+    pub fn encode(&self, sequence: impl AsRef<str>) -> Encodings {
+        let encoding = self.0.encode(sequence);
+        let token_size = encoding.len();
 
-        let input_ids = encodings
-            .get_ids()
-            .iter()
-            .copied()
-            .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))?
-            .into_shared()
-            .into();
-        let attention_masks = encodings
-            .get_attention_mask()
-            .iter()
-            .copied()
-            .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))?
-            .into_shared()
-            .into();
-        let token_type_ids = encodings
-            .get_type_ids()
-            .iter()
-            .copied()
-            .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))?
-            .into_shared()
-            .into();
+        let input_ids = InputIds(ArcArray2::from_shape_fn((1, token_size), |(_, j)| {
+            encoding.ids()[j]
+        }));
+        let attention_masks =
+            AttentionMasks(ArcArray2::from_shape_fn((1, token_size), |(_, j)| {
+                encoding.attention_mask()[j]
+            }));
+        let token_type_ids = TokenTypeIds(ArcArray2::from_shape_fn((1, token_size), |(_, j)| {
+            encoding.type_ids()[j]
+        }));
 
-        Ok(Encodings {
+        Encodings {
             input_ids,
             attention_masks,
             token_type_ids,
-        })
+        }
+    }
+
+    /// Encodes the sequences.
+    pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Encodings {
+        if sequences.is_empty() {
+            let input_ids = InputIds(ArcArray2::default((0, 0)));
+            let attention_masks = AttentionMasks(ArcArray2::default((0, 0)));
+            let token_type_ids = TokenTypeIds(ArcArray2::default((0, 0)));
+
+            Encodings {
+                input_ids,
+                attention_masks,
+                token_type_ids,
+            }
+        } else {
+            let encodings = self.0.encode_batch(sequences);
+            let batch_size = encodings.len();
+            let token_size = encodings[0].len();
+
+            let input_ids = InputIds(ArcArray2::from_shape_fn(
+                (batch_size, token_size),
+                |(i, j)| encodings[i].ids()[j],
+            ));
+            let attention_masks = AttentionMasks(ArcArray2::from_shape_fn(
+                (batch_size, token_size),
+                |(i, j)| encodings[i].attention_mask()[j],
+            ));
+            let token_type_ids = TokenTypeIds(ArcArray2::from_shape_fn(
+                (batch_size, token_size),
+                |(i, j)| encodings[i].type_ids()[j],
+            ));
+
+            Encodings {
+                input_ids,
+                attention_masks,
+                token_type_ids,
+            }
+        }
     }
 }
 
@@ -205,17 +142,15 @@ mod tests {
 
     fn tokenizer(token_size: usize) -> Tokenizer {
         let vocab = BufReader::new(File::open(VOCAB).unwrap());
-        let strip_accents = true;
+        let accents = true;
         let lowercase = true;
-        Tokenizer::new(vocab, strip_accents, lowercase, token_size).unwrap()
+        Tokenizer::new(vocab, accents, lowercase, token_size).unwrap()
     }
 
     #[test]
     fn test_encode() {
         // too short
-        let encoding = tokenizer(20)
-            .encode(vec!["These are normal, common EMBEDDINGS.".to_string()])
-            .unwrap();
+        let encoding = tokenizer(20).encode("These are normal, common EMBEDDINGS.");
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape(
@@ -245,9 +180,7 @@ mod tests {
         );
 
         // too long
-        let encoding = tokenizer(10)
-            .encode(vec!["These are normal, common EMBEDDINGS.".to_string()])
-            .unwrap();
+        let encoding = tokenizer(10).encode("These are normal, common EMBEDDINGS.");
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape((1, 10), &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3])
@@ -266,9 +199,7 @@ mod tests {
     #[test]
     fn test_encode_batch() {
         // both too short
-        let encoding = tokenizer(10)
-            .encode(vec!["a b c".to_string(), "a b c d".to_string()])
-            .unwrap();
+        let encoding = tokenizer(10).encode_batch(&["a b c", "a b c d"]);
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape(
@@ -304,12 +235,7 @@ mod tests {
         );
 
         // one too short and one too long
-        let encoding = tokenizer(10)
-            .encode(vec![
-                "a b c".to_string(),
-                "a b c d e f g h i j k l".to_string(),
-            ])
-            .unwrap();
+        let encoding = tokenizer(10).encode_batch(&["a b c", "a b c d e f g h i j k l"]);
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape(
@@ -345,12 +271,8 @@ mod tests {
         );
 
         // both too long
-        let encoding = tokenizer(10)
-            .encode(vec![
-                "a b c d e f g h i j k l".to_string(),
-                "a b c d e f g h i j k l m n".to_string(),
-            ])
-            .unwrap();
+        let encoding =
+            tokenizer(10).encode_batch(&["a b c d e f g h i j k l", "a b c d e f g h i j k l m n"]);
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape(
@@ -389,9 +311,7 @@ mod tests {
     #[test]
     fn test_encode_batch_edge_cases() {
         // first one too short, second fits
-        let encoding = tokenizer(5)
-            .encode(vec!["a b".to_string(), "a b c".to_string()])
-            .unwrap();
+        let encoding = tokenizer(5).encode_batch(&["a b", "a b c"]);
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape(
@@ -427,9 +347,7 @@ mod tests {
         );
 
         // first fits, second 1 too long
-        let encoding = tokenizer(5)
-            .encode(vec!["a b c".to_string(), "a b c d".to_string()])
-            .unwrap();
+        let encoding = tokenizer(5).encode_batch(&["a b c", "a b c d"]);
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape(
@@ -468,11 +386,7 @@ mod tests {
     #[test]
     fn test_encode_troublemakers() {
         // known troublemakers
-        let encoding = tokenizer(15)
-            .encode(vec![
-                "for “life-threatening storm surge” according".to_string()
-            ])
-            .unwrap();
+        let encoding = tokenizer(15).encode("for “life-threatening storm surge” according");
         assert_eq!(
             encoding.input_ids.0,
             ArrayView::from_shape(

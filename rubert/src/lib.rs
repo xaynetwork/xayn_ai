@@ -16,8 +16,8 @@
 //!         .with_pooling(Pooler::First)
 //!         .build()?;
 //!
-//!     let sentences = vec!["This is a sentence."];
-//!     let embeddings = rubert.run(sentences)?;
+//!     let embeddings = rubert.run("This is a sentence.")?;
+//!     let embeddings = rubert.run_batch(&["This is a sentence.", "And another one!"])?;
 //!
 //!     Ok(())
 //! }

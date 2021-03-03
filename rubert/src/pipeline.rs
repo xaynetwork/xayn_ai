@@ -1,7 +1,6 @@
 use derive_more::Deref;
 use displaydoc::Display;
 use thiserror::Error;
-use tokenizers::tokenizer::EncodeInput;
 
 use crate::{
     model::{Model, ModelError},
@@ -45,21 +44,33 @@ impl From<Poolings> for Embeddings {
 }
 
 impl RuBert {
-    /// Runs the pipeline to compute embeddings of the sentences.
+    /// Runs the pipeline to compute embeddings of the sequence.
     ///
-    /// The embeddings are computed from the sentences by tokenization, prediction and optional
+    /// The embeddings are computed from the sequences by tokenization, prediction and optional
     /// pooling.
     ///
     /// # Errors
-    /// - The tokenization fails if any of the normalization, tokenization, pre- or post-processing
-    /// steps fail.
-    /// - The prediction fails on dimensionality mismatches for the tokenized sentences regarding
+    /// The prediction fails on dimensionality mismatches for the tokenized sentences regarding
     /// the loaded onnx model.
-    pub fn run<'s>(
-        &self,
-        sentences: Vec<impl Into<EncodeInput<'s>> + Send>,
-    ) -> Result<Embeddings, RuBertError> {
-        let encodings = self.tokenizer.encode(sentences)?;
+    pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embeddings, RuBertError> {
+        let encodings = self.tokenizer.encode(sequence);
+        let attention_masks = encodings.attention_masks.clone();
+        let predictions = self.model.predict(encodings)?;
+        let poolings = self.pooler.pool(predictions, attention_masks);
+
+        Ok(poolings.into())
+    }
+
+    /// Runs the pipeline to compute embeddings of the sequences.
+    ///
+    /// The embeddings are computed from the sequences by tokenization, prediction and optional
+    /// pooling.
+    ///
+    /// # Errors
+    /// The prediction fails on dimensionality mismatches for the tokenized sentences regarding
+    /// the loaded onnx model.
+    pub fn run_batch(&self, sequences: &[impl AsRef<str>]) -> Result<Embeddings, RuBertError> {
+        let encodings = self.tokenizer.encode_batch(sequences);
         let attention_masks = encodings.attention_masks.clone();
         let predictions = self.model.predict(encodings)?;
         let poolings = self.pooler.pool(predictions, attention_masks);
@@ -102,12 +113,15 @@ mod tests {
             .build()
             .unwrap();
 
-        let sentences = vec!["This is a sentence."];
-        let embeddings = rubert.run(sentences).unwrap();
+        let embeddings = rubert.run("This is a sentence.").unwrap();
         assert_eq!(embeddings.shape(), &[1, rubert.embedding_size()]);
 
-        let sentences = vec!["bank vault", "bank robber", "river bank"];
-        let embeddings = rubert.run(sentences).unwrap();
+        let embeddings = rubert
+            .run_batch(&["bank vault", "bank robber", "river bank"])
+            .unwrap();
         assert_eq!(embeddings.shape(), &[3, rubert.embedding_size()]);
+
+        let embeddings = rubert.run_batch(&[""; 0]).unwrap();
+        assert_eq!(embeddings.shape(), &[0, 128]);
     }
 }
