@@ -1,3 +1,4 @@
+#![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
 //! A Bert tokenizer which converts sequences into encodings.
 //!
 //! This is a very condensed and heavily refactored version of [huggingface's `tokenizers`] crate.
@@ -39,6 +40,7 @@
 //!         .build()?;
 //!
 //!     let encoding = tokenizer.encode("This is a sequence.");
+//!     let encoding = tokenizer.encode_batch(&["This is a sequence.", "And another one!"]);
 //!
 //!     Ok(())
 //! }
