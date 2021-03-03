@@ -8,7 +8,11 @@ use std::{
 use displaydoc::Display;
 use thiserror::Error;
 
-use crate::{model::string::TokenizedString, pre_tokenizer::string::PreTokenizedString};
+use crate::{
+    model::string::TokenizedString,
+    pre_tokenizer::string::PreTokenizedString,
+    SmallString,
+};
 
 /// A vocabulary mapping tokens to ids.
 pub type Vocab = HashMap<String, u32>;
@@ -17,8 +21,8 @@ pub type Vocab = HashMap<String, u32>;
 pub struct Model {
     pub vocab: Vocab,
     pub unk_id: u32,
-    pub unk_token: String,
-    pub prefix: String,
+    pub unk_token: SmallString,
+    pub prefix: SmallString,
     pub max_chars: usize,
 }
 
@@ -47,14 +51,15 @@ impl Model {
     /// Creates a Bert word piece model.
     pub fn new(
         vocab: Vocab,
-        unk: String,
-        prefix: String,
+        unk_token: SmallString,
+        prefix: SmallString,
         max_chars: usize,
     ) -> Result<Self, ModelError> {
         let unk_id = vocab
-            .get(unk.as_str())
+            .get(unk_token.as_str())
             .copied()
             .ok_or(ModelError::UnkToken)?;
+
         if !vocab.keys().any(|word| word.contains(prefix.as_str())) {
             return Err(ModelError::SubwordPrefix);
         }
@@ -62,7 +67,7 @@ impl Model {
         Ok(Model {
             vocab,
             unk_id,
-            unk_token: unk,
+            unk_token,
             prefix,
             max_chars,
         })

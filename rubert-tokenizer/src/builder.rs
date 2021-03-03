@@ -18,6 +18,7 @@ use crate::{
     },
     pre_tokenizer::PreTokenizer,
     tokenizer::Tokenizer,
+    SmallString,
 };
 
 /// A builder to create a Bert tokenizer.
@@ -29,12 +30,12 @@ pub struct Builder {
     lowercase: bool,
     // model
     vocab: Vocab,
-    unk: String,
-    prefix: String,
+    unk: SmallString,
+    prefix: SmallString,
     max_chars: usize,
     // post-tokenizer
-    cls: String,
-    sep: String,
+    cls: SmallString,
+    sep: SmallString,
     trunc: Truncation,
     pad: Padding,
 }
@@ -115,12 +116,12 @@ impl Builder {
     /// - The maximum number of characters per word. Defaults to `100`.
     pub fn with_model(
         mut self,
-        unk: impl Into<String>,
-        prefix: impl Into<String>,
+        unk: impl AsRef<str>,
+        prefix: impl AsRef<str>,
         max_chars: usize,
     ) -> Self {
-        self.unk = unk.into();
-        self.prefix = prefix.into();
+        self.unk = unk.as_ref().into();
+        self.prefix = prefix.as_ref().into();
         self.max_chars = max_chars;
         self
     }
@@ -130,9 +131,9 @@ impl Builder {
     /// Configurable by:
     /// - The class token. Defaults to `"[CLS]"`.
     /// - The separation token. Defaults to `"[SEP]"`.
-    pub fn with_post_tokenizer(mut self, cls: impl Into<String>, sep: impl Into<String>) -> Self {
-        self.cls = cls.into();
-        self.sep = sep.into();
+    pub fn with_post_tokenizer(mut self, cls: impl AsRef<str>, sep: impl AsRef<str>) -> Self {
+        self.cls = cls.as_ref().into();
+        self.sep = sep.as_ref().into();
         self
     }
 

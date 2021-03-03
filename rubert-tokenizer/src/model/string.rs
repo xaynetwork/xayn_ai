@@ -50,7 +50,7 @@ impl TokenizedString {
             if string.chars().count() > model.max_chars {
                 split.tokens = vec![Token {
                     id: model.unk_id,
-                    value: model.unk_token.clone(),
+                    value: model.unk_token.to_string(),
                     offsets: Offsets(0, len),
                 }]
             } else {
@@ -61,7 +61,7 @@ impl TokenizedString {
                         if start >= end {
                             split.tokens = vec![Token {
                                 id: model.unk_id,
-                                value: model.unk_token.clone(),
+                                value: model.unk_token.to_string(),
                                 offsets: Offsets(0, len),
                             }];
                             return;

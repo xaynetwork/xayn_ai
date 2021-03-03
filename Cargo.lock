@@ -868,6 +868,7 @@ dependencies = [
  "displaydoc",
  "regex",
  "regex-syntax",
+ "smallstr",
  "thiserror",
  "unicode-normalization-alignments",
  "unicode_categories",
@@ -935,6 +936,15 @@ dependencies = [
  "digest",
  "fake-simd",
  "opaque-debug",
+]
+
+[[package]]
+name = "smallstr"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e922794d168678729ffc7e07182721a14219c65814e66e91b839a272fe5ae4f"
+dependencies = [
+ "smallvec",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 use displaydoc::Display;
 use thiserror::Error;
 
-use crate::{model::Vocab, post_tokenizer::encoding::Encoding};
+use crate::{model::Vocab, post_tokenizer::encoding::Encoding, SmallString};
 
 /// A padding strategy.
 pub struct Padding(Paddings);
@@ -21,7 +21,7 @@ enum Paddings {
     Fixed {
         len: usize,
         pad_id: u32,
-        pad_token: String,
+        pad_token: SmallString,
     },
 }
 
@@ -32,11 +32,11 @@ impl Padding {
     }
 
     /// Creates a fixed-length padding strategy.
-    pub fn fixed(len: usize, pad: impl Into<String>) -> Self {
+    pub fn fixed(len: usize, pad: impl AsRef<str>) -> Self {
         Self(Paddings::Fixed {
             len,
             pad_id: 0,
-            pad_token: pad.into(),
+            pad_token: pad.as_ref().into(),
         })
     }
 
@@ -50,7 +50,7 @@ impl Padding {
                 ..
             } => {
                 *pad_id = vocab
-                    .get(pad_token)
+                    .get(pad_token.as_str())
                     .copied()
                     .ok_or(PaddingError::PadToken)?;
                 Ok(self)

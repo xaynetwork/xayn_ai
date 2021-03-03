@@ -62,3 +62,6 @@ pub use crate::{
     },
     tokenizer::Tokenizer,
 };
+
+/// A stack allocated string with a maximum length of eight bytes.
+type SmallString = smallstr::SmallString<[u8; 8]>;

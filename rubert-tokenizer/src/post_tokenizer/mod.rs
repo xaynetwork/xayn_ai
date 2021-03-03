@@ -7,14 +7,19 @@ use std::iter::once;
 use displaydoc::Display;
 use thiserror::Error;
 
-use crate::{model::Vocab, normalizer::string::Offsets, post_tokenizer::encoding::Encoding};
+use crate::{
+    model::Vocab,
+    normalizer::string::Offsets,
+    post_tokenizer::encoding::Encoding,
+    SmallString,
+};
 
 /// A Bert post-tokenizer.
 pub struct PostTokenizer {
     cls_id: u32,
-    cls_token: String,
+    cls_token: SmallString,
     sep_id: u32,
-    sep_token: String,
+    sep_token: SmallString,
 }
 
 /// The potential erros of the post-tokenizer.
@@ -31,21 +36,25 @@ impl PostTokenizer {
     pub(crate) const ADDED_TOKENS: usize = 2;
 
     /// Creates a Bert post-tokenizer.
-    pub(crate) fn new(cls: String, sep: String, vocab: &Vocab) -> Result<Self, PostTokenizerError> {
+    pub(crate) fn new(
+        cls_token: SmallString,
+        sep_token: SmallString,
+        vocab: &Vocab,
+    ) -> Result<Self, PostTokenizerError> {
         let cls_id = vocab
-            .get(cls.as_str())
+            .get(cls_token.as_str())
             .copied()
             .ok_or(PostTokenizerError::ClsToken)?;
         let sep_id = vocab
-            .get(sep.as_str())
+            .get(sep_token.as_str())
             .copied()
             .ok_or(PostTokenizerError::SepToken)?;
 
         Ok(PostTokenizer {
             cls_id,
-            cls_token: cls,
+            cls_token,
             sep_id,
-            sep_token: sep,
+            sep_token,
         })
     }
 
@@ -57,9 +66,9 @@ impl PostTokenizer {
             .chain(once(self.sep_id))
             .collect();
         let type_ids = once(0).chain(encoding.type_ids).chain(once(0)).collect();
-        let tokens = once(self.cls_token.clone())
+        let tokens = once(self.cls_token.to_string())
             .chain(encoding.tokens)
-            .chain(once(self.sep_token.clone()))
+            .chain(once(self.sep_token.to_string()))
             .collect();
         let words = once(None).chain(encoding.words).chain(once(None)).collect();
         let offsets = once(Offsets(0, 0))
