@@ -108,7 +108,7 @@ impl CoiSystem {
     /// Creates a new CoI that is shifted towards the position of `embedding`.
     fn shift_coi_point(&self, embedding: &Embeddings, coi: &Embeddings) -> Embeddings {
         let updated =
-            &coi.0 * (1. - self.config.update_theta) + &embedding.0 * self.config.update_theta;
+            &coi.0 * (1. - self.config.shift_factor) + &embedding.0 * self.config.shift_factor;
         Embeddings(updated.into_shared())
     }
 
