@@ -18,7 +18,7 @@ impl BertSystem for RuBert {
         documents
             .into_iter()
             .map(|document| {
-                let embedding = self.run(document.document_content.snippet.as_str());
+                let embedding = self.run(&[document.document_content.snippet.as_str()]);
                 embedding
                     .map(|embedding| {
                         DocumentDataWithEmbedding::from_document(

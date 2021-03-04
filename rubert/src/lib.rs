@@ -9,15 +9,14 @@
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let rubert = Builder::from_files("vocab.txt", "model.onnx")?
-//!         .with_strip_accents(true)
+//!         .with_accents(true)
 //!         .with_lowercase(true)
 //!         .with_batch_size(10)?
 //!         .with_token_size(64)?
 //!         .with_pooling(Pooler::First)
 //!         .build()?;
 //!
-//!     let embeddings = rubert.run("This is a sentence.")?;
-//!     let embeddings = rubert.run_batch(&["This is a sentence.", "And another one!"])?;
+//!     let embeddings = rubert.run(&["This is a sentence."])?;
 //!
 //!     Ok(())
 //! }

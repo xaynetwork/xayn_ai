@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use derive_more::Deref;
 use displaydoc::Display;
 use thiserror::Error;
@@ -15,6 +17,7 @@ use crate::{
 ///
 /// [`Builder`]: crate::builder::Builder
 pub struct RuBert {
+    pub(crate) batch_size: usize,
     pub(crate) tokenizer: Tokenizer,
     pub(crate) model: Model,
     pub(crate) pooler: Pooler,
@@ -30,37 +33,20 @@ pub enum RuBertError {
 }
 
 /// The embeddings of the sentences.
-#[derive(Clone, Deref)]
+#[derive(Clone, Debug, Deref, PartialEq)]
 pub struct Embeddings(pub ArcArrayD<f32>);
 
 impl From<Poolings> for Embeddings {
     fn from(poolings: Poolings) -> Self {
         match poolings {
-            Poolings::None(pooled) => Embeddings(pooled.into_dyn()),
-            Poolings::First(pooled) => Embeddings(pooled.into_dyn()),
-            Poolings::Average(pooled) => Embeddings(pooled.into_dyn()),
+            Poolings::None(pooled) => Embeddings(pooled.into_shared().into_dyn()),
+            Poolings::First(pooled) => Embeddings(pooled.into_shared().into_dyn()),
+            Poolings::Average(pooled) => Embeddings(pooled.into_shared().into_dyn()),
         }
     }
 }
 
 impl RuBert {
-    /// Runs the pipeline to compute embeddings of the sequence.
-    ///
-    /// The embeddings are computed from the sequences by tokenization, prediction and optional
-    /// pooling.
-    ///
-    /// # Errors
-    /// The prediction fails on dimensionality mismatches for the tokenized sentences regarding
-    /// the loaded onnx model.
-    pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embeddings, RuBertError> {
-        let encodings = self.tokenizer.encode(sequence);
-        let attention_masks = encodings.attention_masks.clone();
-        let predictions = self.model.predict(encodings)?;
-        let poolings = self.pooler.pool(predictions, attention_masks);
-
-        Ok(poolings.into())
-    }
-
     /// Runs the pipeline to compute embeddings of the sequences.
     ///
     /// The embeddings are computed from the sequences by tokenization, prediction and optional
@@ -69,13 +55,18 @@ impl RuBert {
     /// # Errors
     /// The prediction fails on dimensionality mismatches for the tokenized sentences regarding
     /// the loaded onnx model.
-    pub fn run_batch(&self, sequences: &[impl AsRef<str>]) -> Result<Embeddings, RuBertError> {
-        let encodings = self.tokenizer.encode_batch(sequences);
-        let attention_masks = encodings.attention_masks.clone();
-        let predictions = self.model.predict(encodings)?;
-        let poolings = self.pooler.pool(predictions, attention_masks);
+    pub fn run(&self, sequences: &[impl AsRef<str>]) -> Result<Embeddings, RuBertError> {
+        let sequences = &sequences[..min(sequences.len(), self.batch_size)];
+        let encodings = self.tokenizer.encode(sequences);
 
-        Ok(poolings.into())
+        let attention_masks = if let Pooler::Average = self.pooler {
+            Some(encodings.attention_masks.clone())
+        } else {
+            None
+        };
+
+        let predictions = self.model.predict(encodings, sequences.len())?;
+        Ok(self.pooler.pool(predictions, attention_masks).into())
     }
 
     /// Returns the batch size of the model pipeline.
@@ -103,7 +94,7 @@ mod tests {
     fn test_pipeline() {
         let rubert = Builder::from_files(VOCAB, MODEL)
             .unwrap()
-            .with_strip_accents(true)
+            .with_accents(true)
             .with_lowercase(true)
             .with_batch_size(10)
             .unwrap()
@@ -113,15 +104,15 @@ mod tests {
             .build()
             .unwrap();
 
-        let embeddings = rubert.run("This is a sentence.").unwrap();
+        let embeddings = rubert.run(&["This is a sentence."]).unwrap();
         assert_eq!(embeddings.shape(), &[1, rubert.embedding_size()]);
 
         let embeddings = rubert
-            .run_batch(&["bank vault", "bank robber", "river bank"])
+            .run(&["bank vault", "bank robber", "river bank"])
             .unwrap();
         assert_eq!(embeddings.shape(), &[3, rubert.embedding_size()]);
 
-        let embeddings = rubert.run_batch(&[""; 0]).unwrap();
+        let embeddings = rubert.run(&[""; 0]).unwrap();
         assert_eq!(embeddings.shape(), &[0, 128]);
     }
 }

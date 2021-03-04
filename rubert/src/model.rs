@@ -15,9 +15,8 @@ use tract_onnx::prelude::{
 };
 
 use crate::{
-    ndarray::{s, Array2, Data, Dim, Dimension, IntoDimension, Ix2, Ix3},
+    ndarray::{s, Array3, Dim, Dimension, Ix2, Ix3},
     tokenizer::Encodings,
-    utils::{ArcArray3, ArrayBase2},
 };
 
 /// A [`RuBert`] model.
@@ -46,7 +45,7 @@ pub enum ModelError {
 
 /// The predicted encodings.
 #[derive(Clone, Deref, From)]
-pub struct Predictions(pub(crate) ArcArray3<f32>);
+pub struct Predictions(pub(crate) Array3<f32>);
 
 impl Model {
     /// Creates a [`RuBert`] model from an onnx model file.
@@ -91,36 +90,22 @@ impl Model {
         })
     }
 
-    /// Runs prediction on encoded sentences.
+    /// Runs prediction on encoded sequences.
     ///
-    /// The inputs will be padded or truncated to the shape `(batch_size, token_size)`. The row
-    /// dimension (0) of the output will be the minimum between `batch_size` and the row dimension
-    /// of the inputs.
-    pub fn predict(&self, encodings: Encodings) -> Result<Predictions, ModelError> {
-        let Encodings {
-            input_ids,
-            attention_masks,
-            token_type_ids,
-        } = encodings;
-        // encodings shapes are guaranteed to match when coming from the rubert tokenizer
-        debug_assert_eq!(input_ids.shape(), attention_masks.shape());
-        debug_assert_eq!(input_ids.shape(), token_type_ids.shape());
-
-        let output_rows = std::cmp::min(input_ids.dim().0, self.input_shape[0]);
-
+    /// The number of predictions is the minimum between the number of sequences and the batch size.
+    pub fn predict(&self, encodings: Encodings, len: usize) -> Result<Predictions, ModelError> {
         let inputs = tvec!(
-            pad_or_truncate(input_ids.0, self.input_shape).into(),
-            pad_or_truncate(attention_masks.0, self.input_shape).into(),
-            pad_or_truncate(token_type_ids.0, self.input_shape).into()
+            encodings.input_ids.0.into(),
+            encodings.attention_masks.0.into(),
+            encodings.token_type_ids.0.into()
         );
         let outputs = self.plan.run(inputs)?;
-        let predictions = outputs[0]
-            .to_array_view::<f32>()?
-            .slice(s![..output_rows, .., ..])
-            .to_shared()
-            .into();
 
-        Ok(predictions)
+        Ok(outputs[0]
+            .to_array_view::<f32>()?
+            .slice(s![..len, .., ..])
+            .to_owned()
+            .into())
     }
 
     /// Returns the batch size of the model.
@@ -136,99 +121,5 @@ impl Model {
     /// Returns the embedding size of the model.
     pub fn embedding_size(&self) -> usize {
         self.output_shape[2]
-    }
-}
-
-/// Pads or truncates the `array` to the `shape`.
-fn pad_or_truncate(
-    array: ArrayBase2<impl Data<Elem = u32>>,
-    shape: impl IntoDimension<Dim = Ix2>,
-) -> Array2<i64> {
-    Array2::from_shape_fn(shape, |coords| *array.get(coords).unwrap_or(&0) as i64)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_pad_truncate_same_dim() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones(dim);
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((7, 7));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_rows_same_cols() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((7, 5));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_rows_smaller_cols() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((7, 3));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..3]).iter().all(|e| *e == 1));
-        assert!(r.slice(s![.., 3..]).iter().all(|e| *e == 0));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_cols_same_rows() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((5, 7));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_cols_smaller_rows() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((3, 7));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![..3, ..]).iter().all(|e| *e == 1));
-        assert!(r.slice(s![3.., ..]).iter().all(|e| *e == 0));
-    }
-
-    #[test]
-    fn test_pad_truncate_smaller() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((3, 3));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![..3, ..3]).iter().all(|e| *e == 1));
-        assert!(r.slice(s![3.., ..]).iter().all(|e| *e == 0));
-        assert!(r.slice(s![.., 3..]).iter().all(|e| *e == 0));
     }
 }

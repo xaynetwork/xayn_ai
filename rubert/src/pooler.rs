@@ -1,8 +1,7 @@
 use crate::{
     model::Predictions,
-    ndarray::{s, Axis},
+    ndarray::{s, Array2, Array3, Axis},
     tokenizer::AttentionMasks,
-    utils::{ArcArray2, ArcArray3},
 };
 
 /// [`RuBert`] pooling strategies.
@@ -22,11 +21,11 @@ pub enum Pooler {
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum Poolings {
     /// None-pooled predictions.
-    None(ArcArray3<f32>),
+    None(Array3<f32>),
     /// First-pooled predictions.
-    First(ArcArray2<f32>),
+    First(Array2<f32>),
     /// Average-pooled predictions.
-    Average(ArcArray2<f32>),
+    Average(Array2<f32>),
 }
 
 impl Pooler {
@@ -34,12 +33,13 @@ impl Pooler {
     pub(crate) fn pool(
         &self,
         predictions: Predictions,
-        attention_masks: AttentionMasks,
+        attention_masks: Option<AttentionMasks>,
     ) -> Poolings {
         match self {
             Self::None => Self::none(predictions),
             Self::First => Self::first(predictions),
-            Self::Average => Self::average(predictions, attention_masks),
+            // safe unwrap: the pipeline provides some attention masks in case of average pooling
+            Self::Average => Self::average(predictions, attention_masks.unwrap()),
         }
     }
 
@@ -50,7 +50,7 @@ impl Pooler {
 
     /// Picks the first element of the token dimension (`[CLS]`) of the predictions.
     fn first(predictions: Predictions) -> Poolings {
-        Poolings::First(predictions.slice(s![.., 0, ..]).to_shared())
+        Poolings::First(predictions.slice(s![.., 0, ..]).to_owned())
     }
 
     /// Averages the predictions along the token dimension (1) discarding any padding.
@@ -66,18 +66,18 @@ impl Pooler {
         let averaged = predictions.0 * masks;
         let averaged = averaged.sum_axis(Axis(1)) / token_count;
 
-        Poolings::Average(averaged.into_shared())
+        Poolings::Average(averaged)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ndarray::{rcarr2, rcarr3};
+    use crate::ndarray::{arr2, arr3};
 
     #[test]
     fn test_first() {
-        let predictions = rcarr3(&[
+        let predictions = arr3(&[
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
             [[4., 5., 6.], [7., 8., 9.], [1., 2., 3.]],
             [[7., 8., 9.], [1., 2., 3.], [4., 5., 6.]],
@@ -85,13 +85,13 @@ mod tests {
         .into();
         assert_eq!(
             Pooler::first(predictions),
-            Poolings::First(rcarr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])),
+            Poolings::First(arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])),
         );
     }
 
     #[test]
     fn test_average() {
-        let predictions = rcarr3(&[
+        let predictions = arr3(&[
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
@@ -101,7 +101,7 @@ mod tests {
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
         ])
         .into();
-        let attention_masks = rcarr2(&[
+        let attention_masks = arr2(&[
             [1, 0, 0],
             [0, 1, 0],
             [0, 0, 1],
@@ -113,7 +113,7 @@ mod tests {
         .into();
         assert_eq!(
             Pooler::average(predictions, attention_masks),
-            Poolings::Average(rcarr2(&[
+            Poolings::Average(arr2(&[
                 [1., 2., 3.],
                 [4., 5., 6.],
                 [7., 8., 9.],
