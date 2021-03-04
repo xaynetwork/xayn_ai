@@ -17,9 +17,19 @@ use std::{
 };
 
 use rand_distr::{Beta, Distribution};
+use thiserror::Error;
 
-use anyhow::anyhow;
+#[derive(Error, Debug)]
+pub enum MabError {
+    #[error("The coi id assigned to a document does not exists")]
+    DocumentCoiDoesNotExists,
+    #[error("No documents to pull")]
+    NoDocumentsToPull,
+    #[error("Extracted coi does not have documents")]
+    ExtractedCoiNoDocuments,
+}
 
+/// Allow to sample a value form a beta distrubtion
 pub trait BetaSample {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, Error>;
 }
@@ -33,6 +43,8 @@ impl BetaSample for BetaSampler {
     }
 }
 
+/// Pretend that comparing two f32 is total. The function will rank `Nan`
+/// as the lowest value, similar to what `f32::max` does.
 fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
     a.partial_cmp(&b).unwrap_or_else(|| {
         // if `partial_cmp` returns None we have at least one `NaN`
@@ -103,6 +115,10 @@ fn groups_by_coi(documents: Vec<DocumentDataWithContext>) -> Result<DocumentsByC
         })
 }
 
+// Here we implement the algorithm described at page 9 of:
+// http://www.ecmlpkdd2018.org/wp-content/uploads/2018/09/723.pdf
+// We do not update all y like they do in the paper.
+
 fn update_cois(
     cois: HashMap<CoiId, Coi>,
     documents: &[DocumentDataWithContext],
@@ -110,7 +126,7 @@ fn update_cois(
     documents.iter().try_fold(cois, |mut cois, document| {
         let coi = cois
             .get_mut(&document.coi.id)
-            .ok_or_else(|| anyhow!("The coi id assigned to a document does not exists"))?;
+            .ok_or(MabError::DocumentCoiDoesNotExists)?;
 
         let context_value = document.context.context_value;
         coi.alpha += context_value;
@@ -127,10 +143,9 @@ fn pull_arms(
 ) -> Result<(DocumentsByCoi, DocumentDataWithContext), Error> {
     let coi_id = *documents_by_coi
         .keys()
+        // sampling beta distribution for each coi
         .map(|coi_id| {
-            let coi = cois
-                .get(coi_id)
-                .ok_or_else(|| anyhow!("The coi id assigned to a document does not exists"))?;
+            let coi = cois.get(coi_id).ok_or(MabError::DocumentCoiDoesNotExists)?;
 
             beta_sampler
                 .sample(coi.alpha, coi.beta)
@@ -138,15 +153,14 @@ fn pull_arms(
         })
         .collect::<Result<Vec<_>, _>>()?
         .iter()
+        // get the coi whose sample is biggest
         .max_by(|(a, _), (b, _)| f32_total_cmp(a, b))
-        .ok_or_else(|| anyhow!("Cannot get coi when pulling arms"))?
+        .ok_or(MabError::NoDocumentsToPull)?
         .1;
 
     if let Entry::Occupied(mut entry) = documents_by_coi.entry(coi_id) {
         let heap = entry.get_mut();
-        let document = heap
-            .pop()
-            .ok_or_else(|| anyhow!("Extracted coi does not have documents"))?;
+        let document = heap.pop().ok_or(MabError::ExtractedCoiNoDocuments)?;
         // remove coi when they have no documents left
         if heap.is_empty() {
             entry.remove_entry();
@@ -154,7 +168,7 @@ fn pull_arms(
 
         Ok((documents_by_coi, document.0))
     } else {
-        Err(anyhow!("Extracted coi does not have documents"))
+        Err(MabError::ExtractedCoiNoDocuments.into())
     }
 }
 
