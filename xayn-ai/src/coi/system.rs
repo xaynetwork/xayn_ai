@@ -134,14 +134,18 @@ impl CoiSystem {
 
     /// Assigns a CoI for the given embedding.
     /// Returns `None` if no CoI could be found otherwise it returns the Id of
-    /// the CoL along with the positive and negative distance.
+    /// the CoL along with the positive and negative distance. The negative distance
+    /// will be [`f32::MAX`], if no negative coi could be found.
     fn compute_coi_for_embedding(
         &self,
         embedding: &Embeddings,
         user_interests: &UserInterests,
     ) -> Option<CoiComponent> {
         let (coi, pos_distance) = self.find_closest_coi(embedding, &user_interests.positive)?;
-        let (_, neg_distance) = self.find_closest_coi(embedding, &user_interests.negative)?;
+        let neg_distance = match self.find_closest_coi(embedding, &user_interests.negative) {
+            Some((_, dis)) => dis,
+            None => f32::MAX,
+        };
 
         Some(CoiComponent {
             id: coi.id,
@@ -185,7 +189,7 @@ impl reranker_systems::CoiSystem for CoiSystem {
         let user_interests =
             extend_user_interests_based_on_documents(positive_docs, negative_docs, user_interests);
 
-        if user_interests.positive.len() >= 2 && !user_interests.negative.is_empty() {
+        if user_interests.positive.len() >= 2 {
             Ok(UserInterestsStatus::Ready(user_interests))
         } else {
             Ok(UserInterestsStatus::NotEnough(user_interests))
