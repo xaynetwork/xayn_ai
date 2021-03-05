@@ -10,22 +10,22 @@ use thiserror::Error;
 use crate::{
     model::{Model, ModelError},
     pipeline::RuBert,
-    pooler::Pooler,
+    pooler::NonePooler,
     tokenizer::{Tokenizer, TokenizerError},
 };
 
 /// A builder to create a [`RuBert`] pipeline.
-pub struct Builder<V, M> {
+pub struct Builder<V, M, P> {
     vocab: V,
     model: M,
     accents: bool,
     lowercase: bool,
     batch_size: usize,
     token_size: usize,
-    pooler: Pooler,
+    pooler: P,
 }
 
-/// Potential errors of the [`RuBert`] [`Builder`].
+/// The potential errors of the builder.
 #[derive(Debug, Display, Error)]
 pub enum BuilderError {
     /// The batch size must be greater than zero
@@ -40,32 +40,12 @@ pub enum BuilderError {
     Model(#[from] ModelError),
 }
 
-impl Builder<BufReader<File>, BufReader<File>> {
-    /// Creates a [`RuBert`] pipeline builder from files.
-    pub fn from_files(
-        vocab: impl AsRef<Path>,
-        model: impl AsRef<Path>,
-    ) -> Result<Self, BuilderError> {
-        let vocab = BufReader::new(File::open(vocab)?);
-        let model = BufReader::new(File::open(model)?);
-        Ok(Self {
-            vocab,
-            model,
-            accents: true,
-            lowercase: true,
-            batch_size: 10,
-            token_size: 128,
-            pooler: Pooler::None,
-        })
-    }
-}
-
-impl<V, M> Builder<V, M>
+impl<V, M> Builder<V, M, NonePooler>
 where
     V: BufRead,
     M: Read,
 {
-    /// Creates a [`RuBert`] pipeline builder.
+    /// Creates a [`RuBert`] pipeline builder from an in-memory vocabulary and model.
     pub fn new(vocab: V, model: M) -> Self {
         Self {
             vocab,
@@ -74,10 +54,24 @@ where
             lowercase: true,
             batch_size: 10,
             token_size: 128,
-            pooler: Pooler::None,
+            pooler: NonePooler,
         }
     }
+}
 
+impl Builder<BufReader<File>, BufReader<File>, NonePooler> {
+    /// Creates a [`RuBert`] pipeline builder from a vocabulary and model file.
+    pub fn from_files(
+        vocab: impl AsRef<Path>,
+        model: impl AsRef<Path>,
+    ) -> Result<Self, BuilderError> {
+        let vocab = BufReader::new(File::open(vocab)?);
+        let model = BufReader::new(File::open(model)?);
+        Ok(Self::new(vocab, model))
+    }
+}
+
+impl<V, M, P> Builder<V, M, P> {
     /// Toggles accent stripping for the tokenizer.
     ///
     /// Defaults to `true`.
@@ -127,16 +121,27 @@ where
     /// Sets pooling for the model.
     ///
     /// Defaults to `None`.
-    pub fn with_pooling(mut self, pooler: Pooler) -> Self {
-        self.pooler = pooler;
-        self
+    pub fn with_pooling<Q>(self, pooler: Q) -> Builder<V, M, Q> {
+        Builder {
+            vocab: self.vocab,
+            model: self.model,
+            accents: self.accents,
+            lowercase: self.lowercase,
+            batch_size: self.batch_size,
+            token_size: self.token_size,
+            pooler,
+        }
     }
 
     /// Builds a [`RuBert`] pipeline.
     ///
     /// # Errors
     /// Fails on invalid tokenizer or model settings.
-    pub fn build(self) -> Result<RuBert, BuilderError> {
+    pub fn build(self) -> Result<RuBert<P>, BuilderError>
+    where
+        V: BufRead,
+        M: Read,
+    {
         let tokenizer = Tokenizer::new(
             self.vocab,
             self.accents,
@@ -145,13 +150,11 @@ where
             self.token_size,
         )?;
         let model = Model::new(self.model, self.batch_size, self.token_size)?;
-        let pooler = self.pooler;
 
         Ok(RuBert {
-            batch_size: self.batch_size,
             tokenizer,
             model,
-            pooler,
+            pooler: self.pooler,
         })
     }
 }

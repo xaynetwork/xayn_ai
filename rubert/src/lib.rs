@@ -5,7 +5,7 @@
 //! f32-arrays and their shape depends on the pooling strategy.
 //!
 //! ```no_run
-//! use rubert::{Builder, Pooler};
+//! use rubert::{Builder, FirstPooler};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let rubert = Builder::from_files("vocab.txt", "model.onnx")?
@@ -13,10 +13,11 @@
 //!         .with_lowercase(true)
 //!         .with_batch_size(10)?
 //!         .with_token_size(64)?
-//!         .with_pooling(Pooler::First)
+//!         .with_pooling(FirstPooler)
 //!         .build()?;
 //!
-//!     let embeddings = rubert.run(&["This is a sentence."])?;
+//!     let embedding = rubert.run("This is a sentence.")?;
+//!     let embeddings = rubert.run_batch(&["This is a sentence.", "And another one!"])?;
 //!
 //!     Ok(())
 //! }
@@ -27,12 +28,21 @@ mod model;
 mod pipeline;
 mod pooler;
 mod tokenizer;
-mod utils;
 
 pub use crate::{
     builder::{Builder, BuilderError},
-    pipeline::{Embeddings, RuBert, RuBertError},
-    pooler::Pooler,
+    model::ModelError,
+    pipeline::{RuBert, RuBertError},
+    pooler::{
+        AveragePooler,
+        Embedding1,
+        Embedding2,
+        Embedding3,
+        FirstPooler,
+        NonePooler,
+        PoolerError,
+    },
+    tokenizer::TokenizerError,
 };
 pub(crate) use tract_onnx::prelude::tract_ndarray as ndarray;
 

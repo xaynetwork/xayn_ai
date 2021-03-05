@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ndarray::{ArrayViewD, Ix1};
+use ndarray::Array1;
 
 use crate::{
     data::{
@@ -13,10 +13,8 @@ use crate::{
     DocumentId,
 };
 
-pub fn l2_norm(x: ArrayViewD<f32>) -> f32 {
-    // https://github.com/rust-ndarray/ndarray/issues/886
-    let array_1d = x.into_dimensionality::<Ix1>().unwrap();
-    array_1d.dot(&array_1d).sqrt()
+pub fn l2_norm(array: Array1<f32>) -> f32 {
+    array.dot(&array).sqrt()
 }
 
 // utils for `make_user_interests`

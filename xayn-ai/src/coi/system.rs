@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, ops::Deref};
 
-use rubert::Embeddings;
 use thiserror::Error;
 
 use super::{
@@ -16,8 +15,8 @@ use super::{
         UserInterestsStatus,
     },
 };
-
 use crate::{
+    bert::Embedding,
     data::{
         document_data::{
             CoiComponent,
@@ -61,11 +60,11 @@ impl CoiSystem {
     /// Returns the index of the CoI along with the distance between
     /// the given embedding and the CoI. If no CoI was found, `None`
     /// will be returned.
-    fn find_closest_coi_index(&self, embedding: &Embeddings, cois: &[Coi]) -> Option<(usize, f32)> {
+    fn find_closest_coi_index(&self, embedding: &Embedding, cois: &[Coi]) -> Option<(usize, f32)> {
         let index_and_distance = cois
             .iter()
             .enumerate()
-            .map(|(i, coi)| (i, l2_norm((&embedding.0 - &coi.point.0).view())))
+            .map(|(i, coi)| (i, l2_norm(embedding.deref() - coi.point.deref())))
             .fold(
                 (None, f32::MAX),
                 |acc, (i, b)| match PartialOrd::partial_cmp(&acc.1, &b) {
@@ -85,7 +84,7 @@ impl CoiSystem {
     /// will be returned.
     fn find_closest_coi<'coi>(
         &self,
-        embedding: &Embeddings,
+        embedding: &Embedding,
         cois: &'coi [Coi],
     ) -> Option<(&'coi Coi, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
@@ -98,7 +97,7 @@ impl CoiSystem {
     /// will be returned.
     fn find_closest_coi_mut<'coi>(
         &self,
-        embedding: &Embeddings,
+        embedding: &Embedding,
         cois: &'coi mut [Coi],
     ) -> Option<(&'coi mut Coi, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
@@ -106,16 +105,16 @@ impl CoiSystem {
     }
 
     /// Creates a new CoI that is shifted towards the position of `embedding`.
-    fn shift_coi_point(&self, embedding: &Embeddings, coi: &Embeddings) -> Embeddings {
-        let updated =
-            &coi.0 * (1. - self.config.shift_factor) + &embedding.0 * self.config.shift_factor;
-        Embeddings(updated.into_shared())
+    fn shift_coi_point(&self, embedding: &Embedding, coi: &Embedding) -> Embedding {
+        let updated = coi.deref() * (1. - self.config.shift_factor)
+            + embedding.deref() * self.config.shift_factor;
+        updated.into()
     }
 
     /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
-    fn update_coi(&self, embedding: &Embeddings, mut cois: Vec<Coi>) -> Vec<Coi> {
+    fn update_coi(&self, embedding: &Embedding, mut cois: Vec<Coi>) -> Vec<Coi> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.point = self.shift_coi_point(embedding, &coi.point);
@@ -138,7 +137,7 @@ impl CoiSystem {
     /// will be [`f32::MAX`], if no negative coi could be found.
     fn compute_coi_for_embedding(
         &self,
-        embedding: &Embeddings,
+        embedding: &Embedding,
         user_interests: &UserInterests,
     ) -> Option<CoiComponent> {
         let (coi, pos_distance) = self.find_closest_coi(embedding, &user_interests.positive)?;

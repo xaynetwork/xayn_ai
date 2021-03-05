@@ -7,52 +7,44 @@ use thiserror::Error;
 
 use crate::ndarray::{Array2, Dim, Ix2};
 
-/// A [`RuBert`] tokenizer.
-///
-/// Wraps a pre-configured Bert tokenizer.
-///
-/// [`RuBert`]: crate::pipeline::RuBert
+/// A wrapped, pre-configured Bert tokenizer.
 pub struct Tokenizer {
     tokenizer: BertTokenizer<i64>,
-    input_shape: Ix2,
+    shape: Ix2,
 }
 
-/// Potential errors of the [`RuBert`] [`Tokenizer`].
-///
-/// [`RuBert`]: crate::pipeline::RuBert
+/// The potential errors of the tokenizer.
 #[derive(Debug, Display, Error)]
 pub enum TokenizerError {
     /// Failed to build the tokenizer: {0}
     Builder(#[from] BuilderError),
 }
 
-/// The input ids of the encoded sentences.
+/// The token ids of the encoded sequences.
 #[derive(Clone, Deref, From)]
-pub struct InputIds(pub(crate) Array2<i64>);
+pub struct TokenIds(pub Array2<i64>);
 
-/// The attention masks of the encoded sentences.
+/// The attention masks of the encoded sequences.
 #[derive(Clone, Deref, From)]
-pub struct AttentionMasks(pub(crate) Array2<i64>);
+pub struct AttentionMasks(pub Array2<i64>);
 
-/// The token type ids of the encoded sentences.
+/// The type ids of the encoded sequences.
 #[derive(Clone, Deref, From)]
-pub struct TokenTypeIds(pub(crate) Array2<i64>);
+pub struct TypeIds(pub Array2<i64>);
 
-/// The encoded sentences.
+/// The encoded sequences.
 pub struct Encodings {
-    pub(crate) input_ids: InputIds,
-    pub(crate) attention_masks: AttentionMasks,
-    pub(crate) token_type_ids: TokenTypeIds,
+    pub token_ids: TokenIds,
+    pub attention_masks: AttentionMasks,
+    pub type_ids: TypeIds,
 }
 
 impl Tokenizer {
-    /// Creates a [`RuBert`] tokenizer from a vocabulary.
+    /// Creates a tokenizer from a vocabulary.
     ///
     /// Can be set to strip accents and to lowercase the sequences. Requires the maximum number of
     /// sequences as well as tokens per tokenized sequence, which applies to padding and truncation
     /// and includes special tokens as well.
-    ///
-    /// [`RuBert`]: crate::pipeline::RuBert
     pub fn new(
         // `BufRead` instead of `AsRef<Path>` is needed for wasm
         vocab: impl BufRead,
@@ -68,49 +60,75 @@ impl Tokenizer {
             .with_truncation(Truncation::fixed(token_size, 0))
             .with_padding(Padding::fixed(token_size, "[PAD]"))
             .build()?;
-        let input_shape = Dim([batch_size, token_size]);
+        let shape = Dim([batch_size, token_size]);
 
-        Ok(Tokenizer {
-            tokenizer,
-            input_shape,
-        })
+        Ok(Tokenizer { tokenizer, shape })
     }
 
-    /// Encodes the sequences.
+    /// Encodes the sequence.
+    ///
+    /// The encoding is in correct shape for the model.
+    pub fn encode(&self, sequence: impl AsRef<str>) -> Encodings {
+        let encoding = self.tokenizer.encode(sequence);
+
+        let token_ids = Array2::from_shape_fn(self.shape, |(i, j)| {
+            encoding.ids().get(i + j).copied().unwrap_or(0)
+        })
+        .into();
+        let attention_masks = Array2::from_shape_fn(self.shape, |(i, j)| {
+            encoding.attention_mask().get(i + j).copied().unwrap_or(0)
+        })
+        .into();
+        let type_ids = Array2::from_shape_fn(self.shape, |(i, j)| {
+            encoding.type_ids().get(i + j).copied().unwrap_or(0)
+        })
+        .into();
+
+        Encodings {
+            token_ids,
+            attention_masks,
+            type_ids,
+        }
+    }
+
+    /// Encodes the batch of sequences.
     ///
     /// The encodings are in correct shape for the model.
-    pub fn encode(&self, sequences: &[impl AsRef<str>]) -> Encodings {
+    pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Encodings {
         let encodings = self.tokenizer.encode_batch(sequences);
 
-        let input_ids = InputIds(Array2::from_shape_fn(self.input_shape, |(i, j)| {
+        let token_ids = Array2::from_shape_fn(self.shape, |(i, j)| {
             encodings
                 .get(i)
                 .map(|encoding| encoding.ids().get(j))
                 .flatten()
                 .copied()
                 .unwrap_or(0)
-        }));
-        let attention_masks = AttentionMasks(Array2::from_shape_fn(self.input_shape, |(i, j)| {
+        })
+        .into();
+        let attention_masks = Array2::from_shape_fn(self.shape, |(i, j)| {
             encodings
                 .get(i)
                 .map(|encoding| encoding.attention_mask().get(j))
                 .flatten()
                 .copied()
                 .unwrap_or(0)
-        }));
-        let token_type_ids = TokenTypeIds(Array2::from_shape_fn(self.input_shape, |(i, j)| {
+        })
+        .into();
+        let type_ids = Array2::from_shape_fn(self.shape, |(i, j)| {
             encodings
                 .get(i)
                 .map(|encoding| encoding.type_ids().get(j))
                 .flatten()
                 .copied()
                 .unwrap_or(0)
-        }));
+        })
+        .into();
 
         Encodings {
-            input_ids,
+            token_ids,
             attention_masks,
-            token_type_ids,
+            type_ids,
         }
     }
 }
@@ -133,9 +151,9 @@ mod tests {
     fn test_encode() {
         // too short
         let shape = (1, 20);
-        let encoding = tokenizer(shape).encode(&["These are normal, common EMBEDDINGS."]);
+        let encoding = tokenizer(shape).encode("These are normal, common EMBEDDINGS.");
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -151,7 +169,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -161,9 +179,9 @@ mod tests {
 
         // too long
         let shape = (1, 10);
-        let encoding = tokenizer(shape).encode(&["These are normal, common EMBEDDINGS."]);
+        let encoding = tokenizer(shape).encode("These are normal, common EMBEDDINGS.");
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(shape, &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3])
                 .unwrap(),
         );
@@ -172,7 +190,7 @@ mod tests {
             ArrayView::from_shape(shape, &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(shape, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
         );
     }
@@ -181,9 +199,9 @@ mod tests {
     fn test_encode_batch() {
         // both too short
         let shape = (2, 10);
-        let encoding = tokenizer(shape).encode(&["a b c", "a b c d"]);
+        let encoding = tokenizer(shape).encode_batch(&["a b c", "a b c d"]);
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -205,7 +223,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -217,9 +235,9 @@ mod tests {
         );
 
         // one too short and one too long
-        let encoding = tokenizer(shape).encode(&["a b c", "a b c d e f g h i j k l"]);
+        let encoding = tokenizer(shape).encode_batch(&["a b c", "a b c d e f g h i j k l"]);
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -241,7 +259,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -253,10 +271,10 @@ mod tests {
         );
 
         // both too long
-        let encoding =
-            tokenizer(shape).encode(&["a b c d e f g h i j k l", "a b c d e f g h i j k l m n"]);
+        let encoding = tokenizer(shape)
+            .encode_batch(&["a b c d e f g h i j k l", "a b c d e f g h i j k l m n"]);
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -278,7 +296,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -294,9 +312,9 @@ mod tests {
     fn test_encode_batch_edge_cases() {
         // first one too short, second fits
         let shape = (2, 5);
-        let encoding = tokenizer(shape).encode(&["a b", "a b c"]);
+        let encoding = tokenizer(shape).encode_batch(&["a b", "a b c"]);
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -318,7 +336,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -330,9 +348,9 @@ mod tests {
         );
 
         // first fits, second 1 too long
-        let encoding = tokenizer(shape).encode(&["a b c", "a b c d"]);
+        let encoding = tokenizer(shape).encode_batch(&["a b c", "a b c d"]);
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -354,7 +372,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[
@@ -370,9 +388,9 @@ mod tests {
     fn test_encode_troublemakers() {
         // known troublemakers
         let shape = (1, 15);
-        let encoding = tokenizer(shape).encode(&["for “life-threatening storm surge” according"]);
+        let encoding = tokenizer(shape).encode("for “life-threatening storm surge” according");
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
                 shape,
                 &[2, 1665, 1, 3902, 1, 83775, 11123, 41373, 1, 7469, 3, 0, 0, 0, 0],
@@ -384,7 +402,7 @@ mod tests {
             ArrayView::from_shape(shape, &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]).unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(shape, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
         );
     }

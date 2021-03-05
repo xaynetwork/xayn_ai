@@ -1,3 +1,5 @@
+use rubert::{AveragePooler, Embedding1, RuBert};
+
 use crate::{
     data::document_data::{
         DocumentDataWithDocument,
@@ -7,9 +9,10 @@ use crate::{
     error::Error,
     reranker_systems::BertSystem,
 };
-use rubert::RuBert;
 
-impl BertSystem for RuBert {
+pub type Embedding = Embedding1;
+
+impl BertSystem for RuBert<AveragePooler> {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
@@ -18,7 +21,7 @@ impl BertSystem for RuBert {
         documents
             .into_iter()
             .map(|document| {
-                let embedding = self.run(&[document.document_content.snippet.as_str()]);
+                let embedding = self.run(document.document_content.snippet.as_str());
                 embedding
                     .map(|embedding| {
                         DocumentDataWithEmbedding::from_document(
