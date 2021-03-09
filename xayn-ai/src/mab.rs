@@ -22,7 +22,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum MabError {
     #[error("The coi id assigned to a document does not exist")]
-    DocumentCoiDoesNotExists,
+    DocumentCoiDoesNotExist,
     #[error("No documents to pull")]
     NoDocumentsToPull,
     #[error("Extracted coi does not have documents")]
