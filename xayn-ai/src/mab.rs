@@ -43,6 +43,21 @@ impl BetaSample for BetaSampler {
     }
 }
 
+trait MabReadyData {
+    fn coi_id(&self) -> CoiId;
+    fn context_value(&self) -> f32;
+}
+
+impl MabReadyData for DocumentDataWithContext {
+    fn coi_id(&self) -> CoiId {
+       self.coi.id
+    }
+
+    fn context_value(&self) -> f32 {
+        self.context.context_value
+    }
+}
+
 /// Pretend that comparing two f32 is total. The function will rank `Nan`
 /// as the lowest value, similar to what `f32::max` does.
 fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
@@ -59,44 +74,53 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
 }
 
 /// Wrapper to order documents by `context_value`
-struct DocumentByContext(DocumentDataWithContext);
+// struct DocumentByContext(DocumentDataWithContext);
+struct DocumentByContext<T: MabReadyData>(T);
 
-impl PartialEq for DocumentByContext {
+// impl PartialEq for DocumentByContext {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.0
+//             .context
+//             .context_value
+//             .eq(&other.0.context.context_value)
+//     }
+// }
+impl<T> PartialEq for DocumentByContext<T> where T: MabReadyData {
     fn eq(&self, other: &Self) -> bool {
         self.0
-            .context
-            .context_value
-            .eq(&other.0.context.context_value)
+            .context_value()
+            .eq(&other.0.context_value())
     }
 }
-impl Eq for DocumentByContext {}
+impl<T> Eq for DocumentByContext<T> where T:MabReadyData {}
 
-impl PartialOrd for DocumentByContext {
+impl<T> PartialOrd for DocumentByContext<T> where  T: MabReadyData {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.0
-            .context
-            .context_value
-            .partial_cmp(&other.0.context.context_value)
+            .context_value()
+            .partial_cmp(&other.0.context_value())
     }
 }
 
-impl Ord for DocumentByContext {
+impl<T> Ord for DocumentByContext<T> where T: MabReadyData {
     fn cmp(&self, other: &Self) -> Ordering {
         f32_total_cmp(
-            &self.0.context.context_value,
-            &other.0.context.context_value,
+            &self.0.context_value(),
+            &other.0.context_value(),
         )
     }
 }
 
-type DocumentsByCoi = HashMap<CoiId, BinaryHeap<DocumentByContext>>;
+type DocumentsByCoi<T> = HashMap<CoiId, BinaryHeap<DocumentByContext<T>>>;
 
 /// Group documents by coi and order them by context_value
-fn groups_by_coi(documents: Vec<DocumentDataWithContext>) -> Result<DocumentsByCoi, Error> {
+fn groups_by_coi<T>(documents: Vec<T>) -> Result<DocumentsByCoi<T>, Error>
+where T: MabReadyData
+{
     documents
         .into_iter()
         .try_fold(DocumentsByCoi::new(), |mut groups, document| {
-            let coi_id = document.coi.id;
+            let coi_id = document.coi_id();
 
             let document = DocumentByContext(document);
 
@@ -119,16 +143,18 @@ fn groups_by_coi(documents: Vec<DocumentDataWithContext>) -> Result<DocumentsByC
 // http://www.ecmlpkdd2018.org/wp-content/uploads/2018/09/723.pdf
 // We do not update all y like they do in the paper.
 
-fn update_cois(
+fn update_cois<T>(
     cois: HashMap<CoiId, Coi>,
-    documents: &[DocumentDataWithContext],
-) -> Result<HashMap<CoiId, Coi>, Error> {
+    documents: &[T],
+) -> Result<HashMap<CoiId, Coi>, Error>
+where T: MabReadyData
+{
     documents.iter().try_fold(cois, |mut cois, document| {
         let coi = cois
-            .get_mut(&document.coi.id)
+            .get_mut(&document.coi_id())
             .ok_or(MabError::DocumentCoiDoesNotExists)?;
 
-        let context_value = document.context.context_value;
+        let context_value = document.context_value();
         coi.alpha += context_value;
         coi.beta += 1. - context_value;
 
@@ -136,11 +162,13 @@ fn update_cois(
     })
 }
 
-fn pull_arms(
+fn pull_arms<T>(
     beta_sampler: &impl BetaSample,
     cois: &HashMap<CoiId, Coi>,
-    mut documents_by_coi: DocumentsByCoi,
-) -> Result<(DocumentsByCoi, DocumentDataWithContext), Error> {
+    mut documents_by_coi: DocumentsByCoi<T>,
+) -> Result<(DocumentsByCoi<T>, T), Error>
+where T: MabReadyData
+{
     let coi_id = *documents_by_coi
         .keys()
         // sampling beta distribution for each coi
@@ -175,10 +203,11 @@ fn pull_arms(
 fn mab_ranking(
     beta_sampler: &impl BetaSample,
     cois: &HashMap<CoiId, Coi>,
-    mut documents_by_coi: DocumentsByCoi,
+    mut documents_by_coi: DocumentsByCoi<DocumentDataWithContext>,
     // max documents to extract
     max_documents: usize,
-) -> Result<Vec<DocumentDataWithMab>, Error> {
+) -> Result<Vec<DocumentDataWithMab>, Error>
+{
     let mut with_mab = Vec::with_capacity(max_documents);
     let mut rank = 0;
 
