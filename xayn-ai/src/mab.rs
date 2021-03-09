@@ -58,12 +58,12 @@ impl MabReadyData for DocumentDataWithContext {
     }
 }
 
-/// Pretend that comparing two f32 is total. The function will rank `Nan`
+/// Pretend that comparing two f32 is total. The function will rank `NaN`
 /// as the lowest value, similar to what [`f32::max`] does.
 fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
     a.partial_cmp(&b).unwrap_or_else(|| {
-        // if `partial_cmp` returns None we have at least one `NaN`
-        // we treat `NaN` as the lowest value
+        // if `partial_cmp` returns None we have at least one `NaN`,
+        // we treat it as the lowest value
         if a.is_nan() {
             Ordering::Less
         } else {
@@ -73,7 +73,8 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
     })
 }
 
-/// Wrapper to order documents by `context_value`
+/// Wrapper to order documents by `context_value`.
+/// We need to implement Ord for it to use it in the `BinaryHeap`.
 struct DocumentByContext<T>(T);
 
 impl<T> PartialEq for DocumentByContext<T>
@@ -135,7 +136,7 @@ where
 
 // Here we implement the algorithm described at page 9 of:
 // http://www.ecmlpkdd2018.org/wp-content/uploads/2018/09/723.pdf
-// We do not update all y like they do in the paper.
+// We do not update all context_value like they do in the paper.
 
 /// Update `alpha` and `beta` values based on the `context_value` of document in that coi
 fn update_cois<T>(cois: HashMap<CoiId, Coi>, documents: &[T]) -> Result<HashMap<CoiId, Coi>, Error>
