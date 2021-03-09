@@ -146,7 +146,7 @@ where
     documents.iter().try_fold(cois, |mut cois, document| {
         let coi = cois
             .get_mut(&document.coi_id())
-            .ok_or(MabError::DocumentCoiDoesNotExists)?;
+            .ok_or(MabError::DocumentCoiDoesNotExist)?;
 
         let context_value = document.context_value();
         coi.alpha += context_value;
@@ -171,7 +171,7 @@ where
         .keys()
         // sampling beta distribution for each coi
         .map(|coi_id| {
-            let coi = cois.get(coi_id).ok_or(MabError::DocumentCoiDoesNotExists)?;
+            let coi = cois.get(coi_id).ok_or(MabError::DocumentCoiDoesNotExist)?;
 
             beta_sampler
                 .sample(coi.alpha, coi.beta)
