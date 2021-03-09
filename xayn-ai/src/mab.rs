@@ -34,7 +34,7 @@ pub trait BetaSample {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, Error>;
 }
 
-pub struct BetaSampler {}
+pub struct BetaSampler;
 
 impl BetaSample for BetaSampler {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, Error> {
