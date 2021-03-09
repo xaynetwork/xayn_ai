@@ -41,19 +41,16 @@ impl ContextCalc {
         let neg_max = docs
             .iter()
             .map(|doc| doc.coi.neg_distance)
-            .fold(f32::MIN, |curr_max, nd| curr_max.max(nd)); // NOTE ignores NaNs
+            .fold(f32::MIN, f32::max); // NOTE f32::max considers NaN as smallest value
         Self { pos_avg, neg_max }
     }
 
     /// Calculates context value from given LTR score, positive distance, negative distance.
-    ///
-    /// Age factor not currently implemented (assumed to be 1).
     fn calculate(&self, ltr_score: f32, pos: f32, neg: f32) -> f32 {
-        let wt_div = 3f32;
-        let frac_pos = (1f32 + pos / self.pos_avg).recip();
-        let frac_neg = (1f32 + self.neg_max - neg).recip();
+        let frac_pos = (1. + pos / self.pos_avg).recip();
+        let frac_neg = (1. + self.neg_max - neg).recip();
 
-        (frac_pos + frac_neg + ltr_score) / wt_div
+        (frac_pos + frac_neg + ltr_score) / 3.
     }
 }
 
@@ -65,6 +62,7 @@ mod tests {
         document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent, LtrComponent},
         CoiId,
     };
+    use float_cmp::approx_eq;
 
     struct LtrDocBuilder {
         docs: Vec<DocumentDataWithLtr>,
@@ -92,45 +90,56 @@ mod tests {
         }
     }
 
-    #[allow(clippy::float_cmp)]
     #[test]
     fn test_calculate() {
         let calc = ContextCalc {
             pos_avg: 4.,
             neg_max: 8.,
         };
+
         let cxt = calc.calculate(0., 0., calc.neg_max);
-        assert_eq!(cxt, 2. / 3.); // 1/3 + 1/3
+        assert!(approx_eq!(f32, cxt, 2. / 3.)); // 1/3 + 1/3
+
         let cxt = calc.calculate(1., 0., calc.neg_max);
-        assert_eq!(cxt, 1.); // 1/3 + 1/3 + 1/3
+        assert!(approx_eq!(f32, cxt, 1.)); // 1/3 + 1/3 + 1/3
+
         let cxt = calc.calculate(0., calc.pos_avg, calc.neg_max);
-        assert_eq!(cxt, 0.5); // 1/6 + 1/3
+        assert!(approx_eq!(f32, cxt, 0.5)); // 1/6 + 1/3
+
         let cxt = calc.calculate(0., 8., 7.);
-        assert_eq!(cxt, 5. / 18.) // 1/9 + 1/6
+        assert!(approx_eq!(f32, cxt, 5. / 18.)) // 1/9 + 1/6
     }
 
-    #[allow(clippy::float_cmp)]
     #[test]
     fn test_compute_from_docs() {
         let mut ltr_docs = LtrDocBuilder::new();
         ltr_docs.add_doc(0.9, 1., 10.);
         ltr_docs.add_doc(0.5, 6., 4.);
         ltr_docs.add_doc(0.3, 8., 2.);
-        // pos_avg = 5, neg_max = 10
+
+        let calc = ContextCalc::from_docs(&ltr_docs.docs);
+        assert!(approx_eq!(f32, calc.pos_avg, 5.));
+        assert!(approx_eq!(f32, calc.neg_max, 10.));
 
         let cxt_docs = Context.compute_context(ltr_docs.docs);
         assert!(cxt_docs.is_ok());
         let cxt_docs = cxt_docs.unwrap();
         assert_eq!(cxt_docs.len(), 3);
 
-        assert_eq!(cxt_docs[0].context.context_value, (5. / 6. + 1. + 0.9) / 3.);
-        assert_eq!(
+        assert!(approx_eq!(
+            f32,
+            cxt_docs[0].context.context_value,
+            (5. / 6. + 1. + 0.9) / 3.
+        ));
+        assert!(approx_eq!(
+            f32,
             cxt_docs[1].context.context_value,
             (5. / 11. + 1. / 7. + 0.5) / 3.
-        );
-        assert_eq!(
+        ));
+        assert!(approx_eq!(
+            f32,
             cxt_docs[2].context.context_value,
             (5. / 13. + 1. / 9. + 0.3) / 3.
-        );
+        ));
     }
 }
