@@ -106,7 +106,7 @@ where
 
 type DocumentsByCoi<T> = HashMap<CoiId, BinaryHeap<DocumentByContext<T>>>;
 
-/// Group documents by coi and order them by context_value
+/// Group documents by coi and implicitly order them by context_value in the heap
 fn groups_by_coi<T>(documents: Vec<T>) -> Result<DocumentsByCoi<T>, Error>
 where
     T: MabReadyData,
@@ -137,6 +137,7 @@ where
 // http://www.ecmlpkdd2018.org/wp-content/uploads/2018/09/723.pdf
 // We do not update all y like they do in the paper.
 
+/// Update `alpha` and `beta` values based on the `context_value` of document in that coi
 fn update_cois<T>(cois: HashMap<CoiId, Coi>, documents: &[T]) -> Result<HashMap<CoiId, Coi>, Error>
 where
     T: MabReadyData,
@@ -154,6 +155,9 @@ where
     })
 }
 
+/// For each coi with documents with take a sample from the beta distrubtion and we pick
+/// the coi with the biggest sample. Then we take document with the biggest `context_value` among
+/// the documents within that coi.
 fn pull_arms<T>(
     beta_sampler: &impl BetaSample,
     cois: &HashMap<CoiId, Coi>,
