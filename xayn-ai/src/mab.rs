@@ -274,7 +274,7 @@ where
             .positive
             .into_iter()
             .map(|coi| (coi.id, coi))
-            .collect::<HashMap<_, _>>();
+            .collect();
         let cois = update_cois(cois, &documents)?;
 
         let documents_by_coi = groups_by_coi(documents)?;
