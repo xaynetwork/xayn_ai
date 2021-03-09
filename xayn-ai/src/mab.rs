@@ -74,7 +74,7 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
 }
 
 /// Wrapper to order documents by `context_value`
-struct DocumentByContext<T: MabReadyData>(T);
+struct DocumentByContext<T>(T);
 
 impl<T> PartialEq for DocumentByContext<T>
 where
@@ -193,29 +193,55 @@ where
     }
 }
 
-fn mab_ranking(
-    beta_sampler: &impl BetaSample,
-    cois: &HashMap<CoiId, Coi>,
-    mut documents_by_coi: DocumentsByCoi<DocumentDataWithContext>,
-    // max documents to extract
-    max_documents: usize,
-) -> Result<Vec<DocumentDataWithMab>, Error> {
-    let mut with_mab = Vec::with_capacity(max_documents);
-    let mut rank = 0;
+struct MabRankingIter<'bs, 'cois, BS, T> {
+    beta_sampler: &'bs BS,
+    cois: &'cois HashMap<CoiId, Coi>,
+    documents_by_coi: DocumentsByCoi<T>,
+}
 
-    while !documents_by_coi.is_empty() && rank < max_documents {
-        let (new_documents_by_coi, document) = pull_arms(beta_sampler, cois, documents_by_coi)?;
-        documents_by_coi = new_documents_by_coi;
-
-        with_mab.push(DocumentDataWithMab::from_document(
-            document,
-            MabComponent { rank },
-        ));
-
-        rank += 1;
+impl<'bs, 'cois, BS, T> MabRankingIter<'bs, 'cois, BS, T>
+where
+    BS: BetaSample,
+    T: MabReadyData,
+{
+    fn new(
+        beta_sampler: &'bs BS,
+        cois: &'cois HashMap<CoiId, Coi>,
+        documents_by_coi: DocumentsByCoi<T>,
+    ) -> Self {
+        Self {
+            beta_sampler,
+            cois,
+            documents_by_coi,
+        }
     }
+}
 
-    Ok(with_mab)
+impl<'bs, 'cois, BS, T> Iterator for MabRankingIter<'bs, 'cois, BS, T>
+where
+    BS: BetaSample,
+    T: MabReadyData,
+{
+    type Item = Result<T, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.documents_by_coi.is_empty() {
+            let mut documents_by_coi = HashMap::new();
+            // take out self.documents_by_coi from &mut
+            std::mem::swap(&mut self.documents_by_coi, &mut documents_by_coi);
+
+            Some(
+                pull_arms(self.beta_sampler, self.cois, documents_by_coi).map(
+                    |(new_documents_by_coi, document)| {
+                        self.documents_by_coi = new_documents_by_coi;
+                        document
+                    },
+                ),
+            )
+        } else {
+            None
+        }
+    }
 }
 
 pub struct MabRanking<BS> {
@@ -247,10 +273,17 @@ where
             .collect::<HashMap<_, _>>();
         let cois = update_cois(cois, &documents)?;
 
-        let documents_len = documents.len();
         let documents_by_coi = groups_by_coi(documents)?;
 
-        let documents = mab_ranking(&self.beta_sampler, &cois, documents_by_coi, documents_len)?;
+        let mab_rerank = MabRankingIter::new(&self.beta_sampler, &cois, documents_by_coi);
+        let documents = mab_rerank
+            .enumerate()
+            .map(|(rank, document)| {
+                document.map(|document| {
+                    DocumentDataWithMab::from_document(document, MabComponent { rank })
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
 
         user_interests.positive = cois.into_iter().map(|(_, coi)| coi).collect();
         Ok((documents, user_interests))
