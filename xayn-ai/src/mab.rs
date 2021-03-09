@@ -74,17 +74,8 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
 }
 
 /// Wrapper to order documents by `context_value`
-// struct DocumentByContext(DocumentDataWithContext);
 struct DocumentByContext<T: MabReadyData>(T);
 
-// impl PartialEq for DocumentByContext {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.0
-//             .context
-//             .context_value
-//             .eq(&other.0.context.context_value)
-//     }
-// }
 impl<T> PartialEq for DocumentByContext<T> where T: MabReadyData {
     fn eq(&self, other: &Self) -> bool {
         self.0
