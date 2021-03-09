@@ -91,7 +91,7 @@ where
     T: MabReadyData,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0.context_value().partial_cmp(&other.0.context_value())
+        Some(self.cmp(other))
     }
 }
 
