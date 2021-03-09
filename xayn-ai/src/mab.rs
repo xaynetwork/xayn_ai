@@ -50,7 +50,7 @@ trait MabReadyData {
 
 impl MabReadyData for DocumentDataWithContext {
     fn coi_id(&self) -> CoiId {
-       self.coi.id
+        self.coi.id
     }
 
     fn context_value(&self) -> f32 {
@@ -76,29 +76,31 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
 /// Wrapper to order documents by `context_value`
 struct DocumentByContext<T: MabReadyData>(T);
 
-impl<T> PartialEq for DocumentByContext<T> where T: MabReadyData {
+impl<T> PartialEq for DocumentByContext<T>
+where
+    T: MabReadyData,
+{
     fn eq(&self, other: &Self) -> bool {
-        self.0
-            .context_value()
-            .eq(&other.0.context_value())
+        self.0.context_value().eq(&other.0.context_value())
     }
 }
-impl<T> Eq for DocumentByContext<T> where T:MabReadyData {}
+impl<T> Eq for DocumentByContext<T> where T: MabReadyData {}
 
-impl<T> PartialOrd for DocumentByContext<T> where  T: MabReadyData {
+impl<T> PartialOrd for DocumentByContext<T>
+where
+    T: MabReadyData,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0
-            .context_value()
-            .partial_cmp(&other.0.context_value())
+        self.0.context_value().partial_cmp(&other.0.context_value())
     }
 }
 
-impl<T> Ord for DocumentByContext<T> where T: MabReadyData {
+impl<T> Ord for DocumentByContext<T>
+where
+    T: MabReadyData,
+{
     fn cmp(&self, other: &Self) -> Ordering {
-        f32_total_cmp(
-            &self.0.context_value(),
-            &other.0.context_value(),
-        )
+        f32_total_cmp(&self.0.context_value(), &other.0.context_value())
     }
 }
 
@@ -106,7 +108,8 @@ type DocumentsByCoi<T> = HashMap<CoiId, BinaryHeap<DocumentByContext<T>>>;
 
 /// Group documents by coi and order them by context_value
 fn groups_by_coi<T>(documents: Vec<T>) -> Result<DocumentsByCoi<T>, Error>
-where T: MabReadyData
+where
+    T: MabReadyData,
 {
     documents
         .into_iter()
@@ -134,11 +137,9 @@ where T: MabReadyData
 // http://www.ecmlpkdd2018.org/wp-content/uploads/2018/09/723.pdf
 // We do not update all y like they do in the paper.
 
-fn update_cois<T>(
-    cois: HashMap<CoiId, Coi>,
-    documents: &[T],
-) -> Result<HashMap<CoiId, Coi>, Error>
-where T: MabReadyData
+fn update_cois<T>(cois: HashMap<CoiId, Coi>, documents: &[T]) -> Result<HashMap<CoiId, Coi>, Error>
+where
+    T: MabReadyData,
 {
     documents.iter().try_fold(cois, |mut cois, document| {
         let coi = cois
@@ -158,7 +159,8 @@ fn pull_arms<T>(
     cois: &HashMap<CoiId, Coi>,
     mut documents_by_coi: DocumentsByCoi<T>,
 ) -> Result<(DocumentsByCoi<T>, T), Error>
-where T: MabReadyData
+where
+    T: MabReadyData,
 {
     let coi_id = *documents_by_coi
         .keys()
@@ -197,8 +199,7 @@ fn mab_ranking(
     mut documents_by_coi: DocumentsByCoi<DocumentDataWithContext>,
     // max documents to extract
     max_documents: usize,
-) -> Result<Vec<DocumentDataWithMab>, Error>
-{
+) -> Result<Vec<DocumentDataWithMab>, Error> {
     let mut with_mab = Vec::with_capacity(max_documents);
     let mut rank = 0;
 
