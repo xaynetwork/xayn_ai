@@ -29,7 +29,7 @@ pub enum MabError {
     ExtractedCoiNoDocuments,
 }
 
-/// Allow to sample a value form a beta distrubtion
+/// Allow to sample a value from a beta distribution
 pub trait BetaSample {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, Error>;
 }
