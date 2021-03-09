@@ -16,8 +16,7 @@ jobs:
 
       - name: Run rust-audit
         id: rust-audit
-        run: |
-          cargo audit --deny warnings
+        run: cargo audit --deny warnings
 
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
