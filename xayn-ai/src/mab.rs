@@ -59,7 +59,7 @@ impl MabReadyData for DocumentDataWithContext {
 }
 
 /// Pretend that comparing two f32 is total. The function will rank `Nan`
-/// as the lowest value, similar to what `f32::max` does.
+/// as the lowest value, similar to what [`f32::max`] does.
 fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
     a.partial_cmp(&b).unwrap_or_else(|| {
         // if `partial_cmp` returns None we have at least one `NaN`
