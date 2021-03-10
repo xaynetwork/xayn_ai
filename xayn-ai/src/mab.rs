@@ -16,16 +16,17 @@ use std::{
     collections::{hash_map::Entry, BinaryHeap, HashMap},
 };
 
+use displaydoc::Display;
 use rand_distr::{Beta, Distribution};
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Display)]
 pub enum MabError {
-    #[error("The coi id assigned to a document does not exist")]
+    /// The coi id assigned to a document does not exist
     DocumentCoiDoesNotExist,
-    #[error("No documents to pull")]
+    /// No documents to pull
     NoDocumentsToPull,
-    #[error("Extracted coi does not have documents")]
+    /// Extracted coi does not have documents
     ExtractedCoiNoDocuments,
 }
 
