@@ -167,21 +167,29 @@ fn pull_arms<T>(
 where
     T: MabReadyData,
 {
-    let coi_id = *documents_by_coi
-        .keys()
-        // sampling beta distribution for each coi
-        .map(|coi_id| {
-            let coi = cois.get(coi_id).ok_or(MabError::DocumentCoiDoesNotExist)?;
+    let sample_from_coi = |coi_id: &CoiId| {
+        let coi = cois.get(&coi_id).ok_or(MabError::DocumentCoiDoesNotExist)?;
+        beta_sampler.sample(coi.alpha, coi.beta)
+    };
 
-            beta_sampler
-                .sample(coi.alpha, coi.beta)
-                .map(|sample| (sample, coi_id))
-        })
-        .collect::<Result<Vec<_>, _>>()?
-        .iter()
-        // get the coi whose sample is biggest
-        .max_by(|(a, _), (b, _)| f32_total_cmp(a, b))
-        .ok_or(MabError::NoDocumentsToPull)?
+    let mut coi_id_it = documents_by_coi.keys();
+
+    let first_coi_id = coi_id_it.next().ok_or(MabError::NoDocumentsToPull)?;
+    let first_sample = sample_from_coi(first_coi_id)?;
+
+    let coi_id = *coi_id_it
+        .try_fold(
+            (first_sample, first_coi_id),
+            |max, coi_id| -> Result<_, Error> {
+                let sample = sample_from_coi(coi_id)?;
+
+                if let Ordering::Greater = f32_total_cmp(&sample, &max.0) {
+                    Ok((sample, coi_id))
+                } else {
+                    Ok(max)
+                }
+            },
+        )?
         .1;
 
     if let Entry::Occupied(mut entry) = documents_by_coi.entry(coi_id) {
