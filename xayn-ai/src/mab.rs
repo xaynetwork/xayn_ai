@@ -67,8 +67,8 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
         // we treat it as the lowest value
         match (a.is_nan(), b.is_nan()) {
             (true, true) => Ordering::Equal,
-            (true, _) => Ordering::Greater,
-            _ => Ordering::Less,
+            (true, _) => Ordering::Less,
+            _ => Ordering::Greater,
         }
     })
 }
