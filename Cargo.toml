@@ -3,6 +3,7 @@ members = [
     "rubert",
     "rubert-tokenizer",
     "xayn-ai",
+    "xayn-ai-ffi",
 ]
 
 [workspace.metadata]
