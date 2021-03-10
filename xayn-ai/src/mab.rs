@@ -64,11 +64,10 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
     a.partial_cmp(&b).unwrap_or_else(|| {
         // if `partial_cmp` returns None we have at least one `NaN`,
         // we treat it as the lowest value
-        if a.is_nan() {
-            Ordering::Less
-        } else {
-            // other_value is NaN
-            Ordering::Greater
+        match (a.is_nan(), b.is_nan()) {
+            (true, true) => Ordering::Equal,
+            (true, _) => Ordering::Greater,
+            _ => Ordering::Less,
         }
     })
 }
@@ -82,7 +81,7 @@ where
     T: MabReadyData,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.0.context_value().eq(&other.0.context_value())
+        self.cmp(other) == Ordering::Equal
     }
 }
 impl<T> Eq for DocumentByContext<T> where T: MabReadyData {}
