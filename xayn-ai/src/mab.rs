@@ -156,7 +156,7 @@ where
     })
 }
 
-/// For each coi with documents we take a sample from the beta distribution and we pick
+/// For each coi we take a sample from the beta distribution and we pick
 /// the coi with the biggest sample. Then we take the document with the biggest `context_value` among
 /// the documents within that coi.
 fn pull_arms<T>(
