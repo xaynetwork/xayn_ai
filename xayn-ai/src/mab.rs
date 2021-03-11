@@ -108,7 +108,7 @@ where
 type DocumentsByCoi<T> = HashMap<CoiId, BinaryHeap<DocumentByContext<T>>>;
 
 /// Group documents by coi and implicitly order them by context_value in the heap
-fn groups_by_coi<T>(documents: Vec<T>) -> Result<DocumentsByCoi<T>, Error>
+fn group_by_coi<T>(documents: Vec<T>) -> Result<DocumentsByCoi<T>, Error>
 where
     T: MabReadyData,
 {
