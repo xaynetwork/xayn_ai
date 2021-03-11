@@ -286,7 +286,7 @@ where
             .collect();
         let cois = update_cois(cois, &documents)?;
 
-        let documents_by_coi = groups_by_coi(documents)?;
+        let documents_by_coi = group_by_coi(documents)?;
 
         let mab_rerank = MabRankingIter::new(&self.beta_sampler, &cois, documents_by_coi);
         let documents = mab_rerank
