@@ -74,7 +74,7 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
 }
 
 /// Wrapper to order documents by `context_value`.
-/// We need to implement Ord for it to use it in the `BinaryHeap`.
+/// We need to implement `Ord` to use it in the `BinaryHeap`.
 struct DocumentByContext<T>(T);
 
 impl<T> PartialEq for DocumentByContext<T>
