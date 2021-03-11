@@ -213,9 +213,6 @@ struct MabRankingIter<'bs, 'cois, BS, T> {
 }
 
 impl<'bs, 'cois, BS, T> MabRankingIter<'bs, 'cois, BS, T>
-where
-    BS: BetaSample,
-    T: MabReadyData,
 {
     fn new(
         beta_sampler: &'bs BS,
@@ -262,8 +259,6 @@ pub struct MabRanking<BS> {
 }
 
 impl<BS> MabRanking<BS>
-where
-    BS: BetaSample,
 {
     pub fn new(beta_sampler: BS) -> Self {
         Self { beta_sampler }
