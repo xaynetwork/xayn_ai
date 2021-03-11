@@ -30,14 +30,10 @@ pub enum MabError {
     ExtractedCoiNoDocuments,
 }
 
-/// Allow to sample a value from a beta distribution
-pub trait BetaSample {
-    fn sample(&self, alpha: f32, beta: f32) -> Result<f32, Error>;
-}
-
+/// Sample a value from a beta distribution
 pub struct BetaSampler;
 
-impl BetaSample for BetaSampler {
+impl BetaSampler  {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, Error> {
         let beta = Beta::new(alpha, beta)?;
         Ok(beta.sample(&mut rand::thread_rng()))
@@ -160,7 +156,7 @@ where
 /// the coi with the biggest sample. Then we take the document with the biggest `context_value` among
 /// the documents within that coi.
 fn pull_arms<T>(
-    beta_sampler: &impl BetaSample,
+    beta_sampler: &BetaSampler,
     cois: &HashMap<CoiId, Coi>,
     mut documents_by_coi: DocumentsByCoi<T>,
 ) -> Result<(DocumentsByCoi<T>, T), Error>
@@ -206,16 +202,16 @@ where
     }
 }
 
-struct MabRankingIter<'bs, 'cois, BS, T> {
-    beta_sampler: &'bs BS,
+struct MabRankingIter<'bs, 'cois, T> {
+    beta_sampler: &'bs BetaSampler,
     cois: &'cois HashMap<CoiId, Coi>,
     documents_by_coi: DocumentsByCoi<T>,
 }
 
-impl<'bs, 'cois, BS, T> MabRankingIter<'bs, 'cois, BS, T>
+impl<'bs, 'cois, T> MabRankingIter<'bs, 'cois, T>
 {
     fn new(
-        beta_sampler: &'bs BS,
+        beta_sampler: &'bs BetaSampler,
         cois: &'cois HashMap<CoiId, Coi>,
         documents_by_coi: DocumentsByCoi<T>,
     ) -> Self {
@@ -227,9 +223,8 @@ impl<'bs, 'cois, BS, T> MabRankingIter<'bs, 'cois, BS, T>
     }
 }
 
-impl<'bs, 'cois, BS, T> Iterator for MabRankingIter<'bs, 'cois, BS, T>
+impl<'bs, 'cois, T> Iterator for MabRankingIter<'bs, 'cois, T>
 where
-    BS: BetaSample,
     T: MabReadyData,
 {
     type Item = Result<T, Error>;
@@ -254,20 +249,18 @@ where
     }
 }
 
-pub struct MabRanking<BS> {
-    beta_sampler: BS,
+pub struct MabRanking {
+    beta_sampler: BetaSampler,
 }
 
-impl<BS> MabRanking<BS>
+impl MabRanking
 {
-    pub fn new(beta_sampler: BS) -> Self {
+    pub fn new(beta_sampler: BetaSampler) -> Self {
         Self { beta_sampler }
     }
 }
 
-impl<BS> MabSystem for MabRanking<BS>
-where
-    BS: BetaSample,
+impl MabSystem for MabRanking
 {
     fn compute_mab(
         &self,
