@@ -1,5 +1,6 @@
 mod bert;
 mod coi;
+mod context;
 mod data;
 mod database;
 mod error;

@@ -25,7 +25,7 @@ pub struct EmbeddingComponent {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct LtrComponent {
-    pub context_value: f32,
+    pub ltr_score: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(document_data.embedding, embedding);
         assert_eq!(document_data.coi, coi);
 
-        let ltr = LtrComponent { context_value: 0.3 };
+        let ltr = LtrComponent { ltr_score: 0.3 };
         let document_data = DocumentDataWithLtr::from_document(document_data, ltr.clone());
         assert_eq!(document_data.document_id, document_id);
         assert_eq!(document_data.embedding, embedding);

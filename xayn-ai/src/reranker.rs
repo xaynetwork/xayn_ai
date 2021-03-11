@@ -268,7 +268,7 @@ where
         .coi()
         .compute_coi(documents, user_interests)?;
     let documents = common_systems.ltr().compute_ltr(history, documents)?;
-    let documents = common_systems.context().compute_context(&documents)?;
+    let documents = common_systems.context().compute_context(documents)?;
     let (documents, user_interests) = common_systems
         .mab()
         .compute_mab(&documents, user_interests)?;
