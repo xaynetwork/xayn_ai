@@ -33,25 +33,10 @@ pub enum MabError {
 /// Sample a value from a beta distribution
 pub struct BetaSampler;
 
-impl BetaSampler  {
+impl BetaSampler {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, Error> {
         let beta = Beta::new(alpha, beta)?;
         Ok(beta.sample(&mut rand::thread_rng()))
-    }
-}
-
-trait MabReadyData {
-    fn coi_id(&self) -> CoiId;
-    fn context_value(&self) -> f32;
-}
-
-impl MabReadyData for DocumentDataWithContext {
-    fn coi_id(&self) -> CoiId {
-        self.coi.id
-    }
-
-    fn context_value(&self) -> f32 {
-        self.context.context_value
     }
 }
 
@@ -71,47 +56,38 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
 
 /// Wrapper to order documents by `context_value`.
 /// We need to implement `Ord` to use it in the `BinaryHeap`.
-struct DocumentByContext<T>(T);
+struct DocumentByContext(DocumentDataWithContext);
 
-impl<T> PartialEq for DocumentByContext<T>
-where
-    T: MabReadyData,
-{
+impl PartialEq for DocumentByContext {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == Ordering::Equal
     }
 }
-impl<T> Eq for DocumentByContext<T> where T: MabReadyData {}
+impl Eq for DocumentByContext {}
 
-impl<T> PartialOrd for DocumentByContext<T>
-where
-    T: MabReadyData,
-{
+impl PartialOrd for DocumentByContext {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<T> Ord for DocumentByContext<T>
-where
-    T: MabReadyData,
-{
+impl Ord for DocumentByContext {
     fn cmp(&self, other: &Self) -> Ordering {
-        f32_total_cmp(&self.0.context_value(), &other.0.context_value())
+        f32_total_cmp(
+            &self.0.context.context_value,
+            &other.0.context.context_value,
+        )
     }
 }
 
-type DocumentsByCoi<T> = HashMap<CoiId, BinaryHeap<DocumentByContext<T>>>;
+type DocumentsByCoi = HashMap<CoiId, BinaryHeap<DocumentByContext>>;
 
 /// Group documents by coi and implicitly order them by context_value in the heap
-fn group_by_coi<T>(documents: Vec<T>) -> Result<DocumentsByCoi<T>, Error>
-where
-    T: MabReadyData,
-{
+fn group_by_coi(documents: Vec<DocumentDataWithContext>) -> Result<DocumentsByCoi, Error> {
     documents
         .into_iter()
         .try_fold(DocumentsByCoi::new(), |mut groups, document| {
-            let coi_id = document.coi_id();
+            let coi_id = document.coi.id;
 
             let document = DocumentByContext(document);
 
@@ -135,16 +111,16 @@ where
 // We do not update all context_value like they do in the paper.
 
 /// Update `alpha` and `beta` values based on the `context_value` of document in that coi
-fn update_cois<T>(cois: HashMap<CoiId, Coi>, documents: &[T]) -> Result<HashMap<CoiId, Coi>, Error>
-where
-    T: MabReadyData,
-{
+fn update_cois(
+    cois: HashMap<CoiId, Coi>,
+    documents: &[DocumentDataWithContext],
+) -> Result<HashMap<CoiId, Coi>, Error> {
     documents.iter().try_fold(cois, |mut cois, document| {
         let coi = cois
-            .get_mut(&document.coi_id())
+            .get_mut(&document.coi.id)
             .ok_or(MabError::DocumentCoiDoesNotExist)?;
 
-        let context_value = document.context_value();
+        let context_value = document.context.context_value;
         coi.alpha += context_value;
         coi.beta += 1. - context_value;
 
@@ -155,14 +131,11 @@ where
 /// For each coi we take a sample from the beta distribution and we pick
 /// the coi with the biggest sample. Then we take the document with the biggest `context_value` among
 /// the documents within that coi.
-fn pull_arms<T>(
+fn pull_arms(
     beta_sampler: &BetaSampler,
     cois: &HashMap<CoiId, Coi>,
-    mut documents_by_coi: DocumentsByCoi<T>,
-) -> Result<(DocumentsByCoi<T>, T), Error>
-where
-    T: MabReadyData,
-{
+    mut documents_by_coi: DocumentsByCoi,
+) -> Result<(DocumentsByCoi, DocumentDataWithContext), Error> {
     let sample_from_coi = |coi_id: &CoiId| {
         let coi = cois.get(&coi_id).ok_or(MabError::DocumentCoiDoesNotExist)?;
         beta_sampler.sample(coi.alpha, coi.beta)
@@ -202,18 +175,17 @@ where
     }
 }
 
-struct MabRankingIter<'bs, 'cois, T> {
+struct MabRankingIter<'bs, 'cois> {
     beta_sampler: &'bs BetaSampler,
     cois: &'cois HashMap<CoiId, Coi>,
-    documents_by_coi: DocumentsByCoi<T>,
+    documents_by_coi: DocumentsByCoi,
 }
 
-impl<'bs, 'cois, T> MabRankingIter<'bs, 'cois, T>
-{
+impl<'bs, 'cois> MabRankingIter<'bs, 'cois> {
     fn new(
         beta_sampler: &'bs BetaSampler,
         cois: &'cois HashMap<CoiId, Coi>,
-        documents_by_coi: DocumentsByCoi<T>,
+        documents_by_coi: DocumentsByCoi,
     ) -> Self {
         Self {
             beta_sampler,
@@ -223,11 +195,8 @@ impl<'bs, 'cois, T> MabRankingIter<'bs, 'cois, T>
     }
 }
 
-impl<'bs, 'cois, T> Iterator for MabRankingIter<'bs, 'cois, T>
-where
-    T: MabReadyData,
-{
-    type Item = Result<T, Error>;
+impl<'bs, 'cois> Iterator for MabRankingIter<'bs, 'cois> {
+    type Item = Result<DocumentDataWithContext, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if !self.documents_by_coi.is_empty() {
@@ -253,15 +222,13 @@ pub struct MabRanking {
     beta_sampler: BetaSampler,
 }
 
-impl MabRanking
-{
+impl MabRanking {
     pub fn new(beta_sampler: BetaSampler) -> Self {
         Self { beta_sampler }
     }
 }
 
-impl MabSystem for MabRanking
-{
+impl MabSystem for MabRanking {
     fn compute_mab(
         &self,
         documents: Vec<DocumentDataWithContext>,
