@@ -84,6 +84,7 @@ pub mod tests {
         /// Creates a string from the error message handler.
         ///
         /// Stops at the first encountered null byte. Clears the buffer with a leading null byte.
+        #[allow(clippy::wrong_self_convention, clippy::inherent_to_string)]
         pub fn to_string(&mut self) -> String {
             self.buffer
                 .as_mut()
