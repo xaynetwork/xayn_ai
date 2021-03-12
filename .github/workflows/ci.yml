@@ -352,7 +352,6 @@ jobs:
         working-directory: ./xayn-ai-ffi
         run: cargo ndk -t ${{ matrix.ndk-target }} --platform ${{ env.ANDROID_PLATFORM_VERSION }} build
 
-
   build-ios-libs:
     name: build-ios-libs
     runs-on: macos-10.15
