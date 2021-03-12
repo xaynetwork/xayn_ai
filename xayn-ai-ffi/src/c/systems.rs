@@ -10,10 +10,10 @@ use xayn_ai::{
     CoiSystems,
     CommonSystems,
     ConstLtr,
+    Context,
     ContextSystem,
     Database,
     DocumentDataWithContext,
-    DocumentDataWithLtr,
     DocumentDataWithMab,
     DocumentHistory,
     Error,
@@ -36,17 +36,6 @@ impl Database for DummyDatabase {
 
     fn save_analytics(&self, _analytics: &Analytics) -> Result<(), Error> {
         Ok(())
-    }
-}
-
-pub struct DummyContext;
-
-impl ContextSystem for DummyContext {
-    fn compute_context(
-        &self,
-        _documents: &[DocumentDataWithLtr],
-    ) -> Result<Vec<DocumentDataWithContext>, Error> {
-        Ok(vec![])
     }
 }
 
@@ -101,7 +90,7 @@ pub struct Systems {
     pub bert: RuBert,
     pub coi: CoiSystem,
     pub ltr: ConstLtr,
-    pub context: DummyContext,
+    pub context: Context,
     pub mab: DummyMab,
     pub analytics: DummyAnalytics,
 }

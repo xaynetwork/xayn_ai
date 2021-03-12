@@ -10,6 +10,7 @@ use xayn_ai::{
     CoiConfiguration,
     CoiSystem,
     ConstLtr,
+    Context,
     Document,
     DocumentId,
     DocumentsRank,
@@ -17,7 +18,7 @@ use xayn_ai::{
 };
 
 use crate::c::{
-    systems::{DummyAnalytics, DummyContext, DummyDatabase, DummyMab, Systems},
+    systems::{DummyAnalytics, DummyDatabase, DummyMab, Systems},
     utils::{cstr_to_string, ErrorMsg},
 };
 
@@ -102,7 +103,7 @@ pub unsafe extern "C" fn xaynai_new(
             bert,
             coi,
             ltr,
-            context: DummyContext,
+            context: Context,
             mab: DummyMab,
             analytics: DummyAnalytics,
         };

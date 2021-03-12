@@ -25,8 +25,9 @@ pub use crate::{
 pub use crate::{
     analytics::Analytics,
     coi::{CoiSystem, CoiSystemError, Configuration as CoiConfiguration},
+    context::Context,
     data::{
-        document_data::{DocumentDataWithContext, DocumentDataWithLtr, DocumentDataWithMab},
+        document_data::{DocumentDataWithContext, DocumentDataWithMab},
         Coi,
         UserInterests,
     },
