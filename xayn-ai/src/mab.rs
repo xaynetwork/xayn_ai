@@ -49,7 +49,8 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
         match (a.is_nan(), b.is_nan()) {
             (true, true) => Ordering::Equal,
             (true, _) => Ordering::Less,
-            _ => Ordering::Greater,
+            (_, true) => Ordering::Greater,
+            _ => unreachable!()
         }
     })
 }
