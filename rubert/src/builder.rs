@@ -110,7 +110,7 @@ impl<V, M, P> Builder<V, M, P> {
     /// # Errors
     /// Fails if `size` is less than two.
     pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError> {
-        if self.token_size < 2 {
+        if size < 2 {
             Err(BuilderError::TokenSize)
         } else {
             self.token_size = size;

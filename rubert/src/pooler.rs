@@ -238,9 +238,7 @@ mod tests {
         let masks = arr2(&[[1, 1], [1, 1]]).into();
         let embeddings = arr1(&[2.5, 3.5, 4.5]).into();
         assert_eq!(
-            AveragePooler
-                .pool(predictions.clone().into(), masks)
-                .unwrap(),
+            AveragePooler.pool(predictions.into(), masks).unwrap(),
             embeddings,
         );
     }

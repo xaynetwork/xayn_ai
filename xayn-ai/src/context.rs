@@ -56,6 +56,8 @@ impl ContextCalc {
 
 #[cfg(test)]
 mod tests {
+    use ndarray::arr1;
+
     use super::*;
     use crate::data::{
         document::DocumentId,
@@ -75,7 +77,7 @@ mod tests {
 
         fn add_doc(&mut self, ltr_score: f32, pos_distance: f32, neg_distance: f32) {
             let id = DocumentId("id".to_string());
-            let embedding = vec![].into();
+            let embedding = arr1::<f32>(&[]).into();
 
             self.docs.push(DocumentDataWithLtr {
                 document_id: DocumentIdComponent { id },
