@@ -22,6 +22,21 @@ use crate::c::{
     utils::{cstr_to_string, ErrorMsg},
 };
 
+/// Creates and initializes the Xayn AI.
+///
+/// # Errors
+/// Aborts and returns a null pointer if:
+/// - The vocab or model paths are invalid.
+/// - The batch or token sizes are invalid.
+///
+/// An utf8 encoded, null-terminated message will be written to a valid error pointer.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null vocab or model path doesn't point to an aligned, contiguous area of memory with a
+/// terminating null byte.
+/// - A non-null error doesn't point to an aligned, contiguous area of memory with at least error
+/// size bytes.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
     // bert
@@ -98,13 +113,17 @@ pub unsafe extern "C" fn xaynai_new(
         let ltr = ConstLtr(0.5);
 
         // reranker
+        // TODO: use the reranker builder once it is available
         let systems = Systems {
+            // TODO: use the actual database once it is available
             database: DummyDatabase,
             bert,
             coi,
             ltr,
             context: Context,
+            // TODO: use the actual mab once it is available
             mab: DummyMab,
+            // TODO: use the actual analytics once it is available
             analytics: DummyAnalytics,
         };
         let reranker = match Reranker::new(systems) {
@@ -127,6 +146,30 @@ pub unsafe extern "C" fn xaynai_new(
     })
 }
 
+/// Reranks the documents with the Xayn AI.
+///
+/// Each document is represented as an id, a snippet and a rank. The reranked order is written to
+/// the ranks array.
+///
+/// # Errors
+/// Aborts without changing the ranks if:
+/// - The xaynai is null.
+/// - The ids, snippets or ranks are invalid.
+/// - The document size is zero.
+///
+/// An utf8 encoded, null-terminated message will be written to a valid error pointer.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null ids or snippets array doesn't point to an aligned, contiguous area of memory with
+/// at least doc size pointers.
+/// - A non-null ranks array doesn't point to an aligned, contiguous area of memory with at least
+/// doc size integers.
+/// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
+/// terminating null byte.
+/// - A non-null error doesn't point to an aligned, contiguous area of memory with at least error
+/// size bytes.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
     xaynai: *const Reranker<Systems>,
@@ -228,7 +271,9 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// Frees the memory of the Xayn AI.
 ///
 /// # Safety
-/// The method must be called only once on a pointer to avoid undefined behavior on double-frees.
+/// The behavior is undefined if:
+/// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null xaynai is freed more than once.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_drop(xaynai: *mut Reranker<Systems>) {
     // the reranker gets dropped anyways
@@ -252,6 +297,7 @@ mod tests {
 
     use super::*;
 
+    /// Creates values for testing.
     fn setup_vals() -> (
         CString,
         CString,
@@ -300,6 +346,7 @@ mod tests {
         )
     }
 
+    /// Creates pointers for testing.
     fn setup_refs<'a>(
         vocab: &CStr,
         model: &CStr,
@@ -331,6 +378,7 @@ mod tests {
         (vocab, model, error_ptr, error_msg, ids, snippets, ranks)
     }
 
+    /// Creates pointers of pointers for testing.
     fn setup_refs_refs(
         ids: &[*const u8],
         snippets: &[*const u8],
