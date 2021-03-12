@@ -70,7 +70,7 @@ pub mod tests {
     impl<'a> From<&'a mut [u8]> for ErrorMsg<'a> {
         /// Creates an error message handler without unsafety.
         fn from(error: &'a mut [u8]) -> Self {
-            if error.len() == 0 {
+            if error.is_empty() {
                 ErrorMsg { buffer: None }
             } else {
                 ErrorMsg {

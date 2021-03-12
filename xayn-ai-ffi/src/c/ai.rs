@@ -298,6 +298,7 @@ mod tests {
     use super::*;
 
     /// Creates values for testing.
+    #[allow(clippy::type_complexity)]
     fn setup_vals() -> (
         CString,
         CString,
