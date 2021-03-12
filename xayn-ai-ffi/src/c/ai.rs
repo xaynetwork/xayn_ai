@@ -129,10 +129,10 @@ pub unsafe extern "C" fn xaynai_new(
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
     xaynai: *const Reranker<Systems>,
-    size: u32,
     ids: *const *const u8,
     snippets: *const *const u8,
     ranks: *mut u32,
+    doc_size: u32,
     error: *mut u8,
     error_size: u32,
 ) {
@@ -150,11 +150,11 @@ pub unsafe extern "C" fn xaynai_rerank(
             return;
         };
 
-        let size = if size == 0 {
-            error.set("Failed to rerank the documents: The size is zero");
+        let size = if doc_size == 0 {
+            error.set("Failed to rerank the documents: The document size is zero");
             return;
         } else {
-            size as usize
+            doc_size as usize
         };
         let ids = if ids.is_null() {
             error.set("Failed to rerank the documents: The ids pointer is null");
@@ -208,6 +208,7 @@ pub unsafe extern "C" fn xaynai_rerank(
         let reranks = documents
             .iter()
             .map(|document| document.rank)
+            .rev()
             .collect::<DocumentsRank>();
 
         for (rank, rerank) in izip!(ranks, reranks) {
@@ -238,4 +239,548 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: *mut Reranker<Systems>) {
         }
     })
     .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        ffi::{CStr, CString},
+        iter,
+        ptr::null,
+    };
+
+    use super::*;
+
+    fn setup_vals() -> (
+        CString,
+        CString,
+        u32,
+        u32,
+        f32,
+        f32,
+        Vec<u8>,
+        u32,
+        u32,
+        Vec<CString>,
+        Vec<CString>,
+        Vec<u32>,
+    ) {
+        let vocab = CString::new("../data/rubert_v0000/vocab.txt").unwrap();
+        let model = CString::new("../data/rubert_v0000/model.onnx").unwrap();
+        let batch_size = 10;
+        let token_size = 64;
+        let shift_factor = 0.1;
+        let threshold = 10.0;
+        let error_size = 256;
+        let error = vec![0; error_size as usize];
+
+        let doc_size = 10;
+        let ids = (0..doc_size)
+            .map(|id| CString::new(format!("{}", id)).unwrap())
+            .collect();
+        let snippets = (0..doc_size)
+            .map(|id| CString::new(format!("snippet {}", id)).unwrap())
+            .collect();
+        let ranks = (0..doc_size).collect();
+
+        (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            error,
+            error_size,
+            doc_size,
+            ids,
+            snippets,
+            ranks,
+        )
+    }
+
+    fn setup_refs<'a>(
+        vocab: &CStr,
+        model: &CStr,
+        error: &'a mut [u8],
+        ids: &[CString],
+        snippets: &[CString],
+        ranks: &mut [u32],
+    ) -> (
+        *const u8,
+        *const u8,
+        *mut u8,
+        ErrorMsg<'a>,
+        Vec<*const u8>,
+        Vec<*const u8>,
+        *mut u32,
+    ) {
+        let vocab = vocab.as_ptr() as *const u8;
+        let model = model.as_ptr() as *const u8;
+        let error_ptr = error.as_mut_ptr();
+        let error_msg = error.into();
+
+        let ids = ids.iter().map(|id| id.as_ptr() as *const u8).collect();
+        let snippets = snippets
+            .iter()
+            .map(|snippet| snippet.as_ptr() as *const u8)
+            .collect();
+        let ranks = ranks.as_mut_ptr();
+
+        (vocab, model, error_ptr, error_msg, ids, snippets, ranks)
+    }
+
+    fn setup_refs_refs(
+        ids: &[*const u8],
+        snippets: &[*const u8],
+    ) -> (*const *const u8, *const *const u8) {
+        let ids = ids.as_ptr();
+        let snippets = snippets.as_ptr();
+
+        (ids, snippets)
+    }
+
+    #[test]
+    fn test_xaynai_rerank() {
+        let (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            mut error,
+            error_size,
+            doc_size,
+            ids,
+            snippets,
+            mut ranks_val,
+        ) = setup_vals();
+        let reranks_val = ranks_val.iter().copied().rev().collect::<Vec<_>>();
+        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            error.as_mut_slice(),
+            ids.as_slice(),
+            snippets.as_slice(),
+            ranks_val.as_mut_slice(),
+        );
+        let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
+
+        // new
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab,
+                model,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        };
+        assert!(!xaynai.is_null());
+        assert_eq!(error_msg.to_string(), "");
+
+        // rerank
+        unsafe { xaynai_rerank(xaynai, ids, snippets, ranks, doc_size, error, error_size) };
+        assert_eq!(ranks_val, reranks_val);
+        assert_eq!(error_msg.to_string(), "");
+
+        // drop
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_xaynai_invalid_tokenizer_paths() {
+        let (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            mut error,
+            error_size,
+            _,
+            ids,
+            snippets,
+            mut ranks_val,
+        ) = setup_vals();
+        let (vocab, model, error, mut error_msg, _, _, _) = setup_refs(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            error.as_mut_slice(),
+            ids.as_slice(),
+            snippets.as_slice(),
+            ranks_val.as_mut_slice(),
+        );
+
+        let null_ = null();
+        let invalid = CString::new("").unwrap();
+        let invalid = invalid.as_ptr() as *const u8;
+        assert!(unsafe {
+            xaynai_new(
+                null_,
+                model,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        }
+        .is_null());
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to build the bert model: The vocab is not a valid C-string pointer",
+        );
+        assert!(unsafe {
+            xaynai_new(
+                invalid,
+                model,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        }
+        .is_null());
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2).",
+        );
+        assert!(unsafe {
+            xaynai_new(
+                vocab,
+                null_,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        }
+        .is_null());
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to build the bert model: The model is not a valid C-string pointer",
+        );
+        assert!(unsafe {
+            xaynai_new(
+                vocab,
+                invalid,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        }
+        .is_null());
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2).",
+        );
+    }
+
+    #[test]
+    fn test_xaynai_invalid_tokenizer_sizes() {
+        let (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            mut error,
+            error_size,
+            _,
+            ids,
+            snippets,
+            mut ranks_val,
+        ) = setup_vals();
+        let (vocab, model, error, mut error_msg, _, _, _) = setup_refs(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            error.as_mut_slice(),
+            ids.as_slice(),
+            snippets.as_slice(),
+            ranks_val.as_mut_slice(),
+        );
+
+        let invalid = 0;
+        assert!(unsafe {
+            xaynai_new(
+                vocab,
+                model,
+                invalid,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        }
+        .is_null());
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to build the bert model: The batch size must be greater than zero.",
+        );
+        assert!(unsafe {
+            xaynai_new(
+                vocab,
+                model,
+                batch_size,
+                invalid,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        }
+        .is_null());
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to build the bert model: The token size must be greater than two to allow for special tokens.",
+        );
+    }
+
+    #[test]
+    fn test_xaynai_invalid_document_ids() {
+        let (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            mut error,
+            error_size,
+            doc_size,
+            ids,
+            snippets,
+            mut ranks_val,
+        ) = setup_vals();
+        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            error.as_mut_slice(),
+            ids.as_slice(),
+            snippets.as_slice(),
+            ranks_val.as_mut_slice(),
+        );
+        let (_, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab,
+                model,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        };
+        assert!(!xaynai.is_null());
+
+        let null_ = null();
+        unsafe { xaynai_rerank(xaynai, null_, snippets, ranks, doc_size, error, error_size) };
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to rerank the documents: The ids pointer is null",
+        );
+        let null_ = null();
+        for idx in 0..doc_size as usize {
+            let invalid = ids
+                .iter()
+                .take(idx)
+                .copied()
+                .chain(iter::once(null_))
+                .chain(ids.iter().skip(idx).copied())
+                .collect::<Vec<*const u8>>();
+            let invalid = invalid.as_ptr();
+            unsafe {
+                xaynai_rerank(
+                    xaynai, invalid, snippets, ranks, doc_size, error, error_size,
+                )
+            };
+            assert_eq!(
+                error_msg.to_string(),
+                "Failed to rerank the documents: An id is not a valid C-string pointer",
+            );
+        }
+
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_xaynai_invalid_document_snippets() {
+        let (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            mut error,
+            error_size,
+            doc_size,
+            ids,
+            snippets,
+            mut ranks_val,
+        ) = setup_vals();
+        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            error.as_mut_slice(),
+            ids.as_slice(),
+            snippets.as_slice(),
+            ranks_val.as_mut_slice(),
+        );
+        let (ids, _) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab,
+                model,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        };
+        assert!(!xaynai.is_null());
+
+        let null_ = null();
+        unsafe { xaynai_rerank(xaynai, ids, null_, ranks, doc_size, error, error_size) };
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to rerank the documents: The snippets pointer is null",
+        );
+        let null_ = null();
+        for idx in 0..doc_size as usize {
+            let invalid = snippets
+                .iter()
+                .take(idx)
+                .copied()
+                .chain(iter::once(null_))
+                .chain(snippets.iter().skip(idx).copied())
+                .collect::<Vec<*const u8>>();
+            let invalid = invalid.as_ptr();
+            unsafe { xaynai_rerank(xaynai, ids, invalid, ranks, doc_size, error, error_size) };
+            assert_eq!(
+                error_msg.to_string(),
+                "Failed to rerank the documents: A snippet is not a valid C-string pointer",
+            );
+        }
+
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_xaynai_invalid_document_ranks() {
+        let (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            mut error,
+            error_size,
+            doc_size,
+            ids,
+            snippets,
+            mut ranks_val,
+        ) = setup_vals();
+        let (vocab, model, error, mut error_msg, ids, snippets, _) = setup_refs(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            error.as_mut_slice(),
+            ids.as_slice(),
+            snippets.as_slice(),
+            ranks_val.as_mut_slice(),
+        );
+        let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab,
+                model,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        };
+        assert!(!xaynai.is_null());
+
+        let null_ = null_mut();
+        unsafe { xaynai_rerank(xaynai, ids, snippets, null_, doc_size, error, error_size) };
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to rerank the documents: The ranks pointer is null",
+        );
+
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_xaynai_invalid_document_size() {
+        let (
+            vocab,
+            model,
+            batch_size,
+            token_size,
+            shift_factor,
+            threshold,
+            mut error,
+            error_size,
+            _,
+            ids,
+            snippets,
+            mut ranks_val,
+        ) = setup_vals();
+        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            error.as_mut_slice(),
+            ids.as_slice(),
+            snippets.as_slice(),
+            ranks_val.as_mut_slice(),
+        );
+        let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab,
+                model,
+                batch_size,
+                token_size,
+                shift_factor,
+                threshold,
+                error,
+                error_size,
+            )
+        };
+        assert!(!xaynai.is_null());
+
+        let invalid = 0;
+        unsafe { xaynai_rerank(xaynai, ids, snippets, ranks, invalid, error, error_size) };
+        assert_eq!(
+            error_msg.to_string(),
+            "Failed to rerank the documents: The document size is zero",
+        );
+
+        unsafe { xaynai_drop(xaynai) };
+    }
 }

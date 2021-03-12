@@ -1,4 +1,4 @@
-use std::{ffi::CStr, slice, str::from_utf8};
+use std::{ffi::CStr, slice};
 
 /// This function does nothing.
 ///
@@ -55,22 +55,100 @@ impl<'a> ErrorMsg<'a> {
             error[msg_bytes_count] = 0;
         }
     }
+}
 
-    /// Creates a string from the error message handler.
-    ///
-    /// Stops at the first encountered null byte. Clears the buffer with a leading null byte.
-    pub fn to_string(&mut self) -> String {
-        self.buffer
-            .as_mut()
-            .map(|buffer| {
-                let msg = buffer
-                    .splitn(2, |b| *b == 0)
-                    .next()
-                    .map(|msg| from_utf8(msg).unwrap_or_default().to_string())
-                    .unwrap_or_default();
-                buffer[0] = 0;
-                msg
-            })
-            .unwrap_or_default()
+#[cfg(test)]
+pub mod tests {
+    use std::{
+        ffi::CString,
+        ptr::{null, null_mut},
+        str::from_utf8,
+    };
+
+    use super::*;
+
+    impl<'a> From<&'a mut [u8]> for ErrorMsg<'a> {
+        fn from(error: &'a mut [u8]) -> Self {
+            if error.len() == 0 {
+                ErrorMsg { buffer: None }
+            } else {
+                ErrorMsg {
+                    buffer: Some(error),
+                }
+            }
+        }
+    }
+
+    impl<'a> ErrorMsg<'a> {
+        /// Creates a string from the error message handler.
+        ///
+        /// Stops at the first encountered null byte. Clears the buffer with a leading null byte.
+        pub fn to_string(&mut self) -> String {
+            self.buffer
+                .as_mut()
+                .map(|buffer| {
+                    let msg = buffer
+                        .splitn(2, |b| *b == 0)
+                        .next()
+                        .map(|msg| from_utf8(msg).unwrap_or_default().to_string())
+                        .unwrap_or_default();
+                    buffer[0] = 0;
+                    msg
+                })
+                .unwrap_or_default()
+        }
+    }
+
+    #[test]
+    fn test_cstr_to_string() {
+        assert!(unsafe { cstr_to_string(null()) }.is_none());
+        let cstring = CString::new("test string").unwrap();
+        assert_eq!(
+            unsafe { cstr_to_string(cstring.as_ptr() as *const u8) }.unwrap(),
+            "test string",
+        );
+    }
+
+    #[test]
+    fn test_errormsg() {
+        let msg = "안녕하세요السلام عليكم.";
+        let assert_error_msg = |min: usize, max: usize, expected: &str| {
+            // check that the error message is as expected when the error size is in [min, max)
+            for error_size in min..max {
+                let mut error_msg = vec![0; error_size];
+                let error = if error_msg.is_empty() {
+                    null_mut()
+                } else {
+                    error_msg.as_mut_ptr()
+                };
+                unsafe { ErrorMsg::new(error, error_size as u32) }.set(msg);
+
+                assert!(from_utf8(&error_msg).is_ok());
+                assert_eq!(
+                    ErrorMsg::from(error_msg.as_mut_slice()).to_string(),
+                    expected,
+                );
+            }
+        };
+
+        assert_error_msg(0, 4, "");
+        assert_error_msg(4, 7, "안");
+        assert_error_msg(7, 10, "안녕");
+        assert_error_msg(10, 13, "안녕하");
+        assert_error_msg(13, 16, "안녕하세");
+        assert_error_msg(16, 18, "안녕하세요");
+        assert_error_msg(18, 20, "안녕하세요ا");
+        assert_error_msg(20, 22, "안녕하세요ال");
+        assert_error_msg(22, 24, "안녕하세요الس");
+        assert_error_msg(24, 26, "안녕하세요السل");
+        assert_error_msg(26, 28, "안녕하세요السلا");
+        assert_error_msg(28, 29, "안녕하세요السلام");
+        assert_error_msg(29, 31, "안녕하세요السلام ");
+        assert_error_msg(31, 33, "안녕하세요السلام ع");
+        assert_error_msg(33, 35, "안녕하세요السلام عل");
+        assert_error_msg(35, 37, "안녕하세요السلام علي");
+        assert_error_msg(37, 39, "안녕하세요السلام عليك");
+        assert_error_msg(39, 40, "안녕하세요السلام عليكم");
+        assert_error_msg(40, 50, msg);
     }
 }

@@ -21,10 +21,10 @@ struct CXaynAi *xaynai_new(const uint8_t *vocab,
                            uint32_t error_size);
 
 void xaynai_rerank(const struct CXaynAi *xaynai,
-                   uint32_t size,
                    const uint8_t *const *ids,
                    const uint8_t *const *snippets,
                    uint32_t *ranks,
+                   uint32_t doc_size,
                    uint8_t *error,
                    uint32_t error_size);
 
