@@ -98,7 +98,7 @@ impl<N> Builder<N> {
     /// Configurable by:
     /// - Cleans any control characters and replaces all sorts of whitespace by ` `. Defaults to
     /// `true`.
-    /// - Puts spaces around chinese characters so they get split. Defaults to `true`.
+    /// - Puts spaces around Chinese characters so they get split. Defaults to `true`.
     /// - Strips accents from characters. Defaults to `true`.
     /// - Lowercases characters. Defaults to `true`.
     pub fn with_normalizer(

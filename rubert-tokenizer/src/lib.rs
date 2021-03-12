@@ -10,7 +10,7 @@
 //!
 //! The normalizer is configurable by:
 //! - Cleans any control characters and replaces all sorts of whitespace by ` `.
-//! - Puts spaces around chinese characters so they get split.
+//! - Puts spaces around Chinese characters so they get split.
 //! - Strips accents from characters.
 //! - Lowercases characters.
 //!
@@ -21,7 +21,7 @@
 //! - The continuing subword prefix.
 //! - The maximum number of characters per word.
 //!
-//! The post-tokenizer is configurably by:
+//! The post-tokenizer is configurable by:
 //! - The class token.
 //! - The separation token.
 //! - A truncation strategy.
