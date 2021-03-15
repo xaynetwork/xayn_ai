@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, ops::Deref};
 
+use displaydoc::Display;
 use thiserror::Error;
 
 use super::{
@@ -32,11 +33,11 @@ use crate::{
     Error,
 };
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Display)]
 pub enum CoiSystemError {
-    #[error("No CoI could be found for the given embedding")]
+    /// No CoI could be found for the given embedding
     NoCoi,
-    #[error("No matching documents could be found.")]
+    /// No matching documents could be found
     NoMatchingDocuments,
 }
 
