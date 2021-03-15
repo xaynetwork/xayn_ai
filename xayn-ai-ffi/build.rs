@@ -44,7 +44,7 @@ fn main() {
     // generate bindings with dart ios header
     let ios_tpl = read_to_string(bind_file_tpl).expect("Failed to read ios template.");
     builder
-        .with_after_include(ios_tpl)
+        .with_after_include(ios_tpl.trim_end())
         .generate()
         .expect("Failed to generate bindings.")
         .write_to_file(bind_file_ios);
