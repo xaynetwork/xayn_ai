@@ -15,8 +15,8 @@ jobs:
     # we use the latest stable rustc + cargo version that is already installed on the image
     # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
     name: cargo-fetch
-    timeout-minutes: 5
     runs-on: ubuntu-20.04
+    timeout-minutes: 5
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
       cache-date: ${{ steps.get-date.outputs.date }}
@@ -28,13 +28,13 @@ jobs:
       # take up too much space by caching old dependencies
       - name: Generate Year + ISO week number key
         id: get-date
-        run: echo "::set-output name=date::$(/bin/date -u "+%Y-%V")"
         shell: bash
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y-%V")"
 
       - name: Generate cargo registry cache key
         id: cache-key
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
         shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
 
       - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@v2.1.4
@@ -51,8 +51,8 @@ jobs:
   format:
     name: cargo-fmt
     needs: registry-cache
-    timeout-minutes: 10
     runs-on: ubuntu-20.04
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -81,8 +81,8 @@ jobs:
   check:
     name: cargo-check
     needs: registry-cache
-    timeout-minutes: 20
     runs-on: ubuntu-20.04
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -120,8 +120,8 @@ jobs:
   clippy:
     name: cargo-clippy
     needs: [registry-cache, check]
-    timeout-minutes: 20
     runs-on: ubuntu-20.04
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -158,8 +158,8 @@ jobs:
   test:
     name: cargo-test
     needs: [registry-cache, check]
-    timeout-minutes: 20
     runs-on: ubuntu-20.04
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -202,8 +202,8 @@ jobs:
   coverage:
     name: cargo-tarpaulin
     needs: [registry-cache, test]
-    timeout-minutes: 20
     runs-on: ubuntu-20.04
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -244,10 +244,10 @@ jobs:
     # we use the latest stable rustc + cargo version that is already installed on the image
     # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
     name: cargo-ndk
-    timeout-minutes: 15
     runs-on: ubuntu-20.04
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
+    timeout-minutes: 15
     steps:
       - name: Generate cargo-ndk cache key
         id: cache-key
@@ -273,10 +273,10 @@ jobs:
     # we use the latest stable rustc + cargo version that is already installed on the image
     # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
     name: cargo-lipo
-    timeout-minutes: 15
     runs-on: macos-10.15
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
+    timeout-minutes: 15
     steps:
       - name: Generate cargo-lipo cache key
         id: cache-key
@@ -300,9 +300,9 @@ jobs:
 
   build-android-libs:
     name: build-android-libs
+    needs: [registry-cache, cargo-ndk, test]
     runs-on: ubuntu-20.04
     timeout-minutes: 20
-    needs: [registry-cache, cargo-ndk, test]
     strategy:
       matrix:
         target: [aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android]
@@ -354,9 +354,9 @@ jobs:
 
   build-ios-libs:
     name: build-ios-libs
+    needs: [registry-cache, cargo-lipo, test]
     runs-on: macos-10.15
     timeout-minutes: 20
-    needs: [registry-cache, cargo-lipo, test]
     strategy:
       matrix:
         target: [aarch64-apple-ios, x86_64-apple-ios]
