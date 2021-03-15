@@ -338,6 +338,37 @@ mod tests {
     }
 
     #[test]
+    fn test_update_coi_threshold_exclusive() {
+        let cois = create_cois(vec![array![0., 0., 0.]]);
+        let embedding = create_embedding(array![0., 0., 12.]);
+
+        let cois = CoiSystem::default().update_coi(&embedding, cois);
+
+        assert_eq!(cois.len(), 2);
+        assert_eq!(cois[0].point, create_embedding(array![0., 0., 0.]));
+        assert_eq!(cois[1].point, create_embedding(array![0., 0., 12.]));
+    }
+
+    #[test]
+    fn test_update_cois_update_the_same_point_twice() {
+        // checks that an updated coi is used in the next iteration
+        let cois = create_cois(vec![array![0., 0., 0.]]);
+        let documents = create_data_with_mab(vec![array![0., 0., 4.9], array![0., 0., 5.]]);
+
+        let config = Configuration {
+            threshold: 5.,
+            ..Default::default()
+        };
+
+        let cois = CoiSystem::new(config).update_cois(&documents.iter().collect::<Vec<_>>(), cois);
+
+        assert_eq!(cois.len(), 1);
+        // updated coi after first embedding = [0., 0., 0.49]
+        // updated coi after second embedding = [0., 0., 0.941]
+        assert_eq!(cois[0].point, create_embedding(array![0., 0., 0.941]));
+    }
+
+    #[test]
     fn test_compute_coi_for_embedding() {
         let positive = create_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
         let negative = create_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
