@@ -50,7 +50,7 @@ fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
             (true, true) => Ordering::Equal,
             (true, _) => Ordering::Less,
             (_, true) => Ordering::Greater,
-            _ => unreachable!()
+            _ => unreachable!("partial_cmp returned None but both numbers are not NaN"),
         }
     })
 }
