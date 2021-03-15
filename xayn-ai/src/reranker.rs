@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-use anyhow::bail;
-
 use crate::{
     coi::UserInterestsStatus,
     data::{
@@ -21,131 +19,201 @@ use crate::{
 
 pub type DocumentsRank = Vec<usize>;
 
-/// Empty state
-enum Empty {}
-
 /// In this state we have the documents from the previous query with which
 /// we initialize the user interests.
-struct InitUserInterests {
+pub struct InitUserInterestsFeedbackLoop {
     prev_documents: Vec<DocumentDataWithEmbedding>,
     user_interests: UserInterests,
 }
 
-/// In this state we have all the data we need to do reranking and run the feedback loop
-struct Nominal {
+/// This state will be the initial state with an empty `UserInterests` or it will be
+/// the next state `InitUserInterestsFeedbackLoop` if we don't have enough cois.
+/// It will just return the same rank of the source.
+pub struct InitUserInterestsRerank {
+    user_interests: UserInterests,
+}
+
+/// In this state we have all the data to run the feedback loop.
+pub struct MainFeedbackLoop {
     prev_documents: Vec<DocumentDataWithMab>,
     user_interests: UserInterests,
 }
 
-struct RerankerState<S> {
+/// In this state we can run our model to rerank documents.
+pub struct MainRerank {
+    user_interests: UserInterests,
+}
+
+pub struct PhaseState<S> {
     inner: S,
 }
 
-enum RerankerInner {
-    Empty,
-    InitUserInterests(RerankerState<InitUserInterests>),
-    Nominal(RerankerState<Nominal>),
+impl PhaseState<InitUserInterestsFeedbackLoop> {
+    fn rerank<CS>(
+        self,
+        common_systems: &CS,
+        history: &[DocumentHistory],
+        _documents: &[Document],
+    ) -> Result<(RerankerState, Option<DocumentsRank>), Error>
+    where
+        CS: CommonSystems,
+    {
+        let user_interests_orig = self.inner.user_interests.clone();
+        let status = common_systems
+            .coi()
+            .make_user_interests(
+                history,
+                &self.inner.prev_documents,
+                self.inner.user_interests,
+            )
+            .unwrap_or(UserInterestsStatus::NotEnough(user_interests_orig));
+
+        match status {
+            UserInterestsStatus::NotEnough(user_interests) => {
+                let state = RerankerState::InitUserInterestsRerank(PhaseState {
+                    inner: InitUserInterestsRerank { user_interests },
+                });
+
+                Ok((state, None))
+            }
+            UserInterestsStatus::Ready(user_interests) => {
+                let state = RerankerState::MainRerank(PhaseState {
+                    inner: MainRerank { user_interests },
+                });
+
+                Ok((state, None))
+            }
+        }
+    }
 }
 
-impl RerankerInner {
+impl PhaseState<InitUserInterestsRerank> {
+    fn rerank<CS>(
+        self,
+        common_systems: &CS,
+        _history: &[DocumentHistory],
+        documents: &[Document],
+    ) -> Result<(RerankerState, Option<DocumentsRank>), Error>
+    where
+        CS: CommonSystems,
+    {
+        let prev_documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
+
+        let state = RerankerState::InitUserInterestsFeedbackLoop(PhaseState {
+            inner: InitUserInterestsFeedbackLoop {
+                prev_documents,
+                user_interests: self.inner.user_interests,
+            },
+        });
+
+        let rank = documents.iter().map(|document| document.rank).collect();
+        Ok((state, Some(rank)))
+    }
+}
+
+impl PhaseState<MainFeedbackLoop> {
+    fn rerank<CS>(
+        self,
+        common_systems: &CS,
+        history: &[DocumentHistory],
+        _documents: &[Document],
+    ) -> Result<(RerankerState, Option<DocumentsRank>), Error>
+    where
+        CS: CommonSystems,
+    {
+        let user_interests_orig = self.inner.user_interests.clone();
+        let user_interests = common_systems
+            .coi()
+            .update_user_interests(
+                history,
+                &self.inner.prev_documents,
+                self.inner.user_interests,
+            )
+            .unwrap_or(user_interests_orig);
+
+        // try to compute and save analytics
+        common_systems
+            .analytics()
+            .compute_analytics(history, &self.inner.prev_documents)
+            .and_then(|analytics| common_systems.database().save_analytics(&analytics))
+            .unwrap_or_default();
+
+        let state = RerankerState::MainRerank(PhaseState {
+            inner: MainRerank { user_interests },
+        });
+
+        Ok((state, None))
+    }
+}
+
+impl PhaseState<MainRerank> {
     fn rerank<CS>(
         self,
         common_systems: &CS,
         history: &[DocumentHistory],
         documents: &[Document],
-    ) -> Result<(RerankerInner, DocumentsRank), Error>
+    ) -> Result<(RerankerState, Option<DocumentsRank>), Error>
+    where
+        CS: CommonSystems,
+    {
+        let documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
+        let documents = common_systems
+            .coi()
+            .compute_coi(documents, &self.inner.user_interests)?;
+        let documents = common_systems.ltr().compute_ltr(history, documents)?;
+        let documents = common_systems.context().compute_context(documents)?;
+        let (documents, user_interests) = common_systems
+            .mab()
+            .compute_mab(documents, self.inner.user_interests)?;
+
+        let ranks = documents.iter().map(|document| document.mab.rank).collect();
+
+        let inner = RerankerState::MainFeedbackLoop(PhaseState {
+            inner: MainFeedbackLoop {
+                prev_documents: documents,
+                user_interests,
+            },
+        });
+
+        Ok((inner, Some(ranks)))
+    }
+}
+
+pub enum RerankerState {
+    InitUserInterestsFeedbackLoop(PhaseState<InitUserInterestsFeedbackLoop>),
+    InitUserInterestsRerank(PhaseState<InitUserInterestsRerank>),
+    MainFeedbackLoop(PhaseState<MainFeedbackLoop>),
+    MainRerank(PhaseState<MainRerank>),
+}
+
+impl RerankerState {
+    fn rerank<CS>(
+        self,
+        common_systems: &CS,
+        history: &[DocumentHistory],
+        documents: &[Document],
+    ) -> Result<(RerankerState, Option<DocumentsRank>), Error>
     where
         CS: CommonSystems,
     {
         match self {
-            RerankerInner::Empty => {
-                RerankerState::<Empty>::rerank(common_systems, history, documents)
-            }
-            RerankerInner::InitUserInterests(state) => {
+            RerankerState::InitUserInterestsFeedbackLoop(state) => {
                 state.rerank(common_systems, history, documents)
             }
-            RerankerInner::Nominal(state) => state.rerank(common_systems, history, documents),
+            RerankerState::InitUserInterestsRerank(state) => {
+                state.rerank(common_systems, history, documents)
+            }
+            RerankerState::MainFeedbackLoop(state) => {
+                state.rerank(common_systems, history, documents)
+            }
+            RerankerState::MainRerank(state) => state.rerank(common_systems, history, documents),
         }
     }
 }
 
 pub struct Reranker<CS> {
     common_systems: CS,
-    inner: RerankerInner,
-}
-
-impl RerankerState<Empty> {
-    fn rerank<CS>(
-        common_systems: &CS,
-        _history: &[DocumentHistory],
-        documents: &[Document],
-    ) -> Result<(RerankerInner, DocumentsRank), Error>
-    where
-        CS: CommonSystems,
-    {
-        Ok((
-            to_init_user_interests(common_systems, documents, UserInterests::default())?,
-            rank_from_source(documents),
-        ))
-    }
-}
-
-impl RerankerState<InitUserInterests> {
-    fn rerank<CS>(
-        self,
-        common_systems: &CS,
-        history: &[DocumentHistory],
-        documents: &[Document],
-    ) -> Result<(RerankerInner, DocumentsRank), Error>
-    where
-        CS: CommonSystems,
-    {
-        let status = common_systems.coi().make_user_interests(
-            history,
-            &self.inner.prev_documents,
-            self.inner.user_interests,
-        )?;
-
-        match status {
-            UserInterestsStatus::NotEnough(user_interests) => Ok((
-                to_init_user_interests(common_systems, documents, user_interests)?,
-                rank_from_source(documents),
-            )),
-            UserInterestsStatus::Ready(user_interests) => {
-                rerank_documents(common_systems, history, documents, user_interests)
-            }
-        }
-    }
-}
-
-impl RerankerState<Nominal> {
-    fn rerank<CS>(
-        self,
-        common_systems: &CS,
-        history: &[DocumentHistory],
-        documents: &[Document],
-    ) -> Result<(RerankerInner, DocumentsRank), Error>
-    where
-        CS: CommonSystems,
-    {
-        let user_interests = common_systems.coi().update_user_interests(
-            history,
-            &self.inner.prev_documents,
-            self.inner.user_interests,
-        )?;
-
-        common_systems
-            .database()
-            .save_user_interests(&user_interests)?;
-
-        // We probably do not want to fail if analytics fails
-        let analytics = common_systems
-            .analytics()
-            .compute_analytics(history, &self.inner.prev_documents)?;
-        common_systems.database().save_analytics(&analytics)?;
-
-        rerank_documents(common_systems, history, documents, user_interests)
-    }
+    state: RerankerState,
 }
 
 impl<CS> Reranker<CS>
@@ -154,53 +222,38 @@ where
 {
     fn new(common_systems: CS) -> Result<Self, Error> {
         // load the correct state from the database
-        let inner = common_systems
-            .database()
-            .load_prev_documents_full()
-            .and_then(|prev_documents| {
-                if let Some(prev_documents) = prev_documents {
-                    // if we have documents with all the data
-                    // we need to have the user interests
-                    common_systems
-                        .database()
-                        .load_user_interests()?
-                        .map_or_else(
-                            // We could go to InitUserInterests instead and try to recover from that
-                            || bail!(""),
-                            |user_interests| {
-                                Ok(RerankerInner::Nominal(RerankerState {
-                                    inner: Nominal {
-                                        prev_documents,
-                                        user_interests,
-                                    },
-                                }))
-                            },
-                        )
-                } else {
-                    // if we have document with the embedding we need to init the user interests
-                    if let Some(prev_documents) = common_systems.database().load_prev_documents()? {
-                        // load the current user_interests (if any)
-                        let user_interests = common_systems
-                            .database()
-                            .load_user_interests()?
-                            .unwrap_or_default();
-
-                        Ok(RerankerInner::InitUserInterests(RerankerState {
-                            inner: InitUserInterests {
-                                prev_documents,
-                                user_interests,
-                            },
-                        }))
-                    } else {
-                        Ok(RerankerInner::Empty)
-                    }
-                }
-            })?;
+        let state = common_systems.database().load_state().map(|inner| {
+            inner.unwrap_or_else(|| {
+                RerankerState::InitUserInterestsRerank(PhaseState {
+                    inner: InitUserInterestsRerank {
+                        user_interests: UserInterests::default(),
+                    },
+                })
+            })
+        })?;
 
         Ok(Self {
             common_systems,
-            inner,
+            state,
         })
+    }
+
+    fn rerank(
+        mut self,
+        history: &[DocumentHistory],
+        documents: &[Document],
+    ) -> Result<DocumentsRank, Error> {
+        loop {
+            let (state, rank) = self
+                .state
+                .rerank(&self.common_systems, history, documents)?;
+            self.state = state;
+
+            if let Some(rank) = rank {
+                self.common_systems.database().save_state(&self.state)?;
+                return Ok(rank);
+            }
+        }
     }
 }
 
@@ -226,40 +279,12 @@ where
     bert_system.compute_embedding(documents)
 }
 
-fn to_init_user_interests<CS>(
-    common_systems: &CS,
-    documents: &[Document],
-    user_interests: UserInterests,
-) -> Result<RerankerInner, Error>
-where
-    CS: CommonSystems,
-{
-    let prev_documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
-
-    common_systems
-        .database()
-        .save_prev_documents(&prev_documents)?;
-
-    let inner = RerankerState::<InitUserInterests> {
-        inner: InitUserInterests {
-            prev_documents,
-            user_interests,
-        },
-    };
-
-    Ok(RerankerInner::InitUserInterests(inner))
-}
-
-fn rank_from_source(documents: &[Document]) -> DocumentsRank {
-    documents.iter().map(|document| document.rank).collect()
-}
-
 fn rerank_documents<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     documents: &[Document],
     user_interests: UserInterests,
-) -> Result<(RerankerInner, DocumentsRank), Error>
+) -> Result<(RerankerState, Option<DocumentsRank>), Error>
 where
     CS: CommonSystems,
 {
@@ -273,19 +298,14 @@ where
         .mab()
         .compute_mab(documents, user_interests)?;
 
-    let database = common_systems.database();
-    // What should we do if we can save one but not the other?
-    database.save_user_interests(&user_interests)?;
-    database.save_prev_documents_full(&documents)?;
-
     let ranks = documents.iter().map(|document| document.mab.rank).collect();
 
-    let inner = RerankerInner::Nominal(RerankerState {
-        inner: Nominal {
+    let inner = RerankerState::MainFeedbackLoop(PhaseState {
+        inner: MainFeedbackLoop {
             prev_documents: documents,
             user_interests,
         },
     });
 
-    Ok((inner, ranks))
+    Ok((inner, Some(ranks)))
 }

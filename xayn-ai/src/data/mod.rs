@@ -10,7 +10,7 @@ use crate::bert::Embedding;
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CoiId(pub usize);
 
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 pub struct Coi {
     pub id: CoiId,
     pub point: Embedding,
@@ -29,6 +29,7 @@ impl Coi {
     }
 }
 
+#[derive(Clone)]
 pub struct UserInterests {
     pub positive: Vec<Coi>,
     pub negative: Vec<Coi>,
