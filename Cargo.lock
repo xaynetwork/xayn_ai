@@ -1309,6 +1309,7 @@ dependencies = [
  "anyhow",
  "displaydoc",
  "float-cmp",
+ "maplit",
  "ndarray",
  "rand",
  "rand_distr",

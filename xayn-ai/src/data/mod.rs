@@ -10,6 +10,7 @@ use rubert::Embeddings;
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CoiId(pub usize);
 
+#[cfg_attr(test, derive(Clone))]
 pub struct Coi {
     pub id: CoiId,
     pub point: Embeddings,
