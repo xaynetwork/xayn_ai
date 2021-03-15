@@ -26,13 +26,10 @@ pub use crate::{
     analytics::Analytics,
     coi::{CoiSystem, CoiSystemError, Configuration as CoiConfiguration},
     context::Context,
-    data::{
-        document_data::{DocumentDataWithContext, DocumentDataWithMab},
-        Coi,
-        UserInterests,
-    },
+    data::{document_data::DocumentDataWithMab, Coi},
     database::Database,
     ltr::ConstLtr,
+    mab::{BetaSampler, MabRanking},
     reranker::{DocumentsRank, RerankerData},
     reranker_systems::{
         AnalyticsSystem,

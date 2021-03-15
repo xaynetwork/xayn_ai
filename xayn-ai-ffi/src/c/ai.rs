@@ -7,6 +7,7 @@ use std::{
 use itertools::izip;
 use rubert::{Builder as BertBuilder, Pooler};
 use xayn_ai::{
+    BetaSampler,
     CoiConfiguration,
     CoiSystem,
     ConstLtr,
@@ -14,11 +15,12 @@ use xayn_ai::{
     Document,
     DocumentId,
     DocumentsRank,
+    MabRanking,
     Reranker,
 };
 
 use crate::c::{
-    systems::{DummyAnalytics, DummyDatabase, DummyMab, Systems},
+    systems::{DummyAnalytics, DummyDatabase, Systems},
     utils::{cstr_to_string, ErrorMsg},
 };
 
@@ -112,6 +114,12 @@ pub unsafe extern "C" fn xaynai_new(
         // ltr
         let ltr = ConstLtr(0.5);
 
+        // context
+        let context = Context;
+
+        // mab
+        let mab = MabRanking::new(BetaSampler);
+
         // reranker
         // TODO: use the reranker builder once it is available
         let systems = Systems {
@@ -120,9 +128,8 @@ pub unsafe extern "C" fn xaynai_new(
             bert,
             coi,
             ltr,
-            context: Context,
-            // TODO: use the actual mab once it is available
-            mab: DummyMab,
+            context,
+            mab,
             // TODO: use the actual analytics once it is available
             analytics: DummyAnalytics,
         };

@@ -5,7 +5,6 @@ use xayn_ai::{
     Analytics,
     AnalyticsSystem,
     BertSystem,
-    Coi,
     CoiSystem,
     CoiSystems,
     CommonSystems,
@@ -13,14 +12,13 @@ use xayn_ai::{
     Context,
     ContextSystem,
     Database,
-    DocumentDataWithContext,
     DocumentDataWithMab,
     DocumentHistory,
     Error,
     LtrSystem,
+    MabRanking,
     MabSystem,
     RerankerData,
-    UserInterests,
 };
 
 pub struct DummyDatabase;
@@ -36,40 +34,6 @@ impl Database for DummyDatabase {
 
     fn save_analytics(&self, _analytics: &Analytics) -> Result<(), Error> {
         Ok(())
-    }
-}
-
-pub struct DummyMab;
-
-impl MabSystem for DummyMab {
-    fn compute_mab(
-        &self,
-        _documents: &[DocumentDataWithContext],
-        user_interests: &UserInterests,
-    ) -> Result<(Vec<DocumentDataWithMab>, UserInterests), Error> {
-        let user_interests = UserInterests {
-            positive: user_interests
-                .positive
-                .iter()
-                .map(|coi| Coi {
-                    id: coi.id,
-                    point: coi.point.clone(),
-                    alpha: coi.alpha,
-                    beta: coi.beta,
-                })
-                .collect(),
-            negative: user_interests
-                .negative
-                .iter()
-                .map(|coi| Coi {
-                    id: coi.id,
-                    point: coi.point.clone(),
-                    alpha: coi.alpha,
-                    beta: coi.beta,
-                })
-                .collect(),
-        };
-        Ok((vec![], user_interests))
     }
 }
 
@@ -91,7 +55,7 @@ pub struct Systems {
     pub coi: CoiSystem,
     pub ltr: ConstLtr,
     pub context: Context,
-    pub mab: DummyMab,
+    pub mab: MabRanking,
     pub analytics: DummyAnalytics,
 }
 
