@@ -6,8 +6,8 @@ pub mod document_data;
 use rubert::Embeddings;
 
 #[repr(transparent)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-#[derive(Clone, Copy)]
+#[cfg_attr(test, derive(Debug))]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CoiId(pub usize);
 
 pub struct Coi {

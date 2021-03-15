@@ -112,7 +112,7 @@ impl RerankerState<InitUserInterests> {
                 rank_from_source(documents),
             )),
             UserInterestsStatus::Ready(user_interests) => {
-                rerank_documents(common_systems, history, documents, &user_interests)
+                rerank_documents(common_systems, history, documents, user_interests)
             }
         }
     }
@@ -144,7 +144,7 @@ impl RerankerState<Nominal> {
             .compute_analytics(history, &self.inner.prev_documents)?;
         common_systems.database().save_analytics(&analytics)?;
 
-        rerank_documents(common_systems, history, documents, &user_interests)
+        rerank_documents(common_systems, history, documents, user_interests)
     }
 }
 
@@ -258,7 +258,7 @@ fn rerank_documents<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     documents: &[Document],
-    user_interests: &UserInterests,
+    user_interests: UserInterests,
 ) -> Result<(RerankerInner, DocumentsRank), Error>
 where
     CS: CommonSystems,
@@ -266,12 +266,12 @@ where
     let documents = make_documents_with_embedding(common_systems.bert(), &documents)?;
     let documents = common_systems
         .coi()
-        .compute_coi(documents, user_interests)?;
+        .compute_coi(documents, &user_interests)?;
     let documents = common_systems.ltr().compute_ltr(history, documents)?;
     let documents = common_systems.context().compute_context(documents)?;
     let (documents, user_interests) = common_systems
         .mab()
-        .compute_mab(&documents, user_interests)?;
+        .compute_mab(documents, user_interests)?;
 
     let database = common_systems.database();
     // What should we do if we can save one but not the other?
