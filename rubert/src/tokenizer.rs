@@ -42,7 +42,7 @@ pub struct Encodings {
 impl Tokenizer {
     /// Creates a tokenizer from a vocabulary.
     ///
-    /// Can be set to strip accents and to lowercase the sequences. Requires the maximum number of
+    /// Can be set to keep accents and to lowercase the sequences. Requires the maximum number of
     /// sequences as well as tokens per tokenized sequence, which applies to padding and truncation
     /// and includes special tokens as well.
     pub fn new(

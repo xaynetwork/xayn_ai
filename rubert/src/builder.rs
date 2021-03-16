@@ -50,7 +50,7 @@ where
         Self {
             vocab,
             model,
-            accents: true,
+            accents: false,
             lowercase: true,
             batch_size: 10,
             token_size: 128,
@@ -72,19 +72,19 @@ impl Builder<BufReader<File>, BufReader<File>, NonePooler> {
 }
 
 impl<V, M, P> Builder<V, M, P> {
-    /// Toggles accent stripping for the tokenizer.
+    /// Whether to keep accents for the tokenizer.
     ///
-    /// Defaults to `true`.
-    pub fn with_accents(mut self, toggle: bool) -> Self {
-        self.accents = toggle;
+    /// Defaults to `false`.
+    pub fn with_accents(mut self, accents: bool) -> Self {
+        self.accents = accents;
         self
     }
 
-    /// Toggles lower casing for the tokenizer.
+    /// Whether to lowercase for the tokenizer.
     ///
     /// Defaults to `true`.
-    pub fn with_lowercase(mut self, toggle: bool) -> Self {
-        self.lowercase = toggle;
+    pub fn with_lowercase(mut self, lowercase: bool) -> Self {
+        self.lowercase = lowercase;
         self
     }
 

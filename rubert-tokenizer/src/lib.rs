@@ -10,8 +10,8 @@
 //!
 //! The normalizer is configurable by:
 //! - Cleans any control characters and replaces all sorts of whitespace by ` `.
-//! - Puts spaces around Chinese characters so they get split.
-//! - Strips accents from characters.
+//! - Separates Chinese characters by whitespace so they get split.
+//! - Keeps accents of characters.
 //! - Lowercases characters.
 //!
 //! The pre-tokenizer is not configurable.
@@ -32,7 +32,7 @@
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let tokenizer = Builder::<u32>::from_file("vocab.txt")?
-//!         .with_normalizer(true, true, true, true)
+//!         .with_normalizer(true, true, false, true)
 //!         .with_model("[UNK]", "##", 100)
 //!         .with_post_tokenizer("[CLS]", "[SEP]")
 //!         .with_truncation(Truncation::fixed(128, 0))

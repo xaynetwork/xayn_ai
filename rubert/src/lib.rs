@@ -9,7 +9,7 @@
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let rubert = Builder::from_files("vocab.txt", "model.onnx")?
-//!         .with_accents(true)
+//!         .with_accents(false)
 //!         .with_lowercase(true)
 //!         .with_batch_size(10)?
 //!         .with_token_size(64)?
