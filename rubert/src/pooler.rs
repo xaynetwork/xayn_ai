@@ -5,13 +5,22 @@ use tract_onnx::prelude::TractError;
 
 use crate::{
     model::Predictions,
-    ndarray::{s, Array, Array1, Array2, Array3, Axis},
+    ndarray::{s, Array, Array1, Array2, Array3, ArrayView1, Axis},
     tokenizer::AttentionMasks,
 };
 
 /// A 1-dimensional sequence embedding.
 #[derive(Clone, Debug, Deref, From, PartialEq)]
 pub struct Embedding1(Array1<f32>);
+
+impl<S> PartialEq<S> for Embedding1
+where
+    S: AsRef<[f32]>,
+{
+    fn eq(&self, other: &S) -> bool {
+        self.0.eq(&ArrayView1::from(other.as_ref()))
+    }
+}
 
 /// A 2-dimensional sequence embedding.
 #[derive(Clone, Debug, Deref, From, PartialEq)]
@@ -148,7 +157,7 @@ mod tests {
     use tract_onnx::prelude::IntoArcTensor;
 
     use super::*;
-    use crate::ndarray::{arr1, arr2, arr3};
+    use crate::ndarray::{arr2, arr3};
 
     #[test]
     fn test_none() {
@@ -178,13 +187,13 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_first() {
         let predictions =
             arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]], [[0., 0., 0.], [0., 0., 0.]]])
                 .into_arc_tensor()
                 .into();
-        let embeddings = arr1(&[1., 2., 3.]).into();
-        assert_eq!(FirstPooler.pool(predictions).unwrap(), embeddings);
+        assert_eq!(FirstPooler.pool(predictions).unwrap(), [1., 2., 3.]);
     }
 
     #[test]
@@ -203,43 +212,40 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_average() {
         let predictions =
             arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]], [[0., 0., 0.], [0., 0., 0.]]])
                 .into_arc_tensor();
 
         let masks = arr2(&[[0, 0], [0, 0]]).into();
-        let embeddings = arr1(&[0., 0., 0.]).into();
         assert_eq!(
             AveragePooler
                 .pool(predictions.clone().into(), masks)
                 .unwrap(),
-            embeddings,
+            [0., 0., 0.],
         );
 
         let masks = arr2(&[[0, 1], [0, 1]]).into();
-        let embeddings = arr1(&[4., 5., 6.]).into();
         assert_eq!(
             AveragePooler
                 .pool(predictions.clone().into(), masks)
                 .unwrap(),
-            embeddings,
+            [4., 5., 6.],
         );
 
         let masks = arr2(&[[1, 0], [1, 0]]).into();
-        let embeddings = arr1(&[1., 2., 3.]).into();
         assert_eq!(
             AveragePooler
                 .pool(predictions.clone().into(), masks)
                 .unwrap(),
-            embeddings,
+            [1., 2., 3.],
         );
 
         let masks = arr2(&[[1, 1], [1, 1]]).into();
-        let embeddings = arr1(&[2.5, 3.5, 4.5]).into();
         assert_eq!(
             AveragePooler.pool(predictions.into(), masks).unwrap(),
-            embeddings,
+            [2.5, 3.5, 4.5],
         );
     }
 

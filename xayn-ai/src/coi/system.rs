@@ -227,17 +227,11 @@ mod tests {
     use std::f32::{consts::SQRT_2, NAN};
 
     use float_cmp::approx_eq;
-    use ndarray::{array, Array1};
+    use ndarray::{arr1, FixedInitializer};
 
     use super::*;
-
     use crate::{
-        coi::utils::tests::{
-            create_cois,
-            create_data_with_embeddings,
-            create_document_history,
-            create_embedding,
-        },
+        coi::utils::tests::{create_cois, create_data_with_embeddings, create_document_history},
         data::{
             document::{DocumentId, Relevance, UserFeedback},
             document_data::{
@@ -253,16 +247,18 @@ mod tests {
         reranker_systems::CoiSystem as CoiSystemTrait,
     };
 
-    pub fn create_data_with_mab(points: Vec<Array1<f32>>) -> Vec<DocumentDataWithMab> {
-        points
-            .into_iter()
+    pub fn create_data_with_mab(
+        embeddings: &[impl FixedInitializer<Elem = f32>],
+    ) -> Vec<DocumentDataWithMab> {
+        embeddings
+            .iter()
             .enumerate()
-            .map(|(id, point)| DocumentDataWithMab {
+            .map(|(id, embedding)| DocumentDataWithMab {
                 document_id: DocumentIdComponent {
                     id: DocumentId(id.to_string()),
                 },
                 embedding: EmbeddingComponent {
-                    embedding: create_embedding(point),
+                    embedding: arr1(embedding.as_init_slice()).into(),
                 },
                 coi: CoiComponent {
                     id: CoiId(1),
@@ -278,12 +274,8 @@ mod tests {
 
     #[test]
     fn test_find_closest_coi_index() {
-        let cois = create_cois(vec![
-            array![1., 2., 3.],
-            array![4., 5., 6.],
-            array![7., 8., 9.],
-        ]);
-        let embedding = create_embedding(array![1., 5., 9.]);
+        let cois = create_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        let embedding = arr1(&[1., 5., 9.]).into();
 
         let (index, distance) = CoiSystem::default()
             .find_closest_coi_index(&embedding, &cois)
@@ -295,52 +287,39 @@ mod tests {
 
     #[test]
     fn test_find_closest_coi_index_nan() {
-        let cois = create_cois(vec![array![1., 2., 3.]]);
-        let embedding_all_nan = create_embedding(array![NAN, NAN, NAN]);
+        let cois = create_cois(&[[1., 2., 3.]]);
 
+        let embedding_all_nan = arr1(&[NAN, NAN, NAN]).into();
         let coi = CoiSystem::default().find_closest_coi_index(&embedding_all_nan, &cois);
         assert!(coi.is_none());
 
-        let embedding_single_nan = create_embedding(array![1., NAN, 2.]);
+        let embedding_single_nan = arr1(&[1., NAN, 2.]).into();
         let coi = CoiSystem::default().find_closest_coi_index(&embedding_single_nan, &cois);
         assert!(coi.is_none());
     }
 
     #[test]
     fn test_find_closest_coi_index_empty() {
-        let embedding = create_embedding(array![1., 2., 3.]);
-
-        let coi = CoiSystem::default().find_closest_coi_index(&embedding, &Vec::new());
-
+        let embedding = arr1(&[1., 2., 3.]).into();
+        let coi = CoiSystem::default().find_closest_coi_index(&embedding, &[]);
         assert!(coi.is_none());
     }
 
     #[test]
     fn test_find_closest_coi_index_all_same_distance() {
         // if the distance is the same for all cois, take the first one
-        let cois = create_cois(vec![
-            array![10., 0., 0.],
-            array![0., 10., 0.],
-            array![0., 0., 10.],
-        ]);
-        let embedding = create_embedding(array![1., 1., 1.]);
-
-        let coi_system = CoiSystem::default();
-        let (index, _) = coi_system
+        let cois = create_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
+        let embedding = arr1(&[1., 1., 1.]).into();
+        let (index, _) = CoiSystem::default()
             .find_closest_coi_index(&embedding, &cois)
             .unwrap();
-
         assert_eq!(index, 0);
     }
 
     #[test]
     fn test_update_coi_add_point() {
-        let mut cois = create_cois(vec![
-            array![30., 0., 0.],
-            array![0., 20., 0.],
-            array![0., 0., 40.],
-        ]);
-        let embedding = create_embedding(array![1., 1., 1.]);
+        let mut cois = create_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
+        let embedding = arr1(&[1., 1., 1.]).into();
 
         let config = Configuration::default();
         let threshold = config.threshold;
@@ -355,50 +334,40 @@ mod tests {
         assert!(threshold < distance);
 
         cois = coi_system.update_coi(&embedding, cois);
-        assert_eq!(cois.len(), 4)
+        assert_eq!(cois.len(), 4);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_update_coi_update_point() {
-        let cois = create_cois(vec![
-            array![1., 1., 1.],
-            array![10., 10., 10.],
-            array![20., 20., 20.],
-        ]);
-        let embedding = create_embedding(array![2., 3., 4.]);
+        let cois = create_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
+        let embedding = arr1(&[2., 3., 4.]).into();
 
         let cois = CoiSystem::default().update_coi(&embedding, cois);
 
         assert_eq!(cois.len(), 3);
-        assert_eq!(cois[0].point, create_embedding(array![1.1, 1.2, 1.3]));
-        assert_eq!(cois[1].point, create_embedding(array![10., 10., 10.]));
-        assert_eq!(cois[2].point, create_embedding(array![20., 20., 20.]))
+        assert_eq!(cois[0].point, [1.1, 1.2, 1.3]);
+        assert_eq!(cois[1].point, [10., 10., 10.]);
+        assert_eq!(cois[2].point, [20., 20., 20.]);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_shift_coi_point() {
-        let coi = Coi::new(0, create_embedding(array![1., 1., 1.]));
-        let embedding = create_embedding(array![2., 3., 4.]);
+        let coi = Coi::new(0, arr1(&[1., 1., 1.]).into());
+        let embedding = arr1(&[2., 3., 4.]).into();
 
         let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);
 
-        assert_eq!(updated_coi, create_embedding(array![1.1, 1.2, 1.3]));
+        assert_eq!(updated_coi, [1.1, 1.2, 1.3]);
     }
 
     #[test]
     fn test_compute_coi_for_embedding() {
-        let positive = create_cois(vec![
-            array![1., 0., 0.],
-            array![0., 1., 0.],
-            array![0., 0., 1.],
-        ]);
-        let negative = create_cois(vec![
-            array![10., 0., 0.],
-            array![0., 10., 0.],
-            array![0., 0., 10.],
-        ]);
+        let positive = create_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
+        let negative = create_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
         let user_interests = UserInterests { positive, negative };
-        let embedding = create_embedding(array![2., 3., 4.]);
+        let embedding = arr1(&[2., 3., 4.]).into();
 
         let coi_comp = CoiSystem::default()
             .compute_coi_for_embedding(&embedding, &user_interests)
@@ -411,16 +380,12 @@ mod tests {
 
     #[test]
     fn test_compute_coi_for_embedding_empty_negative_cois() {
-        let positive_cois = create_cois(vec![
-            array![1., 0., 0.],
-            array![0., 1., 0.],
-            array![0., 0., 1.],
-        ]);
+        let positive_cois = create_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
         let user_interests = UserInterests {
             positive: positive_cois,
             negative: Vec::new(),
         };
-        let embedding = create_embedding(array![2., 3., 4.]);
+        let embedding = arr1(&[2., 3., 4.]).into();
 
         let coi_system = CoiSystem::default();
         let coi_comp = coi_system
@@ -433,17 +398,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_make_user_interests_ready() {
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
             (Relevance::Low, UserFeedback::Relevant),
             (Relevance::Low, UserFeedback::Relevant),
         ]);
-        let documents = create_data_with_embeddings(vec![
-            array![1., 2., 3.],
-            array![3., 2., 1.],
-            array![4., 5., 6.],
-        ]);
+        let documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.], [4., 5., 6.]]);
 
         let status = CoiSystem::default()
             .make_user_interests(&history, &documents, UserInterests::new())
@@ -455,28 +417,29 @@ mod tests {
         };
 
         assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, create_embedding(array![3., 2., 1.]));
+        assert_eq!(positive[0].point, [3., 2., 1.]);
         assert!(approx_eq!(f32, positive[0].alpha, 1.));
         assert!(approx_eq!(f32, positive[0].beta, 1.));
 
         assert_eq!(positive[1].id.0, 1);
-        assert_eq!(positive[1].point, create_embedding(array![4., 5., 6.]));
+        assert_eq!(positive[1].point, [4., 5., 6.]);
         assert!(approx_eq!(f32, positive[1].alpha, 1.));
         assert!(approx_eq!(f32, positive[1].beta, 1.));
 
         assert_eq!(negative[0].id.0, 0);
-        assert_eq!(negative[0].point, create_embedding(array![1., 2., 3.]));
+        assert_eq!(negative[0].point, [1., 2., 3.]);
         assert!(approx_eq!(f32, negative[0].alpha, 1.));
         assert!(approx_eq!(f32, negative[0].beta, 1.));
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_make_user_interest_empty_negative_cois() {
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Relevant),
             (Relevance::Low, UserFeedback::Relevant),
         ]);
-        let documents = create_data_with_embeddings(vec![array![1., 2., 3.], array![3., 2., 1.]]);
+        let documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
 
         let status = CoiSystem::default()
             .make_user_interests(&history, &documents, UserInterests::new())
@@ -488,12 +451,12 @@ mod tests {
         };
 
         assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, create_embedding(array![1., 2., 3.]));
+        assert_eq!(positive[0].point, [1., 2., 3.]);
         assert!(approx_eq!(f32, positive[0].alpha, 1.));
         assert!(approx_eq!(f32, positive[0].beta, 1.));
 
         assert_eq!(positive[1].id.0, 1);
-        assert_eq!(positive[1].point, create_embedding(array![3., 2., 1.]));
+        assert_eq!(positive[1].point, [3., 2., 1.]);
         assert!(approx_eq!(f32, positive[1].alpha, 1.));
         assert!(approx_eq!(f32, positive[1].beta, 1.));
 
@@ -501,12 +464,13 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_make_user_interests_not_enough_coi() {
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
             (Relevance::Low, UserFeedback::Relevant),
         ]);
-        let documents = create_data_with_embeddings(vec![array![1., 2., 3.], array![3., 2., 1.]]);
+        let documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
 
         let status = CoiSystem::default()
             .make_user_interests(&history, &documents, UserInterests::new())
@@ -518,12 +482,12 @@ mod tests {
         };
 
         assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, create_embedding(array![3., 2., 1.]));
+        assert_eq!(positive[0].point, [3., 2., 1.]);
         assert!(approx_eq!(f32, positive[0].alpha, 1.));
         assert!(approx_eq!(f32, positive[0].beta, 1.));
 
         assert_eq!(negative[0].id.0, 0);
-        assert_eq!(negative[0].point, create_embedding(array![1., 2., 3.]));
+        assert_eq!(negative[0].point, [1., 2., 3.]);
         assert!(approx_eq!(f32, negative[0].alpha, 1.));
         assert!(approx_eq!(f32, negative[0].beta, 1.));
     }
@@ -541,10 +505,10 @@ mod tests {
 
     #[test]
     fn test_compute_coi() {
-        let positive = create_cois(vec![array![3., 2., 1.], array![1., 2., 3.]]);
-        let negative = create_cois(vec![array![4., 5., 6.]]);
+        let positive = create_cois(&[[3., 2., 1.], [1., 2., 3.]]);
+        let negative = create_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
-        let documents = create_data_with_embeddings(vec![array![1., 4., 4.], array![3., 6., 6.]]);
+        let documents = create_data_with_embeddings(&[[1., 4., 4.], [3., 6., 6.]]);
 
         let documents_coi = CoiSystem::default()
             .compute_coi(documents, &user_interests)
@@ -569,10 +533,10 @@ mod tests {
 
     #[test]
     fn test_compute_coi_nan() {
-        let positive = create_cois(vec![array![3., 2., 1.], array![1., 2., 3.]]);
-        let negative = create_cois(vec![array![4., 5., 6.]]);
+        let positive = create_cois(&[[3., 2., 1.], [1., 2., 3.]]);
+        let negative = create_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
-        let documents = create_data_with_embeddings(vec![array![NAN, NAN, NAN]]);
+        let documents = create_data_with_embeddings(&[[NAN, NAN, NAN]]);
 
         let error = CoiSystem::default()
             .compute_coi(documents, &user_interests)
@@ -581,7 +545,7 @@ mod tests {
         let error = error.downcast::<CoiSystemError>().unwrap();
         assert!(matches!(error, CoiSystemError::NoCoi));
 
-        let documents = create_data_with_embeddings(vec![array![1., NAN, 2.]]);
+        let documents = create_data_with_embeddings(&[[1., NAN, 2.]]);
         let error = CoiSystem::default()
             .compute_coi(documents, &user_interests)
             .err()
@@ -591,9 +555,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_update_user_interests() {
-        let positive = create_cois(vec![array![3., 2., 1.], array![1., 2., 3.]]);
-        let negative = create_cois(vec![array![4., 5., 6.]]);
+        let positive = create_cois(&[[3., 2., 1.], [1., 2., 3.]]);
+        let negative = create_cois(&[[4., 5., 6.]]);
 
         let user_interests = UserInterests { positive, negative };
 
@@ -602,11 +567,7 @@ mod tests {
             (Relevance::Low, UserFeedback::Relevant),
             (Relevance::Low, UserFeedback::Relevant),
         ]);
-        let documents = create_data_with_mab(vec![
-            array![1., 4., 4.],
-            array![3., 6., 6.],
-            array![1., 1., 1.],
-        ]);
+        let documents = create_data_with_mab(&[[1., 4., 4.], [3., 6., 6.], [1., 1., 1.]]);
 
         let coi_system = CoiSystem::new(Configuration {
             threshold: 5.0,
@@ -620,26 +581,20 @@ mod tests {
 
         assert!(approx_eq!(f32, positive[0].alpha, 1.));
         assert!(approx_eq!(f32, positive[0].beta, 1.));
-        assert_eq!(
-            positive[0].point,
-            create_embedding(array![2.7999997, 1.9, 1.])
-        );
+        assert_eq!(positive[0].point, [2.7999997, 1.9, 1.]);
 
         assert!(approx_eq!(f32, positive[1].alpha, 1.21));
         assert!(approx_eq!(f32, positive[1].beta, 1.));
-        assert_eq!(positive[1].point, create_embedding(array![1., 2., 3.]));
+        assert_eq!(positive[1].point, [1., 2., 3.]);
 
         assert!(approx_eq!(f32, positive[2].alpha, 1.));
         assert!(approx_eq!(f32, positive[2].beta, 1.));
-        assert_eq!(positive[2].point, create_embedding(array![3., 6., 6.]));
+        assert_eq!(positive[2].point, [3., 6., 6.]);
 
         assert_eq!(negative.len(), 1);
         assert!(approx_eq!(f32, negative[0].alpha, 1.));
         assert!(approx_eq!(f32, negative[0].beta, 1.));
-        assert_eq!(
-            negative[0].point,
-            create_embedding(array![3.6999998, 4.9, 5.7999997])
-        );
+        assert_eq!(negative[0].point, [3.6999998, 4.9, 5.7999997]);
     }
 
     #[test]
