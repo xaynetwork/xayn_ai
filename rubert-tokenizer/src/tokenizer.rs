@@ -37,31 +37,15 @@ impl<N> Tokenizer<N> {
         self.padding.pad(encoding)
     }
 
-    /// Encodes the sequences.
-    pub fn encode_batch(&self, sequences: &[impl AsRef<str>]) -> Vec<Encoding<N>>
-    where
-        N: Num + FromPrimitive + Copy,
-    {
-        sequences
-            .iter()
-            .map(|sequence| self.encode(sequence))
-            .collect()
-    }
-
     /// Decodes the encoding with optional cleanup.
     pub fn decode(&self, encoding: &Encoding<N>, cleanup: bool) -> String {
         encoding.decode(
+            self.post_tokenizer.cls_token.as_str(),
+            self.post_tokenizer.sep_token.as_str(),
+            self.padding.pad_token(),
             self.model.unk_token.as_str(),
             self.model.prefix.as_str(),
             cleanup,
         )
-    }
-
-    /// Decodes the encodings with optional cleanup.
-    pub fn decode_batch(&self, encodings: &[Encoding<N>], cleanup: bool) -> Vec<String> {
-        encodings
-            .iter()
-            .map(|encoding| self.decode(encoding, cleanup))
-            .collect()
     }
 }

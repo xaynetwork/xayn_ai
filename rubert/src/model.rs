@@ -18,15 +18,12 @@ use tract_onnx::prelude::{
     TypedSimplePlan,
 };
 
-use crate::{
-    ndarray::{Dim, Dimension, Ix3},
-    tokenizer::Encodings,
-};
+use crate::tokenizer::Encoding;
 
-/// A wrapped onnx model.
+/// A Bert onnx model.
 pub struct Model {
     plan: TypedSimplePlan<TypedModel>,
-    shape: Ix3,
+    pub(crate) embedding_size: usize,
 }
 
 /// The potential errors of the model.
@@ -40,21 +37,20 @@ pub enum ModelError {
     Shape,
 }
 
-/// The predicted encodings.
+/// The predicted encoding.
 #[derive(Clone, Deref, From)]
-pub struct Predictions(pub Arc<Tensor>);
+pub struct Prediction(pub Arc<Tensor>);
 
 impl Model {
     /// Creates a model from an onnx model file.
     ///
-    /// Requires the batch and token size of the model inputs.
+    /// Requires the maximum number of tokens per tokenized sequence.
     pub fn new(
         // `Read` instead of `AsRef<Path>` is needed for wasm
         mut model: impl Read,
-        batch_size: usize,
         token_size: usize,
     ) -> Result<Self, ModelError> {
-        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[batch_size, token_size]);
+        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
             .with_input_fact(0, input_fact.clone())?
@@ -63,44 +59,60 @@ impl Model {
             .into_optimized()?
             .into_runnable()?;
 
-        let shape = plan
+        let embedding_size = plan
             .model()
             .output_fact(0)?
             .shape
             .as_finite()
-            .map(|os| os.get(0..3).map(|os| Dim([os[0], os[1], os[2]])))
+            .map(|shape| {
+                // input/output shapes are guaranteed to match when a sound onnx model is loaded
+                debug_assert_eq!([1, token_size], shape.as_slice()[0..2]);
+                shape.get(2).copied()
+            })
             .flatten()
             .ok_or(ModelError::Shape)?;
-        // input/output shapes are guaranteed to match when a sound onnx model is loaded
-        debug_assert_eq!(&[batch_size, token_size], &shape.slice()[0..2]);
 
-        Ok(Model { plan, shape })
+        Ok(Model {
+            plan,
+            embedding_size,
+        })
     }
 
-    /// Runs prediction on encoded sequences.
-    pub fn predict(&self, encodings: Encodings) -> Result<Predictions, ModelError> {
+    /// Runs prediction on the encoded sequence.
+    pub fn predict(&self, encoding: Encoding) -> Result<Prediction, ModelError> {
         let inputs = tvec!(
-            encodings.token_ids.0.into(),
-            encodings.attention_masks.0.into(),
-            encodings.type_ids.0.into()
+            encoding.token_ids.0.into(),
+            encoding.attention_mask.0.into(),
+            encoding.type_ids.0.into()
         );
         let mut outputs = self.plan.run(inputs)?;
 
         Ok(outputs.remove(0).into())
     }
+}
 
-    /// Returns the batch size of the model.
-    pub fn batch_size(&self) -> usize {
-        self.shape[0]
-    }
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::BufReader};
 
-    /// Returns the token size of the model.
-    pub fn token_size(&self) -> usize {
-        self.shape[1]
-    }
+    use super::*;
+    use crate::{ndarray::Array2, tests::MODEL};
 
-    /// Returns the embedding size of the model.
-    pub fn embedding_size(&self) -> usize {
-        self.shape[2]
+    #[test]
+    fn test_predict() {
+        let shape = (1, 64);
+        let model = BufReader::new(File::open(MODEL).unwrap());
+        let model = Model::new(model, shape.1).unwrap();
+
+        let encoding = Encoding {
+            token_ids: Array2::from_elem(shape, 0).into(),
+            attention_mask: Array2::from_elem(shape, 1).into(),
+            type_ids: Array2::from_elem(shape, 0).into(),
+        };
+        let prediction = model.predict(encoding).unwrap();
+        assert_eq!(
+            prediction.shape(),
+            &[shape.0, shape.1, model.embedding_size]
+        )
     }
 }

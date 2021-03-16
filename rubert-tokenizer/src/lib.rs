@@ -39,8 +39,8 @@
 //!         .with_padding(Padding::fixed(128, "[PAD]"))
 //!         .build()?;
 //!
-//!     let encoding = tokenizer.encode("This is a sequence.");
-//!     let encoding = tokenizer.encode_batch(&["This is a sequence.", "And another one!"]);
+//!     let encoding = tokenizer.encode("This îs ã séquènce.");
+//!     assert_eq!(tokenizer.decode(&encoding, true), "this is a sequence.");
 //!
 //!     Ok(())
 //! }

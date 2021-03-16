@@ -18,9 +18,9 @@ use crate::{
 /// A Bert post-tokenizer.
 pub struct PostTokenizer<N> {
     cls_id: N,
-    cls_token: SmallString,
+    pub(crate) cls_token: SmallString,
     sep_id: N,
-    sep_token: SmallString,
+    pub(crate) sep_token: SmallString,
 }
 
 /// The potential erros of the post-tokenizer.

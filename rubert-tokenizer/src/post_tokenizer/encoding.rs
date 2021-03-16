@@ -110,6 +110,32 @@ where
     }
 }
 
+impl<N> From<Encoding<N>>
+    for (
+        Vec<N>,
+        Vec<N>,
+        Vec<String>,
+        Vec<Option<N>>,
+        Vec<Offsets>,
+        Vec<N>,
+        Vec<N>,
+        Option<Vec<Encoding<N>>>,
+    )
+{
+    fn from(encoding: Encoding<N>) -> Self {
+        (
+            encoding.ids,
+            encoding.type_ids,
+            encoding.tokens,
+            encoding.word_indices,
+            encoding.offsets,
+            encoding.special_tokens_mask,
+            encoding.attention_mask,
+            encoding.overflowing,
+        )
+    }
+}
+
 impl<N> Encoding<N> {
     /// Creates an empty encoding with capacity.
     pub(crate) fn with_capacity(capacity: usize) -> Self {
@@ -470,26 +496,29 @@ impl<N> Encoding<N> {
     /// Decodes with optional cleanup.
     pub(crate) fn decode(
         &self,
-        unk: impl AsRef<str>,
-        prefix: impl AsRef<str>,
+        cls: &str,
+        sep: &str,
+        pad: &str,
+        unk: &str,
+        prefix: &str,
         cleanup: bool,
     ) -> String {
         let tokens = self
             .tokens
             .iter()
             .filter_map(|token| {
-                if !cleanup || token != unk.as_ref() {
+                if !cleanup || (token != cls && token != sep && token != pad && token != unk) {
                     Some(token.as_str())
                 } else {
                     None
                 }
             })
             .collect::<Vec<_>>();
-        let mut string = tokens
+        let mut sequence = tokens
             .join(" ")
-            .replace(format!(" {}", prefix.as_ref()).as_str(), "");
+            .replace(format!(" {}", prefix).as_str(), "");
         if cleanup {
-            string = string
+            sequence = sequence
                 .replace(" .", ".")
                 .replace(" ?", "?")
                 .replace(" !", "!")
@@ -503,7 +532,7 @@ impl<N> Encoding<N> {
                 .replace(" 're", "'re");
         }
 
-        string
+        sequence
     }
 }
 
@@ -615,5 +644,30 @@ mod tests {
             overflowing: None,
         }]);
         assert_eq!(truncated, expected);
+    }
+
+    #[test]
+    fn test_decode() {
+        let mut encoding = Encoding::<u32>::with_capacity(0);
+
+        encoding.tokens = vec![
+            "[CLS]".into(),
+            "hello".into(),
+            "world".into(),
+            "!".into(),
+            "[SEP]".into(),
+            "[PAD]".into(),
+            "[PAD]".into(),
+        ];
+        assert_eq!(
+            encoding.decode("[CLS]", "[SEP]", "[PAD]", "[UNK]", "##", true),
+            "hello world!",
+        );
+
+        encoding.tokens = vec!["foo".into(), "##bar".into()];
+        assert_eq!(encoding.decode("", "", "", "", "##", true), "foobar");
+
+        encoding.tokens = vec!["[UNK]".into()];
+        assert_eq!(encoding.decode("", "", "", "[UNK]", "", true), "");
     }
 }

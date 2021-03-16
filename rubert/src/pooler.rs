@@ -4,9 +4,9 @@ use thiserror::Error;
 use tract_onnx::prelude::TractError;
 
 use crate::{
-    model::Predictions,
-    ndarray::{s, Array, Array1, Array2, Array3, ArrayView1, Axis},
-    tokenizer::AttentionMasks,
+    model::Prediction,
+    ndarray::{s, Array, Array1, Array2, ArrayView1, Axis},
+    tokenizer::AttentionMask,
 };
 
 /// A 1-dimensional sequence embedding.
@@ -26,10 +26,6 @@ where
 #[derive(Clone, Debug, Deref, From, PartialEq)]
 pub struct Embedding2(Array2<f32>);
 
-/// A 3-dimensional sequence embedding.
-#[derive(Clone, Debug, Deref, From, PartialEq)]
-pub struct Embedding3(Array3<f32>);
-
 /// The potential errors of the pooler.
 #[derive(Debug, Display, Error)]
 pub enum PoolerError {
@@ -39,28 +35,15 @@ pub enum PoolerError {
 
 /// An inert pooling strategy.
 ///
-/// The predictions are just passed through.
+/// The prediction is just passed through.
 pub struct NonePooler;
 
 impl NonePooler {
     /// Passes through the prediction.
-    pub(crate) fn pool(&self, prediction: Predictions) -> Result<Embedding2, PoolerError> {
+    pub(crate) fn pool(&self, prediction: Prediction) -> Result<Embedding2, PoolerError> {
         Ok(prediction
             .to_array_view()?
             .slice(s![0, .., ..])
-            .to_owned()
-            .into())
-    }
-
-    /// Passes through the batch of predictions.
-    pub(crate) fn pool_batch(
-        &self,
-        predictions: Predictions,
-        len: usize,
-    ) -> Result<Embedding3, PoolerError> {
-        Ok(predictions
-            .to_array_view()?
-            .slice(s![..len, .., ..])
             .to_owned()
             .into())
     }
@@ -68,28 +51,15 @@ impl NonePooler {
 
 /// A first token pooling strategy.
 ///
-/// The predictions are pooled over their first tokens (`[CLS]`).
+/// The prediction is pooled over its first tokens (`[CLS]`).
 pub struct FirstPooler;
 
 impl FirstPooler {
     /// Pools the prediction over its first token.
-    pub(crate) fn pool(&self, prediction: Predictions) -> Result<Embedding1, PoolerError> {
+    pub(crate) fn pool(&self, prediction: Prediction) -> Result<Embedding1, PoolerError> {
         Ok(prediction
             .to_array_view()?
             .slice(s![0, 0, ..])
-            .to_owned()
-            .into())
-    }
-
-    /// Pools the batch of predictions over their first tokens.
-    pub(crate) fn pool_batch(
-        &self,
-        predictions: Predictions,
-        len: usize,
-    ) -> Result<Embedding2, PoolerError> {
-        Ok(predictions
-            .to_array_view()?
-            .slice(s![..len, 0, ..])
             .to_owned()
             .into())
     }
@@ -97,15 +67,15 @@ impl FirstPooler {
 
 /// An average token pooling strategy.
 ///
-/// The predictions are pooled over their averaged tokens.
+/// The prediction is pooled over its averaged tokens.
 pub struct AveragePooler;
 
 impl AveragePooler {
-    /// Pools a prediction over its averaged tokens.
+    /// Pools a prediction over its averaged, active tokens.
     pub(crate) fn pool(
         &self,
-        prediction: Predictions,
-        attention_mask: AttentionMasks,
+        prediction: Prediction,
+        attention_mask: AttentionMask,
     ) -> Result<Embedding1, PoolerError> {
         let prediction = prediction.to_array_view()?;
         let prediction = prediction.slice(s![0, .., ..]);
@@ -121,34 +91,6 @@ impl AveragePooler {
         };
 
         Ok(average.into())
-    }
-
-    /// Pools a batch of predictions over their averaged tokens.
-    pub(crate) fn pool_batch(
-        &self,
-        predictions: Predictions,
-        attention_masks: AttentionMasks,
-        len: usize,
-    ) -> Result<Embedding2, PoolerError> {
-        let predictions = predictions.to_array_view()?;
-        let predictions = predictions.slice(s![..len, .., ..]);
-        let attention_masks = attention_masks.map(|mask| *mask as f32);
-
-        let counts =
-            attention_masks
-                .sum_axis(Axis(1))
-                .mapv(|mask| if mask > 0. { mask } else { f32::INFINITY });
-        let averages = Array::from_shape_fn(
-            (predictions.shape()[0], predictions.shape()[2]),
-            |(i, j)| {
-                predictions
-                    .slice(s![i, .., j])
-                    .dot(&attention_masks.slice(s![i, ..]).t())
-                    / counts[i]
-            },
-        );
-
-        Ok(averages.into())
     }
 }
 
@@ -170,23 +112,6 @@ mod tests {
     }
 
     #[test]
-    fn test_none_batch() {
-        let predictions = arr3::<f32, _, _>(&[
-            [[1., 2., 3.], [4., 5., 6.]],
-            [[7., 8., 9.], [10., 11., 12.]],
-            [[13., 14., 15.], [16., 17., 18.]],
-            [[19., 20., 21.], [22., 23., 24.]],
-        ]);
-        let embeddings = predictions.clone().into();
-        assert_eq!(
-            NonePooler
-                .pool_batch(predictions.into_arc_tensor().into(), 4)
-                .unwrap(),
-            embeddings,
-        );
-    }
-
-    #[test]
     #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_first() {
         let predictions =
@@ -194,21 +119,6 @@ mod tests {
                 .into_arc_tensor()
                 .into();
         assert_eq!(FirstPooler.pool(predictions).unwrap(), [1., 2., 3.]);
-    }
-
-    #[test]
-    fn test_first_batch() {
-        let predictions = arr3::<f32, _, _>(&[
-            [[1., 2., 3.], [4., 5., 6.]],
-            [[7., 8., 9.], [10., 11., 12.]],
-            [[13., 14., 15.], [16., 17., 18.]],
-            [[19., 20., 21.], [22., 23., 24.]],
-        ])
-        .into_arc_tensor()
-        .into();
-        let embeddings =
-            arr2(&[[1., 2., 3.], [7., 8., 9.], [13., 14., 15.], [19., 20., 21.]]).into();
-        assert_eq!(FirstPooler.pool_batch(predictions, 4).unwrap(), embeddings);
     }
 
     #[test]
@@ -246,32 +156,6 @@ mod tests {
         assert_eq!(
             AveragePooler.pool(predictions.into(), masks).unwrap(),
             [2.5, 3.5, 4.5],
-        );
-    }
-
-    #[test]
-    fn test_average_batch() {
-        let predictions = arr3::<f32, _, _>(&[
-            [[1., 2., 3.], [4., 5., 6.]],
-            [[7., 8., 9.], [10., 11., 12.]],
-            [[13., 14., 15.], [16., 17., 18.]],
-            [[19., 20., 21.], [22., 23., 24.]],
-        ])
-        .into_arc_tensor()
-        .into();
-        let attention_masks = arr2(&[[0, 0], [0, 1], [1, 0], [1, 1]]).into();
-        let embeddings = arr2(&[
-            [0., 0., 0.],
-            [10., 11., 12.],
-            [13., 14., 15.],
-            [20.5, 21.5, 22.5],
-        ])
-        .into();
-        assert_eq!(
-            AveragePooler
-                .pool_batch(predictions, attention_masks, 4)
-                .unwrap(),
-            embeddings,
         );
     }
 }
