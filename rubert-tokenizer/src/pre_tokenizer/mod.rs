@@ -31,8 +31,8 @@ mod tests {
 
     fn assert_eq(actual: PreTokenizedString, expected: Vec<(&str, Offsets)>) {
         assert_eq!(actual.splits.len(), expected.len());
-        for (split, (string, offset)) in actual.splits.iter().zip(expected) {
-            assert_eq!(split.normalized, string);
+        for (split, (word, offset)) in actual.splits.iter().zip(expected) {
+            assert_eq!(split.normalized, word);
             assert_eq!(split.offset + split.alignments.first().unwrap().0, offset.0);
             assert_eq!(split.offset + split.alignments.last().unwrap().1, offset.1);
         }
@@ -40,8 +40,7 @@ mod tests {
 
     #[test]
     fn test_basic() {
-        let normalized = "Hey friend!     How are you?!?".into();
-        let pre_tokenized = PreTokenizer.pre_tokenize(normalized);
+        let pre_tokenized = PreTokenizer.pre_tokenize("Hey friend!     How are you?!?".into());
         let expected = vec![
             ("Hey", Offsets(0, 3)),
             ("friend", Offsets(4, 10)),
