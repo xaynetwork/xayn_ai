@@ -1,127 +1,149 @@
+use derive_more::{Deref, From};
+use displaydoc::Display;
+use thiserror::Error;
+use tract_onnx::prelude::TractError;
+
 use crate::{
-    model::Predictions,
-    ndarray::{s, Axis},
-    tokenizer::AttentionMasks,
-    utils::{ArcArray2, ArcArray3},
+    model::Prediction,
+    ndarray::{s, Array1, Array2, ArrayView1, Ix1},
+    tokenizer::AttentionMask,
 };
 
-/// [`RuBert`] pooling strategies.
+/// A 1-dimensional sequence embedding.
+#[derive(Clone, Debug, Deref, From, PartialEq)]
+pub struct Embedding1(Array1<f32>);
+
+impl<S> PartialEq<S> for Embedding1
+where
+    S: AsRef<[f32]>,
+{
+    fn eq(&self, other: &S) -> bool {
+        self.0.eq(&ArrayView1::from(other.as_ref()))
+    }
+}
+
+/// A 2-dimensional sequence embedding.
+#[derive(Clone, Debug, Deref, From, PartialEq)]
+pub struct Embedding2(Array2<f32>);
+
+/// The potential errors of the pooler.
+#[derive(Debug, Display, Error)]
+pub enum PoolerError {
+    /// Invalid prediction datum type {0}
+    Datum(#[from] TractError),
+}
+
+/// An inert pooling strategy.
 ///
-/// [`RuBert`]: crate::pipeline::RuBert
-pub enum Pooler {
-    /// No pooling. The predictions are just passed through.
-    None,
-    /// Pooling over the first token (`[CLS]`) of the model output.
-    First,
-    /// Pooling over the averaged tokens of the model output.
-    Average,
+/// The prediction is just passed through.
+pub struct NonePooler;
+
+impl NonePooler {
+    /// Passes through the prediction.
+    pub(crate) fn pool(&self, prediction: Prediction) -> Result<Embedding2, PoolerError> {
+        Ok(prediction
+            .to_array_view()?
+            .slice(s![0, .., ..])
+            .to_owned()
+            .into())
+    }
 }
 
-/// The pooled predictions.
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub enum Poolings {
-    /// None-pooled predictions.
-    None(ArcArray3<f32>),
-    /// First-pooled predictions.
-    First(ArcArray2<f32>),
-    /// Average-pooled predictions.
-    Average(ArcArray2<f32>),
+/// A first token pooling strategy.
+///
+/// The prediction is pooled over its first tokens (`[CLS]`).
+pub struct FirstPooler;
+
+impl FirstPooler {
+    /// Pools the prediction over its first token.
+    pub(crate) fn pool(&self, prediction: Prediction) -> Result<Embedding1, PoolerError> {
+        Ok(prediction
+            .to_array_view()?
+            .slice(s![0, 0, ..])
+            .to_owned()
+            .into())
+    }
 }
 
-impl Pooler {
-    /// Pools the predictions according to the pooling strategy.
+/// An average token pooling strategy.
+///
+/// The prediction is pooled over its averaged tokens.
+pub struct AveragePooler;
+
+impl AveragePooler {
+    /// Pools the prediction over its averaged, active tokens.
     pub(crate) fn pool(
         &self,
-        predictions: Predictions,
-        attention_masks: AttentionMasks,
-    ) -> Poolings {
-        match self {
-            Self::None => Self::none(predictions),
-            Self::First => Self::first(predictions),
-            Self::Average => Self::average(predictions, attention_masks),
-        }
-    }
+        prediction: Prediction,
+        attention_mask: AttentionMask,
+    ) -> Result<Embedding1, PoolerError> {
+        let attention_mask = attention_mask
+            .slice::<Ix1>(s![0, ..])
+            .mapv(|mask| mask as f32);
+        let count = attention_mask.sum();
 
-    /// Passes through the predictions.
-    fn none(predictions: Predictions) -> Poolings {
-        Poolings::None(predictions.0)
-    }
+        let average = if count > 0. {
+            attention_mask.dot(&prediction.to_array_view()?.slice(s![0, .., ..])) / count
+        } else {
+            Array1::zeros(prediction.shape()[2])
+        };
 
-    /// Picks the first element of the token dimension (`[CLS]`) of the predictions.
-    fn first(predictions: Predictions) -> Poolings {
-        Poolings::First(predictions.slice(s![.., 0, ..]).to_shared())
-    }
-
-    /// Averages the predictions along the token dimension (1) discarding any padding.
-    fn average(predictions: Predictions, attention_masks: AttentionMasks) -> Poolings {
-        // shapes are guaranteed to match when coming from the rubert tokenizer and model
-        debug_assert_eq!(&predictions.shape()[0..2], attention_masks.shape());
-        debug_assert!(attention_masks.iter().all(|e| e == &0 || e == &1));
-
-        let masks = attention_masks.mapv(|v| v as f32);
-        let token_count = masks.sum_axis(Axis(1)).insert_axis(Axis(1));
-        let masks = masks.insert_axis(Axis(2));
-
-        let averaged = predictions.0 * masks;
-        let averaged = averaged.sum_axis(Axis(1)) / token_count;
-
-        Poolings::Average(averaged.into_shared())
+        Ok(average.into())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use tract_onnx::prelude::IntoArcTensor;
+
     use super::*;
-    use crate::ndarray::{rcarr2, rcarr3};
+    use crate::ndarray::{arr2, arr3};
 
     #[test]
-    fn test_first() {
-        let predictions = rcarr3(&[
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-            [[4., 5., 6.], [7., 8., 9.], [1., 2., 3.]],
-            [[7., 8., 9.], [1., 2., 3.], [4., 5., 6.]],
-        ])
-        .into();
-        assert_eq!(
-            Pooler::first(predictions),
-            Poolings::First(rcarr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])),
-        );
+    fn test_none() {
+        let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]])
+            .into_arc_tensor()
+            .into();
+        let embedding = arr2(&[[1., 2., 3.], [4., 5., 6.]]).into();
+        assert_eq!(NonePooler.pool(prediction).unwrap(), embedding);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
+    fn test_first() {
+        let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]])
+            .into_arc_tensor()
+            .into();
+        assert_eq!(FirstPooler.pool(prediction).unwrap(), [1., 2., 3.]);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_average() {
-        let predictions = rcarr3(&[
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
-        ])
-        .into();
-        let attention_masks = rcarr2(&[
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1],
-            [1, 1, 0],
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 1, 1],
-        ])
-        .into();
+        let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]]).into_arc_tensor();
+
+        let mask = arr2(&[[0, 0]]).into();
         assert_eq!(
-            Pooler::average(predictions, attention_masks),
-            Poolings::Average(rcarr2(&[
-                [1., 2., 3.],
-                [4., 5., 6.],
-                [7., 8., 9.],
-                [2.5, 3.5, 4.5],
-                [4., 5., 6.],
-                [5.5, 6.5, 7.5],
-                [4., 5., 6.],
-            ])),
+            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
+            [0., 0., 0.],
+        );
+
+        let mask = arr2(&[[0, 1]]).into();
+        assert_eq!(
+            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
+            [4., 5., 6.],
+        );
+
+        let mask = arr2(&[[1, 0]]).into();
+        assert_eq!(
+            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
+            [1., 2., 3.],
+        );
+
+        let mask = arr2(&[[1, 1]]).into();
+        assert_eq!(
+            AveragePooler.pool(prediction.into(), mask).unwrap(),
+            [2.5, 3.5, 4.5],
         );
     }
 }

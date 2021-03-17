@@ -27,17 +27,20 @@ impl LtrSystem for ConstLtr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{
-        document::DocumentId,
-        document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent},
-        CoiId,
+    use crate::{
+        data::{
+            document::DocumentId,
+            document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent},
+            CoiId,
+        },
+        ndarray::arr1,
     };
 
     #[allow(clippy::float_cmp)]
     #[test]
     fn test_const_value() {
         let id = DocumentId("id1".to_string());
-        let embedding = vec![1., 2., 3., 4.].into();
+        let embedding = arr1(&[1., 2., 3., 4.]).into();
         let coi = CoiComponent {
             id: CoiId(9),
             pos_distance: 0.7,
@@ -50,7 +53,7 @@ mod tests {
         };
 
         let id = DocumentId("id2".to_string());
-        let embedding = vec![5., 6., 7.].into();
+        let embedding = arr1(&[5., 6., 7.]).into();
         let coi = CoiComponent {
             id: CoiId(5),
             pos_distance: 0.3,

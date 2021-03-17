@@ -180,9 +180,9 @@ dependencies = [
 
 [[package]]
 name = "displaydoc"
-version = "0.1.7"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adc2ab4d5a16117f9029e9a6b5e4e79f4c67f6519bc134210d4d4a04ba31f41b"
+checksum = "f98e1bbbcbb1b2646d6e900da42974b641eb784851adcd4f0ae4c07c8bc7b42b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -364,12 +364,6 @@ checksum = "37d572918e350e82412fe766d24b15e6682fb2ed2bbe018280caa810397cb319"
 dependencies = [
  "either",
 ]
-
-[[package]]
-name = "itoa"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 
 [[package]]
 name = "kstring"
@@ -870,8 +864,8 @@ version = "0.1.0"
 dependencies = [
  "derive_more",
  "displaydoc",
+ "rubert-tokenizer",
  "thiserror",
- "tokenizers",
  "tract-onnx",
 ]
 
@@ -928,17 +922,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "serde_json"
-version = "1.0.64"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "799e97dc9fdae36a5c8b8f2cae9ce2ee9fdce2058c57a93e6099d919fd982f79"
-dependencies = [
- "itoa",
- "ryu",
- "serde",
 ]
 
 [[package]]
@@ -1054,20 +1037,6 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
-
-[[package]]
-name = "tokenizers"
-version = "0.10.1"
-source = "git+https://github.com/xaynetwork/tokenizers#edb062d3a4aee08e518e6c441521588a6b5b21e8"
-dependencies = [
- "log",
- "regex",
- "regex-syntax",
- "serde",
- "serde_json",
- "unicode-normalization-alignments",
- "unicode_categories",
-]
 
 [[package]]
 name = "tract-core"
@@ -1310,7 +1279,6 @@ dependencies = [
  "displaydoc",
  "float-cmp",
  "maplit",
- "ndarray",
  "rand",
  "rand_distr",
  "rubert",

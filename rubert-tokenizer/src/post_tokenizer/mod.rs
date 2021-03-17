@@ -18,9 +18,9 @@ use crate::{
 /// A Bert post-tokenizer.
 pub struct PostTokenizer<N> {
     cls_id: N,
-    cls_token: SmallString,
+    pub(crate) cls_token: SmallString,
     sep_id: N,
-    sep_token: SmallString,
+    pub(crate) sep_token: SmallString,
 }
 
 /// The potential erros of the post-tokenizer.
@@ -80,7 +80,10 @@ where
             .chain(encoding.tokens)
             .chain(once(self.sep_token.to_string()))
             .collect();
-        let words = once(None).chain(encoding.words).chain(once(None)).collect();
+        let word_indices = once(None)
+            .chain(encoding.word_indices)
+            .chain(once(None))
+            .collect();
         let offsets = once(Offsets(0, 0))
             .chain(encoding.offsets)
             .chain(once(Offsets(0, 0)))
@@ -100,15 +103,13 @@ where
                 .map(|encoding| self.post_tokenize(encoding))
                 .collect()
         });
-        // For compatibility with `TemplateProcessing`, the sequence_ranges shouldn't contain
-        // the special tokens.
         let sequence_ranges = Some(once((0, 1..len + 1)).collect());
 
         Encoding {
             ids,
             type_ids,
             tokens,
-            words,
+            word_indices,
             offsets,
             special_tokens_mask,
             attention_mask,

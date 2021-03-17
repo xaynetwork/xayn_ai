@@ -48,8 +48,8 @@ impl Normalizer {
         }
     }
 
-    /// Wraps whitespace around Chinese characters in the sequence.
-    fn handle_chinese(&self, sequence: NormalizedString) -> NormalizedString {
+    /// Separates Chinese characters in the sequence by whitespace.
+    fn separate_chinese(&self, sequence: NormalizedString) -> NormalizedString {
         if self.chinese {
             let mut new_chars: Vec<(char, isize)> = vec![];
             sequence.for_each_char(|c| {
@@ -85,9 +85,9 @@ impl Normalizer {
     /// Strips accents from the sequence.
     fn strip_accents(&self, sequence: NormalizedString) -> NormalizedString {
         if self.accents {
-            sequence.nfd().filter(|c| !c.is_mark_nonspacing())
-        } else {
             sequence
+        } else {
+            sequence.nfd().filter(|c| !c.is_mark_nonspacing())
         }
     }
 
@@ -103,7 +103,7 @@ impl Normalizer {
     /// Normalizes the sequence.
     pub(crate) fn normalize(&self, sequence: impl AsRef<str>) -> NormalizedString {
         let sequence = self.clean(sequence.into());
-        let sequence = self.handle_chinese(sequence);
+        let sequence = self.separate_chinese(sequence);
         let sequence = self.strip_accents(sequence);
         self.lowercase(sequence)
     }

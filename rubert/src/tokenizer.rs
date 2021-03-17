@@ -1,198 +1,87 @@
-use std::{
-    collections::HashMap,
-    io::{BufRead, Error as IoError},
-};
+use std::io::BufRead;
 
 use derive_more::{Deref, From};
 use displaydoc::Display;
+use rubert_tokenizer::{Builder, BuilderError, Padding, Tokenizer as BertTokenizer, Truncation};
 use thiserror::Error;
-use tokenizers::{
-    models::wordpiece::WordPiece,
-    normalizers::bert::BertNormalizer,
-    pre_tokenizers::bert::BertPreTokenizer,
-    processors::bert::BertProcessing,
-    tokenizer::{
-        EncodeInput,
-        Encoding,
-        Error as BertTokenizerError,
-        Model,
-        Tokenizer as BertTokenizer,
-    },
-    utils::{
-        padding::{PaddingDirection, PaddingParams, PaddingStrategy},
-        truncation::{TruncationParams, TruncationStrategy},
-    },
-};
 
-use crate::{
-    ndarray::{Array1, ShapeError},
-    utils::ArcArray2,
-};
+use crate::ndarray::{Array1, Array2, Axis};
 
-/// A [`RuBert`] tokenizer.
-///
-/// Wraps a pre-configured huggingface Bert tokenizer.
-///
-/// [`RuBert`]: crate::pipeline::RuBert
+/// A pre-configured Bert tokenizer.
 pub struct Tokenizer {
-    tokenizer: BertTokenizer,
-    token_size: usize,
+    tokenizer: BertTokenizer<i64>,
+    pub(crate) token_size: usize,
 }
 
-/// Potential errors of the [`RuBert`] [`Tokenizer`].
-///
-/// [`RuBert`]: crate::pipeline::RuBert
+/// The potential errors of the tokenizer.
 #[derive(Debug, Display, Error)]
 pub enum TokenizerError {
-    /// Failed to read the vocabulary: {0}.
-    Read(#[from] IoError),
-    /// The vocabulary is missing the `[SEP]` token.
-    SepToken,
-    /// The vocabulary is missing the `[CLS]` token.
-    ClsToken,
-    /// Failed to encode sentences: {0}.
-    Encoding(#[from] BertTokenizerError),
-    /// Invalid encodings shapes: {0}.
-    Shape(#[from] ShapeError),
+    /// Failed to build the tokenizer: {0}
+    Builder(#[from] BuilderError),
 }
 
-/// The input ids of the encoded sentences.
+/// The token ids of the encoded sequence.
 #[derive(Clone, Deref, From)]
-pub struct InputIds(pub(crate) ArcArray2<u32>);
+pub struct TokenIds(pub Array2<i64>);
 
-/// The attention masks of the encoded sentences.
+/// The attention mask of the encoded sequence.
 #[derive(Clone, Deref, From)]
-pub struct AttentionMasks(pub(crate) ArcArray2<u32>);
+pub struct AttentionMask(pub Array2<i64>);
 
-/// The token type ids of the encoded sentences.
+/// The type ids of the encoded sequence.
 #[derive(Clone, Deref, From)]
-pub struct TokenTypeIds(pub(crate) ArcArray2<u32>);
+pub struct TypeIds(pub Array2<i64>);
 
-/// The encoded sentences.
-pub struct Encodings {
-    pub(crate) input_ids: InputIds,
-    pub(crate) attention_masks: AttentionMasks,
-    pub(crate) token_type_ids: TokenTypeIds,
+/// The encoded sequence.
+pub struct Encoding {
+    pub token_ids: TokenIds,
+    pub attention_mask: AttentionMask,
+    pub type_ids: TypeIds,
 }
 
 impl Tokenizer {
-    /// Creates a [`RuBert`] tokenizer from a vocabulary file.
+    /// Creates a tokenizer from a vocabulary.
     ///
-    /// Can be set to strip accents and to lowercase the sentences. Requires the maximum number of
-    /// tokens per tokenized sentence, which applies to padding and truncation and includes special
+    /// Can be set to keep accents and to lowercase the sequences. Requires the maximum number of
+    /// tokens per tokenized sequence, which applies to padding and truncation and includes special
     /// tokens as well.
-    ///
-    /// # Errors
-    /// Fails if the Bert model can't be build from the vocabulary file.
-    ///
-    /// [`RuBert`]: crate::pipeline::RuBert
     pub fn new(
         // `BufRead` instead of `AsRef<Path>` is needed for wasm
         vocab: impl BufRead,
-        strip_accents: bool,
+        accents: bool,
         lowercase: bool,
         token_size: usize,
     ) -> Result<Self, TokenizerError> {
-        let vocab: HashMap<String, u32> = vocab
-            .lines()
-            .enumerate()
-            .map(|(index, line)| line.map(|line| (line, index as u32)))
-            .collect::<Result<_, _>>()?;
-
-        let model = WordPiece::builder()
-            .vocab(vocab)
-            .unk_token("[UNK]".into())
-            .continuing_subword_prefix("##".into())
-            .max_input_chars_per_word(100)
-            // this is an `IoError` internally, we can't be more specific here due to how tokenizers
-            // handles its errors internally, this will change once we have extracted the tokenizer
+        let tokenizer = Builder::new(vocab)?
+            .with_normalizer(true, false, accents, lowercase)
+            .with_model("[UNK]", "##", 100)
+            .with_post_tokenizer("[CLS]", "[SEP]")
+            .with_truncation(Truncation::fixed(token_size, 0))
+            .with_padding(Padding::fixed(token_size, "[PAD]"))
             .build()?;
-        let sep_token = "[SEP]";
-        let sep_id = model
-            .token_to_id(sep_token)
-            .ok_or(TokenizerError::SepToken)?;
-        let cls_token = "[CLS]";
-        let cls_id = model
-            .token_to_id(cls_token)
-            .ok_or(TokenizerError::ClsToken)?;
 
-        let normalizer = BertNormalizer::new(true, true, Some(strip_accents), lowercase);
-        let pre_tokenizer = BertPreTokenizer;
-        let post_processor =
-            BertProcessing::new((sep_token.into(), sep_id), (cls_token.into(), cls_id));
-
-        let truncation = Some(TruncationParams {
-            max_length: token_size,
-            strategy: TruncationStrategy::LongestFirst,
-            stride: 1,
-        });
-        let padding = Some(PaddingParams {
-            strategy: PaddingStrategy::Fixed(token_size),
-            direction: PaddingDirection::Right,
-            pad_to_multiple_of: None,
-            pad_id: 0,
-            pad_type_id: 0,
-            pad_token: "[PAD]".into(),
-        });
-
-        let mut tokenizer = BertTokenizer::new(model);
-        tokenizer
-            .with_normalizer(normalizer)
-            .with_pre_tokenizer(pre_tokenizer)
-            .with_post_processor(post_processor)
-            .with_truncation(truncation)
-            .with_padding(padding);
-
-        Ok(Self {
+        Ok(Tokenizer {
             tokenizer,
             token_size,
         })
     }
 
-    /// Encodes the sentences.
+    /// Encodes the sequence.
     ///
-    /// # Errors
-    /// Fails if any of the normalization, tokenization, pre- or post-processing steps fail.
-    ///
-    /// [`RuBert`]: crate::pipeline::RuBert
-    pub fn encode<'s>(
-        &self,
-        sentences: Vec<impl Into<EncodeInput<'s>> + Send>,
-    ) -> Result<Encodings, TokenizerError> {
-        let batch_size = sentences.len();
-        let encodings = self.tokenizer.encode_batch(sentences, true)?;
-        let encodings = Encoding::merge(encodings, true);
+    /// The encoding is in correct shape for the model.
+    pub fn encode(&self, sequence: impl AsRef<str>) -> Encoding {
+        let encoding = self.tokenizer.encode(sequence);
+        let (token_ids, type_ids, _, _, _, _, attention_mask, _) = encoding.into();
 
-        let input_ids = encodings
-            .get_ids()
-            .iter()
-            .copied()
-            .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))?
-            .into_shared()
-            .into();
-        let attention_masks = encodings
-            .get_attention_mask()
-            .iter()
-            .copied()
-            .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))?
-            .into_shared()
-            .into();
-        let token_type_ids = encodings
-            .get_type_ids()
-            .iter()
-            .copied()
-            .collect::<Array1<u32>>()
-            .into_shape((batch_size, self.token_size))?
-            .into_shared()
-            .into();
+        let token_ids = Array1::from(token_ids).insert_axis(Axis(0)).into();
+        let attention_mask = Array1::from(attention_mask).insert_axis(Axis(0)).into();
+        let type_ids = Array1::from(type_ids).insert_axis(Axis(0)).into();
 
-        Ok(Encodings {
-            input_ids,
-            attention_masks,
-            token_type_ids,
-        })
+        Encoding {
+            token_ids,
+            attention_mask,
+            type_ids,
+        }
     }
 }
 
@@ -201,293 +90,83 @@ mod tests {
     use std::{fs::File, io::BufReader};
 
     use super::*;
-    use crate::{ndarray::ArrayView, VOCAB};
+    use crate::{ndarray::ArrayView, tests::VOCAB};
 
     fn tokenizer(token_size: usize) -> Tokenizer {
         let vocab = BufReader::new(File::open(VOCAB).unwrap());
-        let strip_accents = true;
+        let accents = false;
         let lowercase = true;
-        Tokenizer::new(vocab, strip_accents, lowercase, token_size).unwrap()
+        Tokenizer::new(vocab, accents, lowercase, token_size).unwrap()
     }
 
     #[test]
-    fn test_encode() {
-        // too short
-        let encoding = tokenizer(20)
-            .encode(vec!["These are normal, common EMBEDDINGS.".to_string()])
-            .unwrap();
+    fn test_encode_short() {
+        let shape = (1, 20);
+        let encoding = tokenizer(shape.1).encode("These are normal, common EMBEDDINGS.");
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
-                (1, 20),
-                &[
-                    2u32, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0
-                ],
+                shape,
+                &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             )
             .unwrap(),
         );
         assert_eq!(
-            encoding.attention_masks.0,
+            encoding.attention_mask.0,
             ArrayView::from_shape(
-                (1, 20),
+                shape,
                 &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             )
             .unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
+            encoding.type_ids.0,
             ArrayView::from_shape(
-                (1, 20),
+                shape,
                 &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             )
             .unwrap(),
         );
+    }
 
-        // too long
-        let encoding = tokenizer(10)
-            .encode(vec!["These are normal, common EMBEDDINGS.".to_string()])
-            .unwrap();
+    #[test]
+    fn test_encode_long() {
+        let shape = (1, 10);
+        let encoding = tokenizer(shape.1).encode("These are normal, common EMBEDDINGS.");
         assert_eq!(
-            encoding.input_ids.0,
-            ArrayView::from_shape((1, 10), &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3])
+            encoding.token_ids.0,
+            ArrayView::from_shape(shape, &[2, 4538, 2128, 8561, 1, 6541, 69469, 2762, 5, 3])
                 .unwrap(),
         );
         assert_eq!(
-            encoding.attention_masks.0,
-            ArrayView::from_shape((1, 10), &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
+            encoding.attention_mask.0,
+            ArrayView::from_shape(shape, &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
-            ArrayView::from_shape((1, 10), &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_encode_batch() {
-        // both too short
-        let encoding = tokenizer(10)
-            .encode(vec!["a b c".to_string(), "a b c d".to_string()])
-            .unwrap();
-        assert_eq!(
-            encoding.input_ids.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    2, 7, 8, 9, 3, 0, 0, 0, 0, 0, //
-                    2, 7, 8, 9, 10, 3, 0, 0, 0, 0,
-                ],
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.attention_masks.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    1, 1, 1, 1, 1, 0, 0, 0, 0, 0, //
-                    1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
-                ]
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.token_type_ids.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                ]
-            )
-            .unwrap(),
-        );
-
-        // one too short and one too long
-        let encoding = tokenizer(10)
-            .encode(vec![
-                "a b c".to_string(),
-                "a b c d e f g h i j k l".to_string(),
-            ])
-            .unwrap();
-        assert_eq!(
-            encoding.input_ids.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    2, 7, 8, 9, 3, 0, 0, 0, 0, 0, //
-                    2, 7, 8, 9, 10, 11, 12, 13, 14, 3
-                ],
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.attention_masks.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    1, 1, 1, 1, 1, 0, 0, 0, 0, 0, //
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                ]
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.token_type_ids.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                ]
-            )
-            .unwrap(),
-        );
-
-        // both too long
-        let encoding = tokenizer(10)
-            .encode(vec![
-                "a b c d e f g h i j k l".to_string(),
-                "a b c d e f g h i j k l m n".to_string(),
-            ])
-            .unwrap();
-        assert_eq!(
-            encoding.input_ids.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    2, 7, 8, 9, 10, 11, 12, 13, 14, 3, //
-                    2, 7, 8, 9, 10, 11, 12, 13, 14, 3,
-                ],
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.attention_masks.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                ]
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.token_type_ids.0,
-            ArrayView::from_shape(
-                (2, 10),
-                &[
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                ]
-            )
-            .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_encode_batch_edge_cases() {
-        // first one too short, second fits
-        let encoding = tokenizer(5)
-            .encode(vec!["a b".to_string(), "a b c".to_string()])
-            .unwrap();
-        assert_eq!(
-            encoding.input_ids.0,
-            ArrayView::from_shape(
-                (2, 5),
-                &[
-                    2, 7, 8, 3, 0, //
-                    2, 7, 8, 9, 3,
-                ],
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.attention_masks.0,
-            ArrayView::from_shape(
-                (2, 5),
-                &[
-                    1, 1, 1, 1, 0, //
-                    1, 1, 1, 1, 1,
-                ]
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.token_type_ids.0,
-            ArrayView::from_shape(
-                (2, 5),
-                &[
-                    0, 0, 0, 0, 0, //
-                    0, 0, 0, 0, 0,
-                ]
-            )
-            .unwrap(),
-        );
-
-        // first fits, second 1 too long
-        let encoding = tokenizer(5)
-            .encode(vec!["a b c".to_string(), "a b c d".to_string()])
-            .unwrap();
-        assert_eq!(
-            encoding.input_ids.0,
-            ArrayView::from_shape(
-                (2, 5),
-                &[
-                    2, 7, 8, 9, 3, //
-                    2, 7, 8, 9, 3
-                ],
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.attention_masks.0,
-            ArrayView::from_shape(
-                (2, 5),
-                &[
-                    1, 1, 1, 1, 1, //
-                    1, 1, 1, 1, 1,
-                ]
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            encoding.token_type_ids.0,
-            ArrayView::from_shape(
-                (2, 5),
-                &[
-                    0, 0, 0, 0, 0, //
-                    0, 0, 0, 0, 0,
-                ]
-            )
-            .unwrap(),
+            encoding.type_ids.0,
+            ArrayView::from_shape(shape, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
         );
     }
 
     #[test]
     fn test_encode_troublemakers() {
-        // known troublemakers
-        let encoding = tokenizer(15)
-            .encode(vec![
-                "for “life-threatening storm surge” according".to_string()
-            ])
-            .unwrap();
+        let shape = (1, 15);
+        let encoding = tokenizer(shape.1).encode("for “life-threatening storm surge” according");
         assert_eq!(
-            encoding.input_ids.0,
+            encoding.token_ids.0,
             ArrayView::from_shape(
-                (1, 15),
+                shape,
                 &[2, 1665, 1, 3902, 1, 83775, 11123, 41373, 1, 7469, 3, 0, 0, 0, 0],
             )
             .unwrap(),
         );
         assert_eq!(
-            encoding.attention_masks.0,
-            ArrayView::from_shape((1, 15), &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]).unwrap(),
+            encoding.attention_mask.0,
+            ArrayView::from_shape(shape, &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]).unwrap(),
         );
         assert_eq!(
-            encoding.token_type_ids.0,
-            ArrayView::from_shape((1, 15), &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
+            encoding.type_ids.0,
+            ArrayView::from_shape(shape, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
         );
     }
 }

@@ -79,6 +79,14 @@ impl<N> Padding<N> {
             } => encoding.pad(len, pad_id, N::zero(), pad_token),
         }
     }
+
+    /// Gets the padding token.
+    pub(crate) fn pad_token(&self) -> &str {
+        match self.0 {
+            Paddings::None => "",
+            Paddings::Fixed { ref pad_token, .. } => pad_token.as_str(),
+        }
+    }
 }
 
 #[cfg(test)]

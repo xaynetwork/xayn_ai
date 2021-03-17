@@ -17,7 +17,7 @@ pub struct Encoding<N> {
     /// The tokenized sequence.
     pub(crate) tokens: Vec<String>,
     /// The indices of the word associated to the tokens.
-    pub(crate) words: Vec<Option<N>>,
+    pub(crate) word_indices: Vec<Option<N>>,
     /// The offsets of the tokens in the sequence.
     pub(crate) offsets: Vec<Offsets>,
     /// The mask identifying special tokens.
@@ -54,7 +54,7 @@ where
         }
         assert!(
             sequence.splits.iter().all(|split| !split.tokens.is_empty()),
-            "Split has not been tokenized, call `PreTokenizedString::tokenize` first",
+            "Sequence has not been tokenized, call `Model::tokenize` first",
         );
 
         let len = sequence
@@ -67,7 +67,7 @@ where
             .iter()
             .flat_map(|split| split.tokens.iter().map(|token| token.id))
             .collect();
-        let words = sequence
+        let word_indices = sequence
             .splits
             .iter()
             .enumerate()
@@ -100,13 +100,39 @@ where
             ids,
             type_ids: vec![N::zero(); len],
             tokens,
-            words,
+            word_indices,
             offsets,
             special_tokens_mask: vec![N::zero(); len],
             attention_mask: vec![N::one(); len],
             sequence_ranges: None,
             overflowing: None,
         }
+    }
+}
+
+impl<N> From<Encoding<N>>
+    for (
+        Vec<N>,
+        Vec<N>,
+        Vec<String>,
+        Vec<Option<N>>,
+        Vec<Offsets>,
+        Vec<N>,
+        Vec<N>,
+        Option<Vec<Encoding<N>>>,
+    )
+{
+    fn from(encoding: Encoding<N>) -> Self {
+        (
+            encoding.ids,
+            encoding.type_ids,
+            encoding.tokens,
+            encoding.word_indices,
+            encoding.offsets,
+            encoding.special_tokens_mask,
+            encoding.attention_mask,
+            encoding.overflowing,
+        )
     }
 }
 
@@ -117,7 +143,7 @@ impl<N> Encoding<N> {
             ids: Vec::with_capacity(capacity),
             type_ids: Vec::with_capacity(capacity),
             tokens: Vec::with_capacity(capacity),
-            words: Vec::with_capacity(capacity),
+            word_indices: Vec::with_capacity(capacity),
             offsets: Vec::with_capacity(capacity),
             special_tokens_mask: Vec::with_capacity(capacity),
             attention_mask: Vec::with_capacity(capacity),
@@ -136,8 +162,8 @@ impl<N> Encoding<N> {
         self.ids.is_empty()
     }
 
-    /// Gets the number of combinded sequences.
-    pub fn sequences(&self) -> usize {
+    /// Gets the number of combined sequences.
+    pub fn sequences_len(&self) -> usize {
         self.sequence_ranges
             .as_ref()
             .map(|sequence_ranges| sequence_ranges.len())
@@ -159,9 +185,9 @@ impl<N> Encoding<N> {
         self.tokens.as_slice()
     }
 
-    /// Gets the words.
-    pub fn words(&self) -> &[Option<N>] {
-        self.words.as_slice()
+    /// Gets the word indices.
+    pub fn word_indices(&self) -> &[Option<N>] {
+        self.word_indices.as_slice()
     }
 
     /// Gets the offsets.
@@ -256,7 +282,7 @@ impl<N> Encoding<N> {
         self.ids.extend(other.ids);
         self.type_ids.extend(other.type_ids);
         self.tokens.extend(other.tokens);
-        self.words.extend(other.words);
+        self.word_indices.extend(other.word_indices);
 
         let starting_offset = if growing_offsets {
             self.offsets.last().map_or(0, |o| o.1)
@@ -302,7 +328,8 @@ impl<N> Encoding<N> {
             .extend(from.type_ids.iter().skip(skip).take(take));
         self.tokens
             .extend(from.tokens.iter().skip(skip).take(take).cloned());
-        self.words.extend(from.words.iter().skip(skip).take(take));
+        self.word_indices
+            .extend(from.word_indices.iter().skip(skip).take(take));
         self.offsets
             .extend(from.offsets.iter().skip(skip).take(take));
         self.special_tokens_mask
@@ -336,10 +363,10 @@ impl<N> Encoding<N> {
                 .drain(..)
                 .chain(from.tokens.iter().skip(skip).take(take).cloned())
                 .collect(),
-            words: self
-                .words
+            word_indices: self
+                .word_indices
                 .drain(..)
-                .chain(from.words.iter().skip(skip).take(take).copied())
+                .chain(from.word_indices.iter().skip(skip).take(take).copied())
                 .collect(),
             offsets: self
                 .offsets
@@ -395,7 +422,7 @@ impl<N> Encoding<N> {
             ids: self.ids.split_off(len),
             type_ids: self.type_ids.split_off(len),
             tokens: self.tokens.split_off(len),
-            words: self.words.split_off(len),
+            word_indices: self.word_indices.split_off(len),
             offsets: self.offsets.split_off(len),
             special_tokens_mask: self.special_tokens_mask.split_off(len),
             attention_mask: self.attention_mask.split_off(len),
@@ -403,7 +430,7 @@ impl<N> Encoding<N> {
             overflowing: None,
         };
 
-        // When truncating, we loose the `sequence_ranges` information.
+        // When truncating, we lose the `sequence_ranges` information.
         self.sequence_ranges = None;
 
         // Now we need to separate the overflowing part into as many Encoding as needed
@@ -454,7 +481,8 @@ impl<N> Encoding<N> {
             .extend(iter::repeat(pad_type_id).take(pad_length));
         self.tokens
             .extend(iter::repeat(pad_token.to_string()).take(pad_length));
-        self.words.extend(iter::repeat(None).take(pad_length));
+        self.word_indices
+            .extend(iter::repeat(None).take(pad_length));
         self.attention_mask
             .extend(iter::repeat(N::zero()).take(pad_length));
         self.special_tokens_mask
@@ -468,26 +496,29 @@ impl<N> Encoding<N> {
     /// Decodes with optional cleanup.
     pub(crate) fn decode(
         &self,
-        unk: impl AsRef<str>,
-        prefix: impl AsRef<str>,
+        cls: &str,
+        sep: &str,
+        pad: &str,
+        unk: &str,
+        prefix: &str,
         cleanup: bool,
     ) -> String {
         let tokens = self
             .tokens
             .iter()
             .filter_map(|token| {
-                if !cleanup || token != unk.as_ref() {
+                if !cleanup || (token != cls && token != sep && token != pad && token != unk) {
                     Some(token.as_str())
                 } else {
                     None
                 }
             })
             .collect::<Vec<_>>();
-        let mut string = tokens
+        let mut sequence = tokens
             .join(" ")
-            .replace(format!(" {}", prefix.as_ref()).as_str(), "");
+            .replace(format!(" {}", prefix).as_str(), "");
         if cleanup {
-            string = string
+            sequence = sequence
                 .replace(" .", ".")
                 .replace(" ?", "?")
                 .replace(" !", "!")
@@ -501,7 +532,7 @@ impl<N> Encoding<N> {
                 .replace(" 're", "'re");
         }
 
-        string
+        sequence
     }
 }
 
@@ -515,7 +546,7 @@ mod tests {
             ids: vec![1],
             type_ids: vec![0],
             tokens: vec![String::from("Hello ")],
-            words: vec![Some(0)],
+            word_indices: vec![Some(0)],
             offsets: vec![Offsets(0, 6)],
             special_tokens_mask: vec![0],
             attention_mask: vec![1],
@@ -526,7 +557,7 @@ mod tests {
             ids: vec![2],
             type_ids: vec![1],
             tokens: vec![String::from("World!")],
-            words: vec![Some(0)],
+            word_indices: vec![Some(0)],
             offsets: vec![Offsets(0, 6)],
             special_tokens_mask: vec![0],
             attention_mask: vec![1],
@@ -538,7 +569,7 @@ mod tests {
             ids: vec![1, 2],
             type_ids: vec![0, 1],
             tokens: vec![String::from("Hello "), String::from("World!")],
-            words: vec![Some(0), Some(0)],
+            word_indices: vec![Some(0), Some(0)],
             offsets: vec![Offsets(0, 6), Offsets(6, 12)],
             special_tokens_mask: vec![0, 0],
             attention_mask: vec![1, 1],
@@ -554,7 +585,7 @@ mod tests {
             ids: vec![1, 2, 3],
             type_ids: vec![0, 0, 0],
             tokens: vec!["Hello".into(), "World".into(), "!".into()],
-            words: vec![Some(0), Some(1), Some(2)],
+            word_indices: vec![Some(0), Some(1), Some(2)],
             offsets: vec![Offsets(0, 5), Offsets(6, 11), Offsets(11, 12)],
             special_tokens_mask: vec![0, 0, 0],
             attention_mask: vec![1, 1, 1],
@@ -566,7 +597,7 @@ mod tests {
             ids: vec![1, 2],
             type_ids: vec![0, 0],
             tokens: vec!["Hello".into(), "World".into()],
-            words: vec![Some(0), Some(1)],
+            word_indices: vec![Some(0), Some(1)],
             offsets: vec![Offsets(0, 5), Offsets(6, 11)],
             special_tokens_mask: vec![0, 0],
             attention_mask: vec![1, 1],
@@ -575,7 +606,7 @@ mod tests {
                 ids: vec![3],
                 type_ids: vec![0],
                 tokens: vec!["!".into()],
-                words: vec![Some(2)],
+                word_indices: vec![Some(2)],
                 offsets: vec![Offsets(11, 12)],
                 special_tokens_mask: vec![0],
                 attention_mask: vec![1],
@@ -592,7 +623,7 @@ mod tests {
             ids: vec![1, 2, 3],
             type_ids: vec![0, 0, 0],
             tokens: vec!["Hello".into(), "World".into(), "!".into()],
-            words: vec![Some(0), Some(1), Some(2)],
+            word_indices: vec![Some(0), Some(1), Some(2)],
             offsets: vec![Offsets(0, 5), Offsets(6, 11), Offsets(11, 12)],
             special_tokens_mask: vec![0, 0, 0],
             attention_mask: vec![1, 1, 1],
@@ -605,7 +636,7 @@ mod tests {
             ids: vec![1, 2, 3],
             type_ids: vec![0, 0, 0],
             tokens: vec!["Hello".into(), "World".into(), "!".into()],
-            words: vec![Some(0), Some(1), Some(2)],
+            word_indices: vec![Some(0), Some(1), Some(2)],
             offsets: vec![Offsets(0, 5), Offsets(6, 11), Offsets(11, 12)],
             special_tokens_mask: vec![0, 0, 0],
             attention_mask: vec![1, 1, 1],
@@ -613,5 +644,30 @@ mod tests {
             overflowing: None,
         }]);
         assert_eq!(truncated, expected);
+    }
+
+    #[test]
+    fn test_decode() {
+        let mut encoding = Encoding::<u32>::with_capacity(0);
+
+        encoding.tokens = vec![
+            "[CLS]".into(),
+            "hello".into(),
+            "world".into(),
+            "!".into(),
+            "[SEP]".into(),
+            "[PAD]".into(),
+            "[PAD]".into(),
+        ];
+        assert_eq!(
+            encoding.decode("[CLS]", "[SEP]", "[PAD]", "[UNK]", "##", true),
+            "hello world!",
+        );
+
+        encoding.tokens = vec!["foo".into(), "##bar".into()];
+        assert_eq!(encoding.decode("", "", "", "", "##", true), "foobar");
+
+        encoding.tokens = vec!["[UNK]".into()];
+        assert_eq!(encoding.decode("", "", "", "[UNK]", "", true), "");
     }
 }

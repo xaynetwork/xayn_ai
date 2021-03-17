@@ -9,11 +9,11 @@ pub struct Truncation(Truncations);
 /// The potential errors of the truncation strategy.
 #[derive(Debug, Display, Error)]
 pub enum TruncationError {
-    /// Invalid truncation length, must be greater or equal to the number of special tokens added by
-    /// the post-tokenizer
+    /** Invalid truncation length, must be greater or equal to the number of special tokens added by
+    the post-tokenizer */
     FixedLength,
-    /// Invalid truncation stride, must be zero or less than the truncation length minus the number
-    /// of special tokens added by the post-tokenizer
+    /** Invalid truncation stride, must be zero or less than the truncation length minus the number
+    of special tokens added by the post-tokenizer */
     FixedStride,
 }
 
@@ -77,7 +77,7 @@ mod tests {
             ids: vec![1, 2, 3, 4],
             type_ids: vec![0, 0, 0, 0],
             tokens: vec!["a".into(), "b".into(), "c".into(), "d".into()],
-            words: vec![Some(0), Some(1), Some(2), Some(3)],
+            word_indices: vec![Some(0), Some(1), Some(2), Some(3)],
             offsets: vec![Offsets(0, 1), Offsets(1, 2), Offsets(2, 3), Offsets(3, 4)],
             special_tokens_mask: vec![0, 0, 0, 0],
             attention_mask: vec![1, 1, 1, 1],

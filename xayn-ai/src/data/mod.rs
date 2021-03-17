@@ -3,7 +3,7 @@
 pub mod document;
 pub mod document_data;
 
-use rubert::Embeddings;
+use crate::bert::Embedding;
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug))]
@@ -13,13 +13,13 @@ pub struct CoiId(pub usize);
 #[cfg_attr(test, derive(Clone))]
 pub struct Coi {
     pub id: CoiId,
-    pub point: Embeddings,
+    pub point: Embedding,
     pub alpha: f32,
     pub beta: f32,
 }
 
 impl Coi {
-    pub fn new(id: usize, point: Embeddings) -> Self {
+    pub fn new(id: usize, point: Embedding) -> Self {
         Self {
             id: CoiId(id),
             point,

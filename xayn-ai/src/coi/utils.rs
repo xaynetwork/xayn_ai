@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use ndarray::{ArrayViewD, Ix1};
-
 use crate::{
     data::{
         document::{Relevance, UserFeedback},
@@ -9,14 +7,13 @@ use crate::{
         Coi,
         UserInterests,
     },
+    ndarray::Array1,
     DocumentHistory,
     DocumentId,
 };
 
-pub fn l2_norm(x: ArrayViewD<f32>) -> f32 {
-    // https://github.com/rust-ndarray/ndarray/issues/886
-    let array_1d = x.into_dimensionality::<Ix1>().unwrap();
-    array_1d.dot(&array_1d).sqrt()
+pub fn l2_norm(array: Array1<f32>) -> f32 {
+    array.dot(&array).sqrt()
 }
 
 // utils for `make_user_interests`
@@ -149,40 +146,38 @@ pub fn count_coi_ids(documents: &[&DocumentDataWithMab]) -> HashMap<usize, u16> 
 pub(crate) mod tests {
     use float_cmp::approx_eq;
     use maplit::hashmap;
-    use ndarray::{array, Array1};
-    use rubert::Embeddings;
 
     use super::*;
+    use crate::{
+        data::document_data::{DocumentIdComponent, EmbeddingComponent},
+        ndarray::{arr1, FixedInitializer},
+    };
 
-    use crate::data::document_data::{DocumentIdComponent, EmbeddingComponent};
-
-    pub fn create_cois(points: Vec<Array1<f32>>) -> Vec<Coi> {
+    pub fn create_cois(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<Coi> {
         points
-            .into_iter()
+            .iter()
             .enumerate()
-            .map(|(id, point)| Coi::new(id, create_embedding(point)))
+            .map(|(id, point)| Coi::new(id, arr1(point.as_init_slice()).into()))
             .collect()
     }
 
-    pub fn create_embedding(point: Array1<f32>) -> Embeddings {
-        Embeddings(point.into_shared().into_dyn())
-    }
-
-    pub fn create_data_with_embeddings(points: Vec<Array1<f32>>) -> Vec<DocumentDataWithEmbedding> {
-        points
-            .into_iter()
+    pub fn create_data_with_embeddings(
+        embeddings: &[impl FixedInitializer<Elem = f32>],
+    ) -> Vec<DocumentDataWithEmbedding> {
+        embeddings
+            .iter()
             .enumerate()
-            .map(|(id, point)| create_data_with_embedding(id, point))
+            .map(|(id, embedding)| create_data_with_embedding(id, embedding.as_init_slice()))
             .collect()
     }
 
-    pub fn create_data_with_embedding(id: usize, point: Array1<f32>) -> DocumentDataWithEmbedding {
+    pub fn create_data_with_embedding(id: usize, embedding: &[f32]) -> DocumentDataWithEmbedding {
         DocumentDataWithEmbedding {
             document_id: DocumentIdComponent {
                 id: DocumentId(id.to_string()),
             },
             embedding: EmbeddingComponent {
-                embedding: create_embedding(point),
+                embedding: arr1(embedding).into(),
             },
         }
     }
@@ -201,10 +196,10 @@ pub(crate) mod tests {
 
     #[test]
     fn test_update_alpha_and_beta() {
-        let cois = create_cois(vec![array![1., 0., 0.], array![1., 0., 0.]]);
+        let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.]]);
         let counts = hashmap! {
             0 => 1,
-            1 => 2
+            1 => 2,
         };
 
         let updated_cois = update_alpha(&counts, cois.clone());
@@ -222,11 +217,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_update_alpha_or_beta() {
-        let cois = create_cois(vec![
-            array![1., 0., 0.],
-            array![1., 0., 0.],
-            array![1., 0., 0.],
-        ]);
+        let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.], [1., 0., 0.]]);
 
         let counts = hashmap! {
             0 => 1,
@@ -258,7 +249,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_extend_user_interests_empty_interests() {
-        let docs = create_data_with_embeddings(vec![array![1., 0., 0.]]);
+        let docs = create_data_with_embeddings(&[[1., 0., 0.]]);
         let documents = vec![&docs[0]];
 
         let extended = extend_user_interests(documents, Vec::new());
@@ -274,25 +265,27 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_extend_user_interests_non_empty_interests() {
-        let interests = create_cois(vec![array![1., 0., 0.]]);
+        let interests = create_cois(&[[1., 0., 0.]]);
 
-        let docs = create_data_with_embeddings(vec![array![1., 2., 3.]]);
+        let docs = create_data_with_embeddings(&[[1., 2., 3.]]);
         let documents = vec![&docs[0]];
 
         let extended = extend_user_interests(documents, interests);
 
         assert_eq!(extended.len(), 2);
         assert_eq!(extended[0].id.0, 0);
-        assert_eq!(extended[0].point, create_embedding(array![1., 0., 0.]));
+        assert_eq!(extended[0].point, [1., 0., 0.]);
 
         assert_eq!(extended[1].id.0, 1);
-        assert_eq!(extended[1].point, create_embedding(array![1., 2., 3.]));
+        assert_eq!(extended[1].point, [1., 2., 3.]);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_extend_user_interests_based_on_documents() {
-        let docs = create_data_with_embeddings(vec![array![1., 2., 3.], array![3., 2., 1.]]);
+        let docs = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
 
         let UserInterests { positive, negative } = extend_user_interests_based_on_documents(
             vec![&docs[0]],
@@ -302,11 +295,11 @@ pub(crate) mod tests {
 
         assert_eq!(positive.len(), 1);
         assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, create_embedding(array![1., 2., 3.]));
+        assert_eq!(positive[0].point, [1., 2., 3.]);
 
         assert_eq!(negative.len(), 1);
         assert_eq!(negative[0].id.0, 0);
-        assert_eq!(negative[0].point, create_embedding(array![3., 2., 1.]));
+        assert_eq!(negative[0].point, [3., 2., 1.]);
     }
 
     #[test]
@@ -318,7 +311,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Negative
+            DocumentRelevance::Negative,
         ));
 
         history = DocumentHistory {
@@ -328,7 +321,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Positive
+            DocumentRelevance::Positive,
         ));
 
         history = DocumentHistory {
@@ -338,7 +331,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Positive
+            DocumentRelevance::Positive,
         ));
 
         history = DocumentHistory {
@@ -348,7 +341,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Positive
+            DocumentRelevance::Positive,
         ));
 
         history = DocumentHistory {
@@ -358,7 +351,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Positive
+            DocumentRelevance::Positive,
         ));
 
         history = DocumentHistory {
@@ -368,7 +361,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Positive
+            DocumentRelevance::Positive,
         ));
 
         history = DocumentHistory {
@@ -378,7 +371,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Positive
+            DocumentRelevance::Positive,
         ));
 
         history = DocumentHistory {
@@ -388,7 +381,7 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Positive
+            DocumentRelevance::Positive,
         ));
 
         history = DocumentHistory {
@@ -398,46 +391,30 @@ pub(crate) mod tests {
         };
         assert!(matches!(
             document_relevance(&history),
-            DocumentRelevance::Negative
+            DocumentRelevance::Negative,
         ));
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_classify_documents_based_on_user_feedback() {
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
             (Relevance::Low, UserFeedback::Relevant),
             (Relevance::Low, UserFeedback::Relevant),
         ]);
-        let docs = create_data_with_embeddings(vec![
-            array![1., 2., 3.],
-            array![3., 2., 1.],
-            array![4., 5., 6.],
-        ]);
-        let matching_documents = vec![
-            (&history[0], &docs[0]),
-            (&history[1], &docs[1]),
-            (&history[2], &docs[2]),
-        ];
+        let docs = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.], [4., 5., 6.]]);
+        let matching_documents = history.iter().zip(docs.iter()).collect();
 
         let (positive_docs, negative_docs) =
             classify_documents_based_on_user_feedback(matching_documents);
 
         assert_eq!(positive_docs.len(), 2);
-        assert_eq!(
-            positive_docs[0].embedding.embedding,
-            create_embedding(array![3., 2., 1.])
-        );
-        assert_eq!(
-            positive_docs[1].embedding.embedding,
-            create_embedding(array![4., 5., 6.])
-        );
+        assert_eq!(positive_docs[0].embedding.embedding, [3., 2., 1.]);
+        assert_eq!(positive_docs[1].embedding.embedding, [4., 5., 6.]);
 
         assert_eq!(negative_docs.len(), 1);
-        assert_eq!(
-            negative_docs[0].embedding.embedding,
-            create_embedding(array![1., 2., 3.])
-        );
+        assert_eq!(negative_docs[0].embedding.embedding, [1., 2., 3.]);
     }
 
     #[test]
@@ -449,9 +426,8 @@ pub(crate) mod tests {
             (Relevance::Low, UserFeedback::Relevant),
         ]);
 
-        let mut documents =
-            create_data_with_embeddings(vec![array![1., 2., 3.], array![3., 2., 1.]]);
-        documents.push(create_data_with_embedding(5, array![4., 5., 6.]));
+        let mut documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
+        documents.push(create_data_with_embedding(5, &[4., 5., 6.]));
 
         let matching_documents = collect_matching_documents(&history, &documents);
 

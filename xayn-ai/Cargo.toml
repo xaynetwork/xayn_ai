@@ -8,12 +8,11 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.38"
-displaydoc = "0.1.7"
-ndarray = "=0.13.0"
+displaydoc = "0.2.0"
 rand = "0.8"
 rand_distr = "0.4"
 rubert = { path = "../rubert" }
-thiserror = "1.0.23"
+thiserror = "1.0.24"
 
 [dev-dependencies]
 float-cmp = "0.8.0"

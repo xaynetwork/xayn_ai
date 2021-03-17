@@ -94,3 +94,71 @@ impl<N> Model<N> {
         TokenizedString::from(sequence).tokenize(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{normalizer::string::Offsets, pre_tokenizer::PreTokenizer};
+
+    fn assert_eq<N>(actual: TokenizedString<N>, expected: Vec<Vec<(&str, N, Offsets)>>)
+    where
+        N: std::fmt::Debug + PartialEq,
+    {
+        assert_eq!(actual.splits.len(), expected.len());
+        for (split, tokens) in actual.splits.iter().zip(expected) {
+            assert_eq!(split.tokens.len(), tokens.len());
+            let offset = split.normalized.offset;
+            for (token, (value, id, offsets)) in split.tokens.iter().zip(tokens) {
+                assert_eq!(token.id, id);
+                assert_eq!(token.value, value);
+                assert_eq!(offset + token.offsets.0, offsets.0);
+                assert_eq!(offset + token.offsets.1, offsets.1);
+            }
+        }
+    }
+
+    #[test]
+    fn test_tokenize() {
+        let vocab =
+            Model::<u32>::parse_vocab(["[UNK]", "foo", "##bar"].join("\n").as_bytes()).unwrap();
+        let model = Model::new(vocab, "[UNK]".into(), "##".into(), 10).unwrap();
+        let pre_tokenized = PreTokenizer.pre_tokenize("foo bar foobar".into());
+
+        let tokenized = model.tokenize(pre_tokenized);
+        let expected = vec![
+            vec![("foo", model.vocab["foo"], Offsets(0, 3))],
+            vec![("[UNK]", model.vocab["[UNK]"], Offsets(4, 7))],
+            vec![
+                ("foo", model.vocab["foo"], Offsets(8, 11)),
+                ("##bar", model.vocab["##bar"], Offsets(11, 14)),
+            ],
+        ];
+        assert_eq(tokenized, expected);
+    }
+
+    #[test]
+    fn test_tokenize_empty() {
+        let vocab = Model::<u32>::parse_vocab(["[UNK]", "##"].join("\n").as_bytes()).unwrap();
+        let model = Model::new(vocab, "[UNK]".into(), "##".into(), 10).unwrap();
+        let pre_tokenized = PreTokenizer.pre_tokenize("".into());
+
+        let tokenized = model.tokenize(pre_tokenized);
+        let expected = vec![];
+        assert_eq(tokenized, expected);
+    }
+
+    #[test]
+    fn test_tokenize_unknown() {
+        let vocab =
+            Model::<u32>::parse_vocab(["[UNK]", "foo", "##bar"].join("\n").as_bytes()).unwrap();
+        let model = Model::new(vocab, "[UNK]".into(), "##".into(), 10).unwrap();
+        let pre_tokenized = PreTokenizer.pre_tokenize("baz bazbaz".into());
+
+        let tokenized = model.tokenize(pre_tokenized);
+        let expected = vec![
+            vec![("[UNK]", model.vocab["[UNK]"], Offsets(0, 3))],
+            vec![("[UNK]", model.vocab["[UNK]"], Offsets(4, 10))],
+        ];
+        assert_eq(tokenized, expected);
+    }
+}

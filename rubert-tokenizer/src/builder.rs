@@ -67,7 +67,7 @@ impl<N> Builder<N> {
             // normalizer
             cleanup: true,
             chinese: true,
-            accents: true,
+            accents: false,
             lowercase: true,
             // model
             vocab: Model::parse_vocab(vocab)?,
@@ -98,8 +98,8 @@ impl<N> Builder<N> {
     /// Configurable by:
     /// - Cleans any control characters and replaces all sorts of whitespace by ` `. Defaults to
     /// `true`.
-    /// - Puts spaces around Chinese characters so they get split. Defaults to `true`.
-    /// - Strips accents from characters. Defaults to `true`.
+    /// - Separates Chinese characters by whitespace so they get split. Defaults to `true`.
+    /// - Keeps accents of characters. Defaults to `false`.
     /// - Lowercases characters. Defaults to `true`.
     pub fn with_normalizer(
         mut self,

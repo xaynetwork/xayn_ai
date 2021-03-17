@@ -1,4 +1,7 @@
-use std::io::{Error as IoError, Read};
+use std::{
+    io::{Error as IoError, Read},
+    sync::Arc,
+};
 
 use derive_more::{Deref, From};
 use displaydoc::Display;
@@ -9,63 +12,45 @@ use tract_onnx::prelude::{
     Framework,
     InferenceFact,
     InferenceModelExt,
+    Tensor,
     TractError,
     TypedModel,
     TypedSimplePlan,
 };
 
-use crate::{
-    ndarray::{s, Array2, Data, Dim, Dimension, IntoDimension, Ix2, Ix3},
-    tokenizer::Encodings,
-    utils::{ArcArray3, ArrayBase2},
-};
+use crate::tokenizer::Encoding;
 
-/// A [`RuBert`] model.
-///
-/// Based on an onnx model definition.
-///
-/// [`RuBert`]: crate::pipeline::RuBert
+/// A Bert onnx model.
 pub struct Model {
     plan: TypedSimplePlan<TypedModel>,
-    input_shape: Ix2,
-    output_shape: Ix3,
+    pub(crate) embedding_size: usize,
 }
 
-/// Potential errors of the [`RuBert`] [`Model`].
-///
-/// [`RuBert`]: crate::pipeline::RuBert
+/// The potential errors of the model.
 #[derive(Debug, Display, Error)]
 pub enum ModelError {
-    /// Failed to read the onnx model: {0}.
+    /// Failed to read the onnx model: {0}
     Read(#[from] IoError),
-    /// Failed to run a tract operation: {0}.
+    /// Failed to run a tract operation: {0}
     Tract(#[from] TractError),
-    /// Invalid model shapes.
+    /// Invalid onnx model shapes
     Shape,
 }
 
-/// The predicted encodings.
+/// The predicted encoding.
 #[derive(Clone, Deref, From)]
-pub struct Predictions(pub(crate) ArcArray3<f32>);
+pub struct Prediction(Arc<Tensor>);
 
 impl Model {
-    /// Creates a [`RuBert`] model from an onnx model file.
+    /// Creates a model from an onnx model file.
     ///
-    /// Requires the batch and token size of the model inputs.
-    ///
-    /// # Errors
-    /// Fails if the onnx model can't be build from the model file.
-    ///
-    /// [`RuBert`]: crate::pipeline::RuBert
+    /// Requires the maximum number of tokens per tokenized sequence.
     pub fn new(
         // `Read` instead of `AsRef<Path>` is needed for wasm
         mut model: impl Read,
-        batch_size: usize,
         token_size: usize,
     ) -> Result<Self, ModelError> {
-        let input_shape = Dim([batch_size, token_size]);
-        let input_fact = InferenceFact::dt_shape(i64::datum_type(), input_shape.slice());
-
+        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
             .with_input_fact(0, input_fact.clone())?
@@ -73,162 +58,61 @@ impl Model {
             .with_input_fact(2, input_fact)?
             .into_optimized()?
             .into_runnable()?;
-        let output_shape = plan
+
+        let embedding_size = plan
             .model()
             .output_fact(0)?
             .shape
             .as_finite()
-            .map(|os| os.get(0..3).map(|os| Dim([os[0], os[1], os[2]])))
+            .map(|shape| {
+                // input/output shapes are guaranteed to match when a sound onnx model is loaded
+                debug_assert_eq!([1, token_size], shape.as_slice()[0..2]);
+                shape.get(2).copied()
+            })
             .flatten()
             .ok_or(ModelError::Shape)?;
-        // input/output shapes are guaranteed to match when a sound onnx model is loaded
-        debug_assert_eq!(input_shape.slice(), &output_shape.slice()[0..2]);
 
         Ok(Model {
             plan,
-            input_shape,
-            output_shape,
+            embedding_size,
         })
     }
 
-    /// Runs prediction on encoded sentences.
-    ///
-    /// The inputs will be padded or truncated to the shape `(batch_size, token_size)`. The row
-    /// dimension (0) of the output will be the minimum between `batch_size` and the row dimension
-    /// of the inputs.
-    pub fn predict(&self, encodings: Encodings) -> Result<Predictions, ModelError> {
-        let Encodings {
-            input_ids,
-            attention_masks,
-            token_type_ids,
-        } = encodings;
-        // encodings shapes are guaranteed to match when coming from the rubert tokenizer
-        debug_assert_eq!(input_ids.shape(), attention_masks.shape());
-        debug_assert_eq!(input_ids.shape(), token_type_ids.shape());
-
-        let output_rows = std::cmp::min(input_ids.dim().0, self.input_shape[0]);
-
+    /// Runs prediction on the encoded sequence.
+    pub fn predict(&self, encoding: Encoding) -> Result<Prediction, ModelError> {
         let inputs = tvec!(
-            pad_or_truncate(input_ids.0, self.input_shape).into(),
-            pad_or_truncate(attention_masks.0, self.input_shape).into(),
-            pad_or_truncate(token_type_ids.0, self.input_shape).into()
+            encoding.token_ids.0.into(),
+            encoding.attention_mask.0.into(),
+            encoding.type_ids.0.into()
         );
-        let outputs = self.plan.run(inputs)?;
-        let predictions = outputs[0]
-            .to_array_view::<f32>()?
-            .slice(s![..output_rows, .., ..])
-            .to_shared()
-            .into();
+        let mut outputs = self.plan.run(inputs)?;
 
-        Ok(predictions)
+        Ok(outputs.remove(0).into())
     }
-
-    /// Returns the batch size of the model.
-    pub fn batch_size(&self) -> usize {
-        self.input_shape[0]
-    }
-
-    /// Returns the token size of the model.
-    pub fn token_size(&self) -> usize {
-        self.input_shape[1]
-    }
-
-    /// Returns the embedding size of the model.
-    pub fn embedding_size(&self) -> usize {
-        self.output_shape[2]
-    }
-}
-
-/// Pads or truncates the `array` to the `shape`.
-fn pad_or_truncate(
-    array: ArrayBase2<impl Data<Elem = u32>>,
-    shape: impl IntoDimension<Dim = Ix2>,
-) -> Array2<i64> {
-    Array2::from_shape_fn(shape, |coords| *array.get(coords).unwrap_or(&0) as i64)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, io::BufReader};
+
     use super::*;
+    use crate::{ndarray::Array2, tests::MODEL};
 
     #[test]
-    fn test_pad_truncate_same_dim() {
-        let dim = (5, 5);
+    fn test_predict() {
+        let shape = (1, 64);
+        let model = BufReader::new(File::open(MODEL).unwrap());
+        let model = Model::new(model, shape.1).unwrap();
 
-        let a = Array2::<u32>::ones(dim);
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((7, 7));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_rows_same_cols() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((7, 5));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_rows_smaller_cols() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((7, 3));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..3]).iter().all(|e| *e == 1));
-        assert!(r.slice(s![.., 3..]).iter().all(|e| *e == 0));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_cols_same_rows() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((5, 7));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![.., ..]).iter().all(|e| *e == 1));
-    }
-
-    #[test]
-    fn test_pad_truncate_bigger_cols_smaller_rows() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((3, 7));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![..3, ..]).iter().all(|e| *e == 1));
-        assert!(r.slice(s![3.., ..]).iter().all(|e| *e == 0));
-    }
-
-    #[test]
-    fn test_pad_truncate_smaller() {
-        let dim = (5, 5);
-
-        let a = Array2::<u32>::ones((3, 3));
-        let r = pad_or_truncate(a, dim);
-
-        assert_eq!(r.dim(), dim);
-        assert!(r.slice(s![..3, ..3]).iter().all(|e| *e == 1));
-        assert!(r.slice(s![3.., ..]).iter().all(|e| *e == 0));
-        assert!(r.slice(s![.., 3..]).iter().all(|e| *e == 0));
+        let encoding = Encoding {
+            token_ids: Array2::from_elem(shape, 0).into(),
+            attention_mask: Array2::from_elem(shape, 1).into(),
+            type_ids: Array2::from_elem(shape, 0).into(),
+        };
+        let prediction = model.predict(encoding).unwrap();
+        assert_eq!(
+            prediction.shape(),
+            &[shape.0, shape.1, model.embedding_size],
+        )
     }
 }

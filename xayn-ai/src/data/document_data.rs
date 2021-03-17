@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
-use crate::data::{document::DocumentId, CoiId};
-use rubert::Embeddings;
+use crate::{
+    bert::Embedding,
+    data::{document::DocumentId, CoiId},
+};
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
@@ -20,7 +22,7 @@ pub struct DocumentContentComponent {
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct EmbeddingComponent {
-    pub embedding: Embeddings,
+    pub embedding: Embedding,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -165,6 +167,7 @@ impl DocumentDataWithMab {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ndarray::arr1;
 
     #[test]
     fn transition_and_get() {
@@ -182,7 +185,7 @@ mod tests {
         assert_eq!(document_data.document_content, document_content);
 
         let embedding = EmbeddingComponent {
-            embedding: vec![1., 2., 3., 4.].into(),
+            embedding: arr1(&[1., 2., 3., 4.]).into(),
         };
         let document_data =
             DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
