@@ -75,7 +75,6 @@ jobs:
           mv cross ~/.cargo/bin/
 
       - name: Test Android libraries
-        working-directory: ./xayn-ai-ffi
         run: cross test --target ${{ matrix.target }}
 
 
