@@ -57,7 +57,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install ${{ env.RUST_NIGHTLY }} toolchain
         id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -87,7 +87,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
+      - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -126,7 +126,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
+      - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -164,7 +164,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
+      - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -208,7 +208,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
+      - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -239,35 +239,6 @@ jobs:
         with:
           version: '0.16.0'
           args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70'
-
-  cargo-ndk:
-    # we use the latest stable rustc + cargo version that is already installed on the image
-    # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
-    name: cargo-ndk
-    runs-on: ubuntu-20.04
-    outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
-    timeout-minutes: 15
-    steps:
-      - name: Generate cargo-ndk cache key
-        id: cache-key
-        shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-ndk-bin-${{ env.CARGO_NDK }})"
-
-      - name: Restore ${{ steps.cache-key.outputs.key }} cache
-        uses: actions/cache@v2.1.4
-        with:
-          path: ~/.cargo/bin/cargo-ndk
-          key: ${{ steps.cache-key.outputs.key }}
-
-      - name: Test for cargo-ndk ${{ env.CARGO_NDK }}
-        id: test-bin
-        shell: bash
-        run: echo "::set-output name=exist::$(test -e ~/.cargo/bin/cargo-ndk && echo $?)"
-
-      - name: Install cargo-ndk ${{ env.CARGO_NDK }}
-        if: steps.test-bin.outputs.exist != '0'
-        run: cargo install cargo-ndk --version ${{ env.CARGO_NDK }}
 
   cargo-lipo:
     # we use the latest stable rustc + cargo version that is already installed on the image
@@ -310,6 +281,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          default: true
 
       - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
@@ -384,6 +362,35 @@ jobs:
       - name: Build iOS library ${{ matrix.target }}
         working-directory: ./xayn-ai-ffi
         run: cargo lipo --targets ${{ matrix.target }}
+
+  # cargo-ndk:
+  #   # we use the latest stable rustc + cargo version that is already installed on the image
+  #   # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
+  #   name: cargo-ndk
+  #   runs-on: ubuntu-20.04
+  #   outputs:
+  #     cache-key: ${{ steps.cache-key.outputs.key }}
+  #   timeout-minutes: 15
+  #   steps:
+  #     - name: Generate cargo-ndk cache key
+  #       id: cache-key
+  #       shell: bash
+  #       run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-ndk-bin-${{ env.CARGO_NDK }})"
+
+  #     - name: Restore ${{ steps.cache-key.outputs.key }} cache
+  #       uses: actions/cache@v2.1.4
+  #       with:
+  #         path: ~/.cargo/bin/cargo-ndk
+  #         key: ${{ steps.cache-key.outputs.key }}
+
+  #     - name: Test for cargo-ndk ${{ env.CARGO_NDK }}
+  #       id: test-bin
+  #       shell: bash
+  #       run: echo "::set-output name=exist::$(test -e ~/.cargo/bin/cargo-ndk && echo $?)"
+
+  #     - name: Install cargo-ndk ${{ env.CARGO_NDK }}
+  #       if: steps.test-bin.outputs.exist != '0'
+  #       run: cargo install cargo-ndk --version ${{ env.CARGO_NDK }}
 
   # build-android-libs:
   #   name: build-android-libs
