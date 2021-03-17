@@ -9,11 +9,11 @@ pub struct Truncation(Truncations);
 /// The potential errors of the truncation strategy.
 #[derive(Debug, Display, Error)]
 pub enum TruncationError {
-    /// Invalid truncation length, must be greater or equal to the number of special tokens added by
-    /// the post-tokenizer
+    /** Invalid truncation length, must be greater or equal to the number of special tokens added by
+    the post-tokenizer */
     FixedLength,
-    /// Invalid truncation stride, must be zero or less than the truncation length minus the number
-    /// of special tokens added by the post-tokenizer
+    /** Invalid truncation stride, must be zero or less than the truncation length minus the number
+    of special tokens added by the post-tokenizer */
     FixedStride,
 }
 

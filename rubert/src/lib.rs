@@ -28,6 +28,9 @@ mod pipeline;
 mod pooler;
 mod tokenizer;
 
+#[doc(hidden)]
+pub use tract_onnx::prelude::tract_ndarray as ndarray;
+
 pub use crate::{
     builder::{Builder, BuilderError},
     model::ModelError,
@@ -35,7 +38,6 @@ pub use crate::{
     pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler, PoolerError},
     tokenizer::TokenizerError,
 };
-pub(crate) use tract_onnx::prelude::tract_ndarray as ndarray;
 
 #[cfg(test)]
 pub(crate) mod tests {

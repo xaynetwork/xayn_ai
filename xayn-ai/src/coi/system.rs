@@ -227,7 +227,6 @@ mod tests {
     use std::f32::{consts::SQRT_2, NAN};
 
     use float_cmp::approx_eq;
-    use ndarray::{arr1, FixedInitializer};
 
     use super::*;
     use crate::{
@@ -244,6 +243,7 @@ mod tests {
             },
             CoiId,
         },
+        ndarray::{arr1, FixedInitializer},
         reranker_systems::CoiSystem as CoiSystemTrait,
     };
 

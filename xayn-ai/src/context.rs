@@ -56,15 +56,17 @@ impl ContextCalc {
 
 #[cfg(test)]
 mod tests {
-    use ndarray::arr1;
+    use float_cmp::approx_eq;
 
     use super::*;
-    use crate::data::{
-        document::DocumentId,
-        document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent, LtrComponent},
-        CoiId,
+    use crate::{
+        data::{
+            document::DocumentId,
+            document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent, LtrComponent},
+            CoiId,
+        },
+        ndarray::arr1,
     };
-    use float_cmp::approx_eq;
 
     struct LtrDocBuilder {
         docs: Vec<DocumentDataWithLtr>,

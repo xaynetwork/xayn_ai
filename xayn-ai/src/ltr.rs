@@ -26,13 +26,14 @@ impl LtrSystem for ConstLtr {
 
 #[cfg(test)]
 mod tests {
-    use ndarray::arr1;
-
     use super::*;
-    use crate::data::{
-        document::DocumentId,
-        document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent},
-        CoiId,
+    use crate::{
+        data::{
+            document::DocumentId,
+            document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent},
+            CoiId,
+        },
+        ndarray::arr1,
     };
 
     #[allow(clippy::float_cmp)]

@@ -166,9 +166,8 @@ impl DocumentDataWithMab {
 
 #[cfg(test)]
 mod tests {
-    use ndarray::arr1;
-
     use super::*;
+    use crate::ndarray::arr1;
 
     #[test]
     fn transition_and_get() {

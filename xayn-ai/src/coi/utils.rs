@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use ndarray::Array1;
-
 use crate::{
     data::{
         document::{Relevance, UserFeedback},
@@ -9,6 +7,7 @@ use crate::{
         Coi,
         UserInterests,
     },
+    ndarray::Array1,
     DocumentHistory,
     DocumentId,
 };
@@ -147,10 +146,12 @@ pub fn count_coi_ids(documents: &[&DocumentDataWithMab]) -> HashMap<usize, u16> 
 pub(crate) mod tests {
     use float_cmp::approx_eq;
     use maplit::hashmap;
-    use ndarray::{arr1, FixedInitializer};
 
     use super::*;
-    use crate::data::document_data::{DocumentIdComponent, EmbeddingComponent};
+    use crate::{
+        data::document_data::{DocumentIdComponent, EmbeddingComponent},
+        ndarray::{arr1, FixedInitializer},
+    };
 
     pub fn create_cois(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<Coi> {
         points

@@ -7,10 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-displaydoc = "0.1.7"
+displaydoc = "0.2.0"
 num-traits = "0.2.14"
-regex = "1.4.3"
-regex-syntax = "0.6.22"
+regex = "1.4.5"
+regex-syntax = "0.6.23"
 smallstr = "0.2.0"
 thiserror = "1.0.24"
 unicode_categories = "0.1.1"
