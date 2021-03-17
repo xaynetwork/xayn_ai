@@ -77,8 +77,15 @@ jobs:
       - name: Download data
         run: sh download_data.sh
 
+      - name: Restore build artifacts
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-test-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-test-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+
       - name: Test Android libraries
-        run: cross test --target ${{ matrix.target }}
+        run: cross test --target ${{ matrix.target }} --release
 
 
 
