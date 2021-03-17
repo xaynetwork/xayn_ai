@@ -74,6 +74,9 @@ jobs:
           wget -q -O - https://github.com/rust-embedded/cross/releases/download/v0.2.1/cross-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xvzf -
           mv cross ~/.cargo/bin/
 
+      - name: Download data
+        run: sh download_data.sh
+
       - name: Test Android libraries
         run: cross test --target ${{ matrix.target }}
 
