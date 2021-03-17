@@ -94,7 +94,7 @@ mod tests {
 
     fn tokenizer(token_size: usize) -> Tokenizer {
         let vocab = BufReader::new(File::open(VOCAB).unwrap());
-        let accents = true;
+        let accents = false;
         let lowercase = true;
         Tokenizer::new(vocab, accents, lowercase, token_size).unwrap()
     }

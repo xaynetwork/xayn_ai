@@ -39,7 +39,7 @@ pub enum ModelError {
 
 /// The predicted encoding.
 #[derive(Clone, Deref, From)]
-pub struct Prediction(pub Arc<Tensor>);
+pub struct Prediction(Arc<Tensor>);
 
 impl Model {
     /// Creates a model from an onnx model file.
@@ -112,7 +112,7 @@ mod tests {
         let prediction = model.predict(encoding).unwrap();
         assert_eq!(
             prediction.shape(),
-            &[shape.0, shape.1, model.embedding_size]
+            &[shape.0, shape.1, model.embedding_size],
         )
     }
 }

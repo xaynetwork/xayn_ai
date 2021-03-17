@@ -76,17 +76,17 @@ impl<P> RuBert<P> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         builder::Builder,
         pooler::{AveragePooler, FirstPooler, NonePooler},
         tests::{MODEL, VOCAB},
-        RuBert,
     };
 
     fn rubert<P>(pooler: P) -> RuBert<P> {
         Builder::from_files(VOCAB, MODEL)
             .unwrap()
-            .with_accents(true)
+            .with_accents(false)
             .with_lowercase(true)
             .with_token_size(64)
             .unwrap()
@@ -99,7 +99,7 @@ mod tests {
     fn test_rubert_none() {
         let rubert = rubert(NonePooler);
 
-        let embeddings = rubert.run("This is a sentence.").unwrap();
+        let embeddings = rubert.run("This is a sequence.").unwrap();
         assert_eq!(
             embeddings.shape(),
             &[rubert.token_size(), rubert.embedding_size()],
@@ -116,7 +116,7 @@ mod tests {
     fn test_rubert_first() {
         let rubert = rubert(FirstPooler);
 
-        let embeddings = rubert.run("This is a sentence.").unwrap();
+        let embeddings = rubert.run("This is a sequence.").unwrap();
         assert_eq!(embeddings.shape(), &[rubert.embedding_size()]);
 
         let embeddings = rubert.run("").unwrap();
@@ -127,7 +127,7 @@ mod tests {
     fn test_rubert_average() {
         let rubert = rubert(AveragePooler);
 
-        let embeddings = rubert.run("This is a sentence.").unwrap();
+        let embeddings = rubert.run("This is a sequence.").unwrap();
         assert_eq!(embeddings.shape(), &[rubert.embedding_size()]);
 
         let embeddings = rubert.run("").unwrap();

@@ -5,7 +5,7 @@ use tract_onnx::prelude::TractError;
 
 use crate::{
     model::Prediction,
-    ndarray::{s, Array, Array1, Array2, ArrayView1, Axis},
+    ndarray::{s, Array1, Array2, ArrayView1, Ix1},
     tokenizer::AttentionMask,
 };
 
@@ -71,23 +71,21 @@ impl FirstPooler {
 pub struct AveragePooler;
 
 impl AveragePooler {
-    /// Pools a prediction over its averaged, active tokens.
+    /// Pools the prediction over its averaged, active tokens.
     pub(crate) fn pool(
         &self,
         prediction: Prediction,
         attention_mask: AttentionMask,
     ) -> Result<Embedding1, PoolerError> {
-        let prediction = prediction.to_array_view()?;
-        let prediction = prediction.slice(s![0, .., ..]);
-        let attention_mask = attention_mask.slice(s![0, ..]).map(|mask| *mask as f32);
+        let attention_mask = attention_mask
+            .slice::<Ix1>(s![0, ..])
+            .mapv(|mask| mask as f32);
+        let count = attention_mask.sum();
 
-        let count = attention_mask.sum_axis(Axis(0)).into_scalar();
         let average = if count > 0. {
-            Array::from_shape_fn(prediction.shape()[1], |i| {
-                prediction.slice(s![.., i]).dot(&attention_mask.t()) / count
-            })
+            attention_mask.dot(&prediction.to_array_view()?.slice(s![0, .., ..])) / count
         } else {
-            Array::from_elem(prediction.shape()[1], 0.)
+            Array1::zeros(prediction.shape()[2])
         };
 
         Ok(average.into())
@@ -103,58 +101,48 @@ mod tests {
 
     #[test]
     fn test_none() {
-        let predictions =
-            arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]], [[0., 0., 0.], [0., 0., 0.]]])
-                .into_arc_tensor()
-                .into();
-        let embeddings = arr2(&[[1., 2., 3.], [4., 5., 6.]]).into();
-        assert_eq!(NonePooler.pool(predictions).unwrap(), embeddings);
+        let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]])
+            .into_arc_tensor()
+            .into();
+        let embedding = arr2(&[[1., 2., 3.], [4., 5., 6.]]).into();
+        assert_eq!(NonePooler.pool(prediction).unwrap(), embedding);
     }
 
     #[test]
     #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_first() {
-        let predictions =
-            arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]], [[0., 0., 0.], [0., 0., 0.]]])
-                .into_arc_tensor()
-                .into();
-        assert_eq!(FirstPooler.pool(predictions).unwrap(), [1., 2., 3.]);
+        let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]])
+            .into_arc_tensor()
+            .into();
+        assert_eq!(FirstPooler.pool(prediction).unwrap(), [1., 2., 3.]);
     }
 
     #[test]
     #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_average() {
-        let predictions =
-            arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]], [[0., 0., 0.], [0., 0., 0.]]])
-                .into_arc_tensor();
+        let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]]).into_arc_tensor();
 
-        let masks = arr2(&[[0, 0], [0, 0]]).into();
+        let mask = arr2(&[[0, 0]]).into();
         assert_eq!(
-            AveragePooler
-                .pool(predictions.clone().into(), masks)
-                .unwrap(),
+            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
             [0., 0., 0.],
         );
 
-        let masks = arr2(&[[0, 1], [0, 1]]).into();
+        let mask = arr2(&[[0, 1]]).into();
         assert_eq!(
-            AveragePooler
-                .pool(predictions.clone().into(), masks)
-                .unwrap(),
+            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
             [4., 5., 6.],
         );
 
-        let masks = arr2(&[[1, 0], [1, 0]]).into();
+        let mask = arr2(&[[1, 0]]).into();
         assert_eq!(
-            AveragePooler
-                .pool(predictions.clone().into(), masks)
-                .unwrap(),
+            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
             [1., 2., 3.],
         );
 
-        let masks = arr2(&[[1, 1], [1, 1]]).into();
+        let mask = arr2(&[[1, 1]]).into();
         assert_eq!(
-            AveragePooler.pool(predictions.into(), masks).unwrap(),
+            AveragePooler.pool(prediction.into(), mask).unwrap(),
             [2.5, 3.5, 4.5],
         );
     }
