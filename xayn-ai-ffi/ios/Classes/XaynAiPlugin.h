@@ -17,7 +17,7 @@ typedef struct CXaynAi CXaynAi;
  * # Errors
  * Aborts and returns a null pointer if:
  * - The vocab or model paths are invalid.
- * - The batch or token sizes are invalid.
+ * - The token size is invalid.
  *
  * An utf8 encoded, null-terminated message will be written to a valid error pointer.
  *
@@ -30,7 +30,6 @@ typedef struct CXaynAi CXaynAi;
  */
 struct CXaynAi *xaynai_new(const uint8_t *vocab,
                            const uint8_t *model,
-                           uint32_t batch_size,
                            uint32_t token_size,
                            float shift_factor,
                            float threshold,

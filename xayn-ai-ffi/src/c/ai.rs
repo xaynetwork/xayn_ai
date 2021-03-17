@@ -5,7 +5,7 @@ use std::{
 };
 
 use itertools::izip;
-use rubert::{Builder as BertBuilder, Pooler};
+use rubert::{AveragePooler, Builder as BertBuilder};
 use xayn_ai::{
     BetaSampler,
     CoiConfiguration,
@@ -29,7 +29,7 @@ use crate::c::{
 /// # Errors
 /// Aborts and returns a null pointer if:
 /// - The vocab or model paths are invalid.
-/// - The batch or token sizes are invalid.
+/// - The token size is invalid.
 ///
 /// An utf8 encoded, null-terminated message will be written to a valid error pointer.
 ///
@@ -44,7 +44,6 @@ pub unsafe extern "C" fn xaynai_new(
     // bert
     vocab: *const u8,
     model: *const u8,
-    batch_size: u32,
     token_size: u32,
     // coi
     shift_factor: f32,
@@ -76,13 +75,6 @@ pub unsafe extern "C" fn xaynai_new(
                 return null_mut();
             }
         };
-        let bert = match bert.with_batch_size(batch_size as usize) {
-            Ok(bert) => bert,
-            Err(cause) => {
-                error.set(format!("Failed to build the bert model: {}", cause));
-                return null_mut();
-            }
-        };
         let bert = match bert.with_token_size(token_size as usize) {
             Ok(bert) => bert,
             Err(cause) => {
@@ -93,9 +85,9 @@ pub unsafe extern "C" fn xaynai_new(
         // accents, lowercase and pooler have been fixed before, we should make them configurable
         // at one point, but that will be a breaking change for the embeddings used by the ai
         let bert = bert
-            .with_strip_accents(true)
+            .with_accents(false)
             .with_lowercase(true)
-            .with_pooling(Pooler::Average);
+            .with_pooling(AveragePooler);
         let bert = match bert.build() {
             Ok(bert) => bert,
             Err(cause) => {
@@ -303,13 +295,13 @@ mod tests {
     };
 
     use super::*;
+    use crate::c::tests::{MODEL, VOCAB};
 
     /// Creates values for testing.
     #[allow(clippy::type_complexity)]
     fn setup_vals() -> (
         CString,
         CString,
-        u32,
         u32,
         f32,
         f32,
@@ -320,9 +312,8 @@ mod tests {
         Vec<CString>,
         Vec<u32>,
     ) {
-        let vocab = CString::new("../data/rubert_v0000/vocab.txt").unwrap();
-        let model = CString::new("../data/rubert_v0000/model.onnx").unwrap();
-        let batch_size = 10;
+        let vocab = CString::new(VOCAB).unwrap();
+        let model = CString::new(MODEL).unwrap();
         let token_size = 64;
         let shift_factor = 0.1;
         let threshold = 10.0;
@@ -341,7 +332,6 @@ mod tests {
         (
             vocab,
             model,
-            batch_size,
             token_size,
             shift_factor,
             threshold,
@@ -402,7 +392,6 @@ mod tests {
         let (
             vocab,
             model,
-            batch_size,
             token_size,
             shift_factor,
             threshold,
@@ -429,7 +418,6 @@ mod tests {
             xaynai_new(
                 vocab,
                 model,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -454,7 +442,6 @@ mod tests {
         let (
             vocab,
             model,
-            batch_size,
             token_size,
             shift_factor,
             threshold,
@@ -481,7 +468,6 @@ mod tests {
             xaynai_new(
                 null_,
                 model,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -498,7 +484,6 @@ mod tests {
             xaynai_new(
                 invalid,
                 model,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -509,13 +494,12 @@ mod tests {
         .is_null());
         assert_eq!(
             error_msg.to_string(),
-            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2).",
+            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
         assert!(unsafe {
             xaynai_new(
                 vocab,
                 null_,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -532,7 +516,6 @@ mod tests {
             xaynai_new(
                 vocab,
                 invalid,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -543,7 +526,7 @@ mod tests {
         .is_null());
         assert_eq!(
             error_msg.to_string(),
-            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2).",
+            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
     }
 
@@ -552,8 +535,7 @@ mod tests {
         let (
             vocab,
             model,
-            batch_size,
-            token_size,
+            _,
             shift_factor,
             threshold,
             mut error,
@@ -578,7 +560,6 @@ mod tests {
                 vocab,
                 model,
                 invalid,
-                token_size,
                 shift_factor,
                 threshold,
                 error,
@@ -588,24 +569,7 @@ mod tests {
         .is_null());
         assert_eq!(
             error_msg.to_string(),
-            "Failed to build the bert model: The batch size must be greater than zero.",
-        );
-        assert!(unsafe {
-            xaynai_new(
-                vocab,
-                model,
-                batch_size,
-                invalid,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        }
-        .is_null());
-        assert_eq!(
-            error_msg.to_string(),
-            "Failed to build the bert model: The token size must be greater than two to allow for special tokens.",
+            "Failed to build the bert model: The token size must be greater than two to allow for special tokens",
         );
     }
 
@@ -614,7 +578,6 @@ mod tests {
         let (
             vocab,
             model,
-            batch_size,
             token_size,
             shift_factor,
             threshold,
@@ -638,7 +601,6 @@ mod tests {
             xaynai_new(
                 vocab,
                 model,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -683,7 +645,6 @@ mod tests {
         let (
             vocab,
             model,
-            batch_size,
             token_size,
             shift_factor,
             threshold,
@@ -707,7 +668,6 @@ mod tests {
             xaynai_new(
                 vocab,
                 model,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -748,7 +708,6 @@ mod tests {
         let (
             vocab,
             model,
-            batch_size,
             token_size,
             shift_factor,
             threshold,
@@ -772,7 +731,6 @@ mod tests {
             xaynai_new(
                 vocab,
                 model,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,
@@ -797,7 +755,6 @@ mod tests {
         let (
             vocab,
             model,
-            batch_size,
             token_size,
             shift_factor,
             threshold,
@@ -821,7 +778,6 @@ mod tests {
             xaynai_new(
                 vocab,
                 model,
-                batch_size,
                 token_size,
                 shift_factor,
                 threshold,

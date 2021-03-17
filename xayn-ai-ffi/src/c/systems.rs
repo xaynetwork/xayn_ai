@@ -1,6 +1,6 @@
 //! temporary dummy impls, most of this should move to xayn-ai itself
 
-use rubert::RuBert;
+use rubert::{AveragePooler, RuBert};
 use xayn_ai::{
     Analytics,
     AnalyticsSystem,
@@ -51,7 +51,7 @@ impl AnalyticsSystem for DummyAnalytics {
 
 pub struct Systems {
     pub database: DummyDatabase,
-    pub bert: RuBert,
+    pub bert: RuBert<AveragePooler>,
     pub coi: CoiSystem,
     pub ltr: ConstLtr,
     pub context: Context,
