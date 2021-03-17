@@ -8,11 +8,9 @@ use super::{
         classify_documents_based_on_user_feedback,
         collect_matching_documents,
         count_coi_ids,
-        extend_user_interests_based_on_documents,
         l2_norm,
         update_alpha,
         update_beta,
-        UserInterestsStatus,
     },
 };
 use crate::{
@@ -169,30 +167,6 @@ impl reranker_systems::CoiSystem for CoiSystem {
                 Ok(DocumentDataWithCoi::from_document(document, coi))
             })
             .collect()
-    }
-
-    fn make_user_interests(
-        &self,
-        history: &[DocumentHistory],
-        documents: &[DocumentDataWithEmbedding],
-        user_interests: UserInterests,
-    ) -> Result<UserInterestsStatus, Error> {
-        let matching_documents = collect_matching_documents(history, documents);
-
-        if matching_documents.is_empty() {
-            return Err(CoiSystemError::NoMatchingDocuments.into());
-        }
-
-        let (positive_docs, negative_docs) =
-            classify_documents_based_on_user_feedback(matching_documents);
-        let user_interests =
-            extend_user_interests_based_on_documents(positive_docs, negative_docs, user_interests);
-
-        if user_interests.positive.len() >= 2 {
-            Ok(UserInterestsStatus::Ready(user_interests))
-        } else {
-            Ok(UserInterestsStatus::NotEnough(user_interests))
-        }
     }
 
     fn update_user_interests(
@@ -395,112 +369,6 @@ mod tests {
         assert_eq!(coi_comp.id, CoiId(2));
         assert!(approx_eq!(f32, coi_comp.pos_distance, 4.690416));
         assert!(approx_eq!(f32, coi_comp.neg_distance, f32::MAX));
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
-    fn test_make_user_interests_ready() {
-        let history = create_document_history(vec![
-            (Relevance::Low, UserFeedback::Irrelevant),
-            (Relevance::Low, UserFeedback::Relevant),
-            (Relevance::Low, UserFeedback::Relevant),
-        ]);
-        let documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.], [4., 5., 6.]]);
-
-        let status = CoiSystem::default()
-            .make_user_interests(&history, &documents, UserInterests::new())
-            .unwrap();
-
-        let UserInterests { positive, negative } = match status {
-            UserInterestsStatus::NotEnough(_) => panic!("status should be Ready"),
-            UserInterestsStatus::Ready(interests) => interests,
-        };
-
-        assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, [3., 2., 1.]);
-        assert!(approx_eq!(f32, positive[0].alpha, 1.));
-        assert!(approx_eq!(f32, positive[0].beta, 1.));
-
-        assert_eq!(positive[1].id.0, 1);
-        assert_eq!(positive[1].point, [4., 5., 6.]);
-        assert!(approx_eq!(f32, positive[1].alpha, 1.));
-        assert!(approx_eq!(f32, positive[1].beta, 1.));
-
-        assert_eq!(negative[0].id.0, 0);
-        assert_eq!(negative[0].point, [1., 2., 3.]);
-        assert!(approx_eq!(f32, negative[0].alpha, 1.));
-        assert!(approx_eq!(f32, negative[0].beta, 1.));
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
-    fn test_make_user_interest_empty_negative_cois() {
-        let history = create_document_history(vec![
-            (Relevance::Low, UserFeedback::Relevant),
-            (Relevance::Low, UserFeedback::Relevant),
-        ]);
-        let documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
-
-        let status = CoiSystem::default()
-            .make_user_interests(&history, &documents, UserInterests::new())
-            .unwrap();
-
-        let UserInterests { positive, negative } = match status {
-            UserInterestsStatus::NotEnough(_) => panic!("status should be Ready"),
-            UserInterestsStatus::Ready(interests) => interests,
-        };
-
-        assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, [1., 2., 3.]);
-        assert!(approx_eq!(f32, positive[0].alpha, 1.));
-        assert!(approx_eq!(f32, positive[0].beta, 1.));
-
-        assert_eq!(positive[1].id.0, 1);
-        assert_eq!(positive[1].point, [3., 2., 1.]);
-        assert!(approx_eq!(f32, positive[1].alpha, 1.));
-        assert!(approx_eq!(f32, positive[1].beta, 1.));
-
-        assert!(negative.is_empty());
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
-    fn test_make_user_interests_not_enough_coi() {
-        let history = create_document_history(vec![
-            (Relevance::Low, UserFeedback::Irrelevant),
-            (Relevance::Low, UserFeedback::Relevant),
-        ]);
-        let documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
-
-        let status = CoiSystem::default()
-            .make_user_interests(&history, &documents, UserInterests::new())
-            .unwrap();
-
-        let UserInterests { positive, negative } = match status {
-            UserInterestsStatus::NotEnough(interests) => interests,
-            UserInterestsStatus::Ready(_) => panic!("status should be NotEnough"),
-        };
-
-        assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, [3., 2., 1.]);
-        assert!(approx_eq!(f32, positive[0].alpha, 1.));
-        assert!(approx_eq!(f32, positive[0].beta, 1.));
-
-        assert_eq!(negative[0].id.0, 0);
-        assert_eq!(negative[0].point, [1., 2., 3.]);
-        assert!(approx_eq!(f32, negative[0].alpha, 1.));
-        assert!(approx_eq!(f32, negative[0].beta, 1.));
-    }
-
-    #[test]
-    fn test_make_user_interests_no_matches() {
-        let error = CoiSystem::default()
-            .make_user_interests(&Vec::new(), &Vec::new(), UserInterests::new())
-            .err()
-            .unwrap();
-        let error = error.downcast::<CoiSystemError>().unwrap();
-
-        assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
     }
 
     #[test]

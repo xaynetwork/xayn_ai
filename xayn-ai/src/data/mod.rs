@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod document;
 pub mod document_data;
 

@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use crate::{
     data::{
         document::{Relevance, UserFeedback},
-        document_data::{DocumentDataWithEmbedding, DocumentDataWithMab, DocumentIdentifier},
+        document_data::{DocumentDataWithMab, DocumentIdentifier},
         Coi,
-        UserInterests,
     },
     ndarray::Array1,
     DocumentHistory,
@@ -16,12 +15,6 @@ pub fn l2_norm(array: Array1<f32>) -> f32 {
     array.dot(&array).sqrt()
 }
 
-// utils for `make_user_interests`
-pub enum UserInterestsStatus {
-    NotEnough(UserInterests),
-    Ready(UserInterests),
-}
-
 pub enum DocumentRelevance {
     Positive,
     Negative,
@@ -29,7 +22,7 @@ pub enum DocumentRelevance {
 
 /// Collects all documents that are present in the history.
 /// The history contains the user feedback of these documents.
-pub fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
+pub(crate) fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
     history: &'hist [DocumentHistory],
     documents: &'doc [D],
 ) -> Vec<(&'hist DocumentHistory, &'doc D)> {
@@ -47,7 +40,7 @@ pub fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
 
 /// Classifies the documents into positive and negative documents based on the user feedback
 /// and the relevance of the results.
-pub fn classify_documents_based_on_user_feedback<D>(
+pub(crate) fn classify_documents_based_on_user_feedback<D>(
     matching_documents: Vec<(&DocumentHistory, D)>,
 ) -> (Vec<D>, Vec<D>) {
     let mut positive_docs = Vec::<D>::new();
@@ -65,41 +58,13 @@ pub fn classify_documents_based_on_user_feedback<D>(
 
 /// Determines the [`DocumentRelevance`] based on the user feedback
 /// and the relevance of the result.
-pub fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
+pub(crate) fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
     match (history.relevance, history.user_feedback) {
         (Relevance::Low, UserFeedback::Irrelevant) | (Relevance::Low, UserFeedback::None) => {
             DocumentRelevance::Negative
         }
         _ => DocumentRelevance::Positive,
     }
-}
-
-/// Extends the user interests based on the positive and negative documents.
-pub fn extend_user_interests_based_on_documents(
-    positive_docs: Vec<&DocumentDataWithEmbedding>,
-    negative_docs: Vec<&DocumentDataWithEmbedding>,
-    user_interests: UserInterests,
-) -> UserInterests {
-    let positive = extend_user_interests(positive_docs, user_interests.positive);
-    let negative = extend_user_interests(negative_docs, user_interests.negative);
-
-    UserInterests { positive, negative }
-}
-
-/// Extends the user interests from the document embeddings.
-fn extend_user_interests(
-    documents: Vec<&DocumentDataWithEmbedding>,
-    mut interests: Vec<Coi>,
-) -> Vec<Coi> {
-    let next_coi_ids = interests.len()..;
-
-    let cois = next_coi_ids
-        .into_iter()
-        .zip(documents.into_iter())
-        .map(|(index, doc)| Coi::new(index, doc.embedding.embedding.clone()));
-
-    interests.extend(cois);
-    interests
 }
 
 // utils for `update_user_interests`
@@ -149,7 +114,7 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::{
-        data::document_data::{DocumentIdComponent, EmbeddingComponent},
+        data::document_data::{DocumentDataWithEmbedding, DocumentIdComponent, EmbeddingComponent},
         ndarray::{arr1, FixedInitializer},
     };
 
@@ -245,61 +210,6 @@ pub(crate) mod tests {
 
         let updated_cois = update_beta(&HashMap::new(), Vec::new());
         assert!(updated_cois.is_empty());
-    }
-
-    #[test]
-    fn test_extend_user_interests_empty_interests() {
-        let docs = create_data_with_embeddings(&[[1., 0., 0.]]);
-        let documents = vec![&docs[0]];
-
-        let extended = extend_user_interests(documents, Vec::new());
-
-        assert_eq!(extended.len(), 1);
-        assert_eq!(extended[0].id.0, 0);
-    }
-
-    #[test]
-    fn test_extend_user_interests_empty_docs() {
-        let extended = extend_user_interests(Vec::new(), Vec::new());
-        assert!(extended.is_empty());
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
-    fn test_extend_user_interests_non_empty_interests() {
-        let interests = create_cois(&[[1., 0., 0.]]);
-
-        let docs = create_data_with_embeddings(&[[1., 2., 3.]]);
-        let documents = vec![&docs[0]];
-
-        let extended = extend_user_interests(documents, interests);
-
-        assert_eq!(extended.len(), 2);
-        assert_eq!(extended[0].id.0, 0);
-        assert_eq!(extended[0].point, [1., 0., 0.]);
-
-        assert_eq!(extended[1].id.0, 1);
-        assert_eq!(extended[1].point, [1., 2., 3.]);
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
-    fn test_extend_user_interests_based_on_documents() {
-        let docs = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
-
-        let UserInterests { positive, negative } = extend_user_interests_based_on_documents(
-            vec![&docs[0]],
-            vec![&docs[1]],
-            UserInterests::new(),
-        );
-
-        assert_eq!(positive.len(), 1);
-        assert_eq!(positive[0].id.0, 0);
-        assert_eq!(positive[0].point, [1., 2., 3.]);
-
-        assert_eq!(negative.len(), 1);
-        assert_eq!(negative[0].id.0, 0);
-        assert_eq!(negative[0].point, [3., 2., 1.]);
     }
 
     #[test]
