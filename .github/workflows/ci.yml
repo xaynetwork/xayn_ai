@@ -304,6 +304,7 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         target: [aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android]
     steps:
@@ -344,6 +345,7 @@ jobs:
     runs-on: macos-10.15
     timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         target: [aarch64-apple-ios, x86_64-apple-ios]
     steps:
