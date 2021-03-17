@@ -85,6 +85,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-test-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
       - name: Test Android libraries
+        # to make the tests run faster we compile them in release mode
         run: cross test --target ${{ matrix.target }} --release
 
 
