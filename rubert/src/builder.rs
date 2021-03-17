@@ -37,11 +37,7 @@ pub enum BuilderError {
     Model(#[from] ModelError),
 }
 
-impl<V, M> Builder<V, M, NonePooler>
-where
-    V: BufRead,
-    M: Read,
-{
+impl<V, M> Builder<V, M, NonePooler> {
     /// Creates a [`RuBert`] pipeline builder from an in-memory vocabulary and model.
     pub fn new(vocab: V, model: M) -> Self {
         Self {
