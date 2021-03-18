@@ -98,7 +98,7 @@ where
     CS: CommonSystems,
 {
     pub fn new(common_systems: CS) -> Result<Self, Error> {
-        // load the correct state from the database
+        // load the last valid state from the database
         let data = common_systems
             .database()
             .load_state()?
