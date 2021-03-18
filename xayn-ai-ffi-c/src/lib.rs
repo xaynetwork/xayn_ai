@@ -1,4 +1,5 @@
-//! C FFI for Xayn AI.
+//! C FFI for the Xayn AI.
+#![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
 #![allow(unused_unsafe)]
 
 mod ai;
@@ -6,7 +7,10 @@ mod systems;
 mod utils;
 
 #[cfg(doc)]
-pub use crate::ai::{xaynai_drop, xaynai_new, xaynai_rerank};
+pub use crate::{
+    ai::{xaynai_drop, xaynai_new, xaynai_rerank, CDocument},
+    utils::dummy_function,
+};
 
 #[cfg(test)]
 pub(crate) mod tests {

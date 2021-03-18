@@ -1504,7 +1504,6 @@ name = "xayn-ai-ffi-c"
 version = "0.1.0"
 dependencies = [
  "cbindgen",
- "itertools 0.10.0",
  "rubert",
  "xayn-ai",
 ]

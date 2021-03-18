@@ -4,7 +4,6 @@ use std::{
     slice,
 };
 
-use itertools::izip;
 use rubert::{AveragePooler, Builder as BertBuilder};
 use xayn_ai::{
     BetaSampler,
@@ -127,26 +126,34 @@ pub unsafe extern "C" fn xaynai_new(
     })
 }
 
+/// A raw document.
+#[repr(C)]
+pub struct CDocument {
+    /// The raw pointer to the document id.
+    pub id: *const u8,
+    /// The raw pointer to the document snippet.
+    pub snippet: *const u8,
+    /// The rank of the document.
+    pub rank: u32,
+}
+
 /// Reranks the documents with the Xayn AI.
 ///
-/// Each document is represented as an id, a snippet and a rank. The reranked order is written to
-/// the ranks array.
+/// The reranked order is written to the ranks of the documents array.
 ///
 /// # Errors
 /// Returns without changing the ranks if:
 /// - The xaynai is null.
-/// - The ids, snippets or ranks are invalid.
-/// - The document size is zero.
+/// - The documents are invalid.
+/// - The documents size is zero.
 ///
 /// An utf8 encoded, null-terminated message will be written to a valid error pointer.
 ///
 /// # Safety
 /// The behavior is undefined if:
 /// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
-/// - A non-null ids or snippets array doesn't point to an aligned, contiguous area of memory with
-/// at least doc size pointers.
-/// - A non-null ranks array doesn't point to an aligned, contiguous area of memory with at least
-/// doc size integers.
+/// - A non-null documents array doesn't point to an aligned, contiguous area of memory with
+/// at least size [`CDocument`]s.
 /// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
 /// terminating null byte.
 /// - A non-null error doesn't point to an aligned, contiguous area of memory with at least error
@@ -154,10 +161,8 @@ pub unsafe extern "C" fn xaynai_new(
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
     xaynai: *const Reranker<Systems>,
-    ids: *const *const u8,
-    snippets: *const *const u8,
-    ranks: *mut u32,
-    doc_size: u32,
+    docs: *mut CDocument,
+    size: u32,
     error: *mut u8,
     error_size: u32,
 ) {
@@ -177,71 +182,53 @@ pub unsafe extern "C" fn xaynai_rerank(
             return;
         };
 
-        let size = if doc_size == 0 {
-            error.set("Failed to rerank the documents: The document size is zero");
+        let size = if size == 0 {
+            error.set("Failed to rerank the documents: The documents size is zero");
             return;
         } else {
-            doc_size as usize
+            size as usize
         };
-        let ids = if ids.is_null() {
-            error.set("Failed to rerank the documents: The ids pointer is null");
+        let docs = if docs.is_null() {
+            error.set("Failed to rerank the documents: The documents pointer is null");
             return;
         } else {
-            unsafe { slice::from_raw_parts(ids, size) }
+            unsafe { slice::from_raw_parts_mut(docs, size) }
         };
-        let snippets = if snippets.is_null() {
-            error.set("Failed to rerank the documents: The snippets pointer is null");
-            return;
-        } else {
-            unsafe { slice::from_raw_parts(snippets, size) }
-        };
-        let ranks = if ranks.is_null() {
-            error.set("Failed to rerank the documents: The ranks pointer is null");
-            return;
-        } else {
-            unsafe { slice::from_raw_parts_mut(ranks, size) }
-        };
-
-        let documents = if let Some(documents) = izip!(ids, snippets, ranks.iter())
-            .map(|(id, snippet, rank)| {
-                let id = if let Some(id) = cstr_to_string(*id) {
+        let documents = docs.iter()
+            .map(|document| {
+                let id = if let Some(id) = cstr_to_string(document.id) {
                     DocumentId(id)
                 } else {
                     error.set(
-                        "Failed to rerank the documents: An id is not a valid C-string pointer",
+                        "Failed to rerank the documents: A document id is not a valid C-string pointer",
                     );
                     return None;
                 };
-                let snippet = if let Some(snippet) = cstr_to_string(*snippet) {
+                let snippet = if let Some(snippet) = cstr_to_string(document.snippet) {
                     snippet
                 } else {
                     error.set(
-                        "Failed to rerank the documents: A snippet is not a valid C-string pointer",
+                        "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
                     );
                     return None;
                 };
-                let rank = *rank as usize;
+                let rank = document.rank as usize;
 
                 Some(Document { id, snippet, rank })
             })
-            .collect::<Option<Vec<Document>>>()
-        {
-            documents
-        } else {
-            return;
-        };
-
-        // TODO: use the actual reranker once it is available
-        let reranks = documents
-            .iter()
-            .map(|document| document.rank)
-            .rev()
-            .collect::<DocumentsRank>();
-
-        for (rank, rerank) in izip!(ranks, reranks) {
-            *rank = rerank as u32;
+            .collect::<Option<Vec<Document>>>();
+        if let Some(documents) = documents {
+            // TODO: use the actual reranker once it is available
+            let reranks = documents
+                .iter()
+                .map(|document| document.rank)
+                .rev()
+                .collect::<DocumentsRank>();
+            for (doc, rank) in docs.iter_mut().zip(reranks) {
+                doc.rank = rank as u32;
+            }
+            error.set("");
         }
-        error.set("");
     })
     .unwrap_or_else(|cause| {
         unsafe { ErrorMsg::new(error, error_size) }.set(format!(
@@ -274,7 +261,6 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: *mut Reranker<Systems>) {
 mod tests {
     use std::{
         ffi::{CStr, CString},
-        iter,
         ptr::null,
     };
 
@@ -283,92 +269,64 @@ mod tests {
 
     /// Creates values for testing.
     #[allow(clippy::type_complexity)]
-    fn setup_vals() -> (
+    fn setup_values() -> (
         CString,
         CString,
         Vec<u8>,
         u32,
+        Vec<(CString, CString, u32)>,
         u32,
-        Vec<CString>,
-        Vec<CString>,
-        Vec<u32>,
     ) {
         let vocab = CString::new(VOCAB).unwrap();
         let model = CString::new(MODEL).unwrap();
         let error_size = 256;
         let error = vec![0; error_size as usize];
 
-        let doc_size = 10;
-        let ids = (0..doc_size)
-            .map(|id| CString::new(format!("{}", id)).unwrap())
-            .collect();
-        let snippets = (0..doc_size)
-            .map(|id| CString::new(format!("snippet {}", id)).unwrap())
-            .collect();
-        let ranks = (0..doc_size).collect();
+        let size = 10;
+        let docs = (0..size)
+            .map(|idx| {
+                let id = CString::new(format!("{}", idx)).unwrap();
+                let snippet = CString::new(format!("snippet {}", idx)).unwrap();
+                let rank = idx;
+                (id, snippet, rank)
+            })
+            .collect::<Vec<_>>();
 
-        (
-            vocab, model, error, error_size, doc_size, ids, snippets, ranks,
-        )
+        (vocab, model, error, error_size, docs, size)
     }
 
     /// Creates pointers for testing.
-    fn setup_refs<'a>(
+    fn setup_pointers<'a>(
         vocab: &CStr,
         model: &CStr,
         error: &'a mut [u8],
-        ids: &[CString],
-        snippets: &[CString],
-        ranks: &mut [u32],
-    ) -> (
-        *const u8,
-        *const u8,
-        *mut u8,
-        ErrorMsg<'a>,
-        Vec<*const u8>,
-        Vec<*const u8>,
-        *mut u32,
-    ) {
+        docs: &[(CString, CString, u32)],
+    ) -> (*const u8, *const u8, *mut u8, ErrorMsg<'a>, Vec<CDocument>) {
         let vocab = vocab.as_ptr() as *const u8;
         let model = model.as_ptr() as *const u8;
         let error_ptr = error.as_mut_ptr();
         let error_msg = error.into();
-
-        let ids = ids.iter().map(|id| id.as_ptr() as *const u8).collect();
-        let snippets = snippets
+        let docs = docs
             .iter()
-            .map(|snippet| snippet.as_ptr() as *const u8)
+            .map(|(id, snippet, rank)| CDocument {
+                id: id.as_ptr() as *const u8,
+                snippet: snippet.as_ptr() as *const u8,
+                rank: *rank,
+            })
             .collect();
-        let ranks = ranks.as_mut_ptr();
 
-        (vocab, model, error_ptr, error_msg, ids, snippets, ranks)
-    }
-
-    /// Creates pointers of pointers for testing.
-    fn setup_refs_refs(
-        ids: &[*const u8],
-        snippets: &[*const u8],
-    ) -> (*const *const u8, *const *const u8) {
-        let ids = ids.as_ptr();
-        let snippets = snippets.as_ptr();
-
-        (ids, snippets)
+        (vocab, model, error_ptr, error_msg, docs)
     }
 
     #[test]
     fn test_xaynai_rerank() {
-        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
-            setup_vals();
-        let reranks_val = ranks_val.iter().copied().rev().collect::<Vec<_>>();
-        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
+        let (vocab, model, mut error, error_size, docs, size) = setup_values();
+        let (vocab, model, error, mut error_msg, mut docs) = setup_pointers(
             vocab.as_c_str(),
             model.as_c_str(),
             error.as_mut_slice(),
-            ids.as_slice(),
-            snippets.as_slice(),
-            ranks_val.as_mut_slice(),
+            docs.as_slice(),
         );
-        let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
 
         // new
         let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
@@ -376,8 +334,9 @@ mod tests {
         assert_eq!(error_msg.to_string(), "");
 
         // rerank
-        unsafe { xaynai_rerank(xaynai, ids, snippets, ranks, doc_size, error, error_size) };
-        assert_eq!(ranks_val, reranks_val);
+        let reranks = docs.iter().map(|doc| doc.rank).rev().collect::<Vec<_>>();
+        unsafe { xaynai_rerank(xaynai, docs.as_mut_ptr(), size, error, error_size) };
+        assert!(docs.iter().map(|doc| doc.rank).eq(reranks));
         assert_eq!(error_msg.to_string(), "");
 
         // drop
@@ -386,20 +345,17 @@ mod tests {
 
     #[test]
     fn test_xaynai_invalid_tokenizer_paths() {
-        let (vocab, model, mut error, error_size, _, ids, snippets, mut ranks_val) = setup_vals();
-        let (vocab, model, error, mut error_msg, _, _, _) = setup_refs(
+        let (vocab, model, mut error, error_size, docs, _) = setup_values();
+        let (vocab, model, error, mut error_msg, _) = setup_pointers(
             vocab.as_c_str(),
             model.as_c_str(),
             error.as_mut_slice(),
-            ids.as_slice(),
-            snippets.as_slice(),
-            ranks_val.as_mut_slice(),
+            docs.as_slice(),
         );
 
-        let null_ = null();
         let invalid = CString::new("").unwrap();
         let invalid = invalid.as_ptr() as *const u8;
-        assert!(unsafe { xaynai_new(null_, model, error, error_size) }.is_null());
+        assert!(unsafe { xaynai_new(null(), model, error, error_size) }.is_null());
         assert_eq!(
             error_msg.to_string(),
             "Failed to build the bert model: The vocab is not a valid C-string pointer",
@@ -409,7 +365,7 @@ mod tests {
             error_msg.to_string(),
             "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
-        assert!(unsafe { xaynai_new(vocab, null_, error, error_size) }.is_null());
+        assert!(unsafe { xaynai_new(vocab, null(), error, error_size) }.is_null());
         assert_eq!(
             error_msg.to_string(),
             "Failed to build the bert model: The model is not a valid C-string pointer",
@@ -422,139 +378,67 @@ mod tests {
     }
 
     #[test]
-    fn test_xaynai_invalid_document_ids() {
-        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
-            setup_vals();
-        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
+    fn test_xaynai_invalid_documents() {
+        let (vocab, model, mut error, error_size, docs, size) = setup_values();
+        let (vocab, model, error, mut error_msg, docs) = setup_pointers(
             vocab.as_c_str(),
             model.as_c_str(),
             error.as_mut_slice(),
-            ids.as_slice(),
-            snippets.as_slice(),
-            ranks_val.as_mut_slice(),
+            docs.as_slice(),
         );
-        let (_, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
         let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
         assert!(!xaynai.is_null());
 
-        let null_ = null();
-        unsafe { xaynai_rerank(xaynai, null_, snippets, ranks, doc_size, error, error_size) };
+        unsafe { xaynai_rerank(xaynai, null_mut(), size, error, error_size) };
         assert_eq!(
             error_msg.to_string(),
-            "Failed to rerank the documents: The ids pointer is null",
+            "Failed to rerank the documents: The documents pointer is null",
         );
-        let null_ = null();
-        for idx in 0..doc_size as usize {
-            let invalid = ids
-                .iter()
-                .take(idx)
-                .copied()
-                .chain(iter::once(null_))
-                .chain(ids.iter().skip(idx).copied())
-                .collect::<Vec<*const u8>>();
-            let invalid = invalid.as_ptr();
-            unsafe {
-                xaynai_rerank(
-                    xaynai, invalid, snippets, ranks, doc_size, error, error_size,
-                )
-            };
-            assert_eq!(
-                error_msg.to_string(),
-                "Failed to rerank the documents: An id is not a valid C-string pointer",
-            );
-        }
 
-        unsafe { xaynai_drop(xaynai) };
-    }
-
-    #[test]
-    fn test_xaynai_invalid_document_snippets() {
-        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
-            setup_vals();
-        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            error.as_mut_slice(),
-            ids.as_slice(),
-            snippets.as_slice(),
-            ranks_val.as_mut_slice(),
-        );
-        let (ids, _) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
-        let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
-        assert!(!xaynai.is_null());
-
-        let null_ = null();
-        unsafe { xaynai_rerank(xaynai, ids, null_, ranks, doc_size, error, error_size) };
+        let mut invalid = vec![CDocument {
+            id: null(),
+            snippet: docs[0].snippet,
+            rank: docs[0].rank,
+        }];
+        let invalid = invalid.as_mut_ptr();
+        unsafe { xaynai_rerank(xaynai, invalid, 1, error, error_size) };
         assert_eq!(
             error_msg.to_string(),
-            "Failed to rerank the documents: The snippets pointer is null",
+            "Failed to rerank the documents: A document id is not a valid C-string pointer",
         );
-        let null_ = null();
-        for idx in 0..doc_size as usize {
-            let invalid = snippets
-                .iter()
-                .take(idx)
-                .copied()
-                .chain(iter::once(null_))
-                .chain(snippets.iter().skip(idx).copied())
-                .collect::<Vec<*const u8>>();
-            let invalid = invalid.as_ptr();
-            unsafe { xaynai_rerank(xaynai, ids, invalid, ranks, doc_size, error, error_size) };
-            assert_eq!(
-                error_msg.to_string(),
-                "Failed to rerank the documents: A snippet is not a valid C-string pointer",
-            );
-        }
 
-        unsafe { xaynai_drop(xaynai) };
-    }
-
-    #[test]
-    fn test_xaynai_invalid_document_ranks() {
-        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
-            setup_vals();
-        let (vocab, model, error, mut error_msg, ids, snippets, _) = setup_refs(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            error.as_mut_slice(),
-            ids.as_slice(),
-            snippets.as_slice(),
-            ranks_val.as_mut_slice(),
-        );
-        let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
-        let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
-        assert!(!xaynai.is_null());
-
-        let null_ = null_mut();
-        unsafe { xaynai_rerank(xaynai, ids, snippets, null_, doc_size, error, error_size) };
+        let mut invalid = vec![CDocument {
+            id: docs[0].id,
+            snippet: null(),
+            rank: docs[0].rank,
+        }];
+        let invalid = invalid.as_mut_ptr();
+        unsafe { xaynai_rerank(xaynai, invalid, 1, error, error_size) };
         assert_eq!(
             error_msg.to_string(),
-            "Failed to rerank the documents: The ranks pointer is null",
+            "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
         );
 
         unsafe { xaynai_drop(xaynai) };
     }
 
     #[test]
-    fn test_xaynai_invalid_document_size() {
-        let (vocab, model, mut error, error_size, _, ids, snippets, mut ranks_val) = setup_vals();
-        let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
+    fn test_xaynai_invalid_documents_size() {
+        let (vocab, model, mut error, error_size, docs, _) = setup_values();
+        let (vocab, model, error, mut error_msg, mut docs) = setup_pointers(
             vocab.as_c_str(),
             model.as_c_str(),
             error.as_mut_slice(),
-            ids.as_slice(),
-            snippets.as_slice(),
-            ranks_val.as_mut_slice(),
+            docs.as_slice(),
         );
-        let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
         let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
         assert!(!xaynai.is_null());
 
         let invalid = 0;
-        unsafe { xaynai_rerank(xaynai, ids, snippets, ranks, invalid, error, error_size) };
+        unsafe { xaynai_rerank(xaynai, docs.as_mut_ptr(), invalid, error, error_size) };
         assert_eq!(
             error_msg.to_string(),
-            "Failed to rerank the documents: The document size is zero",
+            "Failed to rerank the documents: The documents size is zero",
         );
 
         unsafe { xaynai_drop(xaynai) };
