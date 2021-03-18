@@ -338,6 +338,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_update_coi_threshold_exclusive() {
         let cois = create_cois(&[[0., 0., 0.]]);
         let embedding = arr1(&[0., 0., 12.]).into();
@@ -345,15 +346,16 @@ mod tests {
         let cois = CoiSystem::default().update_coi(&embedding, cois);
 
         assert_eq!(cois.len(), 2);
-        assert_eq!(cois[0].point, create_embedding(array![0., 0., 0.]));
-        assert_eq!(cois[1].point, create_embedding(array![0., 0., 12.]));
+        assert_eq!(cois[0].point, [0., 0., 0.]);
+        assert_eq!(cois[1].point, [0., 0., 12.]);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
     fn test_update_cois_update_the_same_point_twice() {
         // checks that an updated coi is used in the next iteration
-        let cois = create_cois(vec![array![0., 0., 0.]]);
-        let documents = create_data_with_mab(vec![array![0., 0., 4.9], array![0., 0., 5.]]);
+        let cois = create_cois(&[[0., 0., 0.]]);
+        let documents = create_data_with_mab(&[[0., 0., 4.9], [0., 0., 5.]]);
 
         let config = Configuration {
             threshold: 5.,
@@ -365,7 +367,7 @@ mod tests {
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]
         // updated coi after second embedding = [0., 0., 0.941]
-        assert_eq!(cois[0].point, create_embedding(array![0., 0., 0.941]));
+        assert_eq!(cois[0].point, [0., 0., 0.941]);
     }
 
     #[test]
