@@ -41,7 +41,7 @@ where
 {
     common_systems
         .analytics()
-        .compute_analytics(history, &prev_documents)
+        .compute_analytics(history, prev_documents)
         .and_then(|analytics| common_systems.database().save_analytics(&analytics))
 }
 
@@ -101,7 +101,7 @@ where
         // load the last valid state from the database
         let data = common_systems
             .database()
-            .load_state()?
+            .load_data()?
             .unwrap_or_else(RerankerData::default);
 
         Ok(Self {
