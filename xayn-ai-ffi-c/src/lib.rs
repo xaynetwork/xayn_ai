@@ -8,7 +8,15 @@ mod utils;
 
 #[cfg(doc)]
 pub use crate::{
-    ai::{xaynai_drop, xaynai_new, xaynai_rerank, CDocument},
+    ai::{
+        error_message_drop,
+        xaynai_drop,
+        xaynai_new,
+        xaynai_rerank,
+        CDocument,
+        CXaynAi,
+        CXaynAiError,
+    },
     utils::dummy_function,
 };
 

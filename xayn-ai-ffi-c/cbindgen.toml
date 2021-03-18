@@ -6,9 +6,16 @@ include_version = true
 sys_includes = ["stdint.h"]
 no_includes = true
 
+[export]
+include = ["CXaynAiError"]
+exclude = ["ErrorCode"]
+
 [export.rename]
+"CXaynAiError" = "CXaynAiErrorCode"
+"ErrorCode" = "CXaynAiErrorCode"
+"ExternError" = "CXaynAiError"
 "Reranker_Systems" = "CXaynAi"
 
 [parse]
 parse_deps = true
-include = ["xayn-ai"]
+include = ["ffi-support", "xayn-ai"]
