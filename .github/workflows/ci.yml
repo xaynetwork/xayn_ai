@@ -240,10 +240,10 @@ jobs:
           version: '0.16.0'
           args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70'
 
-  cargo-lipo:
+  install-cargo-lipo:
     # we use the latest stable rustc + cargo version that is already installed on the image
     # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
-    name: cargo-lipo
+    name: install-cargo-lipo
     runs-on: macos-10.15
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
@@ -320,7 +320,7 @@ jobs:
 
   build-ios-libs:
     name: build-ios-libs
-    needs: [registry-cache, cargo-lipo, test]
+    needs: [registry-cache, install-cargo-lipo, test]
     runs-on: macos-10.15
     timeout-minutes: 20
     strategy:
