@@ -22,7 +22,7 @@ pub enum DocumentRelevance {
 
 /// Collects all documents that are present in the history.
 /// The history contains the user feedback of these documents.
-pub(crate) fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
+pub fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
     history: &'hist [DocumentHistory],
     documents: &'doc [D],
 ) -> Vec<(&'hist DocumentHistory, &'doc D)> {
@@ -40,7 +40,7 @@ pub(crate) fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
 
 /// Classifies the documents into positive and negative documents based on the user feedback
 /// and the relevance of the results.
-pub(crate) fn classify_documents_based_on_user_feedback<D>(
+pub fn classify_documents_based_on_user_feedback<D>(
     matching_documents: Vec<(&DocumentHistory, D)>,
 ) -> (Vec<D>, Vec<D>) {
     let mut positive_docs = Vec::<D>::new();
@@ -58,7 +58,7 @@ pub(crate) fn classify_documents_based_on_user_feedback<D>(
 
 /// Determines the [`DocumentRelevance`] based on the user feedback
 /// and the relevance of the result.
-pub(crate) fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
+pub fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
     match (history.relevance, history.user_feedback) {
         (Relevance::Low, UserFeedback::Irrelevant) | (Relevance::Low, UserFeedback::None) => {
             DocumentRelevance::Negative
