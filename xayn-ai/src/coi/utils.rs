@@ -306,7 +306,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_classify_documents_based_on_user_feedback() {
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
