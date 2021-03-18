@@ -27,9 +27,8 @@ use crate::{
 /// Creates and initializes the Xayn AI.
 ///
 /// # Errors
-/// Aborts and returns a null pointer if:
+/// Returns a null pointer if:
 /// - The vocab or model paths are invalid.
-/// - The token size is invalid.
 ///
 /// An utf8 encoded, null-terminated message will be written to a valid error pointer.
 ///
@@ -41,14 +40,8 @@ use crate::{
 /// size bytes.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
-    // bert
     vocab: *const u8,
     model: *const u8,
-    token_size: u32,
-    // coi
-    shift_factor: f32,
-    threshold: f32,
-    // error
     error: *mut u8,
     error_size: u32,
 ) -> *mut Reranker<Systems> {
@@ -75,16 +68,9 @@ pub unsafe extern "C" fn xaynai_new(
                 return null_mut();
             }
         };
-        let bert = match bert.with_token_size(token_size as usize) {
-            Ok(bert) => bert,
-            Err(cause) => {
-                error.set(format!("Failed to build the bert model: {}", cause));
-                return null_mut();
-            }
-        };
-        // accents, lowercase and pooler have been fixed before, we should make them configurable
-        // at one point, but that will be a breaking change for the embeddings used by the ai
         let bert = bert
+            .with_token_size(90)
+            .expect("infallible: token size >= 2")
             .with_accents(false)
             .with_lowercase(true)
             .with_pooling(AveragePooler);
@@ -97,11 +83,7 @@ pub unsafe extern "C" fn xaynai_new(
         };
 
         // coi
-        let coi = CoiConfiguration {
-            shift_factor,
-            threshold,
-        };
-        let coi = CoiSystem::new(coi);
+        let coi = CoiSystem::new(CoiConfiguration::default());
 
         // ltr
         let ltr = ConstLtr(0.5);
@@ -151,7 +133,7 @@ pub unsafe extern "C" fn xaynai_new(
 /// the ranks array.
 ///
 /// # Errors
-/// Aborts without changing the ranks if:
+/// Returns without changing the ranks if:
 /// - The xaynai is null.
 /// - The ids, snippets or ranks are invalid.
 /// - The document size is zero.
@@ -179,7 +161,9 @@ pub unsafe extern "C" fn xaynai_rerank(
     error: *mut u8,
     error_size: u32,
 ) {
-    // TODO: check if the ai gets mutated during reranking, if so drop the ai in case of a panic
+    // The ai is mutated because we update the cois and prev_documents. The current code (#25) is
+    // panic-safe in the sense that if a panic happen the next run of the rerank will not produce
+    // invalid results (maybe an error from the feedback depending on where it panics).
     let xaynai = AssertUnwindSafe(xaynai);
 
     catch_unwind(move || {
@@ -302,9 +286,6 @@ mod tests {
     fn setup_vals() -> (
         CString,
         CString,
-        u32,
-        f32,
-        f32,
         Vec<u8>,
         u32,
         u32,
@@ -314,9 +295,6 @@ mod tests {
     ) {
         let vocab = CString::new(VOCAB).unwrap();
         let model = CString::new(MODEL).unwrap();
-        let token_size = 64;
-        let shift_factor = 0.1;
-        let threshold = 10.0;
         let error_size = 256;
         let error = vec![0; error_size as usize];
 
@@ -330,17 +308,7 @@ mod tests {
         let ranks = (0..doc_size).collect();
 
         (
-            vocab,
-            model,
-            token_size,
-            shift_factor,
-            threshold,
-            error,
-            error_size,
-            doc_size,
-            ids,
-            snippets,
-            ranks,
+            vocab, model, error, error_size, doc_size, ids, snippets, ranks,
         )
     }
 
@@ -389,19 +357,8 @@ mod tests {
 
     #[test]
     fn test_xaynai_rerank() {
-        let (
-            vocab,
-            model,
-            token_size,
-            shift_factor,
-            threshold,
-            mut error,
-            error_size,
-            doc_size,
-            ids,
-            snippets,
-            mut ranks_val,
-        ) = setup_vals();
+        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
+            setup_vals();
         let reranks_val = ranks_val.iter().copied().rev().collect::<Vec<_>>();
         let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
             vocab.as_c_str(),
@@ -414,17 +371,7 @@ mod tests {
         let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
 
         // new
-        let xaynai = unsafe {
-            xaynai_new(
-                vocab,
-                model,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        };
+        let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
         assert!(!xaynai.is_null());
         assert_eq!(error_msg.to_string(), "");
 
@@ -439,19 +386,7 @@ mod tests {
 
     #[test]
     fn test_xaynai_invalid_tokenizer_paths() {
-        let (
-            vocab,
-            model,
-            token_size,
-            shift_factor,
-            threshold,
-            mut error,
-            error_size,
-            _,
-            ids,
-            snippets,
-            mut ranks_val,
-        ) = setup_vals();
+        let (vocab, model, mut error, error_size, _, ids, snippets, mut ranks_val) = setup_vals();
         let (vocab, model, error, mut error_msg, _, _, _) = setup_refs(
             vocab.as_c_str(),
             model.as_c_str(),
@@ -464,130 +399,32 @@ mod tests {
         let null_ = null();
         let invalid = CString::new("").unwrap();
         let invalid = invalid.as_ptr() as *const u8;
-        assert!(unsafe {
-            xaynai_new(
-                null_,
-                model,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        }
-        .is_null());
+        assert!(unsafe { xaynai_new(null_, model, error, error_size) }.is_null());
         assert_eq!(
             error_msg.to_string(),
             "Failed to build the bert model: The vocab is not a valid C-string pointer",
         );
-        assert!(unsafe {
-            xaynai_new(
-                invalid,
-                model,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        }
-        .is_null());
+        assert!(unsafe { xaynai_new(invalid, model, error, error_size) }.is_null());
         assert_eq!(
             error_msg.to_string(),
             "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
-        assert!(unsafe {
-            xaynai_new(
-                vocab,
-                null_,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        }
-        .is_null());
+        assert!(unsafe { xaynai_new(vocab, null_, error, error_size) }.is_null());
         assert_eq!(
             error_msg.to_string(),
             "Failed to build the bert model: The model is not a valid C-string pointer",
         );
-        assert!(unsafe {
-            xaynai_new(
-                vocab,
-                invalid,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        }
-        .is_null());
+        assert!(unsafe { xaynai_new(vocab, invalid, error, error_size) }.is_null());
         assert_eq!(
             error_msg.to_string(),
             "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
-        );
-    }
-
-    #[test]
-    fn test_xaynai_invalid_tokenizer_sizes() {
-        let (
-            vocab,
-            model,
-            _,
-            shift_factor,
-            threshold,
-            mut error,
-            error_size,
-            _,
-            ids,
-            snippets,
-            mut ranks_val,
-        ) = setup_vals();
-        let (vocab, model, error, mut error_msg, _, _, _) = setup_refs(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            error.as_mut_slice(),
-            ids.as_slice(),
-            snippets.as_slice(),
-            ranks_val.as_mut_slice(),
-        );
-
-        let invalid = 0;
-        assert!(unsafe {
-            xaynai_new(
-                vocab,
-                model,
-                invalid,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        }
-        .is_null());
-        assert_eq!(
-            error_msg.to_string(),
-            "Failed to build the bert model: The token size must be greater than two to allow for special tokens",
         );
     }
 
     #[test]
     fn test_xaynai_invalid_document_ids() {
-        let (
-            vocab,
-            model,
-            token_size,
-            shift_factor,
-            threshold,
-            mut error,
-            error_size,
-            doc_size,
-            ids,
-            snippets,
-            mut ranks_val,
-        ) = setup_vals();
+        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
+            setup_vals();
         let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
             vocab.as_c_str(),
             model.as_c_str(),
@@ -597,17 +434,7 @@ mod tests {
             ranks_val.as_mut_slice(),
         );
         let (_, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
-        let xaynai = unsafe {
-            xaynai_new(
-                vocab,
-                model,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        };
+        let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
         assert!(!xaynai.is_null());
 
         let null_ = null();
@@ -642,19 +469,8 @@ mod tests {
 
     #[test]
     fn test_xaynai_invalid_document_snippets() {
-        let (
-            vocab,
-            model,
-            token_size,
-            shift_factor,
-            threshold,
-            mut error,
-            error_size,
-            doc_size,
-            ids,
-            snippets,
-            mut ranks_val,
-        ) = setup_vals();
+        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
+            setup_vals();
         let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
             vocab.as_c_str(),
             model.as_c_str(),
@@ -664,17 +480,7 @@ mod tests {
             ranks_val.as_mut_slice(),
         );
         let (ids, _) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
-        let xaynai = unsafe {
-            xaynai_new(
-                vocab,
-                model,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        };
+        let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
         assert!(!xaynai.is_null());
 
         let null_ = null();
@@ -705,19 +511,8 @@ mod tests {
 
     #[test]
     fn test_xaynai_invalid_document_ranks() {
-        let (
-            vocab,
-            model,
-            token_size,
-            shift_factor,
-            threshold,
-            mut error,
-            error_size,
-            doc_size,
-            ids,
-            snippets,
-            mut ranks_val,
-        ) = setup_vals();
+        let (vocab, model, mut error, error_size, doc_size, ids, snippets, mut ranks_val) =
+            setup_vals();
         let (vocab, model, error, mut error_msg, ids, snippets, _) = setup_refs(
             vocab.as_c_str(),
             model.as_c_str(),
@@ -727,17 +522,7 @@ mod tests {
             ranks_val.as_mut_slice(),
         );
         let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
-        let xaynai = unsafe {
-            xaynai_new(
-                vocab,
-                model,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        };
+        let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
         assert!(!xaynai.is_null());
 
         let null_ = null_mut();
@@ -752,19 +537,7 @@ mod tests {
 
     #[test]
     fn test_xaynai_invalid_document_size() {
-        let (
-            vocab,
-            model,
-            token_size,
-            shift_factor,
-            threshold,
-            mut error,
-            error_size,
-            _,
-            ids,
-            snippets,
-            mut ranks_val,
-        ) = setup_vals();
+        let (vocab, model, mut error, error_size, _, ids, snippets, mut ranks_val) = setup_vals();
         let (vocab, model, error, mut error_msg, ids, snippets, ranks) = setup_refs(
             vocab.as_c_str(),
             model.as_c_str(),
@@ -774,17 +547,7 @@ mod tests {
             ranks_val.as_mut_slice(),
         );
         let (ids, snippets) = setup_refs_refs(ids.as_slice(), snippets.as_slice());
-        let xaynai = unsafe {
-            xaynai_new(
-                vocab,
-                model,
-                token_size,
-                shift_factor,
-                threshold,
-                error,
-                error_size,
-            )
-        };
+        let xaynai = unsafe { xaynai_new(vocab, model, error, error_size) };
         assert!(!xaynai.is_null());
 
         let invalid = 0;
