@@ -150,7 +150,7 @@ where
             .unwrap_or_else(|e| {
                 self.errors.push(e);
 
-                // in case of error we don't have documents
+                // in case of an error we don't have documents
                 self.data.prev_documents.clear();
 
                 documents.iter().map(|document| document.rank).collect()
