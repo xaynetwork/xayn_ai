@@ -115,7 +115,7 @@ where
         &self.errors
     }
 
-    pub fn rerank(mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
+    pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
         // The number of errors it can contains is very limited, using clear we avoid
         // to reallocate the vector each time.
         self.errors.clear();
