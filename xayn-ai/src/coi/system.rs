@@ -339,8 +339,8 @@ mod tests {
 
     #[test]
     fn test_update_coi_threshold_exclusive() {
-        let cois = create_cois(vec![array![0., 0., 0.]]);
-        let embedding = create_embedding(array![0., 0., 12.]);
+        let cois = create_cois(&[[0., 0., 0.]]);
+        let embedding = arr1(&[0., 0., 12.]).into();
 
         let cois = CoiSystem::default().update_coi(&embedding, cois);
 
