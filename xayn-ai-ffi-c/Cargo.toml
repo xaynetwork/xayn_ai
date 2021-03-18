@@ -1,5 +1,5 @@
 [package]
-name = "xayn-ai-ffi"
+name = "xayn-ai-ffi-c"
 version = "0.1.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"

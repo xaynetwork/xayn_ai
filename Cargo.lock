@@ -1500,7 +1500,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "xayn-ai-ffi"
+name = "xayn-ai-ffi-c"
 version = "0.1.0"
 dependencies = [
  "cbindgen",

@@ -19,7 +19,7 @@ use xayn_ai::{
     Reranker,
 };
 
-use crate::c::{
+use crate::{
     systems::{DummyAnalytics, DummyDatabase, Systems},
     utils::{cstr_to_string, ErrorMsg},
 };
@@ -295,7 +295,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::c::tests::{MODEL, VOCAB};
+    use crate::tests::{MODEL, VOCAB};
 
     /// Creates values for testing.
     #[allow(clippy::type_complexity)]
