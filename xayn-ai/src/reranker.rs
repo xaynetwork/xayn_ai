@@ -15,8 +15,8 @@ use crate::{
 
 pub type DocumentsRank = Vec<usize>;
 
-/// Update AI
-fn feedback_loop<CS>(
+/// Update cois from user feedback
+fn learn_user_interests<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     prev_documents: &[DocumentDataWithMab],
@@ -31,7 +31,7 @@ where
 }
 
 /// Compute and save analytics
-fn analytics<CS>(
+fn collect_analytics<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     prev_documents: &[DocumentDataWithMab],
@@ -123,7 +123,7 @@ where
         if !history.is_empty() && !self.data.prev_documents.is_empty() {
             let user_interests = self.data.user_interests.clone();
 
-            match feedback_loop(
+            match learn_user_interests(
                 &self.common_systems,
                 history,
                 &self.data.prev_documents,
@@ -133,7 +133,9 @@ where
                 Err(e) => self.errors.push(e),
             };
 
-            if let Err(e) = analytics(&self.common_systems, history, &self.data.prev_documents) {
+            if let Err(e) =
+                collect_analytics(&self.common_systems, history, &self.data.prev_documents)
+            {
                 self.errors.push(e);
             }
         }
