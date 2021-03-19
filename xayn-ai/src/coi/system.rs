@@ -313,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_update_coi_update_point() {
         let cois = create_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
         let embedding = arr1(&[2., 3., 4.]).into();
@@ -327,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_shift_coi_point() {
         let coi = Coi::new(0, arr1(&[1., 1., 1.]).into());
         let embedding = arr1(&[2., 3., 4.]).into();
@@ -335,6 +335,39 @@ mod tests {
         let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);
 
         assert_eq!(updated_coi, [1.1, 1.2, 1.3]);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
+    fn test_update_coi_threshold_exclusive() {
+        let cois = create_cois(&[[0., 0., 0.]]);
+        let embedding = arr1(&[0., 0., 12.]).into();
+
+        let cois = CoiSystem::default().update_coi(&embedding, cois);
+
+        assert_eq!(cois.len(), 2);
+        assert_eq!(cois[0].point, [0., 0., 0.]);
+        assert_eq!(cois[1].point, [0., 0., 12.]);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
+    fn test_update_cois_update_the_same_point_twice() {
+        // checks that an updated coi is used in the next iteration
+        let cois = create_cois(&[[0., 0., 0.]]);
+        let documents = create_data_with_mab(&[[0., 0., 4.9], [0., 0., 5.]]);
+
+        let config = Configuration {
+            threshold: 5.,
+            ..Default::default()
+        };
+
+        let cois = CoiSystem::new(config).update_cois(&documents.iter().collect::<Vec<_>>(), cois);
+
+        assert_eq!(cois.len(), 1);
+        // updated coi after first embedding = [0., 0., 0.49]
+        // updated coi after second embedding = [0., 0., 0.941]
+        assert_eq!(cois[0].point, [0., 0., 0.941]);
     }
 
     #[test]
@@ -424,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_update_user_interests() {
         let positive = create_cois(&[[3., 2., 1.], [1., 2., 3.]]);
         let negative = create_cois(&[[4., 5., 6.]]);

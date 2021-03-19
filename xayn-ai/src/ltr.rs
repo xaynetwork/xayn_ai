@@ -26,6 +26,8 @@ impl LtrSystem for ConstLtr {
 
 #[cfg(test)]
 mod tests {
+    use float_cmp::approx_eq;
+
     use super::*;
     use crate::{
         data::{
@@ -36,7 +38,6 @@ mod tests {
         ndarray::arr1,
     };
 
-    #[allow(clippy::float_cmp)]
     #[test]
     fn test_const_value() {
         let id = DocumentId("id1".to_string());
@@ -70,7 +71,7 @@ mod tests {
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);
-        assert_eq!(ltr_docs[0].ltr.ltr_score, half);
-        assert_eq!(ltr_docs[1].ltr.ltr_score, half);
+        assert!(approx_eq!(f32, ltr_docs[0].ltr.ltr_score, half));
+        assert!(approx_eq!(f32, ltr_docs[1].ltr.ltr_score, half));
     }
 }
