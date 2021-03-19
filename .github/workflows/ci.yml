@@ -214,6 +214,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_STABLE }}
           profile: minimal
+          default: true
 
       - name: Use cached cargo registry
         uses: actions/cache@v2
