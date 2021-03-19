@@ -109,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_first() {
         let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]])
             .into_arc_tensor()
@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it acually compares ndarrays
+    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_average() {
         let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]]).into_arc_tensor();
 
