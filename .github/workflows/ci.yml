@@ -362,7 +362,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
       - name: Build iOS library ${{ matrix.target }}
-        working-directory: ./xayn-ai-ffi
+        working-directory: ./xayn-ai-ffi-c
         run: cargo lipo --targets ${{ matrix.target }}
 
   # cargo-ndk:
@@ -446,5 +446,5 @@ jobs:
   #         restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
   #     - name: Build Android library ${{ matrix.target }}
-  #       working-directory: ./xayn-ai-ffi
+  #       working-directory: ./xayn-ai-ffi-c
   #       run: cargo ndk -t ${{ matrix.ndk-target }} --platform ${{ env.ANDROID_PLATFORM_VERSION }} build --release
