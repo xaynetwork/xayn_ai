@@ -320,8 +320,8 @@ jobs:
 
       - name: Test Android library ${{ matrix.target }}
         env:
-          RUSTFLAGS: "-C opt-level=3 -C debug-assertions=yes"
-        run: cross test --target ${{ matrix.target }}
+          RUSTFLAGS: "-C opt-level=3 -C debug-assertions=yes -D warnings"
+        run: cross test --target ${{ matrix.target }} --all-targets
 
   build-ios-libs:
     name: build-ios-libs
