@@ -1,30 +1,62 @@
 use derive_more::{Deref, From};
 use displaydoc::Display;
+use float_cmp::{ApproxEq, F32Margin};
 use thiserror::Error;
 use tract_onnx::prelude::TractError;
 
 use crate::{
     model::Prediction,
-    ndarray::{s, Array1, Array2, ArrayView1, Ix1},
+    ndarray::{s, Array, Array1, ArrayBase, Data, Dimension, Ix1, Ix2, Zip},
     tokenizer::AttentionMask,
 };
 
-/// A 1-dimensional sequence embedding.
-#[derive(Clone, Debug, Deref, From, PartialEq)]
-pub struct Embedding1(Array1<f32>);
-
-impl<S> PartialEq<S> for Embedding1
+/// A d-dimensional sequence embedding.
+#[derive(Clone, Debug, Deref, From)]
+pub struct Embedding<D>(Array<f32, D>)
 where
-    S: AsRef<[f32]>,
+    D: Dimension;
+
+/// A 1-dimensional sequence embedding.
+pub type Embedding1 = Embedding<Ix1>;
+
+/// A 2-dimensional sequence embedding.
+pub type Embedding2 = Embedding<Ix2>;
+
+impl<S, D> PartialEq<ArrayBase<S, D>> for Embedding<D>
+where
+    S: Data<Elem = f32>,
+    D: Dimension,
 {
-    fn eq(&self, other: &S) -> bool {
-        self.0.eq(&ArrayView1::from(other.as_ref()))
+    fn eq(&self, other: &ArrayBase<S, D>) -> bool {
+        if self.shape() != other.shape() {
+            return false;
+        }
+
+        let margin = F32Margin::default();
+        Zip::from(&self.0)
+            .and(other)
+            .all(|this, other| (*this).approx_eq(*other, margin))
     }
 }
 
-/// A 2-dimensional sequence embedding.
-#[derive(Clone, Debug, Deref, From, PartialEq)]
-pub struct Embedding2(Array2<f32>);
+impl<S, D> PartialEq<Embedding<D>> for ArrayBase<S, D>
+where
+    S: Data<Elem = f32>,
+    D: Dimension,
+{
+    fn eq(&self, other: &Embedding<D>) -> bool {
+        other.eq(self)
+    }
+}
+
+impl<D> PartialEq for Embedding<D>
+where
+    D: Dimension,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.eq(&other.0)
+    }
+}
 
 /// The potential errors of the pooler.
 #[derive(Debug, Display, Error)]
@@ -97,53 +129,44 @@ mod tests {
     use tract_onnx::prelude::IntoArcTensor;
 
     use super::*;
-    use crate::ndarray::{arr2, arr3};
+    use crate::ndarray::{arr1, arr2, arr3};
 
     #[test]
     fn test_none() {
         let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]])
             .into_arc_tensor()
             .into();
-        let embedding = arr2(&[[1., 2., 3.], [4., 5., 6.]]).into();
-        assert_eq!(NonePooler.pool(prediction).unwrap(), embedding);
+        let embedding = NonePooler.pool(prediction).unwrap();
+        assert_eq!(embedding, arr2(&[[1., 2., 3.], [4., 5., 6.]]));
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_first() {
         let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]])
             .into_arc_tensor()
             .into();
-        assert_eq!(FirstPooler.pool(prediction).unwrap(), [1., 2., 3.]);
+        let embedding = FirstPooler.pool(prediction).unwrap();
+        assert_eq!(embedding, arr1(&[1., 2., 3.]));
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_average() {
         let prediction = arr3::<f32, _, _>(&[[[1., 2., 3.], [4., 5., 6.]]]).into_arc_tensor();
 
         let mask = arr2(&[[0, 0]]).into();
-        assert_eq!(
-            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
-            [0., 0., 0.],
-        );
+        let embedding = AveragePooler.pool(prediction.clone().into(), mask).unwrap();
+        assert_eq!(embedding, arr1(&[0., 0., 0.]));
 
         let mask = arr2(&[[0, 1]]).into();
-        assert_eq!(
-            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
-            [4., 5., 6.],
-        );
+        let embedding = AveragePooler.pool(prediction.clone().into(), mask).unwrap();
+        assert_eq!(embedding, arr1(&[4., 5., 6.]));
 
         let mask = arr2(&[[1, 0]]).into();
-        assert_eq!(
-            AveragePooler.pool(prediction.clone().into(), mask).unwrap(),
-            [1., 2., 3.],
-        );
+        let embedding = AveragePooler.pool(prediction.clone().into(), mask).unwrap();
+        assert_eq!(embedding, arr1(&[1., 2., 3.]));
 
         let mask = arr2(&[[1, 1]]).into();
-        assert_eq!(
-            AveragePooler.pool(prediction.into(), mask).unwrap(),
-            [2.5, 3.5, 4.5],
-        );
+        let embedding = AveragePooler.pool(prediction.into(), mask).unwrap();
+        assert_eq!(embedding, arr1(&[2.5, 3.5, 4.5]));
     }
 }

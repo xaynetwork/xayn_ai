@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 derive_more = { version = "0.99.11", default-features = false, features = ["deref", "from"] }
 displaydoc = "0.2.0"
+float-cmp = "0.8.0"
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 thiserror = "1.0.24"
 tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }

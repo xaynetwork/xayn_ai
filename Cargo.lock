@@ -864,6 +864,7 @@ version = "0.1.0"
 dependencies = [
  "derive_more",
  "displaydoc",
+ "float-cmp",
  "rubert-tokenizer",
  "thiserror",
  "tract-onnx",
