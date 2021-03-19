@@ -1,4 +1,5 @@
 use crate::{
+    analytics::Analytics,
     data::{
         document::DocumentHistory,
         document_data::{
@@ -9,7 +10,6 @@ use crate::{
             DocumentDataWithLtr,
             DocumentDataWithMab,
         },
-        Analytics,
         UserInterests,
     },
     database::Database,

@@ -1,3 +1,4 @@
+mod analytics;
 mod bert;
 mod coi;
 mod context;
@@ -11,6 +12,8 @@ mod reranker_systems;
 
 pub(crate) use rubert::ndarray;
 
-pub use data::document::{Document, DocumentHistory, DocumentId};
-pub use error::Error;
-pub use reranker::Reranker;
+pub use crate::{
+    data::document::{Document, DocumentHistory, DocumentId},
+    error::Error,
+    reranker::Reranker,
+};
