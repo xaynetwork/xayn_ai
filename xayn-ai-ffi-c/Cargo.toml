@@ -12,7 +12,7 @@ rubert = { path = "../rubert" }
 xayn-ai = { path = "../xayn-ai" }
 
 [build-dependencies]
-cbindgen = "0.18.0"
+cbindgen = "=0.18.0"
 
 [lib]
 crate-type = ["staticlib", "cdylib"]

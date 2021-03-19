@@ -1,6 +1,6 @@
 use std::{env, fs::read_dir, path::PathBuf};
 
-use cbindgen::{Builder, Config, VERSION};
+use cbindgen::{Builder, Config};
 
 fn main() {
     let crate_dir = PathBuf::from(
@@ -22,7 +22,6 @@ fn main() {
     }
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-changed={}", bind_config.display());
-    println!("cargo:rerun-if-changed={}", VERSION);
 
     // generate bindings
     let config = Config::from_file(bind_config).expect("Failed to read config.");
