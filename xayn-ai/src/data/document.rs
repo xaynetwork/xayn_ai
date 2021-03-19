@@ -2,6 +2,12 @@
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct DocumentId(pub String);
 
+impl From<&str> for DocumentId {
+    fn from(id: &str) -> Self {
+        Self(id.into())
+    }
+}
+
 // This represents a result from the query
 pub struct Document {
     /// unique identifier of this document

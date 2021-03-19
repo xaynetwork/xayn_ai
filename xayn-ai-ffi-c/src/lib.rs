@@ -3,20 +3,14 @@
 #![allow(unused_unsafe)]
 
 mod ai;
+mod error;
 mod systems;
 mod utils;
 
 #[cfg(doc)]
 pub use crate::{
-    ai::{
-        error_message_drop,
-        xaynai_drop,
-        xaynai_new,
-        xaynai_rerank,
-        CDocument,
-        CXaynAi,
-        CXaynAiError,
-    },
+    ai::{xaynai_drop, xaynai_new, xaynai_rerank, CDocument, CXaynAi},
+    error::{error_message_drop, CXaynAiError},
     utils::dummy_function,
 };
 
@@ -49,14 +43,12 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_vocab() {
-        // assure that the vocab hasn't been changed accidentally
+    fn test_vocab_unchanged() {
         assert_eq!(hash_file(VOCAB), 5045043227147541355);
     }
 
     #[test]
-    fn test_model() {
-        // assure that the model hasn't been changed accidentally
+    fn test_model_unchanged() {
         assert_eq!(hash_file(MODEL), 13727150546539837987);
     }
 }
