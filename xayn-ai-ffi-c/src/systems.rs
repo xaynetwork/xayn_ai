@@ -12,8 +12,7 @@ use xayn_ai::{
     Context,
     ContextSystem,
     Database,
-    DocumentDataWithMab,
-    DocumentHistory,
+    DummyAnalytics,
     Error,
     LtrSystem,
     MabRanking,
@@ -24,7 +23,7 @@ use xayn_ai::{
 pub struct DummyDatabase;
 
 impl Database for DummyDatabase {
-    fn save_data(&self, state: &RerankerData) -> Result<(), Error> {
+    fn save_data(&self, _state: &RerankerData) -> Result<(), Error> {
         Ok(())
     }
 
@@ -34,18 +33,6 @@ impl Database for DummyDatabase {
 
     fn save_analytics(&self, _analytics: &Analytics) -> Result<(), Error> {
         Ok(())
-    }
-}
-
-pub struct DummyAnalytics;
-
-impl AnalyticsSystem for DummyAnalytics {
-    fn compute_analytics(
-        &self,
-        _history: &[DocumentHistory],
-        _documents: &[DocumentDataWithMab],
-    ) -> Result<Analytics, Error> {
-        Ok(Analytics {})
     }
 }
 

@@ -16,13 +16,14 @@ use xayn_ai::{
     Context,
     Document,
     DocumentsRank,
+    DummyAnalytics,
     MabRanking,
     Reranker,
 };
 
 use crate::{
     error::CXaynAiError,
-    systems::{DummyAnalytics, DummyDatabase, Systems},
+    systems::{DummyDatabase, Systems},
 };
 
 /// The Xayn AI.

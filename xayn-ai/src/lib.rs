@@ -23,10 +23,9 @@ pub use crate::{
 
 // temporary ffi exports, most of this should be abstracted away by a builder later on
 pub use crate::{
-    analytics::Analytics,
-    coi::{CoiSystem, CoiSystemError, Configuration as CoiConfiguration},
+    analytics::{Analytics, DummyAnalytics},
+    coi::{CoiSystem, Configuration as CoiConfiguration},
     context::Context,
-    data::{document_data::DocumentDataWithMab, Coi},
     database::Database,
     ltr::ConstLtr,
     mab::{BetaSampler, MabRanking},
