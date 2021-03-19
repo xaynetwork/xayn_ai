@@ -1,7 +1,4 @@
-#![allow(dead_code)]
-
 use crate::{
-    coi::UserInterestsStatus,
     data::{
         document::DocumentHistory,
         document_data::{
@@ -33,14 +30,6 @@ pub trait CoiSystem {
         documents: Vec<DocumentDataWithEmbedding>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error>;
-
-    /// Make new user interests from history and documents
-    fn make_user_interests(
-        &self,
-        history: &[DocumentHistory],
-        documents: &[DocumentDataWithEmbedding],
-        user_interests: UserInterests,
-    ) -> Result<UserInterestsStatus, Error>;
 
     /// Update cois from history and documents
     fn update_user_interests(
