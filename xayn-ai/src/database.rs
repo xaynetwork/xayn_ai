@@ -1,4 +1,4 @@
-use crate::{data::Analytics, error::Error, reranker::RerankerData};
+use crate::{analytics::Analytics, error::Error, reranker::RerankerData};
 
 pub trait Database {
     fn save_data(&self, state: &RerankerData) -> Result<(), Error>;

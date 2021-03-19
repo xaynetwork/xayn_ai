@@ -47,5 +47,3 @@ impl Default for UserInterests {
         UserInterests::new()
     }
 }
-
-pub struct Analytics {}
