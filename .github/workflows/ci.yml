@@ -261,6 +261,8 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}
 
       - name: Test for cargo-lipo ${{ env.CARGO_LIPO }}
+        # we could also run `cargo install lipo || true` but in that case
+        # cargo fetches the index first which takes ~30sec longer
         id: test-bin
         shell: bash
         run: echo "::set-output name=exist::$(test -e ~/.cargo/bin/cargo-lipo && echo $?)"
@@ -315,8 +317,9 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-test-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
       - name: Test Android library ${{ matrix.target }}
-        # to make the tests run faster, we compile them in release mode
-        run: cross test --target ${{ matrix.target }} --release
+        env:
+          RUSTFLAGS: "-C opt-level=3 -C debug-assertions=yes"
+        run: cross test --target ${{ matrix.target }}
 
   build-ios-libs:
     name: build-ios-libs
