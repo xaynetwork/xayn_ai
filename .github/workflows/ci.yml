@@ -290,6 +290,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
           default: true
 
       - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
@@ -351,11 +352,11 @@ jobs:
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
-      - name: Restore ${{ needs.cargo-lipo.outputs.cache-key }} cache
+      - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
         with:
           path: ~/.cargo/bin/cargo-lipo
-          key: ${{ needs.cargo-lipo.outputs.cache-key }}
+          key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@v2.1.4
