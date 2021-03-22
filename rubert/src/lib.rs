@@ -16,7 +16,7 @@
 //!         .build()?;
 //!
 //!     let embedding = rubert.run("This is a sequence.")?;
-//!     assert_eq!(embedding.shape(), &[rubert.embedding_size()]);
+//!     assert_eq!(embedding.shape(), [rubert.embedding_size()]);
 //!
 //!     Ok(())
 //! }
@@ -28,16 +28,19 @@ mod pipeline;
 mod pooler;
 mod tokenizer;
 
-#[doc(hidden)]
-pub use tract_onnx::prelude::tract_ndarray as ndarray;
-
 pub use crate::{
     builder::{Builder, BuilderError},
-    model::ModelError,
     pipeline::{RuBert, RuBertError},
-    pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler, PoolerError},
+    pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler},
+};
+#[cfg(doc)]
+pub use crate::{
+    model::ModelError,
+    pooler::{Embedding, PoolerError},
     tokenizer::TokenizerError,
 };
+#[doc(hidden)]
+pub use tract_onnx::prelude::tract_ndarray as ndarray;
 
 #[cfg(test)]
 pub(crate) mod tests {

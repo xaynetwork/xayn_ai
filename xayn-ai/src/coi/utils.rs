@@ -306,7 +306,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // false positive, it actually compares ndarrays
     fn test_classify_documents_based_on_user_feedback() {
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
@@ -320,11 +319,11 @@ pub(crate) mod tests {
             classify_documents_based_on_user_feedback(matching_documents);
 
         assert_eq!(positive_docs.len(), 2);
-        assert_eq!(positive_docs[0].embedding.embedding, [3., 2., 1.]);
-        assert_eq!(positive_docs[1].embedding.embedding, [4., 5., 6.]);
+        assert_eq!(positive_docs[0].embedding.embedding, arr1(&[3., 2., 1.]));
+        assert_eq!(positive_docs[1].embedding.embedding, arr1(&[4., 5., 6.]));
 
         assert_eq!(negative_docs.len(), 1);
-        assert_eq!(negative_docs[0].embedding.embedding, [1., 2., 3.]);
+        assert_eq!(negative_docs[0].embedding.embedding, arr1(&[1., 2., 3.]));
     }
 
     #[test]
