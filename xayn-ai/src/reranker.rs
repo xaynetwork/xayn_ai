@@ -16,6 +16,9 @@ use crate::{
     DocumentId,
 };
 
+#[cfg(test)]
+use derive_more::From;
+
 pub type DocumentsRank = Vec<(DocumentId, usize)>;
 
 /// Update cois from user feedback
@@ -97,6 +100,7 @@ where
     Ok((documents, user_interests, rank))
 }
 
+#[cfg_attr(test, derive(Clone, From))]
 pub enum PreviousDocuments {
     Embedding(Vec<DocumentDataWithEmbedding>),
     Mab(Vec<DocumentDataWithMab>),
@@ -126,9 +130,18 @@ impl PreviousDocuments {
             PreviousDocuments::Mab(documents) => documents.is_empty(),
         }
     }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        match self {
+            PreviousDocuments::Embedding(documents) => documents.len(),
+            PreviousDocuments::Mab(documents) => documents.len(),
+        }
+    }
 }
 
 #[derive(Default)]
+#[cfg_attr(test, derive(Clone))]
 pub struct RerankerData {
     user_interests: UserInterests,
     prev_documents: PreviousDocuments,
@@ -209,5 +222,248 @@ where
                     .map(|document| (document.id.clone(), document.rank))
                     .collect()
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::{
+        coi::CoiSystemError,
+        data::document::{Relevance, UserFeedback},
+        tests::{
+            data_with_embedding,
+            document_history,
+            documents_from_ids,
+            expected_rerank_unchanged,
+            history_for_prev_docs,
+            MemDb,
+            MockCommonSystems,
+        },
+    };
+
+    /// A user performs the very first search that returns no results/`Documents`.
+    /// In this case, the `Reranker` should return an empty `DocumentsRank`.
+    #[test]
+    fn test_first_search_without_search_results() {
+        let cs = MockCommonSystems::default();
+        let mut reranker = Reranker::new(cs).unwrap();
+
+        let rank = reranker.rerank(&[], &[]);
+
+        assert_eq!(rank, []);
+        assert!(reranker.errors().is_empty())
+    }
+
+    /// A user performs the very first search that returns results/`Document`s.
+    /// The `Reranker` is not yet aware of any user interests and can therefore
+    /// not perform any reranking. In this case, the `Reranker` should
+    /// return the results/`Document`s in an unchanged order. Furthermore, the
+    /// `Reranker` should create `DocumentDataWithEmbedding` from the `Document`s,
+    /// from which the first user interests will be learned in the next call
+    /// to `rerank`.
+    #[test]
+    fn test_first_search_with_search_results() {
+        let cs = MockCommonSystems::default();
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = documents_from_ids(0..10);
+
+        let rank = reranker.rerank(&[], &documents);
+
+        assert_eq!(rank, expected_rerank_unchanged(&documents));
+        assert_eq!(reranker.data.prev_documents.len(), 10);
+        assert!(reranker.data.user_interests.positive.is_empty());
+        assert!(reranker.data.user_interests.negative.is_empty());
+
+        assert_eq!(reranker.errors().len(), 1);
+        let error = reranker.errors()[0].downcast_ref().unwrap();
+        assert!(matches!(error, CoiSystemError::NoCoi));
+    }
+
+    /// A user performed the very first search. The `Reranker` created the
+    /// previous documents from that search. The next time the user
+    /// searches, the user interests should be learned from the previous
+    /// documents and the current results/`Document`s should be reranked
+    /// based on the newly learned user interests.
+    #[test]
+    fn test_first_and_second_search_learn_cois_and_rerank() {
+        let cs = MockCommonSystems::default();
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = car_interest_example::documents();
+
+        let _rank = reranker.rerank(&[], &documents);
+
+        let history = history_for_prev_docs(
+            &reranker.data.prev_documents.to_coi_system_data(),
+            vec![
+                (Relevance::Low, UserFeedback::Irrelevant),
+                (Relevance::Low, UserFeedback::Relevant),
+                (Relevance::Low, UserFeedback::Relevant),
+                (Relevance::Low, UserFeedback::Irrelevant),
+                (Relevance::Low, UserFeedback::Irrelevant),
+                (Relevance::Low, UserFeedback::Relevant),
+            ],
+        );
+
+        let documents = documents_from_ids(10..20);
+
+        let _rank = reranker.rerank(&history, &documents);
+        assert!(reranker.errors().is_empty());
+        assert_eq!(reranker.data.prev_documents.len(), 10);
+
+        assert_eq!(reranker.data.user_interests.positive.len(), 3);
+        assert_eq!(reranker.data.user_interests.negative.len(), 3);
+    }
+
+    /// A user performed a couple of searches. The `Reranker` data holds the
+    /// previous documents from the last search. The user decides to clear
+    /// their history and then do a new search. The `Reranker` should skip
+    /// the learning step, discard the previous documents, rerank the
+    /// current `Document`s based on the current user interests and
+    /// create the previous documents from the current `Document`s.
+    #[test]
+    fn test_rerank_no_history() {
+        let cs = MockCommonSystems::new()
+            .set_db(|| MemDb::from_data(car_interest_example::reranker_data_with_mab()));
+        let mut reranker = Reranker::new(cs).unwrap();
+
+        let rank = reranker.rerank(&[], &car_interest_example::documents());
+
+        assert_eq!(rank, car_interest_example::expected_rerank());
+        assert!(reranker.errors().is_empty());
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            car_interest_example::documents().len()
+        );
+    }
+
+    /// This case is unlikely because the app always sends the complete
+    /// history. If the app decides to only send a subset of the history like
+    /// "news" or "search" history (for example if the user switches from the
+    /// search to the news screen), this case will be more likely. The
+    /// `Reranker` should fail in the learning step with a `NoMatchingDocuments`
+    /// error, create the previous documents from the current `Document`s
+    /// and rerank the current `Document`s based on the current user interests.
+    #[test]
+    fn test_rerank_no_matching_documents() {
+        let cs = MockCommonSystems::new()
+            .set_db(|| MemDb::from_data(car_interest_example::reranker_data_with_mab()));
+        let mut reranker = Reranker::new(cs).unwrap();
+
+        // creates a history with one document with the id 11
+        let history = document_history(vec![(11, Relevance::Low, UserFeedback::Relevant)]);
+        let rank = reranker.rerank(&history, &car_interest_example::documents());
+
+        assert_eq!(rank, car_interest_example::expected_rerank());
+        assert_eq!(reranker.data.prev_documents.len(), 6);
+
+        assert_eq!(reranker.errors().len(), 1);
+        let error = reranker.errors()[0].downcast_ref().unwrap();
+        assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
+    }
+
+    /// A user performed the very first search. The `Reranker` created the
+    /// previous documents from that search. The user decides to clear
+    /// their history and then do a new search. The `Reranker` should skip
+    /// the learning step, discard the previous documents, rerank the
+    /// current `Document`s based on the current user interests and
+    /// create the previous documents from the current `Document`s.
+    /// Since the learning step was skipped, the `Reranker` is not yet
+    /// aware of any user interests and can therefore not perform any
+    /// reranking. The `Reranker` should return the results/`Document`s
+    /// in an unchanged order.
+    #[test]
+    fn test_first_and_second_search_no_history() {
+        let cs = MockCommonSystems::new().set_db(|| {
+            MemDb::from_data(RerankerData {
+                prev_documents: data_with_embedding((0..10).map(|id| (id, vec![id as f32; 128])))
+                    .into(),
+                ..Default::default()
+            })
+        });
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = documents_from_ids(0..10);
+
+        let rank = reranker.rerank(&[], &documents);
+
+        assert_eq!(rank, expected_rerank_unchanged(&documents));
+        assert_eq!(reranker.data.prev_documents.len(), 10);
+        assert!(reranker.data.user_interests.positive.is_empty());
+        assert!(reranker.data.user_interests.negative.is_empty());
+
+        assert_eq!(reranker.errors().len(), 1);
+        let error = reranker.errors()[0].downcast_ref().unwrap();
+        assert!(matches!(error, CoiSystemError::NoCoi));
+    }
+
+    /// Similar to `test_first_and_second_search_no_history` but this time
+    /// the `Reranker` cannot find any matching documents. The `Reranker`
+    /// should return the results/`Document`s in an unchanged order and
+    /// create the previous documents from the current `Document`s.
+    #[test]
+    fn test_first_and_second_search_no_matching_documents() {
+        let cs = MockCommonSystems::new().set_db(|| {
+            MemDb::from_data(RerankerData {
+                prev_documents: data_with_embedding((0..10).map(|id| (id, vec![id as f32; 128])))
+                    .into(),
+                ..Default::default()
+            })
+        });
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = documents_from_ids(0..10);
+
+        // creates a history with one document with the id 11
+        let history = document_history(vec![(11, Relevance::Low, UserFeedback::Relevant)]);
+        let rank = reranker.rerank(&history, &documents);
+
+        assert_eq!(rank, expected_rerank_unchanged(&documents));
+        assert_eq!(reranker.data.prev_documents.len(), 10);
+        assert!(reranker.data.user_interests.positive.is_empty());
+        assert!(reranker.data.user_interests.negative.is_empty());
+
+        assert_eq!(reranker.errors().len(), 2);
+        let error = reranker.errors()[0].downcast_ref().unwrap();
+        assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
+
+        let error = reranker.errors()[1].downcast_ref().unwrap();
+        assert!(matches!(error, CoiSystemError::NoCoi));
+    }
+}
+
+#[cfg(test)]
+mod car_interest_example {
+    use crate::{
+        data::UserInterests,
+        reranker::{DocumentsRank, PreviousDocuments, RerankerData},
+        tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
+        Document,
+        DocumentId,
+    };
+
+    pub fn reranker_data_with_mab() -> RerankerData {
+        reranker_data(data_with_mab((0..10).map(|id| (id, vec![id as f32; 128]))))
+    }
+
+    pub fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
+        RerankerData {
+            prev_documents: docs.into(),
+            user_interests: UserInterests {
+                positive: cois_from_words(&["vehicle"], mocked_bert_system()),
+                ..Default::default()
+            },
+        }
+    }
+
+    pub fn documents() -> Vec<Document> {
+        documents_from_words((0..6).zip(&["ship", "car", "auto", "flugzeug", "plane", "vehicle"]))
+    }
+
+    pub fn expected_rerank() -> DocumentsRank {
+        [5, 3, 4, 0, 2, 1]
+            .iter()
+            .zip(0..6)
+            .map(|(id, rank)| (DocumentId(id.to_string()), rank))
+            .collect()
     }
 }

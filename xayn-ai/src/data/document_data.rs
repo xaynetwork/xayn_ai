@@ -54,6 +54,7 @@ pub struct DocumentDataWithDocument {
     pub document_content: DocumentContentComponent,
 }
 
+#[cfg_attr(test, derive(Clone))]
 pub struct DocumentDataWithEmbedding {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
@@ -101,6 +102,7 @@ impl DocumentDataWithCoi {
     }
 }
 
+#[cfg_attr(test, derive(Debug))]
 pub struct DocumentDataWithLtr {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
@@ -140,7 +142,7 @@ impl DocumentDataWithContext {
     }
 }
 
-#[cfg_attr(test, derive(Debug))]
+#[cfg_attr(test, derive(Clone, Debug))]
 pub struct DocumentDataWithMab {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
