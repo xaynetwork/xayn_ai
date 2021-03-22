@@ -114,6 +114,7 @@ impl DocumentDataWithLtr {
     }
 }
 
+#[cfg_attr(test, derive(Debug, Clone))]
 pub struct DocumentDataWithContext {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,

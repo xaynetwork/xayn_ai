@@ -17,3 +17,4 @@ thiserror = "1.0.24"
 [dev-dependencies]
 float-cmp = "0.8.0"
 maplit = "1.0.2"
+mockall = "0.9.1"

@@ -8,6 +8,7 @@ use crate::bert::Embedding;
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CoiId(pub usize);
 
+#[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone)]
 pub struct Coi {
     pub id: CoiId,
