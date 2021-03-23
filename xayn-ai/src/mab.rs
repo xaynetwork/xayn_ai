@@ -16,7 +16,6 @@ use std::{
     collections::{hash_map::Entry, BinaryHeap, HashMap},
 };
 
-use anyhow::anyhow;
 use displaydoc::Display;
 use rand_distr::{Beta, Distribution};
 use thiserror::Error;
@@ -25,7 +24,7 @@ use thiserror::Error;
 use mockall::automock;
 
 #[derive(Error, Debug, Display)]
-enum MabError {
+pub enum MabError {
     /// The coi id assigned to a document does not exist
     DocumentCoiDoesNotExist,
     /// No documents to pull
@@ -39,7 +38,7 @@ enum MabError {
 }
 
 #[cfg_attr(test, automock)]
-trait BetaSample {
+pub trait BetaSample {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, MabError>;
 }
 
@@ -138,7 +137,7 @@ fn update_cois(
             .ok_or(MabError::DocumentCoiDoesNotExist)?;
 
         let context_value = document.context.context_value;
-        if context_value < 0. || context_value > 1. {
+        if !((0.)..=1.).contains(&context_value) {
             return Err(MabError::InvalidContext);
         }
 
@@ -192,7 +191,7 @@ fn pull_arms(
 
         Ok((documents_by_coi, document.0))
     } else {
-        Err(MabError::ExtractedCoiNoDocuments.into())
+        Err(MabError::ExtractedCoiNoDocuments)
     }
 }
 
@@ -242,17 +241,20 @@ where
     }
 }
 
-pub struct MabRanking {
-    beta_sampler: BetaSampler,
+pub struct MabRanking<BS> {
+    beta_sampler: BS,
 }
 
-impl MabRanking {
-    pub fn new(beta_sampler: BetaSampler) -> Self {
+impl<BS> MabRanking<BS> {
+    pub fn new(beta_sampler: BS) -> Self {
         Self { beta_sampler }
     }
 }
 
-impl MabSystem for MabRanking {
+impl<BS> MabSystem for MabRanking<BS>
+where
+    BS: BetaSample,
+{
     fn compute_mab(
         &self,
         documents: Vec<DocumentDataWithContext>,
@@ -295,6 +297,7 @@ mod tests {
 
     use float_cmp::approx_eq;
 
+    use anyhow::anyhow;
     use std::collections::HashSet;
 
     fn with_ctx(id: DocumentId, coi_id: CoiId, context_value: f32) -> DocumentDataWithContext {
@@ -355,7 +358,7 @@ mod tests {
         let check_contains = |coi_id: CoiId, docs_id_ok: Vec<DocumentId>| {
             let docs = group
                 .get(&coi_id)
-                .expect(&format!("document from coi id {:?}", coi_id));
+                .unwrap_or_else(|| panic!("document from coi id {:?}", coi_id));
             let docs_id: HashSet<DocumentId> = docs
                 .iter()
                 .map(|doc| doc.0.document_id.id.clone())
@@ -394,7 +397,7 @@ mod tests {
             .into_iter()
             // into_sorted_vec returns elements in the revers order of what using pop will do
             .rev()
-            .map(|doc| doc.0.document_id.id.clone())
+            .map(|doc| doc.0.document_id.id)
             .collect();
 
         assert_eq!(
@@ -421,7 +424,7 @@ mod tests {
             .into_iter()
             // into_sorted_vec returns elements in the revers order of what using pop will do
             .rev()
-            .map(|doc| doc.0.document_id.id.clone())
+            .map(|doc| doc.0.document_id.id)
             .collect();
 
         assert_eq!(docs_id, vec![doc_id_2, doc_id_0, doc_id_1]);
@@ -429,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_update_coi_empty() {
-        let cois = update_cois(HashMap::new(), &vec![]).expect("cois");
+        let cois = update_cois(HashMap::new(), &[]).expect("cois");
         assert!(cois.is_empty());
     }
 
@@ -440,7 +443,7 @@ mod tests {
          CoiId(1) => coi!(CoiId(1))
         };
 
-        let new_cois = update_cois(cois.clone(), &vec![]).expect("cois");
+        let new_cois = update_cois(cois.clone(), &[]).expect("cois");
         assert_eq!(cois, new_cois);
     }
 
@@ -448,10 +451,37 @@ mod tests {
     fn test_update_coi_no_coi() {
         let error = update_cois(
             HashMap::new(),
-            &vec![with_ctx(DocumentId("0".to_string()), CoiId(0), 0.)],
+            &[with_ctx(DocumentId("0".to_string()), CoiId(0), 0.)],
         )
         .expect_err("no coi");
         assert!(matches!(error, MabError::DocumentCoiDoesNotExist));
+    }
+
+    #[test]
+    fn test_update_coi_invalid_context_value() {
+        let cois = hashmap! {
+            CoiId(0) => coi!(CoiId(0), 0.91),
+        };
+
+        let error = update_cois(
+            cois.clone(),
+            &[
+                with_ctx(DocumentId("".to_string()), CoiId(0), 0.35),
+                with_ctx(DocumentId("".to_string()), CoiId(0), -1.),
+            ],
+        )
+        .expect_err("invalid context value");
+        assert!(matches!(error, MabError::InvalidContext));
+
+        let error = update_cois(
+            cois,
+            &[
+                with_ctx(DocumentId("".to_string()), CoiId(0), 0.35),
+                with_ctx(DocumentId("".to_string()), CoiId(0), 1.01),
+            ],
+        )
+        .expect_err("invalid context value");
+        assert!(matches!(error, MabError::InvalidContext));
     }
 
     #[test]
@@ -462,7 +492,7 @@ mod tests {
         };
 
         let cois = update_cois(
-            cois.clone(),
+            cois,
             &vec![
                 with_ctx(DocumentId("".to_string()), CoiId(1), 1.),
                 with_ctx(DocumentId("".to_string()), CoiId(0), 0.35),
@@ -484,8 +514,8 @@ mod tests {
     #[test]
     fn test_pull_arms_coi_empty() {
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(DocumentId("0".to_string()).clone(), CoiId(0), 0.),
-            with_ctx(DocumentId("1".to_string()).clone(), CoiId(1), 0.),
+            with_ctx(DocumentId("0".to_string()), CoiId(0), 0.),
+            with_ctx(DocumentId("1".to_string()), CoiId(1), 0.),
         ]);
 
         let beta_sampler = MockBetaSample::new();
@@ -501,11 +531,8 @@ mod tests {
             CoiId(0) => coi!(CoiId(0), 0.91),
         };
 
-        let documents_by_coi = group_by_coi(vec![with_ctx(
-            DocumentId("1".to_string()).clone(),
-            CoiId(1),
-            0.,
-        )]);
+        let documents_by_coi =
+            group_by_coi(vec![with_ctx(DocumentId("1".to_string()), CoiId(1), 0.)]);
 
         let beta_sampler = MockBetaSample::new();
 
@@ -537,11 +564,8 @@ mod tests {
             CoiId(0) => coi!(CoiId(0), 0.91),
         };
 
-        let documents_by_coi = group_by_coi(vec![with_ctx(
-            DocumentId("1".to_string()).clone(),
-            CoiId(0),
-            0.,
-        )]);
+        let documents_by_coi =
+            group_by_coi(vec![with_ctx(DocumentId("1".to_string()), CoiId(0), 0.)]);
 
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler
@@ -625,9 +649,9 @@ mod tests {
         let doc_id_5 = DocumentId("5".to_string());
 
         let cois = hashmap! {
-            CoiId(1) => coi!(CoiId(1), 0.1),
-            CoiId(4) => coi!(CoiId(4), 0.4),
-            CoiId(7) => coi!(CoiId(7), 0.7),
+            CoiId(1) => coi!(CoiId(1), 1.),
+            CoiId(4) => coi!(CoiId(4), 4.),
+            CoiId(7) => coi!(CoiId(7), 7.),
         };
 
         let documents_by_coi = group_by_coi(vec![
@@ -645,10 +669,11 @@ mod tests {
             // alternate CoiId(1) and CoiId(4), serve CoiId(7) as last
             // letting 7 win only at the end allow us to always have 3 cois
             // to sample an make it eaiser to understand the round
+            #[allow(clippy::clippy::float_cmp)] // alpha is setted by us and never changed
             let sample = match coi_counter / 3 {
                 // CoiId(1) wins
                 0 => {
-                    if alpha == 0.1 {
+                    if alpha == 1. {
                         0.9
                     } else {
                         0.1
@@ -656,7 +681,7 @@ mod tests {
                 }
                 // CoiId(4) wins
                 1 => {
-                    if alpha == 0.4 {
+                    if alpha == 4. {
                         0.9
                     } else {
                         0.1
@@ -664,7 +689,7 @@ mod tests {
                 }
                 // CoiId(1) wins
                 2 => {
-                    if alpha == 0.1 {
+                    if alpha == 1. {
                         0.9
                     } else {
                         0.1
@@ -672,7 +697,7 @@ mod tests {
                 }
                 // CoiId(4) wins
                 3 => {
-                    if alpha == 0.4 {
+                    if alpha == 4. {
                         0.9
                     } else {
                         0.1
@@ -680,7 +705,7 @@ mod tests {
                 }
                 // CoiId(1) wins
                 4 => {
-                    if alpha == 0.1 {
+                    if alpha == 1. {
                         0.9
                     } else {
                         0.1
@@ -769,5 +794,157 @@ mod tests {
 
         // if we got more ok that ko we are ok
         assert!(ok_counter as f32 > n as f32 * 0.7);
+    }
+
+    #[test]
+    fn test_mab_ranking_iter_ok() {
+        let doc_id_0 = DocumentId("0".to_string());
+        let doc_id_1 = DocumentId("1".to_string());
+        let doc_id_2 = DocumentId("2".to_string());
+        let doc_id_3 = DocumentId("3".to_string());
+        let doc_id_4 = DocumentId("4".to_string());
+        let doc_id_5 = DocumentId("5".to_string());
+
+        let cois = hashmap! {
+            CoiId(0) => coi!(CoiId(0), 0.1),
+            CoiId(4) => coi!(CoiId(4), 0.5),
+            CoiId(7) => coi!(CoiId(7), 0.8),
+        };
+
+        let documents_by_coi = group_by_coi(vec![
+            with_ctx(doc_id_0.clone(), CoiId(0), 0.2),
+            with_ctx(doc_id_1.clone(), CoiId(0), 0.5),
+            with_ctx(doc_id_2.clone(), CoiId(0), 0.7),
+            with_ctx(doc_id_3.clone(), CoiId(4), 0.4),
+            with_ctx(doc_id_4.clone(), CoiId(4), 0.7),
+            with_ctx(doc_id_5.clone(), CoiId(7), 0.2),
+        ]);
+
+        let mut beta_sampler = MockBetaSample::new();
+        beta_sampler
+            .expect_sample()
+            .returning(|alpha, beta| Ok(alpha + beta));
+
+        let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi);
+
+        let documents = mab_rerank
+            .collect::<Result<Vec<_>, _>>()
+            .expect("documents");
+        let documents_id: Vec<_> = documents
+            .into_iter()
+            .map(|document| document.document_id.id)
+            .collect();
+
+        let documents_id_ok = vec![doc_id_5, doc_id_4, doc_id_3, doc_id_2, doc_id_1, doc_id_0];
+
+        assert_eq!(documents_id, documents_id_ok);
+    }
+
+    #[test]
+    fn test_mab_ranking_iter_empty_documents() {
+        let beta_sampler = MockBetaSample::new();
+
+        let cois = HashMap::new();
+        let mut mab_rerank = MabRankingIter::new(&beta_sampler, &cois, DocumentsByCoi::new());
+
+        assert!(mab_rerank.next().is_none());
+    }
+
+    #[test]
+    fn test_mab_ranking_iter_propagate_errors() {
+        let documents_by_coi =
+            group_by_coi(vec![with_ctx(DocumentId("0".to_string()), CoiId(0), 0.)]);
+
+        let beta_sampler = MockBetaSample::new();
+
+        let cois = HashMap::new();
+        let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi.clone());
+        assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
+
+        let cois = hashmap! {
+            CoiId(9) => coi!(CoiId(9), 0.1),
+        };
+        let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi.clone());
+        assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
+
+        let mut beta_sampler = MockBetaSample::new();
+        beta_sampler
+            .expect_sample()
+            .returning(|_, _| Err(MabError::Sampling(anyhow!("sampling error"))));
+        let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi);
+        assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
+
+        let mut documents_by_coi = DocumentsByCoi::new();
+        documents_by_coi.insert(CoiId(0), BinaryHeap::new());
+        let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi);
+        assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
+    }
+
+    #[test]
+    fn test_mab_ranking_ok() {
+        let doc_id_0 = DocumentId("0".to_string());
+        let doc_id_1 = DocumentId("1".to_string());
+        let doc_id_2 = DocumentId("2".to_string());
+        let doc_id_3 = DocumentId("3".to_string());
+        let doc_id_4 = DocumentId("4".to_string());
+        let doc_id_5 = DocumentId("5".to_string());
+
+        let mut user_interests = UserInterests::new();
+        user_interests.positive = vec![
+            coi!(CoiId(0), 1.),
+            coi!(CoiId(4), 10.),
+            coi!(CoiId(7), 100.),
+        ];
+
+        // we use small context_value to avoid to change alpha and beta too much
+        let documents = vec![
+            with_ctx(doc_id_0.clone(), CoiId(0), 0.01),
+            with_ctx(doc_id_1.clone(), CoiId(0), 0.02),
+            with_ctx(doc_id_2.clone(), CoiId(0), 0.03),
+            with_ctx(doc_id_3.clone(), CoiId(4), 0.01),
+            with_ctx(doc_id_4.clone(), CoiId(4), 0.02),
+            with_ctx(doc_id_5.clone(), CoiId(7), 0.01),
+        ];
+
+        let mut beta_sampler = MockBetaSample::new();
+        beta_sampler
+            .expect_sample()
+            .returning(|alpha, beta| Ok(alpha + beta));
+
+        let system = MabRanking::new(beta_sampler);
+        let (documents, user_interests) = system
+            .compute_mab(documents, user_interests)
+            .expect("documents");
+
+        let documents_id_to_rank = vec![doc_id_5, doc_id_4, doc_id_3, doc_id_2, doc_id_1, doc_id_0]
+            .into_iter()
+            .enumerate()
+            .map(|(rank, id)| (id, rank))
+            .collect::<HashMap<_, _>>();
+
+        for document in documents {
+            let rank = documents_id_to_rank
+                .get(&document.document_id.id)
+                .expect("rank");
+            assert_eq!(document.mab.rank, *rank);
+        }
+
+        let cois = user_interests
+            .positive
+            .iter()
+            .map(|coi| (coi.id, coi))
+            .collect::<HashMap<_, _>>();
+
+        let coi = cois.get(&CoiId(0)).expect("coi");
+        assert!(approx_eq!(f32, coi.alpha, 1.06));
+        assert!(approx_eq!(f32, coi.beta, 3.94));
+
+        let coi = cois.get(&CoiId(4)).expect("coi");
+        assert!(approx_eq!(f32, coi.alpha, 10.03));
+        assert!(approx_eq!(f32, coi.beta, 11.97));
+
+        let coi = cois.get(&CoiId(7)).expect("coi");
+        assert!(approx_eq!(f32, coi.alpha, 100.01));
+        assert!(approx_eq!(f32, coi.beta, 100.99));
     }
 }
