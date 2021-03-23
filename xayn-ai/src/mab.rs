@@ -21,7 +21,7 @@ use rand_distr::{Beta, Distribution};
 use thiserror::Error;
 
 #[cfg(test)]
-use mockall::automock;
+use mockall::{automock, Sequence};
 
 #[derive(Error, Debug, Display)]
 pub enum MabError {
@@ -191,6 +191,8 @@ fn pull_arms(
 
         Ok((documents_by_coi, document.0))
     } else {
+        // This should never occurs because we select a `coi_id`
+        // from the keys of `documents_by_coi`
         Err(MabError::ExtractedCoiNoDocuments)
     }
 }
@@ -570,14 +572,36 @@ mod tests {
     fn test_pull_arms_sampler_error() {
         let cois = hashmap! {
             CoiId(0) => coi!(CoiId(0), 0.91),
+            CoiId(1) => coi!(CoiId(1), 0.1),
         };
 
         let documents_by_coi =
-            group_by_coi(vec![with_ctx(DocumentId("1".to_string()), CoiId(0), 0.)]);
+            group_by_coi(vec![
+                with_ctx(DocumentId("1".to_string()), CoiId(0), 0.),
+                with_ctx(DocumentId("2".to_string()), CoiId(1), 0.),
+            ]);
 
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler
             .expect_sample()
+            .returning(|_, _| Err(MabError::Sampling(anyhow!("sampling error"))));
+
+        let error = pull_arms(&beta_sampler, &cois, documents_by_coi.clone()).expect_err("sampler error");
+        assert!(matches!(error, MabError::Sampling(_)));
+
+        // let the sampler fail in the loop instead of the second value
+        let mut seq = Sequence::new();
+        let mut beta_sampler = MockBetaSample::new();
+        beta_sampler
+            .expect_sample()
+            .times(1)
+            .in_sequence(&mut seq)
+            .returning(|alpha, _| Ok(alpha));
+
+        beta_sampler
+            .expect_sample()
+            .times(1)
+            .in_sequence(&mut seq)
             .returning(|_, _| Err(MabError::Sampling(anyhow!("sampling error"))));
 
         let error = pull_arms(&beta_sampler, &cois, documents_by_coi).expect_err("sampler error");
