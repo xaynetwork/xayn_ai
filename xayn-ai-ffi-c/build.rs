@@ -7,7 +7,7 @@ fn main() {
         env::var("CARGO_MANIFEST_DIR").expect("Failed to read CARGO_MANIFEST_DIR env."),
     );
     let bind_config = crate_dir.join("cbindgen.toml");
-    let bind_file = crate_dir.join("xayn.h");
+    let bind_file = crate_dir.join("xayn_ai.h");
 
     // cargo doesn't check directories recursively so we have to do it by hand, also emitting a
     // rerun-if line cancels the default rerun for changes in the crate directory
