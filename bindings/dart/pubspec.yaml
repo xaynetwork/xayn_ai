@@ -24,7 +24,8 @@ ffigen:
   headers:
     entry-points:
       - '../../xayn-ai-ffi-c/xayn_ai.h'
+    include-directives:
+      - '../../xayn-ai-ffi-c/xayn_ai.h'
   compiler-opts-automatic:
     macos:
       include-c-standard-library: false
-  array-workaround: true
