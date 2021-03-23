@@ -287,17 +287,25 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::{
         bert::Embedding,
-        data::{document::*, document_data::*},
+        data::{
+            document::DocumentId,
+            document_data::{
+                CoiComponent,
+                ContextComponent,
+                DocumentIdComponent,
+                EmbeddingComponent,
+                LtrComponent,
+            },
+        },
     };
     use rubert::ndarray::Array1;
 
-    use maplit::hashmap;
-
-    use float_cmp::approx_eq;
-
     use anyhow::anyhow;
+    use float_cmp::approx_eq;
+    use maplit::hashmap;
     use std::collections::HashSet;
 
     fn with_ctx(id: DocumentId, coi_id: CoiId, context_value: f32) -> DocumentDataWithContext {
