@@ -12,10 +12,10 @@ dependencies:
     sdk: flutter
 
 dev_dependencies:
-  effective_dart: ^1.3.1
   ffigen: ^2.4.0
   flutter_test:
     sdk: flutter
+  pedantic: ^1.11.0
 
 ffigen:
   name: 'XaynAi'
@@ -28,12 +28,3 @@ ffigen:
     macos:
       include-c-standard-library: false
   array-workaround: true
-  preamble: |
-    // ignore_for_file: avoid_private_typedef_functions
-    // ignore_for_file: camel_case_types
-    // ignore_for_file: constant_identifier_names
-    // ignore_for_file: lines_longer_than_80_chars
-    // ignore_for_file: non_constant_identifier_names
-    // ignore_for_file: public_member_api_docs
-    // ignore_for_file: unused_element
-    // ignore_for_file: unused_field
