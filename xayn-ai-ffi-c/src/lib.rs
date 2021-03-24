@@ -16,6 +16,7 @@ pub use crate::{
 
 #[cfg(test)]
 pub(crate) mod tests {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     use std::{
         collections::hash_map::DefaultHasher,
         fs::File,
@@ -29,6 +30,7 @@ pub(crate) mod tests {
     /// Path to the current onnx model file.
     pub const MODEL: &str = "../data/rubert_v0000/model.onnx";
 
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn hash_file(file: &str) -> u64 {
         let mut reader = BufReader::new(File::open(file).unwrap());
         let mut buffer = vec![0; 1024];
@@ -43,11 +45,13 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn test_vocab_unchanged() {
         assert_eq!(hash_file(VOCAB), 5045043227147541355);
     }
 
     #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn test_model_unchanged() {
         assert_eq!(hash_file(MODEL), 13727150546539837987);
     }
