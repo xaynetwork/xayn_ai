@@ -2,7 +2,7 @@ include: package:pedantic/analysis_options.1.11.0.yaml
 
 analyzer:
   exclude:
-    - lib/xayn_ai_ffi.dart
+    - lib/ffi.dart
 
 linter:
   rules:

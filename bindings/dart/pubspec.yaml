@@ -18,14 +18,14 @@ dev_dependencies:
   pedantic: '^1.11.0'
 
 ffigen:
-  name: 'XaynAi'
+  name: 'XaynAiFfi'
   description: 'Bindings to the xayn-ai-ffi-c library.'
-  output: 'lib/xayn_ai_ffi.dart'
+  output: 'lib/ffi.dart'
   headers:
     entry-points:
-      - '../../xayn-ai-ffi-c/xayn_ai.h'
+      - '../../xayn-ai-ffi-c/xayn_ai_ffi.h'
     include-directives:
-      - '../../xayn-ai-ffi-c/xayn_ai.h'
+      - '../../xayn-ai-ffi-c/xayn_ai_ffi.h'
   compiler-opts-automatic:
     macos:
       include-c-standard-library: false
