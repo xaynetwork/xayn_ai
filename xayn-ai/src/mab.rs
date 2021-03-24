@@ -314,7 +314,7 @@ mod tests {
         DocumentDataWithContext {
             document_id: DocumentIdComponent { id },
             embedding: EmbeddingComponent {
-                embedding: Embedding::from(Array1::from(vec![])),
+                embedding: arr1(&[]).into(),
             },
             coi: CoiComponent {
                 id: coi_id,
