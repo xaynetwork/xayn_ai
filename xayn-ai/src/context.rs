@@ -48,7 +48,7 @@ impl ContextCalc {
     /// Calculates context value from given LTR score, positive distance, negative distance.
     fn calculate(&self, ltr_score: f32, pos: f32, neg: f32) -> f32 {
         let frac_pos = (1. + pos / self.pos_avg).recip();
-        let frac_neg = (1. + self.neg_max - neg).recip();
+        let frac_neg = (1. + (self.neg_max - neg)).recip();
 
         (frac_pos + frac_neg + ltr_score) / 3.
     }
@@ -112,6 +112,21 @@ mod tests {
 
         let cxt = calc.calculate(0., 8., 7.);
         assert!(approx_eq!(f32, cxt, 5. / 18.)) // 1/9 + 1/6
+    }
+
+    #[test]
+
+    fn test_calculate_neg_max_f32_max() {
+        // when calculating the negative distance in the `CoiSystem`,
+        // we assign `f32::MAX` if we don't have negative cois
+
+        let calc = ContextCalc {
+            pos_avg: 4.,
+            neg_max: f32::MAX,
+        };
+
+        let ctx = calc.calculate(0., 0., calc.neg_max);
+        assert!(approx_eq!(f32, ctx, 2. / 3.)) // 1/3 + 1/3
     }
 
     #[test]
