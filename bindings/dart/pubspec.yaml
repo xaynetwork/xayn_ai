@@ -1,21 +1,21 @@
-name: xayn_ai_ffi_dart
-version: 0.1.0
-author: Xayn Engineering <engineering@xaynet.dev>
+name: 'xayn_ai_ffi_dart'
+version: '0.1.0'
+author: 'Xayn Engineering <engineering@xaynet.dev>'
 
 environment:
-  sdk: ">=2.12.0 <3.0.0"
-  flutter: ">=2.0.0 <3.0.0"
+  sdk: '>=2.12.0 <3.0.0'
+  flutter: '>=2.0.0 <3.0.0'
 
 dependencies:
-  ffi: ^1.0.0
+  ffi: '^1.0.0'
   flutter:
-    sdk: flutter
+    sdk: 'flutter'
 
 dev_dependencies:
-  ffigen: ^2.4.0
+  ffigen: '^2.4.0'
   flutter_test:
-    sdk: flutter
-  pedantic: ^1.11.0
+    sdk: 'flutter'
+  pedantic: '^1.11.0'
 
 ffigen:
   name: 'XaynAi'
