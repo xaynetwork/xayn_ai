@@ -1,21 +1,22 @@
 import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer;
 
-import 'package:ffi/ffi.dart' show calloc, Utf8, Utf8Pointer;
+import 'package:ffi/ffi.dart' show malloc, Utf8, Utf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/ai.dart' show xaynAiFfi;
 import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAiError, CXaynAiErrorCode;
 
 /// The Xayn AI error information.
 class XaynAiError {
-  /// The pointer to the code and message.
-  late final Pointer<CXaynAiError> _error;
+  late Pointer<CXaynAiError> _error;
 
   /// Gets the pointer.
   Pointer<CXaynAiError> get ptr => _error;
 
   /// Creates the error information initialized to success.
   XaynAiError() {
-    _error = calloc.call<CXaynAiError>();
+    _error = malloc.call<CXaynAiError>();
+    _error.ref.code = CXaynAiErrorCode.Success;
+    _error.ref.message = nullptr;
   }
 
   /// Checks for a panic code.
@@ -38,13 +39,20 @@ class XaynAiError {
   }
 
   /// Frees the memory.
-  ///
-  /// Nulls the pointer afterwards to prevent double-frees.
   void free() {
     if (_error != nullptr) {
       xaynAiFfi.error_message_drop(_error);
-      calloc.free(_error);
+      malloc.free(_error);
       _error = nullptr;
     }
   }
+}
+
+class XaynAiException implements Exception {
+  late final String _message;
+
+  XaynAiException(_message);
+
+  @override
+  String toString() => _message;
 }
