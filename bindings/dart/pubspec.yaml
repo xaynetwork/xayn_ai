@@ -23,9 +23,9 @@ ffigen:
   output: 'lib/ffi.dart'
   headers:
     entry-points:
-      - '../../xayn-ai-ffi-c/xayn_ai_ffi.h'
+      - '../../xayn-ai-ffi-c/ffi.h'
     include-directives:
-      - '../../xayn-ai-ffi-c/xayn_ai_ffi.h'
+      - '../../xayn-ai-ffi-c/ffi.h'
   compiler-opts-automatic:
     macos:
       include-c-standard-library: false
