@@ -5,13 +5,15 @@ import 'package:ffi/ffi.dart' show calloc, Utf8, Utf8Pointer;
 import 'package:xayn_ai_ffi_dart/ai.dart' show xaynAiFfi;
 import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAiError, CXaynAiErrorCode;
 
+/// The Xayn AI error information.
 class XaynAiError {
+  /// The pointer to the code and message.
   late final Pointer<CXaynAiError> _error;
 
   /// Gets the pointer.
   Pointer<CXaynAiError> get ptr => _error;
 
-  /// Creates an error handler.
+  /// Creates the error information initialized to success.
   XaynAiError() {
     _error = calloc.call<CXaynAiError>();
   }
