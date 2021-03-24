@@ -6,7 +6,7 @@ import 'package:xayn_ai_ffi_dart/ffi.dart' show CDocument;
 
 class Documents {
   late Pointer<CDocument> _docs;
-  late final int _size;
+  late int _size;
 
   /// Gets the pointer.
   Pointer<CDocument> get ptr => _docs;
@@ -15,8 +15,8 @@ class Documents {
   int get size => _size;
 
   /// Creates the documents.
-  Documents(List<String> ids, List<String> snippets, List<int> ranks)
-      : _size = ids.length {
+  Documents(List<String> ids, List<String> snippets, List<int> ranks) {
+    _size = ids.length;
     if (_size < 1 || _size != snippets.length || _size != ranks.length) {
       throw ArgumentError(
           'Document ids, snippets and ranks must have the same positive length.');
@@ -48,6 +48,7 @@ class Documents {
       }
       malloc.free(_docs);
       _docs = nullptr;
+      _size = 0;
     }
   }
 }
