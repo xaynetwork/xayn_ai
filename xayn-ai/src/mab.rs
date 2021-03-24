@@ -290,20 +290,17 @@ where
 mod tests {
     use super::*;
 
-    use crate::{
-        bert::Embedding,
-        data::{
-            document::DocumentId,
-            document_data::{
-                CoiComponent,
-                ContextComponent,
-                DocumentIdComponent,
-                EmbeddingComponent,
-                LtrComponent,
-            },
+    use crate::data::{
+        document::DocumentId,
+        document_data::{
+            CoiComponent,
+            ContextComponent,
+            DocumentIdComponent,
+            EmbeddingComponent,
+            LtrComponent,
         },
     };
-    use rubert::ndarray::Array1;
+    use rubert::ndarray::arr1;
 
     use anyhow::anyhow;
     use float_cmp::approx_eq;
@@ -338,7 +335,7 @@ mod tests {
                 id: $id,
                 alpha: $alpha,
                 beta: $beta,
-                point: Embedding::from(Array1::from(vec![])),
+                point: arr1(&[]).into(),
             }
         };
     }
@@ -575,18 +572,18 @@ mod tests {
             CoiId(1) => coi!(CoiId(1), 0.1),
         };
 
-        let documents_by_coi =
-            group_by_coi(vec![
-                with_ctx(DocumentId("1".to_string()), CoiId(0), 0.),
-                with_ctx(DocumentId("2".to_string()), CoiId(1), 0.),
-            ]);
+        let documents_by_coi = group_by_coi(vec![
+            with_ctx(DocumentId("1".to_string()), CoiId(0), 0.),
+            with_ctx(DocumentId("2".to_string()), CoiId(1), 0.),
+        ]);
 
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler
             .expect_sample()
             .returning(|_, _| Err(MabError::Sampling(anyhow!("sampling error"))));
 
-        let error = pull_arms(&beta_sampler, &cois, documents_by_coi.clone()).expect_err("sampler error");
+        let error =
+            pull_arms(&beta_sampler, &cois, documents_by_coi.clone()).expect_err("sampler error");
         assert!(matches!(error, MabError::Sampling(_)));
 
         // let the sampler fail in the loop instead of the second value
