@@ -2,15 +2,14 @@ use crate::{
     data::{
         document::{Document, DocumentHistory},
         document_data::{
-            DocumentContentComponent,
-            DocumentDataWithDocument,
-            DocumentDataWithMab,
-            DocumentIdComponent,
+            DocumentContentComponent, DocumentDataWithDocument, DocumentDataWithEmbedding,
+            DocumentDataWithMab, DocumentIdComponent,
         },
         UserInterests,
     },
     error::Error,
-    reranker_systems::{CommonSystems, CoiSystemData},
+    reranker_systems::{CoiSystemData, CommonSystems},
+    to_vec_of_ref_of,
 };
 
 pub type DocumentsRank = Vec<usize>;
@@ -19,13 +18,12 @@ pub type DocumentsRank = Vec<usize>;
 fn learn_user_interests<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
-    prev_documents: &[DocumentDataWithMab],
+    prev_documents: &[&dyn CoiSystemData],
     user_interests: UserInterests,
 ) -> Result<UserInterests, Error>
 where
     CS: CommonSystems,
 {
-    let prev_documents: Vec<_> = prev_documents.iter().map(|doc| -> &dyn CoiSystemData { doc }).collect();
     common_systems
         .coi()
         .update_user_interests(history, &prev_documents, user_interests)
@@ -46,12 +44,10 @@ where
         .and_then(|analytics| common_systems.database().save_analytics(&analytics))
 }
 
-fn rerank<CS>(
+fn make_documents_with_embedding<CS>(
     common_systems: &CS,
-    history: &[DocumentHistory],
     documents: &[Document],
-    user_interests: UserInterests,
-) -> Result<(Vec<DocumentDataWithMab>, UserInterests, DocumentsRank), Error>
+) -> Result<Vec<DocumentDataWithEmbedding>, Error>
 where
     CS: CommonSystems,
 {
@@ -67,7 +63,19 @@ where
         })
         .collect();
 
-    let documents = common_systems.bert().compute_embedding(documents)?;
+    common_systems.bert().compute_embedding(documents)
+}
+
+fn rerank<CS>(
+    common_systems: &CS,
+    history: &[DocumentHistory],
+    documents: &[Document],
+    user_interests: UserInterests,
+) -> Result<(Vec<DocumentDataWithMab>, UserInterests, DocumentsRank), Error>
+where
+    CS: CommonSystems,
+{
+    let documents = make_documents_with_embedding(common_systems, documents)?;
     let documents = common_systems
         .coi()
         .compute_coi(documents, &user_interests)?;
@@ -82,10 +90,41 @@ where
     Ok((documents, user_interests, rank))
 }
 
+pub enum PreviousDocuments {
+    Embedding(Vec<DocumentDataWithEmbedding>),
+    Mab(Vec<DocumentDataWithMab>),
+}
+
+impl Default for PreviousDocuments {
+    fn default() -> Self {
+        Self::Embedding(Vec::new())
+    }
+}
+
+impl PreviousDocuments {
+    fn to_coi_system_data(&self) -> Vec<&dyn CoiSystemData> {
+        match self {
+            PreviousDocuments::Embedding(documents) => {
+                to_vec_of_ref_of!(documents, &dyn CoiSystemData)
+            }
+            PreviousDocuments::Mab(documents) => {
+                to_vec_of_ref_of!(documents, &dyn CoiSystemData)
+            }
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            PreviousDocuments::Embedding(documents) => documents.is_empty(),
+            PreviousDocuments::Mab(documents) => documents.is_empty(),
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct RerankerData {
     user_interests: UserInterests,
-    prev_documents: Vec<DocumentDataWithMab>,
+    prev_documents: PreviousDocuments,
 }
 
 pub struct Reranker<CS> {
@@ -123,21 +162,22 @@ where
 
         if !history.is_empty() && !self.data.prev_documents.is_empty() {
             let user_interests = self.data.user_interests.clone();
+            let prev_documents = self.data.prev_documents.to_coi_system_data();
 
             match learn_user_interests(
                 &self.common_systems,
                 history,
-                &self.data.prev_documents,
+                prev_documents.as_slice(),
                 user_interests,
             ) {
                 Ok(user_interests) => self.data.user_interests = user_interests,
                 Err(e) => self.errors.push(e),
             };
 
-            if let Err(e) =
-                collect_analytics(&self.common_systems, history, &self.data.prev_documents)
-            {
-                self.errors.push(e);
+            if let PreviousDocuments::Mab(ref prev_documents) = self.data.prev_documents {
+                if let Err(e) = collect_analytics(&self.common_systems, history, &prev_documents) {
+                    self.errors.push(e);
+                }
             }
         }
 
@@ -145,7 +185,7 @@ where
 
         rerank(&self.common_systems, history, documents, user_interests)
             .map(|(prev_documents, user_interests, rank)| {
-                self.data.prev_documents = prev_documents;
+                self.data.prev_documents = PreviousDocuments::Mab(prev_documents);
                 self.data.user_interests = user_interests;
 
                 rank
@@ -153,8 +193,9 @@ where
             .unwrap_or_else(|e| {
                 self.errors.push(e);
 
-                // in case of an error we don't have documents
-                self.data.prev_documents.clear();
+                let prev_documents = make_documents_with_embedding(&self.common_systems, documents)
+                    .unwrap_or_default();
+                self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
 
                 documents.iter().map(|document| document.rank).collect()
             })

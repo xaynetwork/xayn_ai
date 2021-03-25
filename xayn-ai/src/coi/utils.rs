@@ -118,6 +118,7 @@ pub(crate) mod tests {
     use crate::{
         data::document_data::{DocumentDataWithEmbedding, DocumentIdComponent, EmbeddingComponent},
         ndarray::{arr1, FixedInitializer},
+        to_vec_of_ref_of,
     };
 
     pub fn create_cois(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<Coi> {
@@ -339,6 +340,7 @@ pub(crate) mod tests {
 
         let mut documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
         documents.push(create_data_with_embedding(5, &[4., 5., 6.]));
+        let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
         let matching_documents = collect_matching_documents(&history, &documents);
 

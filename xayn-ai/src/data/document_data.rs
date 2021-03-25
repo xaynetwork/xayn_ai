@@ -71,6 +71,20 @@ impl DocumentDataWithEmbedding {
     }
 }
 
+impl CoiSystemData for DocumentDataWithEmbedding {
+    fn id(&self) -> &DocumentId {
+        &self.document_id.id
+    }
+
+    fn embedding(&self) -> &EmbeddingComponent {
+        &self.embedding
+    }
+
+    fn coi(&self) -> Option<&CoiComponent> {
+        None
+    }
+}
+
 pub struct DocumentDataWithCoi {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
