@@ -11,10 +11,9 @@ include = ["CXaynAiError"]
 exclude = ["ErrorCode"]
 
 [export.rename]
-"CXaynAiError" = "CXaynAiErrorCode"
-"ErrorCode" = "CXaynAiErrorCode"
+"CXaynAiError" = "CXaynAiCode"
+"ErrorCode" = "CXaynAiCode"
 "ExternError" = "CXaynAiError"
-"Reranker_Systems" = "CXaynAi"
 
 [parse]
 parse_deps = true
