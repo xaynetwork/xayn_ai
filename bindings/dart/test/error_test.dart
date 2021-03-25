@@ -4,23 +4,20 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test;
 
-import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiError;
-import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAiErrorCode;
+import 'package:xayn_ai_ffi_dart/error.dart'
+    show XaynAiCode, XaynAiCodeInt, XaynAiError, XaynAiException;
+import 'utils.dart' show throwsXaynAiException;
 
 void main() {
   group('XaynAiError', () {
     test('panic', () {
       final error = XaynAiError();
-      final message = 'test panic';
-
-      expect(error.ptr, isNot(equals(nullptr)));
-      error.ptr.ref.code = CXaynAiErrorCode.Panic;
-      error.ptr.ref.message = message.toNativeUtf8().cast<Int8>();
+      error.ptr.ref.code = XaynAiCode.panic.toInt();
+      error.ptr.ref.message = 'test panic'.toNativeUtf8().cast<Int8>();
 
       expect(error.isPanic(), equals(true));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(false));
-      expect(error.toString(), equals('Panic: $message'));
 
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
@@ -33,23 +30,18 @@ void main() {
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(true));
       expect(error.isError(), equals(false));
-      expect(error.toString(), equals(''));
 
       malloc.free(error.ptr);
     });
 
     test('error', () {
       final error = XaynAiError();
-      final message = 'test error';
-
-      expect(error.ptr, isNot(equals(nullptr)));
-      error.ptr.ref.code = CXaynAiErrorCode.XaynAiPointer;
-      error.ptr.ref.message = message.toNativeUtf8().cast<Int8>();
+      error.ptr.ref.code = XaynAiCode.xaynAiPointer.toInt();
+      error.ptr.ref.message = 'test error'.toNativeUtf8().cast<Int8>();
 
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(true));
-      expect(error.toString(), equals('XaynAiPointer: $message'));
 
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
@@ -59,6 +51,30 @@ void main() {
       final error = XaynAiError();
       error.free();
       error.free();
+    });
+  });
+
+  group('XaynAiException', () {
+    test('new', () {
+      final code = XaynAiCode.panic;
+      final message = 'test panic';
+
+      expect(() => throw XaynAiException(code, message),
+          throwsXaynAiException(code, message));
+    });
+
+    test('to', () {
+      final error = XaynAiError();
+      final code = XaynAiCode.panic;
+      final message = 'test panic';
+      error.ptr.ref.code = code.toInt();
+      error.ptr.ref.message = message.toNativeUtf8().cast<Int8>();
+
+      expect(() => throw error.toException(),
+          throwsXaynAiException(code, message));
+
+      malloc.free(error.ptr.ref.message);
+      malloc.free(error.ptr);
     });
   });
 }

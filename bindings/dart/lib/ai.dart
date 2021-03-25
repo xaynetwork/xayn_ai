@@ -4,7 +4,7 @@ import 'dart:io' show Platform;
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/document.dart' show Documents;
-import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiError, XaynAiException;
+import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAi, XaynAiFfi;
 
 final XaynAiFfi ffi = XaynAiFfi(Platform.isAndroid
@@ -38,7 +38,7 @@ class XaynAi {
     try {
       _ai = ffi.xaynai_new(vocabPtr, modelPtr, error.ptr);
       if (!error.isSuccess()) {
-        throw XaynAiException(error.toString());
+        throw error.toException();
       }
     } finally {
       malloc.free(vocabPtr);
@@ -57,7 +57,7 @@ class XaynAi {
       if (error.isSuccess()) {
         return docs.ranks;
       } else {
-        throw XaynAiException(error.toString());
+        throw error.toException();
       }
     } finally {
       docs.free();

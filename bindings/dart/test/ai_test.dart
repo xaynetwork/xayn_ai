@@ -1,16 +1,11 @@
 import 'package:flutter_test/flutter_test.dart'
-    show equals, expect, group, Matcher, predicate, test, throwsA;
+    show equals, expect, group, test;
 
 import 'package:xayn_ai_ffi_dart/ai.dart' show XaynAi;
-import 'package:xayn_ai_ffi_dart/error.dart';
+import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiCode;
+import 'utils.dart' show model, throwsXaynAiException, vocab;
 
 void main() {
-  const vocab = '../../data/rubert_v0000/vocab.txt';
-  const model = '../../data/rubert_v0000/model.onnx';
-
-  Matcher throwsXaynAiException(String message) => throwsA(
-      predicate((exc) => exc is XaynAiException && exc.toString() == message));
-
   group('XaynAi', () {
     test('new', () {
       final ai = XaynAi(vocab, model);
@@ -35,10 +30,12 @@ void main() {
     });
 
     test('invalid paths', () {
+      final code = XaynAiCode.readFile;
       final message =
-          'ReadFile: Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)';
-      expect(() => XaynAi('', model), throwsXaynAiException(message));
-      expect(() => XaynAi(vocab, ''), throwsXaynAiException(message));
+          'Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)';
+
+      expect(() => XaynAi('', model), throwsXaynAiException(code, message));
+      expect(() => XaynAi(vocab, ''), throwsXaynAiException(code, message));
     });
   });
 }

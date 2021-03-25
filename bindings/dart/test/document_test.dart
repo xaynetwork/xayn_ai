@@ -23,12 +23,11 @@ void main() {
 
     test('ranks', () {
       final docs = Documents(ids, snippets, ranks);
-
-      expect(docs.ptr, isNot(equals(nullptr)));
       final reranks = List.from(ranks.reversed, growable: false);
       for (var i = 0; i < docs.size; i++) {
         docs.ptr[i].rank = reranks[i];
       }
+
       expect(docs.ranks, equals(reranks));
 
       docs.free();
