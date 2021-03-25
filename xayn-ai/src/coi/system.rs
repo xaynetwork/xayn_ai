@@ -6,29 +6,20 @@ use thiserror::Error;
 use super::{
     config::Configuration,
     utils::{
-        classify_documents_based_on_user_feedback,
-        collect_matching_documents,
-        count_coi_ids,
-        l2_norm,
-        update_alpha,
-        update_beta,
+        classify_documents_based_on_user_feedback, collect_matching_documents, count_coi_ids,
+        l2_norm, update_alpha, update_beta,
     },
 };
 use crate::{
     bert::Embedding,
     data::{
         document_data::{
-            CoiComponent,
-            DocumentDataWithCoi,
-            DocumentDataWithEmbedding,
-            DocumentDataWithMab,
+            CoiComponent, DocumentDataWithCoi, DocumentDataWithEmbedding,
         },
-        Coi,
-        UserInterests,
+        Coi, UserInterests,
     },
-    reranker_systems,
-    DocumentHistory,
-    Error,
+    reranker_systems::{self, CoiSystemData},
+    DocumentHistory, Error,
 };
 
 #[derive(Error, Debug, Display)]
@@ -124,9 +115,9 @@ impl CoiSystem {
     }
 
     /// Updates the CoIs based on the embeddings of docs.
-    fn update_cois(&self, docs: &[&DocumentDataWithMab], cois: Vec<Coi>) -> Vec<Coi> {
+    fn update_cois(&self, docs: &[&dyn CoiSystemData], cois: Vec<Coi>) -> Vec<Coi> {
         docs.iter().fold(cois, |cois, doc| {
-            self.update_coi(&doc.embedding.embedding, cois)
+            self.update_coi(&doc.embedding().embedding, cois)
         })
     }
 
@@ -173,7 +164,7 @@ impl reranker_systems::CoiSystem for CoiSystem {
     fn update_user_interests(
         &self,
         history: &[DocumentHistory],
-        documents: &[DocumentDataWithMab],
+        documents: &[&dyn CoiSystemData],
         mut user_interests: UserInterests,
     ) -> Result<UserInterests, Error> {
         let matching_documents = collect_matching_documents(history, documents);
@@ -209,12 +200,8 @@ mod tests {
         data::{
             document::{DocumentId, Relevance, UserFeedback},
             document_data::{
-                ContextComponent,
-                DocumentDataWithMab,
-                DocumentIdComponent,
-                EmbeddingComponent,
-                LtrComponent,
-                MabComponent,
+                ContextComponent, DocumentDataWithMab, DocumentIdComponent, EmbeddingComponent,
+                LtrComponent, MabComponent,
             },
             CoiId,
         },

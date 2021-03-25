@@ -10,7 +10,7 @@ use crate::{
         UserInterests,
     },
     error::Error,
-    reranker_systems::CommonSystems,
+    reranker_systems::{CommonSystems, CoiSystemData},
 };
 
 pub type DocumentsRank = Vec<usize>;
@@ -25,6 +25,7 @@ fn learn_user_interests<CS>(
 where
     CS: CommonSystems,
 {
+    let prev_documents: Vec<_> = prev_documents.iter().map(|doc| -> &dyn CoiSystemData { doc }).collect();
     common_systems
         .coi()
         .update_user_interests(history, &prev_documents, user_interests)

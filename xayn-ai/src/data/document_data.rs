@@ -1,15 +1,12 @@
 use crate::{
     bert::Embedding,
     data::{document::DocumentId, CoiId},
+    reranker_systems::CoiSystemData,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct DocumentIdComponent {
     pub id: DocumentId,
-}
-
-pub trait DocumentIdentifier {
-    fn id(&self) -> &DocumentId;
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -60,12 +57,6 @@ pub struct DocumentDataWithDocument {
 pub struct DocumentDataWithEmbedding {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
-}
-
-impl DocumentIdentifier for DocumentDataWithEmbedding {
-    fn id(&self) -> &DocumentId {
-        &self.document_id.id
-    }
 }
 
 impl DocumentDataWithEmbedding {
@@ -143,12 +134,6 @@ pub struct DocumentDataWithMab {
     pub mab: MabComponent,
 }
 
-impl DocumentIdentifier for DocumentDataWithMab {
-    fn id(&self) -> &DocumentId {
-        &self.document_id.id
-    }
-}
-
 impl DocumentDataWithMab {
     pub fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
         Self {
@@ -159,6 +144,20 @@ impl DocumentDataWithMab {
             context: document.context,
             mab,
         }
+    }
+}
+
+impl CoiSystemData for DocumentDataWithMab {
+    fn id(&self) -> &DocumentId {
+        &self.document_id.id
+    }
+
+    fn embedding(&self) -> &EmbeddingComponent {
+        &self.embedding
+    }
+
+    fn coi(&self) -> Option<&CoiComponent> {
+        Some(&self.coi)
     }
 }
 
