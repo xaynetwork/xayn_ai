@@ -115,7 +115,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_calculate_neg_max_f32_max() {
         // when calculating the negative distance in the `CoiSystem`,
         // we assign `f32::MAX` if we don't have negative cois
