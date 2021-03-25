@@ -13,9 +13,10 @@ use crate::{
     error::Error,
     reranker_systems::{CoiSystemData, CommonSystems},
     to_vec_of_ref_of,
+    DocumentId,
 };
 
-pub type DocumentsRank = Vec<usize>;
+pub type DocumentsRank = Vec<(DocumentId, usize)>;
 
 /// Update cois from user feedback
 fn learn_user_interests<CS>(
@@ -88,7 +89,10 @@ where
         .mab()
         .compute_mab(documents, user_interests)?;
 
-    let rank = documents.iter().map(|document| document.mab.rank).collect();
+    let rank = documents
+        .iter()
+        .map(|document| (document.document_id.id.clone(), document.mab.rank))
+        .collect();
 
     Ok((documents, user_interests, rank))
 }
@@ -200,7 +204,10 @@ where
                     .unwrap_or_default();
                 self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
 
-                documents.iter().map(|document| document.rank).collect()
+                documents
+                    .iter()
+                    .map(|document| (document.id.clone(), document.rank))
+                    .collect()
             })
     }
 }
