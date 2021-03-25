@@ -4,6 +4,7 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/ffi.dart' show CDocument;
 
+/// A raw document.
 class Documents {
   late Pointer<CDocument> _docs;
   late int _size;
