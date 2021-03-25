@@ -54,5 +54,11 @@ void main() {
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
     });
+
+    test('double free', () {
+      final error = XaynAiError();
+      error.free();
+      error.free();
+    });
   });
 }

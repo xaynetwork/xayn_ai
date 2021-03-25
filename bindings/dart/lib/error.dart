@@ -74,10 +74,10 @@ class XaynAiError {
 
 /// A Xayn AI exception.
 class XaynAiException implements Exception {
-  late final String _message;
+  final String _message;
 
   /// Creates a Xayn Ai exception.
-  XaynAiException(_message);
+  const XaynAiException(this._message);
 
   @override
   String toString() => _message;

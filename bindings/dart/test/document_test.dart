@@ -6,10 +6,13 @@ import 'package:flutter_test/flutter_test.dart'
 import 'package:xayn_ai_ffi_dart/document.dart' show Documents;
 
 void main() {
+  const ids = ['0', '1', '2'];
+  const snippets = ['abc', 'def', 'ghi'];
+  const ranks = [0, 1, 2];
+
   group('Documents', () {
     test('new', () {
-      final ranks = [0, 1, 2];
-      final docs = Documents(['0', '1', '2'], ['abc', 'def', 'ghi'], ranks);
+      final docs = Documents(ids, snippets, ranks);
 
       expect(docs.ptr, isNot(equals(nullptr)));
       expect(docs.size, equals(ranks.length));
@@ -19,8 +22,7 @@ void main() {
     });
 
     test('ranks', () {
-      final ranks = [0, 1, 2];
-      final docs = Documents(['0', '1', '2'], ['abc', 'def', 'ghi'], ranks);
+      final docs = Documents(ids, snippets, ranks);
 
       expect(docs.ptr, isNot(equals(nullptr)));
       final reranks = List.from(ranks.reversed, growable: false);
@@ -32,14 +34,20 @@ void main() {
       docs.free();
     });
 
-    test('error size', () {
-      expect(() => Documents([], [], []), throwsArgumentError);
-      expect(() => Documents(['0'], ['abc', 'def'], [0]), throwsArgumentError);
-      expect(() => Documents(['0'], ['abc'], [0, 1]), throwsArgumentError);
+    test('double free', () {
+      final docs = Documents(ids, snippets, ranks);
+      docs.free();
+      docs.free();
     });
 
-    test('error ranks', () {
-      final docs = Documents(['0'], ['abc'], [0]);
+    test('invalid size', () {
+      expect(() => Documents([], snippets, ranks), throwsArgumentError);
+      expect(() => Documents(ids, [], ranks), throwsArgumentError);
+      expect(() => Documents(ids, snippets, []), throwsArgumentError);
+    });
+
+    test('invalid ranks', () {
+      final docs = Documents(ids, snippets, ranks);
       docs.free();
       expect(() => docs.ranks, throwsArgumentError);
     });

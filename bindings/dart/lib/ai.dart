@@ -12,9 +12,10 @@ final XaynAiFfi ffi = XaynAiFfi(Platform.isAndroid
     : Platform.isIOS
         ? DynamicLibrary.process()
         : Platform.isLinux
-            ? DynamicLibrary.open('../target/debug/libxayn_ai_ffi_c.so')
+            ? DynamicLibrary.open('../../target/debug/libxayn_ai_ffi_c.so')
             : Platform.isMacOS
-                ? DynamicLibrary.open('../target/debug/libxayn_ai_ffi_c.dylib')
+                ? DynamicLibrary.open(
+                    '../../target/debug/libxayn_ai_ffi_c.dylib')
                 : throw UnsupportedError('Unsupported platform.'));
 
 /// The Xayn AI.
@@ -25,9 +26,6 @@ final XaynAiFfi ffi = XaynAiFfi(Platform.isAndroid
 /// - Free memory with [`free()`].
 class XaynAi {
   late Pointer<CXaynAi> _ai;
-
-  /// Gets the pointer.
-  Pointer<CXaynAi> get ptr => _ai;
 
   /// Creates and initializes the Xayn AI.
   ///
@@ -40,7 +38,7 @@ class XaynAi {
     try {
       _ai = ffi.xaynai_new(vocabPtr, modelPtr, error.ptr);
       if (!error.isSuccess()) {
-        throw XaynAiException(error);
+        throw XaynAiException(error.toString());
       }
     } finally {
       malloc.free(vocabPtr);
@@ -59,7 +57,7 @@ class XaynAi {
       if (error.isSuccess()) {
         return docs.ranks;
       } else {
-        throw XaynAiException(error);
+        throw XaynAiException(error.toString());
       }
     } finally {
       docs.free();
