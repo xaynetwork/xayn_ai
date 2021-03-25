@@ -6,18 +6,24 @@ use thiserror::Error;
 use super::{
     config::Configuration,
     utils::{
-        classify_documents_based_on_user_feedback, collect_matching_documents, count_coi_ids,
-        l2_norm, update_alpha, update_beta,
+        classify_documents_based_on_user_feedback,
+        collect_matching_documents,
+        count_coi_ids,
+        l2_norm,
+        update_alpha,
+        update_beta,
     },
 };
 use crate::{
     bert::Embedding,
     data::{
         document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithEmbedding},
-        Coi, UserInterests,
+        Coi,
+        UserInterests,
     },
     reranker_systems::{self, CoiSystemData},
-    DocumentHistory, Error,
+    DocumentHistory,
+    Error,
 };
 
 #[derive(Error, Debug, Display)]
@@ -198,8 +204,12 @@ mod tests {
         data::{
             document::{DocumentId, Relevance, UserFeedback},
             document_data::{
-                ContextComponent, DocumentDataWithMab, DocumentIdComponent, EmbeddingComponent,
-                LtrComponent, MabComponent,
+                ContextComponent,
+                DocumentDataWithMab,
+                DocumentIdComponent,
+                EmbeddingComponent,
+                LtrComponent,
+                MabComponent,
             },
             CoiId,
         },
@@ -345,10 +355,7 @@ mod tests {
             ..Default::default()
         };
 
-        let cois = CoiSystem::new(config).update_cois(
-            &documents.as_slice(),
-            cois,
-        );
+        let cois = CoiSystem::new(config).update_cois(&documents.as_slice(), cois);
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]

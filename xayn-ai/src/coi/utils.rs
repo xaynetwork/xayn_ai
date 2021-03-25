@@ -7,7 +7,8 @@ use crate::{
     },
     ndarray::Array1,
     reranker_systems::CoiSystemData,
-    DocumentHistory, DocumentId,
+    DocumentHistory,
+    DocumentId,
 };
 
 pub fn l2_norm(array: Array1<f32>) -> f32 {

@@ -2,8 +2,11 @@ use crate::{
     data::{
         document::{Document, DocumentHistory},
         document_data::{
-            DocumentContentComponent, DocumentDataWithDocument, DocumentDataWithEmbedding,
-            DocumentDataWithMab, DocumentIdComponent,
+            DocumentContentComponent,
+            DocumentDataWithDocument,
+            DocumentDataWithEmbedding,
+            DocumentDataWithMab,
+            DocumentIdComponent,
         },
         UserInterests,
     },

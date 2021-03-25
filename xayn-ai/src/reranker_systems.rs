@@ -3,8 +3,13 @@ use crate::{
     data::{
         document::{DocumentHistory, DocumentId},
         document_data::{
-            CoiComponent, DocumentDataWithCoi, DocumentDataWithContext, DocumentDataWithDocument,
-            DocumentDataWithEmbedding, DocumentDataWithLtr, DocumentDataWithMab,
+            CoiComponent,
+            DocumentDataWithCoi,
+            DocumentDataWithContext,
+            DocumentDataWithDocument,
+            DocumentDataWithEmbedding,
+            DocumentDataWithLtr,
+            DocumentDataWithMab,
             EmbeddingComponent,
         },
         UserInterests,
