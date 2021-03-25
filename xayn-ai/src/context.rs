@@ -118,7 +118,6 @@ mod tests {
     fn test_calculate_neg_max_f32_max() {
         // when calculating the negative distance in the `CoiSystem`,
         // we assign `f32::MAX` if we don't have negative cois
-
         let calc = ContextCalc {
             pos_avg: 4.,
             neg_max: f32::MAX,
