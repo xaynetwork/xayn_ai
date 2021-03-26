@@ -17,7 +17,7 @@ use std::{
 };
 
 use displaydoc::Display;
-use rand_distr::{Beta, Distribution};
+use rand_distr::{Beta, BetaError, Distribution};
 use thiserror::Error;
 
 #[cfg(test)]
@@ -32,7 +32,7 @@ pub enum MabError {
     /// Extracted coi does not have documents
     ExtractedCoiNoDocuments,
     /// Error while sampling
-    Sampling(#[from] Error),
+    Sampling(#[from] BetaError),
     /// Context value must be [0, 1]
     InvalidContext,
 }
@@ -47,8 +47,7 @@ pub struct BetaSampler;
 
 impl BetaSample for BetaSampler {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, MabError> {
-        let beta = Beta::new(alpha, beta).map_err(|e| MabError::Sampling(e.into()))?;
-        Ok(beta.sample(&mut rand::thread_rng()))
+        Ok(Beta::new(alpha, beta)?.sample(&mut rand::thread_rng()))
     }
 }
 
@@ -302,7 +301,6 @@ mod tests {
     };
     use rubert::ndarray::arr1;
 
-    use anyhow::anyhow;
     use float_cmp::approx_eq;
     use maplit::hashmap;
     use std::collections::HashSet;
@@ -580,7 +578,7 @@ mod tests {
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler
             .expect_sample()
-            .returning(|_, _| Err(MabError::Sampling(anyhow!("sampling error"))));
+            .returning(|_, _| Err(MabError::Sampling(BetaError::AlphaTooSmall)));
 
         let error =
             pull_arms(&beta_sampler, &cois, documents_by_coi.clone()).expect_err("sampler error");
@@ -599,7 +597,7 @@ mod tests {
             .expect_sample()
             .times(1)
             .in_sequence(&mut seq)
-            .returning(|_, _| Err(MabError::Sampling(anyhow!("sampling error"))));
+            .returning(|_, _| Err(MabError::Sampling(BetaError::AlphaTooSmall)));
 
         let error = pull_arms(&beta_sampler, &cois, documents_by_coi).expect_err("sampler error");
 
@@ -899,7 +897,7 @@ mod tests {
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler
             .expect_sample()
-            .returning(|_, _| Err(MabError::Sampling(anyhow!("sampling error"))));
+            .returning(|_, _| Err(MabError::Sampling(BetaError::AlphaTooSmall)));
         let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi);
         assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
 
