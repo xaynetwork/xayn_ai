@@ -190,7 +190,7 @@ fn pull_arms(
 
         Ok((documents_by_coi, document.0))
     } else {
-        // This should never occurs because we select a `coi_id`
+        // This should never occur because we select a `coi_id`
         // from the keys of `documents_by_coi`
         Err(MabError::ExtractedCoiNoDocuments)
     }
