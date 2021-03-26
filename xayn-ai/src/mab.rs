@@ -923,7 +923,7 @@ mod tests {
             coi!(CoiId(7), 100.),
         ];
 
-        // we use small context_value to avoid to change alpha and beta too much
+        // we use a small context_value to avoid changing alpha and beta too much
         let documents = vec![
             with_ctx(doc_id_0.clone(), CoiId(0), 0.01),
             with_ctx(doc_id_1.clone(), CoiId(0), 0.02),
