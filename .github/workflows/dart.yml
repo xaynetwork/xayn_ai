@@ -47,8 +47,8 @@ jobs:
       - name: Fetch dependencies
         run: cargo fetch
 
-  build-cargo-lib:
-    name: build-cargo-lib
+  build-xain-ai-lib:
+    name: build-xain-ai-lib
     needs: registry-cache
     runs-on: ubuntu-20.04
     outputs:
@@ -78,10 +78,10 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-cargo-lib-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-cargo-lib-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-xain-ai-lib-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-xain-ai-lib-${{ needs.registry-cache.outputs.cache-date }}-
 
-      - name: cargo build
+      - name: Build xayn-ai-ffi-c lib
         run: cargo build
 
       - name: Generate lib cache key
@@ -105,7 +105,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Setup Java ${{ env.JAVA_VERSION }}
+      - name: Setup java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v1
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -116,7 +116,7 @@ jobs:
           path: /opt/hostedtoolcache/flutter
           key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
 
-      - name: Set path or install Flutter
+      - name: Set path or install flutter
         # if there is a cache hit, this step will append the `bin` directory of
         # flutter to `PATH`, otherwise it installs flutter
         uses: subosito/flutter-action@v1
@@ -129,7 +129,7 @@ jobs:
 
   flutter-analyze:
     name: flutter-analyze
-    needs: build-cargo-lib
+    needs: build-xain-ai-lib
     runs-on: ubuntu-20.04
     timeout-minutes: 10
     steps:
@@ -145,7 +145,7 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Restore flutter-${{ env.FLUTTER_VERSION }} cache
+      - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
         uses: actions/cache@v2.1.4
         with:
           path: /opt/hostedtoolcache/flutter
@@ -156,29 +156,29 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
-      - name: Restore ${{ needs.build-cargo-lib.outputs.cache-key }} cache
+      - name: Restore ${{ needs.build-xain-ai-lib.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
         with:
           path: |
             ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
             ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
-          key: ${{ needs.build-cargo-lib.outputs.cache-key }}
+          key: ${{ needs.build-xain-ai-lib.outputs.cache-key }}
 
-      - name: Install dart dependencies
+      - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub get
 
-      - name: Generate dart ffi
+      - name: Generate flutter ffi
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub run ffigen
 
-      - name: Analyze dart code
+      - name: Analyze flutter code
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter analyze
 
   flutter-test:
     name: flutter-test
-    needs: [build-cargo-lib]
+    needs: [build-xain-ai-lib]
     runs-on: ubuntu-20.04
     timeout-minutes: 10
     steps:
@@ -188,12 +188,12 @@ jobs:
       - name: Install libclang-10-dev
         run: sudo apt-get install libclang-10-dev
 
-      - name: Setup Java ${{ env.JAVA_VERSION }}
+      - name: Setup java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v1
         with:
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Restore flutter-${{ env.FLUTTER_VERSION }} cache
+      - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
         uses: actions/cache@v2.1.4
         with:
           path: /opt/hostedtoolcache/flutter
@@ -204,25 +204,25 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
-      - name: Restore ${{ needs.build-cargo-lib.outputs.cache-key }} cache
+      - name: Restore ${{ needs.build-xain-ai-lib.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
         with:
           path: |
             ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
             ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
-          key: ${{ needs.build-cargo-lib.outputs.cache-key }}
+          key: ${{ needs.build-xain-ai-lib.outputs.cache-key }}
 
-      - name: Install dart dependencies
+      - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub get
 
-      - name: Generate dart ffi
+      - name: Generate flutter ffi
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub run ffigen
 
       - name: Download data
         run: sh download_data.sh
 
-      - name: Run dart tests
+      - name: Run flutter tests
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter test
