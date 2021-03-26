@@ -444,8 +444,8 @@ mod tests {
     #[test]
     fn test_update_coi_no_docs() {
         let cois = hashmap! {
-         CoiId(0) => coi!(CoiId(0)),
-         CoiId(1) => coi!(CoiId(1))
+            CoiId(0) => coi!(CoiId(0)),
+            CoiId(1) => coi!(CoiId(1))
         };
 
         let new_cois = update_cois(cois.clone(), &[]).expect("cois");
