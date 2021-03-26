@@ -696,7 +696,7 @@ mod tests {
             // alternate CoiId(1) and CoiId(4), serve CoiId(7) as last
             // letting 7 win only at the end allow us to always have 3 cois
             // to sample an make it eaiser to understand the round
-            #[allow(clippy::clippy::float_cmp)] // alpha is setted by us and never changed
+            #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
             let sample = match coi_counter / 3 {
                 // CoiId(1) wins
                 0 => {
