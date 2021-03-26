@@ -698,8 +698,8 @@ mod tests {
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler.expect_sample().returning(move |alpha, _| {
             // alternate CoiId(1) and CoiId(4), serve CoiId(7) as last
-            // letting 7 win only at the end allow us to always have 3 cois
-            // to sample an make it eaiser to understand the round
+            // letting 7 win only at the end allows us to always have 3 cois
+            // to sample and make it easier to understand the round
             #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
             let sample = match coi_counter / 3 {
                 // CoiId(1) wins
