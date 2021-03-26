@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use crate::{
     data::{
         document::{Relevance, UserFeedback},
-        document_data::{DocumentDataWithMab, DocumentIdentifier},
         Coi,
     },
     ndarray::Array1,
+    reranker_systems::CoiSystemData,
     DocumentHistory,
     DocumentId,
 };
@@ -22,10 +22,10 @@ pub enum DocumentRelevance {
 
 /// Collects all documents that are present in the history.
 /// The history contains the user feedback of these documents.
-pub fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
+pub fn collect_matching_documents<'hist, 'doc>(
     history: &'hist [DocumentHistory],
-    documents: &'doc [D],
-) -> Vec<(&'hist DocumentHistory, &'doc D)> {
+    documents: &'doc [&dyn CoiSystemData],
+) -> Vec<(&'hist DocumentHistory, &'doc dyn CoiSystemData)> {
     let history: HashMap<&DocumentId, &DocumentHistory> =
         history.iter().map(|dh| (&dh.id, dh)).collect();
 
@@ -33,7 +33,7 @@ pub fn collect_matching_documents<'hist, 'doc, D: DocumentIdentifier>(
         .iter()
         .filter_map(|doc| {
             let dh = *history.get(doc.id())?;
-            Some((dh, doc))
+            Some((dh, *doc))
         })
         .collect()
 }
@@ -94,17 +94,20 @@ pub fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
 /// documents = [d_1(coi_id_1), d_2(coi_id_2), d_3(coi_id_1)]
 /// count_coi_ids(documents) -> {coi_id_1: 2, coi_id_2: 1}
 /// ```
-pub fn count_coi_ids(documents: &[&DocumentDataWithMab]) -> HashMap<usize, u16> {
-    documents.iter().fold(
-        HashMap::with_capacity(documents.len()),
-        |mut counts, doc| {
-            counts
-                .entry(doc.coi.id.0)
-                .and_modify(|count| *count += 1)
-                .or_insert(1);
-            counts
-        },
-    )
+pub fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
+    documents
+        .iter()
+        .filter_map(|doc| doc.coi().map(|coi| coi.id))
+        .fold(
+            HashMap::with_capacity(documents.len()),
+            |mut counts, coi_id| {
+                counts
+                    .entry(coi_id.0)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
+                counts
+            },
+        )
 }
 
 #[cfg(test)]
@@ -116,6 +119,7 @@ pub(crate) mod tests {
     use crate::{
         data::document_data::{DocumentDataWithEmbedding, DocumentIdComponent, EmbeddingComponent},
         ndarray::{arr1, FixedInitializer},
+        to_vec_of_ref_of,
     };
 
     pub fn create_cois(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<Coi> {
@@ -337,6 +341,7 @@ pub(crate) mod tests {
 
         let mut documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
         documents.push(create_data_with_embedding(5, &[4., 5., 6.]));
+        let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
         let matching_documents = collect_matching_documents(&history, &documents);
 

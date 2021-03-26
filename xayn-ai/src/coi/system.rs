@@ -17,16 +17,11 @@ use super::{
 use crate::{
     bert::Embedding,
     data::{
-        document_data::{
-            CoiComponent,
-            DocumentDataWithCoi,
-            DocumentDataWithEmbedding,
-            DocumentDataWithMab,
-        },
+        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithEmbedding},
         Coi,
         UserInterests,
     },
-    reranker_systems,
+    reranker_systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
 };
@@ -124,9 +119,9 @@ impl CoiSystem {
     }
 
     /// Updates the CoIs based on the embeddings of docs.
-    fn update_cois(&self, docs: &[&DocumentDataWithMab], cois: Vec<Coi>) -> Vec<Coi> {
+    fn update_cois(&self, docs: &[&dyn CoiSystemData], cois: Vec<Coi>) -> Vec<Coi> {
         docs.iter().fold(cois, |cois, doc| {
-            self.update_coi(&doc.embedding.embedding, cois)
+            self.update_coi(&doc.embedding().embedding, cois)
         })
     }
 
@@ -173,7 +168,7 @@ impl reranker_systems::CoiSystem for CoiSystem {
     fn update_user_interests(
         &self,
         history: &[DocumentHistory],
-        documents: &[DocumentDataWithMab],
+        documents: &[&dyn CoiSystemData],
         mut user_interests: UserInterests,
     ) -> Result<UserInterests, Error> {
         let matching_documents = collect_matching_documents(history, documents);
@@ -220,6 +215,7 @@ mod tests {
         },
         ndarray::{arr1, FixedInitializer},
         reranker_systems::CoiSystem as CoiSystemTrait,
+        to_vec_of_ref_of,
     };
 
     pub fn create_data_with_mab(
@@ -352,13 +348,14 @@ mod tests {
         // checks that an updated coi is used in the next iteration
         let cois = create_cois(&[[0., 0., 0.]]);
         let documents = create_data_with_mab(&[[0., 0., 4.9], [0., 0., 5.]]);
+        let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
         let config = Configuration {
             threshold: 5.,
             ..Default::default()
         };
 
-        let cois = CoiSystem::new(config).update_cois(&documents.iter().collect::<Vec<_>>(), cois);
+        let cois = CoiSystem::new(config).update_cois(&documents.as_slice(), cois);
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]
@@ -465,6 +462,7 @@ mod tests {
             (Relevance::Low, UserFeedback::Relevant),
         ]);
         let documents = create_data_with_mab(&[[1., 4., 4.], [3., 6., 6.], [1., 1., 1.]]);
+        let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
         let coi_system = CoiSystem::new(Configuration {
             threshold: 5.0,

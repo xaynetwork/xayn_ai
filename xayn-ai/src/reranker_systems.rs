@@ -1,14 +1,16 @@
 use crate::{
     analytics::Analytics,
     data::{
-        document::DocumentHistory,
+        document::{DocumentHistory, DocumentId},
         document_data::{
+            CoiComponent,
             DocumentDataWithCoi,
             DocumentDataWithContext,
             DocumentDataWithDocument,
             DocumentDataWithEmbedding,
             DocumentDataWithLtr,
             DocumentDataWithMab,
+            EmbeddingComponent,
         },
         UserInterests,
     },
@@ -23,6 +25,12 @@ pub trait BertSystem {
     ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
 }
 
+pub trait CoiSystemData {
+    fn id(&self) -> &DocumentId;
+    fn embedding(&self) -> &EmbeddingComponent;
+    fn coi(&self) -> Option<&CoiComponent>;
+}
+
 pub trait CoiSystem {
     /// Add centre of interest information to a document
     fn compute_coi(
@@ -35,7 +43,7 @@ pub trait CoiSystem {
     fn update_user_interests(
         &self,
         history: &[DocumentHistory],
-        documents: &[DocumentDataWithMab],
+        documents: &[&dyn CoiSystemData],
         user_interests: UserInterests,
     ) -> Result<UserInterests, Error>;
 }
