@@ -257,19 +257,13 @@ jobs:
 
       - name: Restore ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@v2.1.4
+        id: cargo-lipo-cache
         with:
           path: ~/.cargo/bin/cargo-lipo
           key: ${{ steps.cache-key.outputs.key }}
 
-      - name: Test for cargo-lipo ${{ env.CARGO_LIPO }}
-        # we could also run `cargo install lipo || true` but in that case
-        # cargo fetches the index first which takes ~30sec longer
-        id: test-bin
-        shell: bash
-        run: echo "::set-output name=exist::$(test -e ~/.cargo/bin/cargo-lipo && echo $?)"
-
       - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
-        if: steps.test-bin.outputs.exist != '0'
+        if: steps.cargo-lipo-cache.outputs.cache-hit != 'true'
         run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
 
   test-android-libs:
