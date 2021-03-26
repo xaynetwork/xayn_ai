@@ -17,5 +17,6 @@ pub(crate) use rubert::ndarray;
 pub use crate::{
     data::document::{Document, DocumentHistory, DocumentId},
     error::Error,
-    reranker::Reranker, reranker_builder::RerankerBuilder,
+    reranker::Reranker,
+    reranker_builder::RerankerBuilder,
 };

@@ -14,7 +14,13 @@ use crate::{
     mab::{BetaSampler, MabRanking},
     reranker::Reranker,
     reranker_systems::{
-        AnalyticsSystem, BertSystem, CoiSystem, CommonSystems, ContextSystem, LtrSystem, MabSystem,
+        AnalyticsSystem,
+        BertSystem,
+        CoiSystem,
+        CommonSystems,
+        ContextSystem,
+        LtrSystem,
+        MabSystem,
     },
     Error,
 };
