@@ -615,6 +615,8 @@ mod tests {
         };
 
         let mut documents_by_coi = DocumentsByCoi::new();
+        // If `group_by_coi` and `pull_arms` are behaving correclty we will never have
+        // a coi with an empty heap.
         documents_by_coi.insert(CoiId(0), BinaryHeap::new());
 
         let mut beta_sampler = MockBetaSample::new();
@@ -697,9 +699,14 @@ mod tests {
         let mut coi_counter = 0;
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler.expect_sample().returning(move |alpha, _| {
-            // alternate CoiId(1) and CoiId(4), serve CoiId(7) as last
-            // letting 7 win only at the end allows us to always have 3 cois
-            // to sample and make it easier to understand the round
+            // `pull_arms` call sample once per coi, we have 3 cois till the last calls
+            // where cois will be removed when we pull their last document.
+            // We can then use `coi_counter / 3` to know how many times `pull_arms` has
+            // been called before, we use this number to decide which coi should win in this "round".
+            // `alpha` value is used to understand for which coi we are polling.
+            // We alternate CoiId(1) and CoiId(4) and we will serve CoiId(7) as last
+            // to always have 3 cois to sample an make it easier to understand
+            // the round we are in.
             #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
             let sample = match coi_counter / 3 {
                 // CoiId(1) wins
