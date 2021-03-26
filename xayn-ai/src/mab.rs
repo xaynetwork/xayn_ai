@@ -328,7 +328,7 @@ mod tests {
         ($id:expr, $params: expr) => {
             coi!($id, $params, $params)
         };
-        ($id:expr, $alpha: expr, $beta:expr) => {
+        ($id:expr, $alpha: expr, $beta: expr) => {
             Coi {
                 id: $id,
                 alpha: $alpha,
