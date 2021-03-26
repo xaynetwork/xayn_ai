@@ -8,7 +8,18 @@ use crate::{
 };
 
 /// LTR with constant value.
-struct ConstLtr(f32);
+pub(crate) struct ConstLtr(f32);
+
+impl ConstLtr {
+    pub(crate) fn new() -> Self {
+        // 0.5 is the only valid value.
+        // It must be between 0 and 1. Since this is used to compute the context value
+        // and context value is used to update `alpha` and `beta` of the cois.
+        // Using a value different from 0.5 will change the parameters of a coi in an
+        // umbalanced way.
+        Self(0.5)
+    }
+}
 
 impl LtrSystem for ConstLtr {
     fn compute_ltr(
@@ -66,12 +77,11 @@ mod tests {
             coi,
         };
 
-        let half = 0.5;
-        let res = ConstLtr(half).compute_ltr(&[], vec![doc1, doc2]);
+        let res = ConstLtr::new().compute_ltr(&[], vec![doc1, doc2]);
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);
-        assert!(approx_eq!(f32, ltr_docs[0].ltr.ltr_score, half));
-        assert!(approx_eq!(f32, ltr_docs[1].ltr.ltr_score, half));
+        assert!(approx_eq!(f32, ltr_docs[0].ltr.ltr_score, 0.5));
+        assert!(approx_eq!(f32, ltr_docs[1].ltr.ltr_score, 0.5));
     }
 }

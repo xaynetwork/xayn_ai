@@ -1,14 +1,14 @@
 use crate::{
     data::{document::DocumentHistory, document_data::DocumentDataWithMab},
     error::Error,
-    reranker_systems::AnalyticsSystem,
+    reranker_systems,
 };
 
 pub struct Analytics;
 
-pub struct DummyAnalytics;
+pub(crate) struct AnalyticsSystem;
 
-impl AnalyticsSystem for DummyAnalytics {
+impl reranker_systems::AnalyticsSystem for AnalyticsSystem {
     fn compute_analytics(
         &self,
         _history: &[DocumentHistory],
