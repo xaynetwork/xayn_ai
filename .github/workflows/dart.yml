@@ -1,0 +1,228 @@
+name: Dart-CI
+
+on:
+  push:
+
+env:
+  RUST_STABLE: 1.49.0
+  FLUTTER_VERSION: '2.0.0'
+  JAVA_VERSION: '12.x'
+  DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
+
+jobs:
+  registry-cache:
+    # we use the latest stable rustc + cargo version that is already installed on the image
+    # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
+    name: cargo-fetch
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      cache-date: ${{ steps.get-date.outputs.date }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # We want to create a new cache after a week. Otherwise, the cache will
+      # take up too much space by caching old dependencies
+      - name: Generate Year + ISO week number key
+        id: get-date
+        shell: bash
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y-%V")"
+
+      - name: Generate cargo registry cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
+
+      - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
+
+      - name: Fetch dependencies
+        run: cargo fetch
+
+  build-cargo-lib:
+    name: build-cargo-lib
+    needs: registry-cache
+    runs-on: ubuntu-20.04
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          default: true
+
+      - name: Use cached cargo registry
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Cache build artifacts
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-cargo-lib-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-cargo-lib-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: cargo build
+        run: cargo build
+
+      - name: Generate lib cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo libxayn_ai_ffi_c-${{ hashFiles('target/debug/libxayn_ai_ffi_c.so', 'xayn-ai-ffi-c/ffi.h') }})"
+
+      - name: Cache library artifacts
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
+            ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
+          key: ${{ steps.cache-key.outputs.key }}
+
+  flutter-format:
+    name: flutter-format
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore ${{ needs.install-flutter.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
+
+      - name: Set path or install Flutter
+        # if there is a cache hit, this step will append the `bin` directory of
+        # flutter to `PATH`, otherwise it installs flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Check dart bindings code formatting
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter format --set-exit-if-changed .
+
+  flutter-analyze:
+    name: flutter-analyze
+    needs: build-cargo-lib
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install libclang-10-dev
+        # required by ffigen
+        run: sudo apt-get install libclang-10-dev
+
+      - name: Setup java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore flutter-${{ env.FLUTTER_VERSION }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
+
+      - name: Set path or install flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Restore ${{ needs.build-cargo-lib.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
+            ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
+          key: ${{ needs.build-cargo-lib.outputs.cache-key }}
+
+      - name: Install dart dependencies
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub get
+
+      - name: Generate dart ffi
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub run ffigen
+
+      - name: Analyze dart code
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter analyze
+
+  flutter-test:
+    name: flutter-test
+    needs: [build-cargo-lib]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install libclang-10-dev
+        run: sudo apt-get install libclang-10-dev
+
+      - name: Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore flutter-${{ env.FLUTTER_VERSION }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
+
+      - name: Set path or install flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Restore ${{ needs.build-cargo-lib.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
+            ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
+          key: ${{ needs.build-cargo-lib.outputs.cache-key }}
+
+      - name: Install dart dependencies
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub get
+
+      - name: Generate dart ffi
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub run ffigen
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Run dart tests
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter test
