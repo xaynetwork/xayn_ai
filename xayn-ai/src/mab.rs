@@ -507,6 +507,9 @@ mod tests {
         )
         .expect("cois");
 
+        // alpha is updated with `alpha += context_value`
+        // beta is updated with `beta += (1. - context_value)`
+
         let coi = cois.get(&CoiId(0)).expect("coi");
         assert!(approx_eq!(f32, coi.alpha, 1.86));
         assert!(approx_eq!(f32, coi.beta, 1.96));
@@ -584,7 +587,8 @@ mod tests {
             pull_arms(&beta_sampler, &cois, documents_by_coi.clone()).expect_err("sampler error");
         assert!(matches!(error, MabError::Sampling(_)));
 
-        // let the sampler fail in the loop instead of the second value
+        // the current implementation take a sample for one coi and then it enter in a loop where
+        // all other samples are taken. Here we fail in the loop.
         let mut seq = Sequence::new();
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler
