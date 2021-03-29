@@ -615,7 +615,7 @@ mod tests {
         };
 
         let mut documents_by_coi = DocumentsByCoi::new();
-        // If `group_by_coi` and `pull_arms` are behaving correclty we will never have
+        // If `group_by_coi` and `pull_arms` are behaving correctly we will never have
         // a coi with an empty heap.
         documents_by_coi.insert(CoiId(0), BinaryHeap::new());
 
