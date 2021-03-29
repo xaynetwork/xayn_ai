@@ -703,7 +703,7 @@ mod tests {
             // where cois will be removed when we pull their last document.
             // We can then use `coi_counter / 3` to know how many times `pull_arms` has
             // been called before, we use this number to decide which coi should win in this "round".
-            // `alpha` value is used to understand for which coi we are polling.
+            // `alpha` value is used to understand for which coi we are pulling.
             // We alternate CoiId(1) and CoiId(4) and we will serve CoiId(7) as last
             // to always have 3 cois to sample and make it easier to understand
             // the round we are in.
