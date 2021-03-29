@@ -714,6 +714,7 @@ mod tests {
             let loose = 0.1;
 
             let make_coi_win = |coi_alpha: f32| -> f32 {
+                #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
                 if alpha == coi_alpha {
                     win
                 } else {
@@ -721,9 +722,6 @@ mod tests {
                 }
             };
 
-            println!("coi_counter: {} round: {}", coi_counter, coi_counter / 3);
-
-            #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
             let sample = match coi_counter / 3 {
                 // CoiId(1) wins
                 0 => make_coi_win(coi1),
