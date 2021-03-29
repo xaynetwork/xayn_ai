@@ -714,11 +714,11 @@ mod tests {
             let lose = 0.1;
 
             let make_coi_win = |coi_alpha: f32| -> f32 {
-                #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
+                #[allow(clippy::clippy::float_cmp)] // [coi_]alpha are set by us and never changed
                 if alpha == coi_alpha {
                     win
                 } else {
-                    loose
+                    lose
                 }
             };
 
