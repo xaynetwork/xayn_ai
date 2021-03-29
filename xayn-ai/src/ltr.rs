@@ -8,16 +8,18 @@ use crate::{
 };
 
 /// LTR with constant value.
-pub(crate) struct ConstLtr(f32);
+pub(crate) struct ConstLtr;
 
 impl ConstLtr {
+    const SCORE: f32 = 0.5;
+
     pub(crate) fn new() -> Self {
         // 0.5 is the only valid value.
         // It must be between 0 and 1. Since this is used to compute the context value
         // and context value is used to update `alpha` and `beta` of the cois.
         // Using a value different from 0.5 will change the parameters of a coi in an
         // umbalanced way.
-        Self(0.5)
+        Self
     }
 }
 
@@ -27,7 +29,7 @@ impl LtrSystem for ConstLtr {
         _history: &[DocumentHistory],
         documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
-        let ltr_score = self.0;
+        let ltr_score = Self::SCORE;
         Ok(documents
             .into_iter()
             .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { ltr_score }))
