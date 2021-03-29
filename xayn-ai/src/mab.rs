@@ -711,7 +711,7 @@ mod tests {
             // to always have 3 cois to sample and make it easier to understand
             // the round we are in.
             let win = 0.9;
-            let loose = 0.1;
+            let lose = 0.1;
 
             let make_coi_win = |coi_alpha: f32| -> f32 {
                 #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
