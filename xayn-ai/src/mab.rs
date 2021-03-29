@@ -681,10 +681,13 @@ mod tests {
         let doc_id_4 = DocumentId("4".to_string());
         let doc_id_5 = DocumentId("5".to_string());
 
+        let coi1 = 1.;
+        let coi4 = 4.;
+        let coi7 = 7.;
         let cois = hashmap! {
-            CoiId(1) => coi!(CoiId(1), 1.),
-            CoiId(4) => coi!(CoiId(4), 4.),
-            CoiId(7) => coi!(CoiId(7), 7.),
+            CoiId(1) => coi!(CoiId(1), coi1),
+            CoiId(4) => coi!(CoiId(4), coi4),
+            CoiId(7) => coi!(CoiId(7), coi7),
         };
 
         let documents_by_coi = group_by_coi(vec![
@@ -707,50 +710,33 @@ mod tests {
             // We alternate CoiId(1) and CoiId(4) and we will serve CoiId(7) as last
             // to always have 3 cois to sample and make it easier to understand
             // the round we are in.
+            let win = 0.9;
+            let loose = 0.1;
+
+            let make_coi_win = |coi_alpha: f32| -> f32 {
+                if alpha == coi_alpha {
+                    win
+                } else {
+                    loose
+                }
+            };
+
+            println!("coi_counter: {} round: {}", coi_counter, coi_counter / 3);
+
             #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
             let sample = match coi_counter / 3 {
                 // CoiId(1) wins
-                0 => {
-                    if alpha == 1. {
-                        0.9
-                    } else {
-                        0.1
-                    }
-                }
+                0 => make_coi_win(coi1),
                 // CoiId(4) wins
-                1 => {
-                    if alpha == 4. {
-                        0.9
-                    } else {
-                        0.1
-                    }
-                }
+                1 => make_coi_win(coi4),
                 // CoiId(1) wins
-                2 => {
-                    if alpha == 1. {
-                        0.9
-                    } else {
-                        0.1
-                    }
-                }
+                2 => make_coi_win(coi1),
                 // CoiId(4) wins
-                3 => {
-                    if alpha == 4. {
-                        0.9
-                    } else {
-                        0.1
-                    }
-                }
-                // CoiId(1) wins
-                4 => {
-                    if alpha == 1. {
-                        0.9
-                    } else {
-                        0.1
-                    }
-                }
-                // only CoiId(7)
-                5 => 0.9,
+                3 => make_coi_win(coi4),
+                // This round involves 2 calls to pull_arms. In the first coi1 and coi7 are
+                // present and coi1 wins, in the second there is only coi7 and any value will
+                // make it win.
+                4 => make_coi_win(coi1),
                 _ => panic!("too many rounds"),
             };
 
