@@ -705,7 +705,7 @@ mod tests {
             // been called before, we use this number to decide which coi should win in this "round".
             // `alpha` value is used to understand for which coi we are polling.
             // We alternate CoiId(1) and CoiId(4) and we will serve CoiId(7) as last
-            // to always have 3 cois to sample an make it easier to understand
+            // to always have 3 cois to sample and make it easier to understand
             // the round we are in.
             #[allow(clippy::clippy::float_cmp)] // alpha is set by us and never changed
             let sample = match coi_counter / 3 {
