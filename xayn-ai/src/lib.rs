@@ -15,7 +15,7 @@ mod utils;
 pub(crate) use rubert::ndarray;
 
 pub use crate::{
-    builder::RerankerBuilder,
+    builder::Builder,
     data::document::{Document, DocumentHistory, DocumentId},
     error::Error,
     reranker::Reranker,

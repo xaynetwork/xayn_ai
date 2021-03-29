@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use rubert::{AveragePooler, Builder as RuBertBuilder, RuBert};
+use rubert::{AveragePooler, Builder as RuBertBuilder, NonePooler, RuBert};
 
 use crate::{
     analytics::AnalyticsSystem as AnalyticsSystemImpl,
@@ -68,92 +68,86 @@ where
     }
 }
 
-pub struct RerankerBuilder {}
+pub struct Builder<DB, V, M> {
+    database: DB,
+    bert: RuBertBuilder<V, M, NonePooler>,
+    sampler: BetaSampler,
+}
 
-impl RerankerBuilder {
-    pub fn with_database<DB: Database>(database: DB) -> RerankerBuilderAddBert<DB> {
-        RerankerBuilderAddBert { database }
+impl Default for Builder<(), (), ()> {
+    fn default() -> Self {
+        Self {
+            database: (),
+            bert: RuBertBuilder::new((), ()),
+            sampler: BetaSampler,
+        }
     }
 }
 
-pub struct RerankerBuilderAddBert<DB> {
-    database: DB,
-}
+impl<DB, V, M> Builder<DB, V, M> {
+    pub fn with_database<D>(self, database: D) -> Builder<D, V, M> {
+        Builder {
+            database,
+            bert: self.bert,
+            sampler: self.sampler,
+        }
+    }
 
-impl<DB> RerankerBuilderAddBert<DB> {
+    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<DB, W, N> {
+        Builder {
+            database: self.database,
+            bert: RuBertBuilder::new(vocab, model),
+            sampler: self.sampler,
+        }
+    }
+
     pub fn with_bert_from_file(
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<RerankerBuilderFinalize<DB>, Error> {
-        let bert = make_bert_system(RuBertBuilder::from_files(vocab, model)?)?;
-
-        Ok(RerankerBuilderFinalize {
-            systems: make_systems(self.database, bert),
+    ) -> Result<Builder<DB, impl BufRead, impl Read>, Error> {
+        Ok(Builder {
+            database: self.database,
+            bert: RuBertBuilder::from_files(vocab, model)?,
+            sampler: self.sampler,
         })
-    }
-
-    pub fn with_bert_from_reader<V, M>(
-        self,
-        vocab: impl BufRead,
-        model: impl Read,
-    ) -> Result<RerankerBuilderFinalize<DB>, Error> {
-        let bert = make_bert_system(RuBertBuilder::new(vocab, model))?;
-
-        Ok(RerankerBuilderFinalize {
-            systems: make_systems(self.database, bert),
-        })
-    }
-}
-
-pub struct RerankerBuilderFinalize<DB> {
-    systems: Systems<DB>,
-}
-
-impl<DB: Database> RerankerBuilderFinalize<DB> {
-    pub fn build(self) -> Result<Reranker<Systems<DB>>, Error> {
-        Reranker::new(self.systems)
     }
 
     /// Allows to change the beta sampler of the mab for testing purpose
     #[cfg(test)]
     pub fn with_mab_beta_sampler(mut self, beta_sampler: BetaSampler) -> Self {
-        self.systems.mab = MabRanking::new(beta_sampler);
-
+        self.sampler = beta_sampler;
         self
     }
-}
 
-fn make_bert_system<V, M, P>(
-    builder: RuBertBuilder<V, M, P>,
-) -> Result<RuBert<AveragePooler>, Error>
-where
-    V: BufRead,
-    M: Read,
-{
-    builder
-        .with_token_size(90)?
-        .with_accents(false)
-        .with_lowercase(true)
-        .with_pooling(AveragePooler)
-        .build()
-        .map_err(|e| e.into())
-}
+    pub fn build(self) -> Result<Reranker<Systems<DB>>, Error>
+    where
+        DB: Database,
+        V: BufRead,
+        M: Read,
+    {
+        let database = self.database;
+        let bert = self
+            .bert
+            .with_token_size(90)?
+            .with_accents(false)
+            .with_lowercase(true)
+            .with_pooling(AveragePooler)
+            .build()?;
+        let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
+        let ltr = ConstLtr::new();
+        let context = Context;
+        let mab = MabRanking::new(self.sampler);
+        let analytics = AnalyticsSystemImpl;
 
-fn make_systems<DB>(database: DB, bert: RuBert<AveragePooler>) -> Systems<DB> {
-    let ltr = ConstLtr::new();
-    let context = Context;
-    let mab = MabRanking::new(BetaSampler);
-    let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
-    let analytics = AnalyticsSystemImpl;
-
-    Systems {
-        database,
-        bert,
-        coi,
-        ltr,
-        context,
-        mab,
-        analytics,
+        Reranker::new(Systems {
+            database,
+            bert,
+            coi,
+            ltr,
+            context,
+            mab,
+            analytics,
+        })
     }
 }
