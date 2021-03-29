@@ -1,5 +1,6 @@
 mod analytics;
 mod bert;
+mod builder;
 mod coi;
 mod context;
 mod data;
@@ -8,15 +9,14 @@ mod error;
 mod ltr;
 mod mab;
 mod reranker;
-mod reranker_builder;
 mod reranker_systems;
 mod utils;
 
 pub(crate) use rubert::ndarray;
 
 pub use crate::{
+    builder::RerankerBuilder,
     data::document::{Document, DocumentHistory, DocumentId},
     error::Error,
     reranker::Reranker,
-    reranker_builder::RerankerBuilder,
 };
