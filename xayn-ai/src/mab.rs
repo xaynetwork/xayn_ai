@@ -699,7 +699,7 @@ mod tests {
         let mut coi_counter = 0;
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler.expect_sample().returning(move |alpha, _| {
-            // `pull_arms` call sample once per coi, we have 3 cois till the last calls
+            // `pull_arms` calls sample once per coi, we have 3 cois till the last calls
             // where cois will be removed when we pull their last document.
             // We can then use `coi_counter / 3` to know how many times `pull_arms` has
             // been called before, we use this number to decide which coi should win in this "round".
