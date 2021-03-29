@@ -119,6 +119,7 @@ impl DocumentDataWithLtr {
     }
 }
 
+#[cfg_attr(test, derive(Debug, Clone))]
 pub struct DocumentDataWithContext {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
@@ -139,6 +140,7 @@ impl DocumentDataWithContext {
     }
 }
 
+#[cfg_attr(test, derive(Debug))]
 pub struct DocumentDataWithMab {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
