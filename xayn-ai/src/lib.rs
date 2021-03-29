@@ -29,7 +29,7 @@ pub use crate::{
     database::Database,
     ltr::ConstLtr,
     mab::{BetaSampler, MabRanking},
-    reranker::{DocumentsRank, RerankerData},
+    reranker::RerankerData,
     reranker_systems::{
         AnalyticsSystem,
         BertSystem,

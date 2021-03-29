@@ -5,6 +5,7 @@ use xayn_ai::{
     Analytics,
     AnalyticsSystem,
     BertSystem,
+    BetaSampler,
     CoiSystem,
     CoiSystems,
     CommonSystems,
@@ -42,7 +43,7 @@ pub struct Systems {
     pub coi: CoiSystem,
     pub ltr: ConstLtr,
     pub context: Context,
-    pub mab: MabRanking,
+    pub mab: MabRanking<BetaSampler>,
     pub analytics: DummyAnalytics,
 }
 

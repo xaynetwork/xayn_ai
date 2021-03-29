@@ -1,4 +1,4 @@
-use std::slice;
+use std::{collections::HashMap, slice};
 
 use ffi_support::{
     abort_on_panic::{call_with_result, with_abort_on_panic},
@@ -15,7 +15,6 @@ use xayn_ai::{
     ConstLtr,
     Context,
     Document,
-    DocumentsRank,
     DummyAnalytics,
     MabRanking,
     Reranker,
@@ -215,11 +214,11 @@ pub unsafe extern "C" fn xaynai_rerank(
             // TODO: use the actual reranker once it is available
             let reranks = documents
                 .iter()
-                .map(|document| document.rank)
-                .rev()
-                .collect::<DocumentsRank>();
-            for (doc, rank) in docs.iter_mut().zip(reranks) {
-                doc.rank = rank as u32;
+                .map(|document| document.id.clone())
+                .zip(documents.iter().map(|document| document.rank).rev())
+                .collect::<HashMap<_, _>>();
+            for (doc, document) in docs.iter_mut().zip(documents) {
+                doc.rank = reranks[&document.id] as u32;
             }
 
             Ok(())
