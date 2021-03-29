@@ -587,7 +587,7 @@ mod tests {
             pull_arms(&beta_sampler, &cois, documents_by_coi.clone()).expect_err("sampler error");
         assert!(matches!(error, MabError::Sampling(_)));
 
-        // the current implementation take a sample for one coi and then enter a loop where
+        // the current implementation takes a sample for one coi and then enters a loop where
         // all other samples are taken. Here we fail in the loop.
         let mut seq = Sequence::new();
         let mut beta_sampler = MockBetaSample::new();
