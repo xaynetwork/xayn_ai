@@ -11,7 +11,7 @@ use crate::{
     context::Context,
     database::Database,
     ltr::ConstLtr,
-    mab::{BetaSampler, MabRanking},
+    mab::{BetaSample, BetaSampler, MabRanking},
     reranker::Reranker,
     reranker_systems::{
         AnalyticsSystem,
@@ -25,19 +25,20 @@ use crate::{
     Error,
 };
 
-pub struct Systems<DB> {
+pub struct Systems<DB, BS> {
     database: DB,
     bert: RuBert<AveragePooler>,
     coi: CoiSystemImpl,
     ltr: ConstLtr,
     context: Context,
-    mab: MabRanking,
+    mab: MabRanking<BS>,
     analytics: AnalyticsSystemImpl,
 }
 
-impl<DB> CommonSystems for Systems<DB>
+impl<DB, BS> CommonSystems for Systems<DB, BS>
 where
     DB: Database,
+    BS: BetaSample,
 {
     fn database(&self) -> &dyn Database {
         &self.database
@@ -68,13 +69,13 @@ where
     }
 }
 
-pub struct Builder<DB, V, M> {
+pub struct Builder<DB, V, M, BS> {
     database: DB,
     bert: RuBertBuilder<V, M, NonePooler>,
-    sampler: BetaSampler,
+    sampler: BS,
 }
 
-impl Default for Builder<(), (), ()> {
+impl Default for Builder<(), (), (), BetaSampler> {
     fn default() -> Self {
         Self {
             database: (),
@@ -84,8 +85,8 @@ impl Default for Builder<(), (), ()> {
     }
 }
 
-impl<DB, V, M> Builder<DB, V, M> {
-    pub fn with_database<D>(self, database: D) -> Builder<D, V, M> {
+impl<DB, V, M, BS> Builder<DB, V, M, BS> {
+    pub fn with_database<D>(self, database: D) -> Builder<D, V, M, BS> {
         Builder {
             database,
             bert: self.bert,
@@ -93,7 +94,7 @@ impl<DB, V, M> Builder<DB, V, M> {
         }
     }
 
-    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<DB, W, N> {
+    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<DB, W, N, BS> {
         Builder {
             database: self.database,
             bert: RuBertBuilder::new(vocab, model),
@@ -105,7 +106,7 @@ impl<DB, V, M> Builder<DB, V, M> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<DB, impl BufRead, impl Read>, Error> {
+    ) -> Result<Builder<DB, impl BufRead, impl Read, BS>, Error> {
         Ok(Builder {
             database: self.database,
             bert: RuBertBuilder::from_files(vocab, model)?,
@@ -115,16 +116,20 @@ impl<DB, V, M> Builder<DB, V, M> {
 
     /// Allows to change the beta sampler of the mab for testing purpose
     #[cfg(test)]
-    pub fn with_mab_beta_sampler(mut self, beta_sampler: BetaSampler) -> Self {
-        self.sampler = beta_sampler;
-        self
+    pub fn with_mab_beta_sampler<NBS>(self, beta_sampler: NBS) -> Builder<DB, V, M, NBS> {
+        Builder {
+            database: self.database,
+            bert: self.bert,
+            sampler: beta_sampler,
+        }
     }
 
-    pub fn build(self) -> Result<Reranker<Systems<DB>>, Error>
+    pub fn build(self) -> Result<Reranker<Systems<DB, BS>>, Error>
     where
         DB: Database,
         V: BufRead,
         M: Read,
+        BS: BetaSample,
     {
         let database = self.database;
         let bert = self
