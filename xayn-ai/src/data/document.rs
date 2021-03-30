@@ -4,7 +4,7 @@ pub struct DocumentId(pub String);
 
 impl From<&str> for DocumentId {
     fn from(id: &str) -> Self {
-        Self(id.into())
+        Self(id.to_string())
     }
 }
 

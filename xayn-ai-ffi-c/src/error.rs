@@ -64,27 +64,17 @@ pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::mem::take;
-
     use ffi_support::ErrorCode;
 
     use super::*;
 
-    pub fn error_code(error: *const ExternError) -> i32 {
-        unsafe { &*error }.get_code().code()
-    }
-
-    pub fn error_message(error: *mut ExternError) -> String {
-        unsafe { take(&mut *error).get_and_consume_message() }.unwrap()
-    }
-
-    impl PartialEq<i32> for CXaynAiError {
-        fn eq(&self, other: &i32) -> bool {
-            (*self as i32).eq(other)
+    impl PartialEq<ErrorCode> for CXaynAiError {
+        fn eq(&self, other: &ErrorCode) -> bool {
+            (*self as i32).eq(&other.code())
         }
     }
 
-    impl PartialEq<CXaynAiError> for i32 {
+    impl PartialEq<CXaynAiError> for ErrorCode {
         fn eq(&self, other: &CXaynAiError) -> bool {
             other.eq(self)
         }
@@ -92,7 +82,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_error() {
-        assert_eq!(CXaynAiError::Panic, ErrorCode::PANIC.code());
-        assert_eq!(CXaynAiError::Success, ErrorCode::SUCCESS.code());
+        assert_eq!(CXaynAiError::Panic, ErrorCode::PANIC);
+        assert_eq!(CXaynAiError::Success, ErrorCode::SUCCESS);
     }
 }

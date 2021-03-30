@@ -240,25 +240,17 @@ mod tests {
     };
 
     use super::*;
-    use crate::{
-        error::tests::{error_code, error_message},
-        utils::tests::{drop_values, setup_pointers, setup_values},
-    };
+    use crate::utils::tests::{drop_values, setup_pointers, setup_values};
 
     #[test]
     fn test_rerank() {
-        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
-        let (c_vocab, c_model, c_hist, mut c_docs, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
+        let (c_vocab, c_model, c_hist, mut c_docs, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, error) };
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
-        assert_eq!(error_code(error), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CXaynAiError::Success);
 
         unsafe {
             xaynai_rerank(
@@ -267,10 +259,10 @@ mod tests {
                 hist_size,
                 c_docs.as_mut_ptr(),
                 docs_size,
-                error,
+                c_error,
             )
         };
-        assert_eq!(error_code(error), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CXaynAiError::Success);
 
         unsafe { xaynai_drop(xaynai) };
         drop_values(vocab, model, hist, docs, error);
@@ -278,20 +270,14 @@ mod tests {
 
     #[test]
     fn test_vocab_null() {
-        let (vocab, model, hist, _, docs, _, error) = setup_values();
-        let (_, c_model, _, _, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (_, c_model, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(c_invalid, c_model, error) }.is_null());
-        assert_eq!(error_code(error), CXaynAiError::VocabPointer);
+        assert!(unsafe { xaynai_new(c_invalid, c_model, c_error) }.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::VocabPointer);
         assert_eq!(
-            error_message(error),
+            error.get_message(),
             "Failed to build the bert model: The vocab is not a valid C-string pointer",
         );
 
@@ -300,21 +286,15 @@ mod tests {
 
     #[test]
     fn test_vocab_invalid() {
-        let (vocab, model, hist, _, docs, _, error) = setup_values();
-        let (_, c_model, _, _, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (_, c_model, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
-        assert!(unsafe { xaynai_new(c_invalid, c_model, error) }.is_null());
-        assert_eq!(error_code(error), CXaynAiError::ReadFile);
+        assert!(unsafe { xaynai_new(c_invalid, c_model, c_error) }.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::ReadFile);
         assert_eq!(
-            error_message(error),
+            error.get_message(),
             "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
 
@@ -324,20 +304,14 @@ mod tests {
 
     #[test]
     fn test_model_null() {
-        let (vocab, model, hist, _, docs, _, error) = setup_values();
-        let (c_vocab, _, _, _, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (c_vocab, _, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(c_vocab, c_invalid, error) }.is_null());
-        assert_eq!(error_code(error), CXaynAiError::ModelPointer);
+        assert!(unsafe { xaynai_new(c_vocab, c_invalid, c_error) }.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::ModelPointer);
         assert_eq!(
-            error_message(error),
+            error.get_message(),
             "Failed to build the bert model: The model is not a valid C-string pointer",
         );
 
@@ -346,21 +320,15 @@ mod tests {
 
     #[test]
     fn test_model_invalid() {
-        let (vocab, model, hist, _, docs, _, error) = setup_values();
-        let (c_vocab, _, _, _, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (c_vocab, _, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
-        assert!(unsafe { xaynai_new(c_vocab, c_invalid, error) }.is_null());
-        assert_eq!(error_code(error), CXaynAiError::ReadFile);
+        assert!(unsafe { xaynai_new(c_vocab, c_invalid, c_error) }.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::ReadFile);
         assert_eq!(
-            error_message(error),
+            error.get_message(),
             "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
 
@@ -370,14 +338,9 @@ mod tests {
 
     #[test]
     fn test_ai_null() {
-        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
-        let (_, _, c_hist, mut c_docs, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
+        let (_, _, c_hist, mut c_docs, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         unsafe {
             xaynai_rerank(
@@ -386,12 +349,12 @@ mod tests {
                 hist_size,
                 c_docs.as_mut_ptr(),
                 docs_size,
-                error,
+                c_error,
             )
         };
-        assert_eq!(error_code(error), CXaynAiError::XaynAiPointer);
+        assert_eq!(error.get_code(), CXaynAiError::XaynAiPointer);
         assert_eq!(
-            error_message(error),
+            error.get_message(),
             "Failed to rerank the documents: The xaynai pointer is null",
         );
 
@@ -400,16 +363,13 @@ mod tests {
 
     #[test]
     fn test_history_null() {
-        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
-        let (c_vocab, c_model, _, mut c_docs, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
+        let (c_vocab, c_model, _, mut c_docs, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, error) };
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::Success);
         let c_invalid = null();
         unsafe {
             xaynai_rerank(
@@ -418,12 +378,12 @@ mod tests {
                 hist_size,
                 c_docs.as_mut_ptr(),
                 docs_size,
-                error,
+                c_error,
             )
         };
-        assert_eq!(error_code(error), CXaynAiError::HistoryPointer);
+        assert_eq!(error.get_code(), CXaynAiError::HistoryPointer);
         assert_eq!(
-            error_message(error),
+            error.get_message(),
             "Failed to rerank the documents: The document history pointer is null",
         );
 
@@ -433,16 +393,13 @@ mod tests {
 
     #[test]
     fn test_documents_null() {
-        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
-        let (c_vocab, c_model, c_hist, _, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
+        let (c_vocab, c_model, c_hist, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, error) };
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::Success);
         let c_invalid = null_mut();
         unsafe {
             xaynai_rerank(
@@ -451,12 +408,12 @@ mod tests {
                 hist_size,
                 c_invalid,
                 docs_size,
-                error,
+                c_error,
             )
         };
-        assert_eq!(error_code(error), CXaynAiError::DocumentsPointer);
+        assert_eq!(error.get_code(), CXaynAiError::DocumentsPointer);
         assert_eq!(
-            error_message(error),
+            error.get_message(),
             "Failed to rerank the documents: The documents pointer is null",
         );
 

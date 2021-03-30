@@ -21,7 +21,7 @@ pub use crate::{
     reranker::Reranker,
 };
 
-// temporary ffi exports, most of this should be abstracted away by a builder later on
+// temporary ffi exports, most of this will be abstracted away by a builder later on
 pub use crate::{
     analytics::{Analytics, DummyAnalytics},
     coi::{CoiSystem, Configuration as CoiConfiguration},

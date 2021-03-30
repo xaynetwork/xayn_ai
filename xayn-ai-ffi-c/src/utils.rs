@@ -66,7 +66,7 @@ pub(crate) mod tests {
         model: &'a CStr,
         hist: &'a [(CString, CRelevance, CFeedback)],
         docs: &'a [(CString, CString, u32)],
-        error: ExternError,
+        error: &mut ExternError,
     ) -> (
         FfiStr<'a>,
         FfiStr<'a>,
@@ -95,7 +95,7 @@ pub(crate) mod tests {
             })
             .collect();
 
-        let error = Box::into_raw(Box::new(error));
+        let error = error as *mut _;
 
         (vocab, model, hist, docs, error)
     }
@@ -106,7 +106,7 @@ pub(crate) mod tests {
         model: CString,
         hist: Vec<(CString, CRelevance, CFeedback)>,
         docs: Vec<(CString, CString, u32)>,
-        error: *mut ExternError,
+        error: ExternError,
     ) {
         vocab.into_string().unwrap();
         model.into_string().unwrap();
@@ -120,6 +120,6 @@ pub(crate) mod tests {
             snippet.into_string().unwrap();
         }
 
-        unsafe { Box::from_raw(error) };
+        unsafe { error.manually_release() };
     }
 }

@@ -121,14 +121,8 @@ mod tests {
 
     #[test]
     fn test_history_to_vec() {
-        let (vocab, model, hist, hist_size, docs, _, error) = setup_values();
-        let (_, _, c_hist, _, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
+        let (_, _, c_hist, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let history = hist_to_vec(c_hist.as_slice()).unwrap();
         assert_eq!(history.len(), hist_size as usize);
@@ -143,20 +137,14 @@ mod tests {
 
     #[test]
     fn test_history_id_null() {
-        let (vocab, model, hist, _, docs, _, error) = setup_values();
-        let (_, _, mut c_invalid, _, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
-        c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (_, _, mut c_invalid, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let history = hist_to_vec(c_invalid.as_slice()).unwrap_err();
-        assert_eq!(history.get_code().code(), CXaynAiError::HistoryIdPointer);
+        c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
+        let error = hist_to_vec(c_invalid.as_slice()).unwrap_err();
+        assert_eq!(error.get_code(), CXaynAiError::HistoryIdPointer);
         assert_eq!(
-            history.get_message().as_str(),
+            error.get_message(),
             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
         );
 
@@ -165,14 +153,8 @@ mod tests {
 
     #[test]
     fn test_documents_to_vec() {
-        let (vocab, model, hist, _, docs, docs_size, error) = setup_values();
-        let (_, _, _, c_docs, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
+        let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
+        let (_, _, _, c_docs, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let documents = docs_to_vec(c_docs.as_slice()).unwrap();
         assert_eq!(documents.len(), docs_size as usize);
@@ -187,20 +169,14 @@ mod tests {
 
     #[test]
     fn test_document_id_null() {
-        let (vocab, model, hist, _, docs, _, error) = setup_values();
-        let (_, _, _, mut c_invalid, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
-        c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let documents = docs_to_vec(c_invalid.as_slice()).unwrap_err();
-        assert_eq!(documents.get_code().code(), CXaynAiError::DocumentIdPointer);
+        c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
+        let error = docs_to_vec(c_invalid.as_slice()).unwrap_err();
+        assert_eq!(error.get_code(), CXaynAiError::DocumentIdPointer);
         assert_eq!(
-            documents.get_message().as_str(),
+            error.get_message(),
             "Failed to rerank the documents: A document id is not a valid C-string pointer",
         );
 
@@ -209,23 +185,14 @@ mod tests {
 
     #[test]
     fn test_document_snippet_null() {
-        let (vocab, model, hist, _, docs, _, error) = setup_values();
-        let (_, _, _, mut c_invalid, error) = setup_pointers(
-            vocab.as_c_str(),
-            model.as_c_str(),
-            hist.as_slice(),
-            docs.as_slice(),
-            error,
-        );
-        c_invalid[0].snippet = unsafe { FfiStr::from_raw(null()) };
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let documents = docs_to_vec(c_invalid.as_slice()).unwrap_err();
+        c_invalid[0].snippet = unsafe { FfiStr::from_raw(null()) };
+        let error = docs_to_vec(c_invalid.as_slice()).unwrap_err();
+        assert_eq!(error.get_code(), CXaynAiError::DocumentSnippetPointer);
         assert_eq!(
-            documents.get_code().code(),
-            CXaynAiError::DocumentSnippetPointer,
-        );
-        assert_eq!(
-            documents.get_message().as_str(),
+            error.get_message(),
             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
         );
 
