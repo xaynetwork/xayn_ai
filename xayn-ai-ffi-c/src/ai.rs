@@ -1,11 +1,16 @@
-use std::{collections::HashMap, slice};
+use std::{
+    collections::HashMap,
+    panic::{catch_unwind, RefUnwindSafe},
+    slice,
+};
 
 use ffi_support::{
-    abort_on_panic::{call_with_result, with_abort_on_panic},
+    call_with_result,
     implement_into_ffi_by_pointer,
     ErrorCode,
     ExternError,
     FfiStr,
+    IntoFfi,
 };
 use rubert::{AveragePooler, Builder as BertBuilder};
 use xayn_ai::{
@@ -35,6 +40,11 @@ use crate::{
 /// [`error_message_drop()`]: crate::error::error_message_drop
 pub struct CXaynAi(Reranker<Systems>);
 
+impl RefUnwindSafe for CXaynAi {
+    // safety: the field CXaynAi.0.errors must not be accessed after a panic, we don't access this
+    // field anyways and there is no access to it from the outside
+}
+
 implement_into_ffi_by_pointer! { CXaynAi }
 
 /// Creates and initializes the Xayn AI.
@@ -55,74 +65,71 @@ pub unsafe extern "C" fn xaynai_new(
     model: FfiStr,
     error: *mut ExternError,
 ) -> *mut CXaynAi {
-    unsafe fn call(vocab: FfiStr, model: FfiStr, error: &mut ExternError) -> *mut CXaynAi {
-        call_with_result(error, || {
-            let vocab = vocab.as_opt_str().ok_or_else(|| {
+    let call = || {
+        let vocab = vocab.as_opt_str().ok_or_else(|| {
+            ExternError::new_error(
+                ErrorCode::new(CXaynAiError::VocabPointer as i32),
+                "Failed to build the bert model: The vocab is not a valid C-string pointer",
+            )
+        })?;
+        let model = model.as_opt_str().ok_or_else(|| {
+            ExternError::new_error(
+                ErrorCode::new(CXaynAiError::ModelPointer as i32),
+                "Failed to build the bert model: The model is not a valid C-string pointer",
+            )
+        })?;
+
+        let bert = BertBuilder::from_files(vocab, model)
+            .map_err(|cause| {
                 ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::VocabPointer as i32),
-                    "Failed to build the bert model: The vocab is not a valid C-string pointer",
+                    ErrorCode::new(CXaynAiError::ReadFile as i32),
+                    format!("Failed to build the bert model: {}", cause),
+                )
+            })?
+            .with_token_size(90)
+            .expect("infallible: token size >= 2")
+            .with_accents(false)
+            .with_lowercase(true)
+            .with_pooling(AveragePooler)
+            .build()
+            .map_err(|cause| {
+                ExternError::new_error(
+                    ErrorCode::new(CXaynAiError::BuildBert as i32),
+                    format!("Failed to build the bert model: {}", cause),
                 )
             })?;
-            let model = model.as_opt_str().ok_or_else(|| {
-                ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::ModelPointer as i32),
-                    "Failed to build the bert model: The model is not a valid C-string pointer",
-                )
-            })?;
 
-            let bert = BertBuilder::from_files(vocab, model)
-                .map_err(|cause| {
-                    ExternError::new_error(
-                        ErrorCode::new(CXaynAiError::ReadFile as i32),
-                        format!("Failed to build the bert model: {}", cause),
-                    )
-                })?
-                .with_token_size(90)
-                .expect("infallible: token size >= 2")
-                .with_accents(false)
-                .with_lowercase(true)
-                .with_pooling(AveragePooler)
-                .build()
-                .map_err(|cause| {
-                    ExternError::new_error(
-                        ErrorCode::new(CXaynAiError::BuildBert as i32),
-                        format!("Failed to build the bert model: {}", cause),
-                    )
-                })?;
+        let coi = CoiSystem::new(CoiConfiguration::default());
+        let ltr = ConstLtr(0.5);
+        let context = Context;
+        let mab = MabRanking::new(BetaSampler);
 
-            let coi = CoiSystem::new(CoiConfiguration::default());
-            let ltr = ConstLtr(0.5);
-            let context = Context;
-            let mab = MabRanking::new(BetaSampler);
-
-            // TODO: use the reranker builder once it is available
-            let systems = Systems {
-                // TODO: use the actual database once it is available
-                database: DummyDatabase,
-                bert,
-                coi,
-                ltr,
-                context,
-                mab,
-                // TODO: use the actual analytics once it is available
-                analytics: DummyAnalytics,
-            };
-            Reranker::new(systems).map(CXaynAi).map_err(|cause| {
-                ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::BuildReranker as i32),
-                    format!("Failed to build the reranker: {}", cause),
-                )
-            })
+        // TODO: use the reranker builder once it is available
+        let systems = Systems {
+            // TODO: use the actual database once it is available
+            database: DummyDatabase,
+            bert,
+            coi,
+            ltr,
+            context,
+            mab,
+            // TODO: use the actual analytics once it is available
+            analytics: DummyAnalytics,
+        };
+        Reranker::new(systems).map(CXaynAi).map_err(|cause| {
+            ExternError::new_error(
+                ErrorCode::new(CXaynAiError::BuildReranker as i32),
+                format!("Failed to build the reranker: {}", cause),
+            )
         })
-    }
+    };
 
     if let Some(error) = unsafe { error.as_mut() } {
-        unsafe { call(vocab, model, error) }
+        call_with_result(error, call)
+    } else if let Ok(Ok(xaynai)) = catch_unwind(call) {
+        xaynai.into_ffi_value()
     } else {
-        let mut error = ExternError::default();
-        let xaynai = unsafe { call(vocab, model, &mut error) };
-        unsafe { error.manually_release() };
-        xaynai
+        CXaynAi::ffi_default()
     }
 }
 
@@ -158,66 +165,54 @@ pub unsafe extern "C" fn xaynai_rerank(
     docs_size: u32,
     error: *mut ExternError,
 ) {
-    unsafe fn call(
-        xaynai: *mut CXaynAi,
-        hist: *const CHistory,
-        hist_size: u32,
-        docs: *mut CDocument,
-        docs_size: u32,
-        error: &mut ExternError,
-    ) {
-        call_with_result(error, || {
-            let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
-                ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::XaynAiPointer as i32),
-                    "Failed to rerank the documents: The xaynai pointer is null",
-                )
-            })?;
+    let call = || {
+        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+            ExternError::new_error(
+                ErrorCode::new(CXaynAiError::XaynAiPointer as i32),
+                "Failed to rerank the documents: The xaynai pointer is null",
+            )
+        })?;
 
-            let hist = if hist.is_null() {
-                return Err(ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::HistoryPointer as i32),
-                    "Failed to rerank the documents: The document history pointer is null",
-                ));
-            } else if hist_size == 0 {
-                &[]
-            } else {
-                unsafe { slice::from_raw_parts(hist, hist_size as usize) }
-            };
-            let history = hist_to_vec(hist)?;
+        let hist = if hist.is_null() {
+            return Err(ExternError::new_error(
+                ErrorCode::new(CXaynAiError::HistoryPointer as i32),
+                "Failed to rerank the documents: The document history pointer is null",
+            ));
+        } else if hist_size == 0 {
+            &[]
+        } else {
+            unsafe { slice::from_raw_parts(hist, hist_size as usize) }
+        };
+        let history = hist_to_vec(hist)?;
 
-            let docs = if docs.is_null() {
-                return Err(ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::DocumentsPointer as i32),
-                    "Failed to rerank the documents: The documents pointer is null",
-                ));
-            } else if docs_size == 0 {
-                &mut []
-            } else {
-                unsafe { slice::from_raw_parts_mut(docs, docs_size as usize) }
-            };
-            let documents = docs_to_vec(docs)?;
+        let docs = if docs.is_null() {
+            return Err(ExternError::new_error(
+                ErrorCode::new(CXaynAiError::DocumentsPointer as i32),
+                "Failed to rerank the documents: The documents pointer is null",
+            ));
+        } else if docs_size == 0 {
+            &mut []
+        } else {
+            unsafe { slice::from_raw_parts_mut(docs, docs_size as usize) }
+        };
+        let documents = docs_to_vec(docs)?;
 
-            let ranks = xaynai
-                .0
-                .rerank(history.as_slice(), documents.as_slice())
-                .into_iter()
-                .collect::<HashMap<_, _>>();
-            for (doc, document) in docs.iter_mut().zip(documents) {
-                doc.rank = ranks[&document.id] as u32;
-            }
+        let ranks = xaynai
+            .0
+            .rerank(history.as_slice(), documents.as_slice())
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+        for (doc, document) in docs.iter_mut().zip(documents) {
+            doc.rank = ranks[&document.id] as u32;
+        }
 
-            Ok(())
-        })
-    }
+        Ok(())
+    };
 
     if let Some(error) = unsafe { error.as_mut() } {
-        unsafe { call(xaynai, hist, hist_size, docs, docs_size, error) }
+        call_with_result(error, call);
     } else {
-        let mut error = ExternError::default();
-        let xaynai = unsafe { call(xaynai, hist, hist_size, docs, docs_size, &mut error) };
-        unsafe { error.manually_release() };
-        xaynai
+        let _ = catch_unwind(call);
     }
 }
 
@@ -230,11 +225,11 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// - A non-null xaynai is accessed after being freed.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
-    with_abort_on_panic(|| {
+    let _ = catch_unwind(|| {
         if !xaynai.is_null() {
             unsafe { Box::from_raw(xaynai) };
         }
-    })
+    });
 }
 
 #[cfg(test)]

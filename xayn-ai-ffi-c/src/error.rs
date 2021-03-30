@@ -1,4 +1,6 @@
-use ffi_support::{abort_on_panic::with_abort_on_panic, destroy_c_string, ExternError};
+use std::panic::catch_unwind;
+
+use ffi_support::{destroy_c_string, ExternError};
 
 /// The Xayn AI error codes.
 #[repr(i32)]
@@ -53,11 +55,11 @@ pub enum CXaynAiError {
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
-    with_abort_on_panic(|| {
+    let _ = catch_unwind(|| {
         if let Some(error) = error.as_mut() {
             unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
         }
-    })
+    });
 }
 
 #[cfg(test)]

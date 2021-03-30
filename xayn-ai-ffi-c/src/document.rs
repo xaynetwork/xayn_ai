@@ -54,6 +54,7 @@ pub struct CHistory<'a> {
     pub feedback: CFeedback,
 }
 
+/// Collects the document history from raw.
 pub fn hist_to_vec<'a>(hist: &'a [CHistory<'a>]) -> Result<Vec<DocumentHistory>, ExternError> {
     hist.iter()
         .map(|history| {
@@ -84,6 +85,7 @@ pub struct CDocument<'a> {
     pub rank: u32,
 }
 
+/// Collects the documents from raw.
 pub fn docs_to_vec<'a>(docs: &'a [CDocument<'a>]) -> Result<Vec<Document>, ExternError> {
     docs.iter()
         .map(|document| {
