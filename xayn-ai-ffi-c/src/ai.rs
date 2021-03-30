@@ -14,13 +14,13 @@ use xayn_ai::{
     CoiSystem,
     ConstLtr,
     Context,
-    Document,
     DummyAnalytics,
     MabRanking,
     Reranker,
 };
 
 use crate::{
+    document::{docs_to_vec, hist_to_vec, CDocument, CHistory},
     error::CXaynAiError,
     systems::{DummyDatabase, Systems},
 };
@@ -126,17 +126,6 @@ pub unsafe extern "C" fn xaynai_new(
     }
 }
 
-/// A raw document.
-#[repr(C)]
-pub struct CDocument<'a> {
-    /// The raw pointer to the document id.
-    pub id: FfiStr<'a>,
-    /// The raw pointer to the document snippet.
-    pub snippet: FfiStr<'a>,
-    /// The rank of the document.
-    pub rank: u32,
-}
-
 /// Reranks the documents with the Xayn AI.
 ///
 /// The reranked order is written to the ranks of the documents array.
@@ -144,13 +133,17 @@ pub struct CDocument<'a> {
 /// # Errors
 /// Returns without changing the ranks if:
 /// - The xaynai is null.
+/// - The document history is invalid.
 /// - The documents are invalid.
 ///
 /// # Safety
 /// The behavior is undefined if:
 /// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
-/// - A non-null documents array doesn't point to an aligned, contiguous area of memory with
-/// at least size [`CDocument`]s.
+/// - A non-null history array doesn't point to an aligned, contiguous area of memory with at least
+/// history size many [`CHistory`]s.
+/// - A history size is too large to address the memory of a non-null history array.
+/// - A non-null documents array doesn't point to an aligned, contiguous area of memory with at
+/// least documents size many [`CDocument`]s.
 /// - A documents size is too large to address the memory of a non-null documents array.
 /// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
 /// terminating null byte.
@@ -158,67 +151,60 @@ pub struct CDocument<'a> {
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
-    xaynai: *const CXaynAi,
+    xaynai: *mut CXaynAi,
+    hist: *const CHistory,
+    hist_size: u32,
     docs: *mut CDocument,
-    size: u32,
+    docs_size: u32,
     error: *mut ExternError,
 ) {
     unsafe fn call(
-        xaynai: *const CXaynAi,
+        xaynai: *mut CXaynAi,
+        hist: *const CHistory,
+        hist_size: u32,
         docs: *mut CDocument,
-        size: u32,
+        docs_size: u32,
         error: &mut ExternError,
     ) {
         call_with_result(error, || {
-            let _xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
+            let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
                 ExternError::new_error(
                     ErrorCode::new(CXaynAiError::XaynAiPointer as i32),
                     "Failed to rerank the documents: The xaynai pointer is null",
                 )
             })?;
 
+            let hist = if hist.is_null() {
+                return Err(ExternError::new_error(
+                    ErrorCode::new(CXaynAiError::HistoryPointer as i32),
+                    "Failed to rerank the documents: The document history pointer is null",
+                ));
+            } else if hist_size == 0 {
+                &[]
+            } else {
+                unsafe { slice::from_raw_parts(hist, hist_size as usize) }
+            };
+            let history = hist_to_vec(hist)?;
+
             let docs = if docs.is_null() {
                 return Err(ExternError::new_error(
                     ErrorCode::new(CXaynAiError::DocumentsPointer as i32),
                     "Failed to rerank the documents: The documents pointer is null",
                 ));
-            } else if size == 0 {
+            } else if docs_size == 0 {
                 &mut []
             } else {
-                unsafe { slice::from_raw_parts_mut(docs, size as usize) }
+                unsafe { slice::from_raw_parts_mut(docs, docs_size as usize) }
             };
-            let documents = docs.iter()
-                .map(|document| {
-                    let id = document
-                        .id
-                        .as_opt_str()
-                        .map(Into::into)
-                        .ok_or_else(|| ExternError::new_error(
-                            ErrorCode::new(CXaynAiError::IdPointer as i32),
-                            "Failed to rerank the documents: A document id is not a valid C-string pointer",
-                        ))?;
-                    let snippet = document
-                        .snippet
-                        .as_opt_str()
-                        .map(Into::into)
-                        .ok_or_else(|| ExternError::new_error(
-                            ErrorCode::new(CXaynAiError::SnippetPointer as i32),
-                            "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
-                        ))?;
-                    let rank = document.rank as usize;
+            let documents = docs_to_vec(docs)?;
 
-                    Ok(Document { id, snippet, rank })
-                })
-                .collect::<Result<Vec<Document>, ExternError>>()?;
-
-            // TODO: use the actual reranker once it is available
-            let reranks = documents
-                .iter()
-                .map(|document| document.id.clone())
-                .zip(documents.iter().map(|document| document.rank).rev())
+            let ranks = xaynai
+                .0
+                .rerank(history.as_slice(), documents.as_slice())
+                .into_iter()
                 .collect::<HashMap<_, _>>();
             for (doc, document) in docs.iter_mut().zip(documents) {
-                doc.rank = reranks[&document.id] as u32;
+                doc.rank = ranks[&document.id] as u32;
             }
 
             Ok(())
@@ -226,10 +212,10 @@ pub unsafe extern "C" fn xaynai_rerank(
     }
 
     if let Some(error) = unsafe { error.as_mut() } {
-        unsafe { call(xaynai, docs, size, error) }
+        unsafe { call(xaynai, hist, hist_size, docs, docs_size, error) }
     } else {
         let mut error = ExternError::default();
-        let xaynai = unsafe { call(xaynai, docs, size, &mut error) };
+        let xaynai = unsafe { call(xaynai, hist, hist_size, docs, docs_size, &mut error) };
         unsafe { error.manually_release() };
         xaynai
     }
@@ -254,237 +240,232 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
 #[cfg(test)]
 mod tests {
     use std::{
-        ffi::{CStr, CString},
-        mem::take,
+        ffi::CString,
         ptr::{null, null_mut},
     };
 
     use super::*;
-    use crate::tests::{MODEL, VOCAB};
-
-    /// Creates values for testing.
-    #[allow(clippy::type_complexity)]
-    fn setup_values() -> (
-        CString,
-        CString,
-        Vec<(CString, CString, u32)>,
-        u32,
-        ExternError,
-    ) {
-        let vocab = CString::new(VOCAB).unwrap();
-        let model = CString::new(MODEL).unwrap();
-
-        let size = 10;
-        let docs = (0..size)
-            .map(|idx| {
-                let id = CString::new(format!("{}", idx)).unwrap();
-                let snippet = CString::new(format!("snippet {}", idx)).unwrap();
-                let rank = idx;
-                (id, snippet, rank)
-            })
-            .collect::<Vec<_>>();
-
-        let error = ExternError::default();
-
-        (vocab, model, docs, size, error)
-    }
-
-    /// Creates pointers for testing.
-    fn setup_pointers<'a>(
-        vocab: &'a CStr,
-        model: &'a CStr,
-        docs: &'a [(CString, CString, u32)],
-        error: ExternError,
-    ) -> (FfiStr<'a>, FfiStr<'a>, Vec<CDocument<'a>>, *mut ExternError) {
-        let vocab = FfiStr::from_cstr(vocab);
-        let model = FfiStr::from_cstr(model);
-
-        let docs = docs
-            .iter()
-            .map(|(id, snippet, rank)| CDocument {
-                id: FfiStr::from_cstr(id),
-                snippet: FfiStr::from_cstr(snippet),
-                rank: *rank,
-            })
-            .collect();
-
-        let error = Box::into_raw(Box::new(error));
-
-        (vocab, model, docs, error)
-    }
-
-    unsafe fn error_code(error: *const ExternError) -> i32 {
-        unsafe { &*error }.get_code().code()
-    }
-
-    unsafe fn error_message(error: *mut ExternError) -> String {
-        unsafe { take(&mut *error).get_and_consume_message() }.unwrap()
-    }
-
-    impl PartialEq<CXaynAiError> for i32 {
-        fn eq(&self, other: &CXaynAiError) -> bool {
-            *self == *other as i32
-        }
-    }
+    use crate::{
+        error::tests::{error_code, error_message},
+        utils::tests::{drop_values, setup_pointers, setup_values},
+    };
 
     #[test]
-    fn test_xaynai_error() {
-        assert_eq!(ErrorCode::PANIC.code(), CXaynAiError::Panic);
-        assert_eq!(ErrorCode::SUCCESS.code(), CXaynAiError::Success);
-    }
+    fn test_rerank() {
+        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
+        let (c_vocab, c_model, c_hist, mut c_docs, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
 
-    #[test]
-    fn test_xaynai_rerank() {
-        let (vocab, model, docs, size, error) = setup_values();
-        let (vocab, model, mut docs, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
-
-        let xaynai = unsafe { xaynai_new(vocab, model, error) };
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, error) };
         assert!(!xaynai.is_null());
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::Success);
+        assert_eq!(error_code(error), CXaynAiError::Success);
 
-        let reranks = docs.iter().map(|doc| doc.rank).rev().collect::<Vec<_>>();
-        unsafe { xaynai_rerank(xaynai, docs.as_mut_ptr(), size, error) };
-        assert!(docs.iter().map(|doc| doc.rank).eq(reranks));
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::Success);
+        unsafe {
+            xaynai_rerank(
+                xaynai,
+                c_hist.as_ptr(),
+                hist_size,
+                c_docs.as_mut_ptr(),
+                docs_size,
+                error,
+            )
+        };
+        assert_eq!(error_code(error), CXaynAiError::Success);
 
         unsafe { xaynai_drop(xaynai) };
-        unsafe { Box::from_raw(error) };
+        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
-    fn test_xaynai_vocab_null() {
-        let (vocab, model, docs, _, error) = setup_values();
-        let (_, model, _, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
+    fn test_vocab_null() {
+        let (vocab, model, hist, _, docs, _, error) = setup_values();
+        let (_, c_model, _, _, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
 
-        let invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(invalid, model, error) }.is_null());
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::VocabPointer);
+        let c_invalid = unsafe { FfiStr::from_raw(null()) };
+        assert!(unsafe { xaynai_new(c_invalid, c_model, error) }.is_null());
+        assert_eq!(error_code(error), CXaynAiError::VocabPointer);
         assert_eq!(
-            unsafe { error_message(error) },
+            error_message(error),
             "Failed to build the bert model: The vocab is not a valid C-string pointer",
         );
 
-        unsafe { Box::from_raw(error) };
+        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
-    fn test_xaynai_vocab_invalid() {
-        let (vocab, model, docs, _, error) = setup_values();
-        let (_, model, _, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
+    fn test_vocab_invalid() {
+        let (vocab, model, hist, _, docs, _, error) = setup_values();
+        let (_, c_model, _, _, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
 
         let invalid = CString::new("").unwrap();
-        let invalid = FfiStr::from_cstr(invalid.as_c_str());
-        assert!(unsafe { xaynai_new(invalid, model, error) }.is_null());
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::ReadFile);
+        let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
+        assert!(unsafe { xaynai_new(c_invalid, c_model, error) }.is_null());
+        assert_eq!(error_code(error), CXaynAiError::ReadFile);
         assert_eq!(
-            unsafe { error_message(error) },
+            error_message(error),
             "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
 
-        unsafe { Box::from_raw(error) };
+        invalid.into_string().unwrap();
+        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
-    fn test_xaynai_model_null() {
-        let (vocab, model, docs, _, error) = setup_values();
-        let (vocab, _, _, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
+    fn test_model_null() {
+        let (vocab, model, hist, _, docs, _, error) = setup_values();
+        let (c_vocab, _, _, _, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
 
-        let invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(vocab, invalid, error) }.is_null());
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::ModelPointer);
+        let c_invalid = unsafe { FfiStr::from_raw(null()) };
+        assert!(unsafe { xaynai_new(c_vocab, c_invalid, error) }.is_null());
+        assert_eq!(error_code(error), CXaynAiError::ModelPointer);
         assert_eq!(
-            unsafe { error_message(error) },
+            error_message(error),
             "Failed to build the bert model: The model is not a valid C-string pointer",
         );
 
-        unsafe { Box::from_raw(error) };
+        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
-    fn test_xaynai_model_invalid() {
-        let (vocab, model, docs, _, error) = setup_values();
-        let (vocab, _, _, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
+    fn test_model_invalid() {
+        let (vocab, model, hist, _, docs, _, error) = setup_values();
+        let (c_vocab, _, _, _, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
 
         let invalid = CString::new("").unwrap();
-        let invalid = FfiStr::from_cstr(invalid.as_c_str());
-        assert!(unsafe { xaynai_new(vocab, invalid, error) }.is_null());
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::ReadFile);
+        let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
+        assert!(unsafe { xaynai_new(c_vocab, c_invalid, error) }.is_null());
+        assert_eq!(error_code(error), CXaynAiError::ReadFile);
         assert_eq!(
-            unsafe { error_message(error) },
+            error_message(error),
             "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
         );
 
-        unsafe { Box::from_raw(error) };
+        invalid.into_string().unwrap();
+        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
-    fn test_xaynai_documents_null() {
-        let (vocab, model, docs, size, error) = setup_values();
-        let (vocab, model, _, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
-        let xaynai = unsafe { xaynai_new(vocab, model, error) };
+    fn test_ai_null() {
+        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
+        let (_, _, c_hist, mut c_docs, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
 
-        unsafe { xaynai_rerank(xaynai, null_mut(), size, error) };
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::DocumentsPointer);
+        unsafe {
+            xaynai_rerank(
+                null_mut(),
+                c_hist.as_ptr(),
+                hist_size,
+                c_docs.as_mut_ptr(),
+                docs_size,
+                error,
+            )
+        };
+        assert_eq!(error_code(error), CXaynAiError::XaynAiPointer);
         assert_eq!(
-            unsafe { error_message(error) },
+            error_message(error),
+            "Failed to rerank the documents: The xaynai pointer is null",
+        );
+
+        drop_values(vocab, model, hist, docs, error);
+    }
+
+    #[test]
+    fn test_history_null() {
+        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
+        let (c_vocab, c_model, _, mut c_docs, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
+
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, error) };
+        let c_invalid = null();
+        unsafe {
+            xaynai_rerank(
+                xaynai,
+                c_invalid,
+                hist_size,
+                c_docs.as_mut_ptr(),
+                docs_size,
+                error,
+            )
+        };
+        assert_eq!(error_code(error), CXaynAiError::HistoryPointer);
+        assert_eq!(
+            error_message(error),
+            "Failed to rerank the documents: The document history pointer is null",
+        );
+
+        unsafe { xaynai_drop(xaynai) };
+        drop_values(vocab, model, hist, docs, error);
+    }
+
+    #[test]
+    fn test_documents_null() {
+        let (vocab, model, hist, hist_size, docs, docs_size, error) = setup_values();
+        let (c_vocab, c_model, c_hist, _, error) = setup_pointers(
+            vocab.as_c_str(),
+            model.as_c_str(),
+            hist.as_slice(),
+            docs.as_slice(),
+            error,
+        );
+
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, error) };
+        let c_invalid = null_mut();
+        unsafe {
+            xaynai_rerank(
+                xaynai,
+                c_hist.as_ptr(),
+                hist_size,
+                c_invalid,
+                docs_size,
+                error,
+            )
+        };
+        assert_eq!(error_code(error), CXaynAiError::DocumentsPointer);
+        assert_eq!(
+            error_message(error),
             "Failed to rerank the documents: The documents pointer is null",
         );
 
         unsafe { xaynai_drop(xaynai) };
-        unsafe { Box::from_raw(error) };
-    }
-
-    #[test]
-    fn test_xaynai_document_id_null() {
-        let (vocab, model, docs, _, error) = setup_values();
-        let (vocab, model, mut docs, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
-        let xaynai = unsafe { xaynai_new(vocab, model, error) };
-
-        let mut invalid = vec![CDocument {
-            id: unsafe { FfiStr::from_raw(null()) },
-            snippet: docs.remove(0).snippet,
-            rank: docs[0].rank,
-        }];
-        let invalid = invalid.as_mut_ptr();
-        unsafe { xaynai_rerank(xaynai, invalid, 1, error) };
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::IdPointer);
-        assert_eq!(
-            unsafe { error_message(error) },
-            "Failed to rerank the documents: A document id is not a valid C-string pointer",
-        );
-
-        unsafe { xaynai_drop(xaynai) };
-        unsafe { Box::from_raw(error) };
-    }
-
-    #[test]
-    fn test_xaynai_document_snippet_null() {
-        let (vocab, model, docs, _, error) = setup_values();
-        let (vocab, model, mut docs, error) =
-            setup_pointers(vocab.as_c_str(), model.as_c_str(), docs.as_slice(), error);
-        let xaynai = unsafe { xaynai_new(vocab, model, error) };
-
-        let mut invalid = vec![CDocument {
-            id: docs.remove(0).id,
-            snippet: unsafe { FfiStr::from_raw(null()) },
-            rank: docs[0].rank,
-        }];
-        let invalid = invalid.as_mut_ptr();
-        unsafe { xaynai_rerank(xaynai, invalid, 1, error) };
-        assert_eq!(unsafe { error_code(error) }, CXaynAiError::SnippetPointer);
-        assert_eq!(
-            unsafe { error_message(error) },
-            "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
-        );
-
-        unsafe { xaynai_drop(xaynai) };
-        unsafe { Box::from_raw(error) };
+        drop_values(vocab, model, hist, docs, error);
     }
 }

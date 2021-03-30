@@ -8,7 +8,8 @@ impl From<&str> for DocumentId {
     }
 }
 
-// This represents a result from the query
+/// This represents a result from the query.
+#[derive(Debug)]
 pub struct Document {
     /// unique identifier of this document
     pub id: DocumentId,
@@ -17,6 +18,7 @@ pub struct Document {
     pub snippet: String,
 }
 
+#[derive(Debug)]
 pub struct DocumentHistory {
     /// unique identifier of this document
     pub id: DocumentId,
@@ -26,14 +28,14 @@ pub struct DocumentHistory {
     pub user_feedback: UserFeedback,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UserFeedback {
     Relevant,
     Irrelevant,
     None,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Relevance {
     Low,
     Medium,

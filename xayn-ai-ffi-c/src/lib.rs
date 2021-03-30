@@ -3,13 +3,15 @@
 #![allow(unused_unsafe)]
 
 mod ai;
+mod document;
 mod error;
 mod systems;
 mod utils;
 
 #[cfg(doc)]
 pub use crate::{
-    ai::{xaynai_drop, xaynai_new, xaynai_rerank, CDocument, CXaynAi},
+    ai::{xaynai_drop, xaynai_new, xaynai_rerank, CXaynAi},
+    document::{CDocument, CFeedback, CHistory, CRelevance},
     error::{error_message_drop, CXaynAiError},
     utils::dummy_function,
 };

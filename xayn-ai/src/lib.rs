@@ -26,6 +26,7 @@ pub use crate::{
     analytics::{Analytics, DummyAnalytics},
     coi::{CoiSystem, Configuration as CoiConfiguration},
     context::Context,
+    data::document::{Relevance, UserFeedback},
     database::Database,
     ltr::ConstLtr,
     mab::{BetaSampler, MabRanking},

@@ -21,12 +21,16 @@ pub enum CXaynAiError {
     BuildReranker = 5,
     /// A Xayn AI null pointer error.
     XaynAiPointer = 6,
+    /// A document history null pointer error.
+    HistoryPointer = 7,
+    /// A document history id null pointer error.
+    HistoryIdPointer = 8,
     /// A documents null pointer error.
-    DocumentsPointer = 7,
+    DocumentsPointer = 9,
     /// A document id null pointer error.
-    IdPointer = 8,
+    DocumentIdPointer = 10,
     /// A document snippet null pointer error.
-    SnippetPointer = 9,
+    DocumentSnippetPointer = 11,
 }
 
 /// Frees the memory of the error message.
@@ -54,4 +58,39 @@ pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
             unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
         }
     })
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::mem::take;
+
+    use ffi_support::ErrorCode;
+
+    use super::*;
+
+    pub fn error_code(error: *const ExternError) -> i32 {
+        unsafe { &*error }.get_code().code()
+    }
+
+    pub fn error_message(error: *mut ExternError) -> String {
+        unsafe { take(&mut *error).get_and_consume_message() }.unwrap()
+    }
+
+    impl PartialEq<i32> for CXaynAiError {
+        fn eq(&self, other: &i32) -> bool {
+            (*self as i32).eq(other)
+        }
+    }
+
+    impl PartialEq<CXaynAiError> for i32 {
+        fn eq(&self, other: &CXaynAiError) -> bool {
+            other.eq(self)
+        }
+    }
+
+    #[test]
+    fn test_error() {
+        assert_eq!(CXaynAiError::Panic, ErrorCode::PANIC.code());
+        assert_eq!(CXaynAiError::Success, ErrorCode::SUCCESS.code());
+    }
 }

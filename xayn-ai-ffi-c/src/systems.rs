@@ -1,4 +1,4 @@
-//! temporary dummy impls, most of this should move to xayn-ai itself
+//! temporary dummy impls, most of this will be moved to xayn-ai itself
 
 use rubert::{AveragePooler, RuBert};
 use xayn_ai::{
