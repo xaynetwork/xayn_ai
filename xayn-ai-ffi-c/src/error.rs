@@ -17,22 +17,20 @@ pub enum CXaynAiError {
     ModelPointer = 2,
     /// A vocab or model file IO error.
     ReadFile = 3,
-    /// A Bert builder error.
-    BuildBert = 4,
-    /// A Reranker builder error.
-    BuildReranker = 5,
+    /// A Xayn AI initialization error.
+    InitAi = 4,
     /// A Xayn AI null pointer error.
-    XaynAiPointer = 6,
+    AiPointer = 5,
     /// A document history null pointer error.
-    HistoryPointer = 7,
+    HistoryPointer = 6,
     /// A document history id null pointer error.
-    HistoryIdPointer = 8,
+    HistoryIdPointer = 7,
     /// A documents null pointer error.
-    DocumentsPointer = 9,
+    DocumentsPointer = 8,
     /// A document id null pointer error.
-    DocumentIdPointer = 10,
+    DocumentIdPointer = 9,
     /// A document snippet null pointer error.
-    DocumentSnippetPointer = 11,
+    DocumentSnippetPointer = 10,
 }
 
 /// Frees the memory of the error message.

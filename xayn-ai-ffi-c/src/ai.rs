@@ -12,22 +12,11 @@ use ffi_support::{
     FfiStr,
     IntoFfi,
 };
-use rubert::{AveragePooler, Builder as BertBuilder};
-use xayn_ai::{
-    BetaSampler,
-    CoiConfiguration,
-    CoiSystem,
-    ConstLtr,
-    Context,
-    DummyAnalytics,
-    MabRanking,
-    Reranker,
-};
+use xayn_ai::{BetaSampler, Builder, DummyDatabase, Reranker, Systems};
 
 use crate::{
     document::{docs_to_vec, hist_to_vec, CDocument, CHistory},
     error::CXaynAiError,
-    systems::{DummyDatabase, Systems},
 };
 
 /// The Xayn AI.
@@ -38,11 +27,11 @@ use crate::{
 /// - Free memory with [`xaynai_drop()`] and [`error_message_drop()`].
 ///
 /// [`error_message_drop()`]: crate::error::error_message_drop
-pub struct CXaynAi(Reranker<Systems>);
+pub struct CXaynAi(Reranker<Systems<DummyDatabase, BetaSampler>>);
 
 impl RefUnwindSafe for CXaynAi {
-    // safety: the field CXaynAi.0.errors must not be accessed after a panic, we don't access this
-    // field anyways and there is no access to it from the outside
+    // safety: the field CXaynAi.0.errors must not be accessed after a panic; we don't access this
+    // field anyways and there is no access to it for a caller of the ffi
 }
 
 implement_into_ffi_by_pointer! { CXaynAi }
@@ -69,59 +58,33 @@ pub unsafe extern "C" fn xaynai_new(
         let vocab = vocab.as_opt_str().ok_or_else(|| {
             ExternError::new_error(
                 ErrorCode::new(CXaynAiError::VocabPointer as i32),
-                "Failed to build the bert model: The vocab is not a valid C-string pointer",
+                "Failed to initialize the ai: The vocab is not a valid C-string pointer",
             )
         })?;
         let model = model.as_opt_str().ok_or_else(|| {
             ExternError::new_error(
                 ErrorCode::new(CXaynAiError::ModelPointer as i32),
-                "Failed to build the bert model: The model is not a valid C-string pointer",
+                "Failed to initialize the ai: The model is not a valid C-string pointer",
             )
         })?;
 
-        let bert = BertBuilder::from_files(vocab, model)
+        Builder::default()
+            .with_database(DummyDatabase)
+            .with_bert_from_file(vocab, model)
             .map_err(|cause| {
                 ExternError::new_error(
                     ErrorCode::new(CXaynAiError::ReadFile as i32),
-                    format!("Failed to build the bert model: {}", cause),
+                    format!("Failed to initialize the ai: {}", cause),
                 )
             })?
-            .with_token_size(90)
-            .expect("infallible: token size >= 2")
-            .with_accents(false)
-            .with_lowercase(true)
-            .with_pooling(AveragePooler)
             .build()
+            .map(CXaynAi)
             .map_err(|cause| {
                 ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::BuildBert as i32),
-                    format!("Failed to build the bert model: {}", cause),
+                    ErrorCode::new(CXaynAiError::InitAi as i32),
+                    format!("Failed to initialize the ai: {}", cause),
                 )
-            })?;
-
-        let coi = CoiSystem::new(CoiConfiguration::default());
-        let ltr = ConstLtr(0.5);
-        let context = Context;
-        let mab = MabRanking::new(BetaSampler);
-
-        // TODO: use the reranker builder once it is available
-        let systems = Systems {
-            // TODO: use the actual database once it is available
-            database: DummyDatabase,
-            bert,
-            coi,
-            ltr,
-            context,
-            mab,
-            // TODO: use the actual analytics once it is available
-            analytics: DummyAnalytics,
-        };
-        Reranker::new(systems).map(CXaynAi).map_err(|cause| {
-            ExternError::new_error(
-                ErrorCode::new(CXaynAiError::BuildReranker as i32),
-                format!("Failed to build the reranker: {}", cause),
-            )
-        })
+            })
     };
 
     if let Some(error) = unsafe { error.as_mut() } {
@@ -168,8 +131,8 @@ pub unsafe extern "C" fn xaynai_rerank(
     let call = || {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
             ExternError::new_error(
-                ErrorCode::new(CXaynAiError::XaynAiPointer as i32),
-                "Failed to rerank the documents: The xaynai pointer is null",
+                ErrorCode::new(CXaynAiError::AiPointer as i32),
+                "Failed to rerank the documents: The ai pointer is null",
             )
         })?;
 
@@ -355,7 +318,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::VocabPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to build the bert model: The vocab is not a valid C-string pointer",
+            "Failed to initialize the ai: The vocab is not a valid C-string pointer",
         );
 
         drop_values(vocab, model, hist, docs, error);
@@ -372,7 +335,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::ReadFile);
         assert_eq!(
             error.get_message(),
-            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
+            "Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)",
         );
 
         invalid.into_string().unwrap();
@@ -389,7 +352,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::ModelPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to build the bert model: The model is not a valid C-string pointer",
+            "Failed to initialize the ai: The model is not a valid C-string pointer",
         );
 
         drop_values(vocab, model, hist, docs, error);
@@ -406,7 +369,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::ReadFile);
         assert_eq!(
             error.get_message(),
-            "Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)",
+            "Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)",
         );
 
         invalid.into_string().unwrap();
@@ -430,10 +393,10 @@ mod tests {
                 c_error,
             )
         };
-        assert_eq!(error.get_code(), CXaynAiError::XaynAiPointer);
+        assert_eq!(error.get_code(), CXaynAiError::AiPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to rerank the documents: The xaynai pointer is null",
+            "Failed to rerank the documents: The ai pointer is null",
         );
 
         drop_values(vocab, model, hist, docs, error);

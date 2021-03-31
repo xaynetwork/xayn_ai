@@ -5,7 +5,6 @@
 mod ai;
 mod document;
 mod error;
-mod systems;
 mod utils;
 
 #[cfg(doc)]

@@ -16,31 +16,14 @@ pub(crate) use rubert::ndarray;
 
 pub use crate::{
     builder::Builder,
-    data::document::{Document, DocumentHistory, DocumentId},
+    data::document::{Document, DocumentHistory, DocumentId, Relevance, UserFeedback},
     error::Error,
     reranker::Reranker,
 };
 
-// temporary ffi exports, most of this will be abstracted away by a builder later on
-pub use crate::{
-    analytics::{Analytics, DummyAnalytics},
-    coi::{CoiSystem, Configuration as CoiConfiguration},
-    context::Context,
-    data::document::{Relevance, UserFeedback},
-    database::Database,
-    ltr::ConstLtr,
-    mab::{BetaSampler, MabRanking},
-    reranker::RerankerData,
-    reranker_systems::{
-        AnalyticsSystem,
-        BertSystem,
-        CoiSystem as CoiSystems,
-        CommonSystems,
-        ContextSystem,
-        LtrSystem,
-        MabSystem,
-    },
-};
+// temporary exports until the internals are wrapped
+#[doc(hidden)]
+pub use crate::{builder::Systems, database::DummyDatabase, mab::BetaSampler};
 
 #[cfg(test)]
 mod tests;
