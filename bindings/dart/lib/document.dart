@@ -94,9 +94,9 @@ class History {
   History(
       List<String> ids, List<Relevance> relevances, List<Feedback> feedbacks) {
     _size = ids.length;
-    if (_size < 0 || _size != relevances.length || _size != feedbacks.length) {
+    if (_size != relevances.length || _size != feedbacks.length) {
       throw ArgumentError(
-          'Document history ids, relevances and feedbacks must have the same non-negative length.');
+          'Document history ids, relevances and feedbacks must have the same length.');
     }
 
     if (_size == 0) {
@@ -139,9 +139,9 @@ class Documents {
   /// Creates the documents.
   Documents(List<String> ids, List<String> snippets, List<int> ranks) {
     _size = ids.length;
-    if (_size < 0 || _size != snippets.length || _size != ranks.length) {
+    if (_size != snippets.length || _size != ranks.length) {
       throw ArgumentError(
-          'Document ids, snippets and ranks must have the same non-negative length.');
+          'Document ids, snippets and ranks must have the same length.');
     }
 
     if (_size == 0) {

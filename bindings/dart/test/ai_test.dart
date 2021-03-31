@@ -1,9 +1,19 @@
 import 'package:flutter_test/flutter_test.dart'
-    show equals, expect, group, test;
+    show equals, expect, group, isEmpty, test;
 
 import 'package:xayn_ai_ffi_dart/ai.dart' show XaynAi;
 import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiCode;
-import 'utils.dart' show model, throwsXaynAiException, vocab;
+import 'utils.dart'
+    show
+        docsIds,
+        docsRanks,
+        docsSnippets,
+        histFeedbacks,
+        histIds,
+        histRelevances,
+        model,
+        throwsXaynAiException,
+        vocab;
 
 void main() {
   group('XaynAi', () {
@@ -12,14 +22,33 @@ void main() {
       ai.free();
     });
 
-    test('rerank', () {
+    test('rerank full', () {
       final ai = XaynAi(vocab, model);
-      final ranks = [0, 1, 2];
-      final reranks = List.from(ranks.reversed, growable: false);
+      final reranked = ai.rerank(histIds, histRelevances, histFeedbacks,
+          docsIds, docsSnippets, docsRanks);
+      expect(reranked..sort(), equals(docsRanks));
+      ai.free();
+    });
 
-      final reranked = ai.rerank(['0', '1', '2'], ['abc', 'def', 'ghi'], ranks);
-      expect(reranked, equals(reranks));
+    test('rerank empty', () {
+      final ai = XaynAi(vocab, model);
+      final reranked = ai.rerank([], [], [], [], [], []);
+      expect(reranked, isEmpty);
+      ai.free();
+    });
 
+    test('rerank empty hist', () {
+      final ai = XaynAi(vocab, model);
+      final reranked = ai.rerank([], [], [], docsIds, docsSnippets, docsRanks);
+      expect(reranked..sort(), equals(docsRanks));
+      ai.free();
+    });
+
+    test('rerank empty docs', () {
+      final ai = XaynAi(vocab, model);
+      final reranked =
+          ai.rerank(histIds, histRelevances, histFeedbacks, [], [], []);
+      expect(reranked, isEmpty);
       ai.free();
     });
 
