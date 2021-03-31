@@ -1,3 +1,6 @@
+# You can find more information about the design decisions here:
+# https://github.com/xaynetwork/xayn_ai/pull/21
+
 name: Rust-CI
 
 on:
