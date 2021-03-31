@@ -3,7 +3,8 @@ import 'dart:io' show Platform;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/document.dart' show Documents;
+import 'package:xayn_ai_ffi_dart/document.dart'
+    show Documents, Feedback, History, Relevance;
 import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAi, XaynAiFfi;
 
@@ -48,18 +49,27 @@ class XaynAi {
   }
 
   /// Reranks the documents.
-  List<int> rerank(List<String> ids, List<String> snippets, List<int> ranks) {
-    final docs = Documents(ids, snippets, ranks);
+  List<int> rerank(
+      List<String> histIds,
+      List<Relevance> histRelevances,
+      List<Feedback> histFeedbacks,
+      List<String> docsIds,
+      List<String> docsSnippets,
+      List<int> docsRanks) {
+    final hist = History(histIds, histRelevances, histFeedbacks);
+    final docs = Documents(docsIds, docsSnippets, docsRanks);
     final error = XaynAiError();
 
     try {
-      ffi.xaynai_rerank(_ai, docs.ptr, docs.size, error.ptr);
+      ffi.xaynai_rerank(
+          _ai, hist.ptr, hist.size, docs.ptr, docs.size, error.ptr);
       if (error.isSuccess()) {
         return docs.ranks;
       } else {
         throw error.toException();
       }
     } finally {
+      hist.free();
       docs.free();
       error.free();
     }

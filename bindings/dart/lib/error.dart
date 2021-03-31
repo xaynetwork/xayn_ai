@@ -30,14 +30,20 @@ enum XaynAiCode {
   /// A Xayn AI null pointer error.
   xaynAiPointer,
 
+  /// A document history null pointer error.
+  historyPointer,
+
+  /// A document history id null pointer error.
+  historyIdPointer,
+
   /// A documents null pointer error.
   documentsPointer,
 
   /// A document id null pointer error.
-  idPointer,
+  documentIdPointer,
 
   /// A document snippet null pointer error.
-  snippetPointer,
+  documentSnippetPointer,
 }
 
 extension XaynAiCodeInt on XaynAiCode {
@@ -60,12 +66,16 @@ extension XaynAiCodeInt on XaynAiCode {
         return CXaynAiCode.BuildReranker;
       case XaynAiCode.xaynAiPointer:
         return CXaynAiCode.XaynAiPointer;
+      case XaynAiCode.historyPointer:
+        return CXaynAiCode.HistoryPointer;
+      case XaynAiCode.historyIdPointer:
+        return CXaynAiCode.HistoryIdPointer;
       case XaynAiCode.documentsPointer:
         return CXaynAiCode.DocumentsPointer;
-      case XaynAiCode.idPointer:
-        return CXaynAiCode.IdPointer;
-      case XaynAiCode.snippetPointer:
-        return CXaynAiCode.SnippetPointer;
+      case XaynAiCode.documentIdPointer:
+        return CXaynAiCode.DocumentIdPointer;
+      case XaynAiCode.documentSnippetPointer:
+        return CXaynAiCode.DocumentSnippetPointer;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -90,12 +100,16 @@ extension XaynAiCodeInt on XaynAiCode {
         return XaynAiCode.buildReranker;
       case CXaynAiCode.XaynAiPointer:
         return XaynAiCode.xaynAiPointer;
+      case CXaynAiCode.HistoryPointer:
+        return XaynAiCode.historyPointer;
+      case CXaynAiCode.HistoryIdPointer:
+        return XaynAiCode.historyIdPointer;
       case CXaynAiCode.DocumentsPointer:
         return XaynAiCode.documentsPointer;
-      case CXaynAiCode.IdPointer:
-        return XaynAiCode.idPointer;
-      case CXaynAiCode.SnippetPointer:
-        return XaynAiCode.snippetPointer;
+      case CXaynAiCode.DocumentIdPointer:
+        return XaynAiCode.documentIdPointer;
+      case CXaynAiCode.DocumentSnippetPointer:
+        return XaynAiCode.documentSnippetPointer;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
