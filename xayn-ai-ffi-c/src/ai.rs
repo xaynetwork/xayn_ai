@@ -173,25 +173,25 @@ pub unsafe extern "C" fn xaynai_rerank(
             )
         })?;
 
-        let hist = if hist.is_null() {
+        let hist = if hist_size == 0 {
+            &[]
+        } else if hist.is_null() {
             return Err(ExternError::new_error(
                 ErrorCode::new(CXaynAiError::HistoryPointer as i32),
                 "Failed to rerank the documents: The document history pointer is null",
             ));
-        } else if hist_size == 0 {
-            &[]
         } else {
             unsafe { slice::from_raw_parts(hist, hist_size as usize) }
         };
         let history = hist_to_vec(hist)?;
 
-        let docs = if docs.is_null() {
+        let docs = if docs_size == 0 {
+            &mut []
+        } else if docs.is_null() {
             return Err(ExternError::new_error(
                 ErrorCode::new(CXaynAiError::DocumentsPointer as i32),
                 "Failed to rerank the documents: The documents pointer is null",
             ));
-        } else if docs_size == 0 {
-            &mut []
         } else {
             unsafe { slice::from_raw_parts_mut(docs, docs_size as usize) }
         };
@@ -243,7 +243,7 @@ mod tests {
     use crate::utils::tests::{drop_values, setup_pointers, setup_values};
 
     #[test]
-    fn test_rerank() {
+    fn test_rerank_full() {
         let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
         let (c_vocab, c_model, c_hist, mut c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
@@ -258,6 +258,83 @@ mod tests {
                 c_hist.as_ptr(),
                 hist_size,
                 c_docs.as_mut_ptr(),
+                docs_size,
+                c_error,
+            )
+        };
+        assert_eq!(error.get_code(), CXaynAiError::Success);
+
+        unsafe { xaynai_drop(xaynai) };
+        drop_values(vocab, model, hist, docs, error);
+    }
+
+    #[test]
+    fn test_rerank_empty() {
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (c_vocab, c_model, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::Success);
+
+        let c_hist = null();
+        let hist_size = 0;
+        let c_docs = null_mut();
+        let docs_size = 0;
+        unsafe { xaynai_rerank(xaynai, c_hist, hist_size, c_docs, docs_size, c_error) };
+        assert_eq!(error.get_code(), CXaynAiError::Success);
+
+        unsafe { xaynai_drop(xaynai) };
+        drop_values(vocab, model, hist, docs, error);
+    }
+
+    #[test]
+    fn test_rerank_history_empty() {
+        let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
+        let (c_vocab, c_model, _, mut c_docs, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::Success);
+
+        let c_hist = null();
+        let hist_size = 0;
+        unsafe {
+            xaynai_rerank(
+                xaynai,
+                c_hist,
+                hist_size,
+                c_docs.as_mut_ptr(),
+                docs_size,
+                c_error,
+            )
+        };
+        assert_eq!(error.get_code(), CXaynAiError::Success);
+
+        unsafe { xaynai_drop(xaynai) };
+        drop_values(vocab, model, hist, docs, error);
+    }
+
+    #[test]
+    fn test_rerank_documents_empty() {
+        let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
+        let (c_vocab, c_model, c_hist, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+
+        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::Success);
+
+        let c_docs = null_mut();
+        let docs_size = 0;
+        unsafe {
+            xaynai_rerank(
+                xaynai,
+                c_hist.as_ptr(),
+                hist_size,
+                c_docs,
                 docs_size,
                 c_error,
             )
@@ -342,9 +419,10 @@ mod tests {
         let (_, _, c_hist, mut c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
+        let c_invalid = null_mut();
         unsafe {
             xaynai_rerank(
-                null_mut(),
+                c_invalid,
                 c_hist.as_ptr(),
                 hist_size,
                 c_docs.as_mut_ptr(),
@@ -370,6 +448,7 @@ mod tests {
         let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
+
         let c_invalid = null();
         unsafe {
             xaynai_rerank(
@@ -400,6 +479,7 @@ mod tests {
         let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
+
         let c_invalid = null_mut();
         unsafe {
             xaynai_rerank(

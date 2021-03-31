@@ -136,6 +136,12 @@ mod tests {
     }
 
     #[test]
+    fn test_history_empty() {
+        let history = hist_to_vec(&[]).unwrap();
+        assert!(history.is_empty());
+    }
+
+    #[test]
     fn test_history_id_null() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
         let (_, _, mut c_invalid, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
@@ -165,6 +171,12 @@ mod tests {
         }
 
         drop_values(vocab, model, hist, docs, error);
+    }
+
+    #[test]
+    fn test_documents_empty() {
+        let documents = docs_to_vec(&[]).unwrap();
+        assert!(documents.is_empty());
     }
 
     #[test]
