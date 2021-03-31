@@ -5,7 +5,7 @@ use crate::{
 };
 
 /// Canonical `ContextSystem` instance.
-struct Context;
+pub(crate) struct Context;
 
 impl ContextSystem for Context {
     fn compute_context(
