@@ -1,7 +1,7 @@
 import 'dart:ffi' show nullptr;
 
 import 'package:flutter_test/flutter_test.dart'
-    show equals, expect, group, isNot, test, throwsArgumentError;
+    show equals, expect, group, isEmpty, isNot, test, throwsArgumentError;
 
 import 'package:xayn_ai_ffi_dart/document.dart' show Documents, History;
 import 'utils.dart'
@@ -17,21 +17,25 @@ void main() {
   group('History', () {
     test('new', () {
       final hist = History(histIds, histRelevances, histFeedbacks);
+
       expect(hist.ptr, isNot(equals(nullptr)));
       expect(hist.size, equals(histIds.length));
       expect(hist.size, equals(histRelevances.length));
       expect(hist.size, equals(histFeedbacks.length));
+
       hist.free();
     });
 
     test('empty', () {
       final hist = History([], [], []);
+
       expect(hist.ptr, equals(nullptr));
       expect(hist.size, 0);
     });
 
     test('double free', () {
       final hist = History(histIds, histRelevances, histFeedbacks);
+
       expect(hist.ptr, isNot(equals(nullptr)));
       hist.free();
       expect(hist.ptr, equals(nullptr));
@@ -50,27 +54,27 @@ void main() {
   group('Documents', () {
     test('new', () {
       final docs = Documents(docsIds, docsSnippets, docsRanks);
+
       expect(docs.ptr, isNot(equals(nullptr)));
       expect(docs.size, equals(docsIds.length));
       expect(docs.size, equals(docsSnippets.length));
       expect(docs.size, equals(docsRanks.length));
+      expect(docs.ranks, equals(docsRanks));
+
       docs.free();
     });
 
     test('empty', () {
       final docs = Documents([], [], []);
+
       expect(docs.ptr, equals(nullptr));
       expect(docs.size, 0);
-    });
-
-    test('ranks', () {
-      final docs = Documents(docsIds, docsSnippets, docsRanks);
-      expect(docs.ranks, equals(docsRanks));
-      docs.free();
+      expect(docs.ranks, isEmpty);
     });
 
     test('double free', () {
       final docs = Documents(docsIds, docsSnippets, docsRanks);
+
       expect(docs.ptr, isNot(equals(nullptr)));
       docs.free();
       expect(docs.ptr, equals(nullptr));
@@ -87,6 +91,7 @@ void main() {
     test('invalid ranks', () {
       final docs = Documents(docsIds, docsSnippets, docsRanks);
       docs.free();
+
       expect(() => docs.ranks, throwsArgumentError);
     });
   });

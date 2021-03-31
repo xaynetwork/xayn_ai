@@ -12,7 +12,7 @@ dependencies:
     sdk: 'flutter'
 
 dev_dependencies:
-  ffigen: '^2.4.0'
+  ffigen: '^2.4.1'
   flutter_test:
     sdk: 'flutter'
   pedantic: '^1.11.0'

@@ -5,6 +5,7 @@ import 'package:ffi/ffi.dart' show malloc, Utf8, Utf8Pointer;
 import 'package:xayn_ai_ffi_dart/ai.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAiCode, CXaynAiError;
 
+/// The Xayn AI error codes.
 enum XaynAiCode {
   /// An irrecoverable error.
   panic,
@@ -21,14 +22,11 @@ enum XaynAiCode {
   /// A vocab or model file IO error.
   readFile,
 
-  /// A Bert builder error.
-  buildBert,
-
-  /// A Reranker builder error.
-  buildReranker,
+  /// A Xayn AI initialization error.
+  initAi,
 
   /// A Xayn AI null pointer error.
-  xaynAiPointer,
+  aiPointer,
 
   /// A document history null pointer error.
   historyPointer,
@@ -60,12 +58,10 @@ extension XaynAiCodeInt on XaynAiCode {
         return CXaynAiCode.ModelPointer;
       case XaynAiCode.readFile:
         return CXaynAiCode.ReadFile;
-      case XaynAiCode.buildBert:
-        return CXaynAiCode.BuildBert;
-      case XaynAiCode.buildReranker:
-        return CXaynAiCode.BuildReranker;
-      case XaynAiCode.xaynAiPointer:
-        return CXaynAiCode.XaynAiPointer;
+      case XaynAiCode.initAi:
+        return CXaynAiCode.InitAi;
+      case XaynAiCode.aiPointer:
+        return CXaynAiCode.AiPointer;
       case XaynAiCode.historyPointer:
         return CXaynAiCode.HistoryPointer;
       case XaynAiCode.historyIdPointer:
@@ -94,12 +90,10 @@ extension XaynAiCodeInt on XaynAiCode {
         return XaynAiCode.modelPointer;
       case CXaynAiCode.ReadFile:
         return XaynAiCode.readFile;
-      case CXaynAiCode.BuildBert:
-        return XaynAiCode.buildBert;
-      case CXaynAiCode.BuildReranker:
-        return XaynAiCode.buildReranker;
-      case CXaynAiCode.XaynAiPointer:
-        return XaynAiCode.xaynAiPointer;
+      case CXaynAiCode.InitAi:
+        return XaynAiCode.initAi;
+      case CXaynAiCode.AiPointer:
+        return XaynAiCode.aiPointer;
       case CXaynAiCode.HistoryPointer:
         return XaynAiCode.historyPointer;
       case CXaynAiCode.HistoryIdPointer:
@@ -116,12 +110,9 @@ extension XaynAiCodeInt on XaynAiCode {
   }
 }
 
-/// The Xayn AI FFI error information.
+/// The Xayn AI error information.
 class XaynAiError {
   late Pointer<CXaynAiError> _error;
-
-  /// Gets the pointer.
-  Pointer<CXaynAiError> get ptr => _error;
 
   /// Creates the error information initialized to success.
   XaynAiError() {
@@ -129,6 +120,9 @@ class XaynAiError {
     _error.ref.code = CXaynAiCode.Success;
     _error.ref.message = nullptr;
   }
+
+  /// Gets the pointer.
+  Pointer<CXaynAiError> get ptr => _error;
 
   /// Checks for a panic code.
   bool isPanic() => _error.ref.code == CXaynAiCode.Panic;
@@ -165,6 +159,10 @@ class XaynAiException implements Exception {
   /// Creates a Xayn AI exception.
   const XaynAiException(this._code, this._message);
 
+  /// Gets the code.
+  XaynAiCode get code => _code;
+
+  /// Gets the message.
   @override
-  String toString() => '${_code.toString().split('.').last}: $_message';
+  String toString() => _message;
 }

@@ -79,21 +79,15 @@ extension FeedbackInt on Feedback {
   }
 }
 
-/// A raw document history.
+/// The raw document history.
 class History {
   late Pointer<CHistory> _hist;
-  late int _size;
-
-  /// Gets the pointer.
-  Pointer<CHistory> get ptr => _hist;
-
-  /// Gets the size.
-  int get size => _size;
+  final int _size;
 
   /// Creates the document history.
   History(
-      List<String> ids, List<Relevance> relevances, List<Feedback> feedbacks) {
-    _size = ids.length;
+      List<String> ids, List<Relevance> relevances, List<Feedback> feedbacks)
+      : _size = ids.length {
     if (_size != relevances.length || _size != feedbacks.length) {
       throw ArgumentError(
           'Document history ids, relevances and feedbacks must have the same length.');
@@ -112,6 +106,12 @@ class History {
     }
   }
 
+  /// Gets the pointer.
+  Pointer<CHistory> get ptr => _hist;
+
+  /// Gets the size.
+  int get size => _size;
+
   /// Frees the memory.
   void free() {
     if (_hist != nullptr) {
@@ -120,25 +120,18 @@ class History {
       }
       malloc.free(_hist);
       _hist = nullptr;
-      _size = 0;
     }
   }
 }
 
-/// A raw document.
+/// The raw documents.
 class Documents {
   late Pointer<CDocument> _docs;
-  late int _size;
-
-  /// Gets the pointer.
-  Pointer<CDocument> get ptr => _docs;
-
-  /// Gets the size.
-  int get size => _size;
+  final int _size;
 
   /// Creates the documents.
-  Documents(List<String> ids, List<String> snippets, List<int> ranks) {
-    _size = ids.length;
+  Documents(List<String> ids, List<String> snippets, List<int> ranks)
+      : _size = ids.length {
     if (_size != snippets.length || _size != ranks.length) {
       throw ArgumentError(
           'Document ids, snippets and ranks must have the same length.');
@@ -157,8 +150,18 @@ class Documents {
     }
   }
 
+  /// Gets the pointer.
+  Pointer<CDocument> get ptr => _docs;
+
+  /// Gets the size.
+  int get size => _size;
+
   /// Gets the ranks.
   List<int> get ranks {
+    if (_size == 0) {
+      return List.empty();
+    }
+
     if (_docs == nullptr) {
       throw ArgumentError('Documents were already freed.');
     }
@@ -175,7 +178,6 @@ class Documents {
       }
       malloc.free(_docs);
       _docs = nullptr;
-      _size = 0;
     }
   }
 }

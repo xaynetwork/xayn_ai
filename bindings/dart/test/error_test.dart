@@ -36,7 +36,7 @@ void main() {
 
     test('error', () {
       final error = XaynAiError();
-      error.ptr.ref.code = XaynAiCode.xaynAiPointer.toInt();
+      error.ptr.ref.code = XaynAiCode.aiPointer.toInt();
       error.ptr.ref.message = 'test error'.toNativeUtf8().cast<Int8>();
 
       expect(error.isPanic(), equals(false));
@@ -49,8 +49,12 @@ void main() {
 
     test('double free', () {
       final error = XaynAiError();
+
+      expect(error.ptr, isNot(equals(nullptr)));
       error.free();
+      expect(error.ptr, equals(nullptr));
       error.free();
+      expect(error.ptr, equals(nullptr));
     });
   });
 
@@ -59,8 +63,10 @@ void main() {
       final code = XaynAiCode.panic;
       final message = 'test panic';
 
-      expect(() => throw XaynAiException(code, message),
-          throwsXaynAiException(code, message));
+      final exception = XaynAiException(code, message);
+      expect(exception.code, equals(code));
+      expect(exception.toString(), equals(message));
+      expect(() => throw exception, throwsXaynAiException(code, message));
     });
 
     test('to', () {
@@ -70,8 +76,10 @@ void main() {
       error.ptr.ref.code = code.toInt();
       error.ptr.ref.message = message.toNativeUtf8().cast<Int8>();
 
-      expect(() => throw error.toException(),
-          throwsXaynAiException(code, message));
+      final exception = error.toException();
+      expect(exception.code, equals(code));
+      expect(exception.toString(), equals(message));
+      expect(() => throw exception, throwsXaynAiException(code, message));
 
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);

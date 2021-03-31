@@ -17,43 +17,47 @@ import 'utils.dart'
 
 void main() {
   group('XaynAi', () {
-    test('new', () {
-      final ai = XaynAi(vocab, model);
-      ai.free();
-    });
-
     test('rerank full', () {
       final ai = XaynAi(vocab, model);
+
       final reranked = ai.rerank(histIds, histRelevances, histFeedbacks,
           docsIds, docsSnippets, docsRanks);
       expect(reranked..sort(), equals(docsRanks));
+
       ai.free();
     });
 
     test('rerank empty', () {
       final ai = XaynAi(vocab, model);
+
       final reranked = ai.rerank([], [], [], [], [], []);
       expect(reranked, isEmpty);
+
       ai.free();
     });
 
     test('rerank empty hist', () {
       final ai = XaynAi(vocab, model);
+
       final reranked = ai.rerank([], [], [], docsIds, docsSnippets, docsRanks);
       expect(reranked..sort(), equals(docsRanks));
+
       ai.free();
     });
 
     test('rerank empty docs', () {
       final ai = XaynAi(vocab, model);
+
       final reranked =
           ai.rerank(histIds, histRelevances, histFeedbacks, [], [], []);
       expect(reranked, isEmpty);
+
       ai.free();
     });
 
     test('double free', () {
       final ai = XaynAi(vocab, model);
+
       ai.free();
       ai.free();
     });
@@ -61,7 +65,7 @@ void main() {
     test('invalid paths', () {
       final code = XaynAiCode.readFile;
       final message =
-          'Failed to build the bert model: Failed to load a data file: No such file or directory (os error 2)';
+          'Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)';
 
       expect(() => XaynAi('', model), throwsXaynAiException(code, message));
       expect(() => XaynAi(vocab, ''), throwsXaynAiException(code, message));
