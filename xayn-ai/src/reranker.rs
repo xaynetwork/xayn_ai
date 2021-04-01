@@ -243,6 +243,44 @@ mod tests {
         },
     };
 
+    mod car_interest_example {
+        use crate::{
+            data::UserInterests,
+            reranker::{DocumentsRank, PreviousDocuments, RerankerData},
+            tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
+            Document,
+            DocumentId,
+        };
+
+        pub fn reranker_data_with_mab() -> RerankerData {
+            reranker_data(data_with_mab((0..10).map(|id| (id, vec![id as f32; 128]))))
+        }
+
+        pub fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
+            RerankerData {
+                prev_documents: docs.into(),
+                user_interests: UserInterests {
+                    positive: cois_from_words(&["vehicle"], mocked_bert_system()),
+                    ..Default::default()
+                },
+            }
+        }
+
+        pub fn documents() -> Vec<Document> {
+            documents_from_words(
+                (0..6).zip(&["ship", "car", "auto", "flugzeug", "plane", "vehicle"]),
+            )
+        }
+
+        pub fn expected_rerank() -> DocumentsRank {
+            [5, 3, 4, 0, 2, 1]
+                .iter()
+                .zip(0..6)
+                .map(|(id, rank)| (DocumentId(id.to_string()), rank))
+                .collect()
+        }
+    }
+
     /// A user performs the very first search that returns no results/`Documents`.
     /// In this case, the `Reranker` should return an empty `DocumentsRank`.
     #[test]
@@ -428,42 +466,5 @@ mod tests {
 
         let error = reranker.errors()[1].downcast_ref().unwrap();
         assert!(matches!(error, CoiSystemError::NoCoi));
-    }
-}
-
-#[cfg(test)]
-mod car_interest_example {
-    use crate::{
-        data::UserInterests,
-        reranker::{DocumentsRank, PreviousDocuments, RerankerData},
-        tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
-        Document,
-        DocumentId,
-    };
-
-    pub fn reranker_data_with_mab() -> RerankerData {
-        reranker_data(data_with_mab((0..10).map(|id| (id, vec![id as f32; 128]))))
-    }
-
-    pub fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
-        RerankerData {
-            prev_documents: docs.into(),
-            user_interests: UserInterests {
-                positive: cois_from_words(&["vehicle"], mocked_bert_system()),
-                ..Default::default()
-            },
-        }
-    }
-
-    pub fn documents() -> Vec<Document> {
-        documents_from_words((0..6).zip(&["ship", "car", "auto", "flugzeug", "plane", "vehicle"]))
-    }
-
-    pub fn expected_rerank() -> DocumentsRank {
-        [5, 3, 4, 0, 2, 1]
-            .iter()
-            .zip(0..6)
-            .map(|(id, rank)| (DocumentId(id.to_string()), rank))
-            .collect()
     }
 }
