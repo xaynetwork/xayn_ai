@@ -18,6 +18,10 @@ use crate::{
     error::Error,
 };
 
+#[cfg(test)]
+use mockall::automock;
+
+#[cfg_attr(test, automock)]
 pub trait BertSystem {
     fn compute_embedding(
         &self,
@@ -31,6 +35,7 @@ pub trait CoiSystemData {
     fn coi(&self) -> Option<&CoiComponent>;
 }
 
+#[cfg_attr(test, automock)]
 pub trait CoiSystem {
     /// Add centre of interest information to a document
     fn compute_coi(
@@ -40,14 +45,15 @@ pub trait CoiSystem {
     ) -> Result<Vec<DocumentDataWithCoi>, Error>;
 
     /// Update cois from history and documents
-    fn update_user_interests(
+    fn update_user_interests<'a>(
         &self,
         history: &[DocumentHistory],
-        documents: &[&dyn CoiSystemData],
+        documents: &[&'a dyn CoiSystemData],
         user_interests: UserInterests,
     ) -> Result<UserInterests, Error>;
 }
 
+#[cfg_attr(test, automock)]
 pub trait LtrSystem {
     fn compute_ltr(
         &self,
@@ -56,6 +62,7 @@ pub trait LtrSystem {
     ) -> Result<Vec<DocumentDataWithLtr>, Error>;
 }
 
+#[cfg_attr(test, automock)]
 pub trait ContextSystem {
     fn compute_context(
         &self,
@@ -63,6 +70,7 @@ pub trait ContextSystem {
     ) -> Result<Vec<DocumentDataWithContext>, Error>;
 }
 
+#[cfg_attr(test, automock)]
 pub trait MabSystem {
     fn compute_mab(
         &self,
@@ -71,6 +79,7 @@ pub trait MabSystem {
     ) -> Result<(Vec<DocumentDataWithMab>, UserInterests), Error>;
 }
 
+#[cfg_attr(test, automock)]
 pub trait AnalyticsSystem {
     fn compute_analytics(
         &self,

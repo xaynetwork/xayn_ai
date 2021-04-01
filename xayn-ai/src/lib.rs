@@ -20,3 +20,6 @@ pub use crate::{
     error::Error,
     reranker::Reranker,
 };
+
+#[cfg(test)]
+mod tests;
