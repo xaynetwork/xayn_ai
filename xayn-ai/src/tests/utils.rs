@@ -37,7 +37,7 @@ pub fn documents_from_ids(ids: Range<u32>) -> Vec<Document> {
         .collect()
 }
 
-pub fn documents_from_words<'a>(ctx: impl Iterator<Item = (usize, &'a &'a str)>) -> Vec<Document> {
+pub fn documents_from_words(ctx: impl Iterator<Item = (usize, impl ToString)>) -> Vec<Document> {
     ctx.map(|(id, snippet)| Document {
         id: DocumentId(id.to_string()),
         rank: id,
