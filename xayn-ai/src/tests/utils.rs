@@ -3,6 +3,7 @@ use std::ops::Range;
 use ndarray::arr1;
 
 use crate::{
+    bert::Embedding,
     data::{
         document::{DocumentsRank, Relevance, UserFeedback},
         document_data::{
@@ -47,23 +48,8 @@ pub(crate) fn documents_from_words(
     .collect()
 }
 
-pub(crate) fn cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<Coi> {
-    let documents = snippets
-        .iter()
-        .enumerate()
-        .map(|(id, snippet)| DocumentDataWithDocument {
-            document_id: DocumentIdComponent {
-                id: DocumentId(id.to_string()),
-            },
-            document_content: DocumentContentComponent {
-                snippet: snippet.to_string(),
-            },
-        })
-        .collect();
-
-    bert.compute_embedding(documents)
-        .unwrap()
-        .into_iter()
+pub(crate) fn cois_from_words(words: &[&str], bert: impl BertSystem) -> Vec<Coi> {
+    documents_with_embeddings_from_words(words, bert)
         .enumerate()
         .map(|(id, doc)| Coi::new(id, doc.embedding.embedding))
         .collect()
@@ -85,16 +71,12 @@ pub(crate) fn history_for_prev_docs(
 }
 
 pub(crate) fn data_with_mab(
-    ids_and_embeddings: impl Iterator<Item = (u32, Vec<f32>)>,
+    ids_and_embeddings: impl Iterator<Item = (DocumentId, Embedding)>,
 ) -> Vec<DocumentDataWithMab> {
     ids_and_embeddings
         .map(|(id, embedding)| DocumentDataWithMab {
-            document_id: DocumentIdComponent {
-                id: DocumentId(id.to_string()),
-            },
-            embedding: EmbeddingComponent {
-                embedding: arr1(&embedding).into(),
-            },
+            document_id: DocumentIdComponent { id },
+            embedding: EmbeddingComponent { embedding },
             coi: CoiComponent {
                 id: CoiId(1),
                 pos_distance: 0.1,
@@ -107,19 +89,33 @@ pub(crate) fn data_with_mab(
         .collect()
 }
 
-pub(crate) fn data_with_embedding(
-    ids_and_embeddings: impl Iterator<Item = (u32, Vec<f32>)>,
-) -> Vec<DocumentDataWithEmbedding> {
-    ids_and_embeddings
+pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<DocumentDataWithEmbedding> {
+    from_ids(ids)
         .map(|(id, embedding)| DocumentDataWithEmbedding {
+            document_id: DocumentIdComponent { id },
+            embedding: EmbeddingComponent { embedding },
+        })
+        .collect()
+}
+
+pub(crate) fn documents_with_embeddings_from_words(
+    words: &[&str],
+    bert: impl BertSystem,
+) -> impl Iterator<Item = DocumentDataWithEmbedding> {
+    let documents = words
+        .iter()
+        .enumerate()
+        .map(|(id, snippet)| DocumentDataWithDocument {
             document_id: DocumentIdComponent {
                 id: DocumentId(id.to_string()),
             },
-            embedding: EmbeddingComponent {
-                embedding: arr1(&embedding).into(),
+            document_content: DocumentContentComponent {
+                snippet: snippet.to_string(),
             },
         })
-        .collect()
+        .collect();
+
+    bert.compute_embedding(documents).unwrap().into_iter()
 }
 
 pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> DocumentsRank {
@@ -137,4 +133,13 @@ pub(crate) fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec
             user_feedback,
         })
         .collect()
+}
+
+pub(crate) fn from_ids(ids: Range<u32>) -> impl Iterator<Item = (DocumentId, Embedding)> {
+    ids.map(|id| {
+        (
+            DocumentId(id.to_string()),
+            arr1(&vec![id as f32; 128]).into(),
+        )
+    })
 }
