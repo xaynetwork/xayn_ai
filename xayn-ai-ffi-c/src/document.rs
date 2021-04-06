@@ -161,7 +161,7 @@ impl CDocument<'_> {
 /// The array is in the same order as the documents used in [`xaynai_rerank()`].
 ///
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
-pub struct CRanks(pub(crate) Vec<u32>);
+pub struct CRanks(Vec<u32>);
 
 unsafe impl IntoFfi for CRanks {
     type Value = *mut u32;
@@ -217,7 +217,7 @@ impl CRanks {
 ///
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
-pub unsafe extern "C" fn ranks_drop(ranks: <CRanks as IntoFfi>::Value, ranks_size: u32) {
+pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, ranks_size: u32) {
     let _ = catch_unwind(|| CRanks::drop(ranks, ranks_size));
 }
 

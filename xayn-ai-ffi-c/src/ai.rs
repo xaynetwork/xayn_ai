@@ -123,7 +123,7 @@ pub unsafe extern "C" fn xaynai_new(
     vocab: FfiStr,
     model: FfiStr,
     error: *mut ExternError,
-) -> <CXaynAi as IntoFfi>::Value {
+) -> *mut CXaynAi {
     let new = || CXaynAi::new(vocab, model);
 
     if let Some(error) = unsafe { error.as_mut() } {
@@ -159,13 +159,13 @@ pub unsafe extern "C" fn xaynai_new(
 /// - A non-null, zero-sized ranks array is dereferenced.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
-    xaynai: <CXaynAi as IntoFfi>::Value,
+    xaynai: *mut CXaynAi,
     history: *const CHistory,
     history_size: u32,
     documents: *const CDocument,
     documents_size: u32,
     error: *mut ExternError,
-) -> <CRanks as IntoFfi>::Value {
+) -> *mut u32 {
     let rerank =
         || unsafe { CXaynAi::rerank(xaynai, history, history_size, documents, documents_size) };
 
@@ -186,7 +186,7 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// - A non-null xaynai is freed more than once.
 /// - A non-null xaynai is accessed after being freed.
 #[no_mangle]
-pub unsafe extern "C" fn xaynai_drop(xaynai: <CXaynAi as IntoFfi>::Value) {
+pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
     let _ = catch_unwind(|| CXaynAi::drop(xaynai));
 }
 
