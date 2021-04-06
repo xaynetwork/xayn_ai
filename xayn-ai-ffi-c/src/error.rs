@@ -40,6 +40,12 @@ impl CXaynAiError {
     pub fn with_context(self, message: impl Into<String>) -> ExternError {
         ExternError::new_error(ErrorCode::new(self as i32), message)
     }
+
+    unsafe fn drop_message(error: *mut ExternError) {
+        if let Some(error) = error.as_mut() {
+            unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
+        }
+    }
 }
 
 /// Frees the memory of the error message.
@@ -62,11 +68,7 @@ impl CXaynAiError {
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
-    let _ = catch_unwind(|| {
-        if let Some(error) = error.as_mut() {
-            unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
-        }
-    });
+    let _ = catch_unwind(|| CXaynAiError::drop_message(error));
 }
 
 #[cfg(test)]
