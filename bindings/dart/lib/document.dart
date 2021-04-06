@@ -1,7 +1,16 @@
-import 'dart:ffi' show AllocatorAlloc, Int8, nullptr, Pointer, StructPointer;
+import 'dart:ffi'
+    show
+        AllocatorAlloc,
+        Int8,
+        nullptr,
+        Pointer,
+        StructPointer,
+        Uint32,
+        Uint32Pointer;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
+import 'package:xayn_ai_ffi_dart/ai.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/ffi.dart'
     show CDocument, CFeedback, CHistory, CRelevance;
 
@@ -156,19 +165,6 @@ class Documents {
   /// Gets the size.
   int get size => _size;
 
-  /// Gets the ranks.
-  List<int> get ranks {
-    if (_size == 0) {
-      return List.empty();
-    }
-
-    if (_docs == nullptr) {
-      throw ArgumentError('Documents were already freed.');
-    }
-
-    return List.generate(_size, (i) => _docs[i].rank, growable: false);
-  }
-
   /// Frees the memory.
   void free() {
     if (_docs != nullptr) {
@@ -178,6 +174,36 @@ class Documents {
       }
       malloc.free(_docs);
       _docs = nullptr;
+    }
+  }
+}
+
+/// The ranks of the reranked documents.
+class Ranks {
+  Pointer<Uint32> _ranks;
+  final int _size;
+
+  /// Creates the ranks.
+  Ranks(this._ranks, this._size);
+
+  /// Converts the ranks to a list, which is in the same order as the documents.
+  List<int> toList() {
+    if (_size == 0) {
+      return List.empty();
+    }
+
+    if (_ranks == nullptr) {
+      throw ArgumentError('Ranks were already freed.');
+    }
+
+    return _ranks.asTypedList(_size).toList(growable: false);
+  }
+
+  /// Frees the memory.
+  void free() {
+    if (_ranks != nullptr) {
+      ffi.ranks_drop(_ranks, _size);
+      _ranks = nullptr;
     }
   }
 }

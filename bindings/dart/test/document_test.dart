@@ -1,9 +1,10 @@
-import 'dart:ffi' show nullptr;
+import 'dart:ffi' show AllocatorAlloc, nullptr, Uint32;
 
+import 'package:ffi/ffi.dart' show malloc;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isEmpty, isNot, test, throwsArgumentError;
 
-import 'package:xayn_ai_ffi_dart/document.dart' show Documents, History;
+import 'package:xayn_ai_ffi_dart/document.dart' show Documents, History, Ranks;
 import 'utils.dart'
     show
         docsIds,
@@ -59,7 +60,6 @@ void main() {
       expect(docs.size, equals(docsIds.length));
       expect(docs.size, equals(docsSnippets.length));
       expect(docs.size, equals(docsRanks.length));
-      expect(docs.ranks, equals(docsRanks));
 
       docs.free();
     });
@@ -69,7 +69,6 @@ void main() {
 
       expect(docs.ptr, equals(nullptr));
       expect(docs.size, 0);
-      expect(docs.ranks, isEmpty);
     });
 
     test('double free', () {
@@ -87,12 +86,29 @@ void main() {
       expect(() => Documents(docsIds, [], docsRanks), throwsArgumentError);
       expect(() => Documents(docsIds, docsSnippets, []), throwsArgumentError);
     });
+  });
 
-    test('invalid ranks', () {
-      final docs = Documents(docsIds, docsSnippets, docsRanks);
-      docs.free();
+  group('Ranks', () {
+    test('to list', () {
+      final size = docsRanks.length;
+      final ranksPtr = malloc.call<Uint32>(size);
+      final ranks = Ranks(ranksPtr, size);
 
-      expect(() => docs.ranks, throwsArgumentError);
+      expect(ranks.toList().length, equals(size));
+
+      malloc.free(ranksPtr);
+    });
+
+    test('empty', () {
+      final ranks = Ranks(nullptr, 0);
+
+      expect(ranks.toList(), isEmpty);
+    });
+
+    test('double free', () {
+      final ranks = Ranks(nullptr, 0);
+
+      ranks.free();
     });
   });
 }

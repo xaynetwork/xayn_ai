@@ -4,7 +4,7 @@ import 'dart:io' show Platform;
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/document.dart'
-    show Documents, Feedback, History, Relevance;
+    show Documents, Feedback, History, Ranks, Relevance;
 import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAi, XaynAiFfi;
 
@@ -49,6 +49,8 @@ class XaynAi {
   }
 
   /// Reranks the documents.
+  ///
+  /// The list of ranks is in the same order as the documents.
   List<int> rerank(
       List<String> histIds,
       List<Relevance> histRelevances,
@@ -59,12 +61,16 @@ class XaynAi {
     final hist = History(histIds, histRelevances, histFeedbacks);
     final docs = Documents(docsIds, docsSnippets, docsRanks);
     final error = XaynAiError();
+    Ranks? ranks;
 
     try {
-      ffi.xaynai_rerank(
-          _ai, hist.ptr, hist.size, docs.ptr, docs.size, error.ptr);
+      ranks = Ranks(
+        ffi.xaynai_rerank(
+            _ai, hist.ptr, hist.size, docs.ptr, docs.size, error.ptr),
+        docs.size,
+      );
       if (error.isSuccess()) {
-        return docs.ranks;
+        return ranks.toList();
       } else {
         throw error.toException();
       }
@@ -72,6 +78,7 @@ class XaynAi {
       hist.free();
       docs.free();
       error.free();
+      ranks?.free();
     }
   }
 

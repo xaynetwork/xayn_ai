@@ -42,6 +42,9 @@ enum XaynAiCode {
 
   /// A document snippet null pointer error.
   documentSnippetPointer,
+
+  /// An internal error.
+  internal,
 }
 
 extension XaynAiCodeInt on XaynAiCode {
@@ -72,6 +75,8 @@ extension XaynAiCodeInt on XaynAiCode {
         return CXaynAiCode.DocumentIdPointer;
       case XaynAiCode.documentSnippetPointer:
         return CXaynAiCode.DocumentSnippetPointer;
+      case XaynAiCode.internal:
+        return CXaynAiCode.Internal;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -104,6 +109,8 @@ extension XaynAiCodeInt on XaynAiCode {
         return XaynAiCode.documentIdPointer;
       case CXaynAiCode.DocumentSnippetPointer:
         return XaynAiCode.documentSnippetPointer;
+      case CXaynAiCode.Internal:
+        return XaynAiCode.internal;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
