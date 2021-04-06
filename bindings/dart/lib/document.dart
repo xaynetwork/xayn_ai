@@ -10,9 +10,9 @@ import 'dart:ffi'
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/ai.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/ffi.dart'
     show CDocument, CFeedback, CHistory, CRelevance;
+import 'package:xayn_ai_ffi_dart/library.dart' show ffi;
 
 /// A document relevance level.
 enum Relevance {

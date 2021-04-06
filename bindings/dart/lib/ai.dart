@@ -1,23 +1,12 @@
-import 'dart:ffi' show DynamicLibrary, Int8, nullptr, Pointer;
-import 'dart:io' show Platform;
+import 'dart:ffi' show Int8, nullptr, Pointer;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/document.dart'
     show Documents, Feedback, History, Ranks, Relevance;
 import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiError;
-import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAi, XaynAiFfi;
-
-final XaynAiFfi ffi = XaynAiFfi(Platform.isAndroid
-    ? DynamicLibrary.open('libxayn_ai_ffi_c.so')
-    : Platform.isIOS
-        ? DynamicLibrary.process()
-        : Platform.isLinux
-            ? DynamicLibrary.open('../../target/debug/libxayn_ai_ffi_c.so')
-            : Platform.isMacOS
-                ? DynamicLibrary.open(
-                    '../../target/debug/libxayn_ai_ffi_c.dylib')
-                : throw UnsupportedError('Unsupported platform.'));
+import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAi;
+import 'package:xayn_ai_ffi_dart/library.dart' show ffi;
 
 /// The Xayn AI.
 ///
