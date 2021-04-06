@@ -1,4 +1,6 @@
-use ffi_support::{ErrorCode, ExternError, FfiStr};
+use std::slice::from_raw_parts;
+
+use ffi_support::{ExternError, FfiStr};
 use xayn_ai::{Document, DocumentHistory, Relevance, UserFeedback};
 
 use crate::error::CXaynAiError;
@@ -54,24 +56,42 @@ pub struct CHistory<'a> {
     pub feedback: CFeedback,
 }
 
-/// Collects the document history from raw.
-pub fn chist_to_hist(hist: &[CHistory]) -> Result<Vec<DocumentHistory>, ExternError> {
-    hist.iter()
-        .map(|history| {
-            let id = history
-                .id
-                .as_opt_str()
-                .map(Into::into)
-                .ok_or_else(|| ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::HistoryIdPointer as i32),
-                    "Failed to rerank the documents: A document history id is not a valid C-string pointer",
-                ))?;
-            let relevance = history.relevance.into();
-            let user_feedback = history.feedback.into();
+impl CHistory<'_> {
+    /// Collects the document history from raw.
+    ///
+    /// # Safety
+    /// The behavior is undefined if:
+    /// - A history reference doesn't point to an aligned, contiguous area of memory with at least
+    /// history size many [`CHistory`]s.
+    /// - A history size is too large to address the memory of a history slice.
+    /// - A non-null id doesn't point to an aligned, contiguous area of memory with a terminating
+    /// null byte.
+    ///
+    /// # Panics
+    /// The function panics if:
+    /// - The history size is zero.
+    pub unsafe fn to_history(&self, size: u32) -> Result<Vec<DocumentHistory>, ExternError> {
+        assert!(size > 0);
 
-            Ok(DocumentHistory {id, relevance, user_feedback })
-        })
-        .collect()
+        unsafe { from_raw_parts(self, size as usize) }
+            .iter()
+            .map(|history| {
+                let id = history
+                    .id
+                    .as_opt_str()
+                    .map(Into::into)
+                    .ok_or_else(|| {
+                        CXaynAiError::HistoryIdPointer.with_context(
+                            "Failed to rerank the documents: A document history id is not a valid C-string pointer",
+                        )
+                    })?;
+                let relevance = history.relevance.into();
+                let user_feedback = history.feedback.into();
+
+                Ok(DocumentHistory {id, relevance, user_feedback })
+            })
+            .collect()
+    }
 }
 
 /// A raw document.
@@ -85,31 +105,50 @@ pub struct CDocument<'a> {
     pub rank: u32,
 }
 
-/// Collects the documents from raw.
-pub fn cdocs_to_docs(docs: &[CDocument]) -> Result<Vec<Document>, ExternError> {
-    docs.iter()
-        .map(|document| {
-            let id = document
-                .id
-                .as_opt_str()
-                .map(Into::into)
-                .ok_or_else(|| ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::DocumentIdPointer as i32),
-                    "Failed to rerank the documents: A document id is not a valid C-string pointer",
-                ))?;
-            let snippet = document
-                .snippet
-                .as_opt_str()
-                .map(Into::into)
-                .ok_or_else(|| ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::DocumentSnippetPointer as i32),
-                    "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
-                ))?;
-            let rank = document.rank as usize;
+impl CDocument<'_> {
+    /// Collects the documents from raw.
+    ///
+    /// # Safety
+    /// The behavior is undefined if:
+    /// - A documents reference doesn't point to an aligned, contiguous area of memory with at least
+    /// documents size many [`CDocument`]s.
+    /// - A documents size is too large to address the memory of a documents slice.
+    /// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
+    /// terminating null byte.
+    ///
+    /// # Panics
+    /// The function panics if:
+    /// - The documents size is zero.
+    pub unsafe fn to_documents(&self, size: u32) -> Result<Vec<Document>, ExternError> {
+        assert!(size > 0);
 
-            Ok(Document { id, snippet, rank })
-        })
-        .collect()
+        unsafe { from_raw_parts(self, size as usize) }
+            .iter()
+            .map(|document| {
+                let id = document
+                    .id
+                    .as_opt_str()
+                    .map(Into::into)
+                    .ok_or_else(|| {
+                        CXaynAiError::DocumentIdPointer.with_context(
+                            "Failed to rerank the documents: A document id is not a valid C-string pointer",
+                        )
+                    })?;
+                let snippet = document
+                    .snippet
+                    .as_opt_str()
+                    .map(Into::into)
+                    .ok_or_else(|| {
+                        CXaynAiError::DocumentSnippetPointer.with_context(
+                            "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
+                        )
+                    })?;
+                let rank = document.rank as usize;
+
+                Ok(Document { id, snippet, rank })
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -124,7 +163,7 @@ mod tests {
         let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
         let (_, _, c_hist, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let history = chist_to_hist(c_hist.as_slice()).unwrap();
+        let history = unsafe { c_hist[0].to_history(hist_size) }.unwrap();
         assert_eq!(history.len(), hist_size as usize);
         for (dh, ch) in history.into_iter().zip(c_hist) {
             assert_eq!(dh.id.0, ch.id.as_str());
@@ -136,18 +175,18 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_history_empty() {
-        let history = chist_to_hist(&[]).unwrap();
-        assert!(history.is_empty());
+        let _ = unsafe { (&*null::<CHistory>()).to_history(0) };
     }
 
     #[test]
     fn test_history_id_null() {
-        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
         let (_, _, mut c_invalid, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = chist_to_hist(c_invalid.as_slice()).unwrap_err();
+        let error = unsafe { c_invalid[0].to_history(hist_size) }.unwrap_err();
         assert_eq!(error.get_code(), CXaynAiError::HistoryIdPointer);
         assert_eq!(
             error.get_message(),
@@ -162,7 +201,7 @@ mod tests {
         let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
         let (_, _, _, c_docs, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let documents = cdocs_to_docs(c_docs.as_slice()).unwrap();
+        let documents = unsafe { c_docs[0].to_documents(docs_size) }.unwrap();
         assert_eq!(documents.len(), docs_size as usize);
         for (d, cd) in documents.into_iter().zip(c_docs) {
             assert_eq!(d.id.0, cd.id.as_str());
@@ -174,18 +213,18 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_documents_empty() {
-        let documents = cdocs_to_docs(&[]).unwrap();
-        assert!(documents.is_empty());
+        let _ = unsafe { (&*null::<CDocument>()).to_documents(0) };
     }
 
     #[test]
     fn test_document_id_null() {
-        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
         let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = cdocs_to_docs(c_invalid.as_slice()).unwrap_err();
+        let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
         assert_eq!(error.get_code(), CXaynAiError::DocumentIdPointer);
         assert_eq!(
             error.get_message(),
@@ -197,11 +236,11 @@ mod tests {
 
     #[test]
     fn test_document_snippet_null() {
-        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
         let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].snippet = unsafe { FfiStr::from_raw(null()) };
-        let error = cdocs_to_docs(c_invalid.as_slice()).unwrap_err();
+        let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
         assert_eq!(error.get_code(), CXaynAiError::DocumentSnippetPointer);
         assert_eq!(
             error.get_message(),

@@ -2,21 +2,14 @@ use std::{
     collections::HashMap,
     panic::{catch_unwind, RefUnwindSafe},
     ptr::null_mut,
-    slice,
+    slice::from_raw_parts_mut,
 };
 
-use ffi_support::{
-    call_with_result,
-    implement_into_ffi_by_pointer,
-    ErrorCode,
-    ExternError,
-    FfiStr,
-    IntoFfi,
-};
+use ffi_support::{call_with_result, implement_into_ffi_by_pointer, ExternError, FfiStr, IntoFfi};
 use xayn_ai::{BetaSampler, Builder, DummyDatabase, Reranker, Systems};
 
 use crate::{
-    document::{cdocs_to_docs, chist_to_hist, CDocument, CHistory},
+    document::{CDocument, CHistory},
     error::CXaynAiError,
 };
 
@@ -57,14 +50,12 @@ pub unsafe extern "C" fn xaynai_new(
 ) -> <CXaynAi as IntoFfi>::Value {
     let call = || {
         let vocab = vocab.as_opt_str().ok_or_else(|| {
-            ExternError::new_error(
-                ErrorCode::new(CXaynAiError::VocabPointer as i32),
+            CXaynAiError::VocabPointer.with_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
             )
         })?;
         let model = model.as_opt_str().ok_or_else(|| {
-            ExternError::new_error(
-                ErrorCode::new(CXaynAiError::ModelPointer as i32),
+            CXaynAiError::ModelPointer.with_context(
                 "Failed to initialize the ai: The model is not a valid C-string pointer",
             )
         })?;
@@ -73,18 +64,13 @@ pub unsafe extern "C" fn xaynai_new(
             .with_database(DummyDatabase)
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
-                ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::ReadFile as i32),
-                    format!("Failed to initialize the ai: {}", cause),
-                )
+                CXaynAiError::ReadFile
+                    .with_context(format!("Failed to initialize the ai: {}", cause))
             })?
             .build()
             .map(CXaynAi)
             .map_err(|cause| {
-                ExternError::new_error(
-                    ErrorCode::new(CXaynAiError::InitAi as i32),
-                    format!("Failed to initialize the ai: {}", cause),
-                )
+                CXaynAiError::InitAi.with_context(format!("Failed to initialize the ai: {}", cause))
             })
     };
 
@@ -149,45 +135,56 @@ pub unsafe extern "C" fn xaynai_rerank(
 ) -> <CRanks as IntoFfi>::Value {
     let call = || {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
-            ExternError::new_error(
-                ErrorCode::new(CXaynAiError::AiPointer as i32),
-                "Failed to rerank the documents: The ai pointer is null",
-            )
+            CXaynAiError::AiPointer
+                .with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
         let history = if history_size == 0 {
             Vec::new()
-        } else if history.is_null() {
-            return Err(ExternError::new_error(
-                ErrorCode::new(CXaynAiError::HistoryPointer as i32),
-                "Failed to rerank the documents: The document history pointer is null",
-            ));
         } else {
-            chist_to_hist(unsafe { slice::from_raw_parts(history, history_size as usize) })?
+            unsafe {
+                history
+                    .as_ref()
+                    .ok_or_else(|| {
+                        CXaynAiError::HistoryPointer.with_context(
+                            "Failed to rerank the documents: The document history pointer is null",
+                        )
+                    })?
+                    .to_history(history_size)?
+            }
         };
 
         let documents = if documents_size == 0 {
             Vec::new()
-        } else if documents.is_null() {
-            return Err(ExternError::new_error(
-                ErrorCode::new(CXaynAiError::DocumentsPointer as i32),
-                "Failed to rerank the documents: The documents pointer is null",
-            ));
         } else {
-            cdocs_to_docs(unsafe { slice::from_raw_parts(documents, documents_size as usize) })?
+            unsafe {
+                documents
+                    .as_ref()
+                    .ok_or_else(|| {
+                        CXaynAiError::DocumentsPointer.with_context(
+                            "Failed to rerank the documents: The documents pointer is null",
+                        )
+                    })?
+                    .to_documents(documents_size)?
+            }
         };
 
         let ranks = xaynai
             .0
             .rerank(history.as_slice(), documents.as_slice())
             .into_iter()
+            .map(|(id, rank)| (id, rank as u32))
             .collect::<HashMap<_, _>>();
-        let ranks = documents
+        documents
             .iter()
-            .map(|document| ranks[&document.id] as u32)
-            .collect::<Vec<_>>();
-
-        Ok(CRanks(ranks))
+            .map(|document| ranks.get(&document.id).copied())
+            .collect::<Option<Vec<_>>>()
+            .map(CRanks)
+            .ok_or_else(|| {
+                CXaynAiError::Internal.with_context(
+                    "Failed to rerank the documents: The document ids are inconsistent",
+                )
+            })
     };
 
     if let Some(error) = unsafe { error.as_mut() } {
@@ -227,7 +224,7 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: <CXaynAi as IntoFfi>::Value) {
 pub unsafe extern "C" fn ranks_drop(ranks: <CRanks as IntoFfi>::Value, ranks_size: u32) {
     let _ = catch_unwind(|| {
         if ranks_size > 0 && !ranks.is_null() {
-            unsafe { Box::from_raw(slice::from_raw_parts_mut(ranks, ranks_size as usize)) };
+            unsafe { Box::from_raw(from_raw_parts_mut(ranks, ranks_size as usize)) };
         }
     });
 }

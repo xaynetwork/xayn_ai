@@ -1,6 +1,6 @@
 use std::panic::catch_unwind;
 
-use ffi_support::{destroy_c_string, ExternError};
+use ffi_support::{destroy_c_string, ErrorCode, ExternError};
 
 /// The Xayn AI error codes.
 #[repr(i32)]
@@ -31,6 +31,15 @@ pub enum CXaynAiError {
     DocumentIdPointer = 9,
     /// A document snippet null pointer error.
     DocumentSnippetPointer = 10,
+    /// An internal error.
+    Internal = 11,
+}
+
+impl CXaynAiError {
+    /// Provides context for the error code.
+    pub fn with_context(self, message: impl Into<String>) -> ExternError {
+        ExternError::new_error(ErrorCode::new(self as i32), message)
+    }
 }
 
 /// Frees the memory of the error message.
