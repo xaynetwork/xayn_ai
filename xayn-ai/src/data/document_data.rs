@@ -1,3 +1,5 @@
+use serde::{Serialize, Deserialize};
+
 use crate::{
     bert::Embedding,
     data::{document::DocumentId, CoiId},
@@ -5,27 +7,32 @@ use crate::{
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct DocumentIdComponent {
     pub id: DocumentId,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct DocumentContentComponent {
     pub snippet: String,
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct EmbeddingComponent {
     pub embedding: Embedding,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct LtrComponent {
     pub ltr_score: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct CoiComponent {
     /// The ID of the positive centre of interest
     pub id: CoiId,
@@ -36,11 +43,13 @@ pub struct CoiComponent {
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct ContextComponent {
     pub context_value: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct MabComponent {
     pub rank: usize,
 }
@@ -54,7 +63,8 @@ pub struct DocumentDataWithDocument {
     pub document_content: DocumentContentComponent,
 }
 
-#[cfg_attr(test, derive(Clone))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub struct DocumentDataWithEmbedding {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,
@@ -142,7 +152,8 @@ impl DocumentDataWithContext {
     }
 }
 
-#[cfg_attr(test, derive(Clone, Debug))]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
+#[derive(Serialize, Deserialize)]
 pub struct DocumentDataWithMab {
     pub document_id: DocumentIdComponent,
     pub embedding: EmbeddingComponent,

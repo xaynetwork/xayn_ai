@@ -1,5 +1,7 @@
+use serde::{Serialize, Deserialize};
+
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 pub struct DocumentId(pub String);
 
 impl From<&str> for DocumentId {
@@ -9,7 +11,7 @@ impl From<&str> for DocumentId {
 }
 
 /// This represents a result from the query.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Document {
     /// unique identifier of this document
     pub id: DocumentId,

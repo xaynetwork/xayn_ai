@@ -1,6 +1,7 @@
 use derive_more::{Deref, From};
 use displaydoc::Display;
 use float_cmp::{ApproxEq, F32Margin};
+use serde::{Serialize, Deserialize};
 use thiserror::Error;
 use tract_onnx::prelude::TractError;
 
@@ -11,7 +12,7 @@ use crate::{
 };
 
 /// A d-dimensional sequence embedding.
-#[derive(Clone, Debug, Deref, From)]
+#[derive(Clone, Debug, Deref, From, Serialize, Deserialize)]
 pub struct Embedding<D>(Array<f32, D>)
 where
     D: Dimension;

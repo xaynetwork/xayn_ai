@@ -1,19 +1,18 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
+    analytics::Analytics,
     data::{
         document::{Document, DocumentHistory},
         document_data::{
-            DocumentContentComponent,
-            DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
-            DocumentDataWithMab,
-            DocumentIdComponent,
+            DocumentContentComponent, DocumentDataWithDocument, DocumentDataWithEmbedding,
+            DocumentDataWithMab, DocumentIdComponent,
         },
         UserInterests,
     },
     error::Error,
     reranker_systems::{CoiSystemData, CommonSystems},
-    to_vec_of_ref_of,
-    DocumentId,
+    to_vec_of_ref_of, DocumentId,
 };
 
 #[cfg(test)]
@@ -41,14 +40,13 @@ fn collect_analytics<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     prev_documents: &[DocumentDataWithMab],
-) -> Result<(), Error>
+) -> Result<Analytics, Error>
 where
     CS: CommonSystems,
 {
     common_systems
         .analytics()
         .compute_analytics(history, prev_documents)
-        .and_then(|analytics| common_systems.database().save_analytics(&analytics))
 }
 
 fn make_documents_with_embedding<CS>(
@@ -100,7 +98,8 @@ where
     Ok((documents, user_interests, rank))
 }
 
-#[cfg_attr(test, derive(Clone, From))]
+#[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
+#[derive(Serialize, Deserialize)]
 pub enum PreviousDocuments {
     Embedding(Vec<DocumentDataWithEmbedding>),
     Mab(Vec<DocumentDataWithMab>),
@@ -140,17 +139,29 @@ impl PreviousDocuments {
     }
 }
 
-#[derive(Default)]
-#[cfg_attr(test, derive(Clone))]
+#[cfg_attr(test, derive(Clone, PartialEq, Debug))]
+#[derive(Default, Serialize, Deserialize)]
 pub struct RerankerData {
     user_interests: UserInterests,
     prev_documents: PreviousDocuments,
+}
+
+#[cfg(test)]
+impl RerankerData {
+    pub(crate) fn new(user_interests: UserInterests, prev_documents: PreviousDocuments) -> Self {
+        Self {
+            user_interests,
+            prev_documents,
+        }
+    }
 }
 
 pub struct Reranker<CS> {
     common_systems: CS,
     data: RerankerData,
     errors: Vec<Error>,
+    /// Analytics of the previous call to `rerank`.
+    analytics: Option<Analytics>,
 }
 
 impl<CS> Reranker<CS>
@@ -168,11 +179,20 @@ where
             common_systems,
             data,
             errors: Vec::new(),
+            analytics: None,
         })
     }
 
     pub fn errors(&self) -> &Vec<Error> {
         &self.errors
+    }
+
+    /// Returns the analytics for penultimate call to `rerank`.
+    /// Analytics will be provided only if the penultimate call to `rerank` was able
+    /// to run the full model without error, and the correct history is passed to the
+    /// last call to `rerank`.
+    pub fn analytics(&self) -> &Option<Analytics> {
+        &self.analytics
     }
 
     pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
@@ -195,9 +215,9 @@ where
             };
 
             if let PreviousDocuments::Mab(ref prev_documents) = self.data.prev_documents {
-                if let Err(e) = collect_analytics(&self.common_systems, history, &prev_documents) {
-                    self.errors.push(e);
-                }
+                self.analytics = collect_analytics(&self.common_systems, history, &prev_documents)
+                    .map_err(|e| self.errors.push(e))
+                    .ok();
             }
         }
 
@@ -233,13 +253,8 @@ mod tests {
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
         tests::{
-            data_with_embedding,
-            document_history,
-            documents_from_ids,
-            expected_rerank_unchanged,
-            history_for_prev_docs,
-            MemDb,
-            MockCommonSystems,
+            data_with_embedding, document_history, documents_from_ids, expected_rerank_unchanged,
+            history_for_prev_docs, MemDb, MockCommonSystems,
         },
     };
 
@@ -248,8 +263,7 @@ mod tests {
             data::UserInterests,
             reranker::{DocumentsRank, PreviousDocuments, RerankerData},
             tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
-            Document,
-            DocumentId,
+            Document, DocumentId,
         };
 
         pub fn reranker_data_with_mab() -> RerankerData {

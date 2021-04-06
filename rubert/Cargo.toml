@@ -10,6 +10,10 @@ edition = "2018"
 derive_more = { version = "0.99.13", default-features = false, features = ["deref", "from"] }
 displaydoc = "0.2.1"
 float-cmp = "0.8.0"
+# to be kepy in sync with tract-core
+ndarray = { version = "=0.13.0", features = ["serde"] }
 rubert-tokenizer = { path = "../rubert-tokenizer" }
+serde = "1.0.125"
 thiserror = "1.0.24"
 tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
+
