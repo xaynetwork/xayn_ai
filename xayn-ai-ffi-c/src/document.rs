@@ -55,7 +55,7 @@ pub struct CHistory<'a> {
 }
 
 /// Collects the document history from raw.
-pub fn hist_to_vec<'a>(hist: &'a [CHistory<'a>]) -> Result<Vec<DocumentHistory>, ExternError> {
+pub fn chist_to_hist(hist: &[CHistory]) -> Result<Vec<DocumentHistory>, ExternError> {
     hist.iter()
         .map(|history| {
             let id = history
@@ -86,7 +86,7 @@ pub struct CDocument<'a> {
 }
 
 /// Collects the documents from raw.
-pub fn docs_to_vec<'a>(docs: &'a [CDocument<'a>]) -> Result<Vec<Document>, ExternError> {
+pub fn cdocs_to_docs(docs: &[CDocument]) -> Result<Vec<Document>, ExternError> {
     docs.iter()
         .map(|document| {
             let id = document
@@ -124,7 +124,7 @@ mod tests {
         let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
         let (_, _, c_hist, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let history = hist_to_vec(c_hist.as_slice()).unwrap();
+        let history = chist_to_hist(c_hist.as_slice()).unwrap();
         assert_eq!(history.len(), hist_size as usize);
         for (dh, ch) in history.into_iter().zip(c_hist) {
             assert_eq!(dh.id.0, ch.id.as_str());
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_history_empty() {
-        let history = hist_to_vec(&[]).unwrap();
+        let history = chist_to_hist(&[]).unwrap();
         assert!(history.is_empty());
     }
 
@@ -147,7 +147,7 @@ mod tests {
         let (_, _, mut c_invalid, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = hist_to_vec(c_invalid.as_slice()).unwrap_err();
+        let error = chist_to_hist(c_invalid.as_slice()).unwrap_err();
         assert_eq!(error.get_code(), CXaynAiError::HistoryIdPointer);
         assert_eq!(
             error.get_message(),
@@ -162,7 +162,7 @@ mod tests {
         let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
         let (_, _, _, c_docs, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let documents = docs_to_vec(c_docs.as_slice()).unwrap();
+        let documents = cdocs_to_docs(c_docs.as_slice()).unwrap();
         assert_eq!(documents.len(), docs_size as usize);
         for (d, cd) in documents.into_iter().zip(c_docs) {
             assert_eq!(d.id.0, cd.id.as_str());
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_documents_empty() {
-        let documents = docs_to_vec(&[]).unwrap();
+        let documents = cdocs_to_docs(&[]).unwrap();
         assert!(documents.is_empty());
     }
 
@@ -185,7 +185,7 @@ mod tests {
         let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = docs_to_vec(c_invalid.as_slice()).unwrap_err();
+        let error = cdocs_to_docs(c_invalid.as_slice()).unwrap_err();
         assert_eq!(error.get_code(), CXaynAiError::DocumentIdPointer);
         assert_eq!(
             error.get_message(),
@@ -201,7 +201,7 @@ mod tests {
         let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].snippet = unsafe { FfiStr::from_raw(null()) };
-        let error = docs_to_vec(c_invalid.as_slice()).unwrap_err();
+        let error = cdocs_to_docs(c_invalid.as_slice()).unwrap_err();
         assert_eq!(error.get_code(), CXaynAiError::DocumentSnippetPointer);
         assert_eq!(
             error.get_message(),

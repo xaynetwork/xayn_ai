@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     panic::{catch_unwind, RefUnwindSafe},
+    ptr::null_mut,
     slice,
 };
 
@@ -15,7 +16,7 @@ use ffi_support::{
 use xayn_ai::{BetaSampler, Builder, DummyDatabase, Reranker, Systems};
 
 use crate::{
-    document::{docs_to_vec, hist_to_vec, CDocument, CHistory},
+    document::{cdocs_to_docs, chist_to_hist, CDocument, CHistory},
     error::CXaynAiError,
 };
 
@@ -24,7 +25,7 @@ use crate::{
 /// # Examples
 /// - Create a Xayn AI with [`xaynai_new()`].
 /// - Rerank documents with [`xaynai_rerank()`].
-/// - Free memory with [`xaynai_drop()`] and [`error_message_drop()`].
+/// - Free memory with [`xaynai_drop()`], [`ranks_drop()`] and [`error_message_drop()`].
 ///
 /// [`error_message_drop()`]: crate::error::error_message_drop
 pub struct CXaynAi(Reranker<Systems<DummyDatabase, BetaSampler>>);
@@ -53,7 +54,7 @@ pub unsafe extern "C" fn xaynai_new(
     vocab: FfiStr,
     model: FfiStr,
     error: *mut ExternError,
-) -> *mut CXaynAi {
+) -> <CXaynAi as IntoFfi>::Value {
     let call = || {
         let vocab = vocab.as_opt_str().ok_or_else(|| {
             ExternError::new_error(
@@ -96,12 +97,29 @@ pub unsafe extern "C" fn xaynai_new(
     }
 }
 
+/// The reranked ranks of the documents.
+///
+/// The array is in the same order as the documents used in [`xaynai_rerank()`].
+pub struct CRanks(Vec<u32>);
+
+unsafe impl IntoFfi for CRanks {
+    type Value = *mut u32;
+
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        null_mut()
+    }
+
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        self.0.leak().as_mut_ptr()
+    }
+}
+
 /// Reranks the documents with the Xayn AI.
 ///
-/// The reranked order is written to the ranks of the documents array.
-///
 /// # Errors
-/// Returns without changing the ranks if:
+/// Returns a null pointer if:
 /// - The xaynai is null.
 /// - The document history is invalid.
 /// - The documents are invalid.
@@ -119,15 +137,16 @@ pub unsafe extern "C" fn xaynai_new(
 /// terminating null byte.
 /// - A non-null error doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
+/// - A non-null, zero-sized ranks array is dereferenced.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
-    xaynai: *mut CXaynAi,
-    hist: *const CHistory,
-    hist_size: u32,
-    docs: *mut CDocument,
-    docs_size: u32,
+    xaynai: <CXaynAi as IntoFfi>::Value,
+    history: *const CHistory,
+    history_size: u32,
+    documents: *const CDocument,
+    documents_size: u32,
     error: *mut ExternError,
-) {
+) -> <CRanks as IntoFfi>::Value {
     let call = || {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
             ExternError::new_error(
@@ -136,46 +155,47 @@ pub unsafe extern "C" fn xaynai_rerank(
             )
         })?;
 
-        let hist = if hist_size == 0 {
-            &[]
-        } else if hist.is_null() {
+        let history = if history_size == 0 {
+            Vec::new()
+        } else if history.is_null() {
             return Err(ExternError::new_error(
                 ErrorCode::new(CXaynAiError::HistoryPointer as i32),
                 "Failed to rerank the documents: The document history pointer is null",
             ));
         } else {
-            unsafe { slice::from_raw_parts(hist, hist_size as usize) }
+            chist_to_hist(unsafe { slice::from_raw_parts(history, history_size as usize) })?
         };
-        let history = hist_to_vec(hist)?;
 
-        let docs = if docs_size == 0 {
-            &mut []
-        } else if docs.is_null() {
+        let documents = if documents_size == 0 {
+            Vec::new()
+        } else if documents.is_null() {
             return Err(ExternError::new_error(
                 ErrorCode::new(CXaynAiError::DocumentsPointer as i32),
                 "Failed to rerank the documents: The documents pointer is null",
             ));
         } else {
-            unsafe { slice::from_raw_parts_mut(docs, docs_size as usize) }
+            cdocs_to_docs(unsafe { slice::from_raw_parts(documents, documents_size as usize) })?
         };
-        let documents = docs_to_vec(docs)?;
 
         let ranks = xaynai
             .0
             .rerank(history.as_slice(), documents.as_slice())
             .into_iter()
             .collect::<HashMap<_, _>>();
-        for (doc, document) in docs.iter_mut().zip(documents) {
-            doc.rank = ranks[&document.id] as u32;
-        }
+        let ranks = documents
+            .iter()
+            .map(|document| ranks[&document.id] as u32)
+            .collect::<Vec<_>>();
 
-        Ok(())
+        Ok(CRanks(ranks))
     };
 
     if let Some(error) = unsafe { error.as_mut() } {
-        call_with_result(error, call);
+        call_with_result(error, call)
+    } else if let Ok(Ok(ranks)) = catch_unwind(call) {
+        ranks.into_ffi_value()
     } else {
-        let _ = catch_unwind(call);
+        CRanks::ffi_default()
     }
 }
 
@@ -187,7 +207,7 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// - A non-null xaynai is freed more than once.
 /// - A non-null xaynai is accessed after being freed.
 #[no_mangle]
-pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
+pub unsafe extern "C" fn xaynai_drop(xaynai: <CXaynAi as IntoFfi>::Value) {
     let _ = catch_unwind(|| {
         if !xaynai.is_null() {
             unsafe { Box::from_raw(xaynai) };
@@ -195,12 +215,26 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
     });
 }
 
+/// Frees the memory of the ranks array.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null ranks doesn't point to memory allocated by [`xaynai_rerank()`].
+/// - A non-zero ranks size is different from the documents size used in [`xaynai_rerank()`].
+/// - A non-null ranks is freed more than once.
+/// - A non-null ranks is accessed after being freed.
+#[no_mangle]
+pub unsafe extern "C" fn ranks_drop(ranks: <CRanks as IntoFfi>::Value, ranks_size: u32) {
+    let _ = catch_unwind(|| {
+        if ranks_size > 0 && !ranks.is_null() {
+            unsafe { Box::from_raw(slice::from_raw_parts_mut(ranks, ranks_size as usize)) };
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{
-        ffi::CString,
-        ptr::{null, null_mut},
-    };
+    use std::{ffi::CString, ptr::null};
 
     use super::*;
     use crate::utils::tests::{drop_values, setup_pointers, setup_values};
@@ -208,19 +242,19 @@ mod tests {
     #[test]
     fn test_rerank_full() {
         let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
-        let (c_vocab, c_model, c_hist, mut c_docs, c_error) =
+        let (c_vocab, c_model, c_hist, c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
-        unsafe {
+        let ranks = unsafe {
             xaynai_rerank(
                 xaynai,
                 c_hist.as_ptr(),
                 hist_size,
-                c_docs.as_mut_ptr(),
+                c_docs.as_ptr(),
                 docs_size,
                 c_error,
             )
@@ -228,6 +262,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
         unsafe { xaynai_drop(xaynai) };
+        unsafe { ranks_drop(ranks, docs_size) };
         drop_values(vocab, model, hist, docs, error);
     }
 
@@ -243,19 +278,20 @@ mod tests {
 
         let c_hist = null();
         let hist_size = 0;
-        let c_docs = null_mut();
+        let c_docs = null();
         let docs_size = 0;
-        unsafe { xaynai_rerank(xaynai, c_hist, hist_size, c_docs, docs_size, c_error) };
+        let ranks = unsafe { xaynai_rerank(xaynai, c_hist, hist_size, c_docs, docs_size, c_error) };
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
         unsafe { xaynai_drop(xaynai) };
+        unsafe { ranks_drop(ranks, docs_size) };
         drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
     fn test_rerank_history_empty() {
         let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (c_vocab, c_model, _, mut c_docs, c_error) =
+        let (c_vocab, c_model, _, c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
@@ -264,12 +300,12 @@ mod tests {
 
         let c_hist = null();
         let hist_size = 0;
-        unsafe {
+        let ranks = unsafe {
             xaynai_rerank(
                 xaynai,
                 c_hist,
                 hist_size,
-                c_docs.as_mut_ptr(),
+                c_docs.as_ptr(),
                 docs_size,
                 c_error,
             )
@@ -277,6 +313,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
         unsafe { xaynai_drop(xaynai) };
+        unsafe { ranks_drop(ranks, docs_size) };
         drop_values(vocab, model, hist, docs, error);
     }
 
@@ -290,9 +327,9 @@ mod tests {
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
-        let c_docs = null_mut();
+        let c_docs = null();
         let docs_size = 0;
-        unsafe {
+        let ranks = unsafe {
             xaynai_rerank(
                 xaynai,
                 c_hist.as_ptr(),
@@ -305,6 +342,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
         unsafe { xaynai_drop(xaynai) };
+        unsafe { ranks_drop(ranks, docs_size) };
         drop_values(vocab, model, hist, docs, error);
     }
 
@@ -383,7 +421,7 @@ mod tests {
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = null_mut();
-        unsafe {
+        assert!(unsafe {
             xaynai_rerank(
                 c_invalid,
                 c_hist.as_ptr(),
@@ -392,7 +430,8 @@ mod tests {
                 docs_size,
                 c_error,
             )
-        };
+        }
+        .is_null());
         assert_eq!(error.get_code(), CXaynAiError::AiPointer);
         assert_eq!(
             error.get_message(),
@@ -413,7 +452,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
         let c_invalid = null();
-        unsafe {
+        assert!(unsafe {
             xaynai_rerank(
                 xaynai,
                 c_invalid,
@@ -422,7 +461,8 @@ mod tests {
                 docs_size,
                 c_error,
             )
-        };
+        }
+        .is_null());
         assert_eq!(error.get_code(), CXaynAiError::HistoryPointer);
         assert_eq!(
             error.get_message(),
@@ -444,7 +484,7 @@ mod tests {
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
         let c_invalid = null_mut();
-        unsafe {
+        assert!(unsafe {
             xaynai_rerank(
                 xaynai,
                 c_hist.as_ptr(),
@@ -453,7 +493,8 @@ mod tests {
                 docs_size,
                 c_error,
             )
-        };
+        }
+        .is_null());
         assert_eq!(error.get_code(), CXaynAiError::DocumentsPointer);
         assert_eq!(
             error.get_message(),
