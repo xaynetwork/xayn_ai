@@ -8,8 +8,8 @@ mod error;
 mod utils;
 
 pub use crate::{
-    ai::{ranks_drop, xaynai_drop, xaynai_new, xaynai_rerank, CRanks, CXaynAi},
-    document::{CDocument, CFeedback, CHistory, CRelevance},
+    ai::{xaynai_drop, xaynai_new, xaynai_rerank, CXaynAi},
+    document::{ranks_drop, CDocument, CFeedback, CHistory, CRanks, CRelevance},
     error::{error_message_drop, CXaynAiError},
     utils::dummy_function,
 };

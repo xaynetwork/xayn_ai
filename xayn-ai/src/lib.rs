@@ -18,7 +18,7 @@ pub use crate::{
     builder::Builder,
     data::document::{Document, DocumentHistory, DocumentId, Relevance, UserFeedback},
     error::Error,
-    reranker::Reranker,
+    reranker::{DocumentsRank, Reranker},
 };
 
 // temporary exports until the internals are wrapped

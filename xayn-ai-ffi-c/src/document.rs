@@ -1,7 +1,12 @@
-use std::slice::from_raw_parts;
+use std::{
+    collections::HashMap,
+    panic::catch_unwind,
+    ptr::null_mut,
+    slice::{from_raw_parts, from_raw_parts_mut},
+};
 
-use ffi_support::{ExternError, FfiStr};
-use xayn_ai::{Document, DocumentHistory, Relevance, UserFeedback};
+use ffi_support::{ExternError, FfiStr, IntoFfi};
+use xayn_ai::{Document, DocumentHistory, DocumentsRank, Relevance, UserFeedback};
 
 use crate::error::CXaynAiError;
 
@@ -149,6 +154,71 @@ impl CDocument<'_> {
             })
             .collect()
     }
+}
+
+/// The ranks of the reranked documents.
+///
+/// The array is in the same order as the documents used in [`xaynai_rerank()`].
+///
+/// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
+pub struct CRanks(pub(crate) Vec<u32>);
+
+unsafe impl IntoFfi for CRanks {
+    type Value = *mut u32;
+
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        null_mut()
+    }
+
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        self.0.leak().as_mut_ptr()
+    }
+}
+
+impl CRanks {
+    /// Reorders the ranks wrt the documents.
+    pub fn from_reranked_documents(
+        ranks: DocumentsRank,
+        documents: &[Document],
+    ) -> Result<Self, ExternError> {
+        let ranks = ranks
+            .into_iter()
+            .map(|(id, rank)| (id, rank as u32))
+            .collect::<HashMap<_, _>>();
+        documents
+            .iter()
+            .map(|document| ranks.get(&document.id).copied())
+            .collect::<Option<Vec<_>>>()
+            .map(Self)
+            .ok_or_else(|| {
+                CXaynAiError::Internal.with_context(
+                    "Failed to rerank the documents: The document ids are inconsistent",
+                )
+            })
+    }
+
+    unsafe fn drop(ranks: <CRanks as IntoFfi>::Value, ranks_size: u32) {
+        if !ranks.is_null() && ranks_size > 0 {
+            unsafe { Box::from_raw(from_raw_parts_mut(ranks, ranks_size as usize)) };
+        }
+    }
+}
+
+/// Frees the memory of the ranks array.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null ranks doesn't point to memory allocated by [`xaynai_rerank()`].
+/// - A non-zero ranks size is different from the documents size used in [`xaynai_rerank()`].
+/// - A non-null ranks is freed more than once.
+/// - A non-null ranks is accessed after being freed.
+///
+/// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
+#[no_mangle]
+pub unsafe extern "C" fn ranks_drop(ranks: <CRanks as IntoFfi>::Value, ranks_size: u32) {
+    let _ = catch_unwind(|| CRanks::drop(ranks, ranks_size));
 }
 
 #[cfg(test)]
