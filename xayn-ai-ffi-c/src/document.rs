@@ -218,7 +218,7 @@ impl CRanks {
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, ranks_size: u32) {
-    let _ = catch_unwind(|| CRanks::drop(ranks, ranks_size));
+    let _ = catch_unwind(|| unsafe { CRanks::drop(ranks, ranks_size) });
 }
 
 #[cfg(test)]

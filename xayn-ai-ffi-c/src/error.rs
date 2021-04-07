@@ -68,7 +68,7 @@ impl CXaynAiError {
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
-    let _ = catch_unwind(|| CXaynAiError::drop_message(error));
+    let _ = catch_unwind(|| unsafe { CXaynAiError::drop_message(error) });
 }
 
 #[cfg(test)]

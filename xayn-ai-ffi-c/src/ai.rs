@@ -124,7 +124,7 @@ pub unsafe extern "C" fn xaynai_new(
     model: FfiStr,
     error: *mut ExternError,
 ) -> *mut CXaynAi {
-    let new = || CXaynAi::new(vocab, model);
+    let new = || unsafe { CXaynAi::new(vocab, model) };
 
     if let Some(error) = unsafe { error.as_mut() } {
         call_with_result(error, new)
@@ -187,7 +187,7 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// - A non-null xaynai is accessed after being freed.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
-    let _ = catch_unwind(|| CXaynAi::drop(xaynai));
+    let _ = catch_unwind(|| unsafe { CXaynAi::drop(xaynai) });
 }
 
 #[cfg(test)]

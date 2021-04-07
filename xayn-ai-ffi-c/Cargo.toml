@@ -15,4 +15,4 @@ xayn-ai = { path = "../xayn-ai" }
 cbindgen = "=0.18.0"
 
 [lib]
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["cdylib", "staticlib"]
