@@ -116,7 +116,10 @@ mod tests {
 
         let database = Db::new(RefCell::new(HashMap::new()));
         database.save_data(&data).expect("saving data");
-        let loaded_data = database.load_data().expect("load data").expect("loaded data");
+        let loaded_data = database
+            .load_data()
+            .expect("load data")
+            .expect("loaded data");
 
         assert_eq!(data, loaded_data);
     }

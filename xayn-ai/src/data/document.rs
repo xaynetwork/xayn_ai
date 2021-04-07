@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]

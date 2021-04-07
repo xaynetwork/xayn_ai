@@ -1,7 +1,7 @@
 pub mod document;
 pub mod document_data;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::bert::Embedding;
 

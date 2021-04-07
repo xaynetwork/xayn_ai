@@ -1,7 +1,7 @@
 use derive_more::{Deref, From};
 use displaydoc::Display;
 use float_cmp::{ApproxEq, F32Margin};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tract_onnx::prelude::TractError;
 

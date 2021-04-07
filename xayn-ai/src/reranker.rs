@@ -5,14 +5,18 @@ use crate::{
     data::{
         document::{Document, DocumentHistory},
         document_data::{
-            DocumentContentComponent, DocumentDataWithDocument, DocumentDataWithEmbedding,
-            DocumentDataWithMab, DocumentIdComponent,
+            DocumentContentComponent,
+            DocumentDataWithDocument,
+            DocumentDataWithEmbedding,
+            DocumentDataWithMab,
+            DocumentIdComponent,
         },
         UserInterests,
     },
     error::Error,
     reranker_systems::{CoiSystemData, CommonSystems},
-    to_vec_of_ref_of, DocumentId,
+    to_vec_of_ref_of,
+    DocumentId,
 };
 
 #[cfg(test)]
@@ -253,8 +257,13 @@ mod tests {
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
         tests::{
-            data_with_embedding, document_history, documents_from_ids, expected_rerank_unchanged,
-            history_for_prev_docs, MemDb, MockCommonSystems,
+            data_with_embedding,
+            document_history,
+            documents_from_ids,
+            expected_rerank_unchanged,
+            history_for_prev_docs,
+            MemDb,
+            MockCommonSystems,
         },
     };
 
@@ -263,7 +272,8 @@ mod tests {
             data::UserInterests,
             reranker::{DocumentsRank, PreviousDocuments, RerankerData},
             tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
-            Document, DocumentId,
+            Document,
+            DocumentId,
         };
 
         pub fn reranker_data_with_mab() -> RerankerData {

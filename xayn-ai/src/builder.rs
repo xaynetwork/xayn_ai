@@ -9,12 +9,18 @@ use crate::{
     analytics::AnalyticsSystem as AnalyticsSystemImpl,
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
-    database::{DatabaseRaw, Db, Database},
+    database::{Database, DatabaseRaw, Db},
     ltr::ConstLtr,
     mab::{BetaSample, BetaSampler, MabRanking},
     reranker::Reranker,
     reranker_systems::{
-        AnalyticsSystem, BertSystem, CoiSystem, CommonSystems, ContextSystem, LtrSystem, MabSystem,
+        AnalyticsSystem,
+        BertSystem,
+        CoiSystem,
+        CommonSystems,
+        ContextSystem,
+        LtrSystem,
+        MabSystem,
     },
     Error,
 };
@@ -139,16 +145,14 @@ impl<DBR, V, M, BS> Builder<DBR, V, M, BS> {
         let mab = MabRanking::new(self.sampler);
         let analytics = AnalyticsSystemImpl;
 
-        Reranker::new(
-            Systems {
-                database,
-                bert,
-                coi,
-                ltr,
-                context,
-                mab,
-                analytics,
-            },
-        )
+        Reranker::new(Systems {
+            database,
+            bert,
+            coi,
+            ltr,
+            context,
+            mab,
+            analytics,
+        })
     }
 }
