@@ -266,7 +266,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}
 
       - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
-        if: steps.cargo-lipo-cache.outputs.cache-hit != 'true'
+        if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
         run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
 
   test-android-libs:
