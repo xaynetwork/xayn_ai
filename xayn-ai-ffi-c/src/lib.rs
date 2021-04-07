@@ -1,46 +1,18 @@
+//! C FFI for the Xayn AI.
 #![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
-//! The RuBert pipeline computes embeddings of sequences.
-//!
-//! Sequences are anything string-like and can also be single words or snippets. The embeddings are
-//! f32-arrays and their shape depends on the pooling strategy.
-//!
-//! ```no_run
-//! use rubert::{Builder, FirstPooler};
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let rubert = Builder::from_files("vocab.txt", "model.onnx")?
-//!         .with_accents(false)
-//!         .with_lowercase(true)
-//!         .with_token_size(64)?
-//!         .with_pooling(FirstPooler)
-//!         .build()?;
-//!
-//!     let embedding = rubert.run("This is a sequence.")?;
-//!     assert_eq!(embedding.shape(), [rubert.embedding_size()]);
-//!
-//!     Ok(())
-//! }
-//! ```
+#![allow(unused_unsafe)]
 
-mod builder;
-mod model;
-mod pipeline;
-mod pooler;
-mod tokenizer;
+mod ai;
+mod document;
+mod error;
+mod utils;
 
 pub use crate::{
-    builder::{Builder, BuilderError},
-    pipeline::{RuBert, RuBertError},
-    pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler},
+    ai::{xaynai_drop, xaynai_new, xaynai_rerank, CXaynAi},
+    document::{ranks_drop, CDocument, CFeedback, CHistory, CRanks, CRelevance},
+    error::{error_message_drop, CXaynAiError},
+    utils::dummy_function,
 };
-#[cfg(doc)]
-pub use crate::{
-    model::ModelError,
-    pooler::{Embedding, PoolerError},
-    tokenizer::TokenizerError,
-};
-#[doc(hidden)]
-pub use tract_onnx::prelude::tract_ndarray as ndarray;
 
 #[cfg(test)]
 pub(crate) mod tests {

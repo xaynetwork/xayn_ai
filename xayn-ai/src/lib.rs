@@ -16,10 +16,14 @@ pub(crate) use rubert::ndarray;
 
 pub use crate::{
     builder::Builder,
-    data::document::{Document, DocumentHistory, DocumentId},
+    data::document::{Document, DocumentHistory, DocumentId, Relevance, UserFeedback},
     error::Error,
-    reranker::Reranker,
+    reranker::{DocumentsRank, Reranker},
 };
+
+// temporary exports until the internals are wrapped
+#[doc(hidden)]
+pub use crate::{builder::Systems, database::DummyDatabase, mab::BetaSampler};
 
 #[cfg(test)]
 mod tests;
