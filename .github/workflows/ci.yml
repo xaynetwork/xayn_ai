@@ -190,7 +190,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tests-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tests-${{ needs.registry-cache.outputs.cache-date }}-
 
-      # TODO: cache this as well to avoid frequent downloading
       - name: Download data
         run: sh download_data.sh
 
@@ -234,7 +233,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ needs.registry-cache.outputs.cache-date }}-
 
-      # TODO: cache this as well to avoid frequent downloading
       - name: Download data
         run: sh download_data.sh
 
