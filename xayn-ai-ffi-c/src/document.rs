@@ -71,12 +71,10 @@ impl CHistory<'_> {
     /// - A history size is too large to address the memory of a history slice.
     /// - A non-null id doesn't point to an aligned, contiguous area of memory with a terminating
     /// null byte.
-    ///
-    /// # Panics
-    /// The function panics if:
-    /// - The history size is zero.
     pub unsafe fn to_history(&self, size: u32) -> Result<Vec<DocumentHistory>, ExternError> {
-        assert!(size > 0);
+        if size == 0 {
+            return Ok(Vec::new());
+        }
 
         unsafe { from_raw_parts(self, size as usize) }
             .iter()
@@ -120,12 +118,10 @@ impl CDocument<'_> {
     /// - A documents size is too large to address the memory of a documents slice.
     /// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
     /// terminating null byte.
-    ///
-    /// # Panics
-    /// The function panics if:
-    /// - The documents size is zero.
     pub unsafe fn to_documents(&self, size: u32) -> Result<Vec<Document>, ExternError> {
-        assert!(size > 0);
+        if size == 0 {
+            return Ok(Vec::new());
+        }
 
         unsafe { from_raw_parts(self, size as usize) }
             .iter()
@@ -199,7 +195,7 @@ impl CRanks {
             })
     }
 
-    unsafe fn drop(ranks: <CRanks as IntoFfi>::Value, ranks_size: u32) {
+    unsafe fn drop(ranks: *mut u32, ranks_size: u32) {
         if !ranks.is_null() && ranks_size > 0 {
             unsafe { Box::from_raw(from_raw_parts_mut(ranks, ranks_size as usize)) };
         }
@@ -245,9 +241,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_history_empty() {
-        let _ = unsafe { (&*null::<CHistory>()).to_history(0) };
+        let history = unsafe { (&*null::<CHistory>()).to_history(0) }.unwrap();
+        assert!(history.is_empty());
     }
 
     #[test]
@@ -283,9 +279,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_documents_empty() {
-        let _ = unsafe { (&*null::<CDocument>()).to_documents(0) };
+        let documents = unsafe { (&*null::<CDocument>()).to_documents(0) }.unwrap();
+        assert!(documents.is_empty());
     }
 
     #[test]

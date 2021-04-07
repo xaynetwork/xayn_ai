@@ -54,7 +54,7 @@ impl CXaynAi {
     }
 
     unsafe fn rerank(
-        xaynai: <CXaynAi as IntoFfi>::Value,
+        xaynai: *mut CXaynAi,
         history: *const CHistory,
         history_size: u32,
         documents: *const CDocument,
@@ -68,38 +68,29 @@ impl CXaynAi {
         let history = if history_size == 0 {
             Vec::new()
         } else {
-            unsafe {
-                history
-                    .as_ref()
-                    .ok_or_else(|| {
-                        CXaynAiError::HistoryPointer.with_context(
-                            "Failed to rerank the documents: The document history pointer is null",
-                        )
-                    })?
-                    .to_history(history_size)?
-            }
+            let history = unsafe { history.as_ref() }.ok_or_else(|| {
+                CXaynAiError::HistoryPointer.with_context(
+                    "Failed to rerank the documents: The document history pointer is null",
+                )
+            })?;
+            unsafe { history.to_history(history_size) }?
         };
 
         let documents = if documents_size == 0 {
             Vec::new()
         } else {
-            unsafe {
-                documents
-                    .as_ref()
-                    .ok_or_else(|| {
-                        CXaynAiError::DocumentsPointer.with_context(
-                            "Failed to rerank the documents: The documents pointer is null",
-                        )
-                    })?
-                    .to_documents(documents_size)?
-            }
+            let documents = unsafe { documents.as_ref() }.ok_or_else(|| {
+                CXaynAiError::DocumentsPointer
+                    .with_context("Failed to rerank the documents: The documents pointer is null")
+            })?;
+            unsafe { documents.to_documents(documents_size) }?
         };
 
         let ranks = xaynai.0.rerank(&history, &documents);
         CRanks::from_reranked_documents(ranks, &documents)
     }
 
-    unsafe fn drop(xaynai: <CXaynAi as IntoFfi>::Value) {
+    unsafe fn drop(xaynai: *mut CXaynAi) {
         if !xaynai.is_null() {
             unsafe { Box::from_raw(xaynai) };
         }
