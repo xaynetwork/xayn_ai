@@ -10,9 +10,9 @@ struct UserFeatures {
     /// total number of search queries over all sessions
     num_queries: usize,
     /// mean number of terms per query
-    num_query_terms: f32,
+    avg_query_terms: f32,
     /// mean number of unique query terms per session
-    num_query_terms_session: f32,
+    avg_query_terms_session: f32,
 }
 
 struct QueryFeatures {
@@ -26,9 +26,9 @@ struct QueryFeatures {
     occurrences: u32,
     click_mrr: f32,
     /// average number of clicks
-    num_clicks: u32,
+    avg_clicks: u32,
     /// average number of skips
-    num_skips: u32,
+    avg_skips: u32,
 }
 
 #[derive(Clone)]
@@ -45,18 +45,24 @@ struct SearchResult {
     query_counter: u8,
 }
 
-// Yandex dwell-time
+/// Yandex notion of dwell-time
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
 enum ClickScore {
-    Low = 0, // < 50 units of time
-    Medium,  // 50-300 units of time
-    High,    // > 300 units of time
+    /// less than 50 units of time
+    Low = 0,
+    /// 50-300 units of time
+    Medium,
+    /// more than 300 units of time
+    High,
 }
 
 enum UrlFeedback {
-    Click(ClickScore), // snippet examined, clicked
-    Skip,              // examined but not clicked
-    Miss,              // not examined
+    /// snippet examined and clicked
+    Click(ClickScore),
+    /// snippet examined but not clicked
+    Skip,
+    /// snippet not examined
+    Miss,
 }
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -77,8 +83,31 @@ fn query_features(_history: &[SearchResult], _query: &[SearchResult]) -> QueryFe
     unimplemented!();
 }
 
-fn seasonality(_history: &[SearchResult], _domain: i32) -> f32 {
-    0.
+fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
+    query
+        .iter()
+        .filter(|r| r.session_id == session_id)
+        .cloned()
+        .flat_map(|r| r.query_words)
+        .collect::<HashSet<_>>()
+        .len()
+}
+
+/// weekend seasonality of a given domain
+fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
+    let (clicks_wknd, clicks_wkday) = history
+        .iter()
+        .filter(|r| r.domain == domain && r.relevance > ClickScore::Low)
+        .fold((0, 0), |(wknd, wkday), r| {
+            // assume day 1 is Tue
+            if r.day % 7 == 5 || r.day % 7 == 6 {
+                (wknd + 1, wkday)
+            } else {
+                (wknd, wkday + 1)
+            }
+        });
+
+    2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
 }
 
 fn prior(outcome: UrlFeedback) -> u8 {
@@ -191,7 +220,7 @@ fn user_features(history: &[SearchResult]) -> UserFeatures {
         click_entropy,
         click_counts,
         num_queries,
-        num_query_terms,
-        num_query_terms_session,
+        avg_query_terms: num_query_terms,
+        avg_query_terms_session: num_query_terms_session,
     }
 }
