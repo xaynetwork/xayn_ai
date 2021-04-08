@@ -1,3 +1,5 @@
+use std::{cell::RefCell, collections::HashMap};
+
 use crate::{error::Error, reranker::RerankerData};
 
 #[cfg_attr(test, mockall::automock)]
@@ -53,6 +55,29 @@ fn reranker_data_key(version: u8) -> Vec<u8> {
     [key_prefix, &[version]].concat()
 }
 
+/// A temporary dummy database.
+#[derive(Default)]
+pub struct InMemoryDatabaseRaw(RefCell<HashMap<Vec<u8>, Vec<u8>>>);
+
+impl DatabaseRaw for InMemoryDatabaseRaw {
+    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error> {
+        Ok(self.0.borrow().get(&key.as_ref().to_vec()).cloned())
+    }
+
+    fn insert(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<(), Error> {
+        self.0.borrow_mut()
+            .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
+
+        Ok(())
+    }
+
+    fn delete(&self, key: impl AsRef<[u8]>) -> Result<(), Error> {
+        self.0.borrow_mut().remove(&key.as_ref().to_vec());
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,27 +86,6 @@ mod tests {
         reranker::PreviousDocuments,
         tests::{cois_from_words, data_with_mab, mocked_bert_system},
     };
-
-    use std::{cell::RefCell, collections::HashMap};
-
-    impl DatabaseRaw for RefCell<HashMap<Vec<u8>, Vec<u8>>> {
-        fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error> {
-            Ok(self.borrow().get(&key.as_ref().to_vec()).cloned())
-        }
-
-        fn insert(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<(), Error> {
-            self.borrow_mut()
-                .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
-
-            Ok(())
-        }
-
-        fn delete(&self, key: impl AsRef<[u8]>) -> Result<(), Error> {
-            self.borrow_mut().remove(&key.as_ref().to_vec());
-
-            Ok(())
-        }
-    }
 
     #[test]
     fn test_database_save_load() {
@@ -94,7 +98,7 @@ mod tests {
         let docs = PreviousDocuments::Mab(docs);
         let data = RerankerData::new(user_interests, docs);
 
-        let database = Db::new(RefCell::new(HashMap::new()));
+        let database = Db::new(InMemoryDatabaseRaw::default());
         database.save_data(&data).expect("saving data");
         let loaded_data = database
             .load_data()
@@ -102,22 +106,5 @@ mod tests {
             .expect("loaded data");
 
         assert_eq!(data, loaded_data);
-    }
-}
-
-/// A temporary dummy database.
-pub struct DummyDatabase;
-
-impl Database for DummyDatabase {
-    fn save_data(&self, _state: &RerankerData) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn load_data(&self) -> Result<Option<RerankerData>, Error> {
-        Ok(None)
-    }
-
-    fn save_analytics(&self, _analytics: &Analytics) -> Result<(), Error> {
-        Ok(())
     }
 }

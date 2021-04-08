@@ -21,7 +21,7 @@ pub use crate::{
 
 // temporary exports until the internals are wrapped
 #[doc(hidden)]
-pub use crate::{builder::Systems, database::DummyDatabase, mab::BetaSampler};
+pub use crate::{builder::Systems, database::InMemoryDatabaseRaw, mab::BetaSampler};
 
 #[cfg(test)]
 mod tests;
