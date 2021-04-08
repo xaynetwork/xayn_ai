@@ -65,7 +65,8 @@ impl DatabaseRaw for InMemoryDatabaseRaw {
     }
 
     fn insert(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<(), Error> {
-        self.0.borrow_mut()
+        self.0
+            .borrow_mut()
             .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
 
         Ok(())
