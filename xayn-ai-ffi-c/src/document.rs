@@ -84,7 +84,7 @@ impl CHistory<'_> {
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CXaynAiError::HistoryIdPointer.with_context(
+                        CXaynAiError::HistoryIdPointer.with_extern_context(
                             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
                         )
                     })?;
@@ -131,7 +131,7 @@ impl CDocument<'_> {
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CXaynAiError::DocumentIdPointer.with_context(
+                        CXaynAiError::DocumentIdPointer.with_extern_context(
                             "Failed to rerank the documents: A document id is not a valid C-string pointer",
                         )
                     })?;
@@ -140,7 +140,7 @@ impl CDocument<'_> {
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CXaynAiError::DocumentSnippetPointer.with_context(
+                        CXaynAiError::DocumentSnippetPointer.with_extern_context(
                             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
                         )
                     })?;
@@ -189,7 +189,7 @@ impl CRanks {
             .collect::<Option<Vec<_>>>()
             .map(Self)
             .ok_or_else(|| {
-                CXaynAiError::Internal.with_context(
+                CXaynAiError::Internal.with_extern_context(
                     "Failed to rerank the documents: The document ids are inconsistent",
                 )
             })

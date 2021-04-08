@@ -1,11 +1,17 @@
-use std::panic::catch_unwind;
+use std::{cmp::Ordering, mem::transmute, panic::catch_unwind};
 
+use displaydoc::Display;
 use ffi_support::{destroy_c_string, ErrorCode, ExternError};
+use thiserror::Error;
+use xayn_ai::Error;
+
+use crate::utils::AsPtr;
+
+impl AsPtr for ExternError {}
 
 /// The Xayn AI error codes.
 #[repr(i32)]
-#[cfg_attr(test, derive(Clone, Copy, Debug))]
-#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Clone, Copy, Debug, Display, Error)]
 pub enum CXaynAiError {
     /// An irrecoverable error.
     Panic = -1,
@@ -17,38 +23,89 @@ pub enum CXaynAiError {
     ModelPointer = 2,
     /// A vocab or model file IO error.
     ReadFile = 3,
+    /// A database null pointer error.
+    DatabasePointer = 4,
+    /// A database get error.
+    DatabaseGet = 5,
+    /// A database put error.
+    DatabaseInsert = 6,
+    /// A database delete error.
+    DatabaseDelete = 7,
     /// A Xayn AI initialization error.
-    InitAi = 4,
+    InitAi = 8,
     /// A Xayn AI null pointer error.
-    AiPointer = 5,
+    AiPointer = 9,
     /// A document history null pointer error.
-    HistoryPointer = 6,
+    HistoryPointer = 10,
     /// A document history id null pointer error.
-    HistoryIdPointer = 7,
+    HistoryIdPointer = 11,
     /// A documents null pointer error.
-    DocumentsPointer = 8,
+    DocumentsPointer = 12,
     /// A document id null pointer error.
-    DocumentIdPointer = 9,
+    DocumentIdPointer = 13,
     /// A document snippet null pointer error.
-    DocumentSnippetPointer = 10,
+    DocumentSnippetPointer = 14,
     /// Pointer is null but size > 0 or size == 0 but pointer is not null.
-    SerializedPointer = 11,
+    SerializedPointer = 15,
     /// Deserialization of reranker data error.
-    RerankerDeserialization = 12,
+    RerankerDeserialization = 16,
     /// Serialization of reranker data error.
-    RerankerSerialization = 13,
+    RerankerSerialization = 17,
     /// An internal error.
     Internal = 1024,
 }
 
+impl PartialEq<ErrorCode> for CXaynAiError {
+    fn eq(&self, other: &ErrorCode) -> bool {
+        (*self as i32).eq(&other.code())
+    }
+}
+
+impl PartialEq<CXaynAiError> for ErrorCode {
+    fn eq(&self, other: &CXaynAiError) -> bool {
+        other.eq(self)
+    }
+}
+
+impl PartialOrd<ErrorCode> for CXaynAiError {
+    fn partial_cmp(&self, other: &ErrorCode) -> Option<Ordering> {
+        (*self as i32).partial_cmp(&other.code())
+    }
+}
+
+impl PartialOrd<CXaynAiError> for ErrorCode {
+    fn partial_cmp(&self, other: &CXaynAiError) -> Option<Ordering> {
+        other.partial_cmp(self)
+    }
+}
+
+impl From<ErrorCode> for CXaynAiError {
+    fn from(code: ErrorCode) -> Self {
+        if code < Self::Panic || code >= Self::Internal {
+            Self::Internal
+        } else {
+            unsafe { transmute(code) }
+        }
+    }
+}
+
 impl CXaynAiError {
-    /// Provides context for the error code.
-    pub fn with_context(self, message: impl Into<String>) -> ExternError {
+    /// Provides extern context for the error code.
+    pub fn with_extern_context(self, message: impl Into<String>) -> ExternError {
         ExternError::new_error(ErrorCode::new(self as i32), message)
     }
 
+    /// Provides anyhow context for the error code.
+    pub fn with_anyhow_context(self, message: Option<impl Into<String>>) -> Error {
+        if let Some(message) = message {
+            Error::new(self).context(message.into())
+        } else {
+            Error::new(self)
+        }
+    }
+
     unsafe fn drop_message(error: *mut ExternError) {
-        if let Some(error) = error.as_mut() {
+        if let Some(error) = unsafe { error.as_mut() } {
             unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
         }
     }
@@ -79,21 +136,7 @@ pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use ffi_support::ErrorCode;
-
     use super::*;
-
-    impl PartialEq<ErrorCode> for CXaynAiError {
-        fn eq(&self, other: &ErrorCode) -> bool {
-            (*self as i32).eq(&other.code())
-        }
-    }
-
-    impl PartialEq<CXaynAiError> for ErrorCode {
-        fn eq(&self, other: &CXaynAiError) -> bool {
-            other.eq(self)
-        }
-    }
 
     #[test]
     fn test_error() {

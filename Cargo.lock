@@ -1528,6 +1528,8 @@ name = "xayn-ai-ffi-c"
 version = "0.1.0"
 dependencies = [
  "cbindgen",
+ "displaydoc",
  "ffi-support",
+ "thiserror",
  "xayn-ai",
 ]

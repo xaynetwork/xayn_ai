@@ -4,6 +4,18 @@
 #[no_mangle]
 pub extern "C" fn dummy_function() {}
 
+pub trait AsPtr {
+    #[inline]
+    fn as_ptr(&self) -> *const Self {
+        self as *const Self
+    }
+
+    #[inline]
+    fn as_mut_ptr(&mut self) -> *mut Self {
+        self as *mut Self
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use std::{
@@ -14,7 +26,7 @@ pub(crate) mod tests {
     use ffi_support::{ExternError, FfiStr};
 
     use crate::{
-        database::Database,
+        database::CDatabase,
         document::{CDocument, CFeedback, CHistory, CRelevance},
         tests::{MODEL, VOCAB},
     };
@@ -74,7 +86,7 @@ pub(crate) mod tests {
     ) -> (
         FfiStr<'a>,
         FfiStr<'a>,
-        *const Database,
+        *const CDatabase,
         Vec<CHistory<'a>>,
         Vec<CDocument<'a>>,
         *mut ExternError,

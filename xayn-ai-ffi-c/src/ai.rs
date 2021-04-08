@@ -49,14 +49,19 @@ impl CXaynAi {
             unsafe { slice::from_raw_parts(serialized, serialized_size as usize) }
         };
         let vocab = vocab.as_opt_str().ok_or_else(|| {
-            CXaynAiError::VocabPointer.with_context(
+            CXaynAiError::VocabPointer.with_extern_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
             )
         })?;
         let model = model.as_opt_str().ok_or_else(|| {
-            CXaynAiError::ModelPointer.with_context(
+            CXaynAiError::ModelPointer.with_extern_context(
                 "Failed to initialize the ai: The model is not a valid C-string pointer",
             )
+        })?;
+
+        let database = unsafe { database.as_ref() }.cloned().ok_or_else(|| {
+            CXaynAiError::DatabasePointer
+                .with_extern_context("Failed to initialize the ai: The database pointer is null")
         })?;
 
         Builder::default()
@@ -68,12 +73,14 @@ impl CXaynAi {
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
                 CXaynAiError::ReadFile
-                    .with_context(format!("Failed to initialize the ai: {}", cause))
+                    .with_extern_context(format!("Failed to initialize the ai: {}", cause))
             })?
+            .with_database_raw(database)
             .build()
             .map(CXaynAi)
             .map_err(|cause| {
-                CXaynAiError::InitAi.with_context(format!("Failed to initialize the ai: {}", cause))
+                CXaynAiError::InitAi
+                    .with_extern_context(format!("Failed to initialize the ai: {}", cause))
             })
     }
 
@@ -86,14 +93,14 @@ impl CXaynAi {
     ) -> Result<CRanks, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
             CXaynAiError::AiPointer
-                .with_context("Failed to rerank the documents: The ai pointer is null")
+                .with_extern_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
         let history = if history_size == 0 {
             Vec::new()
         } else {
             let history = unsafe { history.as_ref() }.ok_or_else(|| {
-                CXaynAiError::HistoryPointer.with_context(
+                CXaynAiError::HistoryPointer.with_extern_context(
                     "Failed to rerank the documents: The document history pointer is null",
                 )
             })?;
@@ -104,8 +111,9 @@ impl CXaynAi {
             Vec::new()
         } else {
             let documents = unsafe { documents.as_ref() }.ok_or_else(|| {
-                CXaynAiError::DocumentsPointer
-                    .with_context("Failed to rerank the documents: The documents pointer is null")
+                CXaynAiError::DocumentsPointer.with_extern_context(
+                    "Failed to rerank the documents: The documents pointer is null",
+                )
             })?;
             unsafe { documents.to_documents(documents_size) }?
         };
