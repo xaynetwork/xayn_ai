@@ -8,7 +8,7 @@ use std::{
 use ffi_support::{ExternError, FfiStr, IntoFfi};
 use xayn_ai::{Document, DocumentHistory, DocumentsRank, Relevance, UserFeedback};
 
-use crate::error::CXaynAiError;
+use crate::error::CError;
 
 /// A document relevance level.
 #[repr(u8)]
@@ -84,7 +84,7 @@ impl CHistory<'_> {
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CXaynAiError::HistoryIdPointer.with_extern_context(
+                        CError::HistoryIdPointer.with_extern_context(
                             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
                         )
                     })?;
@@ -131,7 +131,7 @@ impl CDocument<'_> {
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CXaynAiError::DocumentIdPointer.with_extern_context(
+                        CError::DocumentIdPointer.with_extern_context(
                             "Failed to rerank the documents: A document id is not a valid C-string pointer",
                         )
                     })?;
@@ -140,7 +140,7 @@ impl CDocument<'_> {
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CXaynAiError::DocumentSnippetPointer.with_extern_context(
+                        CError::DocumentSnippetPointer.with_extern_context(
                             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
                         )
                     })?;
@@ -189,7 +189,7 @@ impl CRanks {
             .collect::<Option<Vec<_>>>()
             .map(Self)
             .ok_or_else(|| {
-                CXaynAiError::Internal.with_extern_context(
+                CError::Internal.with_extern_context(
                     "Failed to rerank the documents: The document ids are inconsistent",
                 )
             })
@@ -316,7 +316,7 @@ mod tests {
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { c_invalid[0].to_history(hist_size) }.unwrap_err();
-        assert_eq!(error.get_code(), CXaynAiError::HistoryIdPointer);
+        assert_eq!(error.get_code(), CError::HistoryIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
@@ -355,7 +355,7 @@ mod tests {
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
-        assert_eq!(error.get_code(), CXaynAiError::DocumentIdPointer);
+        assert_eq!(error.get_code(), CError::DocumentIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document id is not a valid C-string pointer",
@@ -372,7 +372,7 @@ mod tests {
 
         c_invalid[0].snippet = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
-        assert_eq!(error.get_code(), CXaynAiError::DocumentSnippetPointer);
+        assert_eq!(error.get_code(), CError::DocumentSnippetPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",

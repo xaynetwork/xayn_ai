@@ -12,7 +12,7 @@ impl AsPtr for ExternError {}
 /// The Xayn AI error codes.
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, Display, Error)]
-pub enum CXaynAiError {
+pub enum CError {
     /// An irrecoverable error.
     Panic = -1,
     /// No error.
@@ -55,31 +55,31 @@ pub enum CXaynAiError {
     Internal = 1024,
 }
 
-impl PartialEq<ErrorCode> for CXaynAiError {
+impl PartialEq<ErrorCode> for CError {
     fn eq(&self, other: &ErrorCode) -> bool {
         (*self as i32).eq(&other.code())
     }
 }
 
-impl PartialEq<CXaynAiError> for ErrorCode {
-    fn eq(&self, other: &CXaynAiError) -> bool {
+impl PartialEq<CError> for ErrorCode {
+    fn eq(&self, other: &CError) -> bool {
         other.eq(self)
     }
 }
 
-impl PartialOrd<ErrorCode> for CXaynAiError {
+impl PartialOrd<ErrorCode> for CError {
     fn partial_cmp(&self, other: &ErrorCode) -> Option<Ordering> {
         (*self as i32).partial_cmp(&other.code())
     }
 }
 
-impl PartialOrd<CXaynAiError> for ErrorCode {
-    fn partial_cmp(&self, other: &CXaynAiError) -> Option<Ordering> {
+impl PartialOrd<CError> for ErrorCode {
+    fn partial_cmp(&self, other: &CError) -> Option<Ordering> {
         other.partial_cmp(self)
     }
 }
 
-impl From<ErrorCode> for CXaynAiError {
+impl From<ErrorCode> for CError {
     fn from(code: ErrorCode) -> Self {
         if code < Self::Panic || code >= Self::Internal {
             Self::Internal
@@ -89,7 +89,7 @@ impl From<ErrorCode> for CXaynAiError {
     }
 }
 
-impl CXaynAiError {
+impl CError {
     /// Provides extern context for the error code.
     pub fn with_extern_context(self, message: impl Into<String>) -> ExternError {
         ExternError::new_error(ErrorCode::new(self as i32), message)
@@ -131,7 +131,7 @@ impl CXaynAiError {
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
-    let _ = catch_unwind(|| unsafe { CXaynAiError::drop_message(error) });
+    let _ = catch_unwind(|| unsafe { CError::drop_message(error) });
 }
 
 #[cfg(test)]
@@ -140,7 +140,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_error() {
-        assert_eq!(CXaynAiError::Panic, ErrorCode::PANIC);
-        assert_eq!(CXaynAiError::Success, ErrorCode::SUCCESS);
+        assert_eq!(CError::Panic, ErrorCode::PANIC);
+        assert_eq!(CError::Success, ErrorCode::SUCCESS);
     }
 }

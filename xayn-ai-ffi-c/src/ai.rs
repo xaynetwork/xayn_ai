@@ -9,7 +9,7 @@ use xayn_ai::{Builder, Reranker};
 use crate::{
     database::Database,
     document::{CBytes, CDocument, CHistory, CRanks},
-    error::CXaynAiError,
+    error::CError,
 };
 
 /// The Xayn AI.
@@ -39,7 +39,7 @@ impl CXaynAi {
     ) -> Result<CXaynAi, ExternError> {
         if !(serialized.is_null() ^ (serialized_size > 0)) {
             return Err(
-            CXaynAiError::SerializedPointer.with_context(
+            CError::SerializedPointer.with_context(
                 "Failed to initialize the ai: invalid combination of serialized and serialized_size",
             ));
         }
@@ -49,37 +49,37 @@ impl CXaynAi {
             unsafe { slice::from_raw_parts(serialized, serialized_size as usize) }
         };
         let vocab = vocab.as_opt_str().ok_or_else(|| {
-            CXaynAiError::VocabPointer.with_extern_context(
+            CError::VocabPointer.with_extern_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
             )
         })?;
         let model = model.as_opt_str().ok_or_else(|| {
-            CXaynAiError::ModelPointer.with_extern_context(
+            CError::ModelPointer.with_extern_context(
                 "Failed to initialize the ai: The model is not a valid C-string pointer",
             )
         })?;
 
         let database = unsafe { database.as_ref() }.cloned().ok_or_else(|| {
-            CXaynAiError::DatabasePointer
+            CError::DatabasePointer
                 .with_extern_context("Failed to initialize the ai: The database pointer is null")
         })?;
 
         Builder::default()
             .with_serialized_database(serialized)
             .map_err(|cause| {
-                CXaynAiError::RerankerDeserialization
+                CError::RerankerDeserialization
                     .with_context(format!("Failed to deserialize reranker data: {}", cause))
             })?
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
-                CXaynAiError::ReadFile
+                CError::ReadFile
                     .with_extern_context(format!("Failed to initialize the ai: {}", cause))
             })?
             .with_database_raw(database)
             .build()
             .map(CXaynAi)
             .map_err(|cause| {
-                CXaynAiError::InitAi
+                CError::InitAi
                     .with_extern_context(format!("Failed to initialize the ai: {}", cause))
             })
     }
@@ -92,7 +92,7 @@ impl CXaynAi {
         documents_size: u32,
     ) -> Result<CRanks, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
-            CXaynAiError::AiPointer
+            CError::AiPointer
                 .with_extern_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
@@ -100,7 +100,7 @@ impl CXaynAi {
             Vec::new()
         } else {
             let history = unsafe { history.as_ref() }.ok_or_else(|| {
-                CXaynAiError::HistoryPointer.with_extern_context(
+                CError::HistoryPointer.with_extern_context(
                     "Failed to rerank the documents: The document history pointer is null",
                 )
             })?;
@@ -111,7 +111,7 @@ impl CXaynAi {
             Vec::new()
         } else {
             let documents = unsafe { documents.as_ref() }.ok_or_else(|| {
-                CXaynAiError::DocumentsPointer.with_extern_context(
+                CError::DocumentsPointer.with_extern_context(
                     "Failed to rerank the documents: The documents pointer is null",
                 )
             })?;
@@ -124,12 +124,11 @@ impl CXaynAi {
 
     unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<CBytes, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
-            CXaynAiError::AiPointer
-                .with_context("Failed to rerank the documents: The ai pointer is null")
+            CError::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
         let bytes = xaynai.0.serialize().map_err(|cause| {
-            CXaynAiError::RerankerSerialization
+            CError::RerankerSerialization
                 .with_context(format!("Failed to serialize reranker data: {}", cause))
         })?;
 
@@ -291,7 +290,7 @@ mod tests {
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         let ranks = unsafe {
             xaynai_rerank(
@@ -303,7 +302,7 @@ mod tests {
                 c_error,
             )
         };
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         unsafe { xaynai_drop(xaynai) };
         unsafe { ranks_drop(ranks, docs_size) };
@@ -318,14 +317,14 @@ mod tests {
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         let c_hist = null();
         let hist_size = 0;
         let c_docs = null();
         let docs_size = 0;
         let ranks = unsafe { xaynai_rerank(xaynai, c_hist, hist_size, c_docs, docs_size, c_error) };
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         unsafe { xaynai_drop(xaynai) };
         unsafe { ranks_drop(ranks, docs_size) };
@@ -340,7 +339,7 @@ mod tests {
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         let c_hist = null();
         let hist_size = 0;
@@ -354,7 +353,7 @@ mod tests {
                 c_error,
             )
         };
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         unsafe { xaynai_drop(xaynai) };
         unsafe { ranks_drop(ranks, docs_size) };
@@ -369,7 +368,7 @@ mod tests {
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         let c_docs = null();
         let docs_size = 0;
@@ -383,7 +382,7 @@ mod tests {
                 c_error,
             )
         };
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         unsafe { xaynai_drop(xaynai) };
         unsafe { ranks_drop(ranks, docs_size) };
@@ -398,7 +397,7 @@ mod tests {
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
         assert!(unsafe { xaynai_new(null(), 0, c_invalid, c_model, c_error) }.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::VocabPointer);
+        assert_eq!(error.get_code(), CError::VocabPointer);
         assert_eq!(
             error.get_message(),
             "Failed to initialize the ai: The vocab is not a valid C-string pointer",
@@ -416,7 +415,7 @@ mod tests {
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
         assert!(unsafe { xaynai_new(null(), 0, c_invalid, c_model, c_error) }.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::ReadFile);
+        assert_eq!(error.get_code(), CError::ReadFile);
         assert_eq!(
             error.get_message(),
             "Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)",
@@ -434,7 +433,7 @@ mod tests {
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
         assert!(unsafe { xaynai_new(null(), 0, c_vocab, c_invalid, c_error) }.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::ModelPointer);
+        assert_eq!(error.get_code(), CError::ModelPointer);
         assert_eq!(
             error.get_message(),
             "Failed to initialize the ai: The model is not a valid C-string pointer",
@@ -452,7 +451,7 @@ mod tests {
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
         assert!(unsafe { xaynai_new(null(), 0, c_vocab, c_invalid, c_error) }.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::ReadFile);
+        assert_eq!(error.get_code(), CError::ReadFile);
         assert_eq!(
             error.get_message(),
             "Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)",
@@ -480,7 +479,7 @@ mod tests {
             )
         }
         .is_null());
-        assert_eq!(error.get_code(), CXaynAiError::AiPointer);
+        assert_eq!(error.get_code(), CError::AiPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: The ai pointer is null",
@@ -497,7 +496,7 @@ mod tests {
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         let c_invalid = null();
         assert!(unsafe {
@@ -511,7 +510,7 @@ mod tests {
             )
         }
         .is_null());
-        assert_eq!(error.get_code(), CXaynAiError::HistoryPointer);
+        assert_eq!(error.get_code(), CError::HistoryPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: The document history pointer is null",
@@ -529,7 +528,7 @@ mod tests {
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::Success);
+        assert_eq!(error.get_code(), CError::Success);
 
         let c_invalid = null_mut();
         assert!(unsafe {
@@ -543,7 +542,7 @@ mod tests {
             )
         }
         .is_null());
-        assert_eq!(error.get_code(), CXaynAiError::DocumentsPointer);
+        assert_eq!(error.get_code(), CError::DocumentsPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: The documents pointer is null",
@@ -561,7 +560,7 @@ mod tests {
 
         let xaynai = unsafe { xaynai_new(null(), 1, c_vocab, c_model, c_error) };
         assert!(xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::SerializedPointer);
+        assert_eq!(error.get_code(), CError::SerializedPointer);
     }
 
     #[test]
@@ -573,7 +572,7 @@ mod tests {
         let serialized = vec![1u8];
         let xaynai = unsafe { xaynai_new(serialized.as_ptr(), 0, c_vocab, c_model, c_error) };
         assert!(xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::SerializedPointer);
+        assert_eq!(error.get_code(), CError::SerializedPointer);
     }
 
     #[test]
@@ -593,6 +592,6 @@ mod tests {
             )
         };
         assert!(xaynai.is_null());
-        assert_eq!(error.get_code(), CXaynAiError::RerankerDeserialization);
+        assert_eq!(error.get_code(), CError::RerankerDeserialization);
     }
 }

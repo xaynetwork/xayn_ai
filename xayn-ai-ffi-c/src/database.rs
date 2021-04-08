@@ -3,7 +3,7 @@ use std::{marker::PhantomData, slice::from_raw_parts};
 use ffi_support::ExternError;
 use xayn_ai::{DatabaseRaw, Error};
 
-use crate::{error::CXaynAiError, utils::AsPtr};
+use crate::{error::CError, utils::AsPtr};
 
 #[repr(C)]
 pub struct CKey<'a> {
@@ -101,8 +101,7 @@ impl DatabaseRaw for CDatabase {
 
         let value = unsafe { (self.get)(key.as_ptr(), error.as_mut_ptr()) };
         let code = error.get_code().into();
-        let result = if let (CXaynAiError::Success, Some(value)) = (code, unsafe { value.as_mut() })
-        {
+        let result = if let (CError::Success, Some(value)) = (code, unsafe { value.as_mut() }) {
             Ok(unsafe { value.to_vec() })
         } else {
             Err(code.with_anyhow_context(error.get_message().as_opt_str()))
@@ -119,8 +118,8 @@ impl DatabaseRaw for CDatabase {
         let mut error = ExternError::success();
 
         unsafe { (self.insert)(key.as_ptr(), value.as_ptr(), error.as_mut_ptr()) };
-        let code = CXaynAiError::from(error.get_code());
-        let result = if let CXaynAiError::Success = code {
+        let code = CError::from(error.get_code());
+        let result = if let CError::Success = code {
             Ok(())
         } else {
             Err(code.with_anyhow_context(error.get_message().as_opt_str()))
@@ -135,8 +134,8 @@ impl DatabaseRaw for CDatabase {
         let mut error = ExternError::success();
 
         unsafe { (self.delete)(key.as_ptr(), error.as_mut_ptr()) };
-        let code = CXaynAiError::from(error.get_code());
-        let result = if let CXaynAiError::Success = code {
+        let code = CError::from(error.get_code());
+        let result = if let CError::Success = code {
             Ok(())
         } else {
             Err(code.with_anyhow_context(error.get_message().as_opt_str()))

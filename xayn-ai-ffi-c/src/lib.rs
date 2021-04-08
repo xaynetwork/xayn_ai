@@ -20,7 +20,7 @@ pub use crate::{
         CRanks,
         CRelevance,
     },
-    error::{error_message_drop, CXaynAiError},
+    error::{error_message_drop, CError},
     utils::dummy_function,
 };
 
