@@ -6,11 +6,15 @@ pub extern "C" fn dummy_function() {}
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::ffi::{CStr, CString};
+    use std::{
+        ffi::{CStr, CString},
+        ptr::null,
+    };
 
     use ffi_support::{ExternError, FfiStr};
 
     use crate::{
+        database::Database,
         document::{CDocument, CFeedback, CHistory, CRelevance},
         tests::{MODEL, VOCAB},
     };
@@ -70,12 +74,15 @@ pub(crate) mod tests {
     ) -> (
         FfiStr<'a>,
         FfiStr<'a>,
+        *const Database,
         Vec<CHistory<'a>>,
         Vec<CDocument<'a>>,
         *mut ExternError,
     ) {
         let vocab = FfiStr::from_cstr(vocab);
         let model = FfiStr::from_cstr(model);
+
+        let database = null();
 
         let hist = hist
             .iter()
@@ -97,7 +104,7 @@ pub(crate) mod tests {
 
         let error = error as *mut _;
 
-        (vocab, model, hist, docs, error)
+        (vocab, model, database, hist, docs, error)
     }
 
     /// Cleans up the leaked memory of the test values.

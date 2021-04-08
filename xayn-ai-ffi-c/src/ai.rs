@@ -7,6 +7,7 @@ use ffi_support::{call_with_result, implement_into_ffi_by_pointer, ExternError, 
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
+    database::Database,
     document::{CBytes, CDocument, CHistory, CRanks},
     error::CXaynAiError,
 };
@@ -277,7 +278,7 @@ mod tests {
     #[test]
     fn test_rerank_full() {
         let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
-        let (c_vocab, c_model, c_hist, c_docs, c_error) =
+        let (c_vocab, c_model, c_db, c_hist, c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
@@ -304,7 +305,7 @@ mod tests {
     #[test]
     fn test_rerank_empty() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
-        let (c_vocab, c_model, _, _, c_error) =
+        let (c_vocab, c_model, c_db, _, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
@@ -326,7 +327,7 @@ mod tests {
     #[test]
     fn test_rerank_history_empty() {
         let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (c_vocab, c_model, _, c_docs, c_error) =
+        let (c_vocab, c_model, c_db, _, c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
@@ -355,7 +356,7 @@ mod tests {
     #[test]
     fn test_rerank_documents_empty() {
         let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
-        let (c_vocab, c_model, c_hist, _, c_error) =
+        let (c_vocab, c_model, c_db, c_hist, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
@@ -384,7 +385,8 @@ mod tests {
     #[test]
     fn test_vocab_null() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
-        let (_, c_model, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (_, c_model, c_db, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
         assert!(unsafe { xaynai_new(null(), 0, c_invalid, c_model, c_error) }.is_null());
@@ -400,7 +402,8 @@ mod tests {
     #[test]
     fn test_vocab_invalid() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
-        let (_, c_model, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (_, c_model, c_db, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
@@ -418,7 +421,8 @@ mod tests {
     #[test]
     fn test_model_null() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
-        let (c_vocab, _, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (c_vocab, _, c_db, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
         assert!(unsafe { xaynai_new(null(), 0, c_vocab, c_invalid, c_error) }.is_null());
@@ -434,7 +438,8 @@ mod tests {
     #[test]
     fn test_model_invalid() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
-        let (c_vocab, _, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (c_vocab, _, c_db, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
@@ -452,7 +457,7 @@ mod tests {
     #[test]
     fn test_ai_null() {
         let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
-        let (_, _, c_hist, mut c_docs, c_error) =
+        let (_, _, _, c_hist, mut c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = null_mut();
@@ -479,7 +484,7 @@ mod tests {
     #[test]
     fn test_history_null() {
         let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
-        let (c_vocab, c_model, _, mut c_docs, c_error) =
+        let (c_vocab, c_model, c_db, _, mut c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
@@ -511,7 +516,7 @@ mod tests {
     #[test]
     fn test_documents_null() {
         let (vocab, model, hist, hist_size, docs, docs_size, mut error) = setup_values();
-        let (c_vocab, c_model, c_hist, _, c_error) =
+        let (c_vocab, c_model, c_db, c_hist, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };

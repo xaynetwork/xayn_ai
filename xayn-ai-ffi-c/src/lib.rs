@@ -3,6 +3,7 @@
 #![allow(unused_unsafe)]
 
 mod ai;
+mod database;
 mod document;
 mod error;
 mod utils;

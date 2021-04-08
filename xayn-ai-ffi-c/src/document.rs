@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn test_history_to_vec() {
         let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
-        let (_, _, c_hist, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (_, _, _, c_hist, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let history = unsafe { c_hist[0].to_history(hist_size) }.unwrap();
         assert_eq!(history.len(), hist_size as usize);
@@ -311,7 +311,8 @@ mod tests {
     #[test]
     fn test_history_id_null() {
         let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
-        let (_, _, mut c_invalid, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (_, _, _, mut c_invalid, _, _) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { c_invalid[0].to_history(hist_size) }.unwrap_err();
@@ -327,7 +328,7 @@ mod tests {
     #[test]
     fn test_documents_to_vec() {
         let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (_, _, _, c_docs, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (_, _, _, _, c_docs, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let documents = unsafe { c_docs[0].to_documents(docs_size) }.unwrap();
         assert_eq!(documents.len(), docs_size as usize);
@@ -349,7 +350,8 @@ mod tests {
     #[test]
     fn test_document_id_null() {
         let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (_, _, _, _, mut c_invalid, _) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
@@ -365,7 +367,8 @@ mod tests {
     #[test]
     fn test_document_snippet_null() {
         let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (_, _, _, mut c_invalid, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+        let (_, _, _, _, mut c_invalid, _) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         c_invalid[0].snippet = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
