@@ -5,7 +5,7 @@ use displaydoc::Display;
 use rubert_tokenizer::{Builder, BuilderError, Padding, Tokenizer as BertTokenizer, Truncation};
 use thiserror::Error;
 
-use crate::ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Array2, Axis};
 
 /// A pre-configured Bert tokenizer.
 pub struct Tokenizer {
@@ -87,10 +87,11 @@ impl Tokenizer {
 
 #[cfg(test)]
 mod tests {
+    use ndarray::ArrayView;
     use std::{fs::File, io::BufReader};
 
     use super::*;
-    use crate::{ndarray::ArrayView, tests::VOCAB};
+    use crate::tests::VOCAB;
 
     fn tokenizer(token_size: usize) -> Tokenizer {
         let vocab = BufReader::new(File::open(VOCAB).unwrap());

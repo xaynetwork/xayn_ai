@@ -12,8 +12,6 @@ mod reranker;
 mod reranker_systems;
 mod utils;
 
-pub(crate) use rubert::ndarray;
-
 pub use crate::{
     builder::Builder,
     data::document::{Document, DocumentHistory, DocumentId, Relevance, UserFeedback},

@@ -299,7 +299,7 @@ mod tests {
             LtrComponent,
         },
     };
-    use rubert::ndarray::arr1;
+    use ndarray::arr1;
 
     use float_cmp::approx_eq;
     use maplit::hashmap;

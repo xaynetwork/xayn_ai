@@ -127,13 +127,6 @@ impl PreviousDocuments {
         }
     }
 
-    fn is_empty(&self) -> bool {
-        match self {
-            PreviousDocuments::Embedding(documents) => documents.is_empty(),
-            PreviousDocuments::Mab(documents) => documents.is_empty(),
-        }
-    }
-
     #[cfg(test)]
     fn len(&self) -> usize {
         match self {
@@ -204,7 +197,8 @@ where
         // re-allocating the vector on each method call.
         self.errors.clear();
 
-        if !history.is_empty() && !self.data.prev_documents.is_empty() {
+        // feedback loop and analytics
+        {
             let user_interests = self.data.user_interests.clone();
             let prev_documents = self.data.prev_documents.to_coi_system_data();
 
@@ -267,6 +261,15 @@ mod tests {
         },
     };
 
+    macro_rules! check_error {
+        ($reranker: expr, $error:pat) => {
+            assert!($reranker
+                .errors()
+                .iter()
+                .any(|e| matches!(e.downcast_ref().unwrap(), $error)));
+        };
+    }
+
     mod car_interest_example {
         use crate::{
             data::UserInterests,
@@ -315,7 +318,6 @@ mod tests {
         let rank = reranker.rerank(&[], &[]);
 
         assert_eq!(rank, []);
-        assert!(reranker.errors().is_empty())
     }
 
     /// A user performs the very first search that returns results/`Document`s.
@@ -338,9 +340,7 @@ mod tests {
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
-        assert_eq!(reranker.errors().len(), 1);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
+        check_error!(reranker, CoiSystemError::NoCoi);
     }
 
     /// A user performed the very first search. The `Reranker` created the
@@ -393,7 +393,6 @@ mod tests {
         let rank = reranker.rerank(&[], &car_interest_example::documents());
 
         assert_eq!(rank, car_interest_example::expected_rerank());
-        assert!(reranker.errors().is_empty());
         assert_eq!(
             reranker.data.prev_documents.len(),
             car_interest_example::documents().len()
@@ -420,9 +419,7 @@ mod tests {
         assert_eq!(rank, car_interest_example::expected_rerank());
         assert_eq!(reranker.data.prev_documents.len(), 6);
 
-        assert_eq!(reranker.errors().len(), 1);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
 
     /// A user performed the very first search. The `Reranker` created the
@@ -454,9 +451,7 @@ mod tests {
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
-        assert_eq!(reranker.errors().len(), 1);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
 
     /// Similar to `test_first_and_second_search_no_history` but this time
@@ -484,11 +479,7 @@ mod tests {
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
-        assert_eq!(reranker.errors().len(), 2);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
-
-        let error = reranker.errors()[1].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        check_error!(reranker, CoiSystemError::NoCoi);
     }
 }

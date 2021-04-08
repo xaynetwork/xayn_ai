@@ -8,48 +8,38 @@ pub trait Database {
 }
 
 pub trait DatabaseRaw {
-    fn get<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
-    where
-        K: AsRef<[u8]>;
+    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error>;
 
-    fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>;
+    fn insert(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<(), Error>;
 
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>;
+    fn delete(&self, key: impl AsRef<[u8]>) -> Result<(), Error>;
 }
 
-pub struct Db<DbRaw> {
-    db_raw: DbRaw,
-}
+pub struct Db<DbRaw>(DbRaw);
 
-impl<DbRaw> Db<DbRaw>
-where
-    DbRaw: DatabaseRaw,
-{
+impl<DbRaw> Db<DbRaw> {
     pub fn new(db_raw: DbRaw) -> Self {
-        Self { db_raw }
+        Self(db_raw)
     }
 }
+
+const CURRENT_SCHEMA_VERSION: u8 = 0;
 
 impl<DbRaw> Database for Db<DbRaw>
 where
     DbRaw: DatabaseRaw,
 {
     fn save_data(&self, state: &RerankerData) -> Result<(), Error> {
-        let key = reranker_data_key(0);
+        let key = reranker_data_key(CURRENT_SCHEMA_VERSION);
         let value = bincode::serialize(state)?;
 
-        self.db_raw.put(key, value)
+        self.0.insert(key, value)
     }
 
     fn load_data(&self) -> Result<Option<RerankerData>, Error> {
-        let key = reranker_data_key(0);
+        let key = reranker_data_key(CURRENT_SCHEMA_VERSION);
 
-        self.db_raw
+        self.0
             .get(key)?
             .map(|bs| bincode::deserialize(&bs))
             .transpose()
@@ -75,28 +65,18 @@ mod tests {
     use std::{cell::RefCell, collections::HashMap};
 
     impl DatabaseRaw for RefCell<HashMap<Vec<u8>, Vec<u8>>> {
-        fn get<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
-        where
-            K: AsRef<[u8]>,
-        {
+        fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error> {
             Ok(self.borrow().get(&key.as_ref().to_vec()).cloned())
         }
 
-        fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
-        where
-            K: AsRef<[u8]>,
-            V: AsRef<[u8]>,
-        {
+        fn insert(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<(), Error> {
             self.borrow_mut()
                 .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
 
             Ok(())
         }
 
-        fn delete<K>(&self, key: K) -> Result<(), Error>
-        where
-            K: AsRef<[u8]>,
-        {
+        fn delete(&self, key: impl AsRef<[u8]>) -> Result<(), Error> {
             self.borrow_mut().remove(&key.as_ref().to_vec());
 
             Ok(())

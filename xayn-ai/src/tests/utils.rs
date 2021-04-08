@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use rubert::ndarray::arr1;
+use ndarray::arr1;
 
 use crate::{
     data::{

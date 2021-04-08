@@ -193,7 +193,7 @@ impl CoiSystemData for DocumentDataWithMab {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ndarray::arr1;
+    use ndarray::arr1;
 
     #[test]
     fn transition_and_get() {

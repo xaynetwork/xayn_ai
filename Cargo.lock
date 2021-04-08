@@ -1508,6 +1508,7 @@ dependencies = [
  "float-cmp",
  "maplit",
  "mockall",
+ "ndarray",
  "rand",
  "rand_distr",
  "rubert",

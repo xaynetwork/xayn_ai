@@ -1,15 +1,12 @@
 use derive_more::{Deref, From};
 use displaydoc::Display;
 use float_cmp::{ApproxEq, F32Margin};
+use ndarray::{s, Array, Array1, ArrayBase, Data, Dimension, Ix1, Ix2, Zip};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tract_onnx::prelude::TractError;
 
-use crate::{
-    model::Prediction,
-    ndarray::{s, Array, Array1, ArrayBase, Data, Dimension, Ix1, Ix2, Zip},
-    tokenizer::AttentionMask,
-};
+use crate::{model::Prediction, tokenizer::AttentionMask};
 
 /// A d-dimensional sequence embedding.
 #[derive(Clone, Debug, Deref, From, Serialize, Deserialize)]
@@ -127,10 +124,10 @@ impl AveragePooler {
 
 #[cfg(test)]
 mod tests {
+    use ndarray::{arr1, arr2, arr3};
     use tract_onnx::prelude::IntoArcTensor;
 
     use super::*;
-    use crate::ndarray::{arr1, arr2, arr3};
 
     #[test]
     fn test_none() {
