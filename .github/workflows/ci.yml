@@ -303,7 +303,7 @@ jobs:
         shell: bash
         run: |
           wget -q -O - https://github.com/rust-embedded/cross/releases/download/v0.2.1/cross-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xvzf -
-          echo "$ {{ env.CROSS_CHECKSUM }} *cross" | shasum -c -
+          echo "${{ env.CROSS_CHECKSUM }} *cross" | shasum -c -
           mv cross ~/.cargo/bin/
 
       - name: Download data
