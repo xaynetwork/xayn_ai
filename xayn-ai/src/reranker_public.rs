@@ -6,13 +6,14 @@ use std::{
 use rubert::{AveragePooler, Builder as RuBertBuilder, NonePooler, RuBert};
 
 use crate::{
-    analytics::AnalyticsSystem as AnalyticsSystemImpl,
+    analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
+    data::document::{Document, DocumentHistory, DocumentsRank},
     database::{Database, DatabaseRaw, Db},
     ltr::ConstLtr,
-    mab::{BetaSample, BetaSampler, MabRanking},
-    reranker::Reranker,
+    mab::{BetaSampler, MabRanking},
+    reranker,
     reranker_systems::{
         AnalyticsSystem,
         BertSystem,
@@ -25,19 +26,18 @@ use crate::{
     Error,
 };
 
-pub struct Systems<BS, DBR> {
+pub struct Systems<DBR> {
     database: Db<DBR>,
     bert: RuBert<AveragePooler>,
     coi: CoiSystemImpl,
     ltr: ConstLtr,
     context: Context,
-    mab: MabRanking<BS>,
+    mab: MabRanking<BetaSampler>,
     analytics: AnalyticsSystemImpl,
 }
 
-impl<BS, DBR> CommonSystems for Systems<BS, DBR>
+impl<DBR> CommonSystems for Systems<DBR>
 where
-    BS: BetaSample,
     DBR: DatabaseRaw,
 {
     fn database(&self) -> &dyn Database {
@@ -69,36 +69,51 @@ where
     }
 }
 
-pub struct Builder<DB, V, M, BS> {
-    database: DB,
-    bert: RuBertBuilder<V, M, NonePooler>,
-    sampler: BS,
+pub struct Reranker<DBR>(reranker::Reranker<Systems<DBR>>);
+
+impl<DBR> Reranker<DBR>
+where
+    DBR: DatabaseRaw,
+{
+    pub fn errors(&self) -> &Vec<Error> {
+        self.0.errors()
+    }
+
+    pub fn analytics(&self) -> &Option<Analytics> {
+        self.0.analytics()
+    }
+
+    pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
+        self.0.rerank(history, documents)
+    }
 }
 
-impl Default for Builder<(), (), (), BetaSampler> {
+pub struct Builder<DB, V, M> {
+    database: DB,
+    bert: RuBertBuilder<V, M, NonePooler>,
+}
+
+impl Default for Builder<(), (), ()> {
     fn default() -> Self {
         Self {
             database: (),
             bert: RuBertBuilder::new((), ()),
-            sampler: BetaSampler,
         }
     }
 }
 
-impl<DBR, V, M, BS> Builder<DBR, V, M, BS> {
-    pub fn with_database_raw<D>(self, database: D) -> Builder<D, V, M, BS> {
+impl<DBR, V, M> Builder<DBR, V, M> {
+    pub fn with_database_raw<D>(self, database: D) -> Builder<D, V, M> {
         Builder {
             database,
             bert: self.bert,
-            sampler: self.sampler,
         }
     }
 
-    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<DBR, W, N, BS> {
+    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<DBR, W, N> {
         Builder {
             database: self.database,
             bert: RuBertBuilder::new(vocab, model),
-            sampler: self.sampler,
         }
     }
 
@@ -106,30 +121,18 @@ impl<DBR, V, M, BS> Builder<DBR, V, M, BS> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<DBR, impl BufRead, impl Read, BS>, Error> {
+    ) -> Result<Builder<DBR, impl BufRead, impl Read>, Error> {
         Ok(Builder {
             database: self.database,
             bert: RuBertBuilder::from_files(vocab, model)?,
-            sampler: self.sampler,
         })
     }
 
-    /// Allows to change the beta sampler of the mab for testing purpose
-    #[cfg(test)]
-    pub fn with_mab_beta_sampler<NBS>(self, beta_sampler: NBS) -> Builder<DBR, V, M, NBS> {
-        Builder {
-            database: self.database,
-            bert: self.bert,
-            sampler: beta_sampler,
-        }
-    }
-
-    pub fn build(self) -> Result<Reranker<Systems<BS, DBR>>, Error>
+    pub fn build(self) -> Result<Reranker<DBR>, Error>
     where
         DBR: DatabaseRaw,
         V: BufRead,
         M: Read,
-        BS: BetaSample,
     {
         let database = Db::new(self.database);
         let bert = self
@@ -142,10 +145,10 @@ impl<DBR, V, M, BS> Builder<DBR, V, M, BS> {
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
         let ltr = ConstLtr::new();
         let context = Context;
-        let mab = MabRanking::new(self.sampler);
+        let mab = MabRanking::new(BetaSampler);
         let analytics = AnalyticsSystemImpl;
 
-        Reranker::new(Systems {
+        reranker::Reranker::new(Systems {
             database,
             bert,
             coi,
@@ -154,5 +157,6 @@ impl<DBR, V, M, BS> Builder<DBR, V, M, BS> {
             mab,
             analytics,
         })
+        .map(Reranker)
     }
 }

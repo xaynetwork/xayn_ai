@@ -10,7 +10,7 @@ use crate::{
     reranker_systems::BertSystem,
 };
 
-pub type Embedding = Embedding1;
+pub(crate) type Embedding = Embedding1;
 
 impl BertSystem for RuBert<AveragePooler> {
     fn compute_embedding(

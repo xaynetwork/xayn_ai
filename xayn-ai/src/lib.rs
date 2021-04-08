@@ -1,6 +1,5 @@
 mod analytics;
 mod bert;
-mod builder;
 mod coi;
 mod context;
 mod data;
@@ -9,19 +8,27 @@ mod error;
 mod ltr;
 mod mab;
 mod reranker;
+mod reranker_public;
 mod reranker_systems;
 mod utils;
 
 pub use crate::{
-    builder::Builder,
-    data::document::{Document, DocumentHistory, DocumentId, Relevance, UserFeedback},
+    analytics::Analytics,
+    data::document::{
+        Document,
+        DocumentHistory,
+        DocumentId,
+        DocumentsRank,
+        Relevance,
+        UserFeedback,
+    },
     error::Error,
-    reranker::{DocumentsRank, Reranker},
+    reranker_public::{Builder, Reranker},
 };
 
-// temporary exports until the internals are wrapped
+// temporary exports until the ffi is able to take a DatabaseRaw from dart
 #[doc(hidden)]
-pub use crate::{builder::Systems, database::InMemoryDatabaseRaw, mab::BetaSampler};
+pub use crate::database::InMemoryDatabaseRaw;
 
 #[cfg(test)]
 mod tests;

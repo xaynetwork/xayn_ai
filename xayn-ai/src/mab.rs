@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::{
     data::{
         document_data::{DocumentDataWithContext, DocumentDataWithMab, MabComponent},
@@ -24,7 +22,7 @@ use thiserror::Error;
 use mockall::{automock, Sequence};
 
 #[derive(Error, Debug, Display)]
-pub enum MabError {
+pub(crate) enum MabError {
     /// The coi id assigned to a document does not exist
     DocumentCoiDoesNotExist,
     /// No documents to pull
@@ -38,12 +36,12 @@ pub enum MabError {
 }
 
 #[cfg_attr(test, automock)]
-pub trait BetaSample {
+pub(crate) trait BetaSample {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, MabError>;
 }
 
 /// Sample a value from a beta distribution
-pub struct BetaSampler;
+pub(crate) struct BetaSampler;
 
 impl BetaSample for BetaSampler {
     fn sample(&self, alpha: f32, beta: f32) -> Result<f32, MabError> {
@@ -242,12 +240,12 @@ where
     }
 }
 
-pub struct MabRanking<BS> {
+pub(crate) struct MabRanking<BS> {
     beta_sampler: BS,
 }
 
 impl<BS> MabRanking<BS> {
-    pub fn new(beta_sampler: BS) -> Self {
+    pub(crate) fn new(beta_sampler: BS) -> Self {
         Self { beta_sampler }
     }
 }

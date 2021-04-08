@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     analytics::Analytics,
     data::{
-        document::{Document, DocumentHistory},
+        document::{Document, DocumentHistory, DocumentsRank},
         document_data::{
             DocumentContentComponent,
             DocumentDataWithDocument,
@@ -16,13 +16,10 @@ use crate::{
     error::Error,
     reranker_systems::{CoiSystemData, CommonSystems},
     to_vec_of_ref_of,
-    DocumentId,
 };
 
 #[cfg(test)]
 use derive_more::From;
-
-pub type DocumentsRank = Vec<(DocumentId, usize)>;
 
 /// Update cois from user feedback
 fn learn_user_interests<CS>(
@@ -104,7 +101,7 @@ where
 
 #[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
 #[derive(Serialize, Deserialize)]
-pub enum PreviousDocuments {
+enum PreviousDocuments {
     Embedding(Vec<DocumentDataWithEmbedding>),
     Mab(Vec<DocumentDataWithMab>),
 }
@@ -138,14 +135,18 @@ impl PreviousDocuments {
 
 #[cfg_attr(test, derive(Clone, PartialEq, Debug))]
 #[derive(Default, Serialize, Deserialize)]
-pub struct RerankerData {
+pub(crate) struct RerankerData {
     user_interests: UserInterests,
     prev_documents: PreviousDocuments,
 }
 
 #[cfg(test)]
 impl RerankerData {
-    pub(crate) fn new(user_interests: UserInterests, prev_documents: PreviousDocuments) -> Self {
+    pub(crate) fn new_with_mab(
+        user_interests: UserInterests,
+        prev_documents: Vec<DocumentDataWithMab>,
+    ) -> Self {
+        let prev_documents = PreviousDocuments::Mab(prev_documents);
         Self {
             user_interests,
             prev_documents,
@@ -153,7 +154,7 @@ impl RerankerData {
     }
 }
 
-pub struct Reranker<CS> {
+pub(crate) struct Reranker<CS> {
     common_systems: CS,
     data: RerankerData,
     errors: Vec<Error>,
@@ -165,7 +166,7 @@ impl<CS> Reranker<CS>
 where
     CS: CommonSystems,
 {
-    pub fn new(common_systems: CS) -> Result<Self, Error> {
+    pub(crate) fn new(common_systems: CS) -> Result<Self, Error> {
         // load the last valid state from the database
         let data = common_systems
             .database()
@@ -180,7 +181,7 @@ where
         })
     }
 
-    pub fn errors(&self) -> &Vec<Error> {
+    pub(crate) fn errors(&self) -> &Vec<Error> {
         &self.errors
     }
 
@@ -188,11 +189,15 @@ where
     /// Analytics will be provided only if the penultimate call to `rerank` was able
     /// to run the full model without error, and the correct history is passed to the
     /// last call to `rerank`.
-    pub fn analytics(&self) -> &Option<Analytics> {
+    pub(crate) fn analytics(&self) -> &Option<Analytics> {
         &self.analytics
     }
 
-    pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
+    pub(crate) fn rerank(
+        &mut self,
+        history: &[DocumentHistory],
+        documents: &[Document],
+    ) -> DocumentsRank {
         // The number of errors it can contain is very limited. By using `clear` we avoid
         // re-allocating the vector on each method call.
         self.errors.clear();
@@ -279,11 +284,11 @@ mod tests {
             DocumentId,
         };
 
-        pub fn reranker_data_with_mab() -> RerankerData {
+        pub(super) fn reranker_data_with_mab() -> RerankerData {
             reranker_data(data_with_mab((0..10).map(|id| (id, vec![id as f32; 128]))))
         }
 
-        pub fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
+        pub(super) fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
             RerankerData {
                 prev_documents: docs.into(),
                 user_interests: UserInterests {
@@ -293,13 +298,13 @@ mod tests {
             }
         }
 
-        pub fn documents() -> Vec<Document> {
+        pub(super) fn documents() -> Vec<Document> {
             documents_from_words(
                 (0..6).zip(&["ship", "car", "auto", "flugzeug", "plane", "vehicle"]),
             )
         }
 
-        pub fn expected_rerank() -> DocumentsRank {
+        pub(super) fn expected_rerank() -> DocumentsRank {
             [5, 3, 4, 0, 2, 1]
                 .iter()
                 .zip(0..6)

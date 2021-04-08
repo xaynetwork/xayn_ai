@@ -2,18 +2,18 @@ use std::cell::RefCell;
 
 use crate::{database::Database, reranker::RerankerData, Error};
 
-pub struct MemDb {
+pub(crate) struct MemDb {
     data: RefCell<Option<RerankerData>>,
 }
 
 impl MemDb {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             data: RefCell::new(None),
         }
     }
 
-    pub fn from_data(data: RerankerData) -> Self {
+    pub(crate) fn from_data(data: RerankerData) -> Self {
         Self {
             data: RefCell::new(data.into()),
         }

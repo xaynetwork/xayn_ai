@@ -2,13 +2,6 @@ use std::{cell::RefCell, collections::HashMap};
 
 use crate::{error::Error, reranker::RerankerData};
 
-#[cfg_attr(test, mockall::automock)]
-pub trait Database {
-    fn save_data(&self, state: &RerankerData) -> Result<(), Error>;
-
-    fn load_data(&self) -> Result<Option<RerankerData>, Error>;
-}
-
 pub trait DatabaseRaw {
     fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error>;
 
@@ -17,7 +10,14 @@ pub trait DatabaseRaw {
     fn delete(&self, key: impl AsRef<[u8]>) -> Result<(), Error>;
 }
 
-pub struct Db<DbRaw>(DbRaw);
+#[cfg_attr(test, mockall::automock)]
+pub(crate) trait Database {
+    fn save_data(&self, state: &RerankerData) -> Result<(), Error>;
+
+    fn load_data(&self) -> Result<Option<RerankerData>, Error>;
+}
+
+pub(crate) struct Db<DbRaw>(DbRaw);
 
 impl<DbRaw> Db<DbRaw> {
     pub fn new(db_raw: DbRaw) -> Self {
@@ -84,7 +84,6 @@ mod tests {
     use super::*;
     use crate::{
         data::UserInterests,
-        reranker::PreviousDocuments,
         tests::{cois_from_words, data_with_mab, mocked_bert_system},
     };
 
@@ -96,8 +95,7 @@ mod tests {
             negative: cois,
         };
         let docs = data_with_mab(vec![(0, vec![1.; 128])].into_iter());
-        let docs = PreviousDocuments::Mab(docs);
-        let data = RerankerData::new(user_interests, docs);
+        let data = RerankerData::new_with_mab(user_interests, docs);
 
         let database = Db::new(InMemoryDatabaseRaw::default());
         database.save_data(&data).expect("saving data");

@@ -11,18 +11,18 @@ use crate::{
     DocumentId,
 };
 
-pub fn l2_norm(array: Array1<f32>) -> f32 {
+pub(super) fn l2_norm(array: Array1<f32>) -> f32 {
     array.dot(&array).sqrt()
 }
 
-pub enum DocumentRelevance {
+enum DocumentRelevance {
     Positive,
     Negative,
 }
 
 /// Collects all documents that are present in the history.
 /// The history contains the user feedback of these documents.
-pub fn collect_matching_documents<'hist, 'doc>(
+pub(super) fn collect_matching_documents<'hist, 'doc>(
     history: &'hist [DocumentHistory],
     documents: &'doc [&dyn CoiSystemData],
 ) -> Vec<(&'hist DocumentHistory, &'doc dyn CoiSystemData)> {
@@ -40,7 +40,7 @@ pub fn collect_matching_documents<'hist, 'doc>(
 
 /// Classifies the documents into positive and negative documents based on the user feedback
 /// and the relevance of the results.
-pub fn classify_documents_based_on_user_feedback<D>(
+pub(super) fn classify_documents_based_on_user_feedback<D>(
     matching_documents: Vec<(&DocumentHistory, D)>,
 ) -> (Vec<D>, Vec<D>) {
     let mut positive_docs = Vec::<D>::new();
@@ -58,7 +58,7 @@ pub fn classify_documents_based_on_user_feedback<D>(
 
 /// Determines the [`DocumentRelevance`] based on the user feedback
 /// and the relevance of the result.
-pub fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
+fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
     match (history.relevance, history.user_feedback) {
         (Relevance::Low, UserFeedback::Irrelevant) | (Relevance::Low, UserFeedback::None) => {
             DocumentRelevance::Negative
@@ -81,11 +81,11 @@ where
     cois
 }
 
-pub fn update_alpha(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
+pub(super) fn update_alpha(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
     update_alpha_or_beta(counts, cois, |Coi { ref mut alpha, .. }, adj| *alpha *= adj)
 }
 
-pub fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
+pub(super) fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
     update_alpha_or_beta(counts, cois, |Coi { ref mut beta, .. }, adj| *beta *= adj)
 }
 
@@ -94,7 +94,7 @@ pub fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
 /// documents = [d_1(coi_id_1), d_2(coi_id_2), d_3(coi_id_1)]
 /// count_coi_ids(documents) -> {coi_id_1: 2, coi_id_2: 1}
 /// ```
-pub fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
+pub(super) fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
     documents
         .iter()
         .filter_map(|doc| doc.coi().map(|coi| coi.id))
@@ -111,7 +111,7 @@ pub fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub(super) mod tests {
     use float_cmp::approx_eq;
     use maplit::hashmap;
     use ndarray::{arr1, FixedInitializer};
@@ -122,7 +122,7 @@ pub(crate) mod tests {
         to_vec_of_ref_of,
     };
 
-    pub fn create_cois(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<Coi> {
+    pub(crate) fn create_cois(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<Coi> {
         points
             .iter()
             .enumerate()
@@ -130,7 +130,7 @@ pub(crate) mod tests {
             .collect()
     }
 
-    pub fn create_data_with_embeddings(
+    pub(crate) fn create_data_with_embeddings(
         embeddings: &[impl FixedInitializer<Elem = f32>],
     ) -> Vec<DocumentDataWithEmbedding> {
         embeddings
@@ -140,7 +140,10 @@ pub(crate) mod tests {
             .collect()
     }
 
-    pub fn create_data_with_embedding(id: usize, embedding: &[f32]) -> DocumentDataWithEmbedding {
+    pub(crate) fn create_data_with_embedding(
+        id: usize,
+        embedding: &[f32],
+    ) -> DocumentDataWithEmbedding {
         DocumentDataWithEmbedding {
             document_id: DocumentIdComponent {
                 id: DocumentId(id.to_string()),
@@ -151,7 +154,9 @@ pub(crate) mod tests {
         }
     }
 
-    pub fn create_document_history(points: Vec<(Relevance, UserFeedback)>) -> Vec<DocumentHistory> {
+    pub(crate) fn create_document_history(
+        points: Vec<(Relevance, UserFeedback)>,
+    ) -> Vec<DocumentHistory> {
         points
             .into_iter()
             .enumerate()

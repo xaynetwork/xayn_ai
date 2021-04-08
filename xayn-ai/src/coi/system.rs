@@ -27,14 +27,14 @@ use crate::{
 };
 
 #[derive(Error, Debug, Display)]
-pub enum CoiSystemError {
+pub(crate) enum CoiSystemError {
     /// No CoI could be found for the given embedding
     NoCoi,
     /// No matching documents could be found
     NoMatchingDocuments,
 }
 
-pub struct CoiSystem {
+pub(crate) struct CoiSystem {
     config: Configuration,
 }
 
@@ -46,7 +46,7 @@ impl Default for CoiSystem {
 
 impl CoiSystem {
     /// Creates a new centre of interest system.
-    pub fn new(config: Configuration) -> Self {
+    pub(crate) fn new(config: Configuration) -> Self {
         Self { config }
     }
 
@@ -217,7 +217,7 @@ mod tests {
         to_vec_of_ref_of,
     };
 
-    pub fn create_data_with_mab(
+    pub(crate) fn create_data_with_mab(
         embeddings: &[impl FixedInitializer<Elem = f32>],
     ) -> Vec<DocumentDataWithMab> {
         embeddings
