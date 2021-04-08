@@ -12,6 +12,8 @@ env:
   CARGO_NDK: 2.2.0
   ANDROID_PLATFORM_VERSION: 21
   CARGO_LIPO: 3.1.1
+  # cmd: shasum -a 256 cross
+  CROSS_CHECKSUM: 18a3599273773a7d1e333b413751f0adc1a83ec8045d060fee4f0639bd6baaf0
 
 jobs:
   registry-cache:
@@ -301,6 +303,7 @@ jobs:
         shell: bash
         run: |
           wget -q -O - https://github.com/rust-embedded/cross/releases/download/v0.2.1/cross-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xvzf -
+          echo "$ {{ env.CROSS_CHECKSUM }} *cross" | shasum -c -
           mv cross ~/.cargo/bin/
 
       - name: Download data
