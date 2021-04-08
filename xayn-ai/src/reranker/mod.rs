@@ -259,7 +259,7 @@ mod tests {
     use crate::{
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
-        reranker_systems::BertSystem,
+        reranker::systems::BertSystem,
         tests::{
             document_history,
             documents_from_ids,
@@ -273,6 +273,7 @@ mod tests {
             MockBertSystem,
             MockCommonSystems,
             MockContextSystem,
+            MockDatabase,
             MockLtrSystem,
             MockMabSystem,
         },
@@ -633,5 +634,18 @@ mod tests {
         assert_eq!(reranker.errors().len(), 2);
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
         assert_eq!(reranker.errors()[1].to_string(), "bert fails in `rerank`")
+    }
+
+    /// If the database fails to load the data, propagate the error to the caller.
+    #[test]
+    fn test_data_read_load_data_fails() {
+        let cs = MockCommonSystems::default().set_db(|| {
+            let mut db = MockDatabase::new();
+            db.expect_load_data().returning(|| bail!("database error"));
+            db
+        });
+
+        let reranker = Reranker::new(cs);
+        assert_eq!(reranker.err().unwrap().to_string(), "database error");
     }
 }

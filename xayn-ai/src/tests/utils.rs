@@ -89,7 +89,9 @@ pub(crate) fn data_with_mab(
         .collect()
 }
 
-pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<DocumentDataWithEmbedding> {
+pub(crate) fn documents_with_embeddings_from_ids(
+    ids: Range<u32>,
+) -> Vec<DocumentDataWithEmbedding> {
     from_ids(ids)
         .map(|(id, embedding)| DocumentDataWithEmbedding {
             document_id: DocumentIdComponent { id },
