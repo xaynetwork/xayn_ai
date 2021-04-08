@@ -93,10 +93,11 @@ impl Model {
 
 #[cfg(test)]
 mod tests {
+    use ndarray::Array2;
     use std::{fs::File, io::BufReader};
 
     use super::*;
-    use crate::{ndarray::Array2, tests::MODEL};
+    use crate::tests::MODEL;
 
     #[test]
     fn test_predict() {

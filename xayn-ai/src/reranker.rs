@@ -1,4 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
+    analytics::Analytics,
     data::{
         document::{Document, DocumentHistory},
         document_data::{
@@ -41,14 +44,13 @@ fn collect_analytics<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
     prev_documents: &[DocumentDataWithMab],
-) -> Result<(), Error>
+) -> Result<Analytics, Error>
 where
     CS: CommonSystems,
 {
     common_systems
         .analytics()
         .compute_analytics(history, prev_documents)
-        .and_then(|analytics| common_systems.database().save_analytics(&analytics))
 }
 
 fn make_documents_with_embedding<CS>(
@@ -100,7 +102,8 @@ where
     Ok((documents, user_interests, rank))
 }
 
-#[cfg_attr(test, derive(Clone, From))]
+#[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
+#[derive(Serialize, Deserialize)]
 pub enum PreviousDocuments {
     Embedding(Vec<DocumentDataWithEmbedding>),
     Mab(Vec<DocumentDataWithMab>),
@@ -124,13 +127,6 @@ impl PreviousDocuments {
         }
     }
 
-    fn is_empty(&self) -> bool {
-        match self {
-            PreviousDocuments::Embedding(documents) => documents.is_empty(),
-            PreviousDocuments::Mab(documents) => documents.is_empty(),
-        }
-    }
-
     #[cfg(test)]
     fn len(&self) -> usize {
         match self {
@@ -140,17 +136,29 @@ impl PreviousDocuments {
     }
 }
 
-#[derive(Default)]
-#[cfg_attr(test, derive(Clone))]
+#[cfg_attr(test, derive(Clone, PartialEq, Debug))]
+#[derive(Default, Serialize, Deserialize)]
 pub struct RerankerData {
     user_interests: UserInterests,
     prev_documents: PreviousDocuments,
+}
+
+#[cfg(test)]
+impl RerankerData {
+    pub(crate) fn new(user_interests: UserInterests, prev_documents: PreviousDocuments) -> Self {
+        Self {
+            user_interests,
+            prev_documents,
+        }
+    }
 }
 
 pub struct Reranker<CS> {
     common_systems: CS,
     data: RerankerData,
     errors: Vec<Error>,
+    /// Analytics of the previous call to `rerank`.
+    analytics: Option<Analytics>,
 }
 
 impl<CS> Reranker<CS>
@@ -168,6 +176,7 @@ where
             common_systems,
             data,
             errors: Vec::new(),
+            analytics: None,
         })
     }
 
@@ -175,12 +184,21 @@ where
         &self.errors
     }
 
+    /// Returns the analytics for penultimate call to `rerank`.
+    /// Analytics will be provided only if the penultimate call to `rerank` was able
+    /// to run the full model without error, and the correct history is passed to the
+    /// last call to `rerank`.
+    pub fn analytics(&self) -> &Option<Analytics> {
+        &self.analytics
+    }
+
     pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
         // The number of errors it can contain is very limited. By using `clear` we avoid
         // re-allocating the vector on each method call.
         self.errors.clear();
 
-        if !history.is_empty() && !self.data.prev_documents.is_empty() {
+        // feedback loop and analytics
+        {
             let user_interests = self.data.user_interests.clone();
             let prev_documents = self.data.prev_documents.to_coi_system_data();
 
@@ -195,9 +213,9 @@ where
             };
 
             if let PreviousDocuments::Mab(ref prev_documents) = self.data.prev_documents {
-                if let Err(e) = collect_analytics(&self.common_systems, history, &prev_documents) {
-                    self.errors.push(e);
-                }
+                self.analytics = collect_analytics(&self.common_systems, history, &prev_documents)
+                    .map_err(|e| self.errors.push(e))
+                    .ok();
             }
         }
 
@@ -242,6 +260,15 @@ mod tests {
             MockCommonSystems,
         },
     };
+
+    macro_rules! check_error {
+        ($reranker: expr, $error:pat) => {
+            assert!($reranker
+                .errors()
+                .iter()
+                .any(|e| matches!(e.downcast_ref().unwrap(), $error)));
+        };
+    }
 
     mod car_interest_example {
         use crate::{
@@ -291,7 +318,6 @@ mod tests {
         let rank = reranker.rerank(&[], &[]);
 
         assert_eq!(rank, []);
-        assert!(reranker.errors().is_empty())
     }
 
     /// A user performs the very first search that returns results/`Document`s.
@@ -314,9 +340,7 @@ mod tests {
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
-        assert_eq!(reranker.errors().len(), 1);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
+        check_error!(reranker, CoiSystemError::NoCoi);
     }
 
     /// A user performed the very first search. The `Reranker` created the
@@ -369,7 +393,6 @@ mod tests {
         let rank = reranker.rerank(&[], &car_interest_example::documents());
 
         assert_eq!(rank, car_interest_example::expected_rerank());
-        assert!(reranker.errors().is_empty());
         assert_eq!(
             reranker.data.prev_documents.len(),
             car_interest_example::documents().len()
@@ -396,9 +419,7 @@ mod tests {
         assert_eq!(rank, car_interest_example::expected_rerank());
         assert_eq!(reranker.data.prev_documents.len(), 6);
 
-        assert_eq!(reranker.errors().len(), 1);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
 
     /// A user performed the very first search. The `Reranker` created the
@@ -430,9 +451,7 @@ mod tests {
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
-        assert_eq!(reranker.errors().len(), 1);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
 
     /// Similar to `test_first_and_second_search_no_history` but this time
@@ -460,11 +479,7 @@ mod tests {
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
-        assert_eq!(reranker.errors().len(), 2);
-        let error = reranker.errors()[0].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
-
-        let error = reranker.errors()[1].downcast_ref().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        check_error!(reranker, CoiSystemError::NoCoi);
     }
 }

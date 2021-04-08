@@ -194,9 +194,9 @@ impl reranker_systems::CoiSystem for CoiSystem {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::{consts::SQRT_2, NAN};
-
     use float_cmp::approx_eq;
+    use ndarray::{arr1, FixedInitializer};
+    use std::f32::{consts::SQRT_2, NAN};
 
     use super::*;
     use crate::{
@@ -213,7 +213,6 @@ mod tests {
             },
             CoiId,
         },
-        ndarray::{arr1, FixedInitializer},
         reranker_systems::CoiSystem as CoiSystemTrait,
         to_vec_of_ref_of,
     };

@@ -1,4 +1,4 @@
-use rubert::ndarray::arr1;
+use ndarray::arr1;
 
 use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,

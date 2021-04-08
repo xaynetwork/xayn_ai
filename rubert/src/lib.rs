@@ -39,8 +39,6 @@ pub use crate::{
     pooler::{Embedding, PoolerError},
     tokenizer::TokenizerError,
 };
-#[doc(hidden)]
-pub use tract_onnx::prelude::tract_ndarray as ndarray;
 
 #[cfg(test)]
 pub(crate) mod tests {

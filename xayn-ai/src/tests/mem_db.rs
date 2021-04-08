@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use crate::{analytics::Analytics, database::Database, reranker::RerankerData, Error};
+use crate::{database::Database, reranker::RerankerData, Error};
 
 pub struct MemDb {
     data: RefCell<Option<RerankerData>>,
@@ -28,9 +28,5 @@ impl Database for MemDb {
 
     fn load_data(&self) -> Result<Option<RerankerData>, Error> {
         Ok(self.data.borrow().clone())
-    }
-
-    fn save_analytics(&self, _analytics: &Analytics) -> Result<(), Error> {
-        Ok(())
     }
 }

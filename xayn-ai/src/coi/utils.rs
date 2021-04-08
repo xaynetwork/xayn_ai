@@ -1,3 +1,4 @@
+use ndarray::Array1;
 use std::collections::HashMap;
 
 use crate::{
@@ -5,7 +6,6 @@ use crate::{
         document::{Relevance, UserFeedback},
         Coi,
     },
-    ndarray::Array1,
     reranker_systems::CoiSystemData,
     DocumentHistory,
     DocumentId,
@@ -114,11 +114,11 @@ pub fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
 pub(crate) mod tests {
     use float_cmp::approx_eq;
     use maplit::hashmap;
+    use ndarray::{arr1, FixedInitializer};
 
     use super::*;
     use crate::{
         data::document_data::{DocumentDataWithEmbedding, DocumentIdComponent, EmbeddingComponent},
-        ndarray::{arr1, FixedInitializer},
         to_vec_of_ref_of,
     };
 

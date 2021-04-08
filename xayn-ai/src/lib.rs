@@ -12,8 +12,6 @@ mod reranker;
 mod reranker_systems;
 mod utils;
 
-pub(crate) use rubert::ndarray;
-
 pub use crate::{
     builder::Builder,
     data::document::{Document, DocumentHistory, DocumentId, Relevance, UserFeedback},
@@ -23,7 +21,7 @@ pub use crate::{
 
 // temporary exports until the internals are wrapped
 #[doc(hidden)]
-pub use crate::{builder::Systems, database::DummyDatabase, mab::BetaSampler};
+pub use crate::{builder::Systems, database::InMemoryDatabaseRaw, mab::BetaSampler};
 
 #[cfg(test)]
 mod tests;

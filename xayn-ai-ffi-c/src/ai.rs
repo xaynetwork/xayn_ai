@@ -1,7 +1,7 @@
 use std::panic::{catch_unwind, RefUnwindSafe};
 
 use ffi_support::{call_with_result, implement_into_ffi_by_pointer, ExternError, FfiStr, IntoFfi};
-use xayn_ai::{BetaSampler, Builder, DummyDatabase, Reranker, Systems};
+use xayn_ai::{BetaSampler, Builder, InMemoryDatabaseRaw, Reranker, Systems};
 
 use crate::{
     document::{CDocument, CHistory, CRanks},
@@ -17,7 +17,7 @@ use crate::{
 ///
 /// [`ranks_drop()`]: crate::document::ranks_drop
 /// [`error_message_drop()`]: crate::error::error_message_drop
-pub struct CXaynAi(Reranker<Systems<DummyDatabase, BetaSampler>>);
+pub struct CXaynAi(Reranker<Systems<BetaSampler, InMemoryDatabaseRaw>>);
 
 impl RefUnwindSafe for CXaynAi {
     // safety: the field CXaynAi.0.errors must not be accessed after a panic; we don't access this
@@ -40,7 +40,7 @@ impl CXaynAi {
         })?;
 
         Builder::default()
-            .with_database(DummyDatabase)
+            .with_database_raw(InMemoryDatabaseRaw::default())
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
                 CXaynAiError::ReadFile

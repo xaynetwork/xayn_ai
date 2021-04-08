@@ -40,15 +40,13 @@ impl LtrSystem for ConstLtr {
 #[cfg(test)]
 mod tests {
     use float_cmp::approx_eq;
+    use ndarray::arr1;
 
     use super::*;
-    use crate::{
-        data::{
-            document::DocumentId,
-            document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent},
-            CoiId,
-        },
-        ndarray::arr1,
+    use crate::data::{
+        document::DocumentId,
+        document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent},
+        CoiId,
     };
 
     #[test]
