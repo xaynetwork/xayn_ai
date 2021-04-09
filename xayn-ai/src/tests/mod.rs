@@ -14,6 +14,7 @@ pub(crate) use self::{
     documents_from_words,
     expected_rerank_unchanged,
     history_for_prev_docs,
+    }
 };
 
 pub(crate) use crate::{mab::MockBetaSample, reranker::systems::MockBertSystem};
