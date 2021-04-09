@@ -3,13 +3,10 @@ mod bert;
 mod coi;
 mod context;
 mod data;
-mod database;
 mod error;
 mod ltr;
 mod mab;
 mod reranker;
-mod reranker_public;
-mod reranker_systems;
 mod utils;
 
 pub use crate::{
@@ -23,12 +20,12 @@ pub use crate::{
         UserFeedback,
     },
     error::Error,
-    reranker_public::{Builder, Reranker},
+    reranker::public::{Builder, Reranker},
 };
 
 // temporary exports until the ffi is able to take a DatabaseRaw from dart
 #[doc(hidden)]
-pub use crate::database::InMemoryDatabaseRaw;
+pub use crate::reranker::database::InMemoryDatabaseRaw;
 
 #[cfg(test)]
 mod tests;

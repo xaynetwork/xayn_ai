@@ -20,7 +20,7 @@ use crate::{
         Coi,
         CoiId,
     },
-    reranker_systems::{BertSystem, CoiSystemData},
+    reranker::systems::{BertSystem, CoiSystemData},
     Document,
     DocumentHistory,
     DocumentId,

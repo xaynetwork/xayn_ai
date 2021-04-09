@@ -14,9 +14,10 @@ use crate::{
         },
         UserInterests,
     },
-    database::Database,
     error::Error,
 };
+
+use super::database::Database;
 
 #[cfg(test)]
 use mockall::automock;

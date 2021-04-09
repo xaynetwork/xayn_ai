@@ -21,7 +21,7 @@ use crate::{
         Coi,
         UserInterests,
     },
-    reranker_systems::{self, CoiSystemData},
+    reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
 };
@@ -148,7 +148,7 @@ impl CoiSystem {
     }
 }
 
-impl reranker_systems::CoiSystem for CoiSystem {
+impl systems::CoiSystem for CoiSystem {
     fn compute_coi(
         &self,
         documents: Vec<DocumentDataWithEmbedding>,
@@ -213,7 +213,7 @@ mod tests {
             },
             CoiId,
         },
-        reranker_systems::CoiSystem as CoiSystemTrait,
+        reranker::systems::CoiSystem as CoiSystemTrait,
         to_vec_of_ref_of,
     };
 

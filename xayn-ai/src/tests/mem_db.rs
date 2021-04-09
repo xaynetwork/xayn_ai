@@ -1,6 +1,9 @@
 use std::cell::RefCell;
 
-use crate::{database::Database, reranker::RerankerData, Error};
+use crate::{
+    reranker::{database::Database, RerankerData},
+    Error,
+};
 
 pub(crate) struct MemDb {
     data: RefCell<Option<RerankerData>>,

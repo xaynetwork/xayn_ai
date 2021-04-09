@@ -1,6 +1,8 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use crate::{error::Error, reranker::RerankerData};
+use crate::error::Error;
+
+use super::RerankerData;
 
 pub trait DatabaseRaw {
     fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error>;
@@ -17,7 +19,7 @@ pub(crate) trait Database {
     fn load_data(&self) -> Result<Option<RerankerData>, Error>;
 }
 
-pub(crate) struct Db<DbRaw>(DbRaw);
+pub(super) struct Db<DbRaw>(DbRaw);
 
 impl<DbRaw> Db<DbRaw> {
     pub fn new(db_raw: DbRaw) -> Self {

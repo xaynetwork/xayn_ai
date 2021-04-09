@@ -7,7 +7,7 @@ use crate::{
         EmbeddingComponent,
     },
     error::Error,
-    reranker_systems::BertSystem,
+    reranker::systems::BertSystem,
 };
 
 pub(crate) type Embedding = Embedding1;

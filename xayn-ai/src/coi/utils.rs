@@ -6,7 +6,7 @@ use crate::{
         document::{Relevance, UserFeedback},
         Coi,
     },
-    reranker_systems::CoiSystemData,
+    reranker::systems::CoiSystemData,
     DocumentHistory,
     DocumentId,
 };

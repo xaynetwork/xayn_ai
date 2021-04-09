@@ -10,11 +10,14 @@ use crate::{
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
     data::document::{Document, DocumentHistory, DocumentsRank},
-    database::{Database, DatabaseRaw, Db},
     ltr::ConstLtr,
     mab::{BetaSampler, MabRanking},
-    reranker,
-    reranker_systems::{
+    Error,
+};
+
+use super::{
+    database::{Database, DatabaseRaw, Db},
+    systems::{
         AnalyticsSystem,
         BertSystem,
         CoiSystem,
@@ -23,7 +26,6 @@ use crate::{
         LtrSystem,
         MabSystem,
     },
-    Error,
 };
 
 pub struct Systems<DBR> {
@@ -69,7 +71,7 @@ where
     }
 }
 
-pub struct Reranker<DBR>(reranker::Reranker<Systems<DBR>>);
+pub struct Reranker<DBR>(super::Reranker<Systems<DBR>>);
 
 impl<DBR> Reranker<DBR>
 where
@@ -148,7 +150,7 @@ impl<DBR, V, M> Builder<DBR, V, M> {
         let mab = MabRanking::new(BetaSampler);
         let analytics = AnalyticsSystemImpl;
 
-        reranker::Reranker::new(Systems {
+        super::Reranker::new(Systems {
             database,
             bert,
             coi,

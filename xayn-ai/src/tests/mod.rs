@@ -15,4 +15,4 @@ pub(crate) use utils::{
     history_for_prev_docs,
 };
 
-pub(crate) use crate::{mab::MockBetaSample, reranker_systems::MockBertSystem};
+pub(crate) use crate::{mab::MockBetaSample, reranker::systems::MockBertSystem};

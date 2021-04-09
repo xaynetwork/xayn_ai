@@ -5,17 +5,19 @@ use crate::{
     coi::CoiSystem as CoiSys,
     context::Context,
     data::document_data::{DocumentDataWithEmbedding, EmbeddingComponent},
-    database::Database,
     ltr::ConstLtr,
     mab::MabRanking,
-    reranker_systems::{
-        AnalyticsSystem,
-        BertSystem,
-        CoiSystem,
-        CommonSystems,
-        ContextSystem,
-        LtrSystem,
-        MabSystem,
+    reranker::{
+        database::Database,
+        systems::{
+            AnalyticsSystem,
+            BertSystem,
+            CoiSystem,
+            CommonSystems,
+            ContextSystem,
+            LtrSystem,
+            MabSystem,
+        },
     },
 };
 

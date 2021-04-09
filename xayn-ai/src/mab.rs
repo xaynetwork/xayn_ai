@@ -5,7 +5,7 @@ use crate::{
         CoiId,
         UserInterests,
     },
-    reranker_systems::MabSystem,
+    reranker::systems::MabSystem,
     Error,
 };
 

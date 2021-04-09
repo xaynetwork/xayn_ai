@@ -4,7 +4,7 @@ use crate::{
         document_data::{DocumentDataWithCoi, DocumentDataWithLtr, LtrComponent},
     },
     error::Error,
-    reranker_systems::LtrSystem,
+    reranker::systems::LtrSystem,
 };
 
 /// LTR with constant value.

@@ -1,3 +1,7 @@
+pub(crate) mod database;
+pub mod public;
+pub(crate) mod systems;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -14,9 +18,10 @@ use crate::{
         UserInterests,
     },
     error::Error,
-    reranker_systems::{CoiSystemData, CommonSystems},
     to_vec_of_ref_of,
 };
+
+use systems::{CoiSystemData, CommonSystems};
 
 #[cfg(test)]
 use derive_more::From;
@@ -251,6 +256,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    // use super::super::public::DocumentsRank;
 
     use crate::{
         coi::CoiSystemError,
@@ -276,9 +282,9 @@ mod tests {
     }
 
     mod car_interest_example {
+        use super::*;
         use crate::{
             data::UserInterests,
-            reranker::{DocumentsRank, PreviousDocuments, RerankerData},
             tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
             Document,
             DocumentId,
