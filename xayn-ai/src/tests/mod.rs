@@ -2,9 +2,10 @@ mod mem_db;
 mod systems;
 mod utils;
 
-pub(crate) use mem_db::MemDb;
-pub(crate) use systems::{mocked_bert_system, MockCommonSystems};
-pub(crate) use utils::{
+pub(crate) use self::{
+    mem_db::MemDb,
+    systems::{mocked_bert_system, MockCommonSystems},
+    utils::{
     cois_from_words,
     data_with_embedding,
     data_with_mab,
