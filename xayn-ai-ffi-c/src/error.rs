@@ -120,12 +120,12 @@ impl CError {
 ///
 /// # Safety
 /// The behavior is undefined if:
-/// - A non-null error doesn't point to an aligned, contiguous area of memory with an
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
-/// - A non-null error message doesn't point to memory allocated by [`xaynai_new()`] or
+/// - A non-null error `message` doesn't point to memory allocated by [`xaynai_new()`] or
 /// [`xaynai_rerank()`].
-/// - A non-null error message is freed more than once.
-/// - A non-null error message is accessed after being freed.
+/// - A non-null error `message` is freed more than once.
+/// - A non-null error `message` is accessed after being freed.
 ///
 /// [`xaynai_new()`]: crate::ai::xaynai_new
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank

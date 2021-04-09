@@ -1530,6 +1530,7 @@ dependencies = [
  "cbindgen",
  "displaydoc",
  "ffi-support",
+ "itertools 0.10.0",
  "thiserror",
  "xayn-ai",
 ]

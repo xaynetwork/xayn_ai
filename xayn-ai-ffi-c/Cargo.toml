@@ -12,6 +12,9 @@ ffi-support = { version = "0.4.2", default-features = false }
 thiserror = "1.0.24"
 xayn-ai = { path = "../xayn-ai" }
 
+[dev-dependencies]
+itertools = "0.10.0"
+
 [build-dependencies]
 cbindgen = "=0.18.0"
 

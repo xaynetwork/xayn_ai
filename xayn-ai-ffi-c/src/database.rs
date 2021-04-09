@@ -7,56 +7,59 @@ use crate::{error::CError, utils::AsPtr};
 
 #[repr(C)]
 pub struct CKey<'a> {
-    _a: PhantomData<&'a ()>,
-    /// The raw pointer to the data.
+    /// The raw pointer to the bytes.
     pub data: *const u8,
-    /// The length of the data.
+    /// The number of bytes.
     pub len: u32,
+    // covariant in lifetime and type
+    _variance: PhantomData<&'a [u8]>,
 }
 
 impl AsPtr for CKey<'_> {}
 
 impl<'a, K> From<K> for CKey<'a>
 where
-    K: AsRef<[u8]> + 'a,
+    K: 'a + AsRef<[u8]>,
 {
     fn from(key: K) -> Self {
         let key = key.as_ref();
         Self {
-            _a: PhantomData,
             data: key.as_ptr(),
             len: key.len() as u32,
+            _variance: PhantomData,
         }
     }
 }
 
 #[repr(C)]
 pub struct CValue<'a> {
-    _a: PhantomData<&'a ()>,
-    /// The raw pointer to the data.
+    /// The raw pointer to the bytes.
     pub data: *const u8,
-    /// The length of the data.
+    /// The number of bytes.
     pub len: u32,
+    // covariant in lifetime and type
+    _variance: PhantomData<&'a [u8]>,
 }
 
 impl AsPtr for CValue<'_> {}
 
 impl<'a, V> From<V> for CValue<'a>
 where
-    V: AsRef<[u8]> + 'a,
+    V: 'a + AsRef<[u8]>,
 {
     fn from(value: V) -> Self {
         let value = value.as_ref();
         Self {
-            _a: PhantomData,
             data: value.as_ptr(),
             len: value.len() as u32,
+            _variance: PhantomData,
         }
     }
 }
 
-impl CValue<'_> {
-    unsafe fn to_vec(&self) -> Option<Vec<u8>> {
+impl<'a> CValue<'a> {
+    /// Copies the elements of the raw slice to a vector.
+    unsafe fn to_vec(&'a self) -> Option<Vec<u8>> {
         if self.data.is_null() || self.len == 0 {
             None
         } else {

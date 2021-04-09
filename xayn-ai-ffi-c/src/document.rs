@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    marker::PhantomData,
     panic::catch_unwind,
     ptr::null_mut,
     slice::{from_raw_parts, from_raw_parts_mut},
@@ -52,31 +53,55 @@ impl From<CFeedback> for UserFeedback {
 
 /// A raw document history.
 #[repr(C)]
-pub struct CHistory<'a> {
+pub struct CHistory<'a, 'b>
+where
+    'a: 'b,
+{
     /// The raw pointer to the document id.
     pub id: FfiStr<'a>,
     /// The relevance level of the document.
     pub relevance: CRelevance,
     /// The user feedback level of the document.
     pub feedback: CFeedback,
+    // covariant in lifetime and type
+    _variance: PhantomData<&'b FfiStr<'a>>,
 }
 
-impl CHistory<'_> {
-    /// Collects the document history from raw.
+/// A raw slice of document histories.
+#[repr(C)]
+pub struct CHistories<'a, 'b, 'c>
+where
+    'a: 'b,
+    'b: 'c,
+{
+    /// The raw pointer to the document histories.
+    pub data: *const CHistory<'a, 'b>,
+    /// The number of document histories.
+    pub len: u32,
+    // covariant in lifetime and type
+    _variance: PhantomData<&'c [CHistory<'a, 'b>]>,
+}
+
+impl<'a, 'b, 'c> CHistories<'a, 'b, 'c>
+where
+    'a: 'b,
+    'b: 'c,
+{
+    /// Collects the document histories from raw.
     ///
     /// # Safety
     /// The behavior is undefined if:
-    /// - A history reference doesn't point to an aligned, contiguous area of memory with at least
-    /// history size many [`CHistory`]s.
-    /// - A history size is too large to address the memory of a history slice.
-    /// - A non-null id doesn't point to an aligned, contiguous area of memory with a terminating
+    /// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least
+    /// `len` many [`CHistory`]s.
+    /// - A `len` is too large to address the memory of a non-null [`CHistory`] array.
+    /// - A non-null `id` doesn't point to an aligned, contiguous area of memory with a terminating
     /// null byte.
-    pub unsafe fn to_history(&self, size: u32) -> Result<Vec<DocumentHistory>, ExternError> {
-        if size == 0 {
+    pub unsafe fn to_histories(&'c self) -> Result<Vec<DocumentHistory>, ExternError> {
+        if self.data.is_null() || self.len == 0 {
             return Ok(Vec::new());
         }
 
-        unsafe { from_raw_parts(self, size as usize) }
+        unsafe { from_raw_parts(self.data, self.len as usize) }
             .iter()
             .map(|history| {
                 let id = history
@@ -99,31 +124,58 @@ impl CHistory<'_> {
 
 /// A raw document.
 #[repr(C)]
-pub struct CDocument<'a> {
+pub struct CDocument<'a, 'b, 'c>
+where
+    'a: 'c,
+    'b: 'c,
+{
     /// The raw pointer to the document id.
     pub id: FfiStr<'a>,
     /// The raw pointer to the document snippet.
-    pub snippet: FfiStr<'a>,
+    pub snippet: FfiStr<'b>,
     /// The rank of the document.
     pub rank: u32,
+    // covariant in lifetime and type
+    _variance: PhantomData<&'c (FfiStr<'a>, FfiStr<'b>)>,
 }
 
-impl CDocument<'_> {
+/// A raw slice of documents.
+#[repr(C)]
+pub struct CDocuments<'a, 'b, 'c, 'd>
+where
+    'a: 'c,
+    'b: 'c,
+    'c: 'd,
+{
+    /// The raw pointer to the documents.
+    pub data: *const CDocument<'a, 'b, 'c>,
+    /// The number of documents.
+    pub len: u32,
+    // covariant in lifetime and type
+    _variance: PhantomData<&'d [CDocument<'a, 'b, 'c>]>,
+}
+
+impl<'a, 'b, 'c, 'd> CDocuments<'a, 'b, 'c, 'd>
+where
+    'a: 'c,
+    'b: 'c,
+    'c: 'd,
+{
     /// Collects the documents from raw.
     ///
     /// # Safety
     /// The behavior is undefined if:
-    /// - A documents reference doesn't point to an aligned, contiguous area of memory with at least
-    /// documents size many [`CDocument`]s.
-    /// - A documents size is too large to address the memory of a documents slice.
-    /// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
+    /// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least
+    /// `len` many [`CDocument`]s.
+    /// - A `len` is too large to address the memory of a non-null [`CDocument`] array.
+    /// - A non-null `id` or `snippet` doesn't point to an aligned, contiguous area of memory with a
     /// terminating null byte.
-    pub unsafe fn to_documents(&self, size: u32) -> Result<Vec<Document>, ExternError> {
-        if size == 0 {
+    pub unsafe fn to_documents(&'d self) -> Result<Vec<Document>, ExternError> {
+        if self.data.is_null() || self.len == 0 {
             return Ok(Vec::new());
         }
 
-        unsafe { from_raw_parts(self, size as usize) }
+        unsafe { from_raw_parts(self.data, self.len as usize) }
             .iter()
             .map(|document| {
                 let id = document
@@ -195,9 +247,9 @@ impl CRanks {
             })
     }
 
-    unsafe fn drop(ranks: *mut u32, ranks_size: u32) {
-        if !ranks.is_null() && ranks_size > 0 {
-            unsafe { Box::from_raw(from_raw_parts_mut(ranks, ranks_size as usize)) };
+    unsafe fn drop(ranks: *mut u32, len: u32) {
+        if !ranks.is_null() && len > 0 {
+            unsafe { Box::from_raw(from_raw_parts_mut(ranks, len as usize)) };
         }
     }
 }
@@ -206,15 +258,15 @@ impl CRanks {
 ///
 /// # Safety
 /// The behavior is undefined if:
-/// - A non-null ranks doesn't point to memory allocated by [`xaynai_rerank()`].
-/// - A non-zero ranks size is different from the documents size used in [`xaynai_rerank()`].
-/// - A non-null ranks is freed more than once.
-/// - A non-null ranks is accessed after being freed.
+/// - A non-null `ranks` doesn't point to memory allocated by [`xaynai_rerank()`].
+/// - A non-zero `len` is different from the documents `len` used in [`xaynai_rerank()`].
+/// - A non-null `ranks` is freed more than once.
+/// - A non-null `ranks` is accessed after being freed.
 ///
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
-pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, ranks_size: u32) {
-    let _ = catch_unwind(|| unsafe { CRanks::drop(ranks, ranks_size) });
+pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, len: u32) {
+    let _ = catch_unwind(|| unsafe { CRanks::drop(ranks, len) });
 }
 
 #[repr(C)]
@@ -280,104 +332,225 @@ pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::ptr::null;
+pub(crate) mod tests {
+    use std::{ffi::CString, iter::repeat, pin::Pin, ptr::null};
+
+    use itertools::izip;
 
     use super::*;
-    use crate::utils::tests::{drop_values, setup_pointers, setup_values};
+    use crate::utils::AsPtr;
+
+    #[allow(dead_code)]
+    pub struct TestHistories<'a, 'b, 'c> {
+        len: usize,
+        ids: Pin<Vec<CString>>,
+        history: Vec<CHistory<'a, 'b>>,
+        histories: CHistories<'a, 'b, 'c>,
+        _variance: PhantomData<&'c Pin<Vec<CString>>>,
+    }
+
+    impl AsPtr for CHistories<'_, '_, '_> {}
+
+    impl<'a, 'b, 'c> AsPtr<CHistories<'a, 'b, 'c>> for TestHistories<'a, 'b, 'c> {
+        fn as_ptr(&self) -> *const CHistories<'a, 'b, 'c> {
+            self.histories.as_ptr()
+        }
+
+        fn as_mut_ptr(&mut self) -> *mut CHistories<'a, 'b, 'c> {
+            self.histories.as_mut_ptr()
+        }
+    }
+
+    impl Default for TestHistories<'_, '_, '_> {
+        fn default() -> Self {
+            let len = 6;
+            let ids = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(idx.to_string()).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let relevances = repeat(CRelevance::Low)
+                .take(len / 2)
+                .chain(repeat(CRelevance::High).take(len - len / 2));
+            let feedbacks = repeat(CFeedback::Irrelevant)
+                .take(len / 2)
+                .chain(repeat(CFeedback::Relevant).take(len - len / 2));
+
+            let history = izip!(ids.as_ref().get_ref(), relevances, feedbacks)
+                .map(|(id, relevance, feedback)| CHistory {
+                    id: unsafe { FfiStr::from_raw(id.as_ptr()) },
+                    relevance,
+                    feedback,
+                    _variance: PhantomData,
+                })
+                .collect::<Vec<_>>();
+            let histories = CHistories {
+                data: history.as_ptr(),
+                len: len as u32,
+                _variance: PhantomData,
+            };
+
+            Self {
+                len,
+                ids,
+                history,
+                histories,
+                _variance: PhantomData,
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub struct TestDocuments<'a, 'b, 'c, 'd> {
+        pub len: usize,
+        ids: Pin<Vec<CString>>,
+        snippets: Pin<Vec<CString>>,
+        document: Vec<CDocument<'a, 'b, 'c>>,
+        documents: CDocuments<'a, 'b, 'c, 'd>,
+        _variance: PhantomData<&'d Pin<Vec<CString>>>,
+    }
+
+    impl AsPtr for CDocuments<'_, '_, '_, '_> {}
+
+    impl<'a, 'b, 'c, 'd> AsPtr<CDocuments<'a, 'b, 'c, 'd>> for TestDocuments<'a, 'b, 'c, 'd> {
+        fn as_ptr(&self) -> *const CDocuments<'a, 'b, 'c, 'd> {
+            self.documents.as_ptr()
+        }
+
+        fn as_mut_ptr(&mut self) -> *mut CDocuments<'a, 'b, 'c, 'd> {
+            self.documents.as_mut_ptr()
+        }
+    }
+
+    impl Default for TestDocuments<'_, '_, '_, '_> {
+        fn default() -> Self {
+            let len = 10;
+            let ids = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(idx.to_string()).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let snippets = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("snippet {}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let ranks = 0..len as u32;
+
+            let document = izip!(ids.as_ref().get_ref(), snippets.as_ref().get_ref(), ranks)
+                .map(|(id, snippet, rank)| CDocument {
+                    id: unsafe { FfiStr::from_raw(id.as_ptr()) },
+                    snippet: unsafe { FfiStr::from_raw(snippet.as_ptr()) },
+                    rank,
+                    _variance: PhantomData,
+                })
+                .collect::<Vec<_>>();
+            let documents = CDocuments {
+                data: document.as_ptr(),
+                len: len as u32,
+                _variance: PhantomData,
+            };
+
+            Self {
+                len,
+                ids,
+                snippets,
+                document,
+                documents,
+                _variance: PhantomData,
+            }
+        }
+    }
 
     #[test]
-    fn test_history_to_vec() {
-        let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
-        let (_, _, _, c_hist, _, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
-
-        let history = unsafe { c_hist[0].to_history(hist_size) }.unwrap();
-        assert_eq!(history.len(), hist_size as usize);
-        for (dh, ch) in history.into_iter().zip(c_hist) {
+    fn test_histories_to_vec() {
+        let hists = TestHistories::default();
+        let histories = unsafe { hists.histories.to_histories() }.unwrap();
+        assert_eq!(histories.len(), hists.len);
+        for (dh, ch) in izip!(histories, &hists.history) {
             assert_eq!(dh.id.0, ch.id.as_str());
             assert_eq!(dh.relevance, ch.relevance.into());
             assert_eq!(dh.user_feedback, ch.feedback.into());
         }
-
-        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
-    fn test_history_empty() {
-        let history = unsafe { (&*null::<CHistory>()).to_history(0) }.unwrap();
-        assert!(history.is_empty());
+    fn test_histories_empty_null() {
+        let mut hists = TestHistories::default();
+        hists.histories.data = null();
+        assert!(unsafe { hists.histories.to_histories() }
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_histories_empty_zero() {
+        let mut hists = TestHistories::default();
+        hists.histories.len = 0;
+        assert!(unsafe { hists.histories.to_histories() }
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
     fn test_history_id_null() {
-        let (vocab, model, hist, hist_size, docs, _, mut error) = setup_values();
-        let (_, _, _, mut c_invalid, _, _) =
-            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
-
-        c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = unsafe { c_invalid[0].to_history(hist_size) }.unwrap_err();
+        let mut hists = TestHistories::default();
+        hists.history[0].id = unsafe { FfiStr::from_raw(null()) };
+        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
         assert_eq!(error.get_code(), CError::HistoryIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
         );
-
-        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
     fn test_documents_to_vec() {
-        let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (_, _, _, _, c_docs, _) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
-
-        let documents = unsafe { c_docs[0].to_documents(docs_size) }.unwrap();
-        assert_eq!(documents.len(), docs_size as usize);
-        for (d, cd) in documents.into_iter().zip(c_docs) {
+        let docs = TestDocuments::default();
+        let documents = unsafe { docs.documents.to_documents() }.unwrap();
+        assert_eq!(documents.len(), docs.len);
+        for (d, cd) in izip!(documents, &docs.document) {
             assert_eq!(d.id.0, cd.id.as_str());
             assert_eq!(d.snippet, cd.snippet.as_str());
             assert_eq!(d.rank, cd.rank as usize);
         }
-
-        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
-    fn test_documents_empty() {
-        let documents = unsafe { (&*null::<CDocument>()).to_documents(0) }.unwrap();
-        assert!(documents.is_empty());
+    fn test_documents_empty_null() {
+        let mut docs = TestDocuments::default();
+        docs.documents.data = null();
+        assert!(unsafe { docs.documents.to_documents() }.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_documents_empty_zero() {
+        let mut docs = TestDocuments::default();
+        docs.documents.len = 0;
+        assert!(unsafe { docs.documents.to_documents() }.unwrap().is_empty());
     }
 
     #[test]
     fn test_document_id_null() {
-        let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (_, _, _, _, mut c_invalid, _) =
-            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
-
-        c_invalid[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
+        let mut docs = TestDocuments::default();
+        docs.document[0].id = unsafe { FfiStr::from_raw(null()) };
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.get_code(), CError::DocumentIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document id is not a valid C-string pointer",
         );
-
-        drop_values(vocab, model, hist, docs, error);
     }
 
     #[test]
     fn test_document_snippet_null() {
-        let (vocab, model, hist, _, docs, docs_size, mut error) = setup_values();
-        let (_, _, _, _, mut c_invalid, _) =
-            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
-
-        c_invalid[0].snippet = unsafe { FfiStr::from_raw(null()) };
-        let error = unsafe { c_invalid[0].to_documents(docs_size) }.unwrap_err();
+        let mut docs = TestDocuments::default();
+        docs.document[0].snippet = unsafe { FfiStr::from_raw(null()) };
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.get_code(), CError::DocumentSnippetPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
         );
-
-        drop_values(vocab, model, hist, docs, error);
     }
 }
