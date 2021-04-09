@@ -3,19 +3,19 @@ use std::{cmp::Ordering, ops::Deref};
 use displaydoc::Display;
 use thiserror::Error;
 
-use super::{
-    config::Configuration,
-    utils::{
-        classify_documents_based_on_user_feedback,
-        collect_matching_documents,
-        count_coi_ids,
-        l2_norm,
-        update_alpha,
-        update_beta,
-    },
-};
 use crate::{
     bert::Embedding,
+    coi::{
+        config::Configuration,
+        utils::{
+            classify_documents_based_on_user_feedback,
+            collect_matching_documents,
+            count_coi_ids,
+            l2_norm,
+            update_alpha,
+            update_beta,
+        },
+    },
     data::{
         document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithEmbedding},
         Coi,

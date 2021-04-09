@@ -19,9 +19,8 @@ use crate::{
             MabSystem,
         },
     },
+    tests::{MemDb, MockBertSystem, MockBetaSample},
 };
-
-use super::{MemDb, MockBertSystem, MockBetaSample};
 
 // can later be used for integration tests
 // pub fn global_bert_system() -> &'static Arc<RuBert<AveragePooler>> {

@@ -18,10 +18,9 @@ use crate::{
         UserInterests,
     },
     error::Error,
+    reranker::systems::{CoiSystemData, CommonSystems},
     to_vec_of_ref_of,
 };
-
-use systems::{CoiSystemData, CommonSystems};
 
 #[cfg(test)]
 use derive_more::From;
@@ -256,7 +255,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use super::super::public::DocumentsRank;
 
     use crate::{
         coi::CoiSystemError,

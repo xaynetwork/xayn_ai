@@ -15,9 +15,8 @@ use crate::{
         UserInterests,
     },
     error::Error,
+    reranker::database::Database,
 };
-
-use super::database::Database;
 
 #[cfg(test)]
 use mockall::automock;
