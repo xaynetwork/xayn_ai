@@ -1,0 +1,147 @@
+name: Release-CI
+
+on:
+  push:
+
+env:
+  RUST_STABLE: 1.49.0
+  CARGO_NDK: 2.2.0
+  ANDROID_PLATFORM_VERSION: 21
+  CARGO_LIPO: 3.1.1
+
+jobs:
+  registry-cache:
+    # we use the latest stable rustc + cargo version that is already installed on the image
+    # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
+    name: cargo-fetch
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      cache-date: ${{ steps.get-date.outputs.date }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # We want to create a new cache after a week. Otherwise, the cache will
+      # take up too much space by caching old dependencies
+      - name: Generate Year + ISO week number key
+        id: get-date
+        shell: bash
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y-%V")"
+
+      - name: Generate cargo registry cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
+
+      - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
+
+      - name: Fetch dependencies
+        run: cargo fetch
+
+  install-cargo-ndk:
+    name: install-cargo-ndk
+    runs-on: macos-10.15
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    timeout-minutes: 15
+    steps:
+      - name: Generate cargo-ndk cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-ndk-bin-${{ env.CARGO_NDK }})"
+
+      - name: Restore ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        id: cargo-ndk-cache
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Install cargo-ndk ${{ env.CARGO_NDK }}
+        if: ${{ !steps.cargo-ndk-cache.outputs.cache-hit }}
+        run: cargo install cargo-ndk --version ${{ env.CARGO_NDK }}
+
+  install-cargo-lipo:
+    # we use the latest stable rustc + cargo version that is already installed on the image
+    # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
+    name: install-cargo-lipo
+    runs-on: macos-10.15
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    timeout-minutes: 15
+    steps:
+      - name: Generate cargo-lipo cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-lipo-bin-${{ env.CARGO_LIPO }})"
+
+      - name: Restore ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        id: cargo-lipo-cache
+        with:
+          path: ~/.cargo/bin/cargo-lipo
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
+        if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
+        run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
+
+  release:
+    name: release
+    runs-on: macos-10.15
+    needs: [registry-cache, install-cargo-ndk, install-cargo-lipo]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        run: |
+            rustup set profile minimal
+            rustup toolchain install ${{ env.RUST_STABLE }}
+            rustup target add \
+                    aarch64-linux-android \
+                    armv7-linux-androideabi \
+                    i686-linux-android \
+                    x86_64-linux-android \
+                    aarch64-apple-ios \
+                    x86_64-apple-ios \
+                    --toolchain ${{ env.RUST_STABLE }}
+            rustup override set ${{ env.RUST_STABLE }}
+
+      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: ${{ needs.install-cargo-ndk.outputs.cache-key }}
+
+      - name: Build Android libraries
+        working-directory: ./xayn-ai-ffi-c
+        run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 --platform ${{ env.ANDROID_PLATFORM_VERSION }} -o ../jniLibs build --release
+
+      - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: ~/.cargo/bin/cargo-lipo
+          key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
+
+      - name: Build iOS libraries
+        working-directory: ./xayn-ai-ffi-c
+        run: cargo lipo --release
