@@ -17,7 +17,7 @@ void main() {
 
       expect(error.isPanic(), equals(true));
       expect(error.isSuccess(), equals(false));
-      expect(error.isError(), equals(false));
+      expect(error.isError(), equals(true));
 
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
@@ -47,12 +47,10 @@ void main() {
       malloc.free(error.ptr);
     });
 
-    test('double free', () {
+    test('free', () {
       final error = XaynAiError();
 
       expect(error.ptr, isNot(equals(nullptr)));
-      error.free();
-      expect(error.ptr, equals(nullptr));
       error.free();
       expect(error.ptr, equals(nullptr));
     });

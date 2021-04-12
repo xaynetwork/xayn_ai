@@ -55,13 +55,6 @@ void main() {
       ai.free();
     });
 
-    test('double free', () {
-      final ai = XaynAi(vocab, model);
-
-      ai.free();
-      ai.free();
-    });
-
     test('invalid paths', () {
       final code = XaynAiCode.readFile;
       final message =

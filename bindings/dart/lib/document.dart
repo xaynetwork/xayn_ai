@@ -187,17 +187,9 @@ class Ranks {
   Ranks(this._ranks, this._size);
 
   /// Converts the ranks to a list, which is in the same order as the documents.
-  List<int> toList() {
-    if (_size == 0) {
-      return List.empty();
-    }
-
-    if (_ranks == nullptr) {
-      throw ArgumentError('Ranks were already freed.');
-    }
-
-    return _ranks.asTypedList(_size).toList(growable: false);
-  }
+  List<int> toList() => _ranks == nullptr || _size == 0
+      ? List.empty()
+      : _ranks.asTypedList(_size).toList(growable: false);
 
   /// Frees the memory.
   void free() {

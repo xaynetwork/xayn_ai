@@ -34,12 +34,10 @@ void main() {
       expect(hist.size, 0);
     });
 
-    test('double free', () {
+    test('free', () {
       final hist = History(histIds, histRelevances, histFeedbacks);
 
       expect(hist.ptr, isNot(equals(nullptr)));
-      hist.free();
-      expect(hist.ptr, equals(nullptr));
       hist.free();
       expect(hist.ptr, equals(nullptr));
     });
@@ -71,12 +69,10 @@ void main() {
       expect(docs.size, 0);
     });
 
-    test('double free', () {
+    test('free', () {
       final docs = Documents(docsIds, docsSnippets, docsRanks);
 
       expect(docs.ptr, isNot(equals(nullptr)));
-      docs.free();
-      expect(docs.ptr, equals(nullptr));
       docs.free();
       expect(docs.ptr, equals(nullptr));
     });
@@ -103,12 +99,6 @@ void main() {
       final ranks = Ranks(nullptr, 0);
 
       expect(ranks.toList(), isEmpty);
-    });
-
-    test('double free', () {
-      final ranks = Ranks(nullptr, 0);
-
-      ranks.free();
     });
   });
 }

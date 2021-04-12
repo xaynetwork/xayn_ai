@@ -131,20 +131,21 @@ class XaynAiError {
   /// Gets the pointer.
   Pointer<CXaynAiError> get ptr => _error;
 
-  /// Checks for a panic code.
+  /// Checks for an irrecoverable error code.
   bool isPanic() => _error.ref.code == CXaynAiCode.Panic;
 
   /// Checks for a success code.
   bool isSuccess() => _error.ref.code == CXaynAiCode.Success;
 
-  /// Checks for an error code.
-  bool isError() => !(isPanic() || isSuccess());
+  /// Checks for an error code (both recoverable and irrecoverable).
+  bool isError() => !isSuccess();
 
   /// Creates an exception from the error information.
   XaynAiException toException() {
     final code = XaynAiCodeInt.fromInt(_error.ref.code);
-    final message =
-        isSuccess() ? '' : _error.ref.message.cast<Utf8>().toDartString();
+    final message = _error.ref.message == nullptr
+        ? ''
+        : _error.ref.message.cast<Utf8>().toDartString();
     return XaynAiException(code, message);
   }
 
