@@ -20,7 +20,7 @@ dev_dependencies:
 ffigen:
   name: 'XaynAiFfi'
   description: 'Bindings to the xayn-ai-ffi-c library.'
-  output: 'lib/ffi.dart'
+  output: 'lib/src/ffi/genesis.dart'
   headers:
     entry-points:
       - '../../xayn-ai-ffi-c/ffi.h'
@@ -29,3 +29,4 @@ ffigen:
   compiler-opts-automatic:
     macos:
       include-c-standard-library: false
+  preamble: library genesis;

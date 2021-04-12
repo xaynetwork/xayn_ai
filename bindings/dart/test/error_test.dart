@@ -4,7 +4,7 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test;
 
-import 'package:xayn_ai_ffi_dart/error.dart'
+import 'package:xayn_ai_ffi_dart/src/error.dart'
     show XaynAiCode, XaynAiCodeInt, XaynAiError, XaynAiException;
 import 'utils.dart' show throwsXaynAiException;
 

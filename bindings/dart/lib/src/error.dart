@@ -2,8 +2,9 @@ import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer;
 
 import 'package:ffi/ffi.dart' show malloc, Utf8, Utf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAiCode, CXaynAiError;
-import 'package:xayn_ai_ffi_dart/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
+    show CXaynAiCode, CXaynAiError;
+import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The Xayn AI error codes.
 enum XaynAiCode {

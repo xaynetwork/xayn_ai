@@ -1,7 +1,9 @@
+library library;
+
 import 'dart:ffi' show DynamicLibrary;
 import 'dart:io' show Platform;
 
-import 'package:xayn_ai_ffi_dart/ffi.dart' show XaynAiFfi;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show XaynAiFfi;
 
 DynamicLibrary _open() {
   if (Platform.isAndroid) {

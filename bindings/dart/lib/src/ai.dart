@@ -2,11 +2,12 @@ import 'dart:ffi' show Int8, nullptr, Pointer, Uint32;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/document.dart'
-    show Documents, Feedback, History, Ranks, Relevance;
-import 'package:xayn_ai_ffi_dart/error.dart' show XaynAiError;
-import 'package:xayn_ai_ffi_dart/ffi.dart' show CXaynAi;
-import 'package:xayn_ai_ffi_dart/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/doc/document.dart' show Document, History;
+import 'package:xayn_ai_ffi_dart/src/doc/documents.dart'
+    show Documents, Histories, Ranks;
+import 'package:xayn_ai_ffi_dart/src/error.dart' show XaynAiError;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
+import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The Xayn AI.
 ///
@@ -40,31 +41,25 @@ class XaynAi {
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
-  List<int> rerank(
-      List<String> histIds,
-      List<Relevance> histRelevances,
-      List<Feedback> histFeedbacks,
-      List<String> docsIds,
-      List<String> docsSnippets,
-      List<int> docsRanks) {
-    final hist = History(histIds, histRelevances, histFeedbacks);
-    final docs = Documents(docsIds, docsSnippets, docsRanks);
+  List<int> rerank(List<History> histories, List<Document> documents) {
+    final hists = Histories(histories);
+    final docs = Documents(documents);
     final error = XaynAiError();
 
     Pointer<Uint32> ranksPtr = nullptr;
     try {
       ranksPtr = ffi.xaynai_rerank(
-          _ai, hist.ptr, hist.size, docs.ptr, docs.size, error.ptr);
+          _ai, hists.ptr, hists.size, docs.ptr, docs.size, error.ptr);
       if (error.isError()) {
         throw error.toException();
       }
     } finally {
-      hist.free();
+      hists.free();
       docs.free();
       error.free();
     }
 
-    final ranks = Ranks(ranksPtr, docsIds.length);
+    final ranks = Ranks(ranksPtr, documents.length);
     final ranksList = ranks.toList();
     ranks.free();
     return ranksList;
