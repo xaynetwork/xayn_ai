@@ -1,4 +1,4 @@
-import 'dart:ffi' show Int8, nullptr, Pointer, Uint32;
+import 'dart:ffi' show Int8, nullptr, Pointer;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
@@ -26,8 +26,8 @@ class XaynAi {
     final modelPtr = model.toNativeUtf8().cast<Int8>();
     final error = XaynAiError();
 
+    _ai = ffi.xaynai_new(vocabPtr, modelPtr, error.ptr);
     try {
-      _ai = ffi.xaynai_new(vocabPtr, modelPtr, error.ptr);
       if (error.isError()) {
         throw error.toException();
       }
@@ -46,23 +46,22 @@ class XaynAi {
     final docs = Documents(documents);
     final error = XaynAiError();
 
-    Pointer<Uint32> ranksPtr = nullptr;
+    final ranks = Ranks(
+      ffi.xaynai_rerank(
+          _ai, hists.ptr, hists.size, docs.ptr, docs.size, error.ptr),
+      docs.size,
+    );
     try {
-      ranksPtr = ffi.xaynai_rerank(
-          _ai, hists.ptr, hists.size, docs.ptr, docs.size, error.ptr);
       if (error.isError()) {
         throw error.toException();
       }
+      return ranks.toList();
     } finally {
       hists.free();
       docs.free();
       error.free();
+      ranks.free();
     }
-
-    final ranks = Ranks(ranksPtr, documents.length);
-    final ranksList = ranks.toList();
-    ranks.free();
-    return ranksList;
   }
 
   /// Frees the memory.

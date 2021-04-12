@@ -10,9 +10,8 @@ import 'dart:ffi'
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/doc/document.dart' show Document, History;
-import 'package:xayn_ai_ffi_dart/src/doc/utils.dart'
-    show FeedbackInt, RelevanceInt;
+import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
+    show Document, FeedbackInt, History, RelevanceInt;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CDocument, CHistory;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
@@ -29,11 +28,11 @@ class Histories {
     }
 
     _hists = malloc.call<CHistory>(_size);
-    for (var i = 0; i < _size; i++) {
-      _hists[i].id = histories[i].id.toNativeUtf8().cast<Int8>();
-      _hists[i].relevance = histories[i].relevance.toInt();
-      _hists[i].feedback = histories[i].feedback.toInt();
-    }
+    histories.asMap().forEach((i, history) {
+      _hists[i].id = history.id.toNativeUtf8().cast<Int8>();
+      _hists[i].relevance = history.relevance.toInt();
+      _hists[i].feedback = history.feedback.toInt();
+    });
   }
 
   /// Gets the pointer.
@@ -67,11 +66,11 @@ class Documents {
     }
 
     _docs = malloc.call<CDocument>(_size);
-    for (var i = 0; i < _size; i++) {
-      _docs[i].id = documents[i].id.toNativeUtf8().cast<Int8>();
-      _docs[i].snippet = documents[i].snippet.toNativeUtf8().cast<Int8>();
-      _docs[i].rank = documents[i].rank;
-    }
+    documents.asMap().forEach((i, document) {
+      _docs[i].id = document.id.toNativeUtf8().cast<Int8>();
+      _docs[i].snippet = document.snippet.toNativeUtf8().cast<Int8>();
+      _docs[i].rank = document.rank;
+    });
   }
 
   /// Gets the pointer.
