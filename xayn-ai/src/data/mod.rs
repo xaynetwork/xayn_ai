@@ -1,5 +1,5 @@
 pub mod document;
-pub mod document_data;
+pub(crate) mod document_data;
 
 use serde::{Deserialize, Serialize};
 
@@ -8,11 +8,11 @@ use crate::bert::Embedding;
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug))]
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
-pub struct CoiId(pub usize);
+pub(crate) struct CoiId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Coi {
+pub(crate) struct Coi {
     pub id: CoiId,
     pub point: Embedding,
     pub alpha: f32,
@@ -32,13 +32,13 @@ impl Coi {
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone, Serialize, Deserialize)]
-pub struct UserInterests {
+pub(crate) struct UserInterests {
     pub positive: Vec<Coi>,
     pub negative: Vec<Coi>,
 }
 
 impl UserInterests {
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             positive: Vec::new(),
             negative: Vec::new(),

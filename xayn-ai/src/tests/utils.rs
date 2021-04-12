@@ -4,7 +4,7 @@ use ndarray::arr1;
 
 use crate::{
     data::{
-        document::{Relevance, UserFeedback},
+        document::{DocumentsRank, Relevance, UserFeedback},
         document_data::{
             CoiComponent,
             ContextComponent,
@@ -20,14 +20,13 @@ use crate::{
         Coi,
         CoiId,
     },
-    reranker::DocumentsRank,
-    reranker_systems::{BertSystem, CoiSystemData},
+    reranker::systems::{BertSystem, CoiSystemData},
     Document,
     DocumentHistory,
     DocumentId,
 };
 
-pub fn documents_from_ids(ids: Range<u32>) -> Vec<Document> {
+pub(crate) fn documents_from_ids(ids: Range<u32>) -> Vec<Document> {
     ids.enumerate()
         .map(|(rank, id)| Document {
             id: DocumentId(id.to_string()),
@@ -37,7 +36,9 @@ pub fn documents_from_ids(ids: Range<u32>) -> Vec<Document> {
         .collect()
 }
 
-pub fn documents_from_words(ctx: impl Iterator<Item = (usize, impl ToString)>) -> Vec<Document> {
+pub(crate) fn documents_from_words(
+    ctx: impl Iterator<Item = (usize, impl ToString)>,
+) -> Vec<Document> {
     ctx.map(|(id, snippet)| Document {
         id: DocumentId(id.to_string()),
         rank: id,
@@ -46,7 +47,7 @@ pub fn documents_from_words(ctx: impl Iterator<Item = (usize, impl ToString)>) -
     .collect()
 }
 
-pub fn cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<Coi> {
+pub(crate) fn cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<Coi> {
     let documents = snippets
         .iter()
         .enumerate()
@@ -68,7 +69,7 @@ pub fn cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<Coi> {
         .collect()
 }
 
-pub fn history_for_prev_docs(
+pub(crate) fn history_for_prev_docs(
     prev_documents: &[&dyn CoiSystemData],
     relevance: Vec<(Relevance, UserFeedback)>,
 ) -> Vec<DocumentHistory> {
@@ -83,7 +84,7 @@ pub fn history_for_prev_docs(
         .collect()
 }
 
-pub fn data_with_mab(
+pub(crate) fn data_with_mab(
     ids_and_embeddings: impl Iterator<Item = (u32, Vec<f32>)>,
 ) -> Vec<DocumentDataWithMab> {
     ids_and_embeddings
@@ -106,7 +107,7 @@ pub fn data_with_mab(
         .collect()
 }
 
-pub fn data_with_embedding(
+pub(crate) fn data_with_embedding(
     ids_and_embeddings: impl Iterator<Item = (u32, Vec<f32>)>,
 ) -> Vec<DocumentDataWithEmbedding> {
     ids_and_embeddings
@@ -121,14 +122,14 @@ pub fn data_with_embedding(
         .collect()
 }
 
-pub fn expected_rerank_unchanged(docs: &[Document]) -> DocumentsRank {
+pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> DocumentsRank {
     docs.iter()
         .enumerate()
         .map(|(rank, doc)| (doc.id.clone(), rank))
         .collect()
 }
 
-pub fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec<DocumentHistory> {
+pub(crate) fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec<DocumentHistory> {
     docs.into_iter()
         .map(|(id, relevance, user_feedback)| DocumentHistory {
             id: DocumentId(id.to_string()),

@@ -3,54 +3,54 @@ use serde::{Deserialize, Serialize};
 use crate::{
     bert::Embedding,
     data::{document::DocumentId, CoiId},
-    reranker_systems::CoiSystemData,
+    reranker::systems::CoiSystemData,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct DocumentIdComponent {
-    pub id: DocumentId,
+pub(crate) struct DocumentIdComponent {
+    pub(crate) id: DocumentId,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct DocumentContentComponent {
-    pub snippet: String,
+pub(crate) struct DocumentContentComponent {
+    pub(crate) snippet: String,
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct EmbeddingComponent {
-    pub embedding: Embedding,
+pub(crate) struct EmbeddingComponent {
+    pub(crate) embedding: Embedding,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct LtrComponent {
-    pub ltr_score: f32,
+pub(crate) struct LtrComponent {
+    pub(crate) ltr_score: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct CoiComponent {
+pub(crate) struct CoiComponent {
     /// The ID of the positive centre of interest
-    pub id: CoiId,
+    pub(crate) id: CoiId,
     /// Distance from the positive centre of interest
-    pub pos_distance: f32,
+    pub(crate) pos_distance: f32,
     /// Distance from the negative centre of interest
-    pub neg_distance: f32,
+    pub(crate) neg_distance: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct ContextComponent {
+pub(crate) struct ContextComponent {
     pub context_value: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct MabComponent {
+pub(crate) struct MabComponent {
     pub rank: usize,
 }
 
@@ -58,20 +58,20 @@ pub struct MabComponent {
 // DocumentDataWithDocument -> DocumentDataWithEmbedding -> DocumentDataWithCoi ->
 // DocumentDataWithLtr -> DocumentDataWithContext -> DocumentDataWithMab
 
-pub struct DocumentDataWithDocument {
-    pub document_id: DocumentIdComponent,
-    pub document_content: DocumentContentComponent,
+pub(crate) struct DocumentDataWithDocument {
+    pub(crate) document_id: DocumentIdComponent,
+    pub(crate) document_content: DocumentContentComponent,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub struct DocumentDataWithEmbedding {
-    pub document_id: DocumentIdComponent,
-    pub embedding: EmbeddingComponent,
+pub(crate) struct DocumentDataWithEmbedding {
+    pub(crate) document_id: DocumentIdComponent,
+    pub(crate) embedding: EmbeddingComponent,
 }
 
 impl DocumentDataWithEmbedding {
-    pub fn from_document(
+    pub(crate) fn from_document(
         document: DocumentDataWithDocument,
         embedding: EmbeddingComponent,
     ) -> Self {
@@ -96,14 +96,14 @@ impl CoiSystemData for DocumentDataWithEmbedding {
     }
 }
 
-pub struct DocumentDataWithCoi {
-    pub document_id: DocumentIdComponent,
-    pub embedding: EmbeddingComponent,
-    pub coi: CoiComponent,
+pub(crate) struct DocumentDataWithCoi {
+    pub(crate) document_id: DocumentIdComponent,
+    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) coi: CoiComponent,
 }
 
 impl DocumentDataWithCoi {
-    pub fn from_document(document: DocumentDataWithEmbedding, coi: CoiComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithEmbedding, coi: CoiComponent) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
@@ -113,15 +113,15 @@ impl DocumentDataWithCoi {
 }
 
 #[cfg_attr(test, derive(Debug))]
-pub struct DocumentDataWithLtr {
-    pub document_id: DocumentIdComponent,
-    pub embedding: EmbeddingComponent,
-    pub coi: CoiComponent,
-    pub ltr: LtrComponent,
+pub(crate) struct DocumentDataWithLtr {
+    pub(crate) document_id: DocumentIdComponent,
+    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) coi: CoiComponent,
+    pub(crate) ltr: LtrComponent,
 }
 
 impl DocumentDataWithLtr {
-    pub fn from_document(document: DocumentDataWithCoi, ltr: LtrComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithCoi, ltr: LtrComponent) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
@@ -132,16 +132,16 @@ impl DocumentDataWithLtr {
 }
 
 #[cfg_attr(test, derive(Debug, Clone))]
-pub struct DocumentDataWithContext {
-    pub document_id: DocumentIdComponent,
-    pub embedding: EmbeddingComponent,
-    pub coi: CoiComponent,
-    pub ltr: LtrComponent,
-    pub context: ContextComponent,
+pub(crate) struct DocumentDataWithContext {
+    pub(crate) document_id: DocumentIdComponent,
+    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) coi: CoiComponent,
+    pub(crate) ltr: LtrComponent,
+    pub(crate) context: ContextComponent,
 }
 
 impl DocumentDataWithContext {
-    pub fn from_document(document: DocumentDataWithLtr, context: ContextComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithLtr, context: ContextComponent) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,
@@ -154,17 +154,17 @@ impl DocumentDataWithContext {
 
 #[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 #[derive(Serialize, Deserialize)]
-pub struct DocumentDataWithMab {
-    pub document_id: DocumentIdComponent,
-    pub embedding: EmbeddingComponent,
-    pub coi: CoiComponent,
-    pub ltr: LtrComponent,
-    pub context: ContextComponent,
-    pub mab: MabComponent,
+pub(crate) struct DocumentDataWithMab {
+    pub(crate) document_id: DocumentIdComponent,
+    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) coi: CoiComponent,
+    pub(crate) ltr: LtrComponent,
+    pub(crate) context: ContextComponent,
+    pub(crate) mab: MabComponent,
 }
 
 impl DocumentDataWithMab {
-    pub fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
         Self {
             document_id: document.document_id,
             embedding: document.embedding,

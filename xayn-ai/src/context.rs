@@ -1,6 +1,6 @@
 use crate::{
     data::document_data::{ContextComponent, DocumentDataWithContext, DocumentDataWithLtr},
-    reranker_systems::ContextSystem,
+    reranker::systems::ContextSystem,
     Error,
 };
 

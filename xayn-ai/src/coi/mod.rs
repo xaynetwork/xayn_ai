@@ -1,6 +1,6 @@
 mod config;
 mod system;
-pub(crate) mod utils;
+mod utils;
 
 pub(crate) use config::Configuration;
 pub(crate) use system::CoiSystem;

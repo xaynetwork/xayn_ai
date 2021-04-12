@@ -5,21 +5,22 @@ use crate::{
     coi::CoiSystem as CoiSys,
     context::Context,
     data::document_data::{DocumentDataWithEmbedding, EmbeddingComponent},
-    database::Database,
     ltr::ConstLtr,
     mab::MabRanking,
-    reranker_systems::{
-        AnalyticsSystem,
-        BertSystem,
-        CoiSystem,
-        CommonSystems,
-        ContextSystem,
-        LtrSystem,
-        MabSystem,
+    reranker::{
+        database::Database,
+        systems::{
+            AnalyticsSystem,
+            BertSystem,
+            CoiSystem,
+            CommonSystems,
+            ContextSystem,
+            LtrSystem,
+            MabSystem,
+        },
     },
+    tests::{MemDb, MockBertSystem, MockBetaSample},
 };
-
-use super::{MemDb, MockBertSystem, MockBetaSample};
 
 // can later be used for integration tests
 // pub fn global_bert_system() -> &'static Arc<RuBert<AveragePooler>> {
@@ -50,7 +51,7 @@ use super::{MemDb, MockBertSystem, MockBetaSample};
 //     }
 // }
 
-pub fn mocked_bert_system() -> MockBertSystem {
+pub(crate) fn mocked_bert_system() -> MockBertSystem {
     let mut mock_bert = MockBertSystem::new();
     mock_bert.expect_compute_embedding().returning(|docs| {
         Ok(docs
@@ -77,7 +78,7 @@ pub fn mocked_bert_system() -> MockBertSystem {
     mock_bert
 }
 
-pub struct MockCommonSystems<Db, Bert, Coi, Ltr, Context, Mab, Analytics>
+pub(crate) struct MockCommonSystems<Db, Bert, Coi, Ltr, Context, Mab, Analytics>
 where
     Db: Database,
     Bert: BertSystem,
@@ -147,7 +148,7 @@ impl
         AnalyticsSys,
     >
 {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler
             .expect_sample()
@@ -177,7 +178,7 @@ where
     Mab: MabSystem,
     Analytics: AnalyticsSystem,
 {
-    pub fn set_db<D: Database>(
+    pub(crate) fn set_db<D: Database>(
         self,
         f: impl FnOnce() -> D,
     ) -> MockCommonSystems<D, Bert, Coi, Ltr, Context, Mab, Analytics> {
@@ -192,7 +193,7 @@ where
         }
     }
 
-    pub fn set_bert<B: BertSystem>(
+    pub(crate) fn set_bert<B: BertSystem>(
         self,
         f: impl FnOnce() -> B,
     ) -> MockCommonSystems<Db, B, Coi, Ltr, Context, Mab, Analytics> {
@@ -207,7 +208,7 @@ where
         }
     }
 
-    pub fn set_coi<C: CoiSystem>(
+    pub(crate) fn set_coi<C: CoiSystem>(
         self,
         f: impl FnOnce() -> C,
     ) -> MockCommonSystems<Db, Bert, C, Ltr, Context, Mab, Analytics> {
@@ -222,7 +223,7 @@ where
         }
     }
 
-    pub fn set_ltr<L: LtrSystem>(
+    pub(crate) fn set_ltr<L: LtrSystem>(
         self,
         f: impl FnOnce() -> L,
     ) -> MockCommonSystems<Db, Bert, Coi, L, Context, Mab, Analytics> {
@@ -237,7 +238,7 @@ where
         }
     }
 
-    pub fn set_context<C: ContextSystem>(
+    pub(crate) fn set_context<C: ContextSystem>(
         self,
         f: impl FnOnce() -> C,
     ) -> MockCommonSystems<Db, Bert, Coi, Ltr, C, Mab, Analytics> {
@@ -252,7 +253,7 @@ where
         }
     }
 
-    pub fn set_mab<M: MabSystem>(
+    pub(crate) fn set_mab<M: MabSystem>(
         self,
         f: impl FnOnce() -> M,
     ) -> MockCommonSystems<Db, Bert, Coi, Ltr, Context, M, Analytics> {
@@ -267,7 +268,7 @@ where
         }
     }
 
-    pub fn set_analytics<A: AnalyticsSystem>(
+    pub(crate) fn set_analytics<A: AnalyticsSystem>(
         self,
         f: impl FnOnce() -> A,
     ) -> MockCommonSystems<Db, Bert, Coi, Ltr, Context, Mab, A> {

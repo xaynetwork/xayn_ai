@@ -43,3 +43,5 @@ pub enum Relevance {
     Medium,
     High,
 }
+
+pub type DocumentsRank = Vec<(DocumentId, usize)>;

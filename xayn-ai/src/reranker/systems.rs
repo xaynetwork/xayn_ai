@@ -14,29 +14,29 @@ use crate::{
         },
         UserInterests,
     },
-    database::Database,
     error::Error,
+    reranker::database::Database,
 };
 
 #[cfg(test)]
 use mockall::automock;
 
 #[cfg_attr(test, automock)]
-pub trait BertSystem {
+pub(crate) trait BertSystem {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
     ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
 }
 
-pub trait CoiSystemData {
+pub(crate) trait CoiSystemData {
     fn id(&self) -> &DocumentId;
     fn embedding(&self) -> &EmbeddingComponent;
     fn coi(&self) -> Option<&CoiComponent>;
 }
 
 #[cfg_attr(test, automock)]
-pub trait CoiSystem {
+pub(crate) trait CoiSystem {
     /// Add centre of interest information to a document
     fn compute_coi(
         &self,
@@ -54,7 +54,7 @@ pub trait CoiSystem {
 }
 
 #[cfg_attr(test, automock)]
-pub trait LtrSystem {
+pub(crate) trait LtrSystem {
     fn compute_ltr(
         &self,
         history: &[DocumentHistory],
@@ -63,7 +63,7 @@ pub trait LtrSystem {
 }
 
 #[cfg_attr(test, automock)]
-pub trait ContextSystem {
+pub(crate) trait ContextSystem {
     fn compute_context(
         &self,
         documents: Vec<DocumentDataWithLtr>,
@@ -71,7 +71,7 @@ pub trait ContextSystem {
 }
 
 #[cfg_attr(test, automock)]
-pub trait MabSystem {
+pub(crate) trait MabSystem {
     fn compute_mab(
         &self,
         documents: Vec<DocumentDataWithContext>,
@@ -80,7 +80,7 @@ pub trait MabSystem {
 }
 
 #[cfg_attr(test, automock)]
-pub trait AnalyticsSystem {
+pub(crate) trait AnalyticsSystem {
     fn compute_analytics(
         &self,
         history: &[DocumentHistory],
@@ -90,7 +90,7 @@ pub trait AnalyticsSystem {
 
 /// Common systems that we need in the reranker
 /// At the moment this exists only to avoid to have 7+ generics around
-pub trait CommonSystems {
+pub(crate) trait CommonSystems {
     fn database(&self) -> &dyn Database;
     fn bert(&self) -> &dyn BertSystem;
     fn coi(&self) -> &dyn CoiSystem;

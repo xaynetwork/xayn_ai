@@ -1,4 +1,4 @@
-pub struct Configuration {
+pub(crate) struct Configuration {
     /// The shift factor by how much a Coi is shifted towards a new point.
     pub shift_factor: f32,
     pub threshold: f32,
