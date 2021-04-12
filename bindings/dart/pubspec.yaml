@@ -29,4 +29,3 @@ ffigen:
   compiler-opts-automatic:
     macos:
       include-c-standard-library: false
-  preamble: library genesis;

@@ -1,5 +1,3 @@
-library utils;
-
 import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
     show Feedback, Relevance;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'

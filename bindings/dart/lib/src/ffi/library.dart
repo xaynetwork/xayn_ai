@@ -1,5 +1,3 @@
-library library;
-
 import 'dart:ffi' show DynamicLibrary;
 import 'dart:io' show Platform;
 

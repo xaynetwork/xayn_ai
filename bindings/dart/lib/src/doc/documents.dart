@@ -1,5 +1,3 @@
-library documents;
-
 import 'dart:ffi'
     show
         AllocatorAlloc,
