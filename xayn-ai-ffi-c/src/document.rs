@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     panic::catch_unwind,
-    ptr::{null, null_mut},
+    ptr::null_mut,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -217,9 +217,12 @@ pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, ranks_size: u32) {
     let _ = catch_unwind(|| unsafe { CRanks::drop(ranks, ranks_size) });
 }
 
+#[repr(C)]
 pub struct ByteArray {
-    ptr: *const u8,
-    len: usize,
+    /// pointer to the data
+    pub ptr: *const u8,
+    /// number of bytes in the array
+    pub len: usize,
 }
 
 unsafe impl IntoFfi for ByteArray {
@@ -262,44 +265,6 @@ impl ByteArray {
     }
 }
 
-/// Get the pointer to the bytes in the array.
-///
-/// # Errors
-/// Returns a null pointer if:
-/// - The buffer is null.
-///
-/// # Safety
-/// The behavior is undefined if:
-/// - A non-null buffer doesn't point to memory allocated by [`xaynai_serialize()`].
-/// - A non-null buffer is accessed after being freed.
-/// - The return pointer is accessed after the buffer being freed.
-/// - The return pointer is accessed and [`bytebuffer_len()`] returns zero.
-///
-/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
-pub unsafe extern "C" fn bytearray_ptr(array: *const ByteArray) -> *const u8 {
-    catch_unwind(|| array.as_ref().map(|buffer| buffer.ptr).unwrap_or(null())).unwrap_or(null())
-}
-
-/// Get the length of array.
-///
-/// It will return zero if buffer is null.
-///
-/// # Safety
-/// The behavior is undefined if:
-/// - A non-null buffer doesn't point to memory allocated by [`xaynai_serialize()`].
-/// - A non-null buffer is accessed after being freed.
-///
-/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
-pub unsafe extern "C" fn bytearray_len(array: *const ByteArray) -> u32 {
-    catch_unwind(|| {
-        array
-            .as_ref()
-            .map(|buffer| buffer.len as u32)
-            .unwrap_or(0)
-    })
-    .unwrap_or(0)
-}
-
 /// Frees the memory of a byte buffer.
 ///
 /// # Safety
@@ -309,6 +274,7 @@ pub unsafe extern "C" fn bytearray_len(array: *const ByteArray) -> u32 {
 /// - A non-null buffer is accessed after being freed.
 ///
 /// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
+#[no_mangle]
 pub unsafe extern "C" fn bytearray_drop(buffer: *mut ByteArray) {
     let _ = catch_unwind(|| unsafe { ByteArray::drop(buffer) });
 }
