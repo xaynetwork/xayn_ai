@@ -4,13 +4,17 @@ use std::{
 };
 
 use ffi_support::{
-    call_with_result, define_bytebuffer_destructor, implement_into_ffi_by_pointer,
-    ExternError, FfiStr, IntoFfi,
+    call_with_result,
+    define_bytebuffer_destructor,
+    implement_into_ffi_by_pointer,
+    ExternError,
+    FfiStr,
+    IntoFfi,
 };
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
-    document::{CDocument, CHistory, CRanks, ByteArray},
+    document::{ByteArray, CDocument, CHistory, CRanks},
     error::CXaynAiError,
 };
 

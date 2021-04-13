@@ -38,7 +38,7 @@ impl Db {
 
         let data = bincode::deserialize(&bytes[1..])?;
 
-        Ok(Self(RefCell::new( Some(data))))
+        Ok(Self(RefCell::new(Some(data))))
     }
 
     fn serialize_data(data: &RerankerData) -> Result<Vec<u8>, Error> {

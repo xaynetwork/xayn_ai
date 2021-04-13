@@ -18,7 +18,13 @@ use crate::{
 use super::{
     database::{Database, Db},
     systems::{
-        AnalyticsSystem, BertSystem, CoiSystem, CommonSystems, ContextSystem, LtrSystem, MabSystem,
+        AnalyticsSystem,
+        BertSystem,
+        CoiSystem,
+        CommonSystems,
+        ContextSystem,
+        LtrSystem,
+        MabSystem,
     },
 };
 

@@ -10,8 +10,14 @@ mod utils;
 pub use crate::{
     ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_serialize, CXaynAi},
     document::{
-        bytearray_drop, ranks_drop, ByteArray, CDocument, CFeedback,
-        CHistory, CRanks, CRelevance,
+        bytearray_drop,
+        ranks_drop,
+        ByteArray,
+        CDocument,
+        CFeedback,
+        CHistory,
+        CRanks,
+        CRelevance,
     },
     error::{error_message_drop, CXaynAiError},
     utils::dummy_function,
