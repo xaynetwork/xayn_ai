@@ -12,20 +12,20 @@ dependencies:
     sdk: 'flutter'
 
 dev_dependencies:
-  ffigen: '^2.4.0'
+  ffigen: '^2.4.2'
   flutter_test:
     sdk: 'flutter'
   pedantic: '^1.11.0'
 
 ffigen:
-  name: 'XaynAi'
+  name: 'XaynAiFfi'
   description: 'Bindings to the xayn-ai-ffi-c library.'
-  output: 'lib/xayn_ai_ffi.dart'
+  output: 'lib/src/ffi/genesis.dart'
   headers:
     entry-points:
-      - '../../xayn-ai-ffi-c/xayn_ai.h'
+      - '../../xayn-ai-ffi-c/ffi.h'
     include-directives:
-      - '../../xayn-ai-ffi-c/xayn_ai.h'
+      - '../../xayn-ai-ffi-c/ffi.h'
   compiler-opts-automatic:
     macos:
       include-c-standard-library: false
