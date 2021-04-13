@@ -14,7 +14,7 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/doc/document.dart' show Document, History;
 import 'package:xayn_ai_ffi_dart/src/doc/documents.dart'
-    show Documents, Histories, Ranks;
+    show Documents, Histories, Ranks, Bytes;
 import 'package:xayn_ai_ffi_dart/src/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
@@ -88,6 +88,22 @@ class XaynAi {
       docs.free();
       error.free();
       ranks.free();
+    }
+  }
+
+  Uint8List serialize() {
+    final error = XaynAiError();
+
+    final bytes = Bytes(ffi.xaynai_serialize(_ai, error.ptr));
+
+    try {
+      if (error.isError()) {
+        throw error.toException();
+      }
+      return bytes.toList();
+    } finally {
+      error.free();
+      bytes.free();
     }
   }
 
