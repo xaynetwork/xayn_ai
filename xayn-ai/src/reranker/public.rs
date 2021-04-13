@@ -76,6 +76,10 @@ impl Reranker {
     pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
         self.0.rerank(history, documents)
     }
+
+    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+        self.0.serialize()
+    }
 }
 
 pub struct Builder<V, M> {
@@ -93,7 +97,7 @@ impl Default for Builder<(), ()> {
 }
 
 impl<V, M> Builder<V, M> {
-    pub fn from_serialized(mut self, bytes: &[u8]) -> Result<Self, Error> {
+    pub fn with_serialized(mut self, bytes: &[u8]) -> Result<Self, Error> {
         self.database = Db::from_bytes(bytes)?;
         Ok(self)
     }

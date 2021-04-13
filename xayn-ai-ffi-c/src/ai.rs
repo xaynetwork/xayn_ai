@@ -3,11 +3,14 @@ use std::{
     slice,
 };
 
-use ffi_support::{call_with_result, implement_into_ffi_by_pointer, ExternError, FfiStr, IntoFfi};
+use ffi_support::{
+    call_with_result, define_bytebuffer_destructor, implement_into_ffi_by_pointer,
+    ExternError, FfiStr, IntoFfi,
+};
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
-    document::{CDocument, CHistory, CRanks},
+    document::{CDocument, CHistory, CRanks, ByteArray},
     error::CXaynAiError,
 };
 
@@ -55,10 +58,10 @@ impl CXaynAi {
         })?;
 
         Builder::default()
-            .from_serialized(serialized)
+            .with_serialized(serialized)
             .map_err(|cause| {
                 CXaynAiError::RerankerDeserialization
-                    .with_context(format!("Failed to deserialized reranker data: {}", cause))
+                    .with_context(format!("Failed to deserialize reranker data: {}", cause))
             })?
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
@@ -109,6 +112,20 @@ impl CXaynAi {
         CRanks::from_reranked_documents(ranks, &documents)
     }
 
+    unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<ByteArray, ExternError> {
+        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+            CXaynAiError::AiPointer
+                .with_context("Failed to rerank the documents: The ai pointer is null")
+        })?;
+
+        let bytes = xaynai.0.serialize().map_err(|cause| {
+            CXaynAiError::RerankerSerialization
+                .with_context(format!("Failed to serialize reranker data: {}", cause))
+        })?;
+
+        Ok(ByteArray::from_vec(bytes))
+    }
+
     unsafe fn drop(xaynai: *mut CXaynAi) {
         if !xaynai.is_null() {
             unsafe { Box::from_raw(xaynai) };
@@ -120,10 +137,12 @@ impl CXaynAi {
 ///
 /// # Errors
 /// Returns a null pointer if:
-/// - The vocab or model paths are invalid.
+/// - The vocab or model paths are invalid, or
+/// iff serialized is null then serialized_size != 0
 ///
 /// # Safety
 /// The behavior is undefined if:
+/// - A non-null serialized path doesn't point to an aligned, contiguous area of memory.
 /// - A non-null vocab or model path doesn't point to an aligned, contiguous area of memory with a
 /// terminating null byte.
 /// - A non-null error doesn't point to an aligned, contiguous area of memory with an
@@ -190,6 +209,44 @@ pub unsafe extern "C" fn xaynai_rerank(
     }
 }
 
+/// Reranks the documents with the Xayn AI.
+///
+/// # Errors
+/// Returns a null pointer if:
+/// - The xaynai is null.
+/// - The document history is invalid.
+/// - The documents are invalid.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null history array doesn't point to an aligned, contiguous area of memory with at least
+/// history size many [`CHistory`]s.
+/// - A history size is too large to address the memory of a non-null history array.
+/// - A non-null documents array doesn't point to an aligned, contiguous area of memory with at
+/// least documents size many [`CDocument`]s.
+/// - A documents size is too large to address the memory of a non-null documents array.
+/// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
+/// terminating null byte.
+/// - A non-null error doesn't point to an aligned, contiguous area of memory with an
+/// [`ExternError`].
+/// - A non-null, zero-sized ranks array is dereferenced.
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_serialize(
+    xaynai: *mut CXaynAi,
+    error: *mut ExternError,
+) -> *mut ByteArray {
+    let serialize = || unsafe { CXaynAi::serialize(xaynai) };
+
+    if let Some(error) = unsafe { error.as_mut() } {
+        call_with_result(error, serialize)
+    } else if let Ok(Ok(buffer)) = catch_unwind(serialize) {
+        buffer.into_ffi_value()
+    } else {
+        ByteArray::ffi_default()
+    }
+}
+
 /// Frees the memory of the Xayn AI.
 ///
 /// # Safety
@@ -201,6 +258,8 @@ pub unsafe extern "C" fn xaynai_rerank(
 pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
     let _ = catch_unwind(|| unsafe { CXaynAi::drop(xaynai) });
 }
+
+define_bytebuffer_destructor!(mylib_destroy_bytebuffer);
 
 #[cfg(test)]
 mod tests {

@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     panic::catch_unwind,
-    ptr::null_mut,
+    ptr::{null, null_mut},
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -215,6 +215,102 @@ impl CRanks {
 #[no_mangle]
 pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, ranks_size: u32) {
     let _ = catch_unwind(|| unsafe { CRanks::drop(ranks, ranks_size) });
+}
+
+pub struct ByteArray {
+    ptr: *const u8,
+    len: usize,
+}
+
+unsafe impl IntoFfi for ByteArray {
+    type Value = *mut ByteArray;
+
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        null_mut()
+    }
+
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        Box::into_raw(Box::new(self))
+    }
+}
+
+impl ByteArray {
+    pub fn from_vec(bytes: Vec<u8>) -> Self {
+        if bytes.is_empty() {
+            Self {
+                ptr: null_mut(),
+                len: 0,
+            }
+        } else {
+            let len = bytes.len();
+            let ptr = bytes.leak().as_mut_ptr();
+
+            Self { ptr, len }
+        }
+    }
+
+    fn drop(array: *mut ByteArray) {
+        if let Some(a) = unsafe { array.as_ref() } {
+            if a.len > 0 {
+                unsafe { Box::from_raw(from_raw_parts_mut(a.ptr as *mut u8, a.len)) };
+            }
+            // Safety: we do not acces `a` after we free it
+            unsafe { Box::from_raw(array) };
+        }
+    }
+}
+
+/// Get the pointer to the bytes in the array.
+///
+/// # Errors
+/// Returns a null pointer if:
+/// - The buffer is null.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null buffer doesn't point to memory allocated by [`xaynai_serialize()`].
+/// - A non-null buffer is accessed after being freed.
+/// - The return pointer is accessed after the buffer being freed.
+/// - The return pointer is accessed and [`bytebuffer_len()`] returns zero.
+///
+/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
+pub unsafe extern "C" fn bytearray_ptr(array: *const ByteArray) -> *const u8 {
+    catch_unwind(|| array.as_ref().map(|buffer| buffer.ptr).unwrap_or(null())).unwrap_or(null())
+}
+
+/// Get the length of array.
+///
+/// It will return zero if buffer is null.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null buffer doesn't point to memory allocated by [`xaynai_serialize()`].
+/// - A non-null buffer is accessed after being freed.
+///
+/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
+pub unsafe extern "C" fn bytearray_len(array: *const ByteArray) -> u32 {
+    catch_unwind(|| {
+        array
+            .as_ref()
+            .map(|buffer| buffer.len as u32)
+            .unwrap_or(0)
+    })
+    .unwrap_or(0)
+}
+
+/// Frees the memory of a byte buffer.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null buffer doesn't point to memory allocated by [`xaynai_serialize()`].
+/// - A non-null buffer is freed more than once.
+/// - A non-null buffer is accessed after being freed.
+///
+/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
+pub unsafe extern "C" fn bytearray_drop(buffer: *mut ByteArray) {
+    let _ = catch_unwind(|| unsafe { ByteArray::drop(buffer) });
 }
 
 #[cfg(test)]

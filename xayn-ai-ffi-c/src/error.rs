@@ -37,6 +37,8 @@ pub enum CXaynAiError {
     SerializedPointer = 12,
     /// Deserialization of reranker data error.
     RerankerDeserialization = 13,
+    /// Serialization of reranker data error.
+    RerankerSerialization = 14,
 }
 
 impl CXaynAiError {
