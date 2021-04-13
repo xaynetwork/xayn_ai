@@ -86,6 +86,10 @@ impl Reranker {
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
         self.0.serialize()
     }
+
+    pub fn reload(&mut self) {
+        self.0.reload();
+    }
 }
 
 pub struct Builder<V, M> {

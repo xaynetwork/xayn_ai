@@ -172,10 +172,7 @@ where
 {
     pub(crate) fn new(common_systems: CS) -> Result<Self, Error> {
         // load the last valid state from the database
-        let data = common_systems
-            .database()
-            .load_data()?
-            .unwrap_or_else(RerankerData::default);
+        let data = common_systems.database().load_data()?.unwrap_or_default();
 
         Ok(Self {
             common_systems,
@@ -183,6 +180,17 @@ where
             errors: Vec::new(),
             analytics: None,
         })
+    }
+
+    pub(crate) fn reload(&mut self) {
+        self.data = self
+            .common_systems
+            .database()
+            .load_data()
+            .unwrap_or_default()
+            .unwrap_or_default();
+        self.errors = Vec::new();
+        self.analytics = None;
     }
 
     pub(crate) fn errors(&self) -> &Vec<Error> {

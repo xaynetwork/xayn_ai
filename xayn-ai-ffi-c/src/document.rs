@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     marker::PhantomData,
-    panic::catch_unwind,
     ptr::null_mut,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
@@ -9,7 +8,7 @@ use std::{
 use ffi_support::{ExternError, FfiStr, IntoFfi};
 use xayn_ai::{Document, DocumentHistory, DocumentsRank, Relevance, UserFeedback};
 
-use crate::error::CError;
+use crate::{error::CError, utils::call_with_result};
 
 /// A document relevance level.
 #[repr(u8)]
@@ -267,7 +266,14 @@ impl CRanks {
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, len: u32) {
-    let _ = catch_unwind(|| unsafe { CRanks::drop(ranks, len) });
+    let drop = || {
+        unsafe { CRanks::drop(ranks, len) };
+        Result::<_, ExternError>::Ok(())
+    };
+    let clean = || {};
+    let error = None;
+
+    call_with_result(drop, clean, error);
 }
 
 #[repr(C)]
@@ -329,7 +335,14 @@ impl CBytes {
 /// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
 #[no_mangle]
 pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
-    let _ = catch_unwind(|| unsafe { CBytes::drop(buffer) });
+    let drop = || {
+        unsafe { CBytes::drop(buffer) };
+        Result::<_, ExternError>::Ok(())
+    };
+    let clean = || {};
+    let error = None;
+
+    call_with_result(drop, clean, error);
 }
 
 #[cfg(test)]
@@ -339,7 +352,7 @@ pub(crate) mod tests {
     use itertools::izip;
 
     use super::*;
-    use crate::utils::AsPtr;
+    use crate::utils::tests::AsPtr;
 
     #[allow(dead_code)]
     pub struct TestHistories<'a, 'b, 'c> {

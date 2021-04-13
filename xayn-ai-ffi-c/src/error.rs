@@ -1,13 +1,11 @@
-use std::{cmp::Ordering, mem::transmute, panic::catch_unwind};
+use std::{cmp::Ordering, mem::transmute};
 
 use displaydoc::Display;
 use ffi_support::{destroy_c_string, ErrorCode, ExternError};
 use thiserror::Error;
 use xayn_ai::Error;
 
-use crate::utils::AsPtr;
-
-impl AsPtr for ExternError {}
+use crate::utils::call_with_result;
 
 /// The Xayn AI error codes.
 #[repr(i32)]
@@ -124,12 +122,22 @@ impl CError {
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
-    let _ = catch_unwind(|| unsafe { CError::drop_message(error) });
+    let drop = || {
+        unsafe { CError::drop_message(error) };
+        Result::<_, ExternError>::Ok(())
+    };
+    let clean = || {};
+    let error = None;
+
+    call_with_result(drop, clean, error);
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::utils::tests::AsPtr;
+
+    impl AsPtr for ExternError {}
 
     #[test]
     fn test_error() {
