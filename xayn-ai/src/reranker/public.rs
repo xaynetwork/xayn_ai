@@ -16,20 +16,14 @@ use crate::{
 };
 
 use super::{
-    database::{Database, DatabaseRaw, Db},
+    database::{Database, Db},
     systems::{
-        AnalyticsSystem,
-        BertSystem,
-        CoiSystem,
-        CommonSystems,
-        ContextSystem,
-        LtrSystem,
-        MabSystem,
+        AnalyticsSystem, BertSystem, CoiSystem, CommonSystems, ContextSystem, LtrSystem, MabSystem,
     },
 };
 
-pub struct Systems<DBR> {
-    database: Db<DBR>,
+pub struct Systems {
+    database: Db,
     bert: RuBert<AveragePooler>,
     coi: CoiSystemImpl,
     ltr: ConstLtr,
@@ -38,10 +32,7 @@ pub struct Systems<DBR> {
     analytics: AnalyticsSystemImpl,
 }
 
-impl<DBR> CommonSystems for Systems<DBR>
-where
-    DBR: DatabaseRaw,
-{
+impl CommonSystems for Systems {
     fn database(&self) -> &dyn Database {
         &self.database
     }
@@ -71,12 +62,9 @@ where
     }
 }
 
-pub struct Reranker<DBR>(super::Reranker<Systems<DBR>>);
+pub struct Reranker(super::Reranker<Systems>);
 
-impl<DBR> Reranker<DBR>
-where
-    DBR: DatabaseRaw,
-{
+impl Reranker {
     pub fn errors(&self) -> &Vec<Error> {
         self.0.errors()
     }
@@ -90,29 +78,27 @@ where
     }
 }
 
-pub struct Builder<DB, V, M> {
-    database: DB,
+pub struct Builder<V, M> {
+    database: Db,
     bert: RuBertBuilder<V, M, NonePooler>,
 }
 
-impl Default for Builder<(), (), ()> {
+impl Default for Builder<(), ()> {
     fn default() -> Self {
         Self {
-            database: (),
+            database: Db::default(),
             bert: RuBertBuilder::new((), ()),
         }
     }
 }
 
-impl<DBR, V, M> Builder<DBR, V, M> {
-    pub fn with_database_raw<D>(self, database: D) -> Builder<D, V, M> {
-        Builder {
-            database,
-            bert: self.bert,
-        }
+impl<V, M> Builder<V, M> {
+    pub fn from_serialized(mut self, bytes: &[u8]) -> Result<Self, Error> {
+        self.database = Db::from_bytes(bytes)?;
+        Ok(self)
     }
 
-    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<DBR, W, N> {
+    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N> {
         Builder {
             database: self.database,
             bert: RuBertBuilder::new(vocab, model),
@@ -123,20 +109,19 @@ impl<DBR, V, M> Builder<DBR, V, M> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<DBR, impl BufRead, impl Read>, Error> {
+    ) -> Result<Builder<impl BufRead, impl Read>, Error> {
         Ok(Builder {
             database: self.database,
             bert: RuBertBuilder::from_files(vocab, model)?,
         })
     }
 
-    pub fn build(self) -> Result<Reranker<DBR>, Error>
+    pub fn build(self) -> Result<Reranker, Error>
     where
-        DBR: DatabaseRaw,
         V: BufRead,
         M: Read,
     {
-        let database = Db::new(self.database);
+        let database = self.database;
         let bert = self
             .bert
             .with_token_size(90)?

@@ -9,11 +9,8 @@ use crate::{
     data::{
         document::{Document, DocumentHistory, DocumentsRank},
         document_data::{
-            DocumentContentComponent,
-            DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
-            DocumentDataWithMab,
-            DocumentIdComponent,
+            DocumentContentComponent, DocumentDataWithDocument, DocumentDataWithEmbedding,
+            DocumentDataWithMab, DocumentIdComponent,
         },
         UserInterests,
     },
@@ -197,6 +194,11 @@ where
         &self.analytics
     }
 
+    /// Create a byte representation of the internal state of the Reranker.
+    pub(crate) fn serialize(&self) -> Result<Vec<u8>, Error> {
+        self.common_systems.database().serialize_data(&self.data)
+    }
+
     pub(crate) fn rerank(
         &mut self,
         history: &[DocumentHistory],
@@ -260,13 +262,8 @@ mod tests {
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
         tests::{
-            data_with_embedding,
-            document_history,
-            documents_from_ids,
-            expected_rerank_unchanged,
-            history_for_prev_docs,
-            MemDb,
-            MockCommonSystems,
+            data_with_embedding, document_history, documents_from_ids, expected_rerank_unchanged,
+            history_for_prev_docs, MemDb, MockCommonSystems,
         },
     };
 
@@ -284,8 +281,7 @@ mod tests {
         use crate::{
             data::UserInterests,
             tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
-            Document,
-            DocumentId,
+            Document, DocumentId,
         };
 
         pub(super) fn reranker_data_with_mab() -> RerankerData {

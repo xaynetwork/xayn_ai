@@ -1,83 +1,62 @@
-use std::{cell::RefCell, collections::HashMap};
+use anyhow::bail;
+use std::cell::RefCell;
 
 use crate::error::Error;
 
 use super::RerankerData;
 
-pub trait DatabaseRaw {
-    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error>;
-
-    fn insert(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<(), Error>;
-
-    fn delete(&self, key: impl AsRef<[u8]>) -> Result<(), Error>;
-}
-
 #[cfg_attr(test, mockall::automock)]
 pub(crate) trait Database {
-    fn save_data(&self, state: &RerankerData) -> Result<(), Error>;
-
     fn load_data(&self) -> Result<Option<RerankerData>, Error>;
-}
 
-pub(super) struct Db<DbRaw>(DbRaw);
-
-impl<DbRaw> Db<DbRaw> {
-    pub fn new(db_raw: DbRaw) -> Self {
-        Self(db_raw)
-    }
+    fn serialize_data(&self, data: &RerankerData) -> Result<Vec<u8>, Error>;
 }
 
 const CURRENT_SCHEMA_VERSION: u8 = 0;
 
-impl<DbRaw> Database for Db<DbRaw>
-where
-    DbRaw: DatabaseRaw,
-{
-    fn save_data(&self, state: &RerankerData) -> Result<(), Error> {
-        let key = reranker_data_key(CURRENT_SCHEMA_VERSION);
-        let value = bincode::serialize(state)?;
-
-        self.0.insert(key, value)
-    }
-
-    fn load_data(&self) -> Result<Option<RerankerData>, Error> {
-        let key = reranker_data_key(CURRENT_SCHEMA_VERSION);
-
-        self.0
-            .get(key)?
-            .map(|bs| bincode::deserialize(&bs))
-            .transpose()
-            .map_err(|e| e.into())
-    }
-}
-
-fn reranker_data_key(version: u8) -> Vec<u8> {
-    let key_prefix: &[u8] = b"reranker_data";
-
-    [key_prefix, &[version]].concat()
-}
-
-/// A temporary dummy database.
 #[derive(Default)]
-pub struct InMemoryDatabaseRaw(RefCell<HashMap<Vec<u8>, Vec<u8>>>);
+pub(super) struct Db(RefCell<Option<RerankerData>>);
 
-impl DatabaseRaw for InMemoryDatabaseRaw {
-    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>, Error> {
-        Ok(self.0.borrow().get(&key.as_ref().to_vec()).cloned())
+impl Db {
+    /// If `bytes` is empty it will return an empty database,
+    /// otherwise it will try to deserialize the bytes and
+    /// return a database with that data.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.is_empty() {
+            return Ok(Self::default());
+        }
+
+        // version is encoded in the first byte
+        let version = bytes[0];
+        if version != CURRENT_SCHEMA_VERSION {
+            bail!(
+                "Unsupported serialized data. Found version {} expected {}",
+                version,
+                CURRENT_SCHEMA_VERSION
+            );
+        }
+
+        let data = bincode::deserialize(&bytes[1..])?;
+
+        Ok(Self(RefCell::new( Some(data))))
     }
 
-    fn insert(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<(), Error> {
-        self.0
-            .borrow_mut()
-            .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
+    fn serialize_data(data: &RerankerData) -> Result<Vec<u8>, Error> {
+        // version is encoded in the first byte
+        let mut serialized = vec![CURRENT_SCHEMA_VERSION];
+        serialized.append(&mut bincode::serialize(data)?);
 
-        Ok(())
+        Ok(serialized)
+    }
+}
+
+impl Database for Db {
+    fn load_data(&self) -> Result<Option<RerankerData>, Error> {
+        Ok(self.0.borrow_mut().take())
     }
 
-    fn delete(&self, key: impl AsRef<[u8]>) -> Result<(), Error> {
-        self.0.borrow_mut().remove(&key.as_ref().to_vec());
-
-        Ok(())
+    fn serialize_data(&self, data: &RerankerData) -> Result<Vec<u8>, Error> {
+        Db::serialize_data(data)
     }
 }
 
@@ -90,7 +69,7 @@ mod tests {
     };
 
     #[test]
-    fn test_database_save_load() {
+    fn test_database_serialize_load() {
         let cois = cois_from_words(&["a", "b", "c"], mocked_bert_system());
         let user_interests = UserInterests {
             positive: cois.clone(),
@@ -99,8 +78,8 @@ mod tests {
         let docs = data_with_mab(vec![(0, vec![1.; 128])].into_iter());
         let data = RerankerData::new_with_mab(user_interests, docs);
 
-        let database = Db::new(InMemoryDatabaseRaw::default());
-        database.save_data(&data).expect("saving data");
+        let serialized = Db::serialize_data(&data).expect("serialized data");
+        let database = Db::from_bytes(&serialized).expect("load data from serialized");
         let loaded_data = database
             .load_data()
             .expect("load data")

@@ -33,6 +33,10 @@ pub enum CXaynAiError {
     DocumentSnippetPointer = 10,
     /// An internal error.
     Internal = 11,
+    /// Pointer is null but size > 0 or size == 0 but pointer is not null.
+    SerializedPointer = 12,
+    /// Deserialization of reranker data error.
+    RerankerDeserialization = 13,
 }
 
 impl CXaynAiError {
