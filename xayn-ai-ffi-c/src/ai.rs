@@ -31,6 +31,7 @@ impl RefUnwindSafe for CXaynAi {
 implement_into_ffi_by_pointer! { CXaynAi }
 
 impl CXaynAi {
+    /// See [`xaynai_new()`] for more.
     unsafe fn new(
         serialized: *const u8,
         serialized_size: u32,
@@ -59,11 +60,6 @@ impl CXaynAi {
             )
         })?;
 
-        let database = unsafe { database.as_ref() }.cloned().ok_or_else(|| {
-            CError::DatabasePointer
-                .with_extern_context("Failed to initialize the ai: The database pointer is null")
-        })?;
-
         Builder::default()
             .with_serialized_database(serialized)
             .map_err(|cause| {
@@ -75,7 +71,7 @@ impl CXaynAi {
                 CError::ReadFile
                     .with_extern_context(format!("Failed to initialize the ai: {}", cause))
             })?
-            .with_database_raw(database)
+            .with_database_raw(InMemoryDatabaseRaw::default())
             .build()
             .map(CXaynAi)
             .map_err(|cause| {
@@ -84,6 +80,7 @@ impl CXaynAi {
             })
     }
 
+    /// See [`xaynai_rerank()`] for more.
     unsafe fn rerank(
         xaynai: *mut CXaynAi,
         histories: *const CHistories,
@@ -126,6 +123,7 @@ impl CXaynAi {
         Ok(CBytes::from_vec(bytes))
     }
 
+    /// See [`xaynai_drop()`] for more.
     unsafe fn drop(xaynai: *mut CXaynAi) {
         if !xaynai.is_null() {
             unsafe { Box::from_raw(xaynai) };
@@ -147,9 +145,6 @@ impl CXaynAi {
 /// database array.
 /// - A non-null `vocab` or `model` path doesn't point to an aligned, contiguous area of memory with
 /// a terminating null byte.
-/// - A non-null `database` doesn't point to an aligned, contiguous area of memory with a
-/// [`CDatabase`].
-/// - A non-null field of `database` doesn't point to the respective callback function.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
 #[no_mangle]

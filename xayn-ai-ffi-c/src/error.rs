@@ -23,26 +23,18 @@ pub enum CError {
     ModelPointer = 2,
     /// A vocab or model file IO error.
     ReadFile = 3,
-    /// A database null pointer error.
-    DatabasePointer = 4,
-    /// A database get error.
-    DatabaseGet = 5,
-    /// A database put error.
-    DatabaseInsert = 6,
-    /// A database delete error.
-    DatabaseDelete = 7,
     /// A Xayn AI initialization error.
-    InitAi = 8,
+    InitAi = 4,
     /// A Xayn AI null pointer error.
-    AiPointer = 9,
+    AiPointer = 5,
     /// A document history null pointer error.
-    HistoryPointer = 10,
+    HistoryPointer = 6,
     /// A document history id null pointer error.
-    HistoryIdPointer = 11,
+    HistoryIdPointer = 7,
     /// A documents null pointer error.
-    DocumentsPointer = 12,
+    DocumentsPointer = 8,
     /// A document id null pointer error.
-    DocumentIdPointer = 13,
+    DocumentIdPointer = 9,
     /// A document snippet null pointer error.
     DocumentSnippetPointer = 14,
     /// Pointer is null but size > 0 or size == 0 but pointer is not null.
@@ -104,6 +96,7 @@ impl CError {
         }
     }
 
+    /// See [`error_message_drop()`] for more.
     unsafe fn drop_message(error: *mut ExternError) {
         if let Some(error) = unsafe { error.as_mut() } {
             unsafe { destroy_c_string(error.get_raw_message() as *mut _) }

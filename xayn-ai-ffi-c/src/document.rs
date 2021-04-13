@@ -96,7 +96,7 @@ where
     /// - A `len` is too large to address the memory of a non-null [`CHistory`] array.
     /// - A non-null `id` doesn't point to an aligned, contiguous area of memory with a terminating
     /// null byte.
-    pub unsafe fn to_histories(&'c self) -> Result<Vec<DocumentHistory>, ExternError> {
+    pub unsafe fn to_histories(&self) -> Result<Vec<DocumentHistory>, ExternError> {
         if self.data.is_null() || self.len == 0 {
             return Ok(Vec::new());
         }
@@ -170,7 +170,7 @@ where
     /// - A `len` is too large to address the memory of a non-null [`CDocument`] array.
     /// - A non-null `id` or `snippet` doesn't point to an aligned, contiguous area of memory with a
     /// terminating null byte.
-    pub unsafe fn to_documents(&'d self) -> Result<Vec<Document>, ExternError> {
+    pub unsafe fn to_documents(&self) -> Result<Vec<Document>, ExternError> {
         if self.data.is_null() || self.len == 0 {
             return Ok(Vec::new());
         }
@@ -247,6 +247,7 @@ impl CRanks {
             })
     }
 
+    /// See [`ranks_drop()`] for more.
     unsafe fn drop(ranks: *mut u32, len: u32) {
         if !ranks.is_null() && len > 0 {
             unsafe { Box::from_raw(from_raw_parts_mut(ranks, len as usize)) };

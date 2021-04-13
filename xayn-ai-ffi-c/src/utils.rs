@@ -6,7 +6,7 @@ pub extern "C" fn dummy_function() {}
 
 /// Common casts from references to pointers.
 ///
-/// By default, a (mutable) reference to `Self` is cast as a (mutable) pointer to `Self`. In
+/// By default, a im/mutable reference to `Self` is cast as a im/mutable pointer to `Self`. In
 /// addition, the target type `T` can be changed as well.
 ///
 /// # Safety
@@ -14,9 +14,9 @@ pub extern "C" fn dummy_function() {}
 /// undefined if:
 /// - A `T` different from `Self` doesn't have the same memory layout.
 /// - A pointer is accessed after the lifetime of the corresponding reference ends.
-/// - An immutable pointer is accessed mutably.
+/// - A pointer of an immutable reference is accessed mutably.
 pub trait AsPtr<T = Self> {
-    /// Casts the reference as a constant pointer.
+    /// Casts the immutable reference as a constant pointer.
     #[inline]
     fn as_ptr(&self) -> *const T {
         self as *const Self as *const T
