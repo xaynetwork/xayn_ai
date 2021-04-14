@@ -4,7 +4,12 @@ use ffi_support::{implement_into_ffi_by_pointer, ExternError, FfiStr};
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
-    document::{CBytes, CDocuments, CHistories, CRanks, Ranks},
+    bytes::CBytes,
+    doc::{
+        document::CDocuments,
+        history::CHistories,
+        rank::{CRanks, Ranks},
+    },
     result::{
         call_with_result,
         error::CError,
@@ -19,7 +24,7 @@ use crate::{
 /// - Rerank documents with [`xaynai_rerank()`].
 /// - Free memory with [`xaynai_drop()`], [`ranks_drop()`] and [`error_message_drop()`].
 ///
-/// [`ranks_drop()`]: crate::document::ranks_drop
+/// [`ranks_drop()`]: crate::doc::rank::ranks_drop
 /// [`error_message_drop()`]: crate::result::error::error_message_drop
 pub struct CXaynAi(Reranker);
 
@@ -42,7 +47,7 @@ impl CXaynAi {
     ) -> Result<CXaynAi, ExternError> {
         if !(serialized.is_null() ^ (serialized_size > 0)) {
             return Err(
-            CError::SerializedPointer.with_extern_context(
+            CError::SerializedPointer.with_context(
                 "Failed to initialize the ai: invalid combination of serialized and serialized_size",
             ));
         }
@@ -66,7 +71,7 @@ impl CXaynAi {
             .with_serialized_database(serialized)
             .map_err(|cause| {
                 CError::RerankerDeserialization
-                    .with_extern_context(format!("Failed to deserialize reranker data: {}", cause))
+                    .with_context(format!("Failed to deserialize reranker data: {}", cause))
             })?
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
@@ -110,13 +115,12 @@ impl CXaynAi {
     /// See [`xaynai_serialize()`] for more.
     unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<CBytes, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
-            CError::AiPointer
-                .with_extern_context("Failed to rerank the documents: The ai pointer is null")
+            CError::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
         let bytes = xaynai.0.serialize().map_err(|cause| {
             CError::RerankerSerialization
-                .with_extern_context(format!("Failed to serialize reranker data: {}", cause))
+                .with_context(format!("Failed to serialize reranker data: {}", cause))
         })?;
 
         Ok(CBytes::from_vec(bytes))
@@ -206,8 +210,8 @@ pub unsafe extern "C" fn xaynai_new(
 /// [`ExternError`].
 /// - A non-null, zero-sized `ranks` array is dereferenced.
 ///
-/// [`CHistory`]: crate::document::CHistory
-/// [`CDocument`]: crate::document::CDocument
+/// [`CHistory`]: crate::doc::history::CHistory
+/// [`CDocument`]: crate::doc::document::CDocument
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
     xaynai: *mut CXaynAi,
@@ -299,10 +303,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        document::{
-            ranks_drop,
-            tests::{TestDocuments, TestHistories},
-        },
+        doc::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
         result::{error::error_message_drop, warning::warnings_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,
@@ -427,7 +428,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ai_null() {
+    fn test_ai_null_rerank() {
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
         let mut error = ExternError::default();
@@ -443,6 +444,14 @@ mod tests {
             "Failed to rerank the documents: The ai pointer is null",
         );
 
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_ai_null_warnings() {
+        let mut error = ExternError::default();
+
+        let invalid = null_mut();
         assert!(unsafe { xaynai_warnings(invalid, error.as_mut_ptr()) }.is_null());
         assert_eq!(error.get_code(), CError::AiPointer);
         assert_eq!(

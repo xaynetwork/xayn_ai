@@ -99,23 +99,24 @@ mod tests {
 
     use super::*;
 
-    pub struct TestErrors(Vec<Error>);
+    struct TestWarnings(Vec<Error>);
 
-    impl Default for TestErrors {
+    impl Default for TestWarnings {
         fn default() -> Self {
-            Self(vec![
-                Error::msg("this is a warning"),
-                Error::msg("and another warning"),
-            ])
+            Self(
+                (0..10)
+                    .map(|idx| Error::msg(format!("warning {}", idx)))
+                    .collect(),
+            )
         }
     }
 
     #[test]
     fn test_from_error() {
-        let errors = TestErrors::default();
-        let warnings = Warnings::from(errors.0.as_slice());
-        assert_eq!(warnings.0.len(), errors.0.len());
-        for (warning, error) in izip!(warnings.0, errors.0) {
+        let buffer = TestWarnings::default().0;
+        let warnings = Warnings::from(buffer.as_slice());
+        assert_eq!(warnings.0.len(), buffer.len());
+        for (warning, error) in izip!(warnings.0, buffer) {
             assert_eq!(warning.get_code(), CError::Warning);
             assert_eq!(warning.get_message().as_str(), format!("{}", error));
         }
@@ -129,15 +130,15 @@ mod tests {
 
     #[test]
     fn test_into_raw() {
-        let errors = TestErrors::default();
-        let warnings = Warnings::from(errors.0.as_slice()).into_ffi_value();
+        let buffer = TestWarnings::default().0;
+        let warnings = Warnings::from(buffer.as_slice()).into_ffi_value();
 
         assert!(!warnings.is_null());
         let data = unsafe { &*warnings }.data;
         let len = unsafe { &*warnings }.len as usize;
         assert!(!data.is_null());
-        assert_eq!(len, errors.0.len());
-        for (warning, error) in izip!(unsafe { from_raw_parts(data, len) }, errors.0) {
+        assert_eq!(len, buffer.len());
+        for (warning, error) in izip!(unsafe { from_raw_parts(data, len) }, buffer) {
             assert_eq!(warning.get_code(), CError::Warning);
             assert_eq!(warning.get_message().as_str(), format!("{}", error));
         }
@@ -147,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_into_empty() {
-        let warnings = Warnings(vec![]).into_ffi_value();
+        let warnings = Warnings(Vec::new()).into_ffi_value();
 
         assert!(!warnings.is_null());
         assert!(unsafe { &*warnings }.data.is_null());

@@ -3,25 +3,18 @@
 #![allow(unused_unsafe)]
 
 mod ai;
-mod document;
+mod bytes;
+mod doc;
 mod result;
 mod utils;
 
 pub use crate::{
-<<<<<<< HEAD
-    ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_serialize, CXaynAi},
-=======
-    ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_warnings, CXaynAi},
->>>>>>> add rerank warnings
-    document::{
-        bytes_drop,
-        ranks_drop,
-        CBytes,
-        CDocument,
-        CFeedback,
-        CHistory,
-        CRanks,
-        CRelevance,
+    ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_serialize, xaynai_warnings, CXaynAi},
+    bytes::{bytes_drop, CBytes},
+    doc::{
+        document::{CDocument, CDocuments},
+        history::{CFeedback, CHistories, CHistory, CRelevance},
+        rank::{ranks_drop, CRanks},
     },
     result::{
         error::{error_message_drop, CError},
