@@ -556,7 +556,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialed_not_null_size_zero() {
+    fn test_serialized_not_null_size_zero() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
         let (c_vocab, c_model, _, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
