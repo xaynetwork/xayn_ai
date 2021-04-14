@@ -3,13 +3,23 @@
 #![allow(unused_unsafe)]
 
 mod ai;
+mod analytics;
 mod bytes;
 mod doc;
 mod result;
 mod utils;
 
 pub use crate::{
-    ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_serialize, xaynai_warnings, CXaynAi},
+    ai::{
+        xaynai_analytics,
+        xaynai_drop,
+        xaynai_new,
+        xaynai_rerank,
+        xaynai_serialize,
+        xaynai_warnings,
+        CXaynAi,
+    },
+    analytics::{analytics_drop, CAnalytics},
     bytes::{bytes_drop, CBytes},
     doc::{
         document::{CDocument, CDocuments},

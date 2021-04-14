@@ -112,7 +112,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_error() {
+    fn test_from_warnings() {
         let buffer = TestWarnings::default().0;
         let warnings = Warnings::from(buffer.as_slice());
         assert_eq!(warnings.0.len(), buffer.len());

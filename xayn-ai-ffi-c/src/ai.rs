@@ -4,6 +4,7 @@ use ffi_support::{implement_into_ffi_by_pointer, ExternError, FfiStr};
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
+    analytics::CAnalytics,
     bytes::CBytes,
     doc::{
         document::CDocuments,
@@ -135,9 +136,19 @@ impl CXaynAi {
         Ok(xaynai.0.errors().into())
     }
 
+    /// See [`xaynai_analytics()`] for more.
+    unsafe fn analytics(xaynai: *mut Self) -> Result<CAnalytics, ExternError> {
+        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+            CError::AiPointer.with_context("Failed to get the analytics: The ai pointer is null")
+        })?;
+
+        Ok(CAnalytics(xaynai.0.analytics().cloned()))
+    }
+
     /// Cleans the mutable parts of the state.
     ///
-    /// This *must* be called in case of a panic to uphold the contract of `RefUnwindSafe`.
+    /// This must be called in case of a panic to uphold the contract of `RefUnwindSafe`. Also, this
+    /// must never panic itself.
     unsafe fn clean(xaynai: *mut Self) {
         if let Some(xaynai) = unsafe { xaynai.as_mut() } {
             xaynai.0.reload();
@@ -273,6 +284,29 @@ pub unsafe extern "C" fn xaynai_warnings(
     call_with_result(warnings, clean, error)
 }
 
+/// Retrieves the analytics which were collected in the penultimate reranking.
+///
+/// # Errors
+/// Returns a null pointer if:
+/// - The `xaynai` is null.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
+/// [`ExternError`].
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_analytics(
+    xaynai: *mut CXaynAi,
+    error: *mut ExternError,
+) -> *mut CAnalytics {
+    let analytics = || unsafe { CXaynAi::analytics(xaynai) };
+    let clean = || unsafe { CXaynAi::clean(xaynai) };
+    let error = unsafe { error.as_mut() };
+
+    call_with_result(analytics, clean, error)
+}
+
 /// Frees the memory of the Xayn AI.
 ///
 /// # Safety
@@ -303,6 +337,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        analytics::analytics_drop,
         doc::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
         result::{error::error_message_drop, warning::warnings_drop},
         tests::{MODEL, VOCAB},
@@ -355,10 +390,13 @@ mod tests {
         assert_eq!(error.get_code(), CError::Success);
         let warnings = unsafe { xaynai_warnings(xaynai, error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CError::Success);
+        let analytics = unsafe { xaynai_analytics(xaynai, error.as_mut_ptr()) };
+        assert_eq!(error.get_code(), CError::Success);
 
         unsafe { xaynai_drop(xaynai) };
         unsafe { ranks_drop(ranks) };
         unsafe { warnings_drop(warnings) };
+        unsafe { analytics_drop(analytics) };
     }
 
     #[test]
@@ -457,6 +495,21 @@ mod tests {
         assert_eq!(
             error.get_message(),
             "Failed to get the warnings: The ai pointer is null",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_ai_null_analytics() {
+        let mut error = ExternError::default();
+
+        let invalid = null_mut();
+        assert!(unsafe { xaynai_analytics(invalid, error.as_mut_ptr()) }.is_null());
+        assert_eq!(error.get_code(), CError::AiPointer);
+        assert_eq!(
+            error.get_message(),
+            "Failed to get the analytics: The ai pointer is null",
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };

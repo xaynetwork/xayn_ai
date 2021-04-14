@@ -87,7 +87,7 @@ impl CRanks {
     }
 }
 
-/// Frees the memory of the ranks array.
+/// Frees the memory of the ranks.
 ///
 /// # Safety
 /// The behavior is undefined if:

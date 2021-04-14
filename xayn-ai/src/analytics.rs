@@ -4,6 +4,7 @@ use crate::{
     reranker::systems,
 };
 
+#[derive(Clone)]
 pub struct Analytics;
 
 pub(crate) struct AnalyticsSystem;
