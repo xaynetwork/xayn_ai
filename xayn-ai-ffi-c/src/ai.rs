@@ -4,7 +4,7 @@ use ffi_support::{implement_into_ffi_by_pointer, ExternError, FfiStr};
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
-    document::{CBytes, CDocuments, CHistories, CRanks},
+    document::{CBytes, CDocuments, CHistories, CRanks, Ranks},
     error::{CError, CWarnings, Warnings},
     utils::call_with_result,
 };
@@ -81,7 +81,7 @@ impl CXaynAi {
         xaynai: *mut Self,
         histories: *const CHistories,
         documents: *const CDocuments,
-    ) -> Result<CRanks, ExternError> {
+    ) -> Result<Ranks, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
             CError::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
@@ -101,7 +101,7 @@ impl CXaynAi {
             .to_documents()?;
 
         let ranks = xaynai.0.rerank(&histories, &documents);
-        CRanks::from_reranked_documents(ranks, &documents)
+        Ranks::from_reranked_documents(ranks, &documents)
     }
 
     /// See [`xaynai_serialize()`] for more.
@@ -211,7 +211,7 @@ pub unsafe extern "C" fn xaynai_rerank(
     histories: *const CHistories,
     documents: *const CDocuments,
     error: *mut ExternError,
-) -> *mut u32 {
+) -> *mut CRanks {
     let rerank = || unsafe { CXaynAi::rerank(xaynai, histories, documents) };
     let clean = || unsafe { CXaynAi::clean(xaynai) };
     let error = unsafe { error.as_mut() };
@@ -354,7 +354,7 @@ mod tests {
         assert_eq!(error.get_code(), CError::Success);
 
         unsafe { xaynai_drop(xaynai) };
-        unsafe { ranks_drop(ranks, docs.len as u32) };
+        unsafe { ranks_drop(ranks) };
     }
 
     #[test]
@@ -384,7 +384,7 @@ mod tests {
         }
 
         unsafe { xaynai_drop(xaynai) };
-        unsafe { ranks_drop(ranks, docs.len as u32) };
+        unsafe { ranks_drop(ranks) };
         unsafe { warnings_drop(warnings) };
     }
 

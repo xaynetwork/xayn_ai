@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     marker::PhantomData,
-    ptr::null_mut,
+    ptr::{null, null_mut},
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -204,28 +204,23 @@ where
 }
 
 /// The ranks of the reranked documents.
+pub struct Ranks(Vec<u32>);
+
+/// A raw slice of ranks.
 ///
-/// The array is in the same order as the documents used in [`xaynai_rerank()`].
+/// The ranks are in the same logical order as the documents used in [`xaynai_rerank()`].
 ///
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
-pub struct CRanks(Vec<u32>);
-
-unsafe impl IntoFfi for CRanks {
-    type Value = *mut u32;
-
-    #[inline]
-    fn ffi_default() -> Self::Value {
-        null_mut()
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> Self::Value {
-        self.0.leak().as_mut_ptr()
-    }
+#[repr(C)]
+pub struct CRanks {
+    /// The raw pointer to the ranks.
+    pub data: *const u32,
+    /// The number of ranks.
+    pub len: u32,
 }
 
-impl CRanks {
-    /// Reorders the ranks wrt the documents.
+impl Ranks {
+    /// Reorders the ranks wrt. the documents.
     pub fn from_reranked_documents(
         ranks: DocumentsRank,
         documents: &[Document],
@@ -245,11 +240,43 @@ impl CRanks {
                 )
             })
     }
+}
 
+unsafe impl IntoFfi for Ranks {
+    type Value = *mut CRanks;
+
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        null_mut()
+    }
+
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        let len = self.0.len() as u32;
+        let data = if self.0.is_empty() {
+            null()
+        } else {
+            self.0.leak().as_ptr()
+        };
+        let ranks = CRanks { data, len };
+
+        Box::into_raw(Box::new(ranks))
+    }
+}
+
+impl CRanks {
     /// See [`ranks_drop()`] for more.
-    unsafe fn drop(ranks: *mut u32, len: u32) {
-        if !ranks.is_null() && len > 0 {
-            unsafe { Box::from_raw(from_raw_parts_mut(ranks, len as usize)) };
+    unsafe fn drop(ranks: *mut Self) {
+        if !ranks.is_null() {
+            let ranks = unsafe { Box::from_raw(ranks) };
+            if !ranks.data.is_null() && ranks.len > 0 {
+                unsafe {
+                    Box::from_raw(from_raw_parts_mut(
+                        ranks.data as *mut u32,
+                        ranks.len as usize,
+                    ))
+                };
+            }
         }
     }
 }
@@ -265,9 +292,9 @@ impl CRanks {
 ///
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
 #[no_mangle]
-pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, len: u32) {
+pub unsafe extern "C" fn ranks_drop(ranks: *mut CRanks) {
     let drop = || {
-        unsafe { CRanks::drop(ranks, len) };
+        unsafe { CRanks::drop(ranks) };
         Result::<_, ExternError>::Ok(())
     };
     let clean = || {};

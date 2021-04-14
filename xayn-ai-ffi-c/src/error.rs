@@ -1,6 +1,4 @@
 use std::{
-    cmp::Ordering,
-    mem::transmute,
     ptr::{null, null_mut},
     slice::from_raw_parts_mut,
 };
@@ -14,7 +12,8 @@ use crate::utils::call_with_result;
 
 /// The Xayn AI error codes.
 #[repr(i32)]
-#[derive(Clone, Copy, Debug, Display, Error)]
+#[derive(Debug, Display, Error)]
+#[cfg_attr(test, derive(Clone, Copy))]
 pub enum CError {
     /// An uncritical error.
     Warning = -2,
@@ -50,40 +49,6 @@ pub enum CError {
     RerankerSerialization = 17,
     /// An internal error.
     Internal = 1024,
-}
-
-impl PartialEq<ErrorCode> for CError {
-    fn eq(&self, other: &ErrorCode) -> bool {
-        (*self as i32).eq(&other.code())
-    }
-}
-
-impl PartialEq<CError> for ErrorCode {
-    fn eq(&self, other: &CError) -> bool {
-        other.eq(self)
-    }
-}
-
-impl PartialOrd<ErrorCode> for CError {
-    fn partial_cmp(&self, other: &ErrorCode) -> Option<Ordering> {
-        (*self as i32).partial_cmp(&other.code())
-    }
-}
-
-impl PartialOrd<CError> for ErrorCode {
-    fn partial_cmp(&self, other: &CError) -> Option<Ordering> {
-        other.partial_cmp(self)
-    }
-}
-
-impl From<ErrorCode> for CError {
-    fn from(code: ErrorCode) -> Self {
-        if code < Self::Warning || code >= Self::Internal {
-            Self::Internal
-        } else {
-            unsafe { transmute(code) }
-        }
-    }
 }
 
 impl CError {
@@ -130,7 +95,7 @@ pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
     call_with_result(drop, clean, error);
 }
 
-/// The warnings (ie. uncritical errors) of the Xayn AI.
+/// The Xayn Ai warnings.
 pub struct Warnings(Vec<ExternError>);
 
 /// A raw slice of warnings.
@@ -219,6 +184,18 @@ pub(crate) mod tests {
     use crate::utils::tests::AsPtr;
 
     impl AsPtr<'_> for ExternError {}
+
+    impl PartialEq<ErrorCode> for CError {
+        fn eq(&self, other: &ErrorCode) -> bool {
+            (*self as i32).eq(&other.code())
+        }
+    }
+
+    impl PartialEq<CError> for ErrorCode {
+        fn eq(&self, other: &CError) -> bool {
+            other.eq(self)
+        }
+    }
 
     #[test]
     fn test_error() {
