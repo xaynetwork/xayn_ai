@@ -278,7 +278,7 @@ mod tests {
             MockMabSystem,
         },
     };
-    use anyhow::{anyhow, bail};
+    use anyhow::bail;
     use impls::impls;
     use paste::paste;
 
@@ -522,6 +522,12 @@ mod tests {
         check_error!(reranker, CoiSystemError::NoCoi);
     }
 
+    #[derive(thiserror::Error, Debug)]
+    enum MockError {
+        #[error("fail")]
+        Fail,
+    }
+
     macro_rules! test_component_failure {
         ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
             paste! {
@@ -533,7 +539,7 @@ mod tests {
                 #[test]
                 fn [<test_component_failure_ $system>]() {
                     let mut mock_system =  [<$mock>]::new();
-                    mock_system.[<expect_$method>]().returning(|$($args),*| bail!(stringify!($system)));
+                    mock_system.[<expect_$method>]().returning(|$($args),*| bail!(MockError::Fail));
 
                     let cs = MockCommonSystems::default()
                         .[<set_$system>](|| mock_system)
@@ -551,9 +557,8 @@ mod tests {
                     let rank = reranker.rerank(&[], &documents);
 
                     assert_eq!(rank, expected_rerank_unchanged(&documents));
-                    assert_eq!(reranker.errors().len(), 2);
                     check_error!(reranker, CoiSystemError::NoMatchingDocuments);
-                    assert_eq!(reranker.errors()[1].to_string(), stringify!($system));
+                    check_error!(reranker, MockError::Fail);
                     if impls!([<$mock>]: BertSystem) {
                         assert_eq!(reranker.data.prev_documents.len(), 0);
                     } else {
@@ -579,7 +584,7 @@ mod tests {
                 let mut analytics = MockAnalyticsSystem::new();
                 analytics
                     .expect_compute_analytics()
-                    .returning(|_, _| bail!("analytics system error"));
+                    .returning(|_, _| bail!(MockError::Fail));
                 analytics
             })
             .set_db(|| {
@@ -598,8 +603,7 @@ mod tests {
         let rank = reranker.rerank(&history, &documents);
 
         assert_eq!(rank, car_interest_example::expected_rerank());
-        assert_eq!(reranker.errors().len(), 1);
-        assert_eq!(reranker.errors()[0].to_string(), "analytics system error");
+        check_error!(reranker, MockError::Fail);
         assert!(reranker.analytics.is_none())
     }
 
@@ -614,7 +618,7 @@ mod tests {
             let mut bert = MockBertSystem::new();
             bert.expect_compute_embedding().returning(move |docs| {
                 let res = match called {
-                    0 => Err(anyhow!("bert fails in `rerank`")),
+                    0 => Err(MockError::Fail.into()),
                     1 => mocked_bert_system().compute_embedding(docs),
                     _ => panic!("`compute_embedding` should only be called twice"),
                 };
@@ -631,9 +635,8 @@ mod tests {
 
         assert_eq!(rank, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
-        assert_eq!(reranker.errors().len(), 2);
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
-        assert_eq!(reranker.errors()[1].to_string(), "bert fails in `rerank`")
+        check_error!(reranker, MockError::Fail);
     }
 
     /// If the database fails to load the data, propagate the error to the caller.
@@ -641,11 +644,13 @@ mod tests {
     fn test_data_read_load_data_fails() {
         let cs = MockCommonSystems::default().set_db(|| {
             let mut db = MockDatabase::new();
-            db.expect_load_data().returning(|| bail!("database error"));
+            db.expect_load_data().returning(|| bail!(MockError::Fail));
             db
         });
 
-        let reranker = Reranker::new(cs);
-        assert_eq!(reranker.err().unwrap().to_string(), "database error");
+        match Reranker::new(cs) {
+            Ok(_) => panic!("an error is expected"),
+            Err(error) => assert!(matches!(error.downcast_ref(), Some(MockError::Fail))),
+        };
     }
 }
