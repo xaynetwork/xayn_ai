@@ -547,7 +547,7 @@ mod tests {
         }
     }
 
-    fn test_component_failure(cs: impl CommonSystems, can_fill_prev_docs: bool) {
+    fn test_system_failure(cs: impl CommonSystems, can_fill_prev_docs: bool) {
         // If any of the systems fail in the `rerank` method, the `Reranker`
         // should return the results/`Document`s in an unchanged order and
         // create the previous documents from the current `Document`s.
@@ -572,31 +572,31 @@ mod tests {
         );
     }
 
-    macro_rules! test_component_failure {
+    macro_rules! test_system_failure {
         ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
-            test_component_failure!($system, $mock, $method, |$($args),*|, true);
+            test_system_failure!($system, $mock, $method, |$($args),*|, true);
         };
         ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|, $can_fill_prev_docs: expr) => {
             paste! {
                 #[test]
                 fn [<test_component_failure_ $system>]() {
                     let cs = common_systems_with_fail!($system, $mock, $method, |$($args),*|);
-                    test_component_failure(cs, $can_fill_prev_docs);
+                    test_system_failure(cs, $can_fill_prev_docs);
                 }
             }
         };
     }
 
-    test_component_failure!(bert, MockBertSystem, compute_embedding, |_|, false);
-    test_component_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
-    test_component_failure!(context, MockContextSystem, compute_context, |_|);
-    test_component_failure!(mab, MockMabSystem, compute_mab, |_,_|);
+    test_system_failure!(bert, MockBertSystem, compute_embedding, |_|, false);
+    test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
+    test_system_failure!(context, MockContextSystem, compute_context, |_|);
+    test_system_failure!(mab, MockMabSystem, compute_mab, |_,_|);
 
     #[test]
     /// An analytics system error should not prevent the documents from
     /// being reranked using the learned user interests. However, the error
     /// should be stored and made available via `Reranker::error()`.
-    fn test_component_failure_analytics() {
+    fn test_system_failure_analytics() {
         let cs =
             common_systems_with_fail!(analytics, MockAnalyticsSystem, compute_analytics, |_,_|);
         let mut reranker = Reranker::new(cs).unwrap();
@@ -618,7 +618,7 @@ mod tests {
     /// If the bert system fails spontaneously in the `rerank` function, the
     /// `Reranker` should return the results/`Document`s in an unchanged order
     /// and create the previous documents from the current `Document`s.
-    fn test_component_failure_bert_fails_in_rerank() {
+    fn test_system_failure_bert_fails_in_rerank() {
         let mut called = 0;
 
         let cs = MockCommonSystems::default().set_bert(|| {
