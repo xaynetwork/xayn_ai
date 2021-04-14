@@ -528,6 +528,26 @@ mod tests {
         Fail,
     }
 
+    macro_rules! common_systems_with_fail {
+        ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
+            paste! {{
+                let mut mock_system =  $mock::new();
+                mock_system.[<expect_$method>]().returning(|$($args),*| bail!(MockError::Fail));
+
+                let cs = MockCommonSystems::default()
+                    .[<set_$system>](|| mock_system)
+                    .set_db(|| {
+                        // We need to set at least one positive coi, otherwise
+                        // `rerank` will fail with `CoiSystemError::NoCoi` and
+                        // the systems that come after the `CoiSystem` will never
+                        // be executed.
+                        MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..1))
+                    });
+                cs
+            }}
+        }
+    }
+
     macro_rules! test_component_failure {
         ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
             paste! {
@@ -538,18 +558,7 @@ mod tests {
                 /// previous documents if it fails.
                 #[test]
                 fn [<test_component_failure_ $system>]() {
-                    let mut mock_system =  [<$mock>]::new();
-                    mock_system.[<expect_$method>]().returning(|$($args),*| bail!(MockError::Fail));
-
-                    let cs = MockCommonSystems::default()
-                        .[<set_$system>](|| mock_system)
-                        .set_db(|| {
-                            // We need to set at least one positive coi, otherwise
-                            // `rerank` will fail with `CoiSystemError::NoCoi` and
-                            // the systems that come after the `CoiSystem` will never
-                            // be executed.
-                            MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..1))
-                        });
+                    let cs = common_systems_with_fail!($system, $mock, $method, |$($args),*|);
                     let mut reranker = Reranker::new(cs).unwrap();
                     let documents = documents_from_ids(0..10);
 
@@ -579,19 +588,8 @@ mod tests {
     /// being reranked using the learned user interests. However, the error
     /// should be stored and made available via `Reranker::error()`.
     fn test_component_failure_analytics() {
-        let cs = MockCommonSystems::default()
-            .set_analytics(|| {
-                let mut analytics = MockAnalyticsSystem::new();
-                analytics
-                    .expect_compute_analytics()
-                    .returning(|_, _| bail!(MockError::Fail));
-                analytics
-            })
-            .set_db(|| {
-                MemDb::from_data(car_interest_example::reranker_data_with_mab_from_words(&[
-                    "vehicle",
-                ]))
-            });
+        let cs =
+            common_systems_with_fail!(analytics, MockAnalyticsSystem, compute_analytics, |_,_|);
         let mut reranker = Reranker::new(cs).unwrap();
         reranker.analytics = Some(Analytics);
         let documents = car_interest_example::documents();
