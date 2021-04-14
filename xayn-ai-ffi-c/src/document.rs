@@ -222,7 +222,7 @@ pub struct ByteArray {
     /// pointer to the data
     pub ptr: *const u8,
     /// number of bytes in the array
-    pub len: usize,
+    pub len: u32,
 }
 
 unsafe impl IntoFfi for ByteArray {
