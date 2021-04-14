@@ -31,14 +31,14 @@ pub enum CXaynAiError {
     DocumentIdPointer = 9,
     /// A document snippet null pointer error.
     DocumentSnippetPointer = 10,
-    /// An internal error.
-    Internal = 11,
     /// Pointer is null but size > 0 or size == 0 but pointer is not null.
-    SerializedPointer = 12,
+    SerializedPointer = 11,
     /// Deserialization of reranker data error.
-    RerankerDeserialization = 13,
+    RerankerDeserialization = 12,
     /// Serialization of reranker data error.
-    RerankerSerialization = 14,
+    RerankerSerialization = 13,
+    /// An internal error.
+    Internal = 14,
 }
 
 impl CXaynAiError {
