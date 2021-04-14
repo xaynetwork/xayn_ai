@@ -592,10 +592,10 @@ mod tests {
     test_system_failure!(context, MockContextSystem, compute_context, |_|);
     test_system_failure!(mab, MockMabSystem, compute_mab, |_,_|);
 
-    #[test]
     /// An analytics system error should not prevent the documents from
     /// being reranked using the learned user interests. However, the error
     /// should be stored and made available via `Reranker::error()`.
+    #[test]
     fn test_system_failure_analytics() {
         let cs =
             common_systems_with_fail!(analytics, MockAnalyticsSystem, compute_analytics, |_,_|);
@@ -614,10 +614,10 @@ mod tests {
         assert!(reranker.analytics.is_none())
     }
 
-    #[test]
     /// If the bert system fails spontaneously in the `rerank` function, the
     /// `Reranker` should return the results/`Document`s in an unchanged order
     /// and create the previous documents from the current `Document`s.
+    #[test]
     fn test_system_failure_bert_fails_in_rerank() {
         let mut called = 0;
 
