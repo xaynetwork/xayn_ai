@@ -193,7 +193,7 @@ where
         self.analytics = None;
     }
 
-    pub(crate) fn errors(&self) -> &Vec<Error> {
+    pub(crate) fn errors(&self) -> &[Error] {
         &self.errors
     }
 
@@ -201,8 +201,8 @@ where
     /// Analytics will be provided only if the penultimate call to `rerank` was able
     /// to run the full model without error, and the correct history is passed to the
     /// last call to `rerank`.
-    pub(crate) fn analytics(&self) -> &Option<Analytics> {
-        &self.analytics
+    pub(crate) fn analytics(&self) -> Option<&Analytics> {
+        self.analytics.as_ref()
     }
 
     /// Create a byte representation of the internal state of the Reranker.

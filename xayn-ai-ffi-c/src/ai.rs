@@ -5,7 +5,7 @@ use xayn_ai::{Builder, Reranker};
 
 use crate::{
     document::{CBytes, CDocuments, CHistories, CRanks},
-    error::CError,
+    error::{CError, CWarnings, Warnings},
     utils::call_with_result,
 };
 
@@ -49,12 +49,12 @@ impl CXaynAi {
             unsafe { slice::from_raw_parts(serialized, serialized_size as usize) }
         };
         let vocab = vocab.as_opt_str().ok_or_else(|| {
-            CError::VocabPointer.with_extern_context(
+            CError::VocabPointer.with_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
             )
         })?;
         let model = model.as_opt_str().ok_or_else(|| {
-            CError::ModelPointer.with_extern_context(
+            CError::ModelPointer.with_context(
                 "Failed to initialize the ai: The model is not a valid C-string pointer",
             )
         })?;
@@ -67,40 +67,36 @@ impl CXaynAi {
             })?
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
-                CError::ReadFile
-                    .with_extern_context(format!("Failed to initialize the ai: {}", cause))
+                CError::ReadFile.with_context(format!("Failed to initialize the ai: {}", cause))
             })?
             .build()
             .map(CXaynAi)
             .map_err(|cause| {
-                CError::InitAi
-                    .with_extern_context(format!("Failed to initialize the ai: {}", cause))
+                CError::InitAi.with_context(format!("Failed to initialize the ai: {}", cause))
             })
     }
 
     /// See [`xaynai_rerank()`] for more.
     unsafe fn rerank(
-        xaynai: *mut CXaynAi,
+        xaynai: *mut Self,
         histories: *const CHistories,
         documents: *const CDocuments,
     ) -> Result<CRanks, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
-            CError::AiPointer
-                .with_extern_context("Failed to rerank the documents: The ai pointer is null")
+            CError::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
         let histories = unsafe { histories.as_ref() }
             .ok_or_else(|| {
-                CError::HistoryPointer.with_extern_context(
+                CError::HistoryPointer.with_context(
                     "Failed to rerank the documents: The document histories pointer is null",
                 )
             })?
             .to_histories()?;
         let documents = unsafe { documents.as_ref() }
             .ok_or_else(|| {
-                CError::DocumentsPointer.with_extern_context(
-                    "Failed to rerank the documents: The documents pointer is null",
-                )
+                CError::DocumentsPointer
+                    .with_context("Failed to rerank the documents: The documents pointer is null")
             })?
             .to_documents()?;
 
@@ -108,6 +104,7 @@ impl CXaynAi {
         CRanks::from_reranked_documents(ranks, &documents)
     }
 
+    /// See [`xaynai_serialize()`] for more.
     unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<CBytes, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
             CError::AiPointer
@@ -122,17 +119,26 @@ impl CXaynAi {
         Ok(CBytes::from_vec(bytes))
     }
 
+    /// See [`xaynai_warnings()`] for more.
+    unsafe fn warnings(xaynai: *mut Self) -> Result<Warnings, ExternError> {
+        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+            CError::AiPointer.with_context("Failed to get the warnings: The ai pointer is null")
+        })?;
+
+        Ok(xaynai.0.errors().into())
+    }
+
     /// Cleans the mutable parts of the state.
     ///
     /// This *must* be called in case of a panic to uphold the contract of `RefUnwindSafe`.
-    unsafe fn clean(xaynai: *mut CXaynAi) {
+    unsafe fn clean(xaynai: *mut Self) {
         if let Some(xaynai) = unsafe { xaynai.as_mut() } {
             xaynai.0.reload();
         }
     }
 
     /// See [`xaynai_drop()`] for more.
-    unsafe fn drop(xaynai: *mut CXaynAi) {
+    unsafe fn drop(xaynai: *mut Self) {
         if !xaynai.is_null() {
             unsafe { Box::from_raw(xaynai) };
         }
@@ -213,28 +219,18 @@ pub unsafe extern "C" fn xaynai_rerank(
     call_with_result(rerank, clean, error)
 }
 
-/// Serialize the current state of the Reranker
+/// Serializes the current state of the reranker.
 ///
 /// # Errors
 /// Returns a null pointer if:
 /// - The xaynai is null.
-/// - The document history is invalid.
-/// - The documents are invalid.
+/// - The serialization fails.
 ///
 /// # Safety
 /// The behavior is undefined if:
 /// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
-/// - A non-null history array doesn't point to an aligned, contiguous area of memory with at least
-/// history size many [`CHistory`]s.
-/// - A history size is too large to address the memory of a non-null history array.
-/// - A non-null documents array doesn't point to an aligned, contiguous area of memory with at
-/// least documents size many [`CDocument`]s.
-/// - A documents size is too large to address the memory of a non-null documents array.
-/// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
-/// terminating null byte.
 /// - A non-null error doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
-/// - A non-null, zero-sized ranks array is dereferenced.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_serialize(
     xaynai: *mut CXaynAi,
@@ -245,6 +241,29 @@ pub unsafe extern "C" fn xaynai_serialize(
     let error = unsafe { error.as_mut() };
 
     call_with_result(serialize, clean, error)
+}
+
+/// Retrieves warnings which might occur during reranking.
+///
+/// # Errors
+/// Returns a null pointer if:
+/// - The `xaynai` is null.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
+/// [`ExternError`].
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_warnings(
+    xaynai: *mut CXaynAi,
+    error: *mut ExternError,
+) -> *mut CWarnings {
+    let warnings = || unsafe { CXaynAi::warnings(xaynai) };
+    let clean = || unsafe { CXaynAi::clean(xaynai) };
+    let error = unsafe { error.as_mut() };
+
+    call_with_result(warnings, clean, error)
 }
 
 /// Frees the memory of the Xayn AI.
@@ -273,7 +292,10 @@ mod tests {
         marker::PhantomData,
         pin::Pin,
         ptr::{null, null_mut},
+        slice::from_raw_parts,
     };
+
+    use itertools::izip;
 
     use super::*;
     use crate::{
@@ -281,7 +303,7 @@ mod tests {
             ranks_drop,
             tests::{TestDocuments, TestHistories},
         },
-        error::error_message_drop,
+        error::{error_message_drop, warnings_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,
     };
@@ -327,13 +349,43 @@ mod tests {
         let xaynai = unsafe { xaynai_new(null(), 0, files.v, files.m, error.as_mut_ptr()) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CError::Success);
-
         let ranks =
             unsafe { xaynai_rerank(xaynai, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CError::Success);
 
         unsafe { xaynai_drop(xaynai) };
         unsafe { ranks_drop(ranks, docs.len as u32) };
+    }
+
+    #[test]
+    fn test_warnings() {
+        let files = TestFiles::default();
+        let hists = TestHistories::default();
+        let docs = TestDocuments::default();
+        let mut error = ExternError::default();
+
+        let xaynai = unsafe { xaynai_new(files.v, files.m, error.as_mut_ptr()) };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CError::Success);
+        let ranks =
+            unsafe { xaynai_rerank(xaynai, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr()) };
+        assert_eq!(error.get_code(), CError::Success);
+        let warnings = unsafe { xaynai_warnings(xaynai, error.as_mut_ptr()) };
+        assert_eq!(error.get_code(), CError::Success);
+
+        let data = unsafe { warnings.as_ref() }.unwrap().data;
+        let len = unsafe { warnings.as_ref() }.unwrap().len as usize;
+        assert!((data.is_null() && len == 0) || (!data.is_null() && len > 0));
+        for (ext_warn, org_warn) in izip!(unsafe { from_raw_parts(data, len) }, unsafe {
+            xaynai.as_ref().unwrap().0.errors()
+        }) {
+            assert_eq!(ext_warn.get_code(), CError::Warning);
+            assert_eq!(ext_warn.get_message().as_str(), format!("{}", org_warn));
+        }
+
+        unsafe { xaynai_drop(xaynai) };
+        unsafe { ranks_drop(ranks, docs.len as u32) };
+        unsafe { warnings_drop(warnings) };
     }
 
     #[test]
@@ -417,6 +469,13 @@ mod tests {
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: The ai pointer is null",
+        );
+
+        assert!(unsafe { xaynai_warnings(invalid, error.as_mut_ptr()) }.is_null());
+        assert_eq!(error.get_code(), CError::AiPointer);
+        assert_eq!(
+            error.get_message(),
+            "Failed to get the warnings: The ai pointer is null",
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };

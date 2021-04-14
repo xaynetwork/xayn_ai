@@ -1,9 +1,14 @@
-use std::{cmp::Ordering, mem::transmute};
+use std::{
+    cmp::Ordering,
+    mem::transmute,
+    ptr::{null, null_mut},
+    slice::from_raw_parts_mut,
+};
 
 use displaydoc::Display;
-use ffi_support::{destroy_c_string, ErrorCode, ExternError};
+use ffi_support::{destroy_c_string, ErrorCode, ExternError, IntoFfi};
 use thiserror::Error;
-use xayn_ai::Error;
+use xayn_ai::Error as AiError;
 
 use crate::utils::call_with_result;
 
@@ -11,6 +16,8 @@ use crate::utils::call_with_result;
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, Display, Error)]
 pub enum CError {
+    /// An uncritical error.
+    Warning = -2,
     /// An irrecoverable error.
     Panic = -1,
     /// No error.
@@ -71,7 +78,7 @@ impl PartialOrd<CError> for ErrorCode {
 
 impl From<ErrorCode> for CError {
     fn from(code: ErrorCode) -> Self {
-        if code < Self::Panic || code >= Self::Internal {
+        if code < Self::Warning || code >= Self::Internal {
             Self::Internal
         } else {
             unsafe { transmute(code) }
@@ -80,23 +87,14 @@ impl From<ErrorCode> for CError {
 }
 
 impl CError {
-    /// Provides extern context for the error code.
-    pub fn with_extern_context(self, message: impl Into<String>) -> ExternError {
+    /// Provides context for the error code.
+    pub fn with_context(self, message: impl Into<String>) -> ExternError {
         ExternError::new_error(ErrorCode::new(self as i32), message)
     }
 
-    /// Provides anyhow context for the error code.
-    pub fn with_anyhow_context(self, message: Option<impl Into<String>>) -> Error {
-        if let Some(message) = message {
-            Error::new(self).context(message.into())
-        } else {
-            Error::new(self)
-        }
-    }
-
     /// See [`error_message_drop()`] for more.
-    unsafe fn drop_message(error: *mut ExternError) {
-        if let Some(error) = unsafe { error.as_mut() } {
+    unsafe fn drop_message(error: *const ExternError) {
+        if let Some(error) = unsafe { error.as_ref() } {
             unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
         }
     }
@@ -132,12 +130,95 @@ pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
     call_with_result(drop, clean, error);
 }
 
+/// The warnings (ie. uncritical errors) of the Xayn AI.
+pub struct Warnings(Vec<ExternError>);
+
+/// A raw slice of warnings.
+#[repr(C)]
+pub struct CWarnings {
+    /// The raw pointer to the warnings.
+    pub data: *const ExternError,
+    /// The number of warnings.
+    pub len: u32,
+}
+
+impl From<&[AiError]> for Warnings {
+    fn from(warnings: &[AiError]) -> Self {
+        Self(
+            warnings
+                .iter()
+                .map(|warning| CError::Warning.with_context(format!("{}", warning)))
+                .collect::<Vec<_>>(),
+        )
+    }
+}
+
+unsafe impl IntoFfi for Warnings {
+    type Value = *mut CWarnings;
+
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        null_mut()
+    }
+
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        let len = self.0.len() as u32;
+        let data = if self.0.is_empty() {
+            null()
+        } else {
+            self.0.leak().as_ptr()
+        };
+        let warnings = CWarnings { data, len };
+
+        Box::into_raw(Box::new(warnings))
+    }
+}
+
+impl CWarnings {
+    /// See [`warnings_drop()`] for more.
+    unsafe fn drop(warnings: *mut Self) {
+        if !warnings.is_null() {
+            let warnings = unsafe { Box::from_raw(warnings) };
+            if !warnings.data.is_null() && warnings.len > 0 {
+                unsafe {
+                    Box::from_raw(from_raw_parts_mut(
+                        warnings.data as *mut ExternError,
+                        warnings.len as usize,
+                    ))
+                };
+            }
+        }
+    }
+}
+
+/// Frees the memory of the warnings.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null `warnings` doesn't point to memory allocated by [`xaynai_warnings()`].
+/// - A non-null `warnings` is freed more than once.
+/// - A non-null `warnings` is accessed after being freed.
+///
+/// [`xaynai_warnings()`]: crate::ai::xaynai_warnings
+#[no_mangle]
+pub unsafe extern "C" fn warnings_drop(warnings: *mut CWarnings) {
+    let drop = || unsafe {
+        CWarnings::drop(warnings);
+        Result::<_, ExternError>::Ok(())
+    };
+    let clean = || {};
+    let error = None;
+
+    call_with_result(drop, clean, error);
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::AsPtr;
 
-    impl AsPtr for ExternError {}
+    impl AsPtr<'_> for ExternError {}
 
     #[test]
     fn test_error() {

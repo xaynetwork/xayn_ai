@@ -57,7 +57,10 @@ pub(crate) mod tests {
     /// - A `T` different from `Self` doesn't have the same memory layout.
     /// - A pointer is accessed after the lifetime of the corresponding reference ends.
     /// - A pointer of an immutable reference is accessed mutably.
-    pub trait AsPtr<T = Self> {
+    pub trait AsPtr<'a, T = Self>
+    where
+        Self: 'a,
+    {
         /// Casts the immutable reference as a constant pointer.
         #[inline]
         fn as_ptr(&self) -> *const T {

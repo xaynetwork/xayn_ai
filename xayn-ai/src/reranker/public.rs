@@ -71,11 +71,11 @@ impl CommonSystems for Systems {
 pub struct Reranker(super::Reranker<Systems>);
 
 impl Reranker {
-    pub fn errors(&self) -> &Vec<Error> {
+    pub fn errors(&self) -> &[Error] {
         self.0.errors()
     }
 
-    pub fn analytics(&self) -> &Option<Analytics> {
+    pub fn analytics(&self) -> Option<&Analytics> {
         self.0.analytics()
     }
 

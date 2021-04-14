@@ -108,7 +108,7 @@ where
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CError::HistoryIdPointer.with_extern_context(
+                        CError::HistoryIdPointer.with_context(
                             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
                         )
                     })?;
@@ -182,7 +182,7 @@ where
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CError::DocumentIdPointer.with_extern_context(
+                        CError::DocumentIdPointer.with_context(
                             "Failed to rerank the documents: A document id is not a valid C-string pointer",
                         )
                     })?;
@@ -191,7 +191,7 @@ where
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CError::DocumentSnippetPointer.with_extern_context(
+                        CError::DocumentSnippetPointer.with_context(
                             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
                         )
                     })?;
@@ -240,7 +240,7 @@ impl CRanks {
             .collect::<Option<Vec<_>>>()
             .map(Self)
             .ok_or_else(|| {
-                CError::Internal.with_extern_context(
+                CError::Internal.with_context(
                     "Failed to rerank the documents: The document ids are inconsistent",
                 )
             })
@@ -363,9 +363,9 @@ pub(crate) mod tests {
         _variance: PhantomData<&'c Pin<Vec<CString>>>,
     }
 
-    impl AsPtr for CHistories<'_, '_, '_> {}
+    impl<'c> AsPtr<'c> for CHistories<'_, '_, 'c> {}
 
-    impl<'a, 'b, 'c> AsPtr<CHistories<'a, 'b, 'c>> for TestHistories<'a, 'b, 'c> {
+    impl<'a, 'b, 'c> AsPtr<'c, CHistories<'a, 'b, 'c>> for TestHistories<'a, 'b, 'c> {
         fn as_ptr(&self) -> *const CHistories<'a, 'b, 'c> {
             self.histories.as_ptr()
         }
@@ -424,9 +424,9 @@ pub(crate) mod tests {
         _variance: PhantomData<&'d Pin<Vec<CString>>>,
     }
 
-    impl AsPtr for CDocuments<'_, '_, '_, '_> {}
+    impl<'d> AsPtr<'d> for CDocuments<'_, '_, '_, 'd> {}
 
-    impl<'a, 'b, 'c, 'd> AsPtr<CDocuments<'a, 'b, 'c, 'd>> for TestDocuments<'a, 'b, 'c, 'd> {
+    impl<'a, 'b, 'c, 'd> AsPtr<'d, CDocuments<'a, 'b, 'c, 'd>> for TestDocuments<'a, 'b, 'c, 'd> {
         fn as_ptr(&self) -> *const CDocuments<'a, 'b, 'c, 'd> {
             self.documents.as_ptr()
         }

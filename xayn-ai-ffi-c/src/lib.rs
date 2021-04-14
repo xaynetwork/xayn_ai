@@ -8,7 +8,11 @@ mod error;
 mod utils;
 
 pub use crate::{
+<<<<<<< HEAD
     ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_serialize, CXaynAi},
+=======
+    ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_warnings, CXaynAi},
+>>>>>>> add rerank warnings
     document::{
         bytes_drop,
         ranks_drop,
@@ -19,7 +23,7 @@ pub use crate::{
         CRanks,
         CRelevance,
     },
-    error::{error_message_drop, CError},
+    error::{error_message_drop, warnings_drop, CError, CWarnings},
     utils::dummy_function,
 };
 
