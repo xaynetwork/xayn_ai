@@ -271,6 +271,7 @@ mod tests {
             MemDb,
             MockAnalyticsSystem,
             MockBertSystem,
+            MockCoiSystem,
             MockCommonSystems,
             MockContextSystem,
             MockDatabase,
@@ -612,6 +613,21 @@ mod tests {
         assert_eq!(rank, car_interest_example::expected_rerank());
         check_error!(reranker, MockError::Fail);
         assert!(reranker.analytics.is_none())
+    }
+
+    #[test]
+    fn test_system_failure_coi_fails_in_rerank() {
+        let cs = MockCommonSystems::default().set_coi(|| {
+            let mut coi = MockCoiSystem::new();
+            // we need to set this othersie it will panic when called
+            coi.expect_update_user_interests()
+                .returning(|_, _, _| bail!(CoiSystemError::NoMatchingDocuments));
+            coi.expect_compute_coi()
+                .returning(|_, _| bail!(MockError::Fail));
+            coi
+        });
+
+        test_system_failure(cs, true);
     }
 
     /// If the bert system fails spontaneously in the `rerank` function, the
