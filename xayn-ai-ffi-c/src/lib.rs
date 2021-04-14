@@ -4,7 +4,7 @@
 
 mod ai;
 mod document;
-mod error;
+mod result;
 mod utils;
 
 pub use crate::{
@@ -23,7 +23,10 @@ pub use crate::{
         CRanks,
         CRelevance,
     },
-    error::{error_message_drop, warnings_drop, CError, CWarnings},
+    result::{
+        error::{error_message_drop, CError},
+        warning::{warnings_drop, CWarnings},
+    },
     utils::dummy_function,
 };
 

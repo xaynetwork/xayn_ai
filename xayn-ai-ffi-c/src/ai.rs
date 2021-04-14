@@ -5,8 +5,11 @@ use xayn_ai::{Builder, Reranker};
 
 use crate::{
     document::{CBytes, CDocuments, CHistories, CRanks, Ranks},
-    error::{CError, CWarnings, Warnings},
-    utils::call_with_result,
+    result::{
+        call_with_result,
+        error::CError,
+        warning::{CWarnings, Warnings},
+    },
 };
 
 /// The Xayn AI.
@@ -17,7 +20,7 @@ use crate::{
 /// - Free memory with [`xaynai_drop()`], [`ranks_drop()`] and [`error_message_drop()`].
 ///
 /// [`ranks_drop()`]: crate::document::ranks_drop
-/// [`error_message_drop()`]: crate::error::error_message_drop
+/// [`error_message_drop()`]: crate::result::error::error_message_drop
 pub struct CXaynAi(Reranker);
 
 impl RefUnwindSafe for CXaynAi {
@@ -292,10 +295,7 @@ mod tests {
         marker::PhantomData,
         pin::Pin,
         ptr::{null, null_mut},
-        slice::from_raw_parts,
     };
-
-    use itertools::izip;
 
     use super::*;
     use crate::{
@@ -303,7 +303,7 @@ mod tests {
             ranks_drop,
             tests::{TestDocuments, TestHistories},
         },
-        error::{error_message_drop, warnings_drop},
+        result::{error::error_message_drop, warning::warnings_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,
     };
@@ -352,36 +352,8 @@ mod tests {
         let ranks =
             unsafe { xaynai_rerank(xaynai, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CError::Success);
-
-        unsafe { xaynai_drop(xaynai) };
-        unsafe { ranks_drop(ranks) };
-    }
-
-    #[test]
-    fn test_warnings() {
-        let files = TestFiles::default();
-        let hists = TestHistories::default();
-        let docs = TestDocuments::default();
-        let mut error = ExternError::default();
-
-        let xaynai = unsafe { xaynai_new(files.v, files.m, error.as_mut_ptr()) };
-        assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CError::Success);
-        let ranks =
-            unsafe { xaynai_rerank(xaynai, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr()) };
-        assert_eq!(error.get_code(), CError::Success);
         let warnings = unsafe { xaynai_warnings(xaynai, error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CError::Success);
-
-        let data = unsafe { warnings.as_ref() }.unwrap().data;
-        let len = unsafe { warnings.as_ref() }.unwrap().len as usize;
-        assert!((data.is_null() && len == 0) || (!data.is_null() && len > 0));
-        for (ext_warn, org_warn) in izip!(unsafe { from_raw_parts(data, len) }, unsafe {
-            xaynai.as_ref().unwrap().0.errors()
-        }) {
-            assert_eq!(ext_warn.get_code(), CError::Warning);
-            assert_eq!(ext_warn.get_message().as_str(), format!("{}", org_warn));
-        }
 
         unsafe { xaynai_drop(xaynai) };
         unsafe { ranks_drop(ranks) };

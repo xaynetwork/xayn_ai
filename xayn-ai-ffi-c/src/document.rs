@@ -8,7 +8,7 @@ use std::{
 use ffi_support::{ExternError, FfiStr, IntoFfi};
 use xayn_ai::{Document, DocumentHistory, DocumentsRank, Relevance, UserFeedback};
 
-use crate::{error::CError, utils::call_with_result};
+use crate::result::{call_with_result, error::CError};
 
 /// A document relevance level.
 #[repr(u8)]
