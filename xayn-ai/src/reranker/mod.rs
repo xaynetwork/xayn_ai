@@ -287,7 +287,7 @@ mod tests {
             assert!($reranker
                 .errors()
                 .iter()
-                .any(|e| matches!(e.downcast_ref().unwrap(), $error)));
+                .any(|e| matches!(e.downcast_ref(), Some($error))));
         };
     }
 
