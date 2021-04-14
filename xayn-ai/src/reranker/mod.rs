@@ -279,7 +279,6 @@ mod tests {
         },
     };
     use anyhow::bail;
-    use impls::impls;
     use paste::paste;
 
     macro_rules! check_error {
@@ -548,37 +547,47 @@ mod tests {
         }
     }
 
+    fn test_component_failure(cs: impl CommonSystems, can_fill_prev_docs: bool) {
+        // If any of the systems fail in the `rerank` method, the `Reranker`
+        // should return the results/`Document`s in an unchanged order and
+        // create the previous documents from the current `Document`s.
+        // An exception is the bert system which of course cannot create
+        // previous documents if it fails.
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = documents_from_ids(0..10);
+
+        // We use an empty history in order to skip the learning step.
+        let rank = reranker.rerank(&[], &documents);
+
+        assert_eq!(rank, expected_rerank_unchanged(&documents));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        check_error!(reranker, MockError::Fail);
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            if can_fill_prev_docs {
+                documents.len()
+            } else {
+                0
+            }
+        );
+    }
+
     macro_rules! test_component_failure {
         ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
+            test_component_failure!($system, $mock, $method, |$($args),*|, true);
+        };
+        ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|, $can_fill_prev_docs: expr) => {
             paste! {
-                /// If any of the systems fail in the `rerank` method, the `Reranker`
-                /// should return the results/`Document`s in an unchanged order and
-                /// create the previous documents from the current `Document`s.
-                /// An exception is the bert system which of course cannot create
-                /// previous documents if it fails.
                 #[test]
                 fn [<test_component_failure_ $system>]() {
                     let cs = common_systems_with_fail!($system, $mock, $method, |$($args),*|);
-                    let mut reranker = Reranker::new(cs).unwrap();
-                    let documents = documents_from_ids(0..10);
-
-                    // We use an empty history in order to skip the learning step.
-                    let rank = reranker.rerank(&[], &documents);
-
-                    assert_eq!(rank, expected_rerank_unchanged(&documents));
-                    check_error!(reranker, CoiSystemError::NoMatchingDocuments);
-                    check_error!(reranker, MockError::Fail);
-                    if impls!([<$mock>]: BertSystem) {
-                        assert_eq!(reranker.data.prev_documents.len(), 0);
-                    } else {
-                        assert_eq!(reranker.data.prev_documents.len(), documents.len());
-                    }
+                    test_component_failure(cs, $can_fill_prev_docs);
                 }
             }
         };
     }
 
-    test_component_failure!(bert, MockBertSystem, compute_embedding, |_|);
+    test_component_failure!(bert, MockBertSystem, compute_embedding, |_|, false);
     test_component_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
     test_component_failure!(context, MockContextSystem, compute_context, |_|);
     test_component_failure!(mab, MockMabSystem, compute_mab, |_,_|);
