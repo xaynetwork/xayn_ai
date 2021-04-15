@@ -38,7 +38,7 @@ pub enum CXaynAiError {
     /// Serialization of reranker data error.
     RerankerSerialization = 13,
     /// An internal error.
-    Internal = i32::MAX,
+    Internal = 1024,
 }
 
 impl CXaynAiError {
