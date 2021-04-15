@@ -268,8 +268,6 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
     let _ = catch_unwind(|| unsafe { CXaynAi::drop(xaynai) });
 }
 
-define_bytebuffer_destructor!(mylib_destroy_bytebuffer);
-
 #[cfg(test)]
 mod tests {
     use std::{
