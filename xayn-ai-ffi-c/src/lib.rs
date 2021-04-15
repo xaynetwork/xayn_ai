@@ -27,7 +27,7 @@ pub use crate::{
         rank::{ranks_drop, CRanks},
     },
     result::{
-        error::{error_message_drop, CError},
+        error::{error_message_drop, CCode},
         warning::{warnings_drop, CWarnings},
     },
     utils::dummy_function,

@@ -7,7 +7,7 @@ use std::{
 use ffi_support::{ExternError, IntoFfi};
 use xayn_ai::{Document, DocumentsRank};
 
-use crate::result::{call_with_result, error::CError};
+use crate::result::{call_with_result, error::CCode};
 
 /// The ranks of the reranked documents.
 pub struct Ranks(Vec<u32>);
@@ -41,7 +41,7 @@ impl Ranks {
             .collect::<Option<Vec<_>>>()
             .map(Self)
             .ok_or_else(|| {
-                CError::Internal.with_context(
+                CCode::Internal.with_context(
                     "Failed to rerank the documents: The document ids are inconsistent",
                 )
             })

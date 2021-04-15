@@ -6,7 +6,7 @@ use std::{
 use ffi_support::{ExternError, IntoFfi};
 use xayn_ai::Error;
 
-use crate::result::{call_with_result, error::CError};
+use crate::result::{call_with_result, error::CCode};
 
 /// The Xayn Ai warnings.
 pub struct Warnings(Vec<ExternError>);
@@ -25,7 +25,7 @@ impl From<&[Error]> for Warnings {
         Self(
             warnings
                 .iter()
-                .map(|warning| CError::Warning.with_context(format!("{}", warning)))
+                .map(|warning| CCode::Warning.with_context(format!("{}", warning)))
                 .collect::<Vec<_>>(),
         )
     }
@@ -117,7 +117,7 @@ mod tests {
         let warnings = Warnings::from(buffer.as_slice());
         assert_eq!(warnings.0.len(), buffer.len());
         for (warning, error) in izip!(warnings.0, buffer) {
-            assert_eq!(warning.get_code(), CError::Warning);
+            assert_eq!(warning.get_code(), CCode::Warning);
             assert_eq!(warning.get_message().as_str(), format!("{}", error));
         }
     }
@@ -139,7 +139,7 @@ mod tests {
         assert!(!data.is_null());
         assert_eq!(len, buffer.len());
         for (warning, error) in izip!(unsafe { from_raw_parts(data, len) }, buffer) {
-            assert_eq!(warning.get_code(), CError::Warning);
+            assert_eq!(warning.get_code(), CCode::Warning);
             assert_eq!(warning.get_message().as_str(), format!("{}", error));
         }
 

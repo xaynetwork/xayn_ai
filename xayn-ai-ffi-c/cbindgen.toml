@@ -7,11 +7,10 @@ sys_includes = ["stdint.h"]
 no_includes = true
 
 [export]
-include = ["CError"]
+include = ["CCode"]
 exclude = ["ErrorCode"]
 
 [export.rename]
-"CError" = "CCode"
 "ErrorCode" = "CCode"
 "ExternError" = "CError"
 "FfiStr" = "CStr"

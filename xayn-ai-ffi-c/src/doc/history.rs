@@ -3,7 +3,7 @@ use std::{marker::PhantomData, slice::from_raw_parts};
 use ffi_support::{ExternError, FfiStr};
 use xayn_ai::{DocumentHistory, Relevance, UserFeedback};
 
-use crate::result::error::CError;
+use crate::result::error::CCode;
 
 /// A document relevance level.
 #[repr(u8)]
@@ -103,7 +103,7 @@ where
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CError::HistoryIdPointer.with_context(
+                        CCode::HistoryIdPointer.with_context(
                             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
                         )
                     })?;
@@ -220,7 +220,7 @@ pub(crate) mod tests {
         let mut hists = TestHistories::default();
         hists.history[0].id = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { hists.histories.to_histories() }.unwrap_err();
-        assert_eq!(error.get_code(), CError::HistoryIdPointer);
+        assert_eq!(error.get_code(), CCode::HistoryIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document history id is not a valid C-string pointer",

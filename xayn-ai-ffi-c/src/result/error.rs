@@ -1,14 +1,11 @@
-use displaydoc::Display;
 use ffi_support::{destroy_c_string, ErrorCode, ExternError};
-use thiserror::Error;
 
 use crate::result::call_with_result;
 
 /// The Xayn AI error codes.
 #[repr(i32)]
-#[derive(Debug, Display, Error)]
-#[cfg_attr(test, derive(Clone, Copy))]
-pub enum CError {
+#[cfg_attr(test, derive(Clone, Copy, Debug))]
+pub enum CCode {
     /// An uncritical error.
     Warning = -2,
     /// An irrecoverable error.
@@ -45,7 +42,7 @@ pub enum CError {
     Internal = 1024,
 }
 
-impl CError {
+impl CCode {
     /// Provides context for the error code.
     pub fn with_context(self, message: impl Into<String>) -> ExternError {
         ExternError::new_error(ErrorCode::new(self as i32), message)
@@ -80,7 +77,7 @@ impl CError {
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
     let drop = || {
-        unsafe { CError::drop_message(error) };
+        unsafe { CCode::drop_message(error) };
         Result::<_, ExternError>::Ok(())
     };
     let clean = || {};
@@ -96,21 +93,21 @@ pub(crate) mod tests {
 
     impl AsPtr<'_> for ExternError {}
 
-    impl PartialEq<ErrorCode> for CError {
+    impl PartialEq<ErrorCode> for CCode {
         fn eq(&self, other: &ErrorCode) -> bool {
             (*self as i32).eq(&other.code())
         }
     }
 
-    impl PartialEq<CError> for ErrorCode {
-        fn eq(&self, other: &CError) -> bool {
+    impl PartialEq<CCode> for ErrorCode {
+        fn eq(&self, other: &CCode) -> bool {
             other.eq(self)
         }
     }
 
     #[test]
     fn test_error() {
-        assert_eq!(CError::Panic, ErrorCode::PANIC);
-        assert_eq!(CError::Success, ErrorCode::SUCCESS);
+        assert_eq!(CCode::Panic, ErrorCode::PANIC);
+        assert_eq!(CCode::Success, ErrorCode::SUCCESS);
     }
 }

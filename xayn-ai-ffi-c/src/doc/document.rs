@@ -3,7 +3,7 @@ use std::{marker::PhantomData, slice::from_raw_parts};
 use ffi_support::{ExternError, FfiStr};
 use xayn_ai::Document;
 
-use crate::result::error::CError;
+use crate::result::error::CCode;
 
 /// A raw document.
 #[repr(C)]
@@ -66,7 +66,7 @@ where
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CError::DocumentIdPointer.with_context(
+                        CCode::DocumentIdPointer.with_context(
                             "Failed to rerank the documents: A document id is not a valid C-string pointer",
                         )
                     })?;
@@ -75,7 +75,7 @@ where
                     .as_opt_str()
                     .map(Into::into)
                     .ok_or_else(|| {
-                        CError::DocumentSnippetPointer.with_context(
+                        CCode::DocumentSnippetPointer.with_context(
                             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
                         )
                     })?;
@@ -189,7 +189,7 @@ pub(crate) mod tests {
         let mut docs = TestDocuments::default();
         docs.document[0].id = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
-        assert_eq!(error.get_code(), CError::DocumentIdPointer);
+        assert_eq!(error.get_code(), CCode::DocumentIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document id is not a valid C-string pointer",
@@ -201,7 +201,7 @@ pub(crate) mod tests {
         let mut docs = TestDocuments::default();
         docs.document[0].snippet = unsafe { FfiStr::from_raw(null()) };
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
-        assert_eq!(error.get_code(), CError::DocumentSnippetPointer);
+        assert_eq!(error.get_code(), CCode::DocumentSnippetPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
