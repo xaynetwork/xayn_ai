@@ -569,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialed_invalid() {
+    fn test_serialized_invalid() {
         let (vocab, model, hist, _, docs, _, mut error) = setup_values();
         let (c_vocab, c_model, _, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
