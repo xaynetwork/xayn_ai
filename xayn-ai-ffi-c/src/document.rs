@@ -259,7 +259,7 @@ impl ByteArray {
             if !a.ptr.is_null() && a.len > 0 {
                 unsafe { Box::from_raw(from_raw_parts_mut(a.ptr as *mut u8, a.len)) };
             }
-            // Safety: we do not acces `a` after we free it
+            // Safety: we do not access `a` after we freed it
             unsafe { Box::from_raw(array) };
         }
     }
