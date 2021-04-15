@@ -5,7 +5,6 @@ use std::{
 
 use ffi_support::{
     call_with_result,
-    define_bytebuffer_destructor,
     implement_into_ffi_by_pointer,
     ExternError,
     FfiStr,
