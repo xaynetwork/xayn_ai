@@ -12,14 +12,15 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
+import 'package:xayn_ai_ffi_dart/src/analytics.dart' show Analytics;
 import 'package:xayn_ai_ffi_dart/src/bytes.dart' show Bytes;
 import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
     show Document, Documents;
 import 'package:xayn_ai_ffi_dart/src/doc/history.dart' show Histories, History;
 import 'package:xayn_ai_ffi_dart/src/doc/rank.dart' show Ranks;
-import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/result/warning.dart' show Warnings;
 
 /// The Xayn AI.
@@ -119,6 +120,22 @@ class XaynAi {
     } finally {
       error.free();
       warnings.free();
+    }
+  }
+
+  /// Retrieves the analytics which were collected in the penultimate reranking.
+  void analytics() {
+    final error = XaynAiError();
+
+    final analytics = Analytics(ffi.xaynai_analytics(_ai, error.ptr));
+    try {
+      if (error.isError()) {
+        throw error.toException();
+      }
+      return;
+    } finally {
+      error.free();
+      analytics.free();
     }
   }
 
