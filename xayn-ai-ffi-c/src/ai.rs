@@ -49,7 +49,11 @@ impl CXaynAi {
                 "Failed to initialize the ai: invalid combination of serialized and serialized_size",
             ));
         }
-        let serialized = unsafe { slice::from_raw_parts(serialized, serialized_size as usize) };
+        let serialized = if serialized.is_null() {
+            &[]
+        } else {
+            unsafe { slice::from_raw_parts(serialized, serialized_size as usize) }
+        };
         let vocab = vocab.as_opt_str().ok_or_else(|| {
             CXaynAiError::VocabPointer.with_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
