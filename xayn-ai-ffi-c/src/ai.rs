@@ -97,7 +97,7 @@ impl CXaynAi {
 
         let histories = unsafe { histories.as_ref() }
             .ok_or_else(|| {
-                CError::HistoryPointer.with_context(
+                CError::HistoriesPointer.with_context(
                     "Failed to rerank the documents: The document histories pointer is null",
                 )
             })?
@@ -529,7 +529,7 @@ mod tests {
         assert!(
             unsafe { xaynai_rerank(xaynai, invalid, docs.as_ptr(), error.as_mut_ptr(),) }.is_null()
         );
-        assert_eq!(error.get_code(), CError::HistoryPointer);
+        assert_eq!(error.get_code(), CError::HistoriesPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: The document histories pointer is null",

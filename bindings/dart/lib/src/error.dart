@@ -2,12 +2,14 @@ import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer;
 
 import 'package:ffi/ffi.dart' show malloc, Utf8, Utf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
-    show CXaynAiCode, CXaynAiError;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CCode, CError;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The Xayn AI error codes.
-enum XaynAiCode {
+enum Code {
+  /// An uncritical error.
+  warning,
+
   /// An irrecoverable error.
   panic,
 
@@ -29,8 +31,8 @@ enum XaynAiCode {
   /// A Xayn AI null pointer error.
   aiPointer,
 
-  /// A document history null pointer error.
-  historyPointer,
+  /// A document histories null pointer error.
+  historiesPointer,
 
   /// A document history id null pointer error.
   historyIdPointer,
@@ -57,82 +59,86 @@ enum XaynAiCode {
   internal,
 }
 
-extension XaynAiCodeInt on XaynAiCode {
+extension CodeInt on Code {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
-      case XaynAiCode.panic:
-        return CXaynAiCode.Panic;
-      case XaynAiCode.success:
-        return CXaynAiCode.Success;
-      case XaynAiCode.vocabPointer:
-        return CXaynAiCode.VocabPointer;
-      case XaynAiCode.modelPointer:
-        return CXaynAiCode.ModelPointer;
-      case XaynAiCode.readFile:
-        return CXaynAiCode.ReadFile;
-      case XaynAiCode.initAi:
-        return CXaynAiCode.InitAi;
-      case XaynAiCode.aiPointer:
-        return CXaynAiCode.AiPointer;
-      case XaynAiCode.historyPointer:
-        return CXaynAiCode.HistoryPointer;
-      case XaynAiCode.historyIdPointer:
-        return CXaynAiCode.HistoryIdPointer;
-      case XaynAiCode.documentsPointer:
-        return CXaynAiCode.DocumentsPointer;
-      case XaynAiCode.documentIdPointer:
-        return CXaynAiCode.DocumentIdPointer;
-      case XaynAiCode.documentSnippetPointer:
-        return CXaynAiCode.DocumentSnippetPointer;
-      case XaynAiCode.serializedPointer:
-        return CXaynAiCode.SerializedPointer;
-      case XaynAiCode.rerankerDeserialization:
-        return CXaynAiCode.RerankerDeserialization;
-      case XaynAiCode.rerankerSerialization:
-        return CXaynAiCode.RerankerSerialization;
-      case XaynAiCode.internal:
-        return CXaynAiCode.Internal;
+      case Code.warning:
+        return CCode.Warning;
+      case Code.panic:
+        return CCode.Panic;
+      case Code.success:
+        return CCode.Success;
+      case Code.vocabPointer:
+        return CCode.VocabPointer;
+      case Code.modelPointer:
+        return CCode.ModelPointer;
+      case Code.readFile:
+        return CCode.ReadFile;
+      case Code.initAi:
+        return CCode.InitAi;
+      case Code.aiPointer:
+        return CCode.AiPointer;
+      case Code.historiesPointer:
+        return CCode.HistoriesPointer;
+      case Code.historyIdPointer:
+        return CCode.HistoryIdPointer;
+      case Code.documentsPointer:
+        return CCode.DocumentsPointer;
+      case Code.documentIdPointer:
+        return CCode.DocumentIdPointer;
+      case Code.documentSnippetPointer:
+        return CCode.DocumentSnippetPointer;
+      case Code.serializedPointer:
+        return CCode.SerializedPointer;
+      case Code.rerankerDeserialization:
+        return CCode.RerankerDeserialization;
+      case Code.rerankerSerialization:
+        return CCode.RerankerSerialization;
+      case Code.internal:
+        return CCode.Internal;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
   }
 
   /// Creates the error code from a discriminant.
-  static XaynAiCode fromInt(int idx) {
+  static Code fromInt(int idx) {
     switch (idx) {
-      case CXaynAiCode.Panic:
-        return XaynAiCode.panic;
-      case CXaynAiCode.Success:
-        return XaynAiCode.success;
-      case CXaynAiCode.VocabPointer:
-        return XaynAiCode.vocabPointer;
-      case CXaynAiCode.ModelPointer:
-        return XaynAiCode.modelPointer;
-      case CXaynAiCode.ReadFile:
-        return XaynAiCode.readFile;
-      case CXaynAiCode.InitAi:
-        return XaynAiCode.initAi;
-      case CXaynAiCode.AiPointer:
-        return XaynAiCode.aiPointer;
-      case CXaynAiCode.HistoryPointer:
-        return XaynAiCode.historyPointer;
-      case CXaynAiCode.HistoryIdPointer:
-        return XaynAiCode.historyIdPointer;
-      case CXaynAiCode.DocumentsPointer:
-        return XaynAiCode.documentsPointer;
-      case CXaynAiCode.DocumentIdPointer:
-        return XaynAiCode.documentIdPointer;
-      case CXaynAiCode.DocumentSnippetPointer:
-        return XaynAiCode.documentSnippetPointer;
-      case CXaynAiCode.SerializedPointer:
-        return XaynAiCode.serializedPointer;
-      case CXaynAiCode.RerankerDeserialization:
-        return XaynAiCode.rerankerDeserialization;
-      case CXaynAiCode.RerankerSerialization:
-        return XaynAiCode.rerankerSerialization;
-      case CXaynAiCode.Internal:
-        return XaynAiCode.internal;
+      case CCode.Warning:
+        return Code.warning;
+      case CCode.Panic:
+        return Code.panic;
+      case CCode.Success:
+        return Code.success;
+      case CCode.VocabPointer:
+        return Code.vocabPointer;
+      case CCode.ModelPointer:
+        return Code.modelPointer;
+      case CCode.ReadFile:
+        return Code.readFile;
+      case CCode.InitAi:
+        return Code.initAi;
+      case CCode.AiPointer:
+        return Code.aiPointer;
+      case CCode.HistoriesPointer:
+        return Code.historiesPointer;
+      case CCode.HistoryIdPointer:
+        return Code.historyIdPointer;
+      case CCode.DocumentsPointer:
+        return Code.documentsPointer;
+      case CCode.DocumentIdPointer:
+        return Code.documentIdPointer;
+      case CCode.DocumentSnippetPointer:
+        return Code.documentSnippetPointer;
+      case CCode.SerializedPointer:
+        return Code.serializedPointer;
+      case CCode.RerankerDeserialization:
+        return Code.rerankerDeserialization;
+      case CCode.RerankerSerialization:
+        return Code.rerankerSerialization;
+      case CCode.Internal:
+        return Code.internal;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -141,30 +147,33 @@ extension XaynAiCodeInt on XaynAiCode {
 
 /// The Xayn AI error information.
 class XaynAiError {
-  late Pointer<CXaynAiError> _error;
+  late Pointer<CError> _error;
 
   /// Creates the error information initialized to success.
   XaynAiError() {
-    _error = malloc.call<CXaynAiError>();
-    _error.ref.code = CXaynAiCode.Success;
+    _error = malloc.call<CError>();
+    _error.ref.code = CCode.Success;
     _error.ref.message = nullptr;
   }
 
   /// Gets the pointer.
-  Pointer<CXaynAiError> get ptr => _error;
+  Pointer<CError> get ptr => _error;
+
+  /// Checks for an uncritical error code.
+  bool isWarning() => _error.ref.code == CCode.Warning;
 
   /// Checks for an irrecoverable error code.
-  bool isPanic() => _error.ref.code == CXaynAiCode.Panic;
+  bool isPanic() => _error.ref.code == CCode.Panic;
 
   /// Checks for a success code.
-  bool isSuccess() => _error.ref.code == CXaynAiCode.Success;
+  bool isSuccess() => _error.ref.code == CCode.Success;
 
   /// Checks for an error code (both recoverable and irrecoverable).
-  bool isError() => !isSuccess();
+  bool isError() => !isSuccess() && !isWarning();
 
   /// Creates an exception from the error information.
   XaynAiException toException() {
-    final code = XaynAiCodeInt.fromInt(_error.ref.code);
+    final code = CodeInt.fromInt(_error.ref.code);
     final message = _error.ref.message == nullptr
         ? ''
         : _error.ref.message.cast<Utf8>().toDartString();
@@ -183,14 +192,14 @@ class XaynAiError {
 
 /// A Xayn AI exception.
 class XaynAiException implements Exception {
-  final XaynAiCode _code;
+  final Code _code;
   final String _message;
 
   /// Creates a Xayn AI exception.
   const XaynAiException(this._code, this._message);
 
   /// Gets the code.
-  XaynAiCode get code => _code;
+  Code get code => _code;
 
   /// Gets the message.
   @override

@@ -5,16 +5,31 @@ import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test;
 
 import 'package:xayn_ai_ffi_dart/src/error.dart'
-    show XaynAiCode, XaynAiCodeInt, XaynAiError, XaynAiException;
+    show Code, CodeInt, XaynAiError, XaynAiException;
 import 'utils.dart' show throwsXaynAiException;
 
 void main() {
   group('XaynAiError', () {
+    test('warning', () {
+      final error = XaynAiError();
+      error.ptr.ref.code = Code.warning.toInt();
+      error.ptr.ref.message = 'test warning'.toNativeUtf8().cast<Int8>();
+
+      expect(error.isWarning(), equals(true));
+      expect(error.isPanic(), equals(false));
+      expect(error.isSuccess(), equals(false));
+      expect(error.isError(), equals(false));
+
+      malloc.free(error.ptr.ref.message);
+      malloc.free(error.ptr);
+    });
+
     test('panic', () {
       final error = XaynAiError();
-      error.ptr.ref.code = XaynAiCode.panic.toInt();
+      error.ptr.ref.code = Code.panic.toInt();
       error.ptr.ref.message = 'test panic'.toNativeUtf8().cast<Int8>();
 
+      expect(error.isWarning(), equals(false));
       expect(error.isPanic(), equals(true));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(true));
@@ -27,6 +42,7 @@ void main() {
       final error = XaynAiError();
 
       expect(error.ptr, isNot(equals(nullptr)));
+      expect(error.isWarning(), equals(false));
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(true));
       expect(error.isError(), equals(false));
@@ -36,9 +52,10 @@ void main() {
 
     test('error', () {
       final error = XaynAiError();
-      error.ptr.ref.code = XaynAiCode.aiPointer.toInt();
+      error.ptr.ref.code = Code.aiPointer.toInt();
       error.ptr.ref.message = 'test error'.toNativeUtf8().cast<Int8>();
 
+      expect(error.isWarning(), equals(false));
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(true));
@@ -58,7 +75,7 @@ void main() {
 
   group('XaynAiException', () {
     test('new', () {
-      final code = XaynAiCode.panic;
+      final code = Code.panic;
       final message = 'test panic';
 
       final exception = XaynAiException(code, message);
@@ -69,7 +86,7 @@ void main() {
 
     test('to', () {
       final error = XaynAiError();
-      final code = XaynAiCode.panic;
+      final code = Code.panic;
       final message = 'test panic';
       error.ptr.ref.code = code.toInt();
       error.ptr.ref.message = message.toNativeUtf8().cast<Int8>();

@@ -25,8 +25,8 @@ pub enum CError {
     InitAi = 4,
     /// A Xayn AI null pointer error.
     AiPointer = 5,
-    /// A document history null pointer error.
-    HistoryPointer = 6,
+    /// A document histories null pointer error.
+    HistoriesPointer = 6,
     /// A document history id null pointer error.
     HistoryIdPointer = 7,
     /// A documents null pointer error.

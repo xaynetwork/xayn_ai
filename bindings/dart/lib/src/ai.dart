@@ -12,9 +12,11 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/doc/document.dart' show Document, History;
-import 'package:xayn_ai_ffi_dart/src/doc/documents.dart'
-    show Documents, Histories, Ranks, Bytes;
+import 'package:xayn_ai_ffi_dart/src/bytes.dart' show Bytes;
+import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
+    show Document, Documents;
+import 'package:xayn_ai_ffi_dart/src/doc/history.dart' show Histories, History;
+import 'package:xayn_ai_ffi_dart/src/doc/rank.dart' show Ranks;
 import 'package:xayn_ai_ffi_dart/src/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
@@ -73,11 +75,7 @@ class XaynAi {
     final docs = Documents(documents);
     final error = XaynAiError();
 
-    final ranks = Ranks(
-      ffi.xaynai_rerank(
-          _ai, hists.ptr, hists.size, docs.ptr, docs.size, error.ptr),
-      docs.size,
-    );
+    final ranks = Ranks(ffi.xaynai_rerank(_ai, hists.ptr, docs.ptr, error.ptr));
     try {
       if (error.isError()) {
         throw error.toException();

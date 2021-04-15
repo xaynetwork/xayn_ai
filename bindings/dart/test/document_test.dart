@@ -1,39 +1,55 @@
-import 'package:flutter_test/flutter_test.dart'
-    show equals, expect, group, test, throwsArgumentError;
+import 'dart:ffi' show nullptr, StructPointer;
 
-import 'package:xayn_ai_ffi_dart/src/doc/document.dart' show Document, History;
-import 'utils.dart' show documents, histories;
+import 'package:ffi/ffi.dart' show Utf8, Utf8Pointer;
+import 'package:flutter_test/flutter_test.dart'
+    show equals, expect, group, isNot, test, throwsArgumentError;
+
+import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
+    show Document, Documents;
+import 'utils.dart' show documents;
 
 void main() {
-  group('History', () {
-    test('new', () {
-      final hist = History(
-          histories[0].id, histories[0].relevance, histories[0].feedback);
-      expect(hist.id, equals(histories[0].id));
-      expect(hist.relevance, equals(histories[0].relevance));
-      expect(hist.feedback, equals(histories[0].feedback));
-    });
-
+  group('Document', () {
     test('empty', () {
-      expect(() => History('', histories[0].relevance, histories[0].feedback),
-          throwsArgumentError);
+      expect(() => Document('', 'abc', 0), throwsArgumentError);
+      expect(() => Document('0', '', 0), throwsArgumentError);
+      expect(() => Document('0', 'abc', -1), throwsArgumentError);
     });
   });
 
-  group('Document', () {
+  group('Documents', () {
     test('new', () {
-      final doc =
-          Document(documents[0].id, documents[0].snippet, documents[0].rank);
-      expect(doc.id, equals(documents[0].id));
-      expect(doc.snippet, equals(documents[0].snippet));
-      expect(doc.rank, equals(documents[0].rank));
+      final docs = Documents(documents);
+      documents.asMap().forEach((i, document) {
+        expect(
+          docs.ptr.ref.data[i].id.cast<Utf8>().toDartString(),
+          equals(document.id),
+        );
+        expect(
+          docs.ptr.ref.data[i].snippet.cast<Utf8>().toDartString(),
+          equals(document.snippet),
+        );
+        expect(
+          docs.ptr.ref.data[i].rank,
+          equals(document.rank),
+        );
+      });
+      expect(docs.ptr.ref.len, equals(documents.length));
+      docs.free();
     });
 
     test('empty', () {
-      expect(() => Document('', documents[0].snippet, documents[0].rank),
-          throwsArgumentError);
-      expect(() => Document(documents[0].id, '', documents[0].rank),
-          throwsArgumentError);
+      final docs = Documents([]);
+      expect(docs.ptr.ref.data, equals(nullptr));
+      expect(docs.ptr.ref.len, equals(0));
+      docs.free();
+    });
+
+    test('free', () {
+      final docs = Documents(documents);
+      expect(docs.ptr, isNot(equals(nullptr)));
+      docs.free();
+      expect(docs.ptr, equals(nullptr));
     });
   });
 }

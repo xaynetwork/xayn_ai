@@ -1,102 +1,10 @@
+import 'dart:ffi' show AllocatorAlloc, Int8, nullptr, Pointer, StructPointer;
+
+import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
+import 'package:meta/meta.dart' show visibleForTesting;
+
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
-    show CFeedback, CRelevance;
-
-/// A document relevance level.
-enum Relevance {
-  low,
-  medium,
-  high,
-}
-
-extension RelevanceInt on Relevance {
-  /// Gets the discriminant.
-  int toInt() {
-    switch (this) {
-      case Relevance.low:
-        return CRelevance.Low;
-      case Relevance.medium:
-        return CRelevance.Medium;
-      case Relevance.high:
-        return CRelevance.High;
-      default:
-        throw UnsupportedError('Undefined enum variant.');
-    }
-  }
-
-  /// Creates the relevance level from a discriminant.
-  static Relevance fromInt(int idx) {
-    switch (idx) {
-      case CRelevance.Low:
-        return Relevance.low;
-      case CRelevance.Medium:
-        return Relevance.medium;
-      case CRelevance.High:
-        return Relevance.high;
-      default:
-        throw UnsupportedError('Undefined enum variant.');
-    }
-  }
-}
-
-/// A user feedback level.
-enum Feedback {
-  relevant,
-  irrelevant,
-  none,
-}
-
-extension FeedbackInt on Feedback {
-  /// Gets the discriminant.
-  int toInt() {
-    switch (this) {
-      case Feedback.relevant:
-        return CFeedback.Relevant;
-      case Feedback.irrelevant:
-        return CFeedback.Irrelevant;
-      case Feedback.none:
-        return CFeedback.None;
-      default:
-        throw UnsupportedError('Undefined enum variant.');
-    }
-  }
-
-  /// Creates the feedback level from a discriminant.
-  static Feedback fromInt(int idx) {
-    switch (idx) {
-      case CFeedback.Relevant:
-        return Feedback.relevant;
-      case CFeedback.Irrelevant:
-        return Feedback.irrelevant;
-      case CFeedback.None:
-        return Feedback.none;
-      default:
-        throw UnsupportedError('Undefined enum variant.');
-    }
-  }
-}
-
-/// The document history.
-class History {
-  final String _id;
-  final Relevance _relevance;
-  final Feedback _feedback;
-
-  /// Creates the document history.
-  History(this._id, this._relevance, this._feedback) {
-    if (_id.isEmpty) {
-      throw ArgumentError('empty document history id');
-    }
-  }
-
-  /// Gets the id.
-  String get id => _id;
-
-  /// Gets the feedback.
-  Feedback get feedback => _feedback;
-
-  /// Gets the relevance.
-  Relevance get relevance => _relevance;
-}
+    show CDocument, CDocuments;
 
 /// The document.
 class Document {
@@ -117,12 +25,52 @@ class Document {
     }
   }
 
-  /// Gets the id.
+  @visibleForTesting
   String get id => _id;
 
-  /// Gets the snippet.
+  @visibleForTesting
   String get snippet => _snippet;
 
-  /// Gets the rank.
+  @visibleForTesting
   int get rank => _rank;
+}
+
+/// The raw documents.
+class Documents {
+  late Pointer<CDocuments> _docs;
+
+  /// Creates the documents.
+  Documents(List<Document> documents) {
+    _docs = malloc.call<CDocuments>();
+    _docs.ref.len = documents.length;
+    if (documents.isEmpty) {
+      _docs.ref.data = nullptr;
+    } else {
+      _docs.ref.data = malloc.call<CDocument>(documents.length);
+      documents.asMap().forEach((i, document) {
+        _docs.ref.data[i].id = document._id.toNativeUtf8().cast<Int8>();
+        _docs.ref.data[i].snippet =
+            document._snippet.toNativeUtf8().cast<Int8>();
+        _docs.ref.data[i].rank = document._rank;
+      });
+    }
+  }
+
+  /// Gets the pointer.
+  Pointer<CDocuments> get ptr => _docs;
+
+  /// Frees the memory.
+  void free() {
+    if (_docs != nullptr) {
+      if (_docs.ref.data != nullptr) {
+        for (var i = 0; i < _docs.ref.len; i++) {
+          malloc.free(_docs.ref.data[i].id);
+          malloc.free(_docs.ref.data[i].snippet);
+        }
+        malloc.free(_docs.ref.data);
+      }
+      malloc.free(_docs);
+      _docs = nullptr;
+    }
+  }
 }
