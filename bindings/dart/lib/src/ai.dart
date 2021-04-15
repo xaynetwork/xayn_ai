@@ -17,9 +17,10 @@ import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
     show Document, Documents;
 import 'package:xayn_ai_ffi_dart/src/doc/history.dart' show Histories, History;
 import 'package:xayn_ai_ffi_dart/src/doc/rank.dart' show Ranks;
-import 'package:xayn_ai_ffi_dart/src/error.dart' show XaynAiError;
+import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/result/warning.dart' show Warnings;
 
 /// The Xayn AI.
 ///
@@ -89,11 +90,11 @@ class XaynAi {
     }
   }
 
+  /// Serializes the current state of the reranker.
   Uint8List serialize() {
     final error = XaynAiError();
 
     final bytes = Bytes(ffi.xaynai_serialize(_ai, error.ptr));
-
     try {
       if (error.isError()) {
         throw error.toException();
@@ -102,6 +103,22 @@ class XaynAi {
     } finally {
       error.free();
       bytes.free();
+    }
+  }
+
+  /// Retrieves warnings which might occur during reranking.
+  List<String> warnings() {
+    final error = XaynAiError();
+
+    final warnings = Warnings(ffi.xaynai_warnings(_ai, error.ptr));
+    try {
+      if (error.isError()) {
+        throw error.toException();
+      }
+      return warnings.toList();
+    } finally {
+      error.free();
+      warnings.free();
     }
   }
 

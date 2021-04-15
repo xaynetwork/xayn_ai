@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart'
 
 import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
     show Document, Documents;
-import 'utils.dart' show documents;
+import '../utils.dart' show documents;
 
 void main() {
   group('Document', () {

@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart'
 
 import 'package:xayn_ai_ffi_dart/src/doc/history.dart'
     show Feedback, FeedbackInt, Histories, History, Relevance, RelevanceInt;
-import 'utils.dart' show histories;
+import '../utils.dart' show histories;
 
 void main() {
   group('History', () {
