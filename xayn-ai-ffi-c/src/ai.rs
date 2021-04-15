@@ -141,8 +141,8 @@ impl CXaynAi {
 ///
 /// # Errors
 /// Returns a null pointer if:
-/// - The vocab or model paths are invalid, or
-/// iff serialized is null then serialized_size != 0
+/// - The vocab or model paths are invalid.
+/// - The serialized database is invalid.
 ///
 /// # Safety
 /// The behavior is undefined if:
