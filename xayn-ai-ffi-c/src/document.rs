@@ -218,15 +218,15 @@ pub unsafe extern "C" fn ranks_drop(ranks: *mut u32, ranks_size: u32) {
 }
 
 #[repr(C)]
-pub struct ByteArray {
+pub struct CBytes {
     /// pointer to the data
     pub ptr: *const u8,
     /// number of bytes in the array
     pub len: u32,
 }
 
-unsafe impl IntoFfi for ByteArray {
-    type Value = *mut ByteArray;
+unsafe impl IntoFfi for CBytes {
+    type Value = *mut CBytes;
 
     #[inline]
     fn ffi_default() -> Self::Value {
@@ -239,7 +239,7 @@ unsafe impl IntoFfi for ByteArray {
     }
 }
 
-impl ByteArray {
+impl CBytes {
     pub fn from_vec(bytes: Vec<u8>) -> Self {
         if bytes.is_empty() {
             Self {
@@ -254,7 +254,7 @@ impl ByteArray {
         }
     }
 
-    fn drop(array: *mut ByteArray) {
+    fn drop(array: *mut CBytes) {
         if let Some(a) = unsafe { array.as_ref() } {
             if !a.ptr.is_null() && a.len > 0 {
                 unsafe { Box::from_raw(from_raw_parts_mut(a.ptr as *mut u8, a.len as usize)) };
@@ -275,8 +275,8 @@ impl ByteArray {
 ///
 /// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
 #[no_mangle]
-pub unsafe extern "C" fn bytearray_drop(buffer: *mut ByteArray) {
-    let _ = catch_unwind(|| unsafe { ByteArray::drop(buffer) });
+pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
+    let _ = catch_unwind(|| unsafe { CBytes::drop(buffer) });
 }
 
 #[cfg(test)]

@@ -10,9 +10,9 @@ mod utils;
 pub use crate::{
     ai::{xaynai_drop, xaynai_new, xaynai_rerank, xaynai_serialize, CXaynAi},
     document::{
-        bytearray_drop,
+        bytes_drop,
         ranks_drop,
-        ByteArray,
+        CBytes,
         CDocument,
         CFeedback,
         CHistory,

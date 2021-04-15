@@ -14,7 +14,7 @@ use ffi_support::{
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
-    document::{ByteArray, CDocument, CHistory, CRanks},
+    document::{CBytes, CDocument, CHistory, CRanks},
     error::CXaynAiError,
 };
 
@@ -120,7 +120,7 @@ impl CXaynAi {
         CRanks::from_reranked_documents(ranks, &documents)
     }
 
-    unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<ByteArray, ExternError> {
+    unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<CBytes, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
             CXaynAiError::AiPointer
                 .with_context("Failed to rerank the documents: The ai pointer is null")
@@ -131,7 +131,7 @@ impl CXaynAi {
                 .with_context(format!("Failed to serialize reranker data: {}", cause))
         })?;
 
-        Ok(ByteArray::from_vec(bytes))
+        Ok(CBytes::from_vec(bytes))
     }
 
     unsafe fn drop(xaynai: *mut CXaynAi) {
@@ -244,7 +244,7 @@ pub unsafe extern "C" fn xaynai_rerank(
 pub unsafe extern "C" fn xaynai_serialize(
     xaynai: *mut CXaynAi,
     error: *mut ExternError,
-) -> *mut ByteArray {
+) -> *mut CBytes {
     let serialize = || unsafe { CXaynAi::serialize(xaynai) };
 
     if let Some(error) = unsafe { error.as_mut() } {
@@ -252,7 +252,7 @@ pub unsafe extern "C" fn xaynai_serialize(
     } else if let Ok(Ok(buffer)) = catch_unwind(serialize) {
         buffer.into_ffi_value()
     } else {
-        ByteArray::ffi_default()
+        CBytes::ffi_default()
     }
 }
 

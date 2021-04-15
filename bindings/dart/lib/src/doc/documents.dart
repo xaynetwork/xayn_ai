@@ -15,7 +15,7 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
     show Document, FeedbackInt, History, RelevanceInt;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
-    show CDocument, CHistory, ByteArray;
+    show CDocument, CHistory, CBytes;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The raw document histories.
@@ -123,7 +123,7 @@ class Ranks {
 
 /// An array of bytes
 class Bytes {
-  Pointer<ByteArray> _array;
+  Pointer<CBytes> _array;
 
   Bytes(this._array);
 
@@ -144,7 +144,7 @@ class Bytes {
   /// Frees the memory.
   void free() {
     if (_array != nullptr) {
-      ffi.bytearray_drop(_array);
+      ffi.bytes_drop(_array);
       _array = nullptr;
     }
   }
