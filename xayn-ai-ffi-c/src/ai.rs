@@ -218,7 +218,7 @@ pub unsafe extern "C" fn xaynai_rerank(
     }
 }
 
-/// Reranks the documents with the Xayn AI.
+/// Serialize the current state of the Reranker
 ///
 /// # Errors
 /// Returns a null pointer if:
