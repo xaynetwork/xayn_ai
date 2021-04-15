@@ -1,8 +1,8 @@
 use crate::{
     data::{
         document_data::{DocumentDataWithContext, DocumentDataWithMab, MabComponent},
-        Coi,
         CoiId,
+        PositiveCoi,
         UserInterests,
     },
     reranker::systems::MabSystem,
@@ -125,9 +125,9 @@ fn group_by_coi(documents: Vec<DocumentDataWithContext>) -> DocumentsByCoi {
 /// The `context_value` must be between 0 and 1 otherwise `MabError::InvalidContext` will be returned.
 /// The updated `alpha` and `beta` will be always > 0.
 fn update_cois(
-    cois: HashMap<CoiId, Coi>,
+    cois: HashMap<CoiId, PositiveCoi>,
     documents: &[DocumentDataWithContext],
-) -> Result<HashMap<CoiId, Coi>, MabError> {
+) -> Result<HashMap<CoiId, PositiveCoi>, MabError> {
     documents.iter().try_fold(cois, |mut cois, document| {
         let coi = cois
             .get_mut(&document.coi.id)
@@ -150,7 +150,7 @@ fn update_cois(
 /// the documents within that coi.
 fn pull_arms(
     beta_sampler: &impl BetaSample,
-    cois: &HashMap<CoiId, Coi>,
+    cois: &HashMap<CoiId, PositiveCoi>,
     mut documents_by_coi: DocumentsByCoi,
 ) -> Result<(DocumentsByCoi, DocumentDataWithContext), MabError> {
     let sample_from_coi = |coi_id: &CoiId| {
@@ -196,14 +196,14 @@ fn pull_arms(
 
 struct MabRankingIter<'bs, 'cois, BS> {
     beta_sampler: &'bs BS,
-    cois: &'cois HashMap<CoiId, Coi>,
+    cois: &'cois HashMap<CoiId, PositiveCoi>,
     documents_by_coi: DocumentsByCoi,
 }
 
 impl<'bs, 'cois, BS> MabRankingIter<'bs, 'cois, BS> {
     fn new(
         beta_sampler: &'bs BS,
-        cois: &'cois HashMap<CoiId, Coi>,
+        cois: &'cois HashMap<CoiId, PositiveCoi>,
         documents_by_coi: DocumentsByCoi,
     ) -> Self {
         Self {
@@ -327,7 +327,7 @@ mod tests {
             coi!($id, $params, $params)
         };
         ($id:expr, $alpha: expr, $beta: expr) => {
-            Coi {
+            PositiveCoi {
                 id: $id,
                 alpha: $alpha,
                 beta: $beta,

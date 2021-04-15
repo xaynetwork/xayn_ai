@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::{
     data::{
         document::{Relevance, UserFeedback},
-        Coi,
+        PositiveCoi,
     },
     reranker::systems::CoiSystemData,
     DocumentHistory,
@@ -68,9 +68,13 @@ fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
 }
 
 // utils for `update_user_interests`
-fn update_alpha_or_beta<F>(counts: &HashMap<usize, u16>, mut cois: Vec<Coi>, mut f: F) -> Vec<Coi>
+fn update_alpha_or_beta<F>(
+    counts: &HashMap<usize, u16>,
+    mut cois: Vec<PositiveCoi>,
+    mut f: F,
+) -> Vec<PositiveCoi>
 where
-    F: FnMut(&mut Coi, f32),
+    F: FnMut(&mut PositiveCoi, f32),
 {
     for coi in cois.iter_mut() {
         if let Some(count) = counts.get(&coi.id.0) {
@@ -81,12 +85,24 @@ where
     cois
 }
 
-pub(super) fn update_alpha(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
-    update_alpha_or_beta(counts, cois, |Coi { ref mut alpha, .. }, adj| *alpha *= adj)
+pub(super) fn update_alpha(
+    positive_docs: &[&dyn CoiSystemData],
+    cois: Vec<PositiveCoi>,
+) -> Vec<PositiveCoi> {
+    let counts = count_coi_ids(positive_docs);
+    update_alpha_or_beta(&counts, cois, |PositiveCoi { ref mut alpha, .. }, adj| {
+        *alpha *= adj
+    })
 }
 
-pub(super) fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<Coi> {
-    update_alpha_or_beta(counts, cois, |Coi { ref mut beta, .. }, adj| *beta *= adj)
+pub(super) fn update_beta(
+    negative_docs: &[&dyn CoiSystemData],
+    cois: Vec<PositiveCoi>,
+) -> Vec<PositiveCoi> {
+    let counts = count_coi_ids(negative_docs);
+    update_alpha_or_beta(&counts, cois, |PositiveCoi { ref mut beta, .. }, adj| {
+        *beta *= adj
+    })
 }
 
 /// Counts CoI Ids of the given documents.
@@ -94,7 +110,7 @@ pub(super) fn update_beta(counts: &HashMap<usize, u16>, cois: Vec<Coi>) -> Vec<C
 /// documents = [d_1(coi_id_1), d_2(coi_id_2), d_3(coi_id_1)]
 /// count_coi_ids(documents) -> {coi_id_1: 2, coi_id_2: 1}
 /// ```
-pub(super) fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
+fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
     documents
         .iter()
         .filter_map(|doc| doc.coi().map(|coi| coi.id))
@@ -113,21 +129,78 @@ pub(super) fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, 
 #[cfg(test)]
 pub(super) mod tests {
     use float_cmp::approx_eq;
-    use maplit::hashmap;
     use ndarray::{arr1, FixedInitializer};
 
     use super::*;
     use crate::{
-        data::document_data::{DocumentDataWithEmbedding, DocumentIdComponent, EmbeddingComponent},
+        data::{
+            document_data::{
+                CoiComponent,
+                DocumentDataWithEmbedding,
+                DocumentIdComponent,
+                EmbeddingComponent,
+            },
+            CoiId,
+            CoiPoint,
+            NegativeCoi,
+        },
         to_vec_of_ref_of,
     };
 
-    pub(crate) fn create_cois(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<Coi> {
+    pub(crate) struct MockCoiDoc {
+        id: DocumentId,
+        embedding: EmbeddingComponent,
+        coi: Option<CoiComponent>,
+    }
+
+    impl CoiSystemData for MockCoiDoc {
+        fn id(&self) -> &DocumentId {
+            &self.id
+        }
+
+        fn embedding(&self) -> &EmbeddingComponent {
+            &self.embedding
+        }
+
+        fn coi(&self) -> Option<&CoiComponent> {
+            self.coi.as_ref()
+        }
+    }
+
+    fn create_docs_from_coi_id(ids: &[usize]) -> Vec<MockCoiDoc> {
+        ids.iter()
+            .map(|id| MockCoiDoc {
+                id: DocumentId("0".to_string()),
+                embedding: EmbeddingComponent {
+                    embedding: arr1(&[]).into(),
+                },
+                coi: Some(CoiComponent {
+                    id: CoiId(*id),
+                    pos_distance: 1.,
+                    neg_distance: 1.,
+                }),
+            })
+            .collect()
+    }
+
+    fn create_cois<CP: CoiPoint>(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<CP> {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| Coi::new(id, arr1(point.as_init_slice()).into()))
+            .map(|(id, point)| CP::new(id, arr1(point.as_init_slice()).into()))
             .collect()
+    }
+
+    pub(crate) fn create_pos_cois(
+        points: &[impl FixedInitializer<Elem = f32>],
+    ) -> Vec<PositiveCoi> {
+        create_cois(points)
+    }
+
+    pub(crate) fn create_neg_cois(
+        points: &[impl FixedInitializer<Elem = f32>],
+    ) -> Vec<NegativeCoi> {
+        create_cois(points)
     }
 
     pub(crate) fn create_data_with_embeddings(
@@ -171,18 +244,16 @@ pub(super) mod tests {
     #[test]
     fn test_update_alpha_and_beta() {
         let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.]]);
-        let counts = hashmap! {
-            0 => 1,
-            1 => 2,
-        };
+        let docs = create_docs_from_coi_id(&[0, 1, 1]);
+        let docs = to_vec_of_ref_of!(docs, &dyn CoiSystemData);
 
-        let updated_cois = update_alpha(&counts, cois.clone());
+        let updated_cois = update_alpha(&docs, cois.clone());
         assert!(approx_eq!(f32, updated_cois[0].alpha, 1.1));
         assert!(approx_eq!(f32, updated_cois[0].beta, 1.));
         assert!(approx_eq!(f32, updated_cois[1].alpha, 1.21));
         assert!(approx_eq!(f32, updated_cois[1].beta, 1.));
 
-        let updated_cois = update_beta(&counts, cois);
+        let updated_cois = update_beta(&docs, cois);
         assert!(approx_eq!(f32, updated_cois[0].alpha, 1.));
         assert!(approx_eq!(f32, updated_cois[0].beta, 1.1));
         assert!(approx_eq!(f32, updated_cois[1].alpha, 1.));
@@ -192,21 +263,18 @@ pub(super) mod tests {
     #[test]
     fn test_update_alpha_or_beta() {
         let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.], [1., 0., 0.]]);
-
-        let counts = hashmap! {
-            0 => 1,
-            1 => 2
-        };
+        let docs = create_docs_from_coi_id(&[0, 1, 1]);
+        let docs = to_vec_of_ref_of!(docs, &dyn CoiSystemData);
 
         // only update the alpha of coi_id 1 and 2
-        let updated_cois = update_alpha(&counts, cois.clone());
+        let updated_cois = update_alpha(&docs, cois.clone());
 
         assert!(approx_eq!(f32, updated_cois[0].alpha, 1.1));
         assert!(approx_eq!(f32, updated_cois[1].alpha, 1.21));
         assert!(approx_eq!(f32, updated_cois[2].alpha, 1.));
 
         // same for beta
-        let updated_cois = update_beta(&counts, cois);
+        let updated_cois = update_beta(&docs, cois);
         assert!(approx_eq!(f32, updated_cois[0].beta, 1.1));
         assert!(approx_eq!(f32, updated_cois[1].beta, 1.21));
         assert!(approx_eq!(f32, updated_cois[2].beta, 1.));
@@ -214,10 +282,10 @@ pub(super) mod tests {
 
     #[test]
     fn test_update_alpha_or_beta_empty_cois() {
-        let updated_cois = update_alpha(&HashMap::new(), Vec::new());
+        let updated_cois = update_alpha(&Vec::new(), Vec::new());
         assert!(updated_cois.is_empty());
 
-        let updated_cois = update_beta(&HashMap::new(), Vec::new());
+        let updated_cois = update_beta(&Vec::new(), Vec::new());
         assert!(updated_cois.is_empty());
     }
 

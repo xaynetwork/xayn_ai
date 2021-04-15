@@ -12,14 +12,21 @@ pub(crate) struct CoiId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct Coi {
+pub(crate) struct PositiveCoi {
     pub id: CoiId,
     pub point: Embedding,
     pub alpha: f32,
     pub beta: f32,
 }
 
-impl Coi {
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Serialize, Deserialize)]
+pub(crate) struct NegativeCoi {
+    pub id: CoiId,
+    pub point: Embedding,
+}
+
+impl PositiveCoi {
     pub fn new(id: usize, point: Embedding) -> Self {
         Self {
             id: CoiId(id),
@@ -30,11 +37,47 @@ impl Coi {
     }
 }
 
+impl NegativeCoi {
+    pub fn new(id: usize, point: Embedding) -> Self {
+        Self {
+            id: CoiId(id),
+            point,
+        }
+    }
+}
+
+pub(crate) trait CoiPoint {
+    fn new(id: usize, embedding: Embedding) -> Self;
+    fn point(&self) -> &Embedding;
+    fn set_point(&mut self, embedding: Embedding);
+}
+
+macro_rules! impl_coi_point {
+    ($type:ty) => {
+        impl CoiPoint for $type {
+            fn new(id: usize, embedding: Embedding) -> Self {
+                <$type>::new(id, embedding)
+            }
+
+            fn point(&self) -> &Embedding {
+                &self.point
+            }
+
+            fn set_point(&mut self, embedding: Embedding) {
+                self.point = embedding;
+            }
+        }
+    };
+}
+
+impl_coi_point!(PositiveCoi);
+impl_coi_point!(NegativeCoi);
+
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct UserInterests {
-    pub positive: Vec<Coi>,
-    pub negative: Vec<Coi>,
+    pub positive: Vec<PositiveCoi>,
+    pub negative: Vec<NegativeCoi>,
 }
 
 impl UserInterests {

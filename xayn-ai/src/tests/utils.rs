@@ -18,8 +18,10 @@ use crate::{
             LtrComponent,
             MabComponent,
         },
-        Coi,
         CoiId,
+        CoiPoint,
+        NegativeCoi,
+        PositiveCoi,
     },
     reranker::systems::{BertSystem, CoiSystemData},
     Document,
@@ -48,11 +50,34 @@ pub(crate) fn documents_from_words(
     .collect()
 }
 
-pub(crate) fn cois_from_words(words: &[&str], bert: impl BertSystem) -> Vec<Coi> {
-    documents_with_embeddings_from_words(words, bert)
+fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl BertSystem) -> Vec<CP> {
+    let documents = snippets
+        .iter()
         .enumerate()
-        .map(|(id, doc)| Coi::new(id, doc.embedding.embedding))
+        .map(|(id, snippet)| DocumentDataWithDocument {
+            document_id: DocumentIdComponent {
+                id: DocumentId(id.to_string()),
+            },
+            document_content: DocumentContentComponent {
+                snippet: snippet.to_string(),
+            },
+        })
+        .collect();
+
+    bert.compute_embedding(documents)
+        .unwrap()
+        .into_iter()
+        .enumerate()
+        .map(|(id, doc)| CP::new(id, doc.embedding.embedding))
         .collect()
+}
+
+pub(crate) fn pos_cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<PositiveCoi> {
+    cois_from_words(snippets, bert)
+}
+
+pub(crate) fn neg_cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<NegativeCoi> {
+    cois_from_words(snippets, bert)
 }
 
 pub(crate) fn history_for_prev_docs(
@@ -100,25 +125,26 @@ pub(crate) fn documents_with_embeddings_from_ids(
         .collect()
 }
 
-pub(crate) fn documents_with_embeddings_from_words(
-    words: &[&str],
-    bert: impl BertSystem,
-) -> impl Iterator<Item = DocumentDataWithEmbedding> {
-    let documents = words
-        .iter()
-        .enumerate()
-        .map(|(id, snippet)| DocumentDataWithDocument {
-            document_id: DocumentIdComponent {
-                id: DocumentId(id.to_string()),
-            },
-            document_content: DocumentContentComponent {
-                snippet: snippet.to_string(),
-            },
-        })
-        .collect();
+// Not used at the moment, but could be useful in the short future
+// pub(crate) fn documents_with_embeddings_from_words(
+//     words: &[&str],
+//     bert: impl BertSystem,
+// ) -> impl Iterator<Item = DocumentDataWithEmbedding> {
+//     let documents = words
+//         .iter()
+//         .enumerate()
+//         .map(|(id, snippet)| DocumentDataWithDocument {
+//             document_id: DocumentIdComponent {
+//                 id: DocumentId(id.to_string()),
+//             },
+//             document_content: DocumentContentComponent {
+//                 snippet: snippet.to_string(),
+//             },
+//         })
+//         .collect();
 
-    bert.compute_embedding(documents).unwrap().into_iter()
-}
+//     bert.compute_embedding(documents).unwrap().into_iter()
+// }
 
 pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> DocumentsRank {
     docs.iter()
