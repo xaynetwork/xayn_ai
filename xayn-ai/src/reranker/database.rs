@@ -42,9 +42,11 @@ impl Db {
     }
 
     fn serialize_data(data: &RerankerData) -> Result<Vec<u8>, Error> {
+        let size = bincode::serialized_size(data)?;
+        let mut serialized = Vec::with_capacity(size as usize);
         // version is encoded in the first byte
-        let mut serialized = vec![CURRENT_SCHEMA_VERSION];
-        serialized.append(&mut bincode::serialize(data)?);
+        serialized.push(CURRENT_SCHEMA_VERSION);
+        bincode::serialize_into(&mut serialized, data)?;
 
         Ok(serialized)
     }
