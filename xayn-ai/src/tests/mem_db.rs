@@ -24,7 +24,7 @@ impl MemDb {
 }
 
 impl Database for MemDb {
-    fn serialize_data(&self, _data: &RerankerData) -> Result<Vec<u8>, Error> {
+    fn serialize(&self, _data: &RerankerData) -> Result<Vec<u8>, Error> {
         unimplemented!("mocked database does not have a serialized representation")
     }
 

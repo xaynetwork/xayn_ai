@@ -9,7 +9,7 @@ use super::RerankerData;
 pub(crate) trait Database {
     fn load_data(&self) -> Result<Option<RerankerData>, Error>;
 
-    fn serialize_data(&self, data: &RerankerData) -> Result<Vec<u8>, Error>;
+    fn serialize(&self, data: &RerankerData) -> Result<Vec<u8>, Error>;
 }
 
 const CURRENT_SCHEMA_VERSION: u8 = 0;
@@ -21,7 +21,7 @@ impl Db {
     /// If `bytes` is empty it will return an empty database,
     /// otherwise it will try to deserialize the bytes and
     /// return a database with that data.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.is_empty() {
             return Ok(Self::default());
         }
@@ -41,7 +41,7 @@ impl Db {
         Ok(Self(RefCell::new(Some(data))))
     }
 
-    fn serialize_data(data: &RerankerData) -> Result<Vec<u8>, Error> {
+    fn serialize(data: &RerankerData) -> Result<Vec<u8>, Error> {
         let size = bincode::serialized_size(data)?;
         let mut serialized = Vec::with_capacity(size as usize);
         // version is encoded in the first byte
@@ -57,8 +57,8 @@ impl Database for Db {
         Ok(self.0.borrow_mut().take())
     }
 
-    fn serialize_data(&self, data: &RerankerData) -> Result<Vec<u8>, Error> {
-        Db::serialize_data(data)
+    fn serialize(&self, data: &RerankerData) -> Result<Vec<u8>, Error> {
+        Db::serialize(data)
     }
 }
 
@@ -80,8 +80,8 @@ mod tests {
         let docs = data_with_mab(vec![(0, vec![1.; 128])].into_iter());
         let data = RerankerData::new_with_mab(user_interests, docs);
 
-        let serialized = Db::serialize_data(&data).expect("serialized data");
-        let database = Db::from_bytes(&serialized).expect("load data from serialized");
+        let serialized = Db::serialize(&data).expect("serialized data");
+        let database = Db::deserialize(&serialized).expect("load data from serialized");
         let loaded_data = database
             .load_data()
             .expect("load data")

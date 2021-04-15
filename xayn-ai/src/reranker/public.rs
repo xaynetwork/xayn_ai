@@ -103,8 +103,8 @@ impl Default for Builder<(), ()> {
 }
 
 impl<V, M> Builder<V, M> {
-    pub fn with_serialized(mut self, bytes: &[u8]) -> Result<Self, Error> {
-        self.database = Db::from_bytes(bytes)?;
+    pub fn with_serialized_database(mut self, bytes: &[u8]) -> Result<Self, Error> {
+        self.database = Db::deserialize(bytes)?;
         Ok(self)
     }
 

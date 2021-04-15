@@ -3,13 +3,7 @@ use std::{
     slice,
 };
 
-use ffi_support::{
-    call_with_result,
-    implement_into_ffi_by_pointer,
-    ExternError,
-    FfiStr,
-    IntoFfi,
-};
+use ffi_support::{call_with_result, implement_into_ffi_by_pointer, ExternError, FfiStr, IntoFfi};
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
@@ -65,7 +59,7 @@ impl CXaynAi {
         })?;
 
         Builder::default()
-            .with_serialized(serialized)
+            .with_serialized_database(serialized)
             .map_err(|cause| {
                 CXaynAiError::RerankerDeserialization
                     .with_context(format!("Failed to deserialize reranker data: {}", cause))
