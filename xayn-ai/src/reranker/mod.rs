@@ -526,7 +526,7 @@ mod tests {
     macro_rules! common_systems_with_fail {
         ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
             paste! {{
-                let mut mock_system =  $mock::new();
+                let mut mock_system = $mock::new();
                 mock_system.[<expect_$method>]().returning(|$($args),*| bail!(MockError::Fail));
 
                 let cs = MockCommonSystems::default()
