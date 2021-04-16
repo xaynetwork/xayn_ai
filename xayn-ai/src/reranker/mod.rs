@@ -614,7 +614,7 @@ mod tests {
     fn test_system_failure_coi_fails_in_rerank() {
         let cs = MockCommonSystems::default().set_coi(|| {
             let mut coi = MockCoiSystem::new();
-            // we need to set this othersie it will panic when called
+            // we need to set this otherwise it will panic when called
             coi.expect_update_user_interests()
                 .returning(|_, _, _| bail!(CoiSystemError::NoMatchingDocuments));
             coi.expect_compute_coi()
