@@ -11,7 +11,7 @@ import 'package:ffi/ffi.dart' show malloc;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isEmpty, test;
 
-import 'package:xayn_ai_ffi_dart/src/doc/rank.dart' show Ranks;
+import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CRanks;
 
 void main() {

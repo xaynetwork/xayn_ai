@@ -2,29 +2,29 @@
 #![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
 #![allow(unused_unsafe)]
 
-mod ai;
-mod analytics;
-mod bytes;
-mod doc;
+mod data;
+mod reranker;
 mod result;
 mod utils;
 
 pub use crate::{
-    ai::{
-        xaynai_analytics,
-        xaynai_drop,
-        xaynai_new,
-        xaynai_rerank,
-        xaynai_serialize,
-        xaynai_warnings,
-        CXaynAi,
-    },
-    analytics::{analytics_drop, CAnalytics},
-    bytes::{bytes_drop, CBytes},
-    doc::{
+    data::{
         document::{CDocument, CDocuments},
         history::{CFeedback, CHistories, CHistory, CRelevance},
         rank::{ranks_drop, CRanks},
+    },
+    reranker::{
+        ai::{
+            xaynai_analytics,
+            xaynai_drop,
+            xaynai_new,
+            xaynai_rerank,
+            xaynai_serialize,
+            xaynai_warnings,
+            CXaynAi,
+        },
+        analytics::{analytics_drop, CAnalytics},
+        bytes::{bytes_drop, CBytes},
     },
     result::{
         error::{error_message_drop, CCode},

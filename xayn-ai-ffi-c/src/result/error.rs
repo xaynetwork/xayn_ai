@@ -70,11 +70,11 @@ impl CCode {
 /// - A non-null error `message` is freed more than once.
 /// - A non-null error `message` is accessed after being freed.
 ///
-/// [`xaynai_new()`]: crate::ai::xaynai_new
-/// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
-/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
-/// [`xaynai_warnings()`]: crate::ai::xaynai_warnings
-/// [`xaynai_analytics()`]: crate::ai::xaynai_analytics
+/// [`xaynai_new()`]: crate::reranker::ai::xaynai_new
+/// [`xaynai_rerank()`]: crate::reranker::ai::xaynai_rerank
+/// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
+/// [`xaynai_warnings()`]: crate::reranker::ai::xaynai_warnings
+/// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
     let drop = || {

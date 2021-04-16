@@ -60,7 +60,7 @@ impl CBytes {
 /// - A non-null buffer is freed more than once.
 /// - A non-null buffer is accessed after being freed.
 ///
-/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
+/// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
 #[no_mangle]
 pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
     let drop = || {

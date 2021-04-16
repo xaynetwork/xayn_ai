@@ -20,7 +20,7 @@ impl From<Vec<usize>> for Ranks {
 ///
 /// The ranks are in the same logical order as the documents used in [`xaynai_rerank()`].
 ///
-/// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
+/// [`xaynai_rerank()`]: crate::reranker::ai::xaynai_rerank
 #[repr(C)]
 pub struct CRanks {
     /// The raw pointer to the ranks.
@@ -77,7 +77,7 @@ impl CRanks {
 /// - A non-null `ranks` is freed more than once.
 /// - A non-null `ranks` is accessed after being freed.
 ///
-/// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
+/// [`xaynai_rerank()`]: crate::reranker::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn ranks_drop(ranks: *mut CRanks) {
     let drop = || {

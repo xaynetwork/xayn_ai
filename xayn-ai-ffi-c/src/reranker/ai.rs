@@ -4,13 +4,12 @@ use ffi_support::{implement_into_ffi_by_pointer, ExternError, FfiStr};
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
-    analytics::CAnalytics,
-    bytes::CBytes,
-    doc::{
+    data::{
         document::CDocuments,
         history::CHistories,
         rank::{CRanks, Ranks},
     },
+    reranker::{analytics::CAnalytics, bytes::CBytes},
     result::{
         call_with_result,
         error::CCode,
@@ -25,7 +24,7 @@ use crate::{
 /// - Rerank documents with [`xaynai_rerank()`].
 /// - Free memory with [`xaynai_drop()`], [`ranks_drop()`] and [`error_message_drop()`].
 ///
-/// [`ranks_drop()`]: crate::doc::rank::ranks_drop
+/// [`ranks_drop()`]: crate::data::rank::ranks_drop
 /// [`error_message_drop()`]: crate::result::error::error_message_drop
 pub struct CXaynAi(Reranker);
 
@@ -220,8 +219,8 @@ pub unsafe extern "C" fn xaynai_new(
 /// [`ExternError`].
 /// - A non-null, zero-sized `ranks` array is dereferenced.
 ///
-/// [`CHistory`]: crate::doc::history::CHistory
-/// [`CDocument`]: crate::doc::document::CDocument
+/// [`CHistory`]: crate::data::history::CHistory
+/// [`CDocument`]: crate::data::document::CDocument
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
     xaynai: *mut CXaynAi,
@@ -336,8 +335,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        analytics::analytics_drop,
-        doc::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
+        data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
+        reranker::analytics::analytics_drop,
         result::{error::error_message_drop, warning::warnings_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,

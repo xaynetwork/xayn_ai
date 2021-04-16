@@ -26,7 +26,7 @@ impl CAnalytics {
 /// - A non-null `analytics` is freed more than once.
 /// - A non-null `analytics` is accessed after being freed.
 ///
-/// [`xaynai_analytics()`]: crate::ai::xaynai_analytics
+/// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn analytics_drop(analytics: *mut CAnalytics) {
     let drop = || {

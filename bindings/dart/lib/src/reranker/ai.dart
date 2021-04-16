@@ -1,25 +1,24 @@
 import 'dart:ffi'
     show
+        AllocatorAlloc,
         Int8,
         nullptr,
         Pointer,
         Uint8,
-        AllocatorAlloc,
         // ignore: unused_shown_name
         Uint8Pointer;
-
 import 'dart:typed_data' show Uint8List;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/analytics.dart' show Analytics;
-import 'package:xayn_ai_ffi_dart/src/bytes.dart' show Bytes;
-import 'package:xayn_ai_ffi_dart/src/doc/document.dart'
+import 'package:xayn_ai_ffi_dart/src/data/document.dart'
     show Document, Documents;
-import 'package:xayn_ai_ffi_dart/src/doc/history.dart' show Histories, History;
-import 'package:xayn_ai_ffi_dart/src/doc/rank.dart' show Ranks;
+import 'package:xayn_ai_ffi_dart/src/data/history.dart' show Histories, History;
+import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart' show Analytics;
+import 'package:xayn_ai_ffi_dart/src/reranker/bytes.dart' show Bytes;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/result/warning.dart' show Warnings;
 

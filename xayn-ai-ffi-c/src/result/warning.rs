@@ -78,7 +78,7 @@ impl CWarnings {
 /// - A non-null `warnings` is freed more than once.
 /// - A non-null `warnings` is accessed after being freed.
 ///
-/// [`xaynai_warnings()`]: crate::ai::xaynai_warnings
+/// [`xaynai_warnings()`]: crate::reranker::ai::xaynai_warnings
 #[no_mangle]
 pub unsafe extern "C" fn warnings_drop(warnings: *mut CWarnings) {
     let drop = || unsafe {

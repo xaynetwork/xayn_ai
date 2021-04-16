@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart'
     show Matcher, predicate, throwsA;
 
-import 'package:xayn_ai_ffi_dart/src/doc/document.dart' show Document;
-import 'package:xayn_ai_ffi_dart/src/doc/history.dart'
+import 'package:xayn_ai_ffi_dart/src/data/document.dart' show Document;
+import 'package:xayn_ai_ffi_dart/src/data/history.dart'
     show Feedback, History, Relevance;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart'
     show Code, XaynAiException;

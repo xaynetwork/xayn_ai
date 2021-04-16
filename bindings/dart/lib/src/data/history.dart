@@ -4,7 +4,7 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:meta/meta.dart' show visibleForTesting;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
-    show CHistory, CFeedback, CRelevance, CHistories;
+    show CFeedback, CHistories, CHistory, CRelevance;
 
 /// A document relevance level.
 enum Relevance {

@@ -4,7 +4,7 @@ import 'package:ffi/ffi.dart' show Utf8, Utf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test, throwsArgumentError;
 
-import 'package:xayn_ai_ffi_dart/src/doc/history.dart'
+import 'package:xayn_ai_ffi_dart/src/data/history.dart'
     show Feedback, FeedbackInt, Histories, History, Relevance, RelevanceInt;
 import '../utils.dart' show histories;
 
