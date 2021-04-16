@@ -259,48 +259,62 @@ mod tests {
     use crate::{
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
+        reranker::systems::BertSystem,
         tests::{
-            data_with_embedding,
             document_history,
             documents_from_ids,
+            documents_with_embeddings_from_ids,
             expected_rerank_unchanged,
+            from_ids,
             history_for_prev_docs,
+            mocked_bert_system,
             MemDb,
+            MockAnalyticsSystem,
+            MockBertSystem,
+            MockCoiSystem,
             MockCommonSystems,
+            MockContextSystem,
+            MockDatabase,
+            MockLtrSystem,
+            MockMabSystem,
         },
     };
+    use anyhow::bail;
+    use paste::paste;
 
     macro_rules! check_error {
         ($reranker: expr, $error:pat) => {
             assert!($reranker
                 .errors()
                 .iter()
-                .any(|e| matches!(e.downcast_ref().unwrap(), $error)));
+                .any(|e| matches!(e.downcast_ref(), Some($error))));
         };
     }
 
     mod car_interest_example {
-        use super::*;
+        use super::from_ids;
+
+        use std::ops::Range;
+
         use crate::{
             data::UserInterests,
+            reranker::{DocumentsRank, PreviousDocuments, RerankerData},
             tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
             Document,
             DocumentId,
         };
 
-        pub(super) fn reranker_data_with_mab() -> RerankerData {
-            reranker_data(data_with_mab((0..10).map(|id| (id, vec![id as f32; 128]))))
+        pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {
+            let docs = data_with_mab(from_ids(ids));
+            reranker_data(docs)
         }
 
-        pub(super) fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
-            RerankerData {
-                prev_documents: docs.into(),
-                user_interests: UserInterests {
-                    positive: cois_from_words(&["vehicle"], mocked_bert_system()),
-                    ..Default::default()
-                },
-            }
-        }
+        // This seems to not be used anymore, just commenting out for the moment
+        // pub(super) fn reranker_data_with_mab_from_words(words: &[&str]) -> RerankerData {
+        //     let docs = documents_with_embeddings_from_words(words, mocked_bert_system())
+        //         .map(|d| (d.document_id.id, d.embedding.embedding));
+        //     reranker_data(data_with_mab(docs))
+        // }
 
         pub(super) fn documents() -> Vec<Document> {
             documents_from_words(
@@ -314,6 +328,16 @@ mod tests {
                 .zip(0..6)
                 .map(|(id, rank)| (DocumentId(id.to_string()), rank))
                 .collect()
+        }
+
+        fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
+            RerankerData {
+                prev_documents: docs.into(),
+                user_interests: UserInterests {
+                    positive: cois_from_words(&["vehicle"], mocked_bert_system()),
+                    ..Default::default()
+                },
+            }
         }
     }
 
@@ -345,7 +369,7 @@ mod tests {
         let rank = reranker.rerank(&[], &documents);
 
         assert_eq!(rank, expected_rerank_unchanged(&documents));
-        assert_eq!(reranker.data.prev_documents.len(), 10);
+        assert_eq!(reranker.data.prev_documents.len(), documents.len());
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
@@ -381,7 +405,7 @@ mod tests {
 
         let _rank = reranker.rerank(&history, &documents);
         assert!(reranker.errors().is_empty());
-        assert_eq!(reranker.data.prev_documents.len(), 10);
+        assert_eq!(reranker.data.prev_documents.len(), documents.len());
 
         assert_eq!(reranker.data.user_interests.positive.len(), 3);
         assert_eq!(reranker.data.user_interests.negative.len(), 3);
@@ -395,8 +419,9 @@ mod tests {
     /// create the previous documents from the current `Document`s.
     #[test]
     fn test_rerank_no_history() {
-        let cs = MockCommonSystems::new()
-            .set_db(|| MemDb::from_data(car_interest_example::reranker_data_with_mab()));
+        let cs = MockCommonSystems::new().set_db(|| {
+            MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..10))
+        });
         let mut reranker = Reranker::new(cs).unwrap();
 
         let rank = reranker.rerank(&[], &car_interest_example::documents());
@@ -417,16 +442,18 @@ mod tests {
     /// and rerank the current `Document`s based on the current user interests.
     #[test]
     fn test_rerank_no_matching_documents() {
-        let cs = MockCommonSystems::new()
-            .set_db(|| MemDb::from_data(car_interest_example::reranker_data_with_mab()));
+        let cs = MockCommonSystems::new().set_db(|| {
+            MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..10))
+        });
         let mut reranker = Reranker::new(cs).unwrap();
 
         // creates a history with one document with the id 11
         let history = document_history(vec![(11, Relevance::Low, UserFeedback::Relevant)]);
-        let rank = reranker.rerank(&history, &car_interest_example::documents());
+        let documents = car_interest_example::documents();
+        let rank = reranker.rerank(&history, &documents);
 
         assert_eq!(rank, car_interest_example::expected_rerank());
-        assert_eq!(reranker.data.prev_documents.len(), 6);
+        assert_eq!(reranker.data.prev_documents.len(), documents.len());
 
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
@@ -445,8 +472,7 @@ mod tests {
     fn test_first_and_second_search_no_history() {
         let cs = MockCommonSystems::new().set_db(|| {
             MemDb::from_data(RerankerData {
-                prev_documents: data_with_embedding((0..10).map(|id| (id, vec![id as f32; 128])))
-                    .into(),
+                prev_documents: documents_with_embeddings_from_ids(0..10).into(),
                 ..Default::default()
             })
         });
@@ -456,7 +482,7 @@ mod tests {
         let rank = reranker.rerank(&[], &documents);
 
         assert_eq!(rank, expected_rerank_unchanged(&documents));
-        assert_eq!(reranker.data.prev_documents.len(), 10);
+        assert_eq!(reranker.data.prev_documents.len(), documents.len());
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
@@ -471,8 +497,7 @@ mod tests {
     fn test_first_and_second_search_no_matching_documents() {
         let cs = MockCommonSystems::new().set_db(|| {
             MemDb::from_data(RerankerData {
-                prev_documents: data_with_embedding((0..10).map(|id| (id, vec![id as f32; 128])))
-                    .into(),
+                prev_documents: documents_with_embeddings_from_ids(0..10).into(),
                 ..Default::default()
             })
         });
@@ -484,11 +509,166 @@ mod tests {
         let rank = reranker.rerank(&history, &documents);
 
         assert_eq!(rank, expected_rerank_unchanged(&documents));
-        assert_eq!(reranker.data.prev_documents.len(), 10);
+        assert_eq!(reranker.data.prev_documents.len(), documents.len());
         assert!(reranker.data.user_interests.positive.is_empty());
         assert!(reranker.data.user_interests.negative.is_empty());
 
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
         check_error!(reranker, CoiSystemError::NoCoi);
+    }
+
+    #[derive(thiserror::Error, Debug)]
+    enum MockError {
+        #[error("fail")]
+        Fail,
+    }
+
+    macro_rules! common_systems_with_fail {
+        ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
+            paste! {{
+                let mut mock_system = $mock::new();
+                mock_system.[<expect_$method>]().returning(|$($args),*| bail!(MockError::Fail));
+
+                let cs = MockCommonSystems::default()
+                    .[<set_$system>](|| mock_system)
+                    .set_db(|| {
+                        // We need to set at least one positive coi, otherwise
+                        // `rerank` will fail with `CoiSystemError::NoCoi` and
+                        // the systems that come after the `CoiSystem` will never
+                        // be executed.
+                        MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..1))
+                    });
+                cs
+            }}
+        }
+    }
+
+    fn test_system_failure(cs: impl CommonSystems, can_fill_prev_docs: bool) {
+        // If any of the systems fail in the `rerank` method, the `Reranker`
+        // should return the results/`Document`s in an unchanged order and
+        // create the previous documents from the current `Document`s.
+        // An exception is the bert system which of course cannot create
+        // previous documents if it fails.
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = documents_from_ids(0..10);
+
+        // We use an empty history in order to skip the learning step.
+        let rank = reranker.rerank(&[], &documents);
+
+        assert_eq!(rank, expected_rerank_unchanged(&documents));
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        check_error!(reranker, MockError::Fail);
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            if can_fill_prev_docs {
+                documents.len()
+            } else {
+                0
+            }
+        );
+    }
+
+    macro_rules! test_system_failure {
+        ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
+            test_system_failure!($system, $mock, $method, |$($args),*|, true);
+        };
+        ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|, $can_fill_prev_docs: expr) => {
+            paste! {
+                #[test]
+                fn [<test_component_failure_ $system>]() {
+                    let cs = common_systems_with_fail!($system, $mock, $method, |$($args),*|);
+                    test_system_failure(cs, $can_fill_prev_docs);
+                }
+            }
+        };
+    }
+
+    test_system_failure!(bert, MockBertSystem, compute_embedding, |_|, false);
+    test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
+    test_system_failure!(context, MockContextSystem, compute_context, |_|);
+    test_system_failure!(mab, MockMabSystem, compute_mab, |_,_|);
+
+    /// An analytics system error should not prevent the documents from
+    /// being reranked using the learned user interests. However, the error
+    /// should be stored and made available via `Reranker::error()`.
+    #[test]
+    fn test_system_failure_analytics() {
+        let cs =
+            common_systems_with_fail!(analytics, MockAnalyticsSystem, compute_analytics, |_,_|);
+        let mut reranker = Reranker::new(cs).unwrap();
+        reranker.analytics = Some(Analytics);
+        let documents = car_interest_example::documents();
+        let history = history_for_prev_docs(
+            &reranker.data.prev_documents.to_coi_system_data(),
+            vec![(Relevance::Low, UserFeedback::Relevant)],
+        );
+
+        let rank = reranker.rerank(&history, &documents);
+
+        assert_eq!(rank, car_interest_example::expected_rerank());
+        check_error!(reranker, MockError::Fail);
+        assert!(reranker.analytics.is_none())
+    }
+
+    #[test]
+    fn test_system_failure_coi_fails_in_rerank() {
+        let cs = MockCommonSystems::default().set_coi(|| {
+            let mut coi = MockCoiSystem::new();
+            // we need to set this otherwise it will panic when called
+            coi.expect_update_user_interests()
+                .returning(|_, _, _| bail!(CoiSystemError::NoMatchingDocuments));
+            coi.expect_compute_coi()
+                .returning(|_, _| bail!(MockError::Fail));
+            coi
+        });
+
+        test_system_failure(cs, true);
+    }
+
+    /// If the bert system fails spontaneously in the `rerank` function, the
+    /// `Reranker` should return the results/`Document`s in an unchanged order
+    /// and create the previous documents from the current `Document`s.
+    #[test]
+    fn test_system_failure_bert_fails_in_rerank() {
+        let mut called = 0;
+
+        let cs = MockCommonSystems::default().set_bert(|| {
+            let mut bert = MockBertSystem::new();
+            bert.expect_compute_embedding().returning(move |docs| {
+                let res = match called {
+                    0 => Err(MockError::Fail.into()),
+                    1 => mocked_bert_system().compute_embedding(docs),
+                    _ => panic!("`compute_embedding` should only be called twice"),
+                };
+                called += 1;
+                res
+            });
+            bert
+        });
+
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = car_interest_example::documents();
+
+        let rank = reranker.rerank(&[], &documents);
+
+        assert_eq!(rank, expected_rerank_unchanged(&documents));
+        assert_eq!(reranker.data.prev_documents.len(), documents.len());
+        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        check_error!(reranker, MockError::Fail);
+    }
+
+    /// If the database fails to load the data, propagate the error to the caller.
+    #[test]
+    fn test_data_read_load_data_fails() {
+        let cs = MockCommonSystems::default().set_db(|| {
+            let mut db = MockDatabase::new();
+            db.expect_load_data().returning(|| bail!(MockError::Fail));
+            db
+        });
+
+        match Reranker::new(cs) {
+            Ok(_) => panic!("an error is expected"),
+            Err(error) => assert!(matches!(error.downcast_ref(), Some(MockError::Fail))),
+        };
     }
 }

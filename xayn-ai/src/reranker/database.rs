@@ -86,7 +86,7 @@ mod tests {
     use super::*;
     use crate::{
         data::UserInterests,
-        tests::{cois_from_words, data_with_mab, mocked_bert_system},
+        tests::{cois_from_words, data_with_mab, from_ids, mocked_bert_system},
     };
 
     #[test]
@@ -96,7 +96,7 @@ mod tests {
             positive: cois.clone(),
             negative: cois,
         };
-        let docs = data_with_mab(vec![(0, vec![1.; 128])].into_iter());
+        let docs = data_with_mab(from_ids(0..1));
         let data = RerankerData::new_with_mab(user_interests, docs);
 
         let database = Db::new(InMemoryDatabaseRaw::default());
