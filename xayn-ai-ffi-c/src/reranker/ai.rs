@@ -9,7 +9,10 @@ use crate::{
         history::CHistories,
         rank::{CRanks, Ranks},
     },
-    reranker::{analytics::CAnalytics, bytes::CBytes},
+    reranker::{
+        analytics::CAnalytics,
+        bytes::{Bytes, CBytes},
+    },
     result::{
         call_with_result,
         error::CCode,
@@ -112,17 +115,16 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_serialize()`] for more.
-    unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<CBytes, ExternError> {
+    unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<Bytes, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
-            CCode::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
+            CCode::AiPointer
+                .with_context("Failed to serialize the reranker: The ai pointer is null")
         })?;
 
-        let bytes = xaynai.0.serialize().map_err(|cause| {
+        xaynai.0.serialize().map(Bytes).map_err(|cause| {
             CCode::RerankerSerialization
-                .with_context(format!("Failed to serialize reranker data: {}", cause))
-        })?;
-
-        Ok(CBytes::from_vec(bytes))
+                .with_context(format!("Failed to serialize the reranker: {}", cause))
+        })
     }
 
     /// See [`xaynai_warnings()`] for more.
@@ -478,6 +480,21 @@ mod tests {
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: The ai pointer is null",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_ai_null_serialize() {
+        let mut error = ExternError::default();
+
+        let invalid = null_mut();
+        assert!(unsafe { xaynai_serialize(invalid, error.as_mut_ptr()) }.is_null());
+        assert_eq!(error.get_code(), CCode::AiPointer);
+        assert_eq!(
+            error.get_message(),
+            "Failed to serialize the reranker: The ai pointer is null",
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };

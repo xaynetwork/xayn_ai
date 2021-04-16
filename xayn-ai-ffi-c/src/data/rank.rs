@@ -73,7 +73,6 @@ impl CRanks {
 /// # Safety
 /// The behavior is undefined if:
 /// - A non-null `ranks` doesn't point to memory allocated by [`xaynai_rerank()`].
-/// - A non-zero `len` is different from the documents `len` used in [`xaynai_rerank()`].
 /// - A non-null `ranks` is freed more than once.
 /// - A non-null `ranks` is accessed after being freed.
 ///

@@ -1,18 +1,25 @@
-use std::{ptr::null_mut, slice::from_raw_parts_mut};
+use std::{
+    ptr::{null, null_mut},
+    slice::from_raw_parts_mut,
+};
 
 use ffi_support::{ExternError, IntoFfi};
 
 use crate::result::call_with_result;
 
+/// A bytes buffer.
+pub struct Bytes(pub(crate) Vec<u8>);
+
+/// A raw slice of bytes.
 #[repr(C)]
 pub struct CBytes {
-    /// pointer to the data
-    pub ptr: *const u8,
-    /// number of bytes in the array
+    /// The raw pointer to the bytes.
+    pub data: *const u8,
+    /// The number of bytes.
     pub len: u32,
 }
 
-unsafe impl IntoFfi for CBytes {
+unsafe impl IntoFfi for Bytes {
     type Value = *mut CBytes;
 
     #[inline]
@@ -22,43 +29,42 @@ unsafe impl IntoFfi for CBytes {
 
     #[inline]
     fn into_ffi_value(self) -> Self::Value {
-        Box::into_raw(Box::new(self))
+        let len = self.0.len() as u32;
+        let data = if self.0.is_empty() {
+            null()
+        } else {
+            self.0.leak().as_ptr()
+        };
+        let bytes = CBytes { data, len };
+
+        Box::into_raw(Box::new(bytes))
     }
 }
 
 impl CBytes {
-    pub fn from_vec(bytes: Vec<u8>) -> Self {
-        if bytes.is_empty() {
-            Self {
-                ptr: null_mut(),
-                len: 0,
+    /// See [`bytes_drop()`] for more.
+    unsafe fn drop(bytes: *mut Self) {
+        if !bytes.is_null() {
+            let bytes = unsafe { Box::from_raw(bytes) };
+            if !bytes.data.is_null() && bytes.len > 0 {
+                unsafe {
+                    Box::from_raw(from_raw_parts_mut(
+                        bytes.data as *mut u32,
+                        bytes.len as usize,
+                    ))
+                };
             }
-        } else {
-            let len = bytes.len() as u32;
-            let ptr = bytes.leak().as_mut_ptr();
-
-            Self { ptr, len }
-        }
-    }
-
-    fn drop(array: *mut CBytes) {
-        if let Some(a) = unsafe { array.as_ref() } {
-            if !a.ptr.is_null() && a.len > 0 {
-                unsafe { Box::from_raw(from_raw_parts_mut(a.ptr as *mut u8, a.len as usize)) };
-            }
-            // Safety: we do not access `a` after we freed it
-            unsafe { Box::from_raw(array) };
         }
     }
 }
 
-/// Frees the memory of a byte buffer.
+/// Frees the memory of the bytes buffer.
 ///
 /// # Safety
 /// The behavior is undefined if:
-/// - A non-null buffer doesn't point to memory allocated by [`xaynai_serialize()`].
-/// - A non-null buffer is freed more than once.
-/// - A non-null buffer is accessed after being freed.
+/// - A non-null `bytes` buffer doesn't point to memory allocated by [`xaynai_serialize()`].
+/// - A non-null `bytes` buffer is freed more than once.
+/// - A non-null `bytes` buffer is accessed after being freed.
 ///
 /// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
 #[no_mangle]
@@ -71,4 +77,37 @@ pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
     let error = None;
 
     call_with_result(drop, clean, error);
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::slice::from_raw_parts;
+
+    use super::*;
+
+    #[test]
+    fn test_into_raw() {
+        let buffer = (0..10).collect::<Vec<_>>();
+        let bytes = Bytes(buffer.clone()).into_ffi_value();
+
+        assert!(!bytes.is_null());
+        let data = unsafe { &*bytes }.data;
+        let len = unsafe { &*bytes }.len as usize;
+        assert!(!data.is_null());
+        assert_eq!(len, buffer.len());
+        assert_eq!(unsafe { from_raw_parts(data, len) }, buffer);
+
+        unsafe { bytes_drop(bytes) };
+    }
+
+    #[test]
+    fn test_into_empty() {
+        let bytes = Bytes(Vec::new()).into_ffi_value();
+
+        assert!(!bytes.is_null());
+        assert!(unsafe { &*bytes }.data.is_null());
+        assert_eq!(unsafe { &*bytes }.len, 0);
+
+        unsafe { bytes_drop(bytes) };
+    }
 }
