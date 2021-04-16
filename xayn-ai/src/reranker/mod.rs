@@ -197,6 +197,11 @@ where
         &self.analytics
     }
 
+    /// Create a byte representation of the internal state of the Reranker.
+    pub(crate) fn serialize(&self) -> Result<Vec<u8>, Error> {
+        self.common_systems.database().serialize(&self.data)
+    }
+
     pub(crate) fn rerank(
         &mut self,
         history: &[DocumentHistory],

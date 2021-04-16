@@ -1,10 +1,13 @@
-use std::panic::{catch_unwind, RefUnwindSafe};
+use std::{
+    panic::{catch_unwind, RefUnwindSafe},
+    slice,
+};
 
 use ffi_support::{call_with_result, implement_into_ffi_by_pointer, ExternError, FfiStr, IntoFfi};
-use xayn_ai::{Builder, InMemoryDatabaseRaw, Reranker};
+use xayn_ai::{Builder, Reranker};
 
 use crate::{
-    document::{CDocument, CHistory, CRanks},
+    document::{CBytes, CDocument, CHistory, CRanks},
     error::CXaynAiError,
 };
 
@@ -17,7 +20,7 @@ use crate::{
 ///
 /// [`ranks_drop()`]: crate::document::ranks_drop
 /// [`error_message_drop()`]: crate::error::error_message_drop
-pub struct CXaynAi(Reranker<InMemoryDatabaseRaw>);
+pub struct CXaynAi(Reranker);
 
 impl RefUnwindSafe for CXaynAi {
     // safety: the field CXaynAi.0.errors must not be accessed after a panic; we don't access this
@@ -27,7 +30,23 @@ impl RefUnwindSafe for CXaynAi {
 implement_into_ffi_by_pointer! { CXaynAi }
 
 impl CXaynAi {
-    unsafe fn new(vocab: FfiStr, model: FfiStr) -> Result<CXaynAi, ExternError> {
+    unsafe fn new(
+        serialized: *const u8,
+        serialized_size: u32,
+        vocab: FfiStr,
+        model: FfiStr,
+    ) -> Result<CXaynAi, ExternError> {
+        if !(serialized.is_null() ^ (serialized_size > 0)) {
+            return Err(
+            CXaynAiError::SerializedPointer.with_context(
+                "Failed to initialize the ai: invalid combination of serialized and serialized_size",
+            ));
+        }
+        let serialized = if serialized.is_null() {
+            &[]
+        } else {
+            unsafe { slice::from_raw_parts(serialized, serialized_size as usize) }
+        };
         let vocab = vocab.as_opt_str().ok_or_else(|| {
             CXaynAiError::VocabPointer.with_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
@@ -40,7 +59,11 @@ impl CXaynAi {
         })?;
 
         Builder::default()
-            .with_database_raw(InMemoryDatabaseRaw::default())
+            .with_serialized_database(serialized)
+            .map_err(|cause| {
+                CXaynAiError::RerankerDeserialization
+                    .with_context(format!("Failed to deserialize reranker data: {}", cause))
+            })?
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
                 CXaynAiError::ReadFile
@@ -90,6 +113,20 @@ impl CXaynAi {
         CRanks::from_reranked_documents(ranks, &documents)
     }
 
+    unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<CBytes, ExternError> {
+        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+            CXaynAiError::AiPointer
+                .with_context("Failed to rerank the documents: The ai pointer is null")
+        })?;
+
+        let bytes = xaynai.0.serialize().map_err(|cause| {
+            CXaynAiError::RerankerSerialization
+                .with_context(format!("Failed to serialize reranker data: {}", cause))
+        })?;
+
+        Ok(CBytes::from_vec(bytes))
+    }
+
     unsafe fn drop(xaynai: *mut CXaynAi) {
         if !xaynai.is_null() {
             unsafe { Box::from_raw(xaynai) };
@@ -102,20 +139,25 @@ impl CXaynAi {
 /// # Errors
 /// Returns a null pointer if:
 /// - The vocab or model paths are invalid.
+/// - The serialized database is invalid.
 ///
 /// # Safety
 /// The behavior is undefined if:
+/// - A non-null serialized database doesn't point to an aligned, contiguous area of memory.
+/// - A serialized database size is too large to address the memory of a non-null serialized database array.
 /// - A non-null vocab or model path doesn't point to an aligned, contiguous area of memory with a
 /// terminating null byte.
 /// - A non-null error doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
+    serialized: *const u8,
+    serialized_size: u32,
     vocab: FfiStr,
     model: FfiStr,
     error: *mut ExternError,
 ) -> *mut CXaynAi {
-    let new = || unsafe { CXaynAi::new(vocab, model) };
+    let new = || unsafe { CXaynAi::new(serialized, serialized_size, vocab, model) };
 
     if let Some(error) = unsafe { error.as_mut() } {
         call_with_result(error, new)
@@ -169,6 +211,44 @@ pub unsafe extern "C" fn xaynai_rerank(
     }
 }
 
+/// Serialize the current state of the Reranker
+///
+/// # Errors
+/// Returns a null pointer if:
+/// - The xaynai is null.
+/// - The document history is invalid.
+/// - The documents are invalid.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null history array doesn't point to an aligned, contiguous area of memory with at least
+/// history size many [`CHistory`]s.
+/// - A history size is too large to address the memory of a non-null history array.
+/// - A non-null documents array doesn't point to an aligned, contiguous area of memory with at
+/// least documents size many [`CDocument`]s.
+/// - A documents size is too large to address the memory of a non-null documents array.
+/// - A non-null id or snippet doesn't point to an aligned, contiguous area of memory with a
+/// terminating null byte.
+/// - A non-null error doesn't point to an aligned, contiguous area of memory with an
+/// [`ExternError`].
+/// - A non-null, zero-sized ranks array is dereferenced.
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_serialize(
+    xaynai: *mut CXaynAi,
+    error: *mut ExternError,
+) -> *mut CBytes {
+    let serialize = || unsafe { CXaynAi::serialize(xaynai) };
+
+    if let Some(error) = unsafe { error.as_mut() } {
+        call_with_result(error, serialize)
+    } else if let Ok(Ok(buffer)) = catch_unwind(serialize) {
+        buffer.into_ffi_value()
+    } else {
+        CBytes::ffi_default()
+    }
+}
+
 /// Frees the memory of the Xayn AI.
 ///
 /// # Safety
@@ -200,7 +280,7 @@ mod tests {
         let (c_vocab, c_model, c_hist, c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
@@ -227,7 +307,7 @@ mod tests {
         let (c_vocab, c_model, _, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
@@ -249,7 +329,7 @@ mod tests {
         let (c_vocab, c_model, _, c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
@@ -278,7 +358,7 @@ mod tests {
         let (c_vocab, c_model, c_hist, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
@@ -307,7 +387,7 @@ mod tests {
         let (_, c_model, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(c_invalid, c_model, c_error) }.is_null());
+        assert!(unsafe { xaynai_new(null(), 0, c_invalid, c_model, c_error) }.is_null());
         assert_eq!(error.get_code(), CXaynAiError::VocabPointer);
         assert_eq!(
             error.get_message(),
@@ -324,7 +404,7 @@ mod tests {
 
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
-        assert!(unsafe { xaynai_new(c_invalid, c_model, c_error) }.is_null());
+        assert!(unsafe { xaynai_new(null(), 0, c_invalid, c_model, c_error) }.is_null());
         assert_eq!(error.get_code(), CXaynAiError::ReadFile);
         assert_eq!(
             error.get_message(),
@@ -341,7 +421,7 @@ mod tests {
         let (c_vocab, _, _, _, c_error) = setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
         let c_invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(c_vocab, c_invalid, c_error) }.is_null());
+        assert!(unsafe { xaynai_new(null(), 0, c_vocab, c_invalid, c_error) }.is_null());
         assert_eq!(error.get_code(), CXaynAiError::ModelPointer);
         assert_eq!(
             error.get_message(),
@@ -358,7 +438,7 @@ mod tests {
 
         let invalid = CString::new("").unwrap();
         let c_invalid = FfiStr::from_cstr(invalid.as_c_str());
-        assert!(unsafe { xaynai_new(c_vocab, c_invalid, c_error) }.is_null());
+        assert!(unsafe { xaynai_new(null(), 0, c_vocab, c_invalid, c_error) }.is_null());
         assert_eq!(error.get_code(), CXaynAiError::ReadFile);
         assert_eq!(
             error.get_message(),
@@ -402,7 +482,7 @@ mod tests {
         let (c_vocab, c_model, _, mut c_docs, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
@@ -434,7 +514,7 @@ mod tests {
         let (c_vocab, c_model, c_hist, _, c_error) =
             setup_pointers(&vocab, &model, &hist, &docs, &mut error);
 
-        let xaynai = unsafe { xaynai_new(c_vocab, c_model, c_error) };
+        let xaynai = unsafe { xaynai_new(null(), 0, c_vocab, c_model, c_error) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CXaynAiError::Success);
 
@@ -458,5 +538,48 @@ mod tests {
 
         unsafe { xaynai_drop(xaynai) };
         drop_values(vocab, model, hist, docs, error);
+    }
+
+    #[test]
+    fn test_serialized_null_size_not_zero() {
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (c_vocab, c_model, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+
+        let xaynai = unsafe { xaynai_new(null(), 1, c_vocab, c_model, c_error) };
+        assert!(xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::SerializedPointer);
+    }
+
+    #[test]
+    fn test_serialized_not_null_size_zero() {
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (c_vocab, c_model, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+
+        let serialized = vec![1u8];
+        let xaynai = unsafe { xaynai_new(serialized.as_ptr(), 0, c_vocab, c_model, c_error) };
+        assert!(xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::SerializedPointer);
+    }
+
+    #[test]
+    fn test_serialized_invalid() {
+        let (vocab, model, hist, _, docs, _, mut error) = setup_values();
+        let (c_vocab, c_model, _, _, c_error) =
+            setup_pointers(&vocab, &model, &hist, &docs, &mut error);
+
+        let serialized = vec![1u8];
+        let xaynai = unsafe {
+            xaynai_new(
+                serialized.as_ptr(),
+                serialized.len() as u32,
+                c_vocab,
+                c_model,
+                c_error,
+            )
+        };
+        assert!(xaynai.is_null());
+        assert_eq!(error.get_code(), CXaynAiError::RerankerDeserialization);
     }
 }

@@ -23,9 +23,5 @@ pub use crate::{
     reranker::public::{Builder, Reranker},
 };
 
-// temporary exports until the ffi is able to take a DatabaseRaw from dart
-#[doc(hidden)]
-pub use crate::reranker::database::InMemoryDatabaseRaw;
-
 #[cfg(test)]
 mod tests;

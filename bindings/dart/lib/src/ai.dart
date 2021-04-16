@@ -1,10 +1,20 @@
-import 'dart:ffi' show Int8, nullptr, Pointer;
+import 'dart:ffi'
+    show
+        Int8,
+        nullptr,
+        Pointer,
+        Uint8,
+        AllocatorAlloc,
+        // ignore: unused_shown_name
+        Uint8Pointer;
+
+import 'dart:typed_data' show Uint8List;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/doc/document.dart' show Document, History;
 import 'package:xayn_ai_ffi_dart/src/doc/documents.dart'
-    show Documents, Histories, Ranks;
+    show Documents, Histories, Ranks, Bytes;
 import 'package:xayn_ai_ffi_dart/src/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
@@ -21,13 +31,27 @@ class XaynAi {
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the paths to the vocabulary and model files.
-  XaynAi(String vocab, String model) {
+  XaynAi(Uint8List serialized, String vocab, String model) {
     final vocabPtr = vocab.toNativeUtf8().cast<Int8>();
     final modelPtr = model.toNativeUtf8().cast<Int8>();
     final error = XaynAiError();
 
-    _ai = ffi.xaynai_new(vocabPtr, modelPtr, error.ptr);
+    Pointer<Uint8> serializedPtr = nullptr;
+    var serializedLen = 0;
+
     try {
+      if (serialized.isNotEmpty) {
+        serializedPtr = malloc.call<Uint8>(serializedLen);
+        serialized.asMap().forEach((i, byte) {
+          serializedPtr[i] = byte;
+        });
+
+        serializedLen = serialized.length;
+      }
+
+      _ai = ffi.xaynai_new(
+          serializedPtr, serializedLen, vocabPtr, modelPtr, error.ptr);
+
       if (error.isError()) {
         throw error.toException();
       }
@@ -35,6 +59,9 @@ class XaynAi {
       malloc.free(vocabPtr);
       malloc.free(modelPtr);
       error.free();
+      if (serializedPtr != nullptr) {
+        malloc.free(serializedPtr);
+      }
     }
   }
 
@@ -61,6 +88,22 @@ class XaynAi {
       docs.free();
       error.free();
       ranks.free();
+    }
+  }
+
+  Uint8List serialize() {
+    final error = XaynAiError();
+
+    final bytes = Bytes(ffi.xaynai_serialize(_ai, error.ptr));
+
+    try {
+      if (error.isError()) {
+        throw error.toException();
+      }
+      return bytes.toList();
+    } finally {
+      error.free();
+      bytes.free();
     }
   }
 

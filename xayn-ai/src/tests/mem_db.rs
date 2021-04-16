@@ -24,9 +24,8 @@ impl MemDb {
 }
 
 impl Database for MemDb {
-    fn save_data(&self, state: &RerankerData) -> Result<(), Error> {
-        *self.data.borrow_mut() = Some(state.clone());
-        Ok(())
+    fn serialize(&self, _data: &RerankerData) -> Result<Vec<u8>, Error> {
+        unimplemented!("mocked database does not have a serialized representation")
     }
 
     fn load_data(&self) -> Result<Option<RerankerData>, Error> {

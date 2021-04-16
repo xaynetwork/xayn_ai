@@ -44,6 +44,15 @@ enum XaynAiCode {
   /// A document snippet null pointer error.
   documentSnippetPointer,
 
+  /// Pointer is null but size > 0 or size == 0 but pointer is not null.
+  serializedPointer,
+
+  /// Deserialization of reranker data error.
+  rerankerDeserialization,
+
+  /// Serialization of reranker data error.
+  rerankerSerialization,
+
   /// An internal error.
   internal,
 }
@@ -76,6 +85,12 @@ extension XaynAiCodeInt on XaynAiCode {
         return CXaynAiCode.DocumentIdPointer;
       case XaynAiCode.documentSnippetPointer:
         return CXaynAiCode.DocumentSnippetPointer;
+      case XaynAiCode.serializedPointer:
+        return CXaynAiCode.SerializedPointer;
+      case XaynAiCode.rerankerDeserialization:
+        return CXaynAiCode.RerankerDeserialization;
+      case XaynAiCode.rerankerSerialization:
+        return CXaynAiCode.RerankerSerialization;
       case XaynAiCode.internal:
         return CXaynAiCode.Internal;
       default:
@@ -110,6 +125,12 @@ extension XaynAiCodeInt on XaynAiCode {
         return XaynAiCode.documentIdPointer;
       case CXaynAiCode.DocumentSnippetPointer:
         return XaynAiCode.documentSnippetPointer;
+      case CXaynAiCode.SerializedPointer:
+        return XaynAiCode.serializedPointer;
+      case CXaynAiCode.RerankerDeserialization:
+        return XaynAiCode.rerankerDeserialization;
+      case CXaynAiCode.RerankerSerialization:
+        return XaynAiCode.rerankerSerialization;
       case CXaynAiCode.Internal:
         return XaynAiCode.internal;
       default:
