@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     analytics::Analytics,
     data::{
-        document::{Document, DocumentHistory, DocumentsRank},
+        document::{sort_ranks_by_documents, Document, DocumentHistory, DocumentsRank, Ranks},
         document_data::{
             DocumentContentComponent,
             DocumentDataWithDocument,
@@ -210,11 +210,7 @@ where
         self.common_systems.database().serialize(&self.data)
     }
 
-    pub(crate) fn rerank(
-        &mut self,
-        history: &[DocumentHistory],
-        documents: &[Document],
-    ) -> DocumentsRank {
+    pub(crate) fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> Ranks {
         // The number of errors it can contain is very limited. By using `clear` we avoid
         // re-allocating the vector on each method call.
         self.errors.clear();
@@ -244,11 +240,11 @@ where
         let user_interests = self.data.user_interests.clone();
 
         rerank(&self.common_systems, history, documents, user_interests)
-            .map(|(prev_documents, user_interests, rank)| {
+            .map(|(prev_documents, user_interests, ranks)| {
                 self.data.prev_documents = PreviousDocuments::Mab(prev_documents);
                 self.data.user_interests = user_interests;
 
-                rank
+                sort_ranks_by_documents(ranks, documents)
             })
             .unwrap_or_else(|e| {
                 self.errors.push(e);
@@ -257,10 +253,7 @@ where
                     .unwrap_or_default();
                 self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
 
-                documents
-                    .iter()
-                    .map(|document| (document.id.clone(), document.rank))
-                    .collect()
+                documents.iter().map(|document| document.rank).collect()
             })
     }
 }
@@ -310,11 +303,12 @@ mod tests {
         use std::ops::Range;
 
         use crate::{
-            data::UserInterests,
-            reranker::{DocumentsRank, PreviousDocuments, RerankerData},
+            data::{
+                document::{sort_ranks_by_documents, Document, DocumentId, DocumentsRank, Ranks},
+                UserInterests,
+            },
+            reranker::{PreviousDocuments, RerankerData},
             tests::{data_with_mab, documents_from_words, mocked_bert_system, pos_cois_from_words},
-            Document,
-            DocumentId,
         };
 
         pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {
@@ -335,12 +329,14 @@ mod tests {
             )
         }
 
-        pub(super) fn expected_rerank() -> DocumentsRank {
-            [5, 3, 4, 0, 2, 1]
+        pub(super) fn expected_rerank() -> Ranks {
+            let documents_rank = [5, 3, 4, 0, 2, 1]
                 .iter()
                 .zip(0..6)
                 .map(|(id, rank)| (DocumentId(id.to_string()), rank))
-                .collect()
+                .collect::<DocumentsRank>();
+            let documents = documents();
+            sort_ranks_by_documents(documents_rank, &documents)
         }
 
         fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {

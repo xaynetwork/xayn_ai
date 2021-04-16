@@ -109,8 +109,7 @@ impl CXaynAi {
             })?
             .to_documents()?;
 
-        let ranks = xaynai.0.rerank(&histories, &documents);
-        Ranks::from_reranked_documents(ranks, &documents)
+        Ok(xaynai.0.rerank(&histories, &documents).into())
     }
 
     /// See [`xaynai_serialize()`] for more.

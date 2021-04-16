@@ -1,16 +1,20 @@
 use std::{
-    collections::HashMap,
     ptr::{null, null_mut},
     slice::from_raw_parts_mut,
 };
 
 use ffi_support::{ExternError, IntoFfi};
-use xayn_ai::{Document, DocumentsRank};
 
-use crate::result::{call_with_result, error::CCode};
+use crate::result::call_with_result;
 
 /// The ranks of the reranked documents.
 pub struct Ranks(Vec<u32>);
+
+impl From<Vec<usize>> for Ranks {
+    fn from(ranks: Vec<usize>) -> Self {
+        Self(ranks.into_iter().map(|rank| rank as u32).collect())
+    }
+}
 
 /// A raw slice of ranks.
 ///
@@ -23,29 +27,6 @@ pub struct CRanks {
     pub data: *const u32,
     /// The number of ranks.
     pub len: u32,
-}
-
-impl Ranks {
-    /// Reorders the ranks wrt. the documents.
-    pub fn from_reranked_documents(
-        ranks: DocumentsRank,
-        documents: &[Document],
-    ) -> Result<Self, ExternError> {
-        let ranks = ranks
-            .into_iter()
-            .map(|(id, rank)| (id, rank as u32))
-            .collect::<HashMap<_, _>>();
-        documents
-            .iter()
-            .map(|document| ranks.get(&document.id).copied())
-            .collect::<Option<Vec<_>>>()
-            .map(Self)
-            .ok_or_else(|| {
-                CCode::Internal.with_context(
-                    "Failed to rerank the documents: The document ids are inconsistent",
-                )
-            })
-    }
 }
 
 unsafe impl IntoFfi for Ranks {

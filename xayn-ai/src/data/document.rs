@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[repr(transparent)]
@@ -45,3 +47,11 @@ pub enum Relevance {
 }
 
 pub type DocumentsRank = Vec<(DocumentId, usize)>;
+
+pub type Ranks = Vec<usize>;
+
+/// Reorders the ranks wrt. the original documents.
+pub(crate) fn sort_ranks_by_documents(ranks: DocumentsRank, documents: &[Document]) -> Ranks {
+    let map = ranks.into_iter().collect::<HashMap<_, _>>();
+    documents.iter().map(|document| map[&document.id]).collect()
+}

@@ -31,15 +31,13 @@ pub enum CCode {
     /// A document id null pointer error.
     DocumentIdPointer = 9,
     /// A document snippet null pointer error.
-    DocumentSnippetPointer = 14,
+    DocumentSnippetPointer = 10,
     /// Pointer is null but size > 0 or size == 0 but pointer is not null.
-    SerializedPointer = 15,
+    SerializedPointer = 11,
     /// Deserialization of reranker data error.
-    RerankerDeserialization = 16,
+    RerankerDeserialization = 12,
     /// Serialization of reranker data error.
-    RerankerSerialization = 17,
-    /// An internal error.
-    Internal = 1024,
+    RerankerSerialization = 13,
 }
 
 impl CCode {
@@ -67,13 +65,16 @@ impl CCode {
 /// The behavior is undefined if:
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
-/// - A non-null error `message` doesn't point to memory allocated by [`xaynai_new()`] or
-/// [`xaynai_rerank()`].
+/// - A non-null error `message` doesn't point to memory allocated by [`xaynai_new()`],
+/// [`xaynai_rerank()`], [`xaynai_serialize()`], [`xaynai_warnings()`] or [`xaynai_analytics()`].
 /// - A non-null error `message` is freed more than once.
 /// - A non-null error `message` is accessed after being freed.
 ///
 /// [`xaynai_new()`]: crate::ai::xaynai_new
 /// [`xaynai_rerank()`]: crate::ai::xaynai_rerank
+/// [`xaynai_serialize()`]: crate::ai::xaynai_serialize
+/// [`xaynai_warnings()`]: crate::ai::xaynai_warnings
+/// [`xaynai_analytics()`]: crate::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
     let drop = || {

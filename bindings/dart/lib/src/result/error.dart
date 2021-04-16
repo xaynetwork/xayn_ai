@@ -54,9 +54,6 @@ enum Code {
 
   /// Serialization of reranker data error.
   rerankerSerialization,
-
-  /// An internal error.
-  internal,
 }
 
 extension CodeInt on Code {
@@ -95,8 +92,6 @@ extension CodeInt on Code {
         return CCode.RerankerDeserialization;
       case Code.rerankerSerialization:
         return CCode.RerankerSerialization;
-      case Code.internal:
-        return CCode.Internal;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -137,8 +132,6 @@ extension CodeInt on Code {
         return Code.rerankerDeserialization;
       case CCode.RerankerSerialization:
         return Code.rerankerSerialization;
-      case CCode.Internal:
-        return Code.internal;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
