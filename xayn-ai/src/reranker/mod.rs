@@ -299,13 +299,7 @@ mod tests {
         use crate::{
             data::UserInterests,
             reranker::{DocumentsRank, PreviousDocuments, RerankerData},
-            tests::{
-                cois_from_words,
-                data_with_mab,
-                documents_from_words,
-                documents_with_embeddings_from_words,
-                mocked_bert_system,
-            },
+            tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
             Document,
             DocumentId,
         };
