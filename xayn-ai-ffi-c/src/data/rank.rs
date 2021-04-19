@@ -10,8 +10,8 @@ use crate::result::call_with_result;
 /// The ranks of the reranked documents.
 pub struct Ranks(Vec<u32>);
 
-impl From<Vec<usize>> for Ranks {
-    fn from(ranks: Vec<usize>) -> Self {
+impl From<xayn_ai::Ranks> for Ranks {
+    fn from(ranks: xayn_ai::Ranks) -> Self {
         Self(ranks.into_iter().map(|rank| rank as u32).collect())
     }
 }
