@@ -32,12 +32,10 @@ pub enum CCode {
     DocumentIdPointer = 9,
     /// A document snippet null pointer error.
     DocumentSnippetPointer = 10,
-    /// Pointer is null but size > 0 or size == 0 but pointer is not null.
-    SerializedPointer = 11,
-    /// Deserialization of reranker data error.
-    RerankerDeserialization = 12,
-    /// Serialization of reranker data error.
-    RerankerSerialization = 13,
+    /// Deserialization of reranker database error.
+    RerankerDeserialization = 11,
+    /// Serialization of reranker database error.
+    RerankerSerialization = 12,
 }
 
 impl CCode {

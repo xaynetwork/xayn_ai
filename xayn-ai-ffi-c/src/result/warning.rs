@@ -118,7 +118,7 @@ mod tests {
         assert_eq!(warnings.0.len(), buffer.len());
         for (warning, error) in izip!(warnings.0, buffer) {
             assert_eq!(warning.get_code(), CCode::Warning);
-            assert_eq!(warning.get_message().as_str(), format!("{}", error));
+            assert_eq!(warning.get_message(), format!("{}", error).as_str());
         }
     }
 
@@ -140,7 +140,7 @@ mod tests {
         assert_eq!(len, buffer.len());
         for (warning, error) in izip!(unsafe { from_raw_parts(data, len) }, buffer) {
             assert_eq!(warning.get_code(), CCode::Warning);
-            assert_eq!(warning.get_message().as_str(), format!("{}", error));
+            assert_eq!(warning.get_message(), format!("{}", error).as_str());
         }
 
         unsafe { warnings_drop(warnings) };

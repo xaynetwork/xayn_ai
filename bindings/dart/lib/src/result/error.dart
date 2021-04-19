@@ -46,13 +46,10 @@ enum Code {
   /// A document snippet null pointer error.
   documentSnippetPointer,
 
-  /// Pointer is null but size > 0 or size == 0 but pointer is not null.
-  serializedPointer,
-
-  /// Deserialization of reranker data error.
+  /// Deserialization of reranker database error.
   rerankerDeserialization,
 
-  /// Serialization of reranker data error.
+  /// Serialization of reranker database error.
   rerankerSerialization,
 }
 
@@ -86,8 +83,6 @@ extension CodeInt on Code {
         return CCode.DocumentIdPointer;
       case Code.documentSnippetPointer:
         return CCode.DocumentSnippetPointer;
-      case Code.serializedPointer:
-        return CCode.SerializedPointer;
       case Code.rerankerDeserialization:
         return CCode.RerankerDeserialization;
       case Code.rerankerSerialization:
@@ -126,8 +121,6 @@ extension CodeInt on Code {
         return Code.documentIdPointer;
       case CCode.DocumentSnippetPointer:
         return Code.documentSnippetPointer;
-      case CCode.SerializedPointer:
-        return Code.serializedPointer;
       case CCode.RerankerDeserialization:
         return Code.rerankerDeserialization;
       case CCode.RerankerSerialization:

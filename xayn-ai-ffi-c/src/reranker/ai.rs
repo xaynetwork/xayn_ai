@@ -1,4 +1,4 @@
-use std::{panic::RefUnwindSafe, slice};
+use std::panic::RefUnwindSafe;
 
 use ffi_support::{implement_into_ffi_by_pointer, ExternError, FfiStr};
 use xayn_ai::{Builder, Reranker};
@@ -43,22 +43,10 @@ implement_into_ffi_by_pointer! { CXaynAi }
 impl CXaynAi {
     /// See [`xaynai_new()`] for more.
     unsafe fn new(
-        serialized: *const u8,
-        serialized_size: u32,
         vocab: FfiStr,
         model: FfiStr,
+        serialized: *const CBytes,
     ) -> Result<CXaynAi, ExternError> {
-        if !(serialized.is_null() ^ (serialized_size > 0)) {
-            return Err(
-            CCode::SerializedPointer.with_context(
-                "Failed to initialize the ai: invalid combination of serialized and serialized_size",
-            ));
-        }
-        let serialized = if serialized.is_null() {
-            &[]
-        } else {
-            unsafe { slice::from_raw_parts(serialized, serialized_size as usize) }
-        };
         let vocab = vocab.as_opt_str().ok_or_else(|| {
             CCode::VocabPointer.with_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
@@ -70,15 +58,21 @@ impl CXaynAi {
             )
         })?;
 
+        let serialized = unsafe { serialized.as_ref() }
+            .map(|bytes| bytes.as_slice())
+            .unwrap_or_default();
+
         Builder::default()
-            .with_serialized_database(serialized)
-            .map_err(|cause| {
-                CCode::RerankerDeserialization
-                    .with_context(format!("Failed to deserialize reranker data: {}", cause))
-            })?
             .with_bert_from_file(vocab, model)
             .map_err(|cause| {
                 CCode::ReadFile.with_context(format!("Failed to initialize the ai: {}", cause))
+            })?
+            .with_serialized_database(serialized)
+            .map_err(|cause| {
+                CCode::RerankerDeserialization.with_context(format!(
+                    "Failed to deserialize the reranker database: {}",
+                    cause,
+                ))
             })?
             .build()
             .map(CXaynAi)
@@ -118,7 +112,7 @@ impl CXaynAi {
     unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<Bytes, ExternError> {
         let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
             CCode::AiPointer
-                .with_context("Failed to serialize the reranker: The ai pointer is null")
+                .with_context("Failed to serialize the reranker database: The ai pointer is null")
         })?;
 
         xaynai.0.serialize().map(Bytes).map_err(|cause| {
@@ -165,6 +159,9 @@ impl CXaynAi {
 
 /// Creates and initializes the Xayn AI.
 ///
+/// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
+/// reranker database, otherwise creates a new one.
+///
 /// # Errors
 /// Returns a null pointer if:
 /// - The `vocab` or `model` paths are invalid.
@@ -181,13 +178,12 @@ impl CXaynAi {
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
-    serialized: *const u8,
-    serialized_size: u32,
     vocab: FfiStr,
     model: FfiStr,
+    serialized: *const CBytes,
     error: *mut ExternError,
 ) -> *mut CXaynAi {
-    let new = || unsafe { CXaynAi::new(serialized, serialized_size, vocab, model) };
+    let new = || unsafe { CXaynAi::new(vocab, model, serialized) };
     let clean = || {};
     let error = unsafe { error.as_mut() };
 
@@ -237,7 +233,7 @@ pub unsafe extern "C" fn xaynai_rerank(
     call_with_result(rerank, clean, error)
 }
 
-/// Serializes the current state of the reranker.
+/// Serializes the database of the reranker.
 ///
 /// # Errors
 /// Returns a null pointer if:
@@ -253,7 +249,7 @@ pub unsafe extern "C" fn xaynai_rerank(
 pub unsafe extern "C" fn xaynai_serialize(
     xaynai: *mut CXaynAi,
     error: *mut ExternError,
-) -> *mut CBytes {
+) -> *mut CBytes<'static> {
     let serialize = || unsafe { CXaynAi::serialize(xaynai) };
     let clean = || unsafe { CXaynAi::clean(xaynai) };
     let error = unsafe { error.as_mut() };
@@ -375,14 +371,29 @@ mod tests {
         }
     }
 
+    struct TestDatabase<'a> {
+        serialized: *const CBytes<'a>,
+        _variance: PhantomData<&'a [u8]>,
+    }
+
+    impl Default for TestDatabase<'_> {
+        fn default() -> Self {
+            Self {
+                serialized: null(),
+                _variance: PhantomData,
+            }
+        }
+    }
+
     #[test]
     fn test_rerank() {
         let files = TestFiles::default();
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
+        let db = TestDatabase::default();
         let mut error = ExternError::default();
 
-        let xaynai = unsafe { xaynai_new(null(), 0, files.v, files.m, error.as_mut_ptr()) };
+        let xaynai = unsafe { xaynai_new(files.v, files.m, db.serialized, error.as_mut_ptr()) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
         let ranks =
@@ -402,10 +413,13 @@ mod tests {
     #[test]
     fn test_vocab_null() {
         let files = TestFiles::default();
+        let db = TestDatabase::default();
         let mut error = ExternError::default();
 
         let invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(null(), 0, invalid, files.m, error.as_mut_ptr()) }.is_null());
+        assert!(
+            unsafe { xaynai_new(invalid, files.m, db.serialized, error.as_mut_ptr()) }.is_null()
+        );
         assert_eq!(error.get_code(), CCode::VocabPointer);
         assert_eq!(
             error.get_message(),
@@ -418,11 +432,14 @@ mod tests {
     #[test]
     fn test_vocab_invalid() {
         let files = TestFiles::default();
+        let db = TestDatabase::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = unsafe { FfiStr::from_raw(invalid.as_ptr()) };
-        assert!(unsafe { xaynai_new(null(), 0, invalid, files.m, error.as_mut_ptr()) }.is_null());
+        assert!(
+            unsafe { xaynai_new(invalid, files.m, db.serialized, error.as_mut_ptr()) }.is_null()
+        );
         assert_eq!(error.get_code(), CCode::ReadFile);
         assert_eq!(
             error.get_message(),
@@ -435,10 +452,13 @@ mod tests {
     #[test]
     fn test_model_null() {
         let files = TestFiles::default();
+        let db = TestDatabase::default();
         let mut error = ExternError::default();
 
         let invalid = unsafe { FfiStr::from_raw(null()) };
-        assert!(unsafe { xaynai_new(null(), 0, files.v, invalid, error.as_mut_ptr()) }.is_null());
+        assert!(
+            unsafe { xaynai_new(files.v, invalid, db.serialized, error.as_mut_ptr()) }.is_null()
+        );
         assert_eq!(error.get_code(), CCode::ModelPointer);
         assert_eq!(
             error.get_message(),
@@ -451,11 +471,14 @@ mod tests {
     #[test]
     fn test_model_invalid() {
         let files = TestFiles::default();
+        let db = TestDatabase::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = unsafe { FfiStr::from_raw(invalid.as_ptr()) };
-        assert!(unsafe { xaynai_new(null(), 0, files.v, invalid, error.as_mut_ptr()) }.is_null());
+        assert!(
+            unsafe { xaynai_new(files.v, invalid, db.serialized, error.as_mut_ptr()) }.is_null()
+        );
         assert_eq!(error.get_code(), CCode::ReadFile);
         assert_eq!(
             error.get_message(),
@@ -494,7 +517,7 @@ mod tests {
         assert_eq!(error.get_code(), CCode::AiPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to serialize the reranker: The ai pointer is null",
+            "Failed to serialize the reranker database: The ai pointer is null",
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -534,9 +557,10 @@ mod tests {
     fn test_history_null() {
         let files = TestFiles::default();
         let docs = TestDocuments::default();
+        let db = TestDatabase::default();
         let mut error = ExternError::default();
 
-        let xaynai = unsafe { xaynai_new(null(), 0, files.v, files.m, error.as_mut_ptr()) };
+        let xaynai = unsafe { xaynai_new(files.v, files.m, db.serialized, error.as_mut_ptr()) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
 
@@ -558,9 +582,10 @@ mod tests {
     fn test_documents_null() {
         let files = TestFiles::default();
         let hists = TestHistories::default();
+        let db = TestDatabase::default();
         let mut error = ExternError::default();
 
-        let xaynai = unsafe { xaynai_new(null(), 0, files.v, files.m, error.as_mut_ptr()) };
+        let xaynai = unsafe { xaynai_new(files.v, files.m, db.serialized, error.as_mut_ptr()) };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
 
@@ -580,43 +605,28 @@ mod tests {
     }
 
     #[test]
-    fn test_serialized_null_size_not_zero() {
-        let files = TestFiles::default();
-        let mut error = ExternError::default();
-
-        let xaynai = unsafe { xaynai_new(null(), 1, files.v, files.m, error.as_mut_ptr()) };
-        assert!(xaynai.is_null());
-        assert_eq!(error.get_code(), CCode::SerializedPointer);
-    }
-
-    #[test]
-    fn test_serialized_not_null_size_zero() {
-        let files = TestFiles::default();
-        let mut error = ExternError::default();
-
-        let serialized = vec![1u8];
-        let xaynai =
-            unsafe { xaynai_new(serialized.as_ptr(), 0, files.v, files.m, error.as_mut_ptr()) };
-        assert!(xaynai.is_null());
-        assert_eq!(error.get_code(), CCode::SerializedPointer);
-    }
-
-    #[test]
     fn test_serialized_invalid() {
         let files = TestFiles::default();
         let mut error = ExternError::default();
 
-        let serialized = vec![1u8];
-        let xaynai = unsafe {
-            xaynai_new(
-                serialized.as_ptr(),
-                serialized.len() as u32,
-                files.v,
-                files.m,
-                error.as_mut_ptr(),
-            )
+        let version = u8::MAX;
+        let serialized = vec![version];
+        let invalid = CBytes {
+            data: serialized.as_ptr(),
+            len: 1,
+            _variance: PhantomData,
         };
+        let xaynai = unsafe { xaynai_new(files.v, files.m, invalid.as_ptr(), error.as_mut_ptr()) };
         assert!(xaynai.is_null());
         assert_eq!(error.get_code(), CCode::RerankerDeserialization);
+        assert_eq!(
+            error.get_message(),
+            format!(
+                "Failed to deserialize the reranker database: Unsupported serialized data. Found version {} expected 0",
+                version,
+            ).as_str(),
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 }
