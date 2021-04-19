@@ -17,7 +17,9 @@ struct UserFeatures {
 }
 
 struct QueryFeatures {
+    /// Entropy over ranks of clicked results.
     click_entropy: f32,
+    /// Number of terms.
     num_terms: usize,
     /// Average `n` where query is the `n`th of a session.
     rank_per_session: f32,
@@ -25,6 +27,7 @@ struct QueryFeatures {
     occurs_per_session: f32,
     /// Total number of occurrences.
     num_occurs: usize,
+    /// Mean reciprocal rank of clicked results.
     click_mrr: f32,
     /// Average number of clicks.
     avg_clicks: f32,
@@ -49,8 +52,8 @@ fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
 
     let rank_sum = occurs
         .into_iter()
-        .map(|(_, query_count)| query_count)
-        .sum::<u8>() as f32;
+        .map(|(_, query_count)| query_count as f32)
+        .sum::<f32>();
     let rank_per_session = rank_sum / num_occurs as f32;
 
     let num_sessions = history_q.iter().unique_by(|r| r.session_id).count() as f32;
@@ -60,13 +63,13 @@ fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
         .iter()
         .filter(|r| r.relevance > ClickSat::Low)
         .collect_vec();
-    let click_mrr = mrr_from_results(&clicked);
+    let click_mrr = mean_recip_rank(&clicked, None, None);
 
     let avg_clicks = clicked.len() as f32 / num_occurs as f32;
 
     let avg_skips = history_q
         .into_iter()
-        .filter(|r| r.relevance == ClickSat::Low)
+        .filter(|r| r.relevance == ClickSat::Skip)
         .count() as f32
         / num_occurs as f32;
 
@@ -82,32 +85,31 @@ fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
     }
 }
 
-/// Mean reciprocal rank from the given results.
-fn mrr_from_results(results: &[impl AsRef<SearchResult>]) -> f32 {
-    let denom = 1. + results.len() as f32;
-    let numer = 0.283
-        + results
+/// Mean reciprocal rank of results filtered by outcome and a predicate.
+fn mean_recip_rank(
+    results: &[impl AsRef<SearchResult>],
+    outcome: Option<Outcome>,
+    pred: Option<FilterPred>,
+) -> f32 {
+    let filtered = results
+        .iter()
+        .filter(|r| match outcome {
+            Some(Outcome::Miss) => r.as_ref().relevance == ClickSat::Miss,
+            Some(Outcome::Skip) => r.as_ref().relevance == ClickSat::Skip,
+            Some(Outcome::Click) => r.as_ref().relevance > ClickSat::Low,
+            None => true,
+        })
+        .filter(|r| pred.map_or(true, |p| p.apply(r)))
+        .collect_vec();
+
+    let denom = 1. + filtered.len() as f32;
+    let numer = 0.283 // prior recip rank assuming uniform distributed ranks
+        + filtered
             .into_iter()
             .map(|r| f32::from(r.as_ref().position).recip())
             .sum::<f32>();
 
     numer / denom
-}
-
-/// Mean reciprocal rank of results filtered by outcome and a predicate.
-fn mrr(hist: &[SearchResult], outcome: Option<Outcome>, pred: FilterPred) -> f32 {
-    let filtered = hist
-        .iter()
-        .filter(|r| match outcome {
-            Some(Outcome::Miss) => r.relevance == ClickSat::Miss,
-            Some(Outcome::Skip) => r.relevance == ClickSat::Skip,
-            Some(Outcome::Click) => r.relevance > ClickSat::Low,
-            None => true,
-        })
-        .filter(|r| pred.apply(r))
-        .collect_vec();
-
-    mrr_from_results(&filtered)
 }
 
 struct Query {
@@ -147,16 +149,6 @@ enum ClickSat {
     Medium,
     /// More than 300 units of time or last click of the session.
     High,
-}
-
-#[derive(Clone)]
-enum UrlFeedback {
-    /// Snippet examined and URL clicked.
-    Click(ClickSat),
-    /// Snippet examined but URL not clicked.
-    Skip,
-    /// Snippet not examined.
-    Miss,
 }
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -366,8 +358,8 @@ fn aggreg_features(hist: &[SearchResult], doc: DocAddr, query: Query, sess: i32)
 
 fn aggreg_feat(hist: &[SearchResult], pred: FilterPred) -> FeatMap {
     let eval_atom = |atom_feat| match atom_feat {
-        AtomFeat::MeanRecipRank(outcome) => mrr(hist, Some(outcome), pred),
-        AtomFeat::MeanRecipRankAll => mrr(hist, None, pred),
+        AtomFeat::MeanRecipRank(outcome) => mean_recip_rank(hist, Some(outcome), Some(pred)),
+        AtomFeat::MeanRecipRankAll => mean_recip_rank(hist, None, Some(pred)),
         AtomFeat::SnippetQuality => snippet_quality(),
         AtomFeat::CondProb(Outcome::Miss) => cond_prob(hist, ClickSat::Miss, pred),
         AtomFeat::CondProb(Outcome::Skip) => cond_prob(hist, ClickSat::Skip, pred),
@@ -432,6 +424,7 @@ enum SessionCond {
     All,
 }
 
+/// A filter predicate representing a boolean condition on a search result.
 #[derive(Clone, Copy)]
 struct FilterPred {
     doc: UrlOrDom,
