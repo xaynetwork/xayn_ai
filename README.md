@@ -6,7 +6,7 @@ To download the models use the `download_data.sh` script.
 ## Build
 To build the library you just need to run `cargo build` in the root of the project.
 
-To generate the dart ffi you need to run `flutter pub get` and `flutter pub ffigen` in
+To generate the dart ffi you need to run `flutter pub get` and `flutter pub run ffigen` in
 the directory `bindings/dart`.
 
 ## License
