@@ -8,4 +8,4 @@ members = [
 
 [workspace.metadata]
 # minimum supported rust version
-msrv = "1.49.0"
+msrv = "1.51.0"
