@@ -2,12 +2,14 @@ pub(crate) mod database;
 pub mod public;
 pub(crate) mod systems;
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     analytics::Analytics,
     data::{
-        document::{sort_ranks_by_documents, Document, DocumentHistory, DocumentsRank, Ranks},
+        document::{Document, DocumentHistory, Ranks},
         document_data::{
             DocumentContentComponent,
             DocumentDataWithDocument,
@@ -81,10 +83,12 @@ fn rerank<CS>(
     history: &[DocumentHistory],
     documents: &[Document],
     user_interests: UserInterests,
-) -> Result<(Vec<DocumentDataWithMab>, UserInterests, DocumentsRank), Error>
+) -> Result<(Vec<DocumentDataWithMab>, UserInterests, Ranks), Error>
 where
     CS: CommonSystems,
 {
+    let original_documents = documents.as_ref();
+
     let documents = make_documents_with_embedding(common_systems, documents)?;
     let documents = common_systems
         .coi()
@@ -95,12 +99,16 @@ where
         .mab()
         .compute_mab(documents, user_interests)?;
 
-    let rank = documents
+    let ranks = documents
         .iter()
         .map(|document| (document.document_id.id.clone(), document.mab.rank))
+        .collect::<HashMap<_, _>>();
+    let ranks = original_documents
+        .iter()
+        .map(|document| ranks[&document.id])
         .collect();
 
-    Ok((documents, user_interests, rank))
+    Ok((documents, user_interests, ranks))
 }
 
 #[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
@@ -244,7 +252,7 @@ where
                 self.data.prev_documents = PreviousDocuments::Mab(prev_documents);
                 self.data.user_interests = user_interests;
 
-                sort_ranks_by_documents(ranks, documents)
+                ranks
             })
             .unwrap_or_else(|e| {
                 self.errors.push(e);
@@ -304,7 +312,7 @@ mod tests {
 
         use crate::{
             data::{
-                document::{sort_ranks_by_documents, Document, DocumentId, DocumentsRank, Ranks},
+                document::{Document, Ranks},
                 UserInterests,
             },
             reranker::{PreviousDocuments, RerankerData},
@@ -330,13 +338,8 @@ mod tests {
         }
 
         pub(super) fn expected_rerank() -> Ranks {
-            let documents_rank = [5, 3, 4, 0, 2, 1]
-                .iter()
-                .zip(0..6)
-                .map(|(id, rank)| (DocumentId(id.to_string()), rank))
-                .collect::<DocumentsRank>();
-            let documents = documents();
-            sort_ranks_by_documents(documents_rank, &documents)
+            // the (id, rank) mapping is [5, 3, 4, 0, 2, 1].zip(0..6)
+            vec![3, 5, 4, 1, 2, 0]
         }
 
         fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
