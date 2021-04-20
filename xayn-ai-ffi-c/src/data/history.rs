@@ -112,25 +112,34 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::AsPtr;
 
-    impl<'a> From<&[CHistory<'a>]> for CHistories<'a> {
-        fn from(histories: &[CHistory<'a>]) -> Self {
+    impl AsPtr for CHistories<'_> {}
+
+    impl<'a> From<Pin<&[CHistory<'a>]>> for CHistories<'a> {
+        fn from(histories: Pin<&[CHistory<'a>]>) -> Self {
+            let len = histories.len() as u32;
+            let data = if histories.is_empty() {
+                null()
+            } else {
+                histories.as_ptr()
+            };
+
             Self {
-                data: histories.as_ptr(),
-                len: histories.len() as u32,
+                data,
+                len,
                 _lifetime: PhantomData,
             }
         }
     }
 
-    #[allow(dead_code)]
     pub struct TestHistories<'a> {
-        len: usize,
-        ids: Pin<Vec<CString>>,
-        history: Vec<CHistory<'a>>,
+        _ids: Pin<Vec<CString>>,
+        history: Pin<Vec<CHistory<'a>>>,
         histories: CHistories<'a>,
     }
 
-    impl AsPtr for CHistories<'_> {}
+    impl Drop for TestHistories<'_> {
+        fn drop(&mut self) {}
+    }
 
     impl<'a> AsPtr<CHistories<'a>> for TestHistories<'a> {
         fn as_ptr(&self) -> *const CHistories<'a> {
@@ -145,7 +154,7 @@ pub(crate) mod tests {
     impl Default for TestHistories<'_> {
         fn default() -> Self {
             let len = 6;
-            let ids = Pin::new(
+            let _ids = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(idx.to_string()).unwrap())
                     .collect::<Vec<_>>(),
@@ -157,21 +166,28 @@ pub(crate) mod tests {
                 .take(len / 2)
                 .chain(repeat(CFeedback::Relevant).take(len - len / 2));
 
-            let history = izip!(ids.as_ref().get_ref(), relevances, feedbacks)
-                .map(|(id, relevance, feedback)| CHistory {
-                    id: unsafe { FfiStr::from_raw(id.as_ptr()) },
-                    relevance,
-                    feedback,
-                })
-                .collect::<Vec<_>>();
-            let histories = history.as_slice().into();
+            let history = Pin::new(
+                izip!(_ids.as_ref().get_ref(), relevances, feedbacks)
+                    .map(|(id, relevance, feedback)| CHistory {
+                        id: unsafe { FfiStr::from_raw(id.as_ptr()) },
+                        relevance,
+                        feedback,
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            let histories = history.as_ref().into();
 
             Self {
-                len,
-                ids,
+                _ids,
                 history,
                 histories,
             }
+        }
+    }
+
+    impl TestHistories<'_> {
+        fn len(&self) -> usize {
+            self.history.len()
         }
     }
 
@@ -179,8 +195,8 @@ pub(crate) mod tests {
     fn test_histories_to_vec() {
         let hists = TestHistories::default();
         let histories = unsafe { hists.histories.to_histories() }.unwrap();
-        assert_eq!(histories.len(), hists.len);
-        for (dh, ch) in izip!(histories, &hists.history) {
+        assert_eq!(histories.len(), hists.len());
+        for (dh, ch) in izip!(histories, hists.history.as_ref().get_ref()) {
             assert_eq!(dh.id.0, ch.id.as_str());
             assert_eq!(dh.relevance, ch.relevance.into());
             assert_eq!(dh.user_feedback, ch.feedback.into());

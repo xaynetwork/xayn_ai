@@ -333,51 +333,65 @@ mod tests {
     use super::*;
     use crate::{
         data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
-        reranker::analytics::analytics_drop,
+        reranker::{analytics::analytics_drop, bytes::tests::TestBytes},
         result::{error::error_message_drop, warning::warnings_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,
     };
 
-    #[allow(dead_code)]
-    struct TestFiles<'a> {
-        vocab: Pin<CString>,
-        v: FfiStr<'a>,
-        model: Pin<CString>,
-        m: FfiStr<'a>,
+    struct TestVocab(Pin<CString>);
+
+    impl Drop for TestVocab {
+        fn drop(&mut self) {}
     }
 
-    impl Default for TestFiles<'_> {
-        fn default() -> Self {
-            let vocab = Pin::new(CString::new(VOCAB).unwrap());
-            let v = unsafe { FfiStr::from_raw(vocab.as_ptr()) };
-
-            let model = Pin::new(CString::new(MODEL).unwrap());
-            let m = unsafe { FfiStr::from_raw(model.as_ptr()) };
-
-            Self { vocab, v, model, m }
+    impl TestVocab {
+        fn as_ptr(&self) -> FfiStr {
+            unsafe { FfiStr::from_raw(self.0.as_ptr()) }
         }
     }
 
-    struct TestDatabase<'a> {
-        serialized: *const CBytes<'a>,
+    impl Default for TestVocab {
+        fn default() -> Self {
+            Self(Pin::new(CString::new(VOCAB).unwrap()))
+        }
     }
 
-    impl Default for TestDatabase<'_> {
+    struct TestModel(Pin<CString>);
+
+    impl Drop for TestModel {
+        fn drop(&mut self) {}
+    }
+
+    impl TestModel {
+        fn as_ptr(&self) -> FfiStr {
+            unsafe { FfiStr::from_raw(self.0.as_ptr()) }
+        }
+    }
+
+    impl Default for TestModel {
         fn default() -> Self {
-            Self { serialized: null() }
+            Self(Pin::new(CString::new(MODEL).unwrap()))
         }
     }
 
     #[test]
     fn test_rerank() {
-        let files = TestFiles::default();
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
-        let db = TestDatabase::default();
+        let db = TestBytes::default();
         let mut error = ExternError::default();
 
-        let xaynai = unsafe { xaynai_new(files.v, files.m, db.serialized, error.as_mut_ptr()) };
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
         let ranks =
@@ -396,13 +410,14 @@ mod tests {
 
     #[test]
     fn test_vocab_null() {
-        let files = TestFiles::default();
-        let db = TestDatabase::default();
+        let model = TestModel::default();
+        let db = TestBytes::default();
         let mut error = ExternError::default();
 
         let invalid = unsafe { FfiStr::from_raw(null()) };
         assert!(
-            unsafe { xaynai_new(invalid, files.m, db.serialized, error.as_mut_ptr()) }.is_null()
+            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
+                .is_null()
         );
         assert_eq!(error.get_code(), CCode::VocabPointer);
         assert_eq!(
@@ -415,14 +430,15 @@ mod tests {
 
     #[test]
     fn test_vocab_invalid() {
-        let files = TestFiles::default();
-        let db = TestDatabase::default();
+        let model = TestModel::default();
+        let db = TestBytes::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = unsafe { FfiStr::from_raw(invalid.as_ptr()) };
         assert!(
-            unsafe { xaynai_new(invalid, files.m, db.serialized, error.as_mut_ptr()) }.is_null()
+            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
+                .is_null()
         );
         assert_eq!(error.get_code(), CCode::ReadFile);
         assert_eq!(
@@ -435,13 +451,14 @@ mod tests {
 
     #[test]
     fn test_model_null() {
-        let files = TestFiles::default();
-        let db = TestDatabase::default();
+        let vocab = TestVocab::default();
+        let db = TestBytes::default();
         let mut error = ExternError::default();
 
         let invalid = unsafe { FfiStr::from_raw(null()) };
         assert!(
-            unsafe { xaynai_new(files.v, invalid, db.serialized, error.as_mut_ptr()) }.is_null()
+            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
+                .is_null()
         );
         assert_eq!(error.get_code(), CCode::ModelPointer);
         assert_eq!(
@@ -454,14 +471,15 @@ mod tests {
 
     #[test]
     fn test_model_invalid() {
-        let files = TestFiles::default();
-        let db = TestDatabase::default();
+        let vocab = TestVocab::default();
+        let db = TestBytes::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = unsafe { FfiStr::from_raw(invalid.as_ptr()) };
         assert!(
-            unsafe { xaynai_new(files.v, invalid, db.serialized, error.as_mut_ptr()) }.is_null()
+            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
+                .is_null()
         );
         assert_eq!(error.get_code(), CCode::ReadFile);
         assert_eq!(
@@ -539,12 +557,20 @@ mod tests {
 
     #[test]
     fn test_history_null() {
-        let files = TestFiles::default();
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
         let docs = TestDocuments::default();
-        let db = TestDatabase::default();
+        let db = TestBytes::default();
         let mut error = ExternError::default();
 
-        let xaynai = unsafe { xaynai_new(files.v, files.m, db.serialized, error.as_mut_ptr()) };
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
 
@@ -564,12 +590,20 @@ mod tests {
 
     #[test]
     fn test_documents_null() {
-        let files = TestFiles::default();
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
         let hists = TestHistories::default();
-        let db = TestDatabase::default();
+        let db = TestBytes::default();
         let mut error = ExternError::default();
 
-        let xaynai = unsafe { xaynai_new(files.v, files.m, db.serialized, error.as_mut_ptr()) };
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
 
@@ -590,13 +624,21 @@ mod tests {
 
     #[test]
     fn test_serialized_invalid() {
-        let files = TestFiles::default();
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
         let mut error = ExternError::default();
 
         let version = u8::MAX;
-        let invalid = vec![version];
-        let invalid: CBytes = invalid.as_slice().into();
-        let xaynai = unsafe { xaynai_new(files.v, files.m, invalid.as_ptr(), error.as_mut_ptr()) };
+        let invalid = Pin::new(vec![version]);
+        let invalid: CBytes = invalid.as_ref().into();
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                invalid.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
         assert!(xaynai.is_null());
         assert_eq!(error.get_code(), CCode::RerankerDeserialization);
         assert_eq!(

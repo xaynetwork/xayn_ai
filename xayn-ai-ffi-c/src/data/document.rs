@@ -80,26 +80,35 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::AsPtr;
 
-    impl<'a> From<&[CDocument<'a>]> for CDocuments<'a> {
-        fn from(documents: &[CDocument<'a>]) -> Self {
+    impl AsPtr for CDocuments<'_> {}
+
+    impl<'a> From<Pin<&[CDocument<'a>]>> for CDocuments<'a> {
+        fn from(documents: Pin<&[CDocument<'a>]>) -> Self {
+            let len = documents.len() as u32;
+            let data = if documents.is_empty() {
+                null()
+            } else {
+                documents.as_ptr()
+            };
+
             Self {
-                data: documents.as_ptr(),
-                len: documents.len() as u32,
+                data,
+                len,
                 _lifetime: PhantomData,
             }
         }
     }
 
-    #[allow(dead_code)]
     pub struct TestDocuments<'a> {
-        pub len: usize,
-        ids: Pin<Vec<CString>>,
-        snippets: Pin<Vec<CString>>,
-        document: Vec<CDocument<'a>>,
+        _ids: Pin<Vec<CString>>,
+        _snippets: Pin<Vec<CString>>,
+        document: Pin<Vec<CDocument<'a>>>,
         documents: CDocuments<'a>,
     }
 
-    impl AsPtr for CDocuments<'_> {}
+    impl Drop for TestDocuments<'_> {
+        fn drop(&mut self) {}
+    }
 
     impl<'a> AsPtr<CDocuments<'a>> for TestDocuments<'a> {
         fn as_ptr(&self) -> *const CDocuments<'a> {
@@ -114,34 +123,41 @@ pub(crate) mod tests {
     impl Default for TestDocuments<'_> {
         fn default() -> Self {
             let len = 10;
-            let ids = Pin::new(
+            let _ids = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(idx.to_string()).unwrap())
                     .collect::<Vec<_>>(),
             );
-            let snippets = Pin::new(
+            let _snippets = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(format!("snippet {}", idx)).unwrap())
                     .collect::<Vec<_>>(),
             );
             let ranks = 0..len as u32;
 
-            let document = izip!(ids.as_ref().get_ref(), snippets.as_ref().get_ref(), ranks)
-                .map(|(id, snippet, rank)| CDocument {
-                    id: unsafe { FfiStr::from_raw(id.as_ptr()) },
-                    snippet: unsafe { FfiStr::from_raw(snippet.as_ptr()) },
-                    rank,
-                })
-                .collect::<Vec<_>>();
-            let documents = document.as_slice().into();
+            let document = Pin::new(
+                izip!(_ids.as_ref().get_ref(), _snippets.as_ref().get_ref(), ranks)
+                    .map(|(id, snippet, rank)| CDocument {
+                        id: unsafe { FfiStr::from_raw(id.as_ptr()) },
+                        snippet: unsafe { FfiStr::from_raw(snippet.as_ptr()) },
+                        rank,
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            let documents = document.as_ref().into();
 
             Self {
-                len,
-                ids,
-                snippets,
+                _ids,
+                _snippets,
                 document,
                 documents,
             }
+        }
+    }
+
+    impl TestDocuments<'_> {
+        fn len(&self) -> usize {
+            self.document.len()
         }
     }
 
@@ -149,8 +165,8 @@ pub(crate) mod tests {
     fn test_documents_to_vec() {
         let docs = TestDocuments::default();
         let documents = unsafe { docs.documents.to_documents() }.unwrap();
-        assert_eq!(documents.len(), docs.len);
-        for (d, cd) in izip!(documents, &docs.document) {
+        assert_eq!(documents.len(), docs.len());
+        for (d, cd) in izip!(documents, docs.document.as_ref().get_ref()) {
             assert_eq!(d.id.0, cd.id.as_str());
             assert_eq!(d.snippet, cd.snippet.as_str());
             assert_eq!(d.rank, cd.rank as usize);

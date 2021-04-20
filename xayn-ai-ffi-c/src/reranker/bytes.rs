@@ -103,22 +103,57 @@ pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::slice::from_raw_parts;
+    use std::{pin::Pin, slice::from_raw_parts};
 
     use super::*;
     use crate::utils::tests::AsPtr;
 
-    impl<'a> From<&'a [u8]> for CBytes<'a> {
-        fn from(bytes: &'a [u8]) -> Self {
+    impl AsPtr for CBytes<'_> {}
+
+    impl From<Pin<&[u8]>> for CBytes<'_> {
+        fn from(bytes: Pin<&[u8]>) -> Self {
+            let len = bytes.len() as u32;
+            let data = if bytes.is_empty() {
+                null()
+            } else {
+                bytes.as_ptr()
+            };
+
             Self {
-                data: bytes.as_ptr(),
-                len: bytes.len() as u32,
+                data,
+                len,
                 _lifetime: PhantomData,
             }
         }
     }
 
-    impl AsPtr for CBytes<'_> {}
+    pub struct TestBytes<'a> {
+        _bytes: Pin<Vec<u8>>,
+        bytes: CBytes<'a>,
+    }
+
+    impl Drop for TestBytes<'_> {
+        fn drop(&mut self) {}
+    }
+
+    impl<'a> AsPtr<CBytes<'a>> for TestBytes<'a> {
+        fn as_ptr(&self) -> *const CBytes<'a> {
+            self.bytes.as_ptr()
+        }
+
+        fn as_mut_ptr(&mut self) -> *mut CBytes<'a> {
+            self.bytes.as_mut_ptr()
+        }
+    }
+
+    impl Default for TestBytes<'_> {
+        fn default() -> Self {
+            let _bytes = Pin::new(Vec::new());
+            let bytes = _bytes.as_ref().into();
+
+            Self { _bytes, bytes }
+        }
+    }
 
     #[test]
     fn test_into_raw() {
