@@ -19,7 +19,7 @@ pub struct CBytes<'a> {
     /// The number of bytes.
     pub len: u32,
     // covariant in lifetime and type, only relevant for borrowed data
-    pub(crate) _variance: PhantomData<&'a [u8]>,
+    pub(crate) _lifetime: PhantomData<&'a [u8]>,
 }
 
 unsafe impl IntoFfi for Bytes {
@@ -41,7 +41,7 @@ unsafe impl IntoFfi for Bytes {
         let bytes = CBytes {
             data,
             len,
-            _variance: PhantomData,
+            _lifetime: PhantomData,
         };
 
         Box::into_raw(Box::new(bytes))
@@ -108,7 +108,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::AsPtr;
 
-    impl<'a> AsPtr<'a> for CBytes<'a> {}
+    impl AsPtr for CBytes<'_> {}
 
     #[test]
     fn test_into_raw() {

@@ -614,7 +614,7 @@ mod tests {
         let invalid = CBytes {
             data: serialized.as_ptr(),
             len: 1,
-            _variance: PhantomData,
+            _lifetime: PhantomData,
         };
         let xaynai = unsafe { xaynai_new(files.v, files.m, invalid.as_ptr(), error.as_mut_ptr()) };
         assert!(xaynai.is_null());

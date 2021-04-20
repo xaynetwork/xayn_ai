@@ -7,43 +7,27 @@ use crate::result::error::CCode;
 
 /// A raw document.
 #[repr(C)]
-pub struct CDocument<'a, 'b, 'c>
-where
-    'a: 'c,
-    'b: 'c,
-{
+pub struct CDocument<'a> {
     /// The raw pointer to the document id.
     pub id: FfiStr<'a>,
     /// The raw pointer to the document snippet.
-    pub snippet: FfiStr<'b>,
+    pub snippet: FfiStr<'a>,
     /// The rank of the document.
     pub rank: u32,
-    // covariant in lifetime and type
-    _variance: PhantomData<&'c (FfiStr<'a>, FfiStr<'b>)>,
 }
 
 /// A raw slice of documents.
 #[repr(C)]
-pub struct CDocuments<'a, 'b, 'c, 'd>
-where
-    'a: 'c,
-    'b: 'c,
-    'c: 'd,
-{
+pub struct CDocuments<'a> {
     /// The raw pointer to the documents.
-    pub data: *const CDocument<'a, 'b, 'c>,
+    pub data: *const CDocument<'a>,
     /// The number of documents.
     pub len: u32,
     // covariant in lifetime and type
-    _variance: PhantomData<&'d [CDocument<'a, 'b, 'c>]>,
+    _lifetime: PhantomData<&'a [CDocument<'a>]>,
 }
 
-impl<'a, 'b, 'c, 'd> CDocuments<'a, 'b, 'c, 'd>
-where
-    'a: 'c,
-    'b: 'c,
-    'c: 'd,
-{
+impl CDocuments<'_> {
     /// Collects the documents from raw.
     ///
     /// # Safety
@@ -97,28 +81,28 @@ pub(crate) mod tests {
     use crate::utils::tests::AsPtr;
 
     #[allow(dead_code)]
-    pub struct TestDocuments<'a, 'b, 'c, 'd> {
+    pub struct TestDocuments<'a> {
         pub len: usize,
         ids: Pin<Vec<CString>>,
         snippets: Pin<Vec<CString>>,
-        document: Vec<CDocument<'a, 'b, 'c>>,
-        documents: CDocuments<'a, 'b, 'c, 'd>,
-        _variance: PhantomData<&'d Pin<Vec<CString>>>,
+        document: Vec<CDocument<'a>>,
+        documents: CDocuments<'a>,
+        _lifetime: PhantomData<&'a Pin<Vec<CString>>>,
     }
 
-    impl<'d> AsPtr<'d> for CDocuments<'_, '_, '_, 'd> {}
+    impl AsPtr for CDocuments<'_> {}
 
-    impl<'a, 'b, 'c, 'd> AsPtr<'d, CDocuments<'a, 'b, 'c, 'd>> for TestDocuments<'a, 'b, 'c, 'd> {
-        fn as_ptr(&self) -> *const CDocuments<'a, 'b, 'c, 'd> {
+    impl<'a> AsPtr<CDocuments<'a>> for TestDocuments<'a> {
+        fn as_ptr(&self) -> *const CDocuments<'a> {
             self.documents.as_ptr()
         }
 
-        fn as_mut_ptr(&mut self) -> *mut CDocuments<'a, 'b, 'c, 'd> {
+        fn as_mut_ptr(&mut self) -> *mut CDocuments<'a> {
             self.documents.as_mut_ptr()
         }
     }
 
-    impl Default for TestDocuments<'_, '_, '_, '_> {
+    impl Default for TestDocuments<'_> {
         fn default() -> Self {
             let len = 10;
             let ids = Pin::new(
@@ -138,13 +122,12 @@ pub(crate) mod tests {
                     id: unsafe { FfiStr::from_raw(id.as_ptr()) },
                     snippet: unsafe { FfiStr::from_raw(snippet.as_ptr()) },
                     rank,
-                    _variance: PhantomData,
                 })
                 .collect::<Vec<_>>();
             let documents = CDocuments {
                 data: document.as_ptr(),
                 len: len as u32,
-                _variance: PhantomData,
+                _lifetime: PhantomData,
             };
 
             Self {
@@ -153,7 +136,7 @@ pub(crate) mod tests {
                 snippets,
                 document,
                 documents,
-                _variance: PhantomData,
+                _lifetime: PhantomData,
             }
         }
     }

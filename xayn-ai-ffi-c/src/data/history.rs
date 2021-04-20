@@ -47,40 +47,27 @@ impl From<CFeedback> for UserFeedback {
 
 /// A raw document history.
 #[repr(C)]
-pub struct CHistory<'a, 'b>
-where
-    'a: 'b,
-{
+pub struct CHistory<'a> {
     /// The raw pointer to the document id.
     pub id: FfiStr<'a>,
     /// The relevance level of the document.
     pub relevance: CRelevance,
     /// The user feedback level of the document.
     pub feedback: CFeedback,
-    // covariant in lifetime and type
-    _variance: PhantomData<&'b FfiStr<'a>>,
 }
 
 /// A raw slice of document histories.
 #[repr(C)]
-pub struct CHistories<'a, 'b, 'c>
-where
-    'a: 'b,
-    'b: 'c,
-{
+pub struct CHistories<'a> {
     /// The raw pointer to the document histories.
-    pub data: *const CHistory<'a, 'b>,
+    pub data: *const CHistory<'a>,
     /// The number of document histories.
     pub len: u32,
     // covariant in lifetime and type
-    _variance: PhantomData<&'c [CHistory<'a, 'b>]>,
+    _lifetime: PhantomData<&'a [CHistory<'a>]>,
 }
 
-impl<'a, 'b, 'c> CHistories<'a, 'b, 'c>
-where
-    'a: 'b,
-    'b: 'c,
-{
+impl CHistories<'_> {
     /// Collects the document histories from raw.
     ///
     /// # Safety
@@ -126,27 +113,27 @@ pub(crate) mod tests {
     use crate::utils::tests::AsPtr;
 
     #[allow(dead_code)]
-    pub struct TestHistories<'a, 'b, 'c> {
+    pub struct TestHistories<'a> {
         len: usize,
         ids: Pin<Vec<CString>>,
-        history: Vec<CHistory<'a, 'b>>,
-        histories: CHistories<'a, 'b, 'c>,
-        _variance: PhantomData<&'c Pin<Vec<CString>>>,
+        history: Vec<CHistory<'a>>,
+        histories: CHistories<'a>,
+        _variance: PhantomData<&'a Pin<Vec<CString>>>,
     }
 
-    impl<'c> AsPtr<'c> for CHistories<'_, '_, 'c> {}
+    impl AsPtr for CHistories<'_> {}
 
-    impl<'a, 'b, 'c> AsPtr<'c, CHistories<'a, 'b, 'c>> for TestHistories<'a, 'b, 'c> {
-        fn as_ptr(&self) -> *const CHistories<'a, 'b, 'c> {
+    impl<'a> AsPtr<CHistories<'a>> for TestHistories<'a> {
+        fn as_ptr(&self) -> *const CHistories<'a> {
             self.histories.as_ptr()
         }
 
-        fn as_mut_ptr(&mut self) -> *mut CHistories<'a, 'b, 'c> {
+        fn as_mut_ptr(&mut self) -> *mut CHistories<'a> {
             self.histories.as_mut_ptr()
         }
     }
 
-    impl Default for TestHistories<'_, '_, '_> {
+    impl Default for TestHistories<'_> {
         fn default() -> Self {
             let len = 6;
             let ids = Pin::new(
@@ -166,13 +153,12 @@ pub(crate) mod tests {
                     id: unsafe { FfiStr::from_raw(id.as_ptr()) },
                     relevance,
                     feedback,
-                    _variance: PhantomData,
                 })
                 .collect::<Vec<_>>();
             let histories = CHistories {
                 data: history.as_ptr(),
                 len: len as u32,
-                _variance: PhantomData,
+                _lifetime: PhantomData,
             };
 
             Self {

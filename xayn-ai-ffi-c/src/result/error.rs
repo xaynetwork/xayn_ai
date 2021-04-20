@@ -90,7 +90,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::AsPtr;
 
-    impl AsPtr<'_> for ExternError {}
+    impl AsPtr for ExternError {}
 
     impl PartialEq<ErrorCode> for CCode {
         fn eq(&self, other: &ErrorCode) -> bool {
