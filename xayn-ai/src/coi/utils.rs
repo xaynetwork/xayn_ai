@@ -90,18 +90,22 @@ pub(super) fn update_alpha(
     positive_docs: &[&dyn CoiSystemData],
     cois: Vec<PositiveCoi>,
 ) -> Vec<PositiveCoi> {
-    update_alpha_or_beta(&positive_docs, cois, |PositiveCoi { ref mut alpha, .. }, adj| {
-        *alpha *= adj
-    })
+    update_alpha_or_beta(
+        &positive_docs,
+        cois,
+        |PositiveCoi { ref mut alpha, .. }, adj| *alpha *= adj,
+    )
 }
 
 pub(super) fn update_beta(
     negative_docs: &[&dyn CoiSystemData],
     cois: Vec<PositiveCoi>,
 ) -> Vec<PositiveCoi> {
-    update_alpha_or_beta(&negative_docs, cois, |PositiveCoi { ref mut beta, .. }, adj| {
-        *beta *= adj
-    })
+    update_alpha_or_beta(
+        &negative_docs,
+        cois,
+        |PositiveCoi { ref mut beta, .. }, adj| *beta *= adj,
+    )
 }
 
 /// Counts CoI Ids of the given documents.
