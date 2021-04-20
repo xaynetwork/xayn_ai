@@ -402,10 +402,10 @@ mod tests {
         let analytics = unsafe { xaynai_analytics(xaynai, error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CCode::Success);
 
-        unsafe { xaynai_drop(xaynai) };
-        unsafe { ranks_drop(ranks) };
-        unsafe { warnings_drop(warnings) };
         unsafe { analytics_drop(analytics) };
+        unsafe { warnings_drop(warnings) };
+        unsafe { ranks_drop(ranks) };
+        unsafe { xaynai_drop(xaynai) };
     }
 
     #[test]
@@ -441,10 +441,10 @@ mod tests {
                 .is_null()
         );
         assert_eq!(error.get_code(), CCode::ReadFile);
-        assert_eq!(
-            error.get_message(),
-            "Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)",
-        );
+        assert!(error
+            .get_message()
+            .as_str()
+            .contains("Failed to initialize the ai: Failed to load a data file: "));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -482,10 +482,10 @@ mod tests {
                 .is_null()
         );
         assert_eq!(error.get_code(), CCode::ReadFile);
-        assert_eq!(
-            error.get_message(),
-            "Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)",
-        );
+        assert!(error
+            .get_message()
+            .as_str()
+            .contains("Failed to initialize the ai: Failed to load a data file: "));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -584,8 +584,8 @@ mod tests {
             "Failed to rerank the documents: The document histories pointer is null",
         );
 
-        unsafe { xaynai_drop(xaynai) };
         unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai) };
     }
 
     #[test]
@@ -618,8 +618,8 @@ mod tests {
             "Failed to rerank the documents: The documents pointer is null",
         );
 
-        unsafe { xaynai_drop(xaynai) };
         unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai) };
     }
 
     #[test]

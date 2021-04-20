@@ -3,13 +3,13 @@ use std::{
     slice::from_raw_parts_mut,
 };
 
-use ffi_support::{ExternError, IntoFfi};
+use ffi_support::{destroy_c_string, ExternError, IntoFfi};
 use xayn_ai::Error;
 
 use crate::result::{call_with_result, error::CCode};
 
 /// The Xayn Ai warnings.
-pub struct Warnings(Vec<ExternError>);
+pub struct Warnings(Vec<String>);
 
 /// A raw slice of warnings.
 #[repr(C)]
@@ -22,12 +22,7 @@ pub struct CWarnings {
 
 impl From<&[Error]> for Warnings {
     fn from(warnings: &[Error]) -> Self {
-        Self(
-            warnings
-                .iter()
-                .map(|warning| CCode::Warning.with_context(format!("{}", warning)))
-                .collect::<Vec<_>>(),
-        )
+        Self(warnings.iter().map(ToString::to_string).collect())
     }
 }
 
@@ -45,7 +40,12 @@ unsafe impl IntoFfi for Warnings {
         let data = if self.0.is_empty() {
             null()
         } else {
-            self.0.leak().as_ptr()
+            self.0
+                .into_iter()
+                .map(|message| CCode::Warning.with_context(message))
+                .collect::<Vec<_>>()
+                .leak()
+                .as_ptr()
         };
         let warnings = CWarnings { data, len };
 
@@ -59,12 +59,15 @@ impl CWarnings {
         if !warnings.is_null() {
             let warnings = unsafe { Box::from_raw(warnings) };
             if !warnings.data.is_null() && warnings.len > 0 {
-                unsafe {
+                let warnings = unsafe {
                     Box::from_raw(from_raw_parts_mut(
                         warnings.data as *mut ExternError,
                         warnings.len as usize,
                     ))
                 };
+                for warning in warnings.iter() {
+                    unsafe { destroy_c_string(warning.get_raw_message() as *mut _) }
+                }
             }
         }
     }
@@ -117,8 +120,7 @@ mod tests {
         let warnings = Warnings::from(buffer.as_slice());
         assert_eq!(warnings.0.len(), buffer.len());
         for (warning, error) in izip!(warnings.0, buffer) {
-            assert_eq!(warning.get_code(), CCode::Warning);
-            assert_eq!(warning.get_message(), format!("{}", error).as_str());
+            assert_eq!(warning, error.to_string());
         }
     }
 
@@ -140,7 +142,7 @@ mod tests {
         assert_eq!(len, buffer.len());
         for (warning, error) in izip!(unsafe { from_raw_parts(data, len) }, buffer) {
             assert_eq!(warning.get_code(), CCode::Warning);
-            assert_eq!(warning.get_message(), format!("{}", error).as_str());
+            assert_eq!(warning.get_message(), error.to_string().as_str());
         }
 
         unsafe { warnings_drop(warnings) };

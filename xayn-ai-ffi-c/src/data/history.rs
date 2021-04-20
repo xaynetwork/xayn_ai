@@ -110,7 +110,7 @@ pub(crate) mod tests {
     use itertools::izip;
 
     use super::*;
-    use crate::utils::tests::AsPtr;
+    use crate::{result::error::error_message_drop, utils::tests::AsPtr};
 
     impl AsPtr for CHistories<'_> {}
 
@@ -225,11 +225,14 @@ pub(crate) mod tests {
     fn test_history_id_null() {
         let mut hists = TestHistories::default();
         hists.history[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
+
+        let mut error = unsafe { hists.histories.to_histories() }.unwrap_err();
         assert_eq!(error.get_code(), CCode::HistoryIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document history id is not a valid C-string pointer",
         );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 }

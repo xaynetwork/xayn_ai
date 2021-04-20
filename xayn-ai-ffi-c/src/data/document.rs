@@ -78,7 +78,7 @@ pub(crate) mod tests {
     use itertools::izip;
 
     use super::*;
-    use crate::utils::tests::AsPtr;
+    use crate::{result::error::error_message_drop, utils::tests::AsPtr};
 
     impl AsPtr for CDocuments<'_> {}
 
@@ -191,23 +191,29 @@ pub(crate) mod tests {
     fn test_document_id_null() {
         let mut docs = TestDocuments::default();
         docs.document[0].id = unsafe { FfiStr::from_raw(null()) };
-        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+
+        let mut error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.get_code(), CCode::DocumentIdPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document id is not a valid C-string pointer",
         );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
     fn test_document_snippet_null() {
         let mut docs = TestDocuments::default();
         docs.document[0].snippet = unsafe { FfiStr::from_raw(null()) };
-        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+
+        let mut error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.get_code(), CCode::DocumentSnippetPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: A document snippet is not a valid C-string pointer",
         );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 }
