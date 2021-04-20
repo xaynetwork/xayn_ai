@@ -334,7 +334,10 @@ mod tests {
     use super::*;
     use crate::{
         data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
-        reranker::{analytics::analytics_drop, bytes::tests::TestBytes},
+        reranker::{
+            analytics::analytics_drop,
+            bytes::{bytes_drop, tests::TestBytes},
+        },
         result::{error::error_message_drop, warning::warnings_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,
@@ -398,14 +401,80 @@ mod tests {
         let ranks =
             unsafe { xaynai_rerank(xaynai, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CCode::Success);
+
+        unsafe { ranks_drop(ranks) };
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_serialize() {
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
+        let db = TestBytes::default();
+        let mut error = ExternError::default();
+
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CCode::Success);
+        let db = unsafe { xaynai_serialize(xaynai, error.as_mut_ptr()) };
+        assert_eq!(error.get_code(), CCode::Success);
+
+        unsafe { bytes_drop(db) };
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_warnings() {
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
+        let db = TestBytes::default();
+        let mut error = ExternError::default();
+
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CCode::Success);
         let warnings = unsafe { xaynai_warnings(xaynai, error.as_mut_ptr()) };
+        assert_eq!(error.get_code(), CCode::Success);
+
+        unsafe { warnings_drop(warnings) };
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_analytics() {
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
+        let db = TestBytes::default();
+        let mut error = ExternError::default();
+
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
+        assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
         let analytics = unsafe { xaynai_analytics(xaynai, error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CCode::Success);
 
         unsafe { analytics_drop(analytics) };
-        unsafe { warnings_drop(warnings) };
-        unsafe { ranks_drop(ranks) };
         unsafe { xaynai_drop(xaynai) };
     }
 
@@ -620,6 +689,28 @@ mod tests {
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai) };
+    }
+
+    #[test]
+    fn test_serialized_empty() {
+        let vocab = TestVocab::default();
+        let model = TestModel::default();
+        let mut error = ExternError::default();
+
+        let db = Pin::new(Vec::new());
+        let db: CBytes = db.as_ref().into();
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        };
+        assert!(!xaynai.is_null());
+        assert_eq!(error.get_code(), CCode::Success);
+
         unsafe { xaynai_drop(xaynai) };
     }
 
