@@ -10,6 +10,8 @@ class Warnings {
   Pointer<CWarnings> _warns;
 
   /// Creates the warnings.
+  ///
+  /// This constructor never throws an exception.
   Warnings(this._warns);
 
   /// Converts the warnings to a list.

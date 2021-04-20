@@ -8,6 +8,8 @@ class Ranks {
   Pointer<CRanks> _ranks;
 
   /// Creates the ranks.
+  ///
+  /// This constructor never throws an exception.
   Ranks(this._ranks);
 
   /// Converts the ranks to a list, which is in the same logical order as the documents.

@@ -13,16 +13,20 @@ class Bytes {
   final bool _owned;
 
   /// Creates the borrowed bytes buffer.
+  ///
+  /// This constructor never throws an exception.
   Bytes(this._bytes) : _owned = false;
 
   /// Creates the owned bytes buffer.
+  ///
+  /// This constructor never throws an exception.
   Bytes.fromList(Uint8List bytes) : _owned = true {
     _bytes = malloc.call<CBytes>();
     _bytes.ref.len = bytes.length;
     if (bytes.isEmpty) {
       _bytes.ref.data = nullptr;
     } else {
-      _bytes.ref.data = malloc.call<Uint8>(bytes.length);
+      _bytes.ref.data = malloc.call<Uint8>(_bytes.ref.len);
       bytes.asMap().forEach((i, byte) {
         _bytes.ref.data[i] = byte;
       });

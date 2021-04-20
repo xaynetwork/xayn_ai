@@ -17,9 +17,6 @@ class Document {
     if (_id.isEmpty) {
       throw ArgumentError('empty document id');
     }
-    if (_snippet.isEmpty) {
-      throw ArgumentError('empty document snippet id');
-    }
     if (_rank.isNegative) {
       throw ArgumentError('negative document rank');
     }
@@ -40,13 +37,15 @@ class Documents {
   late Pointer<CDocuments> _docs;
 
   /// Creates the documents.
+  ///
+  /// This constructor never throws an exception.
   Documents(List<Document> documents) {
     _docs = malloc.call<CDocuments>();
     _docs.ref.len = documents.length;
     if (documents.isEmpty) {
       _docs.ref.data = nullptr;
     } else {
-      _docs.ref.data = malloc.call<CDocument>(documents.length);
+      _docs.ref.data = malloc.call<CDocument>(_docs.ref.len);
       documents.asMap().forEach((i, document) {
         _docs.ref.data[i].id = document._id.toNativeUtf8().cast<Int8>();
         _docs.ref.data[i].snippet =

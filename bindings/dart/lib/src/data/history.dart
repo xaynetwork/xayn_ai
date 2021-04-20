@@ -108,13 +108,15 @@ class Histories {
   late Pointer<CHistories> _hists;
 
   /// Creates the document histories.
+  ///
+  /// This constructor never throws an exception.
   Histories(List<History> histories) {
     _hists = malloc.call<CHistories>();
     _hists.ref.len = histories.length;
     if (histories.isEmpty) {
       _hists.ref.data = nullptr;
     } else {
-      _hists.ref.data = malloc.call<CHistory>(histories.length);
+      _hists.ref.data = malloc.call<CHistory>(_hists.ref.len);
       histories.asMap().forEach((i, history) {
         _hists.ref.data[i].id = history._id.toNativeUtf8().cast<Int8>();
         _hists.ref.data[i].relevance = history._relevance.toInt();

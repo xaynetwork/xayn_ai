@@ -8,6 +8,8 @@ class Analytics {
   late Pointer<CAnalytics> _analytics;
 
   /// Creates the analytics.
+  ///
+  /// This constructor never throws an exception.
   Analytics(this._analytics);
 
   /// Frees the memory.

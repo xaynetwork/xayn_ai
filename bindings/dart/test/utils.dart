@@ -20,8 +20,11 @@ final documents = [
   Document('2', 'ghi', 2),
 ];
 
-Matcher throwsXaynAiException(Code code, String message) =>
-    throwsA(predicate((exception) =>
-        exception is XaynAiException &&
-        exception.code == code &&
-        exception.toString() == message));
+Matcher throwsXaynAiException(Code code) => throwsA(
+      predicate(
+        (exception) =>
+            exception is XaynAiException &&
+            exception.code == code &&
+            exception.toString().isNotEmpty,
+      ),
+    );

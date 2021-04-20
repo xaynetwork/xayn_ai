@@ -136,6 +136,8 @@ class XaynAiError {
   late Pointer<CError> _error;
 
   /// Creates the error information initialized to success.
+  ///
+  /// This constructor never throws an exception.
   XaynAiError() {
     _error = malloc.call<CError>();
     _error.ref.code = CCode.Success;

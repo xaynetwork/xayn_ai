@@ -57,21 +57,20 @@ void main() {
     });
 
     test('invalid paths', () {
-      final code = Code.readFile;
-      final message =
-          'Failed to initialize the ai: Failed to load a data file: No such file or directory (os error 2)';
-      expect(() => XaynAi('', model), throwsXaynAiException(code, message));
-      expect(() => XaynAi(vocab, ''), throwsXaynAiException(code, message));
+      expect(() => XaynAi('', model), throwsXaynAiException(Code.readFile));
+      expect(() => XaynAi(vocab, ''), throwsXaynAiException(Code.readFile));
+    });
+
+    test('empty serialized', () {
+      final serialized = Uint8List(0);
+      final ai = XaynAi(vocab, model, serialized);
+      ai.free();
     });
 
     test('invalid serialized', () {
-      final version = 255;
-      final code = Code.rerankerDeserialization;
-      final message =
-          'Failed to deserialize the reranker database: Unsupported serialized data. Found version $version expected 0';
       expect(
-        () => XaynAi(vocab, model, Uint8List.fromList([version])),
-        throwsXaynAiException(code, message),
+        () => XaynAi(vocab, model, Uint8List.fromList([255])),
+        throwsXaynAiException(Code.rerankerDeserialization),
       );
     });
   });

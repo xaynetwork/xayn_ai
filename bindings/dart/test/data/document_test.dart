@@ -12,7 +12,6 @@ void main() {
   group('Document', () {
     test('empty', () {
       expect(() => Document('', 'abc', 0), throwsArgumentError);
-      expect(() => Document('0', '', 0), throwsArgumentError);
       expect(() => Document('0', 'abc', -1), throwsArgumentError);
     });
   });

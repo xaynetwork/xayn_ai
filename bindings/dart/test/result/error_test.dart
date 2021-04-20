@@ -81,7 +81,7 @@ void main() {
       final exception = XaynAiException(code, message);
       expect(exception.code, equals(code));
       expect(exception.toString(), equals(message));
-      expect(() => throw exception, throwsXaynAiException(code, message));
+      expect(() => throw exception, throwsXaynAiException(code));
     });
 
     test('to', () {
@@ -94,7 +94,7 @@ void main() {
       final exception = error.toException();
       expect(exception.code, equals(code));
       expect(exception.toString(), equals(message));
-      expect(() => throw exception, throwsXaynAiException(code, message));
+      expect(() => throw exception, throwsXaynAiException(code));
 
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
