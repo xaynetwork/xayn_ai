@@ -112,13 +112,22 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::AsPtr;
 
+    impl<'a> From<&[CHistory<'a>]> for CHistories<'a> {
+        fn from(histories: &[CHistory<'a>]) -> Self {
+            Self {
+                data: histories.as_ptr(),
+                len: histories.len() as u32,
+                _lifetime: PhantomData,
+            }
+        }
+    }
+
     #[allow(dead_code)]
     pub struct TestHistories<'a> {
         len: usize,
         ids: Pin<Vec<CString>>,
         history: Vec<CHistory<'a>>,
         histories: CHistories<'a>,
-        _variance: PhantomData<&'a Pin<Vec<CString>>>,
     }
 
     impl AsPtr for CHistories<'_> {}
@@ -155,18 +164,13 @@ pub(crate) mod tests {
                     feedback,
                 })
                 .collect::<Vec<_>>();
-            let histories = CHistories {
-                data: history.as_ptr(),
-                len: len as u32,
-                _lifetime: PhantomData,
-            };
+            let histories = history.as_slice().into();
 
             Self {
                 len,
                 ids,
                 history,
                 histories,
-                _variance: PhantomData,
             }
         }
     }

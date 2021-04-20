@@ -19,7 +19,7 @@ pub struct CBytes<'a> {
     /// The number of bytes.
     pub len: u32,
     // covariant in lifetime and type, only relevant for borrowed data
-    pub(crate) _lifetime: PhantomData<&'a [u8]>,
+    _lifetime: PhantomData<&'a [u8]>,
 }
 
 unsafe impl IntoFfi for Bytes {
@@ -107,6 +107,16 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::utils::tests::AsPtr;
+
+    impl<'a> From<&'a [u8]> for CBytes<'a> {
+        fn from(bytes: &'a [u8]) -> Self {
+            Self {
+                data: bytes.as_ptr(),
+                len: bytes.len() as u32,
+                _lifetime: PhantomData,
+            }
+        }
+    }
 
     impl AsPtr for CBytes<'_> {}
 

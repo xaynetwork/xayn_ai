@@ -80,6 +80,16 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::AsPtr;
 
+    impl<'a> From<&[CDocument<'a>]> for CDocuments<'a> {
+        fn from(documents: &[CDocument<'a>]) -> Self {
+            Self {
+                data: documents.as_ptr(),
+                len: documents.len() as u32,
+                _lifetime: PhantomData,
+            }
+        }
+    }
+
     #[allow(dead_code)]
     pub struct TestDocuments<'a> {
         pub len: usize,
@@ -87,7 +97,6 @@ pub(crate) mod tests {
         snippets: Pin<Vec<CString>>,
         document: Vec<CDocument<'a>>,
         documents: CDocuments<'a>,
-        _lifetime: PhantomData<&'a Pin<Vec<CString>>>,
     }
 
     impl AsPtr for CDocuments<'_> {}
@@ -124,11 +133,7 @@ pub(crate) mod tests {
                     rank,
                 })
                 .collect::<Vec<_>>();
-            let documents = CDocuments {
-                data: document.as_ptr(),
-                len: len as u32,
-                _lifetime: PhantomData,
-            };
+            let documents = document.as_slice().into();
 
             Self {
                 len,
@@ -136,7 +141,6 @@ pub(crate) mod tests {
                 snippets,
                 document,
                 documents,
-                _lifetime: PhantomData,
             }
         }
     }

@@ -326,7 +326,6 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
 mod tests {
     use std::{
         ffi::CString,
-        marker::PhantomData,
         pin::Pin,
         ptr::{null, null_mut},
     };
@@ -341,19 +340,14 @@ mod tests {
     };
 
     #[allow(dead_code)]
-    struct TestFiles<'a, 'b, 'c>
-    where
-        'b: 'a,
-        'c: 'a,
-    {
+    struct TestFiles<'a> {
         vocab: Pin<CString>,
         v: FfiStr<'a>,
         model: Pin<CString>,
-        m: FfiStr<'b>,
-        _variance: PhantomData<&'c (FfiStr<'a>, FfiStr<'b>)>,
+        m: FfiStr<'a>,
     }
 
-    impl Default for TestFiles<'_, '_, '_> {
+    impl Default for TestFiles<'_> {
         fn default() -> Self {
             let vocab = Pin::new(CString::new(VOCAB).unwrap());
             let v = unsafe { FfiStr::from_raw(vocab.as_ptr()) };
@@ -361,27 +355,17 @@ mod tests {
             let model = Pin::new(CString::new(MODEL).unwrap());
             let m = unsafe { FfiStr::from_raw(model.as_ptr()) };
 
-            Self {
-                vocab,
-                v,
-                model,
-                m,
-                _variance: PhantomData,
-            }
+            Self { vocab, v, model, m }
         }
     }
 
     struct TestDatabase<'a> {
         serialized: *const CBytes<'a>,
-        _variance: PhantomData<&'a [u8]>,
     }
 
     impl Default for TestDatabase<'_> {
         fn default() -> Self {
-            Self {
-                serialized: null(),
-                _variance: PhantomData,
-            }
+            Self { serialized: null() }
         }
     }
 
@@ -610,12 +594,8 @@ mod tests {
         let mut error = ExternError::default();
 
         let version = u8::MAX;
-        let serialized = vec![version];
-        let invalid = CBytes {
-            data: serialized.as_ptr(),
-            len: 1,
-            _lifetime: PhantomData,
-        };
+        let invalid = vec![version];
+        let invalid: CBytes = invalid.as_slice().into();
         let xaynai = unsafe { xaynai_new(files.v, files.m, invalid.as_ptr(), error.as_mut_ptr()) };
         assert!(xaynai.is_null());
         assert_eq!(error.get_code(), CCode::RerankerDeserialization);
