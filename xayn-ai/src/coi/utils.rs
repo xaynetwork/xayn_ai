@@ -69,13 +69,14 @@ fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
 
 // utils for `update_user_interests`
 fn update_alpha_or_beta<F>(
-    counts: &HashMap<usize, u16>,
+    docs: &[&dyn CoiSystemData],
     mut cois: Vec<PositiveCoi>,
     mut f: F,
 ) -> Vec<PositiveCoi>
 where
     F: FnMut(&mut PositiveCoi, f32),
 {
+    let counts = count_coi_ids(docs);
     for coi in cois.iter_mut() {
         if let Some(count) = counts.get(&coi.id.0) {
             let adjustment = 1.1f32.powi(*count as i32);
@@ -89,8 +90,7 @@ pub(super) fn update_alpha(
     positive_docs: &[&dyn CoiSystemData],
     cois: Vec<PositiveCoi>,
 ) -> Vec<PositiveCoi> {
-    let counts = count_coi_ids(positive_docs);
-    update_alpha_or_beta(&counts, cois, |PositiveCoi { ref mut alpha, .. }, adj| {
+    update_alpha_or_beta(&positive_docs, cois, |PositiveCoi { ref mut alpha, .. }, adj| {
         *alpha *= adj
     })
 }
@@ -99,8 +99,7 @@ pub(super) fn update_beta(
     negative_docs: &[&dyn CoiSystemData],
     cois: Vec<PositiveCoi>,
 ) -> Vec<PositiveCoi> {
-    let counts = count_coi_ids(negative_docs);
-    update_alpha_or_beta(&counts, cois, |PositiveCoi { ref mut beta, .. }, adj| {
+    update_alpha_or_beta(&negative_docs, cois, |PositiveCoi { ref mut beta, .. }, adj| {
         *beta *= adj
     })
 }
