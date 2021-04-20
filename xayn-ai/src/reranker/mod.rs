@@ -303,7 +303,7 @@ mod tests {
 
         use crate::{
             data::UserInterests,
-            reranker::{RerankerData, DocumentsRank, PreviousDocuments},
+            reranker::{DocumentsRank, PreviousDocuments, RerankerData},
             tests::{data_with_mab, documents_from_words, mocked_bert_system, pos_cois_from_words},
             Document,
             DocumentId,

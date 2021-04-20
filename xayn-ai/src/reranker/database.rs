@@ -67,7 +67,13 @@ mod tests {
     use super::*;
     use crate::{
         data::UserInterests,
-        tests::{data_with_mab, mocked_bert_system, neg_cois_from_words, pos_cois_from_words, from_ids},
+        tests::{
+            data_with_mab,
+            from_ids,
+            mocked_bert_system,
+            neg_cois_from_words,
+            pos_cois_from_words,
+        },
     };
 
     #[test]
