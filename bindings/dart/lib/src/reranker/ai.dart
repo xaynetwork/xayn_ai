@@ -49,6 +49,10 @@ class XaynAi {
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
+  ///
+  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// valid state can be restored with a previously serialized reranker database obtained from
+  /// [`serialize()`].
   List<int> rerank(List<History> histories, List<Document> documents) {
     final hists = Histories(histories);
     final docs = Documents(documents);
@@ -57,6 +61,9 @@ class XaynAi {
     final ranks = Ranks(ffi.xaynai_rerank(_ai, hists.ptr, docs.ptr, error.ptr));
     try {
       if (error.isError()) {
+        if (error.isPanic()) {
+          _ai = nullptr;
+        }
         throw error.toException();
       }
       return ranks.toList();

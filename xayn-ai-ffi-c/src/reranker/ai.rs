@@ -33,9 +33,11 @@ pub struct CXaynAi(Reranker);
 
 impl RefUnwindSafe for CXaynAi {
     // Safety:
-    // The mutable fields `analytics`, `data` and `errors` of  `CXaynAi.0` must not be accessed
-    // after a panic. We restore the last valid state after a panic without accessing those fields
-    // and there is no direct access to them for a caller of the ffi.
+    // The mutable fields `analytics`, `data` and `errors` of `CXaynAi.0` must not be accessed
+    // after a panic if they could have been mutated. Currently, this can only happen in
+    // `CXaynAi::rerank()` and `CXaynAi::drop()`.
+    // Since we can't restore the last valid state after a panic without outside information, we
+    // drop `CXaynAi` and signal a panic code.
 }
 
 implement_into_ffi_by_pointer! { CXaynAi }
@@ -109,8 +111,8 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_serialize()`] for more.
-    unsafe fn serialize(xaynai: *mut CXaynAi) -> Result<Bytes, ExternError> {
-        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+    unsafe fn serialize(xaynai: *const Self) -> Result<Bytes, ExternError> {
+        let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
             CCode::AiPointer
                 .with_context("Failed to serialize the reranker database: The ai pointer is null")
         })?;
@@ -122,8 +124,8 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_warnings()`] for more.
-    unsafe fn warnings(xaynai: *mut Self) -> Result<Warnings, ExternError> {
-        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+    unsafe fn warnings(xaynai: *const Self) -> Result<Warnings, ExternError> {
+        let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to get the warnings: The ai pointer is null")
         })?;
 
@@ -131,22 +133,12 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_analytics()`] for more.
-    unsafe fn analytics(xaynai: *mut Self) -> Result<CAnalytics, ExternError> {
-        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+    unsafe fn analytics(xaynai: *const Self) -> Result<CAnalytics, ExternError> {
+        let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to get the analytics: The ai pointer is null")
         })?;
 
         Ok(CAnalytics(xaynai.0.analytics().cloned()))
-    }
-
-    /// Cleans the mutable parts of the state.
-    ///
-    /// This must be called in case of a panic to uphold the contract of `RefUnwindSafe`. Also, this
-    /// must never panic itself.
-    unsafe fn clean(xaynai: *mut Self) {
-        if let Some(xaynai) = unsafe { xaynai.as_mut() } {
-            xaynai.0.reload();
-        }
     }
 
     /// See [`xaynai_drop()`] for more.
@@ -166,6 +158,7 @@ impl CXaynAi {
 /// Returns a null pointer if:
 /// - The `vocab` or `model` paths are invalid.
 /// - The `serialized` database is invalid.
+/// - An unexpected panic happened.
 ///
 /// # Safety
 /// The behavior is undefined if:
@@ -197,6 +190,11 @@ pub unsafe extern "C" fn xaynai_new(
 /// - The `xaynai` is null.
 /// - The document `histories` are invalid.
 /// - The `documents` are invalid.
+/// - An unexpected panic happened.
+///
+/// In case of a [`CCode::Panic`], the `xaynai` is dropped and must not be accessed anymore. The
+/// last known valid state can be restored by the caller via [`xaynai_new()`] with a previously
+/// serialized reranker database obtained from [`xaynai_serialize()`].
 ///
 /// # Safety
 /// The behavior is undefined if:
@@ -215,7 +213,7 @@ pub unsafe extern "C" fn xaynai_new(
 /// terminating null byte.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
-/// - A non-null, zero-sized `ranks` array is dereferenced.
+/// - A non-null `xaynai` is accessed after a panic.
 ///
 /// [`CHistory`]: crate::data::history::CHistory
 /// [`CDocument`]: crate::data::document::CDocument
@@ -227,7 +225,7 @@ pub unsafe extern "C" fn xaynai_rerank(
     error: *mut ExternError,
 ) -> *mut CRanks {
     let rerank = || unsafe { CXaynAi::rerank(xaynai, histories, documents) };
-    let clean = || unsafe { CXaynAi::clean(xaynai) };
+    let clean = || unsafe { CXaynAi::drop(xaynai) };
     let error = unsafe { error.as_mut() };
 
     call_with_result(rerank, clean, error)
@@ -239,6 +237,7 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// Returns a null pointer if:
 /// - The xaynai is null.
 /// - The serialization fails.
+/// - An unexpected panic happened.
 ///
 /// # Safety
 /// The behavior is undefined if:
@@ -251,7 +250,7 @@ pub unsafe extern "C" fn xaynai_serialize(
     error: *mut ExternError,
 ) -> *mut CBytes<'static> {
     let serialize = || unsafe { CXaynAi::serialize(xaynai) };
-    let clean = || unsafe { CXaynAi::clean(xaynai) };
+    let clean = || {};
     let error = unsafe { error.as_mut() };
 
     call_with_result(serialize, clean, error)
@@ -262,6 +261,7 @@ pub unsafe extern "C" fn xaynai_serialize(
 /// # Errors
 /// Returns a null pointer if:
 /// - The `xaynai` is null.
+/// - An unexpected panic happened.
 ///
 /// # Safety
 /// The behavior is undefined if:
@@ -274,7 +274,7 @@ pub unsafe extern "C" fn xaynai_warnings(
     error: *mut ExternError,
 ) -> *mut CWarnings {
     let warnings = || unsafe { CXaynAi::warnings(xaynai) };
-    let clean = || unsafe { CXaynAi::clean(xaynai) };
+    let clean = || {};
     let error = unsafe { error.as_mut() };
 
     call_with_result(warnings, clean, error)
@@ -285,6 +285,7 @@ pub unsafe extern "C" fn xaynai_warnings(
 /// # Errors
 /// Returns a null pointer if:
 /// - The `xaynai` is null.
+/// - An unexpected panic happened.
 ///
 /// # Safety
 /// The behavior is undefined if:
@@ -297,7 +298,7 @@ pub unsafe extern "C" fn xaynai_analytics(
     error: *mut ExternError,
 ) -> *mut CAnalytics {
     let analytics = || unsafe { CXaynAi::analytics(xaynai) };
-    let clean = || unsafe { CXaynAi::clean(xaynai) };
+    let clean = || {};
     let error = unsafe { error.as_mut() };
 
     call_with_result(analytics, clean, error)

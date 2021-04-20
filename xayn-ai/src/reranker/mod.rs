@@ -87,7 +87,7 @@ fn rerank<CS>(
 where
     CS: CommonSystems,
 {
-    let original_documents = documents.as_ref();
+    let original_documents = documents;
 
     let documents = make_documents_with_embedding(common_systems, documents)?;
     let documents = common_systems
@@ -190,19 +190,8 @@ where
         })
     }
 
-    pub(crate) fn reload(&mut self) {
-        self.data = self
-            .common_systems
-            .database()
-            .load_data()
-            .unwrap_or_default()
-            .unwrap_or_default();
-        self.errors = Vec::new();
-        self.analytics = None;
-    }
-
     pub(crate) fn errors(&self) -> &[Error] {
-        &self.errors
+        self.errors.as_slice()
     }
 
     /// Returns the analytics for penultimate call to `rerank`.
