@@ -10,7 +10,6 @@ use crate::{
         utils::{
             classify_documents_based_on_user_feedback,
             collect_matching_documents,
-            count_coi_ids,
             l2_norm,
             update_alpha,
             update_beta,
@@ -18,7 +17,7 @@ use crate::{
     },
     data::{
         document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithEmbedding},
-        Coi,
+        CoiPoint,
         UserInterests,
     },
     reranker::systems::{self, CoiSystemData},
@@ -54,11 +53,15 @@ impl CoiSystem {
     /// Returns the index of the CoI along with the distance between
     /// the given embedding and the CoI. If no CoI was found, `None`
     /// will be returned.
-    fn find_closest_coi_index(&self, embedding: &Embedding, cois: &[Coi]) -> Option<(usize, f32)> {
+    fn find_closest_coi_index(
+        &self,
+        embedding: &Embedding,
+        cois: &[impl CoiPoint],
+    ) -> Option<(usize, f32)> {
         let index_and_distance = cois
             .iter()
             .enumerate()
-            .map(|(i, coi)| (i, l2_norm(embedding.deref() - coi.point.deref())))
+            .map(|(i, coi)| (i, l2_norm(embedding.deref() - coi.point().deref())))
             .fold(
                 (None, f32::MAX),
                 |acc, (i, b)| match PartialOrd::partial_cmp(&acc.1, &b) {
@@ -76,11 +79,11 @@ impl CoiSystem {
     /// Returns an immutable reference to the CoI along with the distance between
     /// the given embedding and the CoI. If no CoI was found, `None`
     /// will be returned.
-    fn find_closest_coi<'coi>(
+    fn find_closest_coi<'coi, CP: CoiPoint>(
         &self,
         embedding: &Embedding,
-        cois: &'coi [Coi],
-    ) -> Option<(&'coi Coi, f32)> {
+        cois: &'coi [CP],
+    ) -> Option<(&'coi CP, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
         Some((cois.get(index).unwrap(), distance))
     }
@@ -89,11 +92,11 @@ impl CoiSystem {
     /// Returns a mutable reference to the CoI along with the distance between
     /// the given embedding and the CoI. If no CoI was found, `None`
     /// will be returned.
-    fn find_closest_coi_mut<'coi>(
+    fn find_closest_coi_mut<'coi, CP: CoiPoint>(
         &self,
         embedding: &Embedding,
-        cois: &'coi mut [Coi],
-    ) -> Option<(&'coi mut Coi, f32)> {
+        cois: &'coi mut [CP],
+    ) -> Option<(&'coi mut CP, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
         Some((cois.get_mut(index).unwrap(), distance))
     }
@@ -108,18 +111,18 @@ impl CoiSystem {
     /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
-    fn update_coi(&self, embedding: &Embedding, mut cois: Vec<Coi>) -> Vec<Coi> {
+    fn update_coi<CP: CoiPoint>(&self, embedding: &Embedding, mut cois: Vec<CP>) -> Vec<CP> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
             Some((coi, distance)) if distance < self.config.threshold => {
-                coi.point = self.shift_coi_point(embedding, &coi.point);
+                coi.set_point(self.shift_coi_point(embedding, &coi.point()));
             }
-            _ => cois.push(Coi::new(cois.len() + 1, embedding.clone())),
+            _ => cois.push(CP::new(cois.len() + 1, embedding.clone())),
         }
         cois
     }
 
     /// Updates the CoIs based on the embeddings of docs.
-    fn update_cois(&self, docs: &[&dyn CoiSystemData], cois: Vec<Coi>) -> Vec<Coi> {
+    fn update_cois<CP: CoiPoint>(&self, docs: &[&dyn CoiSystemData], cois: Vec<CP>) -> Vec<CP> {
         docs.iter().fold(cois, |cois, doc| {
             self.update_coi(&doc.embedding().embedding, cois)
         })
@@ -183,10 +186,8 @@ impl systems::CoiSystem for CoiSystem {
         user_interests.positive = self.update_cois(&positive_docs, user_interests.positive);
         user_interests.negative = self.update_cois(&negative_docs, user_interests.negative);
 
-        let pos_coi_id_map = count_coi_ids(&positive_docs);
-
-        user_interests.positive = update_alpha(&pos_coi_id_map, user_interests.positive);
-        user_interests.negative = update_beta(&pos_coi_id_map, user_interests.negative);
+        user_interests.positive = update_alpha(&positive_docs, user_interests.positive);
+        user_interests.positive = update_beta(&negative_docs, user_interests.positive);
 
         Ok(user_interests)
     }
@@ -200,7 +201,12 @@ mod tests {
 
     use super::*;
     use crate::{
-        coi::utils::tests::{create_cois, create_data_with_embeddings, create_document_history},
+        coi::utils::tests::{
+            create_data_with_embeddings,
+            create_document_history,
+            create_neg_cois,
+            create_pos_cois,
+        },
         data::{
             document::{DocumentId, Relevance, UserFeedback},
             document_data::{
@@ -212,6 +218,7 @@ mod tests {
                 MabComponent,
             },
             CoiId,
+            PositiveCoi,
         },
         reranker::systems::CoiSystem as CoiSystemTrait,
         to_vec_of_ref_of,
@@ -244,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_find_closest_coi_index() {
-        let cois = create_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         let embedding = arr1(&[1., 5., 9.]).into();
 
         let (index, distance) = CoiSystem::default()
@@ -257,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_find_closest_coi_index_nan() {
-        let cois = create_cois(&[[1., 2., 3.]]);
+        let cois = create_pos_cois(&[[1., 2., 3.]]);
 
         let embedding_all_nan = arr1(&[NAN, NAN, NAN]).into();
         let coi = CoiSystem::default().find_closest_coi_index(&embedding_all_nan, &cois);
@@ -271,14 +278,14 @@ mod tests {
     #[test]
     fn test_find_closest_coi_index_empty() {
         let embedding = arr1(&[1., 2., 3.]).into();
-        let coi = CoiSystem::default().find_closest_coi_index(&embedding, &[]);
+        let coi = CoiSystem::default().find_closest_coi_index(&embedding, &[] as &[PositiveCoi]);
         assert!(coi.is_none());
     }
 
     #[test]
     fn test_find_closest_coi_index_all_same_distance() {
         // if the distance is the same for all cois, take the first one
-        let cois = create_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
+        let cois = create_pos_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
         let embedding = arr1(&[1., 1., 1.]).into();
         let (index, _) = CoiSystem::default()
             .find_closest_coi_index(&embedding, &cois)
@@ -288,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_update_coi_add_point() {
-        let mut cois = create_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
+        let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
         let embedding = arr1(&[1., 1., 1.]).into();
 
         let config = Configuration::default();
@@ -309,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_update_coi_update_point() {
-        let cois = create_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
+        let cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
         let embedding = arr1(&[2., 3., 4.]).into();
 
         let cois = CoiSystem::default().update_coi(&embedding, cois);
@@ -322,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_shift_coi_point() {
-        let coi = Coi::new(0, arr1(&[1., 1., 1.]).into());
+        let coi = PositiveCoi::new(0, arr1(&[1., 1., 1.]).into());
         let embedding = arr1(&[2., 3., 4.]).into();
 
         let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);
@@ -332,7 +339,7 @@ mod tests {
 
     #[test]
     fn test_update_coi_threshold_exclusive() {
-        let cois = create_cois(&[[0., 0., 0.]]);
+        let cois = create_pos_cois(&[[0., 0., 0.]]);
         let embedding = arr1(&[0., 0., 12.]).into();
 
         let cois = CoiSystem::default().update_coi(&embedding, cois);
@@ -345,7 +352,7 @@ mod tests {
     #[test]
     fn test_update_cois_update_the_same_point_twice() {
         // checks that an updated coi is used in the next iteration
-        let cois = create_cois(&[[0., 0., 0.]]);
+        let cois = create_pos_cois(&[[0., 0., 0.]]);
         let documents = create_data_with_mab(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
@@ -364,8 +371,8 @@ mod tests {
 
     #[test]
     fn test_compute_coi_for_embedding() {
-        let positive = create_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
-        let negative = create_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
+        let positive = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
+        let negative = create_neg_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
         let user_interests = UserInterests { positive, negative };
         let embedding = arr1(&[2., 3., 4.]).into();
 
@@ -380,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_compute_coi_for_embedding_empty_negative_cois() {
-        let positive_cois = create_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
+        let positive_cois = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
         let user_interests = UserInterests {
             positive: positive_cois,
             negative: Vec::new(),
@@ -399,8 +406,8 @@ mod tests {
 
     #[test]
     fn test_compute_coi() {
-        let positive = create_cois(&[[3., 2., 1.], [1., 2., 3.]]);
-        let negative = create_cois(&[[4., 5., 6.]]);
+        let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
+        let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[1., 4., 4.], [3., 6., 6.]]);
 
@@ -427,8 +434,8 @@ mod tests {
 
     #[test]
     fn test_compute_coi_nan() {
-        let positive = create_cois(&[[3., 2., 1.], [1., 2., 3.]]);
-        let negative = create_cois(&[[4., 5., 6.]]);
+        let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
+        let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[NAN, NAN, NAN]]);
 
@@ -450,8 +457,8 @@ mod tests {
 
     #[test]
     fn test_update_user_interests() {
-        let positive = create_cois(&[[3., 2., 1.], [1., 2., 3.]]);
-        let negative = create_cois(&[[4., 5., 6.]]);
+        let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
+        let negative = create_neg_cois(&[[4., 5., 6.]]);
 
         let user_interests = UserInterests { positive, negative };
 
@@ -478,7 +485,7 @@ mod tests {
         assert_eq!(positive[0].point, arr1(&[2.7999997, 1.9, 1.]));
 
         assert!(approx_eq!(f32, positive[1].alpha, 1.21));
-        assert!(approx_eq!(f32, positive[1].beta, 1.));
+        assert!(approx_eq!(f32, positive[1].beta, 1.1));
         assert_eq!(positive[1].point, arr1(&[1., 2., 3.]));
 
         assert!(approx_eq!(f32, positive[2].alpha, 1.));
@@ -486,8 +493,6 @@ mod tests {
         assert_eq!(positive[2].point, arr1(&[3., 6., 6.]));
 
         assert_eq!(negative.len(), 1);
-        assert!(approx_eq!(f32, negative[0].alpha, 1.));
-        assert!(approx_eq!(f32, negative[0].beta, 1.));
         assert_eq!(negative[0].point, arr1(&[3.6999998, 4.9, 5.7999997]));
     }
 

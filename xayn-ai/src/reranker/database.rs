@@ -67,15 +67,23 @@ mod tests {
     use super::*;
     use crate::{
         data::UserInterests,
-        tests::{cois_from_words, data_with_mab, from_ids, mocked_bert_system},
+        tests::{
+            data_with_mab,
+            from_ids,
+            mocked_bert_system,
+            neg_cois_from_words,
+            pos_cois_from_words,
+        },
     };
 
     #[test]
     fn test_database_serialize_load() {
-        let cois = cois_from_words(&["a", "b", "c"], mocked_bert_system());
+        let words = &["a", "b", "c"];
+        let pos_cois = pos_cois_from_words(words, mocked_bert_system());
+        let neg_cois = neg_cois_from_words(words, mocked_bert_system());
         let user_interests = UserInterests {
-            positive: cois.clone(),
-            negative: cois,
+            positive: pos_cois,
+            negative: neg_cois,
         };
         let docs = data_with_mab(from_ids(0..1));
         let data = RerankerData::new_with_mab(user_interests, docs);

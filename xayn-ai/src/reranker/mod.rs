@@ -304,7 +304,7 @@ mod tests {
         use crate::{
             data::UserInterests,
             reranker::{DocumentsRank, PreviousDocuments, RerankerData},
-            tests::{cois_from_words, data_with_mab, documents_from_words, mocked_bert_system},
+            tests::{data_with_mab, documents_from_words, mocked_bert_system, pos_cois_from_words},
             Document,
             DocumentId,
         };
@@ -339,7 +339,7 @@ mod tests {
             RerankerData {
                 prev_documents: docs.into(),
                 user_interests: UserInterests {
-                    positive: cois_from_words(&["vehicle"], mocked_bert_system()),
+                    positive: pos_cois_from_words(&["vehicle"], mocked_bert_system()),
                     ..Default::default()
                 },
             }
