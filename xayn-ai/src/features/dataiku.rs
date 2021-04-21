@@ -88,16 +88,19 @@ fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
 /// Mean reciprocal rank of results filtered by outcome and a predicate.
 fn mean_recip_rank(
     results: &[impl AsRef<SearchResult>],
-    outcome: Option<Outcome>,
+    outcome: Option<MrrOutcome>,
     pred: Option<FilterPred>,
 ) -> f32 {
     let filtered = results
         .iter()
-        .filter(|r| match outcome {
-            Some(Outcome::Miss) => r.as_ref().relevance == ClickSat::Miss,
-            Some(Outcome::Skip) => r.as_ref().relevance == ClickSat::Skip,
-            Some(Outcome::Click) => r.as_ref().relevance > ClickSat::Low,
-            None => true,
+        .filter(|r| {
+            let relevance = r.as_ref().relevance;
+            match outcome {
+                Some(MrrOutcome::Miss) => relevance == ClickSat::Miss,
+                Some(MrrOutcome::Skip) => relevance == ClickSat::Skip,
+                Some(MrrOutcome::Click) => relevance > ClickSat::Low,
+                None => true,
+            }
         })
         .filter(|r| pred.map_or(true, |p| p.apply(r)))
         .collect_vec();
@@ -136,11 +139,13 @@ impl AsRef<SearchResult> for SearchResult {
     }
 }
 
-/// Yandex notion of dwell-time: time elapsed between a click and the next action.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+/// Click satisfaction score.
+///
+/// Based on Yandex notion of dwell-time: time elapsed between a click and the next action.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 enum ClickSat {
     /// Snippet examined but URL not clicked.
-    Skip = -2,
+    Skip,
     /// Snippet not examined.
     Miss,
     /// Less than 50 units of time or no click.
@@ -201,7 +206,10 @@ fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
 fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
     let rank_freqs = results
         .iter()
-        .filter_map(|r| (r.as_ref().relevance > ClickSat::Low).then(|| r.as_ref().position))
+        .filter_map(|r| {
+            let r = r.as_ref();
+            (r.relevance > ClickSat::Low).then(|| r.position)
+        })
         .counts();
 
     let freqs_sum = rank_freqs.values().sum::<usize>() as f32;
@@ -288,7 +296,7 @@ fn user_features(history: &[SearchResult]) -> UserFeatures {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-enum Outcome {
+enum MrrOutcome {
     Miss,
     Skip,
     Click,
@@ -298,11 +306,11 @@ enum Outcome {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum AtomFeat {
     /// miss MRR, skip MRR, click MRR.
-    MeanRecipRank(Outcome),
+    MeanRecipRank(MrrOutcome),
     /// MRR.
     MeanRecipRankAll,
     /// missed, skipped, click2.
-    CondProb(Outcome),
+    CondProb(ClickSat),
     /// Snippet quality.
     SnippetQuality,
 }
@@ -324,7 +332,7 @@ struct AggregFeatures {
 
 fn aggreg_features(hist: &[SearchResult], doc: DocAddr, query: Query, sess: i32) -> AggregFeatures {
     let anterior = SessionCond::Anterior(sess);
-    let test = SessionCond::Test(sess);
+    let test = SessionCond::Current(sess);
 
     let pred_dom = FilterPred::new(doc.dom);
     let dom = aggreg_feat(hist, pred_dom);
@@ -361,11 +369,9 @@ fn aggreg_feat(hist: &[SearchResult], pred: FilterPred) -> FeatMap {
         AtomFeat::MeanRecipRank(outcome) => mean_recip_rank(hist, Some(outcome), Some(pred)),
         AtomFeat::MeanRecipRankAll => mean_recip_rank(hist, None, Some(pred)),
         AtomFeat::SnippetQuality => snippet_quality(),
-        AtomFeat::CondProb(Outcome::Miss) => cond_prob(hist, ClickSat::Miss, pred),
-        AtomFeat::CondProb(Outcome::Skip) => cond_prob(hist, ClickSat::Skip, pred),
-        AtomFeat::CondProb(Outcome::Click) => cond_prob(hist, ClickSat::High, pred),
+        AtomFeat::CondProb(outcome) => cond_prob(hist, outcome, pred),
     };
-    pred.feature_list()
+    pred.agg_spec()
         .into_iter()
         .map(|atom_feat| (atom_feat, eval_atom(atom_feat)))
         .collect()
@@ -373,7 +379,7 @@ fn aggreg_feat(hist: &[SearchResult], pred: FilterPred) -> FeatMap {
 
 /// Quality of the snippet associated with a search result.
 fn snippet_quality() -> f32 {
-    0. // TODO
+    todo!()
 }
 
 /// Probability of an outcome conditioned on some predicate.
@@ -419,7 +425,7 @@ enum SessionCond {
     /// Before current session.
     Anterior(i32),
     /// Current session.
-    Test(i32),
+    Current(i32),
     /// All historic.
     All,
 }
@@ -451,43 +457,47 @@ impl FilterPred {
         self
     }
 
-    fn feature_list(&self) -> Vec<AtomFeat> {
+    /// Lookup the specification of the aggregate feature for this filter predicate.
+    fn agg_spec(&self) -> Vec<AtomFeat> {
         use AtomFeat::{
             CondProb as CP,
             MeanRecipRank as MRR,
-            MeanRecipRankAll as MRR0,
+            MeanRecipRankAll as mrr,
             SnippetQuality as SQ,
         };
-        use Outcome::*;
-        use SessionCond::{All, Anterior as Ant, Test};
+        use ClickSat::{High as click2, Miss as miss, Skip as skip};
+        use MrrOutcome::*;
+        use SessionCond::{All, Anterior as Ant, Current};
         use UrlOrDom::*;
 
         match (self.doc, self.query, self.session) {
-            (Dom(_), None, All) => vec![CP(Skip), CP(Miss), CP(Click), SQ],
-            (Dom(_), None, Ant(_)) => vec![CP(Click), CP(Miss), SQ],
-            (Url(_), None, All) => vec![MRR(Click), CP(Click), CP(Miss), SQ],
-            (Url(_), None, Ant(_)) => vec![CP(Click), CP(Miss), SQ],
-            (Dom(_), Some(_), All) => vec![CP(Miss), SQ, MRR(Miss)],
+            (Dom(_), None, All) => vec![CP(skip), CP(miss), CP(click2), SQ],
+            (Dom(_), None, Ant(_)) => vec![CP(click2), CP(miss), SQ],
+            (Url(_), None, All) => vec![MRR(Click), CP(click2), CP(miss), SQ],
+            (Url(_), None, Ant(_)) => vec![CP(click2), CP(miss), SQ],
+            (Dom(_), Some(_), All) => vec![CP(miss), SQ, MRR(Miss)],
             (Dom(_), Some(_), Ant(_)) => vec![SQ],
-            (Url(_), Some(_), All) => vec![MRR0, CP(Click), CP(Miss), SQ],
-            (Url(_), Some(_), Ant(_)) => vec![MRR0, MRR(Click), MRR(Miss), MRR(Skip), CP(Miss), SQ],
-            (Url(_), Some(_), Test(_)) => vec![MRR(Miss)],
+            (Url(_), Some(_), All) => vec![mrr, CP(click2), CP(miss), SQ],
+            (Url(_), Some(_), Ant(_)) => vec![mrr, MRR(Click), MRR(Miss), MRR(Skip), CP(skip), SQ],
+            (Url(_), Some(_), Current(_)) => vec![MRR(Miss)],
             _ => vec![],
         }
     }
 
     fn apply(&self, r: impl AsRef<SearchResult>) -> bool {
+        let r = r.as_ref();
         let doc_cond = match self.doc {
-            UrlOrDom::Url(url) => r.as_ref().url == url,
-            UrlOrDom::Dom(dom) => r.as_ref().domain == dom,
+            UrlOrDom::Url(url) => r.url == url,
+            UrlOrDom::Dom(dom) => r.domain == dom,
         };
         let query_cond = match self.query {
-            Some(id) => r.as_ref().query_id == id,
+            Some(id) => r.query_id == id,
             None => true,
         };
+        let session_id = r.session_id;
         let session_cond = match self.session {
-            SessionCond::Anterior(id) => r.as_ref().session_id < id,
-            SessionCond::Test(id) => r.as_ref().session_id == id,
+            SessionCond::Anterior(id) => session_id < id,
+            SessionCond::Current(id) => session_id == id,
             SessionCond::All => true,
         };
         doc_cond && query_cond && session_cond
