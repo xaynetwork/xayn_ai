@@ -317,6 +317,36 @@ enum AtomFeat {
 
 type FeatMap = HashMap<AtomFeat, f32>;
 
+struct CumFeatures {
+    url: FeatMap,
+}
+
+fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
+    use UrlOrDom::Url;
+
+    let url = hist
+        .iter()
+        .filter(|r| {
+            r.session_id == res.session_id
+                && r.query_id == res.query_id
+                && r.query_counter == res.query_counter
+                && r.position < res.position
+        })
+        .flat_map(|r| {
+            let pred = FilterPred::new(Url(r.url));
+            pred.cum_spec()
+                .into_iter()
+                .map(move |outcome| (outcome, cond_prob(hist, outcome, pred)))
+        })
+        .fold(HashMap::new(), |mut cp_map, (outcome, cp)| {
+            let sum = cp_map.entry(AtomFeat::CondProb(outcome)).or_insert(cp);
+            *sum += cp;
+            cp_map
+        });
+
+    CumFeatures { url }
+}
+
 /// Aggregate features for a given user.
 struct AggregFeatures {
     dom: FeatMap,
@@ -327,12 +357,12 @@ struct AggregFeatures {
     dom_query_ant: FeatMap,
     url_query: FeatMap,
     url_query_ant: FeatMap,
-    url_query_test: FeatMap,
+    url_query_curr: FeatMap,
 }
 
 fn aggreg_features(hist: &[SearchResult], doc: DocAddr, query: Query, sess: i32) -> AggregFeatures {
     let anterior = SessionCond::Anterior(sess);
-    let test = SessionCond::Current(sess);
+    let current = SessionCond::Current(sess);
 
     let pred_dom = FilterPred::new(doc.dom);
     let dom = aggreg_feat(hist, pred_dom);
@@ -349,7 +379,7 @@ fn aggreg_features(hist: &[SearchResult], doc: DocAddr, query: Query, sess: i32)
     let pred_url_query = pred_url.with_query(query.id);
     let url_query = aggreg_feat(hist, pred_url_query);
     let url_query_ant = aggreg_feat(hist, pred_url_query.with_session(anterior));
-    let url_query_test = aggreg_feat(hist, pred_url_query.with_session(test));
+    let url_query_curr = aggreg_feat(hist, pred_url_query.with_session(current));
 
     AggregFeatures {
         dom,
@@ -360,7 +390,7 @@ fn aggreg_features(hist: &[SearchResult], doc: DocAddr, query: Query, sess: i32)
         dom_query_ant,
         url_query,
         url_query_ant,
-        url_query_test,
+        url_query_curr,
     }
 }
 
@@ -480,6 +510,18 @@ impl FilterPred {
             (Url(_), Some(_), All) => vec![mrr, CP(click2), CP(miss), SQ],
             (Url(_), Some(_), Ant(_)) => vec![mrr, MRR(Click), MRR(Miss), MRR(Skip), CP(skip), SQ],
             (Url(_), Some(_), Current(_)) => vec![MRR(Miss)],
+            _ => vec![],
+        }
+    }
+
+    /// Lookup the specification of the cumulated feature for this filter predicate.
+    fn cum_spec(&self) -> Vec<ClickSat> {
+        use ClickSat::{High as click2, Medium as click1, Skip as skip};
+        use SessionCond::All;
+        use UrlOrDom::*;
+
+        match (self.doc, self.query, self.session) {
+            (Url(_), None, All) => vec![skip, click1, click2],
             _ => vec![],
         }
     }
