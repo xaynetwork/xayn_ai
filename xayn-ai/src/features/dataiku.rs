@@ -203,6 +203,7 @@ fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
     2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
 }
 
+/// Entropy over the rank of the given results that were clicked.
 fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
     let rank_freqs = results
         .iter()
@@ -222,9 +223,13 @@ fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
         .sum()
 }
 
+/// Click counter.
 struct ClickCounts {
+    /// Click count of results ranked 1-2.
     click12: u32,
+    /// Click count of results ranked 3-5.
     click345: u32,
+    /// Click count of results ranked 6-10.
     click6to10: u32,
 }
 
@@ -305,11 +310,11 @@ enum MrrOutcome {
 /// Atomic features of which an aggregate feature is composed of.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum AtomFeat {
-    /// miss MRR, skip MRR, click MRR.
+    /// MRR for miss, skip, click.
     MeanRecipRank(MrrOutcome),
-    /// MRR.
+    /// MRR for all outcomes.
     MeanRecipRankAll,
-    /// missed, skipped, click2.
+    /// Conditional probabilities for miss, skip, click0, click1, click2.
     CondProb(ClickSat),
     /// Snippet quality.
     SnippetQuality,
@@ -317,29 +322,32 @@ enum AtomFeat {
 
 type FeatMap = HashMap<AtomFeat, f32>;
 
+/// Cumulated features for a given user.
 struct CumFeatures {
+    /// Cumulated feature for matching URL.
     url: FeatMap,
 }
 
 fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
-    use UrlOrDom::Url;
-
     let url = hist
         .iter()
+        // if res is ranked n, get the n-1 results ranked above res
         .filter(|r| {
             r.session_id == res.session_id
                 && r.query_id == res.query_id
                 && r.query_counter == res.query_counter
                 && r.position < res.position
         })
+        // calculate specified cond probs for each of the above
         .flat_map(|r| {
-            let pred = FilterPred::new(Url(r.url));
+            let pred = FilterPred::new(UrlOrDom::Url(r.url));
             pred.cum_spec()
                 .into_iter()
                 .map(move |outcome| (outcome, cond_prob(hist, outcome, pred)))
         })
+        // sum cond probs for each outcome
         .fold(HashMap::new(), |mut cp_map, (outcome, cp)| {
-            let sum = cp_map.entry(AtomFeat::CondProb(outcome)).or_insert(cp);
+            let sum = cp_map.entry(AtomFeat::CondProb(outcome)).or_insert(0.);
             *sum += cp;
             cp_map
         });
@@ -349,14 +357,23 @@ fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
 
 /// Aggregate features for a given user.
 struct AggregFeatures {
+    /// Aggregate feature for matching domain.
     dom: FeatMap,
+    /// Aggregate feature for matching domain over anterior sessions.
     dom_ant: FeatMap,
+    /// Aggregate feature for matching URL.
     url: FeatMap,
+    /// Aggregate feature for matching URL over anterior sessions.
     url_ant: FeatMap,
+    /// Aggregate feature for matching domain and query.
     dom_query: FeatMap,
+    /// Aggregate feature for matching domain and query over anterior sessions.
     dom_query_ant: FeatMap,
+    /// Aggregate feature for matching URL and query.
     url_query: FeatMap,
+    /// Aggregate feature for matching URL and query over anterior sessions.
     url_query_ant: FeatMap,
+    /// Aggregate feature for matching URL and query over current session.
     url_query_curr: FeatMap,
 }
 
@@ -460,7 +477,7 @@ enum SessionCond {
     All,
 }
 
-/// A filter predicate representing a boolean condition on a search result.
+/// Filter predicate representing a boolean condition on a search result.
 #[derive(Clone, Copy)]
 struct FilterPred {
     doc: UrlOrDom,
@@ -526,6 +543,7 @@ impl FilterPred {
         }
     }
 
+    /// Applies the predicate to the given search result.
     fn apply(&self, r: impl AsRef<SearchResult>) -> bool {
         let r = r.as_ref();
         let doc_cond = match self.doc {
