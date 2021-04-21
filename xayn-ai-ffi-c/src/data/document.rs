@@ -23,7 +23,7 @@ pub struct CDocuments<'a> {
     pub data: *const CDocument<'a>,
     /// The number of documents.
     pub len: u32,
-    // covariant in lifetime and type
+    // lifetime attached to the foreign raw slice of documents (never use 'static for 'a)
     _lifetime: PhantomData<&'a [CDocument<'a>]>,
 }
 

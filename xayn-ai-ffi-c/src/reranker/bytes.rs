@@ -18,7 +18,7 @@ pub struct CBytes<'a> {
     pub data: *const u8,
     /// The number of bytes.
     pub len: u32,
-    // covariant in lifetime and type, only relevant for borrowed data
+    // lifetime attached to the foreign raw slice of bytes (only use 'static for 'a if it's owned)
     _lifetime: PhantomData<&'a [u8]>,
 }
 

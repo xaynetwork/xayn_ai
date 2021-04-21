@@ -63,7 +63,7 @@ pub struct CHistories<'a> {
     pub data: *const CHistory<'a>,
     /// The number of document histories.
     pub len: u32,
-    // covariant in lifetime and type
+    // lifetime attached to the foreign raw slice of document histories (never use 'static for 'a)
     _lifetime: PhantomData<&'a [CHistory<'a>]>,
 }
 
