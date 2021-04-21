@@ -20,7 +20,7 @@ pub struct Document {
     pub snippet: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct DocumentHistory {
     /// unique identifier of this document
     pub id: DocumentId,
@@ -30,14 +30,14 @@ pub struct DocumentHistory {
     pub user_feedback: UserFeedback,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 pub enum UserFeedback {
     Relevant,
     Irrelevant,
     None,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 pub enum Relevance {
     Low,
     Medium,
