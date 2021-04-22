@@ -30,18 +30,19 @@ class XaynAi {
   XaynAi(String vocab, String model, [Uint8List? serialized]) {
     final vocabPtr = vocab.toNativeUtf8().cast<Int8>();
     final modelPtr = model.toNativeUtf8().cast<Int8>();
-    final bytes = Bytes.fromList(serialized ?? Uint8List(0));
+    Bytes? bytes;
     final error = XaynAiError();
 
-    _ai = ffi.xaynai_new(vocabPtr, modelPtr, bytes.ptr, error.ptr);
     try {
+      bytes = Bytes.fromList(serialized ?? Uint8List(0));
+      _ai = ffi.xaynai_new(vocabPtr, modelPtr, bytes.ptr, error.ptr);
       if (error.isError()) {
         throw error.toException();
       }
     } finally {
       malloc.free(vocabPtr);
       malloc.free(modelPtr);
-      bytes.free();
+      bytes?.free();
       error.free();
     }
   }

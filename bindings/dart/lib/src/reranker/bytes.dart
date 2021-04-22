@@ -6,30 +6,34 @@ import 'package:ffi/ffi.dart' show malloc;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBytes;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 
 /// A bytes buffer.
 class Bytes {
   late Pointer<CBytes> _bytes;
-  final bool _owned;
 
-  /// Creates the borrowed bytes buffer.
+  /// Creates the bytes buffer from a pointer.
   ///
   /// This constructor never throws an exception.
-  Bytes(this._bytes) : _owned = false;
+  Bytes(this._bytes);
 
-  /// Creates the owned bytes buffer.
+  /// Creates the bytes buffer from a list.
   ///
-  /// This constructor never throws an exception.
-  Bytes.fromList(Uint8List bytes) : _owned = true {
-    _bytes = malloc.call<CBytes>();
-    _bytes.ref.len = bytes.length;
+  /// This constructor can throw an exception.
+  Bytes.fromList(Uint8List bytes) {
+    final error = XaynAiError();
     if (bytes.isEmpty) {
-      _bytes.ref.data = nullptr;
+      _bytes = ffi.bytes_new(nullptr, 0, error.ptr);
     } else {
-      _bytes.ref.data = malloc.call<Uint8>(_bytes.ref.len);
+      final bytesPtr = malloc.call<Uint8>(bytes.length);
       bytes.asMap().forEach((i, byte) {
-        _bytes.ref.data[i] = byte;
+        bytesPtr[i] = byte;
       });
+      _bytes = ffi.bytes_new(bytesPtr, bytes.length, error.ptr);
+      malloc.free(bytesPtr);
+    }
+    if (error.isError()) {
+      throw error.toException();
     }
   }
 
@@ -52,14 +56,7 @@ class Bytes {
   /// Frees the memory.
   void free() {
     if (_bytes != nullptr) {
-      if (_owned) {
-        if (_bytes.ref.data != nullptr) {
-          malloc.free(_bytes.ref.data);
-        }
-        malloc.free(_bytes);
-      } else {
-        ffi.bytes_drop(_bytes);
-      }
+      ffi.bytes_drop(_bytes);
       _bytes = nullptr;
     }
   }
