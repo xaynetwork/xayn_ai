@@ -1,4 +1,4 @@
-use wasm_bindgen::prelude::JsValue;
+use wasm_bindgen::JsValue;
 
 pub trait ToJsResult<T> {
     fn to_js_result(self) -> Result<T, JsValue>;
