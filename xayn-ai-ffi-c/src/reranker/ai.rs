@@ -162,11 +162,11 @@ impl CXaynAi {
 ///
 /// # Safety
 /// The behavior is undefined if:
-/// - A non-null `serialized` database doesn't point to an aligned, contiguous area of memory.
-/// - A serialized database `size` is too large to address the memory of a non-null serialized
-/// database array.
 /// - A non-null `vocab` or `model` path doesn't point to an aligned, contiguous area of memory with
 /// a terminating null byte.
+/// - A non-null `serialized` database doesn't point to an aligned, contiguous area of memory.
+/// - A serialized database `len` is too large to address the memory of a non-null serialized
+/// database array.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
 #[no_mangle]

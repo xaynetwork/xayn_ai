@@ -1,3 +1,5 @@
+//! Utilities.
+
 /// This function does nothing.
 ///
 /// Calling this prevents Swift to drop the library.
