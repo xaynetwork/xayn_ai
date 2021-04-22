@@ -27,7 +27,7 @@ pub fn xaynai_new(
 #[wasm_bindgen]
 pub fn xaynai_rerank(
     xaynai: &mut WXaynAi,
-    // vec is the same as Box<[JsValue]>
+    // Vec<JsValue> behaves like Box<[JsValue]> here
     // https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/convert/trait.FromWasmAbi.html#impl-FromWasmAbi-for-Box%3C%5BJsValue%5D%3E
     history: Vec<JsValue>,
     documents: Vec<JsValue>,
