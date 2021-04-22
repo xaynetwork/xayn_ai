@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart'
+    show getApplicationDocumentsDirectory;
 import 'package:xayn_ai_ffi_dart/package.dart' show XaynAi;
 
 void main() {
@@ -15,25 +16,23 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
+  late XaynAi _ai;
 
   @override
   void initState() {
     super.initState();
-    initPlatformState();
+    initAi();
   }
 
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformState() async {
-    String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    // We also handle the message potentially returning null.
-    try {
-      //platformVersion =
-      //await XaynAiFfiDart.platformVersion ?? 'Unknown platform version';
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
+  @override
+  void dispose() {
+    super.dispose();
+    _ai.free();
+  }
+
+  Future<void> initAi() async {
+    final data = await getApplicationDocumentsDirectory()
+        .then((dir) => XaynAi.inputData(dir.path));
 
     // If the widget was removed from the tree while the asynchronous platform
     // message was in flight, we want to discard the reply rather than calling
@@ -41,7 +40,7 @@ class _MyAppState extends State<MyApp> {
     if (!mounted) return;
 
     setState(() {
-      //_platformVersion = platformVersion;
+      _ai = XaynAi.fromInputData(data);
     });
   }
 
@@ -53,7 +52,7 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: Text('Running on:\n'),
         ),
       ),
     );
