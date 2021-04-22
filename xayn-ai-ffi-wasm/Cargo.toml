@@ -18,3 +18,5 @@ wasm-bindgen-test = "0.3.23"
 
 [lib]
 crate-type = ["cdylib"]
+[package.metadata.wasm-pack.profile.profiling]
+wasm-opt = ['-O', '-g']
