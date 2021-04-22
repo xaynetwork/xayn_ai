@@ -75,10 +75,7 @@ impl CCode {
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
-    let drop = || {
-        unsafe { CCode::drop_message(error) };
-        Result::<_, ExternError>::Ok(())
-    };
+    let drop = || Ok(unsafe { CCode::drop_message(error) });
     let clean = || {};
     let error = None;
 

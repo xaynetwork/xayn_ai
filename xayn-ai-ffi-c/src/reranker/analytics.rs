@@ -1,4 +1,4 @@
-use ffi_support::{implement_into_ffi_by_pointer, ExternError};
+use ffi_support::implement_into_ffi_by_pointer;
 use xayn_ai::Analytics;
 
 use crate::result::call_with_result;
@@ -29,10 +29,7 @@ impl CAnalytics {
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn analytics_drop(analytics: *mut CAnalytics) {
-    let drop = || {
-        unsafe { CAnalytics::drop(analytics) };
-        Result::<_, ExternError>::Ok(())
-    };
+    let drop = || Ok(unsafe { CAnalytics::drop(analytics) });
     let clean = || {};
     let error = None;
 

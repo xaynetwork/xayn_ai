@@ -48,6 +48,17 @@ unsafe impl IntoFfi for Bytes {
     }
 }
 
+impl Bytes {
+    /// See [`bytes_new()`] for more.
+    unsafe fn new(data: *const u8, len: u32) -> Self {
+        if data.is_null() || len == 0 {
+            Self(Vec::new())
+        } else {
+            Self(unsafe { from_raw_parts(data, len as usize) }.to_vec())
+        }
+    }
+}
+
 impl<'a> CBytes<'a> {
     /// Slices into the raw bytes.
     ///
@@ -80,21 +91,45 @@ impl<'a> CBytes<'a> {
     }
 }
 
+/// Creates an owned bytes buffer from the data.
+///
+/// # Errors
+/// Returns a null pointer if:
+/// - An unexpected panic happened.
+///
+/// # Safety
+/// The bahavior is undefined if:
+/// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least `len`
+/// many [`u8`]s.
+/// - A `len` is too large to address the memory of a non-null [`u8`] array.
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
+/// [`ExternError`].
+#[no_mangle]
+pub unsafe extern "C" fn bytes_new(
+    data: *const u8,
+    len: u32,
+    error: *mut ExternError,
+) -> *mut CBytes<'static> {
+    let new = || Ok(unsafe { Bytes::new(data, len) });
+    let clean = || {};
+    let error = unsafe { error.as_mut() };
+
+    call_with_result(new, clean, error)
+}
+
 /// Frees the memory of the bytes buffer.
 ///
 /// # Safety
 /// The behavior is undefined if:
-/// - A non-null `bytes` buffer doesn't point to memory allocated by [`xaynai_serialize()`].
+/// - A non-null `bytes` buffer doesn't point to memory allocated by [`bytes_new()`] or
+/// [`xaynai_serialize()`].
 /// - A non-null `bytes` buffer is freed more than once.
 /// - A non-null `bytes` buffer is accessed after being freed.
 ///
 /// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
 #[no_mangle]
-pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
-    let drop = || {
-        unsafe { CBytes::drop(buffer) };
-        Result::<_, ExternError>::Ok(())
-    };
+pub unsafe extern "C" fn bytes_drop(bytes: *mut CBytes) {
+    let drop = || Ok(unsafe { CBytes::drop(bytes) });
     let clean = || {};
     let error = None;
 
@@ -102,11 +137,11 @@ pub unsafe extern "C" fn bytes_drop(buffer: *mut CBytes) {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
-    use std::{pin::Pin, slice::from_raw_parts};
+mod tests {
+    use std::pin::Pin;
 
     use super::*;
-    use crate::utils::tests::AsPtr;
+    use crate::{result::error::CCode, utils::tests::AsPtr};
 
     impl AsPtr for CBytes<'_> {}
 
@@ -128,7 +163,7 @@ pub(crate) mod tests {
     }
 
     pub struct TestBytes<'a> {
-        _bytes: Pin<Vec<u8>>,
+        vec: Pin<Vec<u8>>,
         bytes: CBytes<'a>,
     }
 
@@ -148,24 +183,25 @@ pub(crate) mod tests {
 
     impl Default for TestBytes<'_> {
         fn default() -> Self {
-            let _bytes = Pin::new(Vec::new());
-            let bytes = _bytes.as_ref().into();
+            let vec = Pin::new((0..10).collect::<Vec<_>>());
+            let bytes = vec.as_ref().into();
 
-            Self { _bytes, bytes }
+            Self { vec, bytes }
         }
     }
 
     #[test]
     fn test_into_raw() {
-        let buffer = (0..10).collect::<Vec<_>>();
-        let bytes = Bytes(buffer.clone()).into_ffi_value();
+        let buffer = TestBytes::default();
+        let bytes = Bytes(buffer.vec.to_vec()).into_ffi_value();
 
         assert!(!bytes.is_null());
-        let data = unsafe { &*bytes }.data;
-        let len = unsafe { &*bytes }.len as usize;
-        assert!(!data.is_null());
-        assert_eq!(len, buffer.len());
-        assert_eq!(unsafe { from_raw_parts(data, len) }, buffer);
+        assert!(!unsafe { &*bytes }.data.is_null());
+        assert_eq!(unsafe { &*bytes }.len as usize, buffer.vec.len());
+        assert_eq!(
+            unsafe { (&*bytes).as_slice() },
+            buffer.vec.as_ref().get_ref(),
+        );
 
         unsafe { bytes_drop(bytes) };
     }
@@ -177,6 +213,35 @@ pub(crate) mod tests {
         assert!(!bytes.is_null());
         assert!(unsafe { &*bytes }.data.is_null());
         assert_eq!(unsafe { &*bytes }.len, 0);
+        assert!(unsafe { (&*bytes).as_slice() }.is_empty());
+
+        unsafe { bytes_drop(bytes) };
+    }
+
+    #[test]
+    fn test_new() {
+        let buffer = TestBytes::default();
+        let mut error = ExternError::default();
+
+        let bytes = unsafe { bytes_new(buffer.bytes.data, buffer.bytes.len, error.as_mut_ptr()) };
+        assert!(!bytes.is_null());
+        assert_eq!(error.get_code(), CCode::Success);
+        assert_eq!(
+            unsafe { (&*bytes).as_slice() },
+            buffer.vec.as_ref().get_ref(),
+        );
+
+        unsafe { bytes_drop(bytes) };
+    }
+
+    #[test]
+    fn test_empty() {
+        let mut error = ExternError::default();
+
+        let bytes = unsafe { bytes_new(null(), 0, error.as_mut_ptr()) };
+        assert!(!bytes.is_null());
+        assert_eq!(error.get_code(), CCode::Success);
+        assert!(unsafe { (&*bytes).as_slice() }.is_empty());
 
         unsafe { bytes_drop(bytes) };
     }

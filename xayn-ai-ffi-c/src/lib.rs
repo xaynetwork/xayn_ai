@@ -24,7 +24,7 @@ pub use crate::{
             CXaynAi,
         },
         analytics::{analytics_drop, CAnalytics},
-        bytes::{bytes_drop, CBytes},
+        bytes::{bytes_drop, bytes_new, CBytes},
     },
     result::{
         error::{error_message_drop, CCode},

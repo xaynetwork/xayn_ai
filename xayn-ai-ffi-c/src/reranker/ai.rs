@@ -48,7 +48,7 @@ impl CXaynAi {
         vocab: FfiStr,
         model: FfiStr,
         serialized: *const CBytes,
-    ) -> Result<CXaynAi, ExternError> {
+    ) -> Result<Self, ExternError> {
         let vocab = vocab.as_opt_str().ok_or_else(|| {
             CCode::VocabPointer.with_context(
                 "Failed to initialize the ai: The vocab is not a valid C-string pointer",
@@ -77,7 +77,7 @@ impl CXaynAi {
                 ))
             })?
             .build()
-            .map(CXaynAi)
+            .map(Self)
             .map_err(|cause| {
                 CCode::InitAi.with_context(format!("Failed to initialize the ai: {}", cause))
             })
@@ -315,10 +315,7 @@ pub unsafe extern "C" fn xaynai_analytics(
 /// - A non-null `xaynai` is accessed after being freed.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
-    let drop = || {
-        unsafe { CXaynAi::drop(xaynai) };
-        Result::<_, ExternError>::Ok(())
-    };
+    let drop = || Ok(unsafe { CXaynAi::drop(xaynai) });
     let clean = || {};
     let error = None;
 
@@ -336,10 +333,7 @@ mod tests {
     use super::*;
     use crate::{
         data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
-        reranker::{
-            analytics::analytics_drop,
-            bytes::{bytes_drop, tests::TestBytes},
-        },
+        reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,
@@ -381,13 +375,41 @@ mod tests {
         }
     }
 
+    pub struct TestDb<'a> {
+        _vec: Pin<Vec<u8>>,
+        bytes: CBytes<'a>,
+    }
+
+    impl Drop for TestDb<'_> {
+        fn drop(&mut self) {}
+    }
+
+    impl<'a> AsPtr<CBytes<'a>> for TestDb<'a> {
+        fn as_ptr(&self) -> *const CBytes<'a> {
+            self.bytes.as_ptr()
+        }
+
+        fn as_mut_ptr(&mut self) -> *mut CBytes<'a> {
+            self.bytes.as_mut_ptr()
+        }
+    }
+
+    impl Default for TestDb<'_> {
+        fn default() -> Self {
+            let _vec = Pin::new(Vec::new());
+            let bytes = _vec.as_ref().into();
+
+            Self { _vec, bytes }
+        }
+    }
+
     #[test]
     fn test_rerank() {
         let vocab = TestVocab::default();
         let model = TestModel::default();
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let xaynai = unsafe {
@@ -412,7 +434,7 @@ mod tests {
     fn test_serialize() {
         let vocab = TestVocab::default();
         let model = TestModel::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let xaynai = unsafe {
@@ -436,7 +458,7 @@ mod tests {
     fn test_faults() {
         let vocab = TestVocab::default();
         let model = TestModel::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let xaynai = unsafe {
@@ -460,7 +482,7 @@ mod tests {
     fn test_analytics() {
         let vocab = TestVocab::default();
         let model = TestModel::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let xaynai = unsafe {
@@ -483,7 +505,7 @@ mod tests {
     #[test]
     fn test_vocab_null() {
         let model = TestModel::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let invalid = unsafe { FfiStr::from_raw(null()) };
@@ -503,7 +525,7 @@ mod tests {
     #[test]
     fn test_vocab_invalid() {
         let model = TestModel::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
@@ -524,7 +546,7 @@ mod tests {
     #[test]
     fn test_model_null() {
         let vocab = TestVocab::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let invalid = unsafe { FfiStr::from_raw(null()) };
@@ -544,7 +566,7 @@ mod tests {
     #[test]
     fn test_model_invalid() {
         let vocab = TestVocab::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
@@ -632,7 +654,7 @@ mod tests {
         let vocab = TestVocab::default();
         let model = TestModel::default();
         let docs = TestDocuments::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let xaynai = unsafe {
@@ -665,7 +687,7 @@ mod tests {
         let vocab = TestVocab::default();
         let model = TestModel::default();
         let hists = TestHistories::default();
-        let db = TestBytes::default();
+        let db = TestDb::default();
         let mut error = ExternError::default();
 
         let xaynai = unsafe {
