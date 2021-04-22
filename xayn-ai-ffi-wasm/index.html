@@ -4,7 +4,7 @@
   </head>
   <body>
     <script type="module">
-      import init, {xaynai_new, xaynai_rerank} from './pkg/xayn_ai_ffi_wasm.js';
+      import init, {WXaynAi} from './pkg/xayn_ai_ffi_wasm.js';
 
       async function run() {
         await init();
@@ -18,7 +18,7 @@
 
 
         console.time("init_ai");
-        let ai = xaynai_new(vocab_buffer, model_buffer, undefined);
+        let ai = new WXaynAi(vocab_buffer, model_buffer, undefined);
         console.timeEnd("init_ai");
 
         let document_1 = {
@@ -34,7 +34,7 @@
         }
 
         console.time("rerank");
-        let ranks = xaynai_rerank(ai, [], [document_1, document_2]);
+        let ranks = ai.rerank([], [document_1, document_2]);
         console.timeEnd("rerank");
 
         console.log(ranks);
