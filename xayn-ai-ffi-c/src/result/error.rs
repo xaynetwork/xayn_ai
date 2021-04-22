@@ -6,8 +6,8 @@ use crate::result::call_with_result;
 #[repr(i32)]
 #[cfg_attr(test, derive(Clone, Copy, Debug))]
 pub enum CCode {
-    /// An uncritical error.
-    Warning = -2,
+    /// A warning or uncritical error.
+    Fault = -2,
     /// An irrecoverable error.
     Panic = -1,
     /// No error.
@@ -64,14 +64,14 @@ impl CCode {
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
 /// - A non-null error `message` doesn't point to memory allocated by [`xaynai_new()`],
-/// [`xaynai_rerank()`], [`xaynai_serialize()`], [`xaynai_warnings()`] or [`xaynai_analytics()`].
+/// [`xaynai_rerank()`], [`xaynai_serialize()`], [`xaynai_faults()`] or [`xaynai_analytics()`].
 /// - A non-null error `message` is freed more than once.
 /// - A non-null error `message` is accessed after being freed.
 ///
 /// [`xaynai_new()`]: crate::reranker::ai::xaynai_new
 /// [`xaynai_rerank()`]: crate::reranker::ai::xaynai_rerank
 /// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
-/// [`xaynai_warnings()`]: crate::reranker::ai::xaynai_warnings
+/// [`xaynai_faults()`]: crate::reranker::ai::xaynai_faults
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {

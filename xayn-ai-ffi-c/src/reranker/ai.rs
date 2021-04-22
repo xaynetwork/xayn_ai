@@ -16,7 +16,7 @@ use crate::{
     result::{
         call_with_result,
         error::CCode,
-        warning::{CWarnings, Warnings},
+        fault::{CFaults, Faults},
     },
 };
 
@@ -123,10 +123,10 @@ impl CXaynAi {
         })
     }
 
-    /// See [`xaynai_warnings()`] for more.
-    unsafe fn warnings(xaynai: *const Self) -> Result<Warnings, ExternError> {
+    /// See [`xaynai_faults()`] for more.
+    unsafe fn faults(xaynai: *const Self) -> Result<Faults, ExternError> {
         let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
-            CCode::AiPointer.with_context("Failed to get the warnings: The ai pointer is null")
+            CCode::AiPointer.with_context("Failed to get the faults: The ai pointer is null")
         })?;
 
         Ok(xaynai.0.errors().into())
@@ -256,7 +256,9 @@ pub unsafe extern "C" fn xaynai_serialize(
     call_with_result(serialize, clean, error)
 }
 
-/// Retrieves warnings which might occur during reranking.
+/// Retrieves faults which might occur during reranking.
+///
+/// Faults can range from warnings to errors which are handled in some default way internally.
 ///
 /// # Errors
 /// Returns a null pointer if:
@@ -269,15 +271,15 @@ pub unsafe extern "C" fn xaynai_serialize(
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
 #[no_mangle]
-pub unsafe extern "C" fn xaynai_warnings(
+pub unsafe extern "C" fn xaynai_faults(
     xaynai: *mut CXaynAi,
     error: *mut ExternError,
-) -> *mut CWarnings {
-    let warnings = || unsafe { CXaynAi::warnings(xaynai) };
+) -> *mut CFaults {
+    let faults = || unsafe { CXaynAi::faults(xaynai) };
     let clean = || {};
     let error = unsafe { error.as_mut() };
 
-    call_with_result(warnings, clean, error)
+    call_with_result(faults, clean, error)
 }
 
 /// Retrieves the analytics which were collected in the penultimate reranking.
@@ -338,7 +340,7 @@ mod tests {
             analytics::analytics_drop,
             bytes::{bytes_drop, tests::TestBytes},
         },
-        result::{error::error_message_drop, warning::warnings_drop},
+        result::{error::error_message_drop, fault::faults_drop},
         tests::{MODEL, VOCAB},
         utils::tests::AsPtr,
     };
@@ -431,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn test_warnings() {
+    fn test_faults() {
         let vocab = TestVocab::default();
         let model = TestModel::default();
         let db = TestBytes::default();
@@ -447,10 +449,10 @@ mod tests {
         };
         assert!(!xaynai.is_null());
         assert_eq!(error.get_code(), CCode::Success);
-        let warnings = unsafe { xaynai_warnings(xaynai, error.as_mut_ptr()) };
+        let faults = unsafe { xaynai_faults(xaynai, error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CCode::Success);
 
-        unsafe { warnings_drop(warnings) };
+        unsafe { faults_drop(faults) };
         unsafe { xaynai_drop(xaynai) };
     }
 
@@ -596,15 +598,15 @@ mod tests {
     }
 
     #[test]
-    fn test_ai_null_warnings() {
+    fn test_ai_null_faults() {
         let mut error = ExternError::default();
 
         let invalid = null_mut();
-        assert!(unsafe { xaynai_warnings(invalid, error.as_mut_ptr()) }.is_null());
+        assert!(unsafe { xaynai_faults(invalid, error.as_mut_ptr()) }.is_null());
         assert_eq!(error.get_code(), CCode::AiPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to get the warnings: The ai pointer is null",
+            "Failed to get the faults: The ai pointer is null",
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };

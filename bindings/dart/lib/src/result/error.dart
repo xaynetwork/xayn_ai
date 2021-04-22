@@ -7,8 +7,8 @@ import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The Xayn AI error codes.
 enum Code {
-  /// An uncritical error.
-  warning,
+  /// A warning or uncritical error.
+  fault,
 
   /// An irrecoverable error.
   panic,
@@ -57,8 +57,8 @@ extension CodeInt on Code {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
-      case Code.warning:
-        return CCode.Warning;
+      case Code.fault:
+        return CCode.Fault;
       case Code.panic:
         return CCode.Panic;
       case Code.success:
@@ -95,8 +95,8 @@ extension CodeInt on Code {
   /// Creates the error code from a discriminant.
   static Code fromInt(int idx) {
     switch (idx) {
-      case CCode.Warning:
-        return Code.warning;
+      case CCode.Fault:
+        return Code.fault;
       case CCode.Panic:
         return Code.panic;
       case CCode.Success:
@@ -147,8 +147,8 @@ class XaynAiError {
   /// Gets the pointer.
   Pointer<CError> get ptr => _error;
 
-  /// Checks for an uncritical error code.
-  bool isWarning() => _error.ref.code == CCode.Warning;
+  /// Checks for a fault code.
+  bool isFault() => _error.ref.code == CCode.Fault;
 
   /// Checks for an irrecoverable error code.
   bool isPanic() => _error.ref.code == CCode.Panic;
@@ -157,7 +157,7 @@ class XaynAiError {
   bool isSuccess() => _error.ref.code == CCode.Success;
 
   /// Checks for an error code (both recoverable and irrecoverable).
-  bool isError() => !isSuccess() && !isWarning();
+  bool isError() => !isSuccess() && !isFault();
 
   /// Creates an exception from the error information.
   XaynAiException toException() {

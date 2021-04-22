@@ -12,7 +12,7 @@ import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart' show Analytics;
 import 'package:xayn_ai_ffi_dart/src/reranker/bytes.dart' show Bytes;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
-import 'package:xayn_ai_ffi_dart/src/result/warning.dart' show Warnings;
+import 'package:xayn_ai_ffi_dart/src/result/fault.dart' show Faults;
 
 /// The Xayn AI.
 ///
@@ -91,19 +91,21 @@ class XaynAi {
     }
   }
 
-  /// Retrieves warnings which might occur during reranking.
-  List<String> warnings() {
+  /// Retrieves faults which might occur during reranking.
+  ///
+  /// Faults can range from warnings to errors which are handled in some default way internally.
+  List<String> faults() {
     final error = XaynAiError();
 
-    final warnings = Warnings(ffi.xaynai_warnings(_ai, error.ptr));
+    final faults = Faults(ffi.xaynai_faults(_ai, error.ptr));
     try {
       if (error.isError()) {
         throw error.toException();
       }
-      return warnings.toList();
+      return faults.toList();
     } finally {
       error.free();
-      warnings.free();
+      faults.free();
     }
   }
 

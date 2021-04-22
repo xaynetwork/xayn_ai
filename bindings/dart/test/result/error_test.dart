@@ -10,12 +10,12 @@ import '../utils.dart' show throwsXaynAiException;
 
 void main() {
   group('XaynAiError', () {
-    test('warning', () {
+    test('fault', () {
       final error = XaynAiError();
-      error.ptr.ref.code = Code.warning.toInt();
-      error.ptr.ref.message = 'test warning'.toNativeUtf8().cast<Int8>();
+      error.ptr.ref.code = Code.fault.toInt();
+      error.ptr.ref.message = 'test fault'.toNativeUtf8().cast<Int8>();
 
-      expect(error.isWarning(), equals(true));
+      expect(error.isFault(), equals(true));
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(false));
@@ -29,7 +29,7 @@ void main() {
       error.ptr.ref.code = Code.panic.toInt();
       error.ptr.ref.message = 'test panic'.toNativeUtf8().cast<Int8>();
 
-      expect(error.isWarning(), equals(false));
+      expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(true));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(true));
@@ -42,7 +42,7 @@ void main() {
       final error = XaynAiError();
 
       expect(error.ptr, isNot(equals(nullptr)));
-      expect(error.isWarning(), equals(false));
+      expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(true));
       expect(error.isError(), equals(false));
@@ -55,7 +55,7 @@ void main() {
       error.ptr.ref.code = Code.aiPointer.toInt();
       error.ptr.ref.message = 'test error'.toNativeUtf8().cast<Int8>();
 
-      expect(error.isWarning(), equals(false));
+      expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(true));

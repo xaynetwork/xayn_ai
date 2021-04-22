@@ -1,5 +1,5 @@
 pub(crate) mod error;
-pub(crate) mod warning;
+pub(crate) mod fault;
 
 use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 

@@ -17,10 +17,10 @@ pub use crate::{
         ai::{
             xaynai_analytics,
             xaynai_drop,
+            xaynai_faults,
             xaynai_new,
             xaynai_rerank,
             xaynai_serialize,
-            xaynai_warnings,
             CXaynAi,
         },
         analytics::{analytics_drop, CAnalytics},
@@ -28,7 +28,7 @@ pub use crate::{
     },
     result::{
         error::{error_message_drop, CCode},
-        warning::{warnings_drop, CWarnings},
+        fault::{faults_drop, CFaults},
     },
     utils::dummy_function,
 };
