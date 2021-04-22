@@ -35,7 +35,7 @@ pub fn xaynai_rerank(
     // https://rustwasm.github.io/docs/wasm-bindgen/reference/arbitrary-data-with-serde.html
     let history = history
         .iter()
-        .map(|h| h.into_serde())
+        .map(JsValue::into_serde)
         .collect::<Result<Vec<DocumentHistory>, _>>()
         .to_js_result()?;
     let documents = documents
