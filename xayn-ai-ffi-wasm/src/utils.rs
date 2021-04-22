@@ -1,7 +1,7 @@
 use wasm_bindgen::JsValue;
 
-pub trait ToJsResult<T> {
-    fn to_js_result(self) -> Result<T, JsValue>;
+pub trait IntoJsResult<T> {
+    fn into_js_result(self) -> Result<T, JsValue>;
 }
 
 impl<T, E> ToJsResult<T> for Result<T, E>
