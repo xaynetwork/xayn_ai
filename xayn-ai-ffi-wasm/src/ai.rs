@@ -10,9 +10,13 @@ use super::utils::ToJsResult;
 pub struct WXaynAi(Reranker);
 
 #[wasm_bindgen]
-pub fn xaynai_new(serialized: &[u8], vocab: &[u8], model: &[u8]) -> Result<WXaynAi, JsValue> {
+pub fn xaynai_new(
+    vocab: &[u8],
+    model: &[u8],
+    serialized: Option<Box<[u8]>>,
+) -> Result<WXaynAi, JsValue> {
     Builder::default()
-        .with_serialized_database(serialized)
+        .with_serialized_database(&serialized.unwrap_or_default())
         .to_js_result()?
         .with_bert_from_reader(vocab, model)
         .build()
@@ -79,7 +83,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_reranker() {
-        let mut xaynai = xaynai_new(&[], VOCAB, MODEL).unwrap();
+        let mut xaynai = xaynai_new(VOCAB, MODEL, None).unwrap();
 
         let document = Document {
             id: "1".into(),

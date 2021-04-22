@@ -12,3 +12,11 @@
 ## Test
 
 `wasm-pack test --node`
+
+## Run in the browser
+
+```
+ln -s $(pwd)/../data/ $(pwd)/data
+wasm-pack build --target web --release
+python3 -m http.server
+```

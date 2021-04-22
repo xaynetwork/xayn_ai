@@ -1,0 +1,71 @@
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+  </head>
+  <body>
+    <script type="module">
+      import init, {xaynai_new, xaynai_rerank} from './pkg/xayn_ai_ffi_wasm.js';
+
+      async function run() {
+        await init();
+
+        console.time("load_data");
+        let vocab = await get_data("data/rubert_v0000/vocab.txt");
+        let model = await get_data("data/rubert_v0000/model.onnx");
+        let vocab_buffer =  new Uint8Array(vocab);
+        let model_buffer =  new Uint8Array(model);
+        console.timeEnd("load_data");
+
+
+        console.time("init_ai");
+        let ai = xaynai_new(vocab_buffer, model_buffer, undefined);
+        console.timeEnd("init_ai");
+
+        let document_1 = {
+            "id": "1",
+            "rank": 0,
+            "snippet": "abc",
+        }
+
+        let document_2 = {
+            "id": "2",
+            "rank": 1,
+            "snippet": "abcd",
+        }
+
+        console.time("rerank");
+        let ranks = xaynai_rerank(ai, [], [document_1, document_2]);
+        console.timeEnd("rerank");
+
+        console.log(ranks);
+      }
+
+      async function get_data(url) {
+        return new Promise(function (resolve, reject) {
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", url, true);
+            xhr.responseType = "arraybuffer";
+            xhr.onload = function () {
+                if (this.status >= 200 && this.status < 300) {
+                    resolve(xhr.response);
+                } else {
+                    reject({
+                        status: this.status,
+                        statusText: xhr.statusText
+                    });
+                }
+            };
+            xhr.onerror = function () {
+                reject({
+                    status: this.status,
+                    statusText: xhr.statusText
+                });
+            };
+            xhr.send();
+        });
+      }
+
+      run();
+    </script>
+  </body>
+</html>
