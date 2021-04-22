@@ -315,7 +315,10 @@ pub unsafe extern "C" fn xaynai_analytics(
 /// - A non-null `xaynai` is accessed after being freed.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
-    let drop = || Ok(unsafe { CXaynAi::drop(xaynai) });
+    let drop = || {
+        unsafe { CXaynAi::drop(xaynai) };
+        Ok(())
+    };
     let clean = || {};
     let error = None;
 

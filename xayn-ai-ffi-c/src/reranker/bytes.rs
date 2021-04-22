@@ -129,7 +129,10 @@ pub unsafe extern "C" fn bytes_new(
 /// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
 #[no_mangle]
 pub unsafe extern "C" fn bytes_drop(bytes: *mut CBytes) {
-    let drop = || Ok(unsafe { CBytes::drop(bytes) });
+    let drop = || {
+        unsafe { CBytes::drop(bytes) };
+        Ok(())
+    };
     let clean = || {};
     let error = None;
 

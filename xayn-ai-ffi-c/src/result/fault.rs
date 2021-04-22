@@ -84,7 +84,10 @@ impl CFaults {
 /// [`xaynai_faults()`]: crate::reranker::ai::xaynai_faults
 #[no_mangle]
 pub unsafe extern "C" fn faults_drop(faults: *mut CFaults) {
-    let drop = || Ok(unsafe { CFaults::drop(faults) });
+    let drop = || {
+        unsafe { CFaults::drop(faults) };
+        Ok(())
+    };
     let clean = || {};
     let error = None;
 

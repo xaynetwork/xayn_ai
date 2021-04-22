@@ -29,7 +29,10 @@ impl CAnalytics {
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn analytics_drop(analytics: *mut CAnalytics) {
-    let drop = || Ok(unsafe { CAnalytics::drop(analytics) });
+    let drop = || {
+        unsafe { CAnalytics::drop(analytics) };
+        Ok(())
+    };
     let clean = || {};
     let error = None;
 
