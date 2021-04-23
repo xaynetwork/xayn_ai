@@ -1,5 +1,10 @@
+import 'dart:ffi' show AllocatorAlloc, Int8, nullptr, Pointer, StructPointer;
+
+import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
+import 'package:meta/meta.dart' show visibleForTesting;
+
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
-    show CFeedback, CRelevance;
+    show CFeedback, CHistories, CHistory, CRelevance;
 
 /// A document relevance level.
 enum Relevance {
@@ -88,41 +93,52 @@ class History {
     }
   }
 
-  /// Gets the id.
+  @visibleForTesting
   String get id => _id;
 
-  /// Gets the feedback.
-  Feedback get feedback => _feedback;
-
-  /// Gets the relevance.
+  @visibleForTesting
   Relevance get relevance => _relevance;
+
+  @visibleForTesting
+  Feedback get feedback => _feedback;
 }
 
-/// The document.
-class Document {
-  final String _id;
-  final String _snippet;
-  final int _rank;
+/// The raw document histories.
+class Histories {
+  late Pointer<CHistories> _hists;
 
-  /// Creates the document.
-  Document(this._id, this._snippet, this._rank) {
-    if (_id.isEmpty) {
-      throw ArgumentError('empty document id');
-    }
-    if (_snippet.isEmpty) {
-      throw ArgumentError('empty document snippet id');
-    }
-    if (_rank.isNegative) {
-      throw ArgumentError('negative document rank');
+  /// Creates the document histories.
+  ///
+  /// This constructor never throws an exception.
+  Histories(List<History> histories) {
+    _hists = malloc.call<CHistories>();
+    _hists.ref.len = histories.length;
+    if (histories.isEmpty) {
+      _hists.ref.data = nullptr;
+    } else {
+      _hists.ref.data = malloc.call<CHistory>(_hists.ref.len);
+      histories.asMap().forEach((i, history) {
+        _hists.ref.data[i].id = history._id.toNativeUtf8().cast<Int8>();
+        _hists.ref.data[i].relevance = history._relevance.toInt();
+        _hists.ref.data[i].feedback = history._feedback.toInt();
+      });
     }
   }
 
-  /// Gets the id.
-  String get id => _id;
+  /// Gets the pointer.
+  Pointer<CHistories> get ptr => _hists;
 
-  /// Gets the snippet.
-  String get snippet => _snippet;
-
-  /// Gets the rank.
-  int get rank => _rank;
+  /// Frees the memory.
+  void free() {
+    if (_hists != nullptr) {
+      if (_hists.ref.data != nullptr) {
+        for (var i = 0; i < _hists.ref.len; i++) {
+          malloc.free(_hists.ref.data[i].id);
+        }
+        malloc.free(_hists.ref.data);
+      }
+      malloc.free(_hists);
+      _hists = nullptr;
+    }
+  }
 }

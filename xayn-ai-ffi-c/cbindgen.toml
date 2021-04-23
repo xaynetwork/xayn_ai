@@ -7,13 +7,13 @@ sys_includes = ["stdint.h"]
 no_includes = true
 
 [export]
-include = ["CXaynAiError"]
+include = ["CCode"]
 exclude = ["ErrorCode"]
 
 [export.rename]
-"CXaynAiError" = "CXaynAiCode"
-"ErrorCode" = "CXaynAiCode"
-"ExternError" = "CXaynAiError"
+"ErrorCode" = "CCode"
+"ExternError" = "CError"
+"FfiStr" = "CStr"
 
 [parse]
 parse_deps = true

@@ -11,14 +11,7 @@ mod utils;
 
 pub use crate::{
     analytics::Analytics,
-    data::document::{
-        Document,
-        DocumentHistory,
-        DocumentId,
-        DocumentsRank,
-        Relevance,
-        UserFeedback,
-    },
+    data::document::{Document, DocumentHistory, DocumentId, Ranks, Relevance, UserFeedback},
     error::Error,
     reranker::public::{Builder, Reranker},
 };

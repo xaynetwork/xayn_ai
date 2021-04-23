@@ -9,7 +9,7 @@ use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
-    data::document::{Document, DocumentHistory, DocumentsRank},
+    data::document::{Document, DocumentHistory, Ranks},
     ltr::ConstLtr,
     mab::{BetaSampler, MabRanking},
     Error,
@@ -71,15 +71,15 @@ impl CommonSystems for Systems {
 pub struct Reranker(super::Reranker<Systems>);
 
 impl Reranker {
-    pub fn errors(&self) -> &Vec<Error> {
+    pub fn errors(&self) -> &[Error] {
         self.0.errors()
     }
 
-    pub fn analytics(&self) -> &Option<Analytics> {
+    pub fn analytics(&self) -> Option<&Analytics> {
         self.0.analytics()
     }
 
-    pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> DocumentsRank {
+    pub fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> Ranks {
         self.0.rerank(history, documents)
     }
 

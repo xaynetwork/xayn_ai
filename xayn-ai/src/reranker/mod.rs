@@ -2,12 +2,14 @@ pub(crate) mod database;
 pub mod public;
 pub(crate) mod systems;
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     analytics::Analytics,
     data::{
-        document::{Document, DocumentHistory, DocumentsRank},
+        document::{Document, DocumentHistory, Ranks},
         document_data::{
             DocumentContentComponent,
             DocumentDataWithDocument,
@@ -81,10 +83,12 @@ fn rerank<CS>(
     history: &[DocumentHistory],
     documents: &[Document],
     user_interests: UserInterests,
-) -> Result<(Vec<DocumentDataWithMab>, UserInterests, DocumentsRank), Error>
+) -> Result<(Vec<DocumentDataWithMab>, UserInterests, Ranks), Error>
 where
     CS: CommonSystems,
 {
+    let original_documents = documents;
+
     let documents = make_documents_with_embedding(common_systems, documents)?;
     let documents = common_systems
         .coi()
@@ -95,12 +99,16 @@ where
         .mab()
         .compute_mab(documents, user_interests)?;
 
-    let rank = documents
+    let ranks = documents
         .iter()
         .map(|document| (document.document_id.id.clone(), document.mab.rank))
+        .collect::<HashMap<_, _>>();
+    let ranks = original_documents
+        .iter()
+        .map(|document| ranks[&document.id])
         .collect();
 
-    Ok((documents, user_interests, rank))
+    Ok((documents, user_interests, ranks))
 }
 
 #[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
@@ -172,10 +180,7 @@ where
 {
     pub(crate) fn new(common_systems: CS) -> Result<Self, Error> {
         // load the last valid state from the database
-        let data = common_systems
-            .database()
-            .load_data()?
-            .unwrap_or_else(RerankerData::default);
+        let data = common_systems.database().load_data()?.unwrap_or_default();
 
         Ok(Self {
             common_systems,
@@ -185,16 +190,16 @@ where
         })
     }
 
-    pub(crate) fn errors(&self) -> &Vec<Error> {
-        &self.errors
+    pub(crate) fn errors(&self) -> &[Error] {
+        self.errors.as_slice()
     }
 
     /// Returns the analytics for penultimate call to `rerank`.
     /// Analytics will be provided only if the penultimate call to `rerank` was able
     /// to run the full model without error, and the correct history is passed to the
     /// last call to `rerank`.
-    pub(crate) fn analytics(&self) -> &Option<Analytics> {
-        &self.analytics
+    pub(crate) fn analytics(&self) -> Option<&Analytics> {
+        self.analytics.as_ref()
     }
 
     /// Create a byte representation of the internal state of the Reranker.
@@ -202,11 +207,7 @@ where
         self.common_systems.database().serialize(&self.data)
     }
 
-    pub(crate) fn rerank(
-        &mut self,
-        history: &[DocumentHistory],
-        documents: &[Document],
-    ) -> DocumentsRank {
+    pub(crate) fn rerank(&mut self, history: &[DocumentHistory], documents: &[Document]) -> Ranks {
         // The number of errors it can contain is very limited. By using `clear` we avoid
         // re-allocating the vector on each method call.
         self.errors.clear();
@@ -236,11 +237,11 @@ where
         let user_interests = self.data.user_interests.clone();
 
         rerank(&self.common_systems, history, documents, user_interests)
-            .map(|(prev_documents, user_interests, rank)| {
+            .map(|(prev_documents, user_interests, ranks)| {
                 self.data.prev_documents = PreviousDocuments::Mab(prev_documents);
                 self.data.user_interests = user_interests;
 
-                rank
+                ranks
             })
             .unwrap_or_else(|e| {
                 self.errors.push(e);
@@ -249,10 +250,7 @@ where
                     .unwrap_or_default();
                 self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
 
-                documents
-                    .iter()
-                    .map(|document| (document.id.clone(), document.rank))
-                    .collect()
+                documents.iter().map(|document| document.rank).collect()
             })
     }
 }
@@ -302,11 +300,12 @@ mod tests {
         use std::ops::Range;
 
         use crate::{
-            data::UserInterests,
-            reranker::{DocumentsRank, PreviousDocuments, RerankerData},
+            data::{
+                document::{Document, Ranks},
+                UserInterests,
+            },
+            reranker::{PreviousDocuments, RerankerData},
             tests::{data_with_mab, documents_from_words, mocked_bert_system, pos_cois_from_words},
-            Document,
-            DocumentId,
         };
 
         pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {
@@ -327,12 +326,9 @@ mod tests {
             )
         }
 
-        pub(super) fn expected_rerank() -> DocumentsRank {
-            [5, 3, 4, 0, 2, 1]
-                .iter()
-                .zip(0..6)
-                .map(|(id, rank)| (DocumentId(id.to_string()), rank))
-                .collect()
+        pub(super) fn expected_rerank() -> Ranks {
+            // the (id, rank) mapping is [5, 3, 4, 0, 2, 1].zip(0..6)
+            vec![3, 5, 4, 1, 2, 0]
         }
 
         fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {

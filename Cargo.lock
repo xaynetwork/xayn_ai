@@ -1529,5 +1529,6 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "ffi-support",
+ "itertools 0.10.0",
  "xayn-ai",
 ]

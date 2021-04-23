@@ -44,4 +44,5 @@ pub enum Relevance {
     High,
 }
 
-pub type DocumentsRank = Vec<(DocumentId, usize)>;
+/// The ranks are in the same logical order as the original documents.
+pub type Ranks = Vec<usize>;
