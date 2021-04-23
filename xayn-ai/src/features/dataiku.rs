@@ -86,12 +86,23 @@ fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
 }
 
 /// Mean reciprocal rank of results filtered by outcome and a predicate.
+///
+/// It is defined as the ratio:
+///```
+///   sum{1/r.position} + 0.283
+/// ----------------------------
+///    |rs(outcome, pred)| + 1
+/// ```
+/// where the sum ranges over each search result `r` in `rs`(`outcome`, `pred`),
+/// i.e. satisfying `pred` and matching `outcome`.
+///
+/// The formula uses some form of additive smoothing with a prior 0.283 (see Dataiku paper).
 fn mean_recip_rank(
-    results: &[impl AsRef<SearchResult>],
+    rs: &[impl AsRef<SearchResult>],
     outcome: Option<MrrOutcome>,
     pred: Option<FilterPred>,
 ) -> f32 {
-    let filtered = results
+    let filtered = rs
         .iter()
         .filter(|r| {
             let relevance = r.as_ref().relevance;
@@ -167,7 +178,7 @@ enum Rank {
     Seventh,
     Eighth,
     Nineth,
-    Tenth,
+    Last,
 }
 
 impl From<Rank> for f32 {
@@ -377,26 +388,28 @@ struct AggregFeatures {
     url_query_curr: FeatMap,
 }
 
-fn aggreg_features(hist: &[SearchResult], doc: DocAddr, query: Query, sess: i32) -> AggregFeatures {
-    let anterior = SessionCond::Anterior(sess);
-    let current = SessionCond::Current(sess);
+fn aggreg_features(hist: &[SearchResult], r: SearchResult) -> AggregFeatures {
+    let anterior = SessionCond::Anterior(r.session_id);
+    let current = SessionCond::Current(r.session_id);
+    let r_url = UrlOrDom::Url(r.url);
+    let r_dom = UrlOrDom::Dom(r.domain);
 
-    let pred_dom = FilterPred::new(doc.dom);
-    let dom = aggreg_feat(hist, pred_dom);
-    let dom_ant = aggreg_feat(hist, pred_dom.with_session(anterior));
+    let pred_dom = FilterPred::new(r_dom);
+    let dom = aggreg_feat(hist, &r, pred_dom);
+    let dom_ant = aggreg_feat(hist, &r, pred_dom.with_session(anterior));
 
-    let pred_url = FilterPred::new(doc.url);
-    let url = aggreg_feat(hist, pred_url);
-    let url_ant = aggreg_feat(hist, pred_url.with_session(anterior));
+    let pred_url = FilterPred::new(r_url);
+    let url = aggreg_feat(hist, &r, pred_url);
+    let url_ant = aggreg_feat(hist, &r, pred_url.with_session(anterior));
 
-    let pred_dom_query = pred_dom.with_query(query.id);
-    let dom_query = aggreg_feat(hist, pred_dom_query);
-    let dom_query_ant = aggreg_feat(hist, pred_dom_query.with_session(anterior));
+    let pred_dom_query = pred_dom.with_query(r.query_id);
+    let dom_query = aggreg_feat(hist, &r, pred_dom_query);
+    let dom_query_ant = aggreg_feat(hist, &r, pred_dom_query.with_session(anterior));
 
-    let pred_url_query = pred_url.with_query(query.id);
-    let url_query = aggreg_feat(hist, pred_url_query);
-    let url_query_ant = aggreg_feat(hist, pred_url_query.with_session(anterior));
-    let url_query_curr = aggreg_feat(hist, pred_url_query.with_session(current));
+    let pred_url_query = pred_url.with_query(r.query_id);
+    let url_query = aggreg_feat(hist, &r, pred_url_query);
+    let url_query_ant = aggreg_feat(hist, &r, pred_url_query.with_session(anterior));
+    let url_query_curr = aggreg_feat(hist, &r, pred_url_query.with_session(current));
 
     AggregFeatures {
         dom,
@@ -411,11 +424,11 @@ fn aggreg_features(hist: &[SearchResult], doc: DocAddr, query: Query, sess: i32)
     }
 }
 
-fn aggreg_feat(hist: &[SearchResult], pred: FilterPred) -> FeatMap {
+fn aggreg_feat(hist: &[SearchResult], r: &SearchResult, pred: FilterPred) -> FeatMap {
     let eval_atom = |atom_feat| match atom_feat {
         AtomFeat::MeanRecipRank(outcome) => mean_recip_rank(hist, Some(outcome), Some(pred)),
         AtomFeat::MeanRecipRankAll => mean_recip_rank(hist, None, Some(pred)),
-        AtomFeat::SnippetQuality => snippet_quality(),
+        AtomFeat::SnippetQuality => snippet_quality(hist, r, pred),
         AtomFeat::CondProb(outcome) => cond_prob(hist, outcome, pred),
     };
     pred.agg_spec()
@@ -425,11 +438,102 @@ fn aggreg_feat(hist: &[SearchResult], pred: FilterPred) -> FeatMap {
 }
 
 /// Quality of the snippet associated with a search result.
-fn snippet_quality() -> f32 {
-    todo!()
+///
+/// Snippet quality is defined as:
+/// ```
+///       sum{score(r)}
+/// --------------------------
+/// |hist({Miss, Skip}, pred)|
+/// ```
+/// where the sum ranges over all result sets containing a URL `r.url` matching `res.url`.
+fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
+    let pred_filtered = hist.iter().filter(|r| pred.apply(r)).collect_vec();
+    let denom = pred_filtered
+        .iter()
+        .filter(|r| r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
+        .count() as f32;
+
+    let by_search = pred_filtered
+        .into_iter()
+        .group_by(|r| (r.session_id, r.query_counter));
+
+    let numer = by_search
+        .into_iter()
+        .map(|(_, rs)| ResultSet::new(rs.collect())) // TODO more guarantees on rs preferred
+        .filter_map(|rs| Some(rs.clone()).zip(rs.rank_of(res.url)))
+        .map(|(rs, pos)| snippet_score(rs, pos))
+        .sum::<f32>();
+
+    numer / denom
+}
+
+/// Scores the search result ranked at position `pos` in the result set `rs`.
+///
+/// The score(r) of a search result r is defined:
+/// *  0           if r is a `Miss`
+/// *  1 / p       if r is the pth clicked result of the page
+/// * -1 / p_final if r is a `Skip`
+///
+/// As click ordering information is unavailable, assume it follows the ranking order.
+fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
+    match rs.at(pos).relevance {
+        // NOTE unclear how to score Low, treat as a Miss
+        ClickSat::Miss | ClickSat::Low => 0.,
+        ClickSat::Skip => {
+            let total_clicks = rs.cumulative_clicks(Rank::Last) as f32;
+            -total_clicks.recip()
+        }
+        _ => {
+            let cum_clicks = rs.cumulative_clicks(pos) as f32;
+            cum_clicks.recip()
+        }
+    }
+}
+
+#[derive(Clone)]
+/// Search results from some query.
+struct ResultSet<'a>(Vec<&'a SearchResult>);
+
+impl<'a> ResultSet<'a> {
+    /// New result set.
+    ///
+    /// Assumes `rs[i]` contains the search result `r` with `r.position` `i+1`.
+    // TODO may relax this assumption later
+    fn new(rs: Vec<&'a SearchResult>) -> Self {
+        Self(rs)
+    }
+
+    /// Search result at position `pos` of the result set.
+    fn at(&self, pos: Rank) -> &SearchResult {
+        self.0[(pos as usize) - 1]
+    }
+
+    /// Number of clicked results from `Rank::First` to `pos`.
+    fn cumulative_clicks(&self, pos: Rank) -> usize {
+        self.0
+            .iter()
+            .filter(|r| r.relevance > ClickSat::Low && r.position <= pos)
+            .count()
+    }
+
+    /// Rank of the result with the matching `url`.
+    fn rank_of(&self, url: i32) -> Option<Rank> {
+        self.0
+            .iter()
+            .find_map(|r| (r.url == url).then(|| r.position))
+    }
 }
 
 /// Probability of an outcome conditioned on some predicate.
+///
+/// It is defined:
+/// ```
+/// |hist(outcome, pred)| + prior(outcome)
+/// --------------------------------------
+///   |hist(pred)| + sum{prior(outcome')}
+/// ```
+/// The formula uses some form of additive smoothing with `prior(Miss)` = `1` and `0` otherwise.
+/// See Dataiku paper. Note then the `sum` term amounts to `1`.
 fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPred) -> f32 {
     let prior = if outcome == ClickSat::Miss { 1 } else { 0 };
 
