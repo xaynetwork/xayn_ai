@@ -12,6 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   path_provider: '^2.0.1'
+  stats: '2.0.0'
 
   xayn_ai_ffi_dart:
     # When depending on this package from a real application you should use:
