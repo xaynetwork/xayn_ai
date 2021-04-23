@@ -3,3 +3,4 @@ build/
 .packages
 pubspec.lock
 android/src/main/jniLibs/
+ios/Classes/XaynAiFfiDartPlugin.h
