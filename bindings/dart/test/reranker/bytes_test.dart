@@ -1,4 +1,4 @@
-import 'dart:ffi' show nullptr;
+import 'dart:ffi' show nullptr, StructPointer;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter_test/flutter_test.dart'
@@ -24,6 +24,21 @@ void main() {
       final bytes = Bytes.fromList(Uint8List(0));
       expect(bytes.toList(), isEmpty);
       bytes.free();
+    });
+
+    test('invalid data', () {
+      final len = 10;
+      final bytes = Bytes.fromList(Uint8List(len));
+      bytes.ptr.ref.len = 0;
+      expect(bytes.toList(), isEmpty);
+      bytes.ptr.ref.len = len;
+      bytes.free();
+    });
+
+    test('invalid len', () {
+      final bytes = Bytes.fromList(Uint8List(0));
+      bytes.ptr.ref.len = 10;
+      expect(bytes.toList(), isEmpty);
     });
 
     test('free', () {

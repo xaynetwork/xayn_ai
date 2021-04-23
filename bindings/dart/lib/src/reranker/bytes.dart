@@ -1,8 +1,5 @@
-import 'dart:ffi'
-    show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8, Uint8Pointer;
+import 'dart:ffi' show nullptr, Pointer, StructPointer, Uint8Pointer;
 import 'dart:typed_data' show Uint8List;
-
-import 'package:ffi/ffi.dart' show malloc;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBytes;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
@@ -22,19 +19,19 @@ class Bytes {
   /// This constructor can throw an exception.
   Bytes.fromList(Uint8List bytes) {
     final error = XaynAiError();
-    if (bytes.isEmpty) {
-      _bytes = ffi.bytes_new(nullptr, 0, error.ptr);
-    } else {
-      final bytesPtr = malloc.call<Uint8>(bytes.length);
-      bytes.asMap().forEach((i, byte) {
-        bytesPtr[i] = byte;
-      });
-      _bytes = ffi.bytes_new(bytesPtr, bytes.length, error.ptr);
-      malloc.free(bytesPtr);
+
+    _bytes = ffi.bytes_new(bytes.length, error.ptr);
+    try {
+      if (error.isError()) {
+        throw error.toException();
+      }
+    } finally {
+      error.free();
     }
-    if (error.isError()) {
-      throw error.toException();
-    }
+
+    bytes.asMap().forEach((i, byte) {
+      _bytes.ref.data[i] = byte;
+    });
   }
 
   /// Gets the pointer.
@@ -42,7 +39,7 @@ class Bytes {
 
   /// Converts the buffer to a list.
   Uint8List toList() {
-    if (_bytes == nullptr) {
+    if (_bytes == nullptr || _bytes.ref.data == nullptr) {
       return Uint8List(0);
     } else {
       final bytes = Uint8List(_bytes.ref.len);

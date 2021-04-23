@@ -50,12 +50,8 @@ unsafe impl IntoFfi for Bytes {
 
 impl Bytes {
     /// See [`bytes_new()`] for more.
-    unsafe fn new(data: *const u8, len: u32) -> Self {
-        if data.is_null() || len == 0 {
-            Self(Vec::new())
-        } else {
-            Self(unsafe { from_raw_parts(data, len as usize) }.to_vec())
-        }
+    fn new(len: u32) -> Self {
+        Self(vec![0; len as usize])
     }
 }
 
@@ -91,26 +87,20 @@ impl<'a> CBytes<'a> {
     }
 }
 
-/// Creates an owned bytes buffer from the data.
+/// Creates a zeroized, owned bytes buffer.
 ///
 /// # Errors
 /// Returns a null pointer if:
 /// - An unexpected panic happened.
 ///
 /// # Safety
-/// The bahavior is undefined if:
-/// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least `len`
-/// many [`u8`]s.
+/// The behavior is undefined if:
 /// - A `len` is too large to address the memory of a non-null [`u8`] array.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
 /// [`ExternError`].
 #[no_mangle]
-pub unsafe extern "C" fn bytes_new(
-    data: *const u8,
-    len: u32,
-    error: *mut ExternError,
-) -> *mut CBytes<'static> {
-    let new = || Ok(unsafe { Bytes::new(data, len) });
+pub unsafe extern "C" fn bytes_new(len: u32, error: *mut ExternError) -> *mut CBytes<'static> {
+    let new = || Ok(Bytes::new(len));
     let clean = || {};
     let error = unsafe { error.as_mut() };
 
@@ -186,7 +176,7 @@ mod tests {
 
     impl Default for TestBytes<'_> {
         fn default() -> Self {
-            let vec = Pin::new((0..10).collect::<Vec<_>>());
+            let vec = Pin::new(vec![0; 10]);
             let bytes = vec.as_ref().into();
 
             Self { vec, bytes }
@@ -226,7 +216,7 @@ mod tests {
         let buffer = TestBytes::default();
         let mut error = ExternError::default();
 
-        let bytes = unsafe { bytes_new(buffer.bytes.data, buffer.bytes.len, error.as_mut_ptr()) };
+        let bytes = unsafe { bytes_new(buffer.bytes.len, error.as_mut_ptr()) };
         assert!(!bytes.is_null());
         assert_eq!(error.get_code(), CCode::Success);
         assert_eq!(
@@ -241,7 +231,7 @@ mod tests {
     fn test_empty() {
         let mut error = ExternError::default();
 
-        let bytes = unsafe { bytes_new(null(), 0, error.as_mut_ptr()) };
+        let bytes = unsafe { bytes_new(0, error.as_mut_ptr()) };
         assert!(!bytes.is_null());
         assert_eq!(error.get_code(), CCode::Success);
         assert!(unsafe { (&*bytes).as_slice() }.is_empty());
