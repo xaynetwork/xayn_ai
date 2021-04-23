@@ -74,6 +74,21 @@ impl WXaynAi {
             .into_js_result()
             .map(|bytes| bytes.as_slice().into())
     }
+
+    // See [`xaynai_faults()`] for more.
+    // pub fn faults(&self) -> Faults {
+
+    //     self.0.errors().into()
+    // }
+
+    // /// See [`xaynai_analytics()`] for more.
+    // unsafe fn analytics(xaynai: *const Self) -> Result<CAnalytics, ExternError> {
+    //     let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
+    //         CCode::AiPointer.with_context("Failed to get the analytics: The ai pointer is null")
+    //     })?;
+
+    //     Ok(CAnalytics(xaynai.0.analytics().cloned()))
+    // }
 }
 
 #[cfg(target_arch = "wasm32")]
