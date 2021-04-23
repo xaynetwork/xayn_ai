@@ -1,4 +1,4 @@
-group 'com.example.xayn_ai_ffi_dart'
+group 'com.xayn.xayn_ai_ffi_dart'
 version '1.0-SNAPSHOT'
 
 buildscript {

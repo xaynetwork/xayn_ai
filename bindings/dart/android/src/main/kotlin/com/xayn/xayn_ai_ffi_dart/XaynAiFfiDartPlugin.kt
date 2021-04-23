@@ -1,4 +1,4 @@
-package com.example.xayn_ai_ffi_dart
+package com.xayn.xayn_ai_ffi_dart
 
 import androidx.annotation.NonNull
 
@@ -7,6 +7,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import io.flutter.plugin.common.PluginRegistry.Registrar
 
 /** XaynAiFfiDartPlugin */
 class XaynAiFfiDartPlugin: FlutterPlugin, MethodCallHandler {

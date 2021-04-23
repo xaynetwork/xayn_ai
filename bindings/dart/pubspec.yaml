@@ -40,7 +40,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.example.xayn_ai_ffi_dart
+        package: com.xayn.xayn_ai_ffi_dart
         pluginClass: XaynAiFfiDartPlugin
       ios:
         pluginClass: XaynAiFfiDartPlugin

@@ -1,4 +1,4 @@
-package com.example.xayn_ai_ffi_dart_example
+package com.xayn.xayn_ai_ffi_dart_example
 
 import io.flutter.embedding.android.FlutterActivity
 
