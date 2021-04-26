@@ -6,6 +6,7 @@ use crate::{
         UserInterests,
     },
     reranker::systems::MabSystem,
+    utils::nan_safe_f32_cmp,
     Error,
 };
 
@@ -49,21 +50,6 @@ impl BetaSample for BetaSampler {
     }
 }
 
-/// Pretend that comparing two f32 is total. The function will rank `NaN`
-/// as the lowest value, similar to what [`f32::max`] does.
-fn f32_total_cmp(a: &f32, b: &f32) -> Ordering {
-    a.partial_cmp(&b).unwrap_or_else(|| {
-        // if `partial_cmp` returns None we have at least one `NaN`,
-        // we treat it as the lowest value
-        match (a.is_nan(), b.is_nan()) {
-            (true, true) => Ordering::Equal,
-            (true, _) => Ordering::Less,
-            (_, true) => Ordering::Greater,
-            _ => unreachable!("partial_cmp returned None but both numbers are not NaN"),
-        }
-    })
-}
-
 /// Wrapper to order documents by `context_value`.
 /// We need to implement `Ord` to use it in the `BinaryHeap`.
 #[cfg_attr(test, derive(Debug, Clone))]
@@ -84,7 +70,7 @@ impl PartialOrd for DocumentByContext {
 
 impl Ord for DocumentByContext {
     fn cmp(&self, other: &Self) -> Ordering {
-        f32_total_cmp(
+        nan_safe_f32_cmp(
             &self.0.context.context_value,
             &other.0.context.context_value,
         )
@@ -169,7 +155,7 @@ fn pull_arms(
             |max, coi_id| -> Result<_, MabError> {
                 let sample = sample_from_coi(coi_id)?;
 
-                if let Ordering::Greater = f32_total_cmp(&sample, &max.0) {
+                if let Ordering::Greater = nan_safe_f32_cmp(&sample, &max.0) {
                     Ok((sample, coi_id))
                 } else {
                     Ok(max)

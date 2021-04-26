@@ -8,6 +8,7 @@ use crate::{
     data::{document::DocumentHistory, document_data::DocumentDataWithMab},
     error::Error,
     reranker::systems,
+    utils::nan_safe_f32_cmp_desc,
     Relevance,
 };
 
@@ -116,7 +117,7 @@ fn score_for_relevance(relevance: Relevance) -> f32 {
 /// If a `NaN` is in the k-first relevances the resulting nDCG@k score will be `NaN`.
 fn calcuate_reordered_ndcg_at_k_score(paired_relevances: &mut [(f32, f32)], k: usize) -> f32 {
     paired_relevances
-        .sort_by(|(_, ord_sc_1), (_, ord_sc_2)| nan_safe_sort_desc_comparsion(ord_sc_1, ord_sc_2));
+        .sort_by(|(_, ord_sc_1), (_, ord_sc_2)| nan_safe_f32_cmp_desc(ord_sc_1, ord_sc_2));
     ndcg_at_k(paired_relevances.iter().map(|(rel, _ord)| *rel), k)
 }
 
@@ -152,15 +153,15 @@ fn pick_k_highest_sorted_desc(
     let mut scores = scores.fuse();
     let mut k_highest: Vec<_> = (&mut scores).take(k).collect();
 
-    k_highest.sort_by(nan_safe_sort_desc_comparsion);
+    k_highest.sort_by(nan_safe_f32_cmp_desc);
 
     for score in scores {
         //Supposed to act as NaN safe version of: if k_highest[k-1] < score {
-        if nan_safe_sort_desc_comparsion(&k_highest[k - 1], &score) == Ordering::Greater {
+        if nan_safe_f32_cmp_desc(&k_highest[k - 1], &score) == Ordering::Greater {
             let _ = k_highest.pop();
 
             let idx = k_highest
-                .binary_search_by(|other| nan_safe_sort_desc_comparsion(other, &score))
+                .binary_search_by(|other| nan_safe_f32_cmp_desc(other, &score))
                 .unwrap_or_else(|not_found_insert_idx| not_found_insert_idx);
 
             k_highest.insert(idx, score);
@@ -179,23 +180,6 @@ fn dcg(scores: impl Iterator<Item = f32>) -> f32 {
         //it's i+2 as our i starts with 0, while the formular starts with 1 and uses i+1
         sum + (2f32.powf(score) - 1.) / (idx as f32 + 2.).log2()
     })
-}
-
-/// Use for getting a descending sort ordering of floats.
-///
-/// `NaN`'s are treated as the smallest possible value
-/// for this sorting they are also treated as equal to each other.
-/// This is not standard comform but works for sorting,
-/// at least for our use-case.
-fn nan_safe_sort_desc_comparsion(a: &f32, b: &f32) -> Ordering {
-    // switched a,b to have descending instead of ascending sorting
-    b.partial_cmp(a)
-        .unwrap_or_else(|| match (a.is_nan(), b.is_nan()) {
-            (true, true) => Ordering::Equal,
-            (true, false) => Ordering::Greater,
-            (false, true) => Ordering::Less,
-            (false, false) => unreachable!(),
-        })
 }
 
 #[cfg(test)]
@@ -473,46 +457,5 @@ mod tests {
         let res = pick_k_highest_sorted_desc([f32::NAN].iter().copied(), 1);
         assert_eq!(res.len(), 1);
         assert!(res[0].is_nan());
-    }
-
-    #[test]
-    fn test_nan_safe_sort_desc_comparsion_sorts_in_the_right_order() {
-        #![allow(clippy::float_cmp)]
-
-        let data = &mut [f32::NAN, 1., 5., f32::NAN, 4.];
-        data.sort_by(nan_safe_sort_desc_comparsion);
-
-        assert_eq!(&data[..3], &[5., 4., 1.]);
-        assert!(data[3].is_nan());
-        assert!(data[4].is_nan());
-
-        let data = &mut [1., 5., 3., 4.];
-        data.sort_by(nan_safe_sort_desc_comparsion);
-
-        assert_eq!(&data[..], &[5., 4., 3., 1.]);
-    }
-
-    #[test]
-    fn test_nan_safe_sort_desc_comparsion_nans_compare_as_expected() {
-        assert_eq!(
-            nan_safe_sort_desc_comparsion(&f32::NAN, &f32::NAN),
-            Ordering::Equal
-        );
-        assert_eq!(
-            nan_safe_sort_desc_comparsion(&-12., &f32::NAN),
-            Ordering::Less
-        );
-        assert_eq!(
-            nan_safe_sort_desc_comparsion(&f32::NAN, &-12.),
-            Ordering::Greater
-        );
-        assert_eq!(
-            nan_safe_sort_desc_comparsion(&12., &f32::NAN),
-            Ordering::Less
-        );
-        assert_eq!(
-            nan_safe_sort_desc_comparsion(&f32::NAN, &12.),
-            Ordering::Greater
-        );
     }
 }
