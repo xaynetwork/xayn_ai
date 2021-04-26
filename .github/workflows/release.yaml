@@ -136,6 +136,12 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
+      - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: ${{ needs.install-cargo-ndk.outputs.cache-key }}
+
       - name: Build Android library ${{ matrix.target }}
         run: |
           cargo ndk \
@@ -182,12 +188,6 @@ jobs:
   #           ~/.cargo/registry
   #           ~/.cargo/git
   #         key: ${{ needs.registry-cache.outputs.cache-key }}
-
-  #     - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
-  #       uses: actions/cache@v2.1.4
-  #       with:
-  #         path: ~/.cargo/bin/cargo-ndk
-  #         key: ${{ needs.install-cargo-ndk.outputs.cache-key }}
 
   #     - name: Build Android libraries
   #       working-directory: ./xayn-ai-ffi-c
