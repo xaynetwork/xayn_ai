@@ -11,6 +11,7 @@ the directory `bindings/dart`.
 
 The project provides a `Makefile.toml` that can be run with `cargo make`.
 You can install cargo make with:
+
 ```
 cargo install --version 0.32.17 cargo-make
 ```
