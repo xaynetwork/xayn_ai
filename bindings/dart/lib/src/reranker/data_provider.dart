@@ -13,7 +13,7 @@ import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiInputData;
 ///
 /// [`baseDiskPath`] must be a path to a directory where is possible to store the data.
 Future<XaynAiInputData> getInputData(String baseDiskPath) async {
-  // This is to avoid that two call of this function can run concurrently.
+  // This is to avoid that two calls of this function can run concurrently.
   // Doing that can lead to invalid data on the disk.
   return _pathsCache.runOnce(() async {
     return _getInputData(baseDiskPath);
