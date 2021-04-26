@@ -9,7 +9,7 @@ on:
 env:
   RUST_STABLE: 1.51.0
   RUST_NIGHTLY: nightly-2021-04-19
-  CARGO_NDK: 2.2.0
+  CARGO_NDK: 2.3.0
   ANDROID_PLATFORM_VERSION: 21
   CARGO_LIPO: 3.1.1
   # cmd: shasum -a 256 cross
