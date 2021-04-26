@@ -5,12 +5,13 @@ on:
 
 env:
   RUST_STABLE: 1.51.0
-  CARGO_NDK: 2.2.0
+  CARGO_NDK: 2.3.0
   ANDROID_PLATFORM_VERSION: 21
   CARGO_LIPO: 3.1.1
   FLUTTER_VERSION: '2.0.0'
   JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
+  ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
 
 jobs:
   registry-cache:
@@ -52,7 +53,7 @@ jobs:
 
   install-cargo-ndk:
     name: install-cargo-ndk
-    runs-on: macos-10.15
+    runs-on: ubuntu-20.04
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
     timeout-minutes: 15
@@ -97,6 +98,77 @@ jobs:
       - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
         if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
         run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
+
+  build-headers:
+    name: build-headers
+    needs: [registry-cache]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install libclang-10-dev
+        run: sudo apt-get install libclang-10-dev
+
+      - name: Setup java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
+
+      - name: Set path or install flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
+
+      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Restore build artifacts
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-headers-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-headers-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: Build headers
+        run: cargo check
+
+      - name: Install flutter dependencies
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub get
+
+      - name: Generate flutter ffi
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub run ffigen
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: headers-${{ github.sha }}
+          path: |
+            ${{ env.DART_WORKSPACE }}/ios/ios/Classes/XaynAiFfiDartPlugin.h
+            ${{ env.DART_WORKSPACE }}/lib/src/ffi/genesis.dart
 
   build-android-libs:
     name: build-android-libs
@@ -147,58 +219,39 @@ jobs:
           cargo ndk \
             -t ${{ matrix.target }} \
             -p ${{ env.ANDROID_PLATFORM_VERSION }} \
-            -o ${{ env.DART_WORKSPACE }}/android/src/main/jniLibs
+            -o ${{ env.ANDROID_LIBS_DIR }} \
             build --release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: bin-${{ matrix.target }}-${{ github.sha }}
-          path: ${{ env.DART_WORKSPACE }}/android/src/main/jniLibs
+          name: android-${{ matrix.target }}-${{ github.sha }}
+          path: ${{ env.ANDROID_LIBS_DIR }}
 
+  release:
+    name: release
+    runs-on: ubuntu-20.04
+    needs: [build-headers, build-android-libs]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
 
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: /tmp/artifacts/
 
-  # release:
-  #   name: release
-  #   runs-on: macos-10.15
-  #   needs: [registry-cache, install-cargo-ndk, install-cargo-lipo]
-  #   timeout-minutes: 60
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
+      - name: Copy Android libs
+        run: |
+          mkdir -p ${{ env.ANDROID_LIBS_DIR }}
+          cd /tmp/artifacts
+          cp -r android-*/* ${{ env.ANDROID_LIBS_DIR }}
+          ls -lh ${{ env.ANDROID_LIBS_DIR }}
+          find ${{ env.DART_WORKSPACE }}/android/src/main/jniLibs
 
-  #     - name: Install ${{ env.RUST_STABLE }} toolchain
-  #       run: |
-  #           rustup set profile minimal
-  #           rustup toolchain install ${{ env.RUST_STABLE }}
-  #           rustup target add \
-  #                   aarch64-linux-android \
-  #                   armv7-linux-androideabi \
-  #                   i686-linux-android \
-  #                   x86_64-linux-android \
-  #                   aarch64-apple-ios \
-  #                   x86_64-apple-ios \
-  #                   --toolchain ${{ env.RUST_STABLE }}
-  #           rustup override set ${{ env.RUST_STABLE }}
-
-  #     - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
-  #       uses: actions/cache@v2.1.4
-  #       with:
-  #         path: |
-  #           ~/.cargo/registry
-  #           ~/.cargo/git
-  #         key: ${{ needs.registry-cache.outputs.cache-key }}
-
-  #     - name: Build Android libraries
-  #       working-directory: ./xayn-ai-ffi-c
-  #       run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 --platform ${{ env.ANDROID_PLATFORM_VERSION }} -o ../jniLibs build --release
-
-  #     - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
-  #       uses: actions/cache@v2.1.4
-  #       with:
-  #         path: ~/.cargo/bin/cargo-lipo
-  #         key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
-
-  #     - name: Build iOS libraries
-  #       working-directory: ./xayn-ai-ffi-c
-  #       run: cargo lipo --release
+      - name: Copy headers
+        run: |
+          cd /tmp/artifacts/headers-${{ github.sha }}
+          cp XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/ios/Classes
+          cp genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
