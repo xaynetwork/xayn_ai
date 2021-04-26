@@ -1,6 +1,6 @@
 use std::{panic::AssertUnwindSafe, slice::from_raw_parts_mut};
 
-use ffi_support::{ExternError, IntoFfi};
+use ffi_support::IntoFfi;
 
 use crate::result::call_with_result;
 
@@ -77,14 +77,16 @@ impl CRanks<'_> {
 /// [`xaynai_rerank()`]: crate::reranker::ai::xaynai_rerank
 #[no_mangle]
 pub unsafe extern "C" fn ranks_drop(ranks: Option<&mut CRanks>) {
-    let drop = AssertUnwindSafe(|| {
-        unsafe { CRanks::drop(ranks) };
-        Result::<_, ExternError>::Ok(())
-    });
-    let clean = || {};
+    let drop = AssertUnwindSafe(
+        // Safety: The memory is dropped anyways.
+        || {
+            unsafe { CRanks::drop(ranks) };
+            Ok(())
+        },
+    );
     let error = None;
 
-    call_with_result(drop, clean, error);
+    call_with_result(drop, error);
 }
 
 #[cfg(test)]

@@ -80,7 +80,7 @@ class XaynAi {
     try {
       if (error.isError()) {
         if (error.isPanic()) {
-          _ai = nullptr;
+          free();
         }
         throw error.toException();
       }

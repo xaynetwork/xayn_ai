@@ -97,9 +97,8 @@ pub unsafe extern "C" fn bytes_new(
     error: Option<&mut ExternError>,
 ) -> Option<&'static mut CBytes<'static>> {
     let new = || Ok(Bytes::new(len));
-    let clean = || {};
 
-    call_with_result(new, clean, error)
+    call_with_result(new, error)
 }
 
 /// Frees the memory of the bytes buffer.
@@ -114,14 +113,16 @@ pub unsafe extern "C" fn bytes_new(
 /// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
 #[no_mangle]
 pub unsafe extern "C" fn bytes_drop(bytes: Option<&mut CBytes>) {
-    let drop = AssertUnwindSafe(|| {
-        unsafe { CBytes::drop(bytes) };
-        Ok(())
-    });
-    let clean = || {};
+    let drop = AssertUnwindSafe(
+        // Safety: The memory is dropped anyways.
+        || {
+            unsafe { CBytes::drop(bytes) };
+            Ok(())
+        },
+    );
     let error = None;
 
-    call_with_result(drop, clean, error);
+    call_with_result(drop, error);
 }
 
 #[cfg(test)]

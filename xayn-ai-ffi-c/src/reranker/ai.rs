@@ -1,7 +1,4 @@
-use std::{
-    panic::{AssertUnwindSafe, RefUnwindSafe},
-    ptr::null_mut,
-};
+use std::panic::AssertUnwindSafe;
 
 use ffi_support::{ExternError, IntoFfi};
 use xayn_ai::{Builder, Reranker};
@@ -34,15 +31,6 @@ use crate::{
 /// [`ranks_drop()`]: crate::data::rank::ranks_drop
 /// [`error_message_drop()`]: crate::result::error::error_message_drop
 pub struct CXaynAi(Reranker);
-
-impl RefUnwindSafe for CXaynAi {
-    // Safety:
-    // The mutable fields `analytics`, `data` and `errors` of `CXaynAi.0` must not be accessed
-    // after a panic if they could have been mutated. Currently, this can only happen in
-    // `CXaynAi::rerank()` and `CXaynAi::drop()`.
-    // Since we can't restore the last valid state after a panic without outside information, we
-    // drop `CXaynAi` and signal a panic code.
-}
 
 unsafe impl IntoFfi for CXaynAi {
     type Value = Option<&'static mut CXaynAi>;
@@ -187,9 +175,8 @@ pub unsafe extern "C" fn xaynai_new(
     error: Option<&mut ExternError>,
 ) -> Option<&'static mut CXaynAi> {
     let new = || unsafe { CXaynAi::new(vocab, model, serialized) };
-    let clean = || {};
 
-    call_with_result(new, clean, error)
+    call_with_result(new, error)
 }
 
 /// Reranks the documents with the Xayn AI.
@@ -201,9 +188,10 @@ pub unsafe extern "C" fn xaynai_new(
 /// - The `documents` are invalid.
 /// - An unexpected panic happened.
 ///
-/// In case of a [`CCode::Panic`], the `xaynai` is dropped and must not be accessed anymore. The
-/// last known valid state can be restored by the caller via [`xaynai_new()`] with a previously
-/// serialized reranker database obtained from [`xaynai_serialize()`].
+/// In case of a [`CCode::Panic`], the `xaynai` must not be accessed anymore and should be dropped
+/// via [`xaynai_drop()`]. The last known valid state can be restored by the caller via
+/// [`xaynai_new()`] with a previously serialized reranker database obtained from
+/// [`xaynai_serialize()`].
 ///
 /// # Safety
 /// The behavior is undefined if:
@@ -233,16 +221,12 @@ pub unsafe extern "C" fn xaynai_rerank(
     documents: Option<&CDocuments>,
     error: Option<&mut ExternError>,
 ) -> Option<&'static mut CRanks<'static>> {
-    let xaynai = if let Some(xaynai) = xaynai {
-        xaynai as *mut CXaynAi
-    } else {
-        null_mut()
-    };
-    let rerank =
-        AssertUnwindSafe(|| unsafe { CXaynAi::rerank(xaynai.as_mut(), histories, documents) });
-    let clean = || unsafe { CXaynAi::drop(xaynai.as_mut()) };
+    let rerank = AssertUnwindSafe(
+        // Safety: It's the caller's responsibility to clean up in case of a panic.
+        || unsafe { CXaynAi::rerank(xaynai, histories, documents) },
+    );
 
-    call_with_result(rerank, clean, error)
+    call_with_result(rerank, error)
 }
 
 /// Serializes the database of the reranker.
@@ -263,10 +247,12 @@ pub unsafe extern "C" fn xaynai_serialize(
     xaynai: Option<&CXaynAi>,
     error: Option<&mut ExternError>,
 ) -> Option<&'static mut CBytes<'static>> {
-    let serialize = || unsafe { CXaynAi::serialize(xaynai) };
-    let clean = || {};
+    let serialize = AssertUnwindSafe(
+        // Safety: The mutable memory is not accessed in this call.
+        || unsafe { CXaynAi::serialize(xaynai) },
+    );
 
-    call_with_result(serialize, clean, error)
+    call_with_result(serialize, error)
 }
 
 /// Retrieves faults which might occur during reranking.
@@ -288,10 +274,12 @@ pub unsafe extern "C" fn xaynai_faults(
     xaynai: Option<&CXaynAi>,
     error: Option<&mut ExternError>,
 ) -> Option<&'static mut CFaults<'static>> {
-    let faults = || unsafe { CXaynAi::faults(xaynai) };
-    let clean = || {};
+    let faults = AssertUnwindSafe(
+        // Safety: The mutable memory is not accessed in this call.
+        || unsafe { CXaynAi::faults(xaynai) },
+    );
 
-    call_with_result(faults, clean, error)
+    call_with_result(faults, error)
 }
 
 /// Retrieves the analytics which were collected in the penultimate reranking.
@@ -311,10 +299,12 @@ pub unsafe extern "C" fn xaynai_analytics(
     xaynai: Option<&CXaynAi>,
     error: Option<&mut ExternError>,
 ) -> Option<&'static mut CAnalytics> {
-    let analytics = || unsafe { CXaynAi::analytics(xaynai) };
-    let clean = || {};
+    let analytics = AssertUnwindSafe(
+        // Safety: The mutable memory is not accessed in this call.
+        || unsafe { CXaynAi::analytics(xaynai) },
+    );
 
-    call_with_result(analytics, clean, error)
+    call_with_result(analytics, error)
 }
 
 /// Frees the memory of the Xayn AI.
@@ -326,14 +316,16 @@ pub unsafe extern "C" fn xaynai_analytics(
 /// - A non-null `xaynai` is accessed after being freed.
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_drop(xaynai: Option<&mut CXaynAi>) {
-    let drop = AssertUnwindSafe(|| {
-        unsafe { CXaynAi::drop(xaynai) };
-        Ok(())
-    });
-    let clean = || {};
+    let drop = AssertUnwindSafe(
+        // Safety: The memory is dropped anyways.
+        || {
+            unsafe { CXaynAi::drop(xaynai) };
+            Ok(())
+        },
+    );
     let error = None;
 
-    call_with_result(drop, clean, error);
+    call_with_result(drop, error);
 }
 
 #[cfg(test)]

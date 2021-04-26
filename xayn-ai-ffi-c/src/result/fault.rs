@@ -82,14 +82,16 @@ impl CFaults<'_> {
 /// [`xaynai_faults()`]: crate::reranker::ai::xaynai_faults
 #[no_mangle]
 pub unsafe extern "C" fn faults_drop(faults: Option<&mut CFaults>) {
-    let drop = AssertUnwindSafe(|| {
-        unsafe { CFaults::drop(faults) };
-        Ok(())
-    });
-    let clean = || {};
+    let drop = AssertUnwindSafe(
+        // Safety: The memory is dropped anyways.
+        || {
+            unsafe { CFaults::drop(faults) };
+            Ok(())
+        },
+    );
     let error = None;
 
-    call_with_result(drop, clean, error);
+    call_with_result(drop, error);
 }
 
 #[cfg(test)]

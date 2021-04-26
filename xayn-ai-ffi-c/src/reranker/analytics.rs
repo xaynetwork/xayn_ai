@@ -43,12 +43,14 @@ impl CAnalytics {
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn analytics_drop(analytics: Option<&mut CAnalytics>) {
-    let drop = AssertUnwindSafe(|| {
-        unsafe { CAnalytics::drop(analytics) };
-        Ok(())
-    });
-    let clean = || {};
+    let drop = AssertUnwindSafe(
+        // Safety: The memory is dropped anyways.
+        || {
+            unsafe { CAnalytics::drop(analytics) };
+            Ok(())
+        },
+    );
     let error = None;
 
-    call_with_result(drop, clean, error);
+    call_with_result(drop, error);
 }

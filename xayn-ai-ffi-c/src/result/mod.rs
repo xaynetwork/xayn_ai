@@ -3,7 +3,7 @@
 pub(crate) mod error;
 pub(crate) mod fault;
 
-use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
+use std::panic::{catch_unwind, UnwindSafe};
 
 use ffi_support::{ExternError, IntoFfi};
 
@@ -14,18 +14,12 @@ pub use self::{
 
 /// Calls a callback which returns a result.
 ///
-/// Similar to [`ffi_support::call_with_result()`] but with additional functionality:
+/// Similar to [`ffi_support::call_with_result()`] but with optional error handling:
 /// - Ok: returns `T`'s FFI value.
-/// - Error: returns `T`'s default FFI value and optionally reports an error.
-/// - Panic: returns `T`'s default FFI value, performs cleanup and optionally reports an error.
-pub(crate) fn call_with_result<F, G, T>(
-    call: F,
-    clean: G,
-    error: Option<&mut ExternError>,
-) -> T::Value
+/// - Error/Panic: returns `T`'s default FFI value and optionally reports an error.
+pub(crate) fn call_with_result<F, T>(call: F, error: Option<&mut ExternError>) -> T::Value
 where
     F: UnwindSafe + FnOnce() -> Result<T, ExternError>,
-    G: RefUnwindSafe + FnOnce(),
     T: IntoFfi,
 {
     match catch_unwind(call) {
@@ -45,7 +39,6 @@ where
             if let Some(error) = error {
                 *error = cause.into();
             }
-            clean();
             T::ffi_default()
         }
     }

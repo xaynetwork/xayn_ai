@@ -79,14 +79,16 @@ impl CCode {
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
 pub unsafe extern "C" fn error_message_drop(error: Option<&mut ExternError>) {
-    let drop = AssertUnwindSafe(|| {
-        unsafe { CCode::drop_message(error) };
-        Ok(())
-    });
-    let clean = || {};
+    let drop = AssertUnwindSafe(
+        // Safety: The memory is dropped anyways.
+        || {
+            unsafe { CCode::drop_message(error) };
+            Ok(())
+        },
+    );
     let error = None;
 
-    call_with_result(drop, clean, error);
+    call_with_result(drop, error);
 }
 
 #[cfg(test)]
