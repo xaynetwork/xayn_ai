@@ -6,7 +6,7 @@ import 'package:async/async.dart';
 
 import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiInputData;
 
-/// Prepare and returns the data that is needed to init [`XaynAi`].
+/// Prepares and returns the data that is needed to init [`XaynAi`].
 ///
 /// This function needs to be called in the main thread because will not be allowed
 /// to access the assets from an isolate.
