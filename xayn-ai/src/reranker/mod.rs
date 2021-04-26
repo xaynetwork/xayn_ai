@@ -597,7 +597,12 @@ mod tests {
         let cs =
             common_systems_with_fail!(analytics, MockAnalyticsSystem, compute_analytics, |_,_|);
         let mut reranker = Reranker::new(cs).unwrap();
-        reranker.analytics = Some(Analytics);
+        reranker.analytics = Some(Analytics {
+            ndcg_initial: 0.,
+            ndcg_ltr: 0.,
+            ndcg_context: 0.,
+            ndcg_final_ranking: 0.,
+        });
         let documents = car_interest_example::documents();
         let history = history_for_prev_docs(
             &reranker.data.prev_documents.to_coi_system_data(),
