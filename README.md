@@ -23,6 +23,7 @@ To build libraries for mobile targets you can use:
 ```
 cargo make build-mobile
 ```
+
 On Linux this will only build Android libraries, while on Mac it will build
 for both Android and iOS.
 
