@@ -98,28 +98,28 @@ jobs:
         if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
         run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
 
-  release:
-    name: release
-    runs-on: macos-10.15
-    needs: [registry-cache, install-cargo-ndk, install-cargo-lipo]
-    timeout-minutes: 60
+  build-android-libs:
+    name: build-android-libs
+    needs: [registry-cache, install-cargo-ndk]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 15
+    strategy:
+      # fail-fast: false
+      matrix:
+        target: [aarch64-linux-android, armv7-linux-androideabi]
+        #target: [aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
-        run: |
-            rustup set profile minimal
-            rustup toolchain install ${{ env.RUST_STABLE }}
-            rustup target add \
-                    aarch64-linux-android \
-                    armv7-linux-androideabi \
-                    i686-linux-android \
-                    x86_64-linux-android \
-                    aarch64-apple-ios \
-                    x86_64-apple-ios \
-                    --toolchain ${{ env.RUST_STABLE }}
-            rustup override set ${{ env.RUST_STABLE }}
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
 
       - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
@@ -129,22 +129,76 @@ jobs:
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
-      - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
+      - name: Restore build artifacts
         uses: actions/cache@v2.1.4
         with:
-          path: ~/.cargo/bin/cargo-ndk
-          key: ${{ needs.install-cargo-ndk.outputs.cache-key }}
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
-      - name: Build Android libraries
-        working-directory: ./xayn-ai-ffi-c
-        run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 --platform ${{ env.ANDROID_PLATFORM_VERSION }} -o ../jniLibs build --release
+      - name: Build Android library ${{ matrix.target }}
+        run: |
+          cargo ndk \
+            -t ${{ matrix.target }} \
+            -p ${{ ANDROID_PLATFORM_VERSION }} \
+            -o ${{ DART_WORKSPACE }}/android/src/main/jniLibs
+            build --release
 
-      - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
-        uses: actions/cache@v2.1.4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
         with:
-          path: ~/.cargo/bin/cargo-lipo
-          key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
+          name: bin-${{ matrix.target }}-${{ $GITHUB_SHA }}
+          path: ${{ DART_WORKSPACE }}/android/src/main/jniLibs
 
-      - name: Build iOS libraries
-        working-directory: ./xayn-ai-ffi-c
-        run: cargo lipo --release
+  
+
+  # release:
+  #   name: release
+  #   runs-on: macos-10.15
+  #   needs: [registry-cache, install-cargo-ndk, install-cargo-lipo]
+  #   timeout-minutes: 60
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v2
+
+  #     - name: Install ${{ env.RUST_STABLE }} toolchain
+  #       run: |
+  #           rustup set profile minimal
+  #           rustup toolchain install ${{ env.RUST_STABLE }}
+  #           rustup target add \
+  #                   aarch64-linux-android \
+  #                   armv7-linux-androideabi \
+  #                   i686-linux-android \
+  #                   x86_64-linux-android \
+  #                   aarch64-apple-ios \
+  #                   x86_64-apple-ios \
+  #                   --toolchain ${{ env.RUST_STABLE }}
+  #           rustup override set ${{ env.RUST_STABLE }}
+
+  #     - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+  #       uses: actions/cache@v2.1.4
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry
+  #           ~/.cargo/git
+  #         key: ${{ needs.registry-cache.outputs.cache-key }}
+
+  #     - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
+  #       uses: actions/cache@v2.1.4
+  #       with:
+  #         path: ~/.cargo/bin/cargo-ndk
+  #         key: ${{ needs.install-cargo-ndk.outputs.cache-key }}
+
+  #     - name: Build Android libraries
+  #       working-directory: ./xayn-ai-ffi-c
+  #       run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 --platform ${{ env.ANDROID_PLATFORM_VERSION }} -o ../jniLibs build --release
+
+  #     - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
+  #       uses: actions/cache@v2.1.4
+  #       with:
+  #         path: ~/.cargo/bin/cargo-lipo
+  #         key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
+
+  #     - name: Build iOS libraries
+  #       working-directory: ./xayn-ai-ffi-c
+  #       run: cargo lipo --release
