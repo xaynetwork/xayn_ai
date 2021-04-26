@@ -14,6 +14,7 @@ XainAI plugin project.
   s.author           = { 'Xayn' => 'engineering@xaynet.dev' }
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
+  s.vendored_libraries = "**/*.a"
   s.dependency 'Flutter'
   s.platform = :ios, '9.0'
 
