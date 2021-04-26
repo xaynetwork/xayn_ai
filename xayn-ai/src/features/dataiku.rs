@@ -1,6 +1,7 @@
 #![allow(dead_code)] // TEMP
 
 use itertools::Itertools;
+use smallvec::{smallvec, SmallVec};
 use std::collections::{HashMap, HashSet};
 
 struct UserFeatures {
@@ -358,8 +359,7 @@ fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
         })
         // sum cond probs for each outcome
         .fold(HashMap::new(), |mut cp_map, (outcome, cp)| {
-            let sum = cp_map.entry(AtomFeat::CondProb(outcome)).or_insert(0.);
-            *sum += cp;
+            *cp_map.entry(AtomFeat::CondProb(outcome)).or_default() += cp;
             cp_map
         });
 
@@ -445,23 +445,21 @@ fn aggreg_feat(hist: &[SearchResult], r: &SearchResult, pred: FilterPred) -> Fea
 /// --------------------------
 /// |hist({Miss, Skip}, pred)|
 /// ```
-/// where the sum ranges over all result sets containing a URL `r.url` matching `res.url`.
+/// where the sum ranges over all result sets containing a URL matching `res.url`.
 fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
-    let pred_filtered = hist.iter().filter(|r| pred.apply(r)).collect_vec();
+    let pred_filtered = hist.iter().filter(|r| pred.apply(r));
     let denom = pred_filtered
-        .iter()
+        .clone()
         .filter(|r| r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
         .count() as f32;
 
-    let by_search = pred_filtered
+    let numer = pred_filtered
+        .group_by(|r| (r.session_id, r.query_counter))
         .into_iter()
-        .group_by(|r| (r.session_id, r.query_counter));
-
-    let numer = by_search
-        .into_iter()
-        .map(|(_, rs)| ResultSet::new(rs.collect())) // TODO more guarantees on rs preferred
-        .filter_map(|rs| Some(rs.clone()).zip(rs.rank_of(res.url)))
-        .map(|(rs, pos)| snippet_score(rs, pos))
+        .filter_map(|(_, rs)| {
+            let rs = ResultSet::new(rs.collect());
+            rs.rank_of(res.url).map(|pos| snippet_score(rs, pos))
+        })
         .sum::<f32>();
 
     numer / denom
@@ -476,7 +474,7 @@ fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) 
 ///
 /// As click ordering information is unavailable, assume it follows the ranking order.
 fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
-    match rs.at(pos).relevance {
+    match rs.get(pos).relevance {
         // NOTE unclear how to score Low, treat as a Miss
         ClickSat::Miss | ClickSat::Low => 0.,
         ClickSat::Skip => {
@@ -504,7 +502,10 @@ impl<'a> ResultSet<'a> {
     }
 
     /// Search result at position `pos` of the result set.
-    fn at(&self, pos: Rank) -> &SearchResult {
+    ///
+    /// # Panic
+    /// Panics if the length of the underlying vector is less than `pos`.
+    fn get(&self, pos: Rank) -> &SearchResult {
         self.0[(pos as usize) - 1]
     }
 
@@ -609,41 +610,44 @@ impl FilterPred {
     }
 
     /// Lookup the specification of the aggregate feature for this filter predicate.
-    fn agg_spec(&self) -> Vec<AtomFeat> {
+    fn agg_spec(&self) -> SmallVec<[AtomFeat; 6]> {
         use AtomFeat::{
-            CondProb as CP,
+            CondProb,
             MeanRecipRank as MRR,
             MeanRecipRankAll as mrr,
             SnippetQuality as SQ,
         };
-        use ClickSat::{High as click2, Miss as miss, Skip as skip};
-        use MrrOutcome::*;
+        use MrrOutcome::{Click, Miss, Skip};
         use SessionCond::{All, Anterior as Ant, Current};
-        use UrlOrDom::*;
+        use UrlOrDom::{Dom, Url};
+
+        let skip = CondProb(ClickSat::Skip);
+        let miss = CondProb(ClickSat::Miss);
+        let click2 = CondProb(ClickSat::High);
 
         match (self.doc, self.query, self.session) {
-            (Dom(_), None, All) => vec![CP(skip), CP(miss), CP(click2), SQ],
-            (Dom(_), None, Ant(_)) => vec![CP(click2), CP(miss), SQ],
-            (Url(_), None, All) => vec![MRR(Click), CP(click2), CP(miss), SQ],
-            (Url(_), None, Ant(_)) => vec![CP(click2), CP(miss), SQ],
-            (Dom(_), Some(_), All) => vec![CP(miss), SQ, MRR(Miss)],
-            (Dom(_), Some(_), Ant(_)) => vec![SQ],
-            (Url(_), Some(_), All) => vec![mrr, CP(click2), CP(miss), SQ],
-            (Url(_), Some(_), Ant(_)) => vec![mrr, MRR(Click), MRR(Miss), MRR(Skip), CP(skip), SQ],
-            (Url(_), Some(_), Current(_)) => vec![MRR(Miss)],
-            _ => vec![],
+            (Dom(_), None, All) => smallvec![skip, miss, click2, SQ],
+            (Dom(_), None, Ant(_)) => smallvec![click2, miss, SQ],
+            (Url(_), None, All) => smallvec![MRR(Click), click2, miss, SQ],
+            (Url(_), None, Ant(_)) => smallvec![click2, miss, SQ],
+            (Dom(_), Some(_), All) => smallvec![miss, SQ, MRR(Miss)],
+            (Dom(_), Some(_), Ant(_)) => smallvec![SQ],
+            (Url(_), Some(_), All) => smallvec![mrr, click2, miss, SQ],
+            (Url(_), Some(_), Ant(_)) => smallvec![mrr, MRR(Click), MRR(Miss), MRR(Skip), skip, SQ],
+            (Url(_), Some(_), Current(_)) => smallvec![MRR(Miss)],
+            _ => smallvec![],
         }
     }
 
     /// Lookup the specification of the cumulated feature for this filter predicate.
-    fn cum_spec(&self) -> Vec<ClickSat> {
+    fn cum_spec(&self) -> SmallVec<[ClickSat; 3]> {
         use ClickSat::{High as click2, Medium as click1, Skip as skip};
         use SessionCond::All;
         use UrlOrDom::*;
 
         match (self.doc, self.query, self.session) {
-            (Url(_), None, All) => vec![skip, click1, click2],
-            _ => vec![],
+            (Url(_), None, All) => smallvec![skip, click1, click2],
+            _ => smallvec![],
         }
     }
 

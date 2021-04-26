@@ -1521,6 +1521,7 @@ dependencies = [
  "rand_distr",
  "rubert",
  "serde",
+ "smallvec",
  "thiserror",
 ]
 
