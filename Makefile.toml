@@ -9,7 +9,7 @@ IOS_TARGETS = "aarch64-apple-ios x86_64-apple-ios"
 
 [config]
 skip_core_tasks = true
-# this avoid cargo make to run these taks for each crate
+# this avoids cargo make to run these tasks for each crate
 default_to_workspace = false
 
 [tasks.default]
@@ -50,6 +50,5 @@ dependencies = ["build-dart-bindgen"]
 script = ["""
   cargo lipo --targets $IOS_TARGETS build --release
 """]
-
 
 
