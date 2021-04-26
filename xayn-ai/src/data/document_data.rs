@@ -14,6 +14,12 @@ pub(crate) struct DocumentIdComponent {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
+pub(crate) struct InitialRankingComponent {
+    pub(crate) initial_ranking: usize,
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentContentComponent {
     pub(crate) snippet: String,
 }
@@ -60,6 +66,7 @@ pub(crate) struct MabComponent {
 
 pub(crate) struct DocumentDataWithDocument {
     pub(crate) document_id: DocumentIdComponent,
+    pub(crate) initial_ranking: InitialRankingComponent,
     pub(crate) document_content: DocumentContentComponent,
 }
 
@@ -67,6 +74,7 @@ pub(crate) struct DocumentDataWithDocument {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentDataWithEmbedding {
     pub(crate) document_id: DocumentIdComponent,
+    pub(crate) initial_ranking: InitialRankingComponent,
     pub(crate) embedding: EmbeddingComponent,
 }
 
@@ -77,6 +85,7 @@ impl DocumentDataWithEmbedding {
     ) -> Self {
         Self {
             document_id: document.document_id,
+            initial_ranking: document.initial_ranking,
             embedding,
         }
     }
@@ -98,6 +107,7 @@ impl CoiSystemData for DocumentDataWithEmbedding {
 
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_id: DocumentIdComponent,
+    pub(crate) initial_ranking: InitialRankingComponent,
     pub(crate) embedding: EmbeddingComponent,
     pub(crate) coi: CoiComponent,
 }
@@ -106,6 +116,7 @@ impl DocumentDataWithCoi {
     pub(crate) fn from_document(document: DocumentDataWithEmbedding, coi: CoiComponent) -> Self {
         Self {
             document_id: document.document_id,
+            initial_ranking: document.initial_ranking,
             embedding: document.embedding,
             coi,
         }
@@ -115,6 +126,7 @@ impl DocumentDataWithCoi {
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct DocumentDataWithLtr {
     pub(crate) document_id: DocumentIdComponent,
+    pub(crate) initial_ranking: InitialRankingComponent,
     pub(crate) embedding: EmbeddingComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -124,6 +136,7 @@ impl DocumentDataWithLtr {
     pub(crate) fn from_document(document: DocumentDataWithCoi, ltr: LtrComponent) -> Self {
         Self {
             document_id: document.document_id,
+            initial_ranking: document.initial_ranking,
             embedding: document.embedding,
             coi: document.coi,
             ltr,
@@ -134,6 +147,7 @@ impl DocumentDataWithLtr {
 #[cfg_attr(test, derive(Debug, Clone))]
 pub(crate) struct DocumentDataWithContext {
     pub(crate) document_id: DocumentIdComponent,
+    pub(crate) initial_ranking: InitialRankingComponent,
     pub(crate) embedding: EmbeddingComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -144,6 +158,7 @@ impl DocumentDataWithContext {
     pub(crate) fn from_document(document: DocumentDataWithLtr, context: ContextComponent) -> Self {
         Self {
             document_id: document.document_id,
+            initial_ranking: document.initial_ranking,
             embedding: document.embedding,
             coi: document.coi,
             ltr: document.ltr,
@@ -156,6 +171,7 @@ impl DocumentDataWithContext {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentDataWithMab {
     pub(crate) document_id: DocumentIdComponent,
+    pub(crate) initial_ranking: InitialRankingComponent,
     pub(crate) embedding: EmbeddingComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -167,6 +183,7 @@ impl DocumentDataWithMab {
     pub(crate) fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
         Self {
             document_id: document.document_id,
+            initial_ranking: document.initial_ranking,
             embedding: document.embedding,
             coi: document.coi,
             ltr: document.ltr,
@@ -203,11 +220,16 @@ mod tests {
         let document_content = DocumentContentComponent {
             snippet: "snippet".to_string(),
         };
+        let initial_ranking = InitialRankingComponent {
+            initial_ranking: 23,
+        };
         let document_data = DocumentDataWithDocument {
             document_id: document_id.clone(),
+            initial_ranking: initial_ranking.clone(),
             document_content: document_content.clone(),
         };
         assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.initial_ranking, initial_ranking);
         assert_eq!(document_data.document_content, document_content);
 
         let embedding = EmbeddingComponent {
@@ -216,6 +238,7 @@ mod tests {
         let document_data =
             DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
         assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.initial_ranking, initial_ranking);
         assert_eq!(document_data.embedding, embedding);
 
         let coi = CoiComponent {
@@ -225,12 +248,14 @@ mod tests {
         };
         let document_data = DocumentDataWithCoi::from_document(document_data, coi.clone());
         assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.initial_ranking, initial_ranking);
         assert_eq!(document_data.embedding, embedding);
         assert_eq!(document_data.coi, coi);
 
         let ltr = LtrComponent { ltr_score: 0.3 };
         let document_data = DocumentDataWithLtr::from_document(document_data, ltr.clone());
         assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.initial_ranking, initial_ranking);
         assert_eq!(document_data.embedding, embedding);
         assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
@@ -240,6 +265,7 @@ mod tests {
         };
         let document_data = DocumentDataWithContext::from_document(document_data, context.clone());
         assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.initial_ranking, initial_ranking);
         assert_eq!(document_data.embedding, embedding);
         assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
@@ -248,6 +274,7 @@ mod tests {
         let mab = MabComponent { rank: 3 };
         let document_data = DocumentDataWithMab::from_document(document_data, mab.clone());
         assert_eq!(document_data.document_id, document_id);
+        assert_eq!(document_data.initial_ranking, initial_ranking);
         assert_eq!(document_data.embedding, embedding);
         assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);

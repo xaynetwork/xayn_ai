@@ -214,6 +214,7 @@ mod tests {
                 DocumentDataWithMab,
                 DocumentIdComponent,
                 EmbeddingComponent,
+                InitialRankingComponent,
                 LtrComponent,
                 MabComponent,
             },
@@ -233,6 +234,9 @@ mod tests {
             .map(|(id, embedding)| DocumentDataWithMab {
                 document_id: DocumentIdComponent {
                     id: DocumentId(id.to_string()),
+                },
+                initial_ranking: InitialRankingComponent {
+                    initial_ranking: id,
                 },
                 embedding: EmbeddingComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),

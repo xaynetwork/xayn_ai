@@ -280,6 +280,7 @@ mod tests {
             ContextComponent,
             DocumentIdComponent,
             EmbeddingComponent,
+            InitialRankingComponent,
             LtrComponent,
         },
     };
@@ -292,6 +293,7 @@ mod tests {
     fn with_ctx(id: DocumentId, coi_id: CoiId, context_value: f32) -> DocumentDataWithContext {
         DocumentDataWithContext {
             document_id: DocumentIdComponent { id },
+            initial_ranking: InitialRankingComponent { initial_ranking: 0 },
             embedding: EmbeddingComponent {
                 embedding: arr1(&[]).into(),
             },

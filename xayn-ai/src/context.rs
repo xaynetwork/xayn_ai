@@ -62,7 +62,13 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent, LtrComponent},
+        document_data::{
+            CoiComponent,
+            DocumentIdComponent,
+            EmbeddingComponent,
+            InitialRankingComponent,
+            LtrComponent,
+        },
         CoiId,
     };
 
@@ -81,6 +87,9 @@ mod tests {
 
             self.docs.push(DocumentDataWithLtr {
                 document_id: DocumentIdComponent { id },
+                initial_ranking: InitialRankingComponent {
+                    initial_ranking: 13,
+                },
                 embedding: EmbeddingComponent { embedding },
                 coi: CoiComponent {
                     id: CoiId(0),

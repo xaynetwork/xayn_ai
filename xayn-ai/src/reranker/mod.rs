@@ -16,6 +16,7 @@ use crate::{
             DocumentDataWithEmbedding,
             DocumentDataWithMab,
             DocumentIdComponent,
+            InitialRankingComponent,
         },
         UserInterests,
     },
@@ -68,6 +69,9 @@ where
         .map(|document| DocumentDataWithDocument {
             document_id: DocumentIdComponent {
                 id: document.id.clone(),
+            },
+            initial_ranking: InitialRankingComponent {
+                initial_ranking: document.rank,
             },
             document_content: DocumentContentComponent {
                 snippet: document.snippet.clone(),

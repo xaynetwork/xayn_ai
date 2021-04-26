@@ -15,6 +15,7 @@ use crate::{
             DocumentDataWithMab,
             DocumentIdComponent,
             EmbeddingComponent,
+            InitialRankingComponent,
             LtrComponent,
             MabComponent,
         },
@@ -58,6 +59,9 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl BertSystem) -> Ve
             document_id: DocumentIdComponent {
                 id: DocumentId(id.to_string()),
             },
+            initial_ranking: InitialRankingComponent {
+                initial_ranking: id,
+            },
             document_content: DocumentContentComponent {
                 snippet: snippet.to_string(),
             },
@@ -96,11 +100,12 @@ pub(crate) fn history_for_prev_docs(
 }
 
 pub(crate) fn data_with_mab(
-    ids_and_embeddings: impl Iterator<Item = (DocumentId, Embedding)>,
+    ids_and_embeddings: impl Iterator<Item = (DocumentId, usize, Embedding)>,
 ) -> Vec<DocumentDataWithMab> {
     ids_and_embeddings
-        .map(|(id, embedding)| DocumentDataWithMab {
+        .map(|(id, initial_ranking, embedding)| DocumentDataWithMab {
             document_id: DocumentIdComponent { id },
+            initial_ranking: InitialRankingComponent { initial_ranking },
             embedding: EmbeddingComponent { embedding },
             coi: CoiComponent {
                 id: CoiId(1),
@@ -118,10 +123,13 @@ pub(crate) fn documents_with_embeddings_from_ids(
     ids: Range<u32>,
 ) -> Vec<DocumentDataWithEmbedding> {
     from_ids(ids)
-        .map(|(id, embedding)| DocumentDataWithEmbedding {
-            document_id: DocumentIdComponent { id },
-            embedding: EmbeddingComponent { embedding },
-        })
+        .map(
+            |(id, initial_ranking, embedding)| DocumentDataWithEmbedding {
+                document_id: DocumentIdComponent { id },
+                initial_ranking: InitialRankingComponent { initial_ranking },
+                embedding: EmbeddingComponent { embedding },
+            },
+        )
         .collect()
 }
 
@@ -160,10 +168,15 @@ pub(crate) fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec
         .collect()
 }
 
-pub(crate) fn from_ids(ids: Range<u32>) -> impl Iterator<Item = (DocumentId, Embedding)> {
+/// Return a sequence of `(document_id, initial_ranking, embedding)` tuples.
+///
+/// The passed in integer ids are converted to a string and used as document_id's as
+/// well as used as the initial_ranking.
+pub(crate) fn from_ids(ids: Range<u32>) -> impl Iterator<Item = (DocumentId, usize, Embedding)> {
     ids.map(|id| {
         (
             DocumentId(id.to_string()),
+            id as usize,
             arr1(&vec![id as f32; 128]).into(),
         )
     })

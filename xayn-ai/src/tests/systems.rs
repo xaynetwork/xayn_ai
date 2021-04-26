@@ -68,6 +68,7 @@ pub(crate) fn mocked_bert_system() -> MockBertSystem {
 
                 DocumentDataWithEmbedding {
                     document_id: doc.document_id,
+                    initial_ranking: doc.initial_ranking,
                     embedding: EmbeddingComponent {
                         embedding: arr1(&embedding).into(),
                     },
