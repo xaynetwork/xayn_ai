@@ -8,7 +8,7 @@ import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiInputData;
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 ///
-/// This function needs to be called in the main thread because will not be allowed
+/// This function needs to be called in the main thread because it will not be allowed
 /// to access the assets from an isolate.
 ///
 /// [`baseDiskPath`] must be a path to a directory where is possible to store the data.
