@@ -1,17 +1,24 @@
-use std::collections::HashMap;
-
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
 
-use super::utils::{ExternError, IntoJsResult};
+use super::{error::CCode, utils::IntoJsResult};
 
 #[wasm_bindgen]
+/// The Xayn AI.
 pub struct WXaynAi(Reranker);
 
 #[wasm_bindgen]
 impl WXaynAi {
     #[wasm_bindgen(constructor)]
+    /// Creates and initializes the Xayn AI.
+    ///
+    /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
+    /// reranker database, otherwise creates a new one.
+    ///
+    /// # Errors
+    /// - The `vocab` or `model` data are invalid.
+    /// - The `serialized` database is invalid.
     pub fn new(
         vocab: &[u8],
         model: &[u8],
@@ -19,76 +26,90 @@ impl WXaynAi {
     ) -> Result<WXaynAi, JsValue> {
         Builder::default()
             .with_serialized_database(&serialized.unwrap_or_default())
-            .map_err(|cause| ExternError {
-                code: 1,
-                msg: format!("Failed to deserialize the reranker database: {}", cause),
+            .map_err(|cause| {
+                CCode::RerankerDeserialization.with_context(format!(
+                    "Failed to deserialize the reranker database: {}",
+                    cause
+                ))
             })
             .into_js_result()?
             .with_bert_from_reader(vocab, model)
             .build()
             .map(WXaynAi)
-            .map_err(|cause| ExternError {
-                code: 2,
-                msg: format!("Failed to initialize the ai: {}", cause),
+            .map_err(|cause| {
+                CCode::InitAi.with_context(format!("Failed to initialize the ai: {}", cause))
             })
             .into_js_result()
     }
 
+    /// Reranks the documents with the Xayn AI.
+    ///
+    /// # Errors
+    /// Returns a null pointer if:
+    /// - The document `histories` are invalid.
+    /// - The `documents` are invalid.
     pub fn rerank(
         &mut self,
-        // Vec<JsValue> behaves like Box<[JsValue]> here
-        // https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/convert/trait.FromWasmAbi.html#impl-FromWasmAbi-for-Box%3C%5BJsValue%5D%3E
         history: Vec<JsValue>,
         documents: Vec<JsValue>,
-    ) -> Result<Vec<u32>, JsValue> {
+    ) -> Result<Vec<usize>, JsValue> {
         let history = history
             .iter()
             .map(JsValue::into_serde)
             .collect::<Result<Vec<DocumentHistory>, _>>()
+            .map_err(|cause| {
+                CCode::HistoriesDeserialization.with_context(format!(
+                    "Failed to deserialize the collection of histories: {}",
+                    cause
+                ))
+            })
             .into_js_result()?;
         let documents = documents
             .iter()
             .map(JsValue::into_serde)
             .collect::<Result<Vec<Document>, _>>()
-            .into_js_result()?;
-        let reranked = self.0.rerank(&history, &documents);
-
-        let ranks = reranked
-            .into_iter()
-            .map(|(id, rank)| (id, rank as u32))
-            .collect::<HashMap<_, _>>();
-        documents
-            .iter()
-            .map(|document| ranks.get(&document.id).copied())
-            .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| {
-                JsValue::from_str(
-                    "Failed to rerank the documents: The document ids are inconsistent",
-                )
+            .map_err(|cause| {
+                CCode::DocumentsDeserialization.with_context(format!(
+                    "Failed to deserialize the collection of documents: {}",
+                    cause
+                ))
             })
+            .into_js_result()?;
+        Ok(self.0.rerank(&history, &documents))
     }
 
+    /// Serializes the database of the reranker.
+    ///
+    /// # Errors
+    /// - The serialization fails.
     pub fn serialize(&self) -> Result<Uint8Array, JsValue> {
         self.0
             .serialize()
-            .into_js_result()
             .map(|bytes| bytes.as_slice().into())
+            .map_err(|cause| {
+                CCode::RerankerSerialization
+                    .with_context(format!("Failed to serialize the reranker: {}", cause))
+            })
+            .into_js_result()
     }
 
-    // See [`xaynai_faults()`] for more.
-    // pub fn faults(&self) -> Faults {
+    /// Retrieves faults which might occur during reranking.
+    ///
+    /// Faults can range from warnings to errors which are handled in some default way internally.
+    pub fn faults(&self) -> Vec<JsValue> {
+        self.0
+            .errors()
+            .iter()
+            .map(|error| {
+                JsValue::from_serde(&CCode::Fault.with_context(error.to_string())).unwrap()
+            })
+            .collect()
+    }
 
-    //     self.0.errors().into()
-    // }
-
-    // /// See [`xaynai_analytics()`] for more.
-    // unsafe fn analytics(xaynai: *const Self) -> Result<CAnalytics, ExternError> {
-    //     let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
-    //         CCode::AiPointer.with_context("Failed to get the analytics: The ai pointer is null")
-    //     })?;
-
-    //     Ok(CAnalytics(xaynai.0.analytics().cloned()))
-    // }
+    /// Retrieves the analytics which were collected in the penultimate reranking.
+    pub fn analytics(&self) -> JsValue {
+        JsValue::from_serde(&self.0.analytics()).unwrap()
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
