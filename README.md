@@ -36,6 +36,7 @@ rustup target add \
 ```
 
 Also `cargo-ndk` is needed:
+
 ```
 cargo install --version 2.3.0 cargo-ndk
 ```
