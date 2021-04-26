@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, collections::HashMap, iter::FusedIterator};
+use std::{cmp::Ordering, collections::HashMap};
+
+use anyhow::bail;
+use displaydoc::Display;
+use thiserror::Error;
 
 use crate::{
     data::{document::DocumentHistory, document_data::DocumentDataWithMab},
@@ -21,6 +25,10 @@ pub struct Analytics {
     /// The nDCG@k score between the final ranking and the relevance based ranking
     pub ndcg_final_ranking: f32,
 }
+
+#[derive(Error, Debug, Display)]
+/// Can not calculate Analytics as no relevant history is available.
+pub(crate) struct NoRelevantHistoricInfo;
 
 pub(crate) struct AnalyticsSystem;
 
@@ -45,22 +53,20 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
         let mut paired_final_ranking_score = Vec::new();
 
         for document in documents {
-            // We should never need the `_or(0.0)` but if we run into
-            // it it's best to give it a relevance of 0. As a document
-            // not in the history is irrelevant for this analytics.
-            let relevance = relevance_lookups
-                .get(&document.document_id.id)
-                .copied()
-                .unwrap_or(0.0);
+            if let Some(relevance) = relevance_lookups.get(&document.document_id.id).copied() {
+                paired_ltr_scores.push((relevance, document.ltr.ltr_score));
+                paired_context_scores.push((relevance, document.context.context_value));
 
-            paired_ltr_scores.push((relevance, document.ltr.ltr_score));
-            paired_context_scores.push((relevance, document.context.context_value));
+                // nDCG expects higher scores to be better but for the ranking
+                // it's the oposite, the solution carried over from the dart impl
+                // is to multiply by -1.
+                let final_ranking_desc = -(document.mab.rank as f32);
+                paired_final_ranking_score.push((relevance, final_ranking_desc));
+            }
+        }
 
-            // nDCG expects higher scores to be better but for the ranking
-            // it's the oposite, the solution carried over from the dart impl
-            // is to multiply by -1.
-            let final_ranking_desc = -(document.mab.rank as f32);
-            paired_final_ranking_score.push((relevance, final_ranking_desc));
+        if paired_ltr_scores.is_empty() {
+            bail!(NoRelevantHistoricInfo);
         }
 
         let ndcg_ltr = calcuate_reordered_ndcg_at_k_score(&mut paired_ltr_scores, DEFAULT_NDCG_K);
@@ -118,10 +124,7 @@ fn calcuate_reordered_ndcg_at_k_score(paired_relevances: &mut [(f32, f32)], k: u
 ///
 /// This taks the first k values for the DCG score and the "best" k values
 /// for the IDCG score and then calculates the nDCG score with that.
-fn ndcg_at_k(
-    relevances: impl Iterator<Item = f32> + Clone + ExactSizeIterator + FusedIterator,
-    k: usize,
-) -> f32 {
+fn ndcg_at_k(relevances: impl Iterator<Item = f32> + Clone + ExactSizeIterator, k: usize) -> f32 {
     let dcg_at_k = dcg(relevances.clone().take(k));
 
     let ideal_relevances = pick_k_highest_sorted_desc(relevances, k);
@@ -142,20 +145,24 @@ fn ndcg_at_k(
 /// If `NaN`'s is treated as the smallest possible value, i.e.
 /// preferably not picked at all if possible.
 fn pick_k_highest_sorted_desc(
-    mut scores: impl Iterator<Item = f32> + ExactSizeIterator + FusedIterator,
+    scores: impl Iterator<Item = f32> + ExactSizeIterator,
     k: usize,
 ) -> Vec<f32> {
+    // Due to specialization this has no overhead if scores is already fused.
+    let mut scores = scores.fuse();
     let mut k_highest: Vec<_> = (&mut scores).take(k).collect();
 
     k_highest.sort_by(nan_safe_sort_desc_comparsion);
 
     for score in scores {
-        let idx = k_highest
-            .binary_search_by(|other| nan_safe_sort_desc_comparsion(other, &score))
-            .unwrap_or_else(|not_found_insert_idx| not_found_insert_idx);
-
-        if idx < k {
+        //Supposed to act as NaN safe version of: if k_highest[k-1] < score {
+        if nan_safe_sort_desc_comparsion(&k_highest[k - 1], &score) == Ordering::Greater {
             let _ = k_highest.pop();
+
+            let idx = k_highest
+                .binary_search_by(|other| nan_safe_sort_desc_comparsion(other, &score))
+                .unwrap_or_else(|not_found_insert_idx| not_found_insert_idx);
+
             k_highest.insert(idx, score);
         }
     }
@@ -168,12 +175,10 @@ fn dcg(scores: impl Iterator<Item = f32>) -> f32 {
     // - As this is only used for analytics and bound by `k`(==2) and `&[Document].len()` (~ 10 to 40)
     //   no further optimizations make sense. Especially not if they require memory allocations.
     // - A "simple commulative" sum is ok as we only use small number of scores (default k=2)
-    let mut sum = 0.;
-    for (i, score) in scores.enumerate() {
+    scores.enumerate().fold(0.0, |sum, (idx, score)| {
         //it's i+2 as our i starts with 0, while the formular starts with 1 and uses i+1
-        sum += (2f32.powf(score) - 1.) / (i as f32 + 2.).log2()
-    }
-    sum
+        sum + (2f32.powf(score) - 1.) / (idx as f32 + 2.).log2()
+    })
 }
 
 /// Use for getting a descending sort ordering of floats.
@@ -232,8 +237,8 @@ mod tests {
             .compute_analytics(&history, &documents)
             .unwrap();
 
-        assert!(approx_eq!(f32, ndcg_ltr, 0.17376534287144002, ulps = 2));
-        assert!(approx_eq!(f32, ndcg_context, 0.8262346571285599, ulps = 2));
+        assert!(approx_eq!(f32, ndcg_ltr, 0.173_765_35, ulps = 2));
+        assert!(approx_eq!(f32, ndcg_context, 0.826_234_64, ulps = 2));
         //FIXME: Currently not possible as `ndcg_initial_ranking` is not yet computed
         // assert!(approx_eq!(f32, ndcg_initial_ranking, 0.7967075809905066, ulps = 2));
         assert!(approx_eq!(f32, ndcg_final_ranking, 1.0, ulps = 2));
