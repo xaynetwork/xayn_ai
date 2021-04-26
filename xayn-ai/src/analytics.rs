@@ -202,15 +202,15 @@ mod tests {
     fn test_create_reordered_ndcg_at_k_score_without_reordering() {
         let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.009846116527364958, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
 
         let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.4891424845441425, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.489_142_48, ulps = 2));
 
         let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.5098678822644145, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.509_867_9, ulps = 2));
 
         let relevances = &mut [
             (-1., 12.),
@@ -221,7 +221,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.6059214306390379, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.605_921_45, ulps = 2));
 
         let relevances = &mut [
             (-1., 12.),
@@ -232,7 +232,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.6260866644243038, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.626_086_65, ulps = 2));
 
         let relevances = &mut [
             (-1., 12.),
@@ -243,22 +243,22 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.6269342228326248, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.626_934_23, ulps = 2));
     }
 
     #[test]
     fn test_create_reordered_ndcg_at_k_score_with_reordering() {
         let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.009846116527364958, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
 
         let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.4891424845441425, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.489_142_48, ulps = 2));
 
         let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.5098678822644145, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.509_867_9, ulps = 2));
 
         let relevances = &mut [
             (3., 5.),
@@ -269,7 +269,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.6059214306390379, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.605_921_45, ulps = 2));
 
         let relevances = &mut [
             (3., 5.),
@@ -280,7 +280,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.6260866644243038, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.626_086_65, ulps = 2));
 
         let relevances = &mut [
             (3., 5.),
@@ -291,29 +291,29 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.6269342228326248, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.626_934_23, ulps = 2));
     }
 
     #[test]
     fn ndcg_at_k_produces_expected_values_for_k_larger_then_input() {
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 100);
-        assert!(approx_eq!(f32, res, 0.5098678822644145, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.509_867_9, ulps = 2));
 
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 100);
-        assert!(approx_eq!(f32, res, 0.6269342228326248, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.626_934_23, ulps = 2));
     }
 
     #[test]
     fn ndcg_at_k_produces_expected_values_for_k_smaller_then_input() {
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 2);
-        assert!(approx_eq!(f32, res, 0.009846116527364958, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 4);
-        assert!(approx_eq!(f32, res, 0.4891424845441425, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.489_142_48, ulps = 2));
 
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 2);
-        assert!(approx_eq!(f32, res, 0.6059214306390379, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.605_921_45, ulps = 2));
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 4);
-        assert!(approx_eq!(f32, res, 0.6260866644243038, ulps = 2));
+        assert!(approx_eq!(f32, res, 0.626_086_65, ulps = 2));
     }
 
     #[test]
@@ -321,13 +321,13 @@ mod tests {
         assert!(approx_eq!(
             f32,
             dcg([3f32, 2., 3., 0., 1., 2.].iter().copied()),
-            13.848263629272981,
+            13.848_264,
             ulps = 2
         ));
         assert!(approx_eq!(
             f32,
             dcg([-3.2, -2., -4., 0., -1., -2.].iter().copied()),
-            -2.293710288714865,
+            -2.293_710_2,
             ulps = 2
         ));
     }
@@ -354,6 +354,8 @@ mod tests {
 
     #[test]
     fn test_pick_k_highest_does_not_pick_nans_if_possible() {
+        #![allow(clippy::float_cmp)]
+
         let res = pick_k_highest_sorted_desc([3., 2., f32::NAN].iter().copied(), 2);
         assert_eq!(&*res, &[3., 2.]);
 
@@ -376,6 +378,8 @@ mod tests {
 
     #[test]
     fn test_nan_safe_sort_desc_comparsion_sorts_in_the_right_order() {
+        #![allow(clippy::float_cmp)]
+
         let data = &mut [f32::NAN, 1., 5., f32::NAN, 4.];
         data.sort_by(nan_safe_sort_desc_comparsion);
 
