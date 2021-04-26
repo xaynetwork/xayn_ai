@@ -1,4 +1,8 @@
-use std::cmp::{min, Ordering};
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    iter::{FromIterator, FusedIterator},
+};
 
 use crate::{
     data::{document::DocumentHistory, document_data::DocumentDataWithMab},
@@ -9,6 +13,7 @@ use crate::{
 
 /// Which k to use for nDCG@k
 const DEFAULT_NDCG_K: usize = 2;
+/// Calculated analytics data.
 #[derive(Clone)]
 pub struct Analytics {
     /// The nDCG@k score between the initial ranking and the relevance based ranking
@@ -29,37 +34,33 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
         history: &[DocumentHistory],
         documents: &[DocumentDataWithMab],
     ) -> Result<Analytics, Error> {
-        let mut relevances = Vec::new();
-        let mut ltr_scores = Vec::new();
-        let mut context_scores = Vec::new();
-        let mut final_ranking_score = Vec::new();
+        // We need to be able to lookup relevances by document id.
+        // and linear search is most likely a bad idea (FIXME:
+        // check if `history` len is very small). So we create
+        // a hashmap for the lookups.
+        let relevance_lookups: HashMap<_, _> = {
+            history
+                .iter()
+                .map(|h_doc| (&h_doc.id, score_for_relevance(h_doc.relevance)))
+                .collect()
+        };
+
+        let mut paired_ltr_scores = Vec::new();
+        let mut paired_context_scores = Vec::new();
+        let mut paired_final_ranking_score = Vec::new();
 
         for document in documents {
-            // - FIXME this is *slow* we probably want to
-            //   have some lookup by DocumentId for
-            //   this. Depending on a lot of factors it
-            //   might make sense to create a hashmap once
-            //   before the loop. (But that might also be slower
-            //   depending of the size of history...).
-            // - FIXME the dart version doesn't hadnle the
-            //   not found case? Should I panic?
-            //   Currently I give it a relevance of 0,
-            //   which will lead to the entry not having
-            //   an effect on the final score which is nice
-            //   so even if it can't happen it might be good
-            //   to just do so anyway instead of panicing.
-            let relevance = history
-                .iter()
-                .find(|h| &h.id == &document.document_id.id)
-                .map(|h| match h.relevance {
-                    Relevance::Low => 0.,
-                    Relevance::Medium => 1.,
-                    Relevance::High => 2.,
-                })
+            // We should never need the `_or(0.0)` but if we run into
+            // it it's best to give it a relevance of 0. As a document
+            // not in the history is irrelevant for this analytics.
+            let relevance = relevance_lookups
+                .get(&document.document_id.id)
+                .copied()
                 .unwrap_or(0.0);
-            relevances.push(relevance);
-            ltr_scores.push(document.ltr.ltr_score);
-            context_scores.push(document.context.context_value);
+
+            paired_ltr_scores.push((relevance, document.ltr.ltr_score));
+            paired_context_scores.push((relevance, document.context.context_value));
+
             // nDCG expects higher scores to be better but for the ranking
             // it's the oposite, the solution carried over from the dart impl
             // is to multiply by -1. Another would be to have the max rank (or
@@ -67,37 +68,17 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
             // While negative ranks work mathematically fine I'm not sure about
             // rounding problems due to f32. I really can't judge it it's a problem
             // or not.
-            final_ranking_score.push(-(document.mab.rank as f32));
+            let final_ranking_desc = -(document.mab.rank as f32);
+            paired_final_ranking_score.push((relevance, final_ranking_desc));
         }
 
-        let pair_buffer = &mut Vec::with_capacity(relevances.len());
+        let ndcg_ltr = calcuate_reordered_ndcg_at_k_score(&mut paired_ltr_scores, DEFAULT_NDCG_K);
 
-        // FIXME with cloneable/resetable iterators we can eleminate this buffer
-        let buffer = &mut Vec::with_capacity(relevances.len());
+        let ndcg_context =
+            calcuate_reordered_ndcg_at_k_score(&mut paired_context_scores, DEFAULT_NDCG_K);
 
-        let ndcg_ltr = calcuate_reordered_ndcg_at_k_score(
-            relevances.iter().copied(),
-            ltr_scores,
-            DEFAULT_NDCG_K,
-            pair_buffer,
-            buffer,
-        );
-
-        let ndcg_context = calcuate_reordered_ndcg_at_k_score(
-            relevances.iter().copied(),
-            context_scores,
-            DEFAULT_NDCG_K,
-            pair_buffer,
-            buffer,
-        );
-
-        let ndcg_final_ranking = calcuate_reordered_ndcg_at_k_score(
-            relevances.iter().copied(),
-            final_ranking_score,
-            DEFAULT_NDCG_K,
-            pair_buffer,
-            buffer,
-        );
+        let ndcg_final_ranking =
+            calcuate_reordered_ndcg_at_k_score(&mut paired_final_ranking_score, DEFAULT_NDCG_K);
 
         Ok(Analytics {
             //FIXME: We currently have no access to the initial score as thiss will require
@@ -111,50 +92,49 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
     }
 }
 
-fn calcuate_reordered_ndcg_at_k_score(
-    relevances: impl IntoIterator<Item = f32>,
-    ordering_scores: impl IntoIterator<Item = f32>,
-    k: usize,
-    pair_buffer: &mut Vec<(f32, f32)>,
-    buffer: &mut Vec<f32>,
-) -> f32 {
-    reorder_relevances_based_on_scores_replacing_buffer(relevances, ordering_scores, pair_buffer);
-    copy_second_value_replacing_buffer(pair_buffer.drain(..), buffer);
-    ndcg_at_k(&buffer[..], k)
+/// Returns a score for the given `Relevance`.
+fn score_for_relevance(relevance: Relevance) -> f32 {
+    match relevance {
+        Relevance::Low => 0.,
+        Relevance::Medium => 1.,
+        Relevance::High => 2.,
+    }
 }
 
-fn reorder_relevances_based_on_scores_replacing_buffer(
-    relevances: impl IntoIterator<Item = f32>,
-    ordering_scores: impl IntoIterator<Item = f32>,
-    buffer: &mut Vec<(f32, f32)>,
-) {
-    buffer.truncate(0);
-    buffer.extend(ordering_scores.into_iter().zip(relevances.into_iter()));
-    buffer
-        .sort_by(|(ord_sc_1, _), (ord_sc_2, _)| nan_safe_sort_desc_comparsion(ord_sc_1, ord_sc_2));
-}
-
-fn copy_second_value_replacing_buffer(
-    input: impl IntoIterator<Item = (f32, f32)>,
-    output: &mut Vec<f32>,
-) {
-    output.truncate(0);
-    output.extend(input.into_iter().map(|(_, second)| second));
+/// Calculates the nDCG@k for given paired relevances.
+///
+/// The input is a tuple of `(relevance, ordering_score)` pair,
+/// where the `ordering_score` is used to reorder the relevances
+/// based on sorting them in descending order.
+///
+/// **Note that the `paired_relevances` are sorted in place.**
+///
+/// After the reordering of the pairs the `relevance` values
+/// are used to calculate the nDCG@k.
+///
+/// ## NaN Handling.
+///
+/// NaN values are treated as the lowest possible socres wrt. the sorting.
+///
+/// If a `NaN` is in the k-first relevances the resulting nDCG@k score will be `NaN`.
+fn calcuate_reordered_ndcg_at_k_score(paired_relevances: &mut [(f32, f32)], k: usize) -> f32 {
+    paired_relevances
+        .sort_by(|(_, ord_sc_1), (_, ord_sc_2)| nan_safe_sort_desc_comparsion(ord_sc_1, ord_sc_2));
+    ndcg_at_k(paired_relevances.iter().map(|(rel, _ord)| *rel), k)
 }
 
 /// Calculates the nDCG@k, `k` defaults to 2 if `None` is passed in.
 ///
 /// This taks the first k values for the DCG score and the "best" k values
 /// for the IDCG score and then calculates the nDCG score with that.
-fn ndcg_at_k(scores: &[f32], k: usize) -> f32 {
-    // if we have less then k values we just use a smaller k
-    // it's mathematically equivalent to padding with 0 scores.
-    let k = min(k, scores.len());
+fn ndcg_at_k(
+    relevances: impl Iterator<Item = f32> + Clone + ExactSizeIterator + FusedIterator,
+    k: usize,
+) -> f32 {
+    let dcg_at_k = dcg(relevances.clone().take(k));
 
-    let dcg_at_k = dcg(&scores[..k]);
-
-    let other_scores = pick_k_highest_scores(scores, k);
-    let idcg_at_k = dcg(&other_scores);
+    let ideal_relevances = pick_k_highest_sorted_desc(relevances, k);
+    let idcg_at_k = dcg(ideal_relevances.into_iter());
 
     // if there is no ideal score our score pretent the ideal score is 1
     if idcg_at_k == 0.0 {
@@ -164,7 +144,7 @@ fn ndcg_at_k(scores: &[f32], k: usize) -> f32 {
     }
 }
 
-/// Pick the k-highest values (as if score.sort() and then &score[..k]).
+/// Pick the k-highest values in given iterator (as if a vector is sorted and then &sorted_score[..k]).
 ///
 /// If `NaN`'s is treated as the smallest possible value, i.e.
 /// preferably not picked at all if possible.
@@ -172,28 +152,31 @@ fn ndcg_at_k(scores: &[f32], k: usize) -> f32 {
 /// # Panics
 ///
 /// If `k > scores.len()` this will panic.
-fn pick_k_highest_scores(scores: &[f32], k: usize) -> Vec<f32> {
-    let mut k_highest = Vec::from(&scores[..k]);
+//TODO: SmallVec? Buffer reuse?
+fn pick_k_highest_sorted_desc(
+    mut scores: impl Iterator<Item = f32> + ExactSizeIterator + FusedIterator,
+    k: usize,
+) -> Vec<f32> {
+    let mut k_highest = Vec::from_iter((&mut scores).take(k));
 
-    // TODO: Potentially handle `NaN` better by treating them as
-    // "lowest possible" scores.
     k_highest.sort_by(nan_safe_sort_desc_comparsion);
 
-    for score in &scores[k..] {
+    for score in scores {
         let idx = k_highest
-            .binary_search_by(|other| nan_safe_sort_desc_comparsion(other, score))
+            .binary_search_by(|other| nan_safe_sort_desc_comparsion(other, &score))
             .unwrap_or_else(|not_found_insert_idx| not_found_insert_idx);
 
         if idx < k {
             let _ = k_highest.pop();
-            k_highest.insert(idx, *score);
+            k_highest.insert(idx, score);
         }
     }
 
     k_highest
 }
 
-fn dcg(scores: &[f32]) -> f32 {
+/// Calculates the DCG of given input sequence.
+fn dcg(scores: impl Iterator<Item = f32>) -> f32 {
     //Note: It migth seem to be faster to create two ndarrays and then use
     //      a / broadcast in the hope this will take advantage of SIMD at
     //      least on some platforms. But given that `scores` is more or
@@ -201,10 +184,11 @@ fn dcg(scores: &[f32]) -> f32 {
     //      any benefits and migth even slow things down due to uneccesary
     //      allocation. If k is fixed we could use stack allocated buffers
     //      and a tight loop, which problably would be the fastest.
+    //      (But there are libraries to provide vectorized powf, log2 and similar)
 
     // a "simple commulative" sum is ok as we only use small number of scores (default k=2)
     let mut sum = 0.;
-    for (i, score) in scores.iter().copied().enumerate() {
+    for (i, score) in scores.enumerate() {
         //it's i+2 as our i starts with 0, while the formular starts with 1 and uses i+1
         sum += (2f32.powf(score) - 1.) / (i as f32 + 2.).log2()
     }
@@ -236,147 +220,98 @@ mod tests {
 
         #[test]
         fn without_reordering() {
-            let buffer = &mut Vec::with_capacity(6);
-            let pair_buffer = &mut Vec::with_capacity(6);
-
-            let relevances = &[1., 4., 10., 3., 0., 6.];
-            let ordering_scores = &[12., 9., 7., 5., 4., 1.];
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                2,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
             assert!(approx_eq!(f32, res, 0.009846116527364958, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                4,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
             assert!(approx_eq!(f32, res, 0.4891424845441425, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                100,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
             assert!(approx_eq!(f32, res, 0.5098678822644145, ulps = 2));
 
-            let relevances = &[-1., 7., -10., 3., 0., -6.];
-            let ordering_scores = &[12., 9., 7., 5., 4., 1.];
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                2,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [
+                (-1., 12.),
+                (7., 9.),
+                (-10., 7.),
+                (3., 5.),
+                (0., 4.),
+                (-6., 1.),
+            ];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
             assert!(approx_eq!(f32, res, 0.6059214306390379, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                4,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [
+                (-1., 12.),
+                (7., 9.),
+                (-10., 7.),
+                (3., 5.),
+                (0., 4.),
+                (-6., 1.),
+            ];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
             assert!(approx_eq!(f32, res, 0.6260866644243038, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                100,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [
+                (-1., 12.),
+                (7., 9.),
+                (-10., 7.),
+                (3., 5.),
+                (0., 4.),
+                (-6., 1.),
+            ];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
             assert!(approx_eq!(f32, res, 0.6269342228326248, ulps = 2));
         }
 
         #[test]
         fn with_reordering() {
-            let buffer = &mut Vec::with_capacity(6);
-            let pair_buffer = &mut Vec::with_capacity(6);
-
-            let relevances = &[4., 10., 6., 0., 3., 1.];
-            let ordering_scores = &[9., 7., 1., 4., 5., 12.];
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                2,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
             assert!(approx_eq!(f32, res, 0.009846116527364958, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                4,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
             assert!(approx_eq!(f32, res, 0.4891424845441425, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                100,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
             assert!(approx_eq!(f32, res, 0.5098678822644145, ulps = 2));
 
-            let relevances = &[3., -10., 0., -1., 7., -6.];
-            let ordering_scores = &[5., 7., 4., 12., 9., 1.];
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                2,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [
+                (3., 5.),
+                (-10., 7.),
+                (0., 4.),
+                (-1., 12.),
+                (7., 9.),
+                (-6., 1.),
+            ];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
             assert!(approx_eq!(f32, res, 0.6059214306390379, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                4,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [
+                (3., 5.),
+                (-10., 7.),
+                (0., 4.),
+                (-1., 12.),
+                (7., 9.),
+                (-6., 1.),
+            ];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
             assert!(approx_eq!(f32, res, 0.6260866644243038, ulps = 2));
 
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                100,
-                pair_buffer,
-                buffer,
-            );
+            let relevances = &mut [
+                (3., 5.),
+                (-10., 7.),
+                (0., 4.),
+                (-1., 12.),
+                (7., 9.),
+                (-6., 1.),
+            ];
+            let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
             assert!(approx_eq!(f32, res, 0.6269342228326248, ulps = 2));
-        }
-
-        #[test]
-        fn buffers_can_be_any_capacity() {
-            let buffer = &mut Vec::new();
-            let pair_buffer = &mut Vec::new();
-
-            let relevances = &[4., 10., 6., 0., 3., 1.];
-            let ordering_scores = &[9., 7., 1., 4., 5., 12.];
-            let res = calcuate_reordered_ndcg_at_k_score(
-                relevances.iter().copied(),
-                ordering_scores.iter().copied(),
-                2,
-                pair_buffer,
-                buffer,
-            );
-            assert!(approx_eq!(f32, res, 0.009846116527364958, ulps = 2));
         }
     }
 
@@ -385,23 +320,23 @@ mod tests {
         use float_cmp::approx_eq;
         #[test]
         fn produces_expected_values_for_k_larger_then_input() {
-            let res = ndcg_at_k(&[1., 4., 10., 3., 0., 6.], 100);
+            let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 100);
             assert!(approx_eq!(f32, res, 0.5098678822644145, ulps = 2));
 
-            let res = ndcg_at_k(&[-1., 7., -10., 3., 0., -6.], 100);
+            let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 100);
             assert!(approx_eq!(f32, res, 0.6269342228326248, ulps = 2));
         }
 
         #[test]
         fn produces_expected_values_for_k_smaller_then_input() {
-            let res = ndcg_at_k(&[1., 4., 10., 3., 0., 6.], 2);
+            let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 2);
             assert!(approx_eq!(f32, res, 0.009846116527364958, ulps = 2));
-            let res = ndcg_at_k(&[1., 4., 10., 3., 0., 6.], 4);
+            let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 4);
             assert!(approx_eq!(f32, res, 0.4891424845441425, ulps = 2));
 
-            let res = ndcg_at_k(&[-1., 7., -10., 3., 0., -6.], 2);
+            let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 2);
             assert!(approx_eq!(f32, res, 0.6059214306390379, ulps = 2));
-            let res = ndcg_at_k(&[-1., 7., -10., 3., 0., -6.], 4);
+            let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 4);
             assert!(approx_eq!(f32, res, 0.6260866644243038, ulps = 2));
         }
     }
@@ -417,13 +352,13 @@ mod tests {
             //      slightly different result due to rounding
             assert!(approx_eq!(
                 f32,
-                dcg(&[3f32, 2., 3., 0., 1., 2.]),
+                dcg([3f32, 2., 3., 0., 1., 2.].iter().copied()),
                 13.848263629272981,
                 ulps = 2
             ));
             assert!(approx_eq!(
                 f32,
-                dcg(&[-3.2, -2., -4., 0., -1., -2.]),
+                dcg([-3.2, -2., -4., 0., -1., -2.].iter().copied()),
                 -2.293710288714865,
                 ulps = 2
             ));
@@ -444,7 +379,7 @@ mod tests {
             ];
 
             for (input, pick) in cases {
-                let res = pick_k_highest_scores(input, 2);
+                let res = pick_k_highest_sorted_desc(input.iter().copied(), 2);
                 assert_eq!(
                     &*res, &**pick,
                     "res={:?}, expected={:?}, input={:?}",
@@ -455,18 +390,22 @@ mod tests {
 
         #[test]
         fn nans_are_preferably_not_picked_at_all() {
-            let res = pick_k_highest_scores(&[3., 2., f32::NAN], 2);
+            let res = pick_k_highest_sorted_desc([3., 2., f32::NAN].iter().copied(), 2);
             assert_eq!(&*res, &[3., 2.]);
 
-            let res =
-                pick_k_highest_scores(&[f32::NAN, 3., f32::NAN, f32::NAN, 2., 4., f32::NAN], 2);
+            let res = pick_k_highest_sorted_desc(
+                [f32::NAN, 3., f32::NAN, f32::NAN, 2., 4., f32::NAN]
+                    .iter()
+                    .copied(),
+                2,
+            );
             assert_eq!(&*res, &[4., 3.]);
 
-            let res = pick_k_highest_scores(&[f32::NAN, 3., 2., f32::NAN], 3);
+            let res = pick_k_highest_sorted_desc([f32::NAN, 3., 2., f32::NAN].iter().copied(), 3);
             assert_eq!(&res[..2], &[3., 2.]);
             assert!(res[2].is_nan());
 
-            let res = pick_k_highest_scores(&[f32::NAN], 1);
+            let res = pick_k_highest_sorted_desc([f32::NAN].iter().copied(), 1);
             assert_eq!(res.len(), 1);
             assert!(res[0].is_nan());
         }
