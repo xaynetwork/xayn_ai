@@ -488,6 +488,9 @@ jobs:
             ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
           key: ${{ needs.build-xain-ai-lib.outputs.cache-key }}
 
+      - name: Download data
+        run: sh download_data.sh
+
       - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub get
