@@ -353,7 +353,7 @@ mod tests {
     }
 
     impl TestVocab {
-        fn as_ptr<'a>(&'a self) -> Option<&'a u8> {
+        fn as_ptr(&self) -> Option<&u8> {
             unsafe { self.0.as_ptr().cast::<u8>().as_ref() }
         }
     }
@@ -371,7 +371,7 @@ mod tests {
     }
 
     impl TestModel {
-        fn as_ptr<'a>(&'a self) -> Option<&'a u8> {
+        fn as_ptr(&self) -> Option<&u8> {
             unsafe { self.0.as_ptr().cast::<u8>().as_ref() }
         }
     }
@@ -386,6 +386,7 @@ mod tests {
     }
 
     impl TestDb<'_> {
+        #[allow(clippy::unnecessary_wraps)]
         fn as_ptr(&self) -> Option<&CBytes> {
             Some(&self.bytes)
         }
