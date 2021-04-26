@@ -48,7 +48,7 @@ script = ["""
 [tasks.build-ios]
 dependencies = ["build-dart-bindgen"]
 script = ["""
-  cargo lipo --targets $IOS_TARGETS build --release
+  cargo lipo --targets $IOS_TARGETS --release
   cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
 """]
 
