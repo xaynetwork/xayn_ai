@@ -140,17 +140,17 @@ jobs:
         run: |
           cargo ndk \
             -t ${{ matrix.target }} \
-            -p ${{ ANDROID_PLATFORM_VERSION }} \
-            -o ${{ DART_WORKSPACE }}/android/src/main/jniLibs
+            -p ${{ env.ANDROID_PLATFORM_VERSION }} \
+            -o ${{ env.DART_WORKSPACE }}/android/src/main/jniLibs
             build --release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: bin-${{ matrix.target }}-${{ $GITHUB_SHA }}
-          path: ${{ DART_WORKSPACE }}/android/src/main/jniLibs
+          name: bin-${{ matrix.target }}-${{ github.sha }}
+          path: ${{ env.DART_WORKSPACE }}/android/src/main/jniLibs
 
-  
+
 
   # release:
   #   name: release
