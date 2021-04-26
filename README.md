@@ -25,8 +25,9 @@ On Linux this will only build Android libraries, while on Mac it will build
 for both Android and iOS.
 
 ### Android
+
 To build for Android the following targets are needed:
-```
+
 rustup target add \
   aarch64-linux-android \
   armv7-linux-androideabi \
