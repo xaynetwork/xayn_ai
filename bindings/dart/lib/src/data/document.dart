@@ -1,4 +1,4 @@
-import 'dart:ffi' show AllocatorAlloc, Int8, nullptr, Pointer, StructPointer;
+import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:meta/meta.dart' show visibleForTesting;
@@ -47,9 +47,9 @@ class Documents {
     } else {
       _docs.ref.data = malloc.call<CDocument>(_docs.ref.len);
       documents.asMap().forEach((i, document) {
-        _docs.ref.data[i].id = document._id.toNativeUtf8().cast<Int8>();
+        _docs.ref.data[i].id = document._id.toNativeUtf8().cast<Uint8>();
         _docs.ref.data[i].snippet =
-            document._snippet.toNativeUtf8().cast<Int8>();
+            document._snippet.toNativeUtf8().cast<Uint8>();
         _docs.ref.data[i].rank = document._rank;
       });
     }

@@ -1,9 +1,9 @@
-use std::{marker::PhantomData, slice::from_raw_parts};
+use std::slice::from_raw_parts;
 
-use ffi_support::{ExternError, FfiStr};
+use ffi_support::ExternError;
 use xayn_ai::{DocumentHistory, Relevance, UserFeedback};
 
-use crate::result::error::CCode;
+use crate::{result::error::CCode, utils::ptr_to_str};
 
 /// A document relevance level.
 #[repr(u8)]
@@ -49,7 +49,7 @@ impl From<CFeedback> for UserFeedback {
 #[repr(C)]
 pub struct CHistory<'a> {
     /// The raw pointer to the document id.
-    pub id: FfiStr<'a>,
+    pub id: Option<&'a u8>,
     /// The relevance level of the document.
     pub relevance: CRelevance,
     /// The user feedback level of the document.
@@ -60,14 +60,12 @@ pub struct CHistory<'a> {
 #[repr(C)]
 pub struct CHistories<'a> {
     /// The raw pointer to the document histories.
-    pub data: *const CHistory<'a>,
+    pub data: Option<&'a CHistory<'a>>,
     /// The number of document histories.
     pub len: u32,
-    // lifetime attached to the foreign raw slice of document histories (never use 'static for 'a)
-    _lifetime: PhantomData<&'a [CHistory<'a>]>,
 }
 
-impl CHistories<'_> {
+impl<'a> CHistories<'a> {
     /// Collects the document histories from raw.
     ///
     /// # Safety
@@ -78,58 +76,41 @@ impl CHistories<'_> {
     /// - A non-null `id` doesn't point to an aligned, contiguous area of memory with a terminating
     /// null byte.
     pub unsafe fn to_histories(&self) -> Result<Vec<DocumentHistory>, ExternError> {
-        if self.data.is_null() || self.len == 0 {
-            return Ok(Vec::new());
-        }
-
-        unsafe { from_raw_parts(self.data, self.len as usize) }
-            .iter()
-            .map(|history| {
-                let id = history
-                    .id
-                    .as_opt_str()
-                    .map(Into::into)
-                    .ok_or_else(|| {
-                        CCode::HistoryIdPointer.with_context(
-                            "Failed to rerank the documents: A document history id is not a valid C-string pointer",
+        match (self.data, self.len) {
+            (None, _) | (_, 0) => Ok(Vec::new()),
+            (Some(data), len) => unsafe { from_raw_parts::<'a>(data, len as usize) }
+                .iter()
+                .map(|history| {
+                    let id = unsafe {
+                        ptr_to_str(
+                            history.id,
+                            CCode::HistoryIdPointer,
+                            "Failed to rerank the documents",
                         )
-                    })?;
-                let relevance = history.relevance.into();
-                let user_feedback = history.feedback.into();
+                    }?
+                    .into();
+                    let relevance = history.relevance.into();
+                    let user_feedback = history.feedback.into();
 
-                Ok(DocumentHistory {id, relevance, user_feedback })
-            })
-            .collect()
+                    Ok(DocumentHistory {
+                        id,
+                        relevance,
+                        user_feedback,
+                    })
+                })
+                .collect(),
+        }
     }
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::{ffi::CString, iter::repeat, pin::Pin, ptr::null};
+    use std::{ffi::CString, iter::repeat, pin::Pin};
 
     use itertools::izip;
 
     use super::*;
-    use crate::{result::error::error_message_drop, utils::tests::AsPtr};
-
-    impl AsPtr for CHistories<'_> {}
-
-    impl<'a> From<Pin<&[CHistory<'a>]>> for CHistories<'a> {
-        fn from(histories: Pin<&[CHistory<'a>]>) -> Self {
-            let len = histories.len() as u32;
-            let data = if histories.is_empty() {
-                null()
-            } else {
-                histories.as_ptr()
-            };
-
-            Self {
-                data,
-                len,
-                _lifetime: PhantomData,
-            }
-        }
-    }
+    use crate::{result::error::error_message_drop, utils::tests::ptr_to_str_unchecked};
 
     pub struct TestHistories<'a> {
         _ids: Pin<Vec<CString>>,
@@ -139,16 +120,6 @@ pub(crate) mod tests {
 
     impl Drop for TestHistories<'_> {
         fn drop(&mut self) {}
-    }
-
-    impl<'a> AsPtr<CHistories<'a>> for TestHistories<'a> {
-        fn as_ptr(&self) -> *const CHistories<'a> {
-            self.histories.as_ptr()
-        }
-
-        fn as_mut_ptr(&mut self) -> *mut CHistories<'a> {
-            self.histories.as_mut_ptr()
-        }
     }
 
     impl Default for TestHistories<'_> {
@@ -169,13 +140,16 @@ pub(crate) mod tests {
             let history = Pin::new(
                 izip!(_ids.as_ref().get_ref(), relevances, feedbacks)
                     .map(|(id, relevance, feedback)| CHistory {
-                        id: unsafe { FfiStr::from_raw(id.as_ptr()) },
+                        id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
                         relevance,
                         feedback,
                     })
                     .collect::<Vec<_>>(),
             );
-            let histories = history.as_ref().into();
+            let histories = CHistories {
+                data: unsafe { history.as_ptr().as_ref() },
+                len: history.len() as u32,
+            };
 
             Self {
                 _ids,
@@ -185,7 +159,11 @@ pub(crate) mod tests {
         }
     }
 
-    impl TestHistories<'_> {
+    impl<'a> TestHistories<'a> {
+        pub fn as_ptr(&self) -> Option<&CHistories<'a>> {
+            Some(&self.histories)
+        }
+
         fn len(&self) -> usize {
             self.history.len()
         }
@@ -197,7 +175,7 @@ pub(crate) mod tests {
         let histories = unsafe { hists.histories.to_histories() }.unwrap();
         assert_eq!(histories.len(), hists.len());
         for (dh, ch) in izip!(histories, hists.history.as_ref().get_ref()) {
-            assert_eq!(dh.id.0, ch.id.as_str());
+            assert_eq!(dh.id.0, ptr_to_str_unchecked(ch.id));
             assert_eq!(dh.relevance, ch.relevance.into());
             assert_eq!(dh.user_feedback, ch.feedback.into());
         }
@@ -206,7 +184,7 @@ pub(crate) mod tests {
     #[test]
     fn test_histories_empty_null() {
         let mut hists = TestHistories::default();
-        hists.histories.data = null();
+        hists.histories.data = None;
         assert!(unsafe { hists.histories.to_histories() }
             .unwrap()
             .is_empty());
@@ -224,15 +202,19 @@ pub(crate) mod tests {
     #[test]
     fn test_history_id_null() {
         let mut hists = TestHistories::default();
-        hists.history[0].id = unsafe { FfiStr::from_raw(null()) };
+        hists.history[0].id = None;
 
         let mut error = unsafe { hists.histories.to_histories() }.unwrap_err();
         assert_eq!(error.get_code(), CCode::HistoryIdPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to rerank the documents: A document history id is not a valid C-string pointer",
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::HistoryIdPointer,
+            )
+            .as_str(),
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 }

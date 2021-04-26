@@ -1,7 +1,4 @@
-use std::{
-    ptr::{null, null_mut},
-    slice::from_raw_parts_mut,
-};
+use std::{panic::AssertUnwindSafe, slice::from_raw_parts_mut};
 
 use ffi_support::{destroy_c_string, ExternError, IntoFfi};
 use xayn_ai::Error;
@@ -13,9 +10,9 @@ pub struct Faults(Vec<String>);
 
 /// A raw slice of faults.
 #[repr(C)]
-pub struct CFaults {
+pub struct CFaults<'a> {
     /// The raw pointer to the faults.
-    pub data: *const ExternError,
+    pub data: Option<&'a ExternError>,
     /// The number of faults.
     pub len: u32,
 }
@@ -27,46 +24,47 @@ impl From<&[Error]> for Faults {
 }
 
 unsafe impl IntoFfi for Faults {
-    type Value = *mut CFaults;
+    type Value = Option<&'static mut CFaults<'static>>;
 
     #[inline]
     fn ffi_default() -> Self::Value {
-        null_mut()
+        None
     }
 
     #[inline]
     fn into_ffi_value(self) -> Self::Value {
         let len = self.0.len() as u32;
         let data = if self.0.is_empty() {
-            null()
+            None
         } else {
             self.0
                 .into_iter()
                 .map(|message| CCode::Fault.with_context(message))
                 .collect::<Vec<_>>()
                 .leak()
-                .as_ptr()
+                .first()
         };
-        let faults = CFaults { data, len };
 
-        Box::into_raw(Box::new(faults))
+        Some(Box::leak(Box::new(CFaults { data, len })))
     }
 }
 
-impl CFaults {
+impl CFaults<'_> {
     /// See [`faults_drop()`] for more.
-    unsafe fn drop(faults: *mut Self) {
-        if !faults.is_null() {
+    unsafe fn drop(faults: Option<&mut Self>) {
+        if let Some(faults) = faults {
             let faults = unsafe { Box::from_raw(faults) };
-            if !faults.data.is_null() && faults.len > 0 {
-                let faults = unsafe {
-                    Box::from_raw(from_raw_parts_mut(
-                        faults.data as *mut ExternError,
-                        faults.len as usize,
-                    ))
-                };
-                for fault in faults.iter() {
-                    unsafe { destroy_c_string(fault.get_raw_message() as *mut _) }
+            if let Some(data) = faults.data {
+                if faults.len > 0 {
+                    let faults = unsafe {
+                        Box::from_raw(from_raw_parts_mut(
+                            data as *const ExternError as *mut ExternError,
+                            faults.len as usize,
+                        ))
+                    };
+                    for fault in faults.iter() {
+                        unsafe { destroy_c_string(fault.get_raw_message() as *mut _) }
+                    }
                 }
             }
         }
@@ -83,11 +81,11 @@ impl CFaults {
 ///
 /// [`xaynai_faults()`]: crate::reranker::ai::xaynai_faults
 #[no_mangle]
-pub unsafe extern "C" fn faults_drop(faults: *mut CFaults) {
-    let drop = || {
+pub unsafe extern "C" fn faults_drop(faults: Option<&mut CFaults>) {
+    let drop = AssertUnwindSafe(|| {
         unsafe { CFaults::drop(faults) };
         Ok(())
-    };
+    });
     let clean = || {};
     let error = None;
 
@@ -133,29 +131,28 @@ mod tests {
     #[test]
     fn test_into_raw() {
         let buffer = TestFaults::default().0;
-        let faults = Faults::from(buffer.as_slice()).into_ffi_value();
+        let faults = Faults::from(buffer.as_slice()).into_ffi_value().unwrap();
 
-        assert!(!faults.is_null());
-        let data = unsafe { &*faults }.data;
-        let len = unsafe { &*faults }.len as usize;
-        assert!(!data.is_null());
-        assert_eq!(len, buffer.len());
-        for (fault, error) in izip!(unsafe { from_raw_parts(data, len) }, buffer) {
+        assert!(faults.data.is_some());
+        assert_eq!(faults.len as usize, buffer.len());
+        for (fault, error) in izip!(
+            unsafe { from_raw_parts(faults.data.unwrap(), faults.len as usize) },
+            buffer,
+        ) {
             assert_eq!(fault.get_code(), CCode::Fault);
             assert_eq!(fault.get_message(), error.to_string().as_str());
         }
 
-        unsafe { faults_drop(faults) };
+        unsafe { faults_drop(Some(faults)) };
     }
 
     #[test]
     fn test_into_empty() {
-        let faults = Faults(Vec::new()).into_ffi_value();
+        let faults = Faults(Vec::new()).into_ffi_value().unwrap();
 
-        assert!(!faults.is_null());
-        assert!(unsafe { &*faults }.data.is_null());
-        assert_eq!(unsafe { &*faults }.len, 0);
+        assert!(faults.data.is_none());
+        assert_eq!(faults.len, 0);
 
-        unsafe { faults_drop(faults) };
+        unsafe { faults_drop(Some(faults)) };
     }
 }

@@ -1,4 +1,4 @@
-import 'dart:ffi' show AllocatorAlloc, Int8, nullptr, Pointer, StructPointer;
+import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:meta/meta.dart' show visibleForTesting;
@@ -118,7 +118,7 @@ class Histories {
     } else {
       _hists.ref.data = malloc.call<CHistory>(_hists.ref.len);
       histories.asMap().forEach((i, history) {
-        _hists.ref.data[i].id = history._id.toNativeUtf8().cast<Int8>();
+        _hists.ref.data[i].id = history._id.toNativeUtf8().cast<Uint8>();
         _hists.ref.data[i].relevance = history._relevance.toInt();
         _hists.ref.data[i].feedback = history._feedback.toInt();
       });

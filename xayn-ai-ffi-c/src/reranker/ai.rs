@@ -1,6 +1,9 @@
-use std::panic::RefUnwindSafe;
+use std::{
+    panic::{AssertUnwindSafe, RefUnwindSafe},
+    ptr::null_mut,
+};
 
-use ffi_support::{implement_into_ffi_by_pointer, ExternError, FfiStr};
+use ffi_support::{ExternError, IntoFfi};
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
@@ -18,6 +21,7 @@ use crate::{
         error::CCode,
         fault::{CFaults, Faults},
     },
+    utils::ptr_to_str,
 };
 
 /// The Xayn AI.
@@ -40,28 +44,34 @@ impl RefUnwindSafe for CXaynAi {
     // drop `CXaynAi` and signal a panic code.
 }
 
-implement_into_ffi_by_pointer! { CXaynAi }
+unsafe impl IntoFfi for CXaynAi {
+    type Value = Option<&'static mut CXaynAi>;
+
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        None
+    }
+
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        Some(Box::leak(Box::new(self)))
+    }
+}
 
 impl CXaynAi {
     /// See [`xaynai_new()`] for more.
     unsafe fn new(
-        vocab: FfiStr,
-        model: FfiStr,
-        serialized: *const CBytes,
+        vocab: Option<&u8>,
+        model: Option<&u8>,
+        serialized: Option<&CBytes>,
     ) -> Result<Self, ExternError> {
-        let vocab = vocab.as_opt_str().ok_or_else(|| {
-            CCode::VocabPointer.with_context(
-                "Failed to initialize the ai: The vocab is not a valid C-string pointer",
-            )
-        })?;
-        let model = model.as_opt_str().ok_or_else(|| {
-            CCode::ModelPointer.with_context(
-                "Failed to initialize the ai: The model is not a valid C-string pointer",
-            )
-        })?;
+        let vocab =
+            unsafe { ptr_to_str(vocab, CCode::VocabPointer, "Failed to initialize the ai") }?;
+        let model =
+            unsafe { ptr_to_str(model, CCode::ModelPointer, "Failed to initialize the ai") }?;
 
-        let serialized = unsafe { serialized.as_ref() }
-            .map(|bytes| bytes.as_slice())
+        let serialized = serialized
+            .map(|bytes| unsafe { bytes.as_slice() })
             .unwrap_or_default();
 
         Builder::default()
@@ -85,22 +95,22 @@ impl CXaynAi {
 
     /// See [`xaynai_rerank()`] for more.
     unsafe fn rerank(
-        xaynai: *mut Self,
-        histories: *const CHistories,
-        documents: *const CDocuments,
+        xaynai: Option<&mut Self>,
+        histories: Option<&CHistories>,
+        documents: Option<&CDocuments>,
     ) -> Result<Ranks, ExternError> {
-        let xaynai = unsafe { xaynai.as_mut() }.ok_or_else(|| {
+        let xaynai = xaynai.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
-        let histories = unsafe { histories.as_ref() }
+        let histories = histories
             .ok_or_else(|| {
                 CCode::HistoriesPointer.with_context(
                     "Failed to rerank the documents: The document histories pointer is null",
                 )
             })?
             .to_histories()?;
-        let documents = unsafe { documents.as_ref() }
+        let documents = documents
             .ok_or_else(|| {
                 CCode::DocumentsPointer
                     .with_context("Failed to rerank the documents: The documents pointer is null")
@@ -111,8 +121,8 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_serialize()`] for more.
-    unsafe fn serialize(xaynai: *const Self) -> Result<Bytes, ExternError> {
-        let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
+    unsafe fn serialize(xaynai: Option<&Self>) -> Result<Bytes, ExternError> {
+        let xaynai = xaynai.ok_or_else(|| {
             CCode::AiPointer
                 .with_context("Failed to serialize the reranker database: The ai pointer is null")
         })?;
@@ -124,8 +134,8 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_faults()`] for more.
-    unsafe fn faults(xaynai: *const Self) -> Result<Faults, ExternError> {
-        let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
+    unsafe fn faults(xaynai: Option<&Self>) -> Result<Faults, ExternError> {
+        let xaynai = xaynai.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to get the faults: The ai pointer is null")
         })?;
 
@@ -133,8 +143,8 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_analytics()`] for more.
-    unsafe fn analytics(xaynai: *const Self) -> Result<CAnalytics, ExternError> {
-        let xaynai = unsafe { xaynai.as_ref() }.ok_or_else(|| {
+    unsafe fn analytics(xaynai: Option<&Self>) -> Result<CAnalytics, ExternError> {
+        let xaynai = xaynai.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to get the analytics: The ai pointer is null")
         })?;
 
@@ -142,8 +152,8 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_drop()`] for more.
-    unsafe fn drop(xaynai: *mut Self) {
-        if !xaynai.is_null() {
+    unsafe fn drop(xaynai: Option<&mut Self>) {
+        if let Some(xaynai) = xaynai {
             unsafe { Box::from_raw(xaynai) };
         }
     }
@@ -171,14 +181,13 @@ impl CXaynAi {
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
-    vocab: FfiStr,
-    model: FfiStr,
-    serialized: *const CBytes,
-    error: *mut ExternError,
-) -> *mut CXaynAi {
+    vocab: Option<&u8>,
+    model: Option<&u8>,
+    serialized: Option<&CBytes>,
+    error: Option<&mut ExternError>,
+) -> Option<&'static mut CXaynAi> {
     let new = || unsafe { CXaynAi::new(vocab, model, serialized) };
     let clean = || {};
-    let error = unsafe { error.as_mut() };
 
     call_with_result(new, clean, error)
 }
@@ -219,14 +228,19 @@ pub unsafe extern "C" fn xaynai_new(
 /// [`CDocument`]: crate::data::document::CDocument
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
-    xaynai: *mut CXaynAi,
-    histories: *const CHistories,
-    documents: *const CDocuments,
-    error: *mut ExternError,
-) -> *mut CRanks {
-    let rerank = || unsafe { CXaynAi::rerank(xaynai, histories, documents) };
-    let clean = || unsafe { CXaynAi::drop(xaynai) };
-    let error = unsafe { error.as_mut() };
+    xaynai: Option<&mut CXaynAi>,
+    histories: Option<&CHistories>,
+    documents: Option<&CDocuments>,
+    error: Option<&mut ExternError>,
+) -> Option<&'static mut CRanks<'static>> {
+    let xaynai = if let Some(xaynai) = xaynai {
+        xaynai as *mut CXaynAi
+    } else {
+        null_mut()
+    };
+    let rerank =
+        AssertUnwindSafe(|| unsafe { CXaynAi::rerank(xaynai.as_mut(), histories, documents) });
+    let clean = || unsafe { CXaynAi::drop(xaynai.as_mut()) };
 
     call_with_result(rerank, clean, error)
 }
@@ -246,12 +260,11 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_serialize(
-    xaynai: *const CXaynAi,
-    error: *mut ExternError,
-) -> *mut CBytes<'static> {
+    xaynai: Option<&CXaynAi>,
+    error: Option<&mut ExternError>,
+) -> Option<&'static mut CBytes<'static>> {
     let serialize = || unsafe { CXaynAi::serialize(xaynai) };
     let clean = || {};
-    let error = unsafe { error.as_mut() };
 
     call_with_result(serialize, clean, error)
 }
@@ -272,12 +285,11 @@ pub unsafe extern "C" fn xaynai_serialize(
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_faults(
-    xaynai: *const CXaynAi,
-    error: *mut ExternError,
-) -> *mut CFaults {
+    xaynai: Option<&CXaynAi>,
+    error: Option<&mut ExternError>,
+) -> Option<&'static mut CFaults<'static>> {
     let faults = || unsafe { CXaynAi::faults(xaynai) };
     let clean = || {};
-    let error = unsafe { error.as_mut() };
 
     call_with_result(faults, clean, error)
 }
@@ -296,12 +308,11 @@ pub unsafe extern "C" fn xaynai_faults(
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_analytics(
-    xaynai: *const CXaynAi,
-    error: *mut ExternError,
-) -> *mut CAnalytics {
+    xaynai: Option<&CXaynAi>,
+    error: Option<&mut ExternError>,
+) -> Option<&'static mut CAnalytics> {
     let analytics = || unsafe { CXaynAi::analytics(xaynai) };
     let clean = || {};
-    let error = unsafe { error.as_mut() };
 
     call_with_result(analytics, clean, error)
 }
@@ -314,11 +325,11 @@ pub unsafe extern "C" fn xaynai_analytics(
 /// - A non-null `xaynai` is freed more than once.
 /// - A non-null `xaynai` is accessed after being freed.
 #[no_mangle]
-pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
-    let drop = || {
+pub unsafe extern "C" fn xaynai_drop(xaynai: Option<&mut CXaynAi>) {
+    let drop = AssertUnwindSafe(|| {
         unsafe { CXaynAi::drop(xaynai) };
         Ok(())
-    };
+    });
     let clean = || {};
     let error = None;
 
@@ -327,11 +338,7 @@ pub unsafe extern "C" fn xaynai_drop(xaynai: *mut CXaynAi) {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        ffi::CString,
-        pin::Pin,
-        ptr::{null, null_mut},
-    };
+    use std::{ffi::CString, pin::Pin};
 
     use super::*;
     use crate::{
@@ -339,7 +346,6 @@ mod tests {
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
         tests::{MODEL, VOCAB},
-        utils::tests::AsPtr,
     };
 
     struct TestVocab(Pin<CString>);
@@ -348,15 +354,15 @@ mod tests {
         fn drop(&mut self) {}
     }
 
-    impl TestVocab {
-        fn as_ptr(&self) -> FfiStr {
-            unsafe { FfiStr::from_raw(self.0.as_ptr()) }
-        }
-    }
-
     impl Default for TestVocab {
         fn default() -> Self {
             Self(Pin::new(CString::new(VOCAB).unwrap()))
+        }
+    }
+
+    impl TestVocab {
+        fn as_ptr<'a>(&'a self) -> Option<&'a u8> {
+            unsafe { self.0.as_ptr().cast::<u8>().as_ref() }
         }
     }
 
@@ -366,15 +372,15 @@ mod tests {
         fn drop(&mut self) {}
     }
 
-    impl TestModel {
-        fn as_ptr(&self) -> FfiStr {
-            unsafe { FfiStr::from_raw(self.0.as_ptr()) }
-        }
-    }
-
     impl Default for TestModel {
         fn default() -> Self {
             Self(Pin::new(CString::new(MODEL).unwrap()))
+        }
+    }
+
+    impl TestModel {
+        fn as_ptr<'a>(&'a self) -> Option<&'a u8> {
+            unsafe { self.0.as_ptr().cast::<u8>().as_ref() }
         }
     }
 
@@ -387,20 +393,16 @@ mod tests {
         fn drop(&mut self) {}
     }
 
-    impl<'a> AsPtr<CBytes<'a>> for TestDb<'a> {
-        fn as_ptr(&self) -> *const CBytes<'a> {
-            self.bytes.as_ptr()
-        }
-
-        fn as_mut_ptr(&mut self) -> *mut CBytes<'a> {
-            self.bytes.as_mut_ptr()
+    impl TestDb<'_> {
+        fn as_ptr(&self) -> Option<&CBytes> {
+            Some(&self.bytes)
         }
     }
 
     impl Default for TestDb<'_> {
         fn default() -> Self {
-            let _vec = Pin::new(Vec::new());
-            let bytes = _vec.as_ref().into();
+            let mut _vec = Pin::new(Vec::new());
+            let bytes = CBytes { data: None, len: 0 };
 
             Self { _vec, bytes }
         }
@@ -420,17 +422,23 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                error.as_mut_ptr(),
+                Some(&mut error),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.get_code(), CCode::Success);
+        let ranks = unsafe {
+            xaynai_rerank(
+                Some(xaynai),
+                hists.as_ptr(),
+                docs.as_ptr(),
+                Some(&mut error),
             )
         };
-        assert!(!xaynai.is_null());
-        assert_eq!(error.get_code(), CCode::Success);
-        let ranks =
-            unsafe { xaynai_rerank(xaynai, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.get_code(), CCode::Success);
 
         unsafe { ranks_drop(ranks) };
-        unsafe { xaynai_drop(xaynai) };
+        unsafe { xaynai_drop(Some(xaynai)) };
     }
 
     #[test]
@@ -445,16 +453,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                error.as_mut_ptr(),
+                Some(&mut error),
             )
-        };
-        assert!(!xaynai.is_null());
+        }
+        .unwrap();
         assert_eq!(error.get_code(), CCode::Success);
-        let db = unsafe { xaynai_serialize(xaynai, error.as_mut_ptr()) };
+        let db = unsafe { xaynai_serialize(Some(xaynai), Some(&mut error)) };
         assert_eq!(error.get_code(), CCode::Success);
 
         unsafe { bytes_drop(db) };
-        unsafe { xaynai_drop(xaynai) };
+        unsafe { xaynai_drop(Some(xaynai)) };
     }
 
     #[test]
@@ -469,16 +477,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                error.as_mut_ptr(),
+                Some(&mut error),
             )
-        };
-        assert!(!xaynai.is_null());
+        }
+        .unwrap();
         assert_eq!(error.get_code(), CCode::Success);
-        let faults = unsafe { xaynai_faults(xaynai, error.as_mut_ptr()) };
+        let faults = unsafe { xaynai_faults(Some(xaynai), Some(&mut error)) };
         assert_eq!(error.get_code(), CCode::Success);
 
         unsafe { faults_drop(faults) };
-        unsafe { xaynai_drop(xaynai) };
+        unsafe { xaynai_drop(Some(xaynai)) };
     }
 
     #[test]
@@ -493,16 +501,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                error.as_mut_ptr(),
+                Some(&mut error),
             )
-        };
-        assert!(!xaynai.is_null());
+        }
+        .unwrap();
         assert_eq!(error.get_code(), CCode::Success);
-        let analytics = unsafe { xaynai_analytics(xaynai, error.as_mut_ptr()) };
+        let analytics = unsafe { xaynai_analytics(Some(xaynai), Some(&mut error)) };
         assert_eq!(error.get_code(), CCode::Success);
 
         unsafe { analytics_drop(analytics) };
-        unsafe { xaynai_drop(xaynai) };
+        unsafe { xaynai_drop(Some(xaynai)) };
     }
 
     #[test]
@@ -511,18 +519,21 @@ mod tests {
         let db = TestDb::default();
         let mut error = ExternError::default();
 
-        let invalid = unsafe { FfiStr::from_raw(null()) };
+        let invalid = None;
         assert!(
-            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
-                .is_null()
+            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), Some(&mut error)) }.is_none()
         );
         assert_eq!(error.get_code(), CCode::VocabPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to initialize the ai: The vocab is not a valid C-string pointer",
+            format!(
+                "Failed to initialize the ai: The {} is null",
+                CCode::VocabPointer,
+            )
+            .as_str(),
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
@@ -532,10 +543,9 @@ mod tests {
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
-        let invalid = unsafe { FfiStr::from_raw(invalid.as_ptr()) };
+        let invalid = Some(unsafe { &*(invalid.as_ptr() as *const _) });
         assert!(
-            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
-                .is_null()
+            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), Some(&mut error)) }.is_none()
         );
         assert_eq!(error.get_code(), CCode::ReadFile);
         assert!(error
@@ -543,7 +553,7 @@ mod tests {
             .as_str()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
@@ -552,18 +562,21 @@ mod tests {
         let db = TestDb::default();
         let mut error = ExternError::default();
 
-        let invalid = unsafe { FfiStr::from_raw(null()) };
+        let invalid = None;
         assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
-                .is_null()
+            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), Some(&mut error)) }.is_none()
         );
         assert_eq!(error.get_code(), CCode::ModelPointer);
         assert_eq!(
             error.get_message(),
-            "Failed to initialize the ai: The model is not a valid C-string pointer",
+            format!(
+                "Failed to initialize the ai: The {} is null",
+                CCode::ModelPointer,
+            )
+            .as_str(),
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
@@ -573,10 +586,9 @@ mod tests {
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
-        let invalid = unsafe { FfiStr::from_raw(invalid.as_ptr()) };
+        let invalid = Some(unsafe { &*(invalid.as_ptr() as *const _) });
         assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
-                .is_null()
+            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), Some(&mut error)) }.is_none()
         );
         assert_eq!(error.get_code(), CCode::ReadFile);
         assert!(error
@@ -584,7 +596,7 @@ mod tests {
             .as_str()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
@@ -593,63 +605,63 @@ mod tests {
         let docs = TestDocuments::default();
         let mut error = ExternError::default();
 
-        let invalid = null_mut();
-        assert!(unsafe {
-            xaynai_rerank(invalid, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr())
-        }
-        .is_null());
+        let invalid = None;
+        assert!(
+            unsafe { xaynai_rerank(invalid, hists.as_ptr(), docs.as_ptr(), Some(&mut error)) }
+                .is_none()
+        );
         assert_eq!(error.get_code(), CCode::AiPointer);
         assert_eq!(
             error.get_message(),
             "Failed to rerank the documents: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
     fn test_ai_null_serialize() {
         let mut error = ExternError::default();
 
-        let invalid = null_mut();
-        assert!(unsafe { xaynai_serialize(invalid, error.as_mut_ptr()) }.is_null());
+        let invalid = None;
+        assert!(unsafe { xaynai_serialize(invalid, Some(&mut error)) }.is_none());
         assert_eq!(error.get_code(), CCode::AiPointer);
         assert_eq!(
             error.get_message(),
             "Failed to serialize the reranker database: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
     fn test_ai_null_faults() {
         let mut error = ExternError::default();
 
-        let invalid = null_mut();
-        assert!(unsafe { xaynai_faults(invalid, error.as_mut_ptr()) }.is_null());
+        let invalid = None;
+        assert!(unsafe { xaynai_faults(invalid, Some(&mut error)) }.is_none());
         assert_eq!(error.get_code(), CCode::AiPointer);
         assert_eq!(
             error.get_message(),
             "Failed to get the faults: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
     fn test_ai_null_analytics() {
         let mut error = ExternError::default();
 
-        let invalid = null_mut();
-        assert!(unsafe { xaynai_analytics(invalid, error.as_mut_ptr()) }.is_null());
+        let invalid = None;
+        assert!(unsafe { xaynai_analytics(invalid, Some(&mut error)) }.is_none());
         assert_eq!(error.get_code(), CCode::AiPointer);
         assert_eq!(
             error.get_message(),
             "Failed to get the analytics: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
@@ -665,15 +677,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                error.as_mut_ptr(),
+                Some(&mut error),
             )
-        };
-        assert!(!xaynai.is_null());
+        }
+        .unwrap();
         assert_eq!(error.get_code(), CCode::Success);
 
-        let invalid = null();
+        let invalid = None;
         assert!(
-            unsafe { xaynai_rerank(xaynai, invalid, docs.as_ptr(), error.as_mut_ptr(),) }.is_null()
+            unsafe { xaynai_rerank(Some(xaynai), invalid, docs.as_ptr(), Some(&mut error)) }
+                .is_none()
         );
         assert_eq!(error.get_code(), CCode::HistoriesPointer);
         assert_eq!(
@@ -681,8 +694,8 @@ mod tests {
             "Failed to rerank the documents: The document histories pointer is null",
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
-        unsafe { xaynai_drop(xaynai) };
+        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { xaynai_drop(Some(xaynai)) };
     }
 
     #[test]
@@ -698,16 +711,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                error.as_mut_ptr(),
+                Some(&mut error),
             )
-        };
-        assert!(!xaynai.is_null());
+        }
+        .unwrap();
         assert_eq!(error.get_code(), CCode::Success);
 
-        let invalid = null();
+        let invalid = None;
         assert!(
-            unsafe { xaynai_rerank(xaynai, hists.as_ptr(), invalid, error.as_mut_ptr(),) }
-                .is_null()
+            unsafe { xaynai_rerank(Some(xaynai), hists.as_ptr(), invalid, Some(&mut error)) }
+                .is_none()
         );
         assert_eq!(error.get_code(), CCode::DocumentsPointer);
         assert_eq!(
@@ -715,8 +728,8 @@ mod tests {
             "Failed to rerank the documents: The documents pointer is null",
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
-        unsafe { xaynai_drop(xaynai) };
+        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { xaynai_drop(Some(xaynai)) };
     }
 
     #[test]
@@ -725,20 +738,13 @@ mod tests {
         let model = TestModel::default();
         let mut error = ExternError::default();
 
-        let db = Pin::new(Vec::new());
-        let db: CBytes = db.as_ref().into();
-        let xaynai = unsafe {
-            xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
-                db.as_ptr(),
-                error.as_mut_ptr(),
-            )
-        };
-        assert!(!xaynai.is_null());
+        let empty = CBytes { data: None, len: 0 };
+        let empty = Some(&empty);
+        let xaynai =
+            unsafe { xaynai_new(vocab.as_ptr(), model.as_ptr(), empty, Some(&mut error)) }.unwrap();
         assert_eq!(error.get_code(), CCode::Success);
 
-        unsafe { xaynai_drop(xaynai) };
+        unsafe { xaynai_drop(Some(xaynai)) };
     }
 
     #[test]
@@ -749,16 +755,15 @@ mod tests {
 
         let version = u8::MAX;
         let invalid = Pin::new(vec![version]);
-        let invalid: CBytes = invalid.as_ref().into();
-        let xaynai = unsafe {
-            xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
-                invalid.as_ptr(),
-                error.as_mut_ptr(),
-            )
+        let invalid = CBytes {
+            data: unsafe { invalid.as_ptr().as_ref() },
+            len: invalid.len() as u32,
         };
-        assert!(xaynai.is_null());
+        let invalid = Some(&invalid);
+        assert!(
+            unsafe { xaynai_new(vocab.as_ptr(), model.as_ptr(), invalid, Some(&mut error)) }
+                .is_none()
+        );
         assert_eq!(error.get_code(), CCode::RerankerDeserialization);
         assert_eq!(
             error.get_message(),
@@ -768,6 +773,6 @@ mod tests {
             ).as_str(),
         );
 
-        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { error_message_drop(Some(&mut error)) };
     }
 }

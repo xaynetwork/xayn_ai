@@ -1,4 +1,4 @@
-import 'dart:ffi' show Int8, nullptr, Pointer;
+import 'dart:ffi' show nullptr, Pointer, Uint8;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
@@ -38,8 +38,8 @@ class XaynAi {
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
   XaynAi(String vocab, String model, [Uint8List? serialized]) {
-    final vocabPtr = vocab.toNativeUtf8().cast<Int8>();
-    final modelPtr = model.toNativeUtf8().cast<Int8>();
+    final vocabPtr = vocab.toNativeUtf8().cast<Uint8>();
+    final modelPtr = model.toNativeUtf8().cast<Uint8>();
     Bytes? bytes;
     final error = XaynAiError();
 

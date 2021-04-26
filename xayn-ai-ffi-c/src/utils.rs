@@ -1,35 +1,43 @@
 //! Utilities.
 
+use std::{ffi::CStr, fmt::Display};
+
+use ffi_support::ExternError;
+
+use crate::result::error::CCode;
+
 /// This function does nothing.
 ///
 /// Calling this prevents Swift to drop the library.
 #[no_mangle]
 pub extern "C" fn dummy_function() {}
 
+pub(crate) unsafe fn ptr_to_str<'a>(
+    pointer: Option<&'a u8>,
+    code: CCode,
+    prefix: impl Display,
+) -> Result<&'a str, ExternError> {
+    let pointer = pointer
+        .ok_or_else(|| code.with_context(format!("{}: The {} is null", prefix, code)))?
+        as *const u8;
+    unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
+        .to_str()
+        .map_err(|cause| {
+            code.with_context(format!(
+                "{}: The {} contains invalid utf8: {}",
+                prefix, code, cause,
+            ))
+        })
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
-    /// Common casts from references to pointers.
-    ///
-    /// By default, a im/mutable reference to `Self` is cast as a im/mutable pointer to `Self`. In
-    /// addition, the target type `T` can be changed as well.
-    ///
-    /// # Safety
-    /// The cast itself is safe, although it is unsafe to use the resulting pointer. The behavior is
-    /// undefined if:
-    /// - A `T` different from `Self` doesn't have the same memory layout.
-    /// - A pointer is accessed after the lifetime of the corresponding reference ends.
-    /// - A pointer of an immutable reference is accessed mutably.
-    pub trait AsPtr<T = Self> {
-        /// Casts the immutable reference as a constant pointer.
-        #[inline]
-        fn as_ptr(&self) -> *const T {
-            self as *const Self as *const T
-        }
+    use std::ffi::CStr;
 
-        /// Casts the mutable reference as a mutable pointer.
-        #[inline]
-        fn as_mut_ptr(&mut self) -> *mut T {
-            self as *mut Self as *mut T
-        }
+    pub(crate) fn ptr_to_str_unchecked<'a>(pointer: Option<&'a u8>) -> &'a str {
+        let pointer = pointer.unwrap() as *const u8;
+        unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
+            .to_str()
+            .unwrap()
     }
 }

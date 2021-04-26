@@ -1,10 +1,14 @@
+use std::panic::AssertUnwindSafe;
+
+use derive_more::Display;
 use ffi_support::{destroy_c_string, ErrorCode, ExternError};
 
 use crate::result::call_with_result;
 
 /// The Xayn AI error codes.
 #[repr(i32)]
-#[cfg_attr(test, derive(Clone, Copy, Debug))]
+#[derive(Clone, Copy, Display)]
+#[cfg_attr(test, derive(Debug))]
 pub enum CCode {
     /// A warning or uncritical error.
     Fault = -2,
@@ -45,8 +49,8 @@ impl CCode {
     }
 
     /// See [`error_message_drop()`] for more.
-    unsafe fn drop_message(error: *const ExternError) {
-        if let Some(error) = unsafe { error.as_ref() } {
+    unsafe fn drop_message(error: Option<&mut ExternError>) {
+        if let Some(error) = error {
             unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
         }
     }
@@ -74,11 +78,11 @@ impl CCode {
 /// [`xaynai_faults()`]: crate::reranker::ai::xaynai_faults
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
-pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
-    let drop = || {
+pub unsafe extern "C" fn error_message_drop(error: Option<&mut ExternError>) {
+    let drop = AssertUnwindSafe(|| {
         unsafe { CCode::drop_message(error) };
         Ok(())
-    };
+    });
     let clean = || {};
     let error = None;
 
@@ -88,9 +92,6 @@ pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::utils::tests::AsPtr;
-
-    impl AsPtr for ExternError {}
 
     impl PartialEq<ErrorCode> for CCode {
         fn eq(&self, other: &ErrorCode) -> bool {
