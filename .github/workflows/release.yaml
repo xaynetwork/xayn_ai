@@ -8,6 +8,9 @@ env:
   CARGO_NDK: 2.2.0
   ANDROID_PLATFORM_VERSION: 21
   CARGO_LIPO: 3.1.1
+  FLUTTER_VERSION: '2.0.0'
+  JAVA_VERSION: '12.x'
+  DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
 
 jobs:
   registry-cache:
