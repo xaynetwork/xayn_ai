@@ -19,6 +19,7 @@ cargo install --version 0.32.17 cargo-make
 All the above can be automatically done by `cargo make build`.
 
 To build libraries for mobile targets you can use:
+
 ```
 cargo make build-mobile
 ```
