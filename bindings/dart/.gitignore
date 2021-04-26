@@ -4,3 +4,4 @@ build/
 pubspec.lock
 android/src/main/jniLibs/
 ios/Classes/XaynAiFfiDartPlugin.h
+ios/libxayn_ai_ffi_c.a
