@@ -45,7 +45,9 @@ cargo install --version 2.3.0 cargo-ndk
 ```
 
 ### iOS
+
 To build for iOS the following targets are needed:
+
 ```
 rustup target add \
   aarch64-apple-ios \
