@@ -43,7 +43,7 @@ Future<String> _getData(
   final diskPath = _joinPaths([diskDirPath, assetName]);
   final file = File(diskPath);
 
-  // Only write the data on disk if the file does not exists or the size does not match.
+  // Only write the data on disk if the file does not exist or the size does not match.
   // The last check is useful in case the app is closed before we can finish to write,
   // and it can be also useful during development to test with different models.
   if (!file.existsSync() || await file.length() != data.lengthInBytes) {
