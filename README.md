@@ -22,7 +22,7 @@ To build libraries for mobile targets you can use:
 cargo make build-mobile
 ```
 On Linux this will only build Android libraries, while on Mac it will build
-for both Android and Ios.
+for both Android and iOS.
 
 ### Android
 To build for Android the following targets are needed:
@@ -39,8 +39,8 @@ Also `cargo-ndk` is needed:
 cargo install --version 2.3.0 cargo-ndk
 ```
 
-### Ios
-To build for Ios the following targets are needed:
+### iOS
+To build for iOS the following targets are needed:
 ```
 rustup target add \
   aarch64-apple-ios \
