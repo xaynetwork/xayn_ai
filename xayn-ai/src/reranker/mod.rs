@@ -598,7 +598,7 @@ mod tests {
             common_systems_with_fail!(analytics, MockAnalyticsSystem, compute_analytics, |_,_|);
         let mut reranker = Reranker::new(cs).unwrap();
         reranker.analytics = Some(Analytics {
-            ndcg_initial: 0.,
+            ndcg_initial_ranking: 0.,
             ndcg_ltr: 0.,
             ndcg_context: 0.,
             ndcg_final_ranking: 0.,

@@ -12,12 +12,12 @@ const DEFAULT_NDCG_K: usize = 2;
 /// Calculated analytics data.
 #[derive(Clone)]
 pub struct Analytics {
-    /// The nDCG@k score between the initial ranking and the relevance based ranking
-    pub ndcg_initial: f32,
     /// The nDCG@k score between the LTR ranking and the relevance based ranking
     pub ndcg_ltr: f32,
     /// The nDCG@k score between the Context ranking and the relevance based ranking
     pub ndcg_context: f32,
+    /// The nDCG@k score between the initial ranking and the relevance based ranking
+    pub ndcg_initial_ranking: f32,
     /// THe nDCG@k score between the final ranking and the relevance based ranking
     pub ndcg_final_ranking: f32,
 }
@@ -75,7 +75,7 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
             //FIXME: We currently have no access to the initial score as thiss will require
             //       some changes to the main applications type state/component system this
             //       will be done in a followup PR.
-            ndcg_initial: f32::NAN,
+            ndcg_initial_ranking: f32::NAN,
             ndcg_ltr,
             ndcg_context,
             ndcg_final_ranking,
@@ -195,11 +195,73 @@ fn nan_safe_sort_desc_comparsion(a: &f32, b: &f32) -> Ordering {
 
 #[cfg(test)]
 mod tests {
+    use crate::{reranker::systems::AnalyticsSystem, tests, UserFeedback};
+
     use super::*;
     use float_cmp::approx_eq;
 
     #[test]
-    fn test_create_reordered_ndcg_at_k_score_without_reordering() {
+    fn test_full_analytics_system() {
+        let history = tests::document_history(vec![
+            (2, Relevance::Low, UserFeedback::None),
+            (3, Relevance::Medium, UserFeedback::None),
+            (1, Relevance::High, UserFeedback::None),
+            (0, Relevance::Medium, UserFeedback::None),
+            (10, Relevance::Low, UserFeedback::None),
+        ]);
+
+        let mut documents = tests::data_with_mab(tests::from_ids(0..3));
+        documents[0].ltr.ltr_score = 3.;
+        documents[0].context.context_value = 3.5;
+        documents[0].mab.rank = 1;
+
+        documents[1].ltr.ltr_score = 2.;
+        documents[1].context.context_value = 7.;
+        documents[1].mab.rank = 0;
+
+        documents[2].ltr.ltr_score = 7.;
+        documents[2].context.context_value = 6.;
+        documents[2].mab.rank = 2;
+
+        let Analytics {
+            ndcg_initial_ranking: _,
+            ndcg_ltr,
+            ndcg_context,
+            ndcg_final_ranking,
+        } = AnalyticsSystem
+            .compute_analytics(&history, &documents)
+            .unwrap();
+
+        assert!(approx_eq!(f32, ndcg_ltr, 0.17376534287144002, ulps = 2));
+        assert!(approx_eq!(f32, ndcg_context, 0.8262346571285599, ulps = 2));
+        //FIXME: Currently not possible as `ndcg_initial_ranking` is not yet computed
+        // assert!(approx_eq!(f32, ndcg_initial_ranking, 0.7967075809905066, ulps = 2));
+        assert!(approx_eq!(f32, ndcg_final_ranking, 1.0, ulps = 2));
+    }
+
+    #[test]
+    fn test_calcuate_reordered_ndcg_at_k_score_tests_from_dart() {
+        let relevances = &mut [(0., -50.), (0., 0.001), (1., 4.14), (2., 1000.)];
+        let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
+        assert_eq!(format!("{:.4}", res), "1.0000");
+
+        let relevances = &mut [(0., -10.), (0., 1.), (1., 0.), (2., 6.)];
+        let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
+        let res2 = ndcg_at_k([2., 0., 1., 0.].iter().copied(), 2);
+        assert!(approx_eq!(f32, res, res2, ulps = 2));
+
+        let relevances = &mut [(0., 1.), (0., -10.), (1., -11.), (2., -11.6)];
+        let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
+        assert!(approx_eq!(f32, res, 0.0, ulps = 2));
+
+        let relevances = &mut [(0., 1.), (0., -10.), (1., 100.), (2., 99.)];
+        let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
+        let res2 = ndcg_at_k([1., 2., 1., 0.].iter().copied(), 2);
+        assert!(approx_eq!(f32, res, res2, ulps = 2));
+    }
+
+    #[test]
+    fn test_calcuate_reordered_ndcg_at_k_score_without_reordering() {
         let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
         assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
@@ -247,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn test_create_reordered_ndcg_at_k_score_with_reordering() {
+    fn test_calcuate_reordered_ndcg_at_k_score_with_reordering() {
         let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
         assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
@@ -292,6 +354,12 @@ mod tests {
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
         assert!(approx_eq!(f32, res, 0.626_934_23, ulps = 2));
+    }
+
+    #[test]
+    fn test_ndcg_at_k_tests_from_dart() {
+        let res = ndcg_at_k([0., 0., 1., 2.].iter().copied(), 4);
+        assert_eq!(format!("{:.4}", res), "0.4935");
     }
 
     #[test]
@@ -314,6 +382,32 @@ mod tests {
         assert!(approx_eq!(f32, res, 0.605_921_45, ulps = 2));
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 4);
         assert!(approx_eq!(f32, res, 0.626_086_65, ulps = 2));
+    }
+
+    #[test]
+    fn test_dcg_tests_from_dart() {
+        /*
+            List<double> relevances1 = [0, 0, 1, 1];
+            List<double> relevances2 = [0, 0, 1, 2];
+            expect(Metrics.dcgAtK(relevances1, 2), 0);
+            expect(Metrics.dcgAtK(relevances1, 4).toStringAsFixed(4), 1.34268.toStringAsFixed(4));
+            expect(Metrics.dcgAtK(relevances2, 4).toStringAsFixed(4), 2.5853523.toStringAsFixed(4));
+        */
+        // there is no dcg@k function in my code. It's dcg(input_iter.take(k)).
+        let res = dcg([0., 0., 1., 1.].iter().copied().take(2));
+        assert!(approx_eq!(f32, res, 0.0, ulps = 2));
+
+        // FIXME: It turns out dart uses `log` (natural) but we and wikipedia do use `log2`...
+        // so this test will fail if the dart test values are used.
+        // Until this is resolved I will used the values from calculating the result
+        // "by hand: using log2.
+        let res = dcg([0., 0., 1., 1.].iter().copied().take(4));
+        // assert_eq!(format!("{:.4}", res), "1.3426");
+        assert_eq!(format!("{:.4}", res), "0.9307");
+
+        let res = dcg([0., 0., 1., 2.].iter().copied().take(4));
+        // assert_eq!(format!("{:.4}", res), "2.5853");
+        assert_eq!(format!("{:.4}", res), "1.7920");
     }
 
     #[test]
