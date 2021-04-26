@@ -18,7 +18,7 @@ pub struct Analytics {
     pub ndcg_context: f32,
     /// The nDCG@k score between the initial ranking and the relevance based ranking
     pub ndcg_initial_ranking: f32,
-    /// THe nDCG@k score between the final ranking and the relevance based ranking
+    /// The nDCG@k score between the final ranking and the relevance based ranking
     pub ndcg_final_ranking: f32,
 }
 
@@ -94,7 +94,7 @@ fn score_for_relevance(relevance: Relevance) -> f32 {
 
 /// Calculates the nDCG@k for given paired relevances.
 ///
-/// The input is a tuple of `(relevance, ordering_score)` pair,
+/// The input is a slice over `(relevance, ordering_score)` pairs,
 /// where the `ordering_score` is used to reorder the relevances
 /// based on sorting them in descending order.
 ///
@@ -114,7 +114,7 @@ fn calcuate_reordered_ndcg_at_k_score(paired_relevances: &mut [(f32, f32)], k: u
     ndcg_at_k(paired_relevances.iter().map(|(rel, _ord)| *rel), k)
 }
 
-/// Calculates the nDCG@k, `k` defaults to 2 if `None` is passed in.
+/// Calculates the nDCG@k.
 ///
 /// This taks the first k values for the DCG score and the "best" k values
 /// for the IDCG score and then calculates the nDCG score with that.
