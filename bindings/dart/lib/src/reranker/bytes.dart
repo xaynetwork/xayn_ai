@@ -1,36 +1,37 @@
-import 'dart:ffi'
-    show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8, Uint8Pointer;
+import 'dart:ffi' show nullptr, Pointer, StructPointer, Uint8Pointer;
 import 'dart:typed_data' show Uint8List;
-
-import 'package:ffi/ffi.dart' show malloc;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBytes;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 
 /// A bytes buffer.
 class Bytes {
   late Pointer<CBytes> _bytes;
-  final bool _owned;
 
-  /// Creates the borrowed bytes buffer.
+  /// Creates the bytes buffer from a pointer.
   ///
   /// This constructor never throws an exception.
-  Bytes(this._bytes) : _owned = false;
+  Bytes(this._bytes);
 
-  /// Creates the owned bytes buffer.
+  /// Creates the bytes buffer from a list.
   ///
-  /// This constructor never throws an exception.
-  Bytes.fromList(Uint8List bytes) : _owned = true {
-    _bytes = malloc.call<CBytes>();
-    _bytes.ref.len = bytes.length;
-    if (bytes.isEmpty) {
-      _bytes.ref.data = nullptr;
-    } else {
-      _bytes.ref.data = malloc.call<Uint8>(_bytes.ref.len);
-      bytes.asMap().forEach((i, byte) {
-        _bytes.ref.data[i] = byte;
-      });
+  /// This constructor can throw an exception.
+  Bytes.fromList(Uint8List bytes) {
+    final error = XaynAiError();
+
+    _bytes = ffi.bytes_new(bytes.length, error.ptr);
+    try {
+      if (error.isError()) {
+        throw error.toException();
+      }
+    } finally {
+      error.free();
     }
+
+    bytes.asMap().forEach((i, byte) {
+      _bytes.ref.data[i] = byte;
+    });
   }
 
   /// Gets the pointer.
@@ -38,7 +39,7 @@ class Bytes {
 
   /// Converts the buffer to a list.
   Uint8List toList() {
-    if (_bytes == nullptr) {
+    if (_bytes == nullptr || _bytes.ref.data == nullptr) {
       return Uint8List(0);
     } else {
       final bytes = Uint8List(_bytes.ref.len);
@@ -52,14 +53,7 @@ class Bytes {
   /// Frees the memory.
   void free() {
     if (_bytes != nullptr) {
-      if (_owned) {
-        if (_bytes.ref.data != nullptr) {
-          malloc.free(_bytes.ref.data);
-        }
-        malloc.free(_bytes);
-      } else {
-        ffi.bytes_drop(_bytes);
-      }
+      ffi.bytes_drop(_bytes);
       _bytes = nullptr;
     }
   }

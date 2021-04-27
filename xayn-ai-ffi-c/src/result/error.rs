@@ -77,7 +77,7 @@ impl CCode {
 pub unsafe extern "C" fn error_message_drop(error: *mut ExternError) {
     let drop = || {
         unsafe { CCode::drop_message(error) };
-        Result::<_, ExternError>::Ok(())
+        Ok(())
     };
     let clean = || {};
     let error = None;

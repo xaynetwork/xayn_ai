@@ -1,31 +1,18 @@
-import 'dart:ffi'
-    show
-        AllocatorAlloc,
-        nullptr,
-        StructPointer,
-        Uint8,
-        // ignore: unused_shown_name
-        Uint8Pointer;
+import 'dart:ffi' show nullptr, StructPointer;
 import 'dart:typed_data' show Uint8List;
 
-import 'package:ffi/ffi.dart' show malloc;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isEmpty, isNot, test;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBytes;
 import 'package:xayn_ai_ffi_dart/src/reranker/bytes.dart' show Bytes;
 
 void main() {
   group('Bytes', () {
-    test('to list', () {
-      final bytes = Uint8List.fromList(List.generate(10, (i) => i));
-      final borrowed = malloc.call<CBytes>();
-      borrowed.ref.data = malloc.call<Uint8>(bytes.length);
-      borrowed.ref.len = bytes.length;
-      bytes.asMap().forEach((i, byte) => borrowed.ref.data[i] = byte);
-      expect(Bytes(borrowed).toList(), equals(bytes));
-      malloc.free(borrowed.ref.data);
-      malloc.free(borrowed);
+    test('list', () {
+      final list = Uint8List.fromList(List.generate(10, (i) => i));
+      final bytes = Bytes.fromList(list);
+      expect(bytes.toList(), equals(list));
+      bytes.free();
     });
 
     test('null', () {
@@ -34,36 +21,32 @@ void main() {
     });
 
     test('empty', () {
-      final borrowed = malloc.call<CBytes>();
-      borrowed.ref.data = nullptr;
-      borrowed.ref.len = 0;
-      expect(Bytes(borrowed).toList(), isEmpty);
-      malloc.free(borrowed.ref.data);
-      malloc.free(borrowed);
-    });
-  });
-
-  group('Bytes owned', () {
-    test('to list', () {
-      final bytes = Uint8List.fromList(List.generate(10, (i) => i));
-      final owned = Bytes.fromList(bytes);
-      expect(owned.toList(), equals(bytes));
-      owned.free();
+      final bytes = Bytes.fromList(Uint8List(0));
+      expect(bytes.toList(), isEmpty);
+      bytes.free();
     });
 
-    test('empty', () {
-      final bytes = Uint8List(0);
-      final owned = Bytes.fromList(bytes);
-      expect(owned.toList(), isEmpty);
-      owned.free();
+    test('invalid data', () {
+      final len = 10;
+      final bytes = Bytes.fromList(Uint8List(len));
+      bytes.ptr.ref.len = 0;
+      expect(bytes.toList(), isEmpty);
+      bytes.ptr.ref.len = len;
+      bytes.free();
+    });
+
+    test('invalid len', () {
+      final bytes = Bytes.fromList(Uint8List(0));
+      bytes.ptr.ref.len = 10;
+      expect(bytes.toList(), isEmpty);
     });
 
     test('free', () {
-      final bytes = Uint8List.fromList(List.generate(10, (i) => i));
-      final owned = Bytes.fromList(bytes);
-      expect(owned.ptr, isNot(equals(nullptr)));
-      owned.free();
-      expect(owned.ptr, equals(nullptr));
+      final bytes =
+          Bytes.fromList(Uint8List.fromList(List.generate(10, (i) => i)));
+      expect(bytes.ptr, isNot(equals(nullptr)));
+      bytes.free();
+      expect(bytes.ptr, equals(nullptr));
     });
   });
 }
