@@ -243,8 +243,10 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
-          target: ${{ matrix.target }}
           default: true
+
+      - name: Install iOS targets
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios
 
       - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
