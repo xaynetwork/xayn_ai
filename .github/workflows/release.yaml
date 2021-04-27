@@ -74,30 +74,30 @@ jobs:
         if: ${{ !steps.cargo-ndk-cache.outputs.cache-hit }}
         run: cargo install cargo-ndk --version ${{ env.CARGO_NDK }}
 
-  install-cargo-lipo:
-    # we use the latest stable rustc + cargo version that is already installed on the image
-    # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
-    name: install-cargo-lipo
-    runs-on: macos-10.15
-    outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
-    timeout-minutes: 15
-    steps:
-      - name: Generate cargo-lipo cache key
-        id: cache-key
-        shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-lipo-bin-${{ env.CARGO_LIPO }})"
+  # install-cargo-lipo:
+  #   # we use the latest stable rustc + cargo version that is already installed on the image
+  #   # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
+  #   name: install-cargo-lipo
+  #   runs-on: macos-10.15
+  #   outputs:
+  #     cache-key: ${{ steps.cache-key.outputs.key }}
+  #   timeout-minutes: 15
+  #   steps:
+  #     - name: Generate cargo-lipo cache key
+  #       id: cache-key
+  #       shell: bash
+  #       run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-lipo-bin-${{ env.CARGO_LIPO }})"
 
-      - name: Restore ${{ steps.cache-key.outputs.key }} cache
-        uses: actions/cache@v2.1.4
-        id: cargo-lipo-cache
-        with:
-          path: ~/.cargo/bin/cargo-lipo
-          key: ${{ steps.cache-key.outputs.key }}
+  #     - name: Restore ${{ steps.cache-key.outputs.key }} cache
+  #       uses: actions/cache@v2.1.4
+  #       id: cargo-lipo-cache
+  #       with:
+  #         path: ~/.cargo/bin/cargo-lipo
+  #         key: ${{ steps.cache-key.outputs.key }}
 
-      - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
-        if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
-        run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
+  #     - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
+  #       if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
+  #       run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
 
   build-headers:
     name: build-headers
