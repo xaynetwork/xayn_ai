@@ -16,7 +16,7 @@ You can install cargo make with:
 cargo install --version 0.32.17 cargo-make
 ```
 
-All the above can be automatically done by `cargo make build`.
+All of the above can be automatically done by `cargo make build`.
 
 To build libraries for mobile targets you can use:
 
@@ -31,6 +31,7 @@ for both Android and iOS.
 
 To build for Android the following targets are needed:
 
+```
 rustup target add \
   aarch64-linux-android \
   armv7-linux-androideabi \
