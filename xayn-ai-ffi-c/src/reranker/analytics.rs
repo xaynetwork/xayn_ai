@@ -1,19 +1,20 @@
 use std::panic::AssertUnwindSafe;
 
-use xayn_ai::Analytics;
-
 use crate::{result::call_with_result, utils::IntoRaw};
 
+/// The analytics of the reranker.
+pub struct Analytics(pub(crate) Option<xayn_ai::Analytics>);
+
 /// The raw analytics.
-pub struct CAnalytics(pub(crate) Option<Analytics>);
+pub struct CAnalytics(Analytics);
 
 // this is more like a dummy impl for now until we have fleshed out the analytics
-unsafe impl IntoRaw for CAnalytics {
+unsafe impl IntoRaw for Analytics {
     type Value = Option<&'static mut CAnalytics>;
 
     #[inline]
     fn into_raw(self) -> Self::Value {
-        Some(Box::leak(Box::new(self)))
+        Some(Box::leak(Box::new(CAnalytics(self))))
     }
 }
 

@@ -9,7 +9,7 @@ use crate::{
         rank::{CRanks, Ranks},
     },
     reranker::{
-        analytics::CAnalytics,
+        analytics::{Analytics, CAnalytics},
         bytes::{Bytes, CBytes},
     },
     result::{
@@ -123,12 +123,12 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_analytics()`] for more.
-    unsafe fn analytics(xaynai: Option<&Self>) -> Result<CAnalytics, Error> {
+    unsafe fn analytics(xaynai: Option<&Self>) -> Result<Analytics, Error> {
         let xaynai = xaynai.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to get the analytics: The ai pointer is null")
         })?;
 
-        Ok(CAnalytics(xaynai.0.analytics().cloned()))
+        Ok(Analytics(xaynai.0.analytics().cloned()))
     }
 
     /// See [`xaynai_drop()`] for more.
