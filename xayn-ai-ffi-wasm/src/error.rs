@@ -3,35 +3,13 @@ use wasm_bindgen::JsValue;
 
 use crate::utils::IntoJsResult;
 
-// just a placeholder
+// placeholder / later we can have a crate that contains common code for c-ffi and wasm
 #[repr(i32)]
 pub enum CCode {
     /// A warning or uncritical error.
     Fault = -2,
-    /// An irrecoverable error.
-    Panic = -1,
-    /// No error.
-    Success = 0,
-    /// A vocab null pointer error.
-    VocabPointer = 1,
-    /// A model null pointer error.
-    ModelPointer = 2,
-    /// A vocab or model file IO error.
-    ReadFile = 3,
     /// A Xayn AI initialization error.
     InitAi = 4,
-    /// A Xayn AI null pointer error.
-    AiPointer = 5,
-    /// A document histories null pointer error.
-    HistoriesPointer = 6,
-    /// A document history id null pointer error.
-    HistoryIdPointer = 7,
-    /// A documents null pointer error.
-    DocumentsPointer = 8,
-    /// A document id null pointer error.
-    DocumentIdPointer = 9,
-    /// A document snippet null pointer error.
-    DocumentSnippetPointer = 10,
     /// Deserialization of reranker database error.
     RerankerDeserialization = 11,
     /// Serialization of reranker database error.
@@ -51,8 +29,8 @@ impl CCode {
 
 #[derive(Serialize)]
 pub struct ExternError {
-    pub code: i32,
-    pub message: String,
+    code: i32,
+    message: String,
 }
 
 impl ExternError {

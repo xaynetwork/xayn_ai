@@ -16,11 +16,37 @@
         let model_buffer =  new Uint8Array(model);
         console.timeEnd("load_data");
 
-
         console.time("init_ai");
-        let ai = new WXaynAi(vocab_buffer, model_buffer, undefined);
+        var ai = undefined;
+        try {
+            ai = new WXaynAi(vocab_buffer, model_buffer, undefined);
+        }
+        catch (e) {
+            if (e instanceof WebAssembly.RuntimeError) {
+                // Panic
+            } else {
+                 console.log(e);
+            }
+            throw e;
+        }
         console.timeEnd("init_ai");
 
+        console.time("rerank");
+        let ranks = ai.rerank([], documents());
+        console.timeEnd("rerank");
+        console.log(ranks);
+
+        let faults = ai.faults();
+        console.log(faults);
+
+        let data = ai.serialize();
+        console.log(data);
+
+        // Free the xaynai instance
+        ai.free();
+      }
+
+      function documents() {
         let document_1 = {
             "id": "1",
             "rank": 0,
@@ -33,11 +59,54 @@
             "snippet": "abcd",
         }
 
-        console.time("rerank");
-        let ranks = ai.rerank([], [document_1, document_2]);
-        console.timeEnd("rerank");
+        let document_3 = {
+            "id": "3",
+            "rank": 2,
+            "snippet": "abcd",
+        }
 
-        console.log(ranks);
+        let document_4 = {
+            "id": "4",
+            "rank": 3,
+            "snippet": "abcd",
+        }
+
+        let document_5 = {
+            "id": "5",
+            "rank": 4,
+            "snippet": "abcd",
+        }
+
+        let document_6 = {
+            "id": "6",
+            "rank": 5,
+            "snippet": "abcd",
+        }
+
+        let document_7 = {
+            "id": "7",
+            "rank": 6,
+            "snippet": "abcd",
+        }
+
+        let document_8 = {
+            "id": "8",
+            "rank": 7,
+            "snippet": "abcd",
+        }
+
+        let document_9 = {
+            "id": "9",
+            "rank": 8,
+            "snippet": "abcd",
+        }
+
+        let document_10 = {
+            "id": "10",
+            "rank": 9,
+            "snippet": "abcd",
+        }
+        return [document_1, document_2, document_3, document_4, document_5, document_6, document_7, document_8, document_9, document_10]
       }
 
       async function get_data(url) {

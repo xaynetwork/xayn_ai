@@ -17,13 +17,16 @@ impl WXaynAi {
     /// reranker database, otherwise creates a new one.
     ///
     /// # Errors
+    ///
     /// - The `vocab` or `model` data are invalid.
-    /// - The `serialized` database is invalid.
+    /// - The the data of the `serialized` database is invalid.
     pub fn new(
         vocab: &[u8],
         model: &[u8],
         serialized: Option<Box<[u8]>>,
     ) -> Result<WXaynAi, JsValue> {
+        console_error_panic_hook::set_once();
+
         Builder::default()
             .with_serialized_database(&serialized.unwrap_or_default())
             .map_err(|cause| {
@@ -45,9 +48,9 @@ impl WXaynAi {
     /// Reranks the documents with the Xayn AI.
     ///
     /// # Errors
-    /// Returns a null pointer if:
-    /// - The document `histories` are invalid.
-    /// - The `documents` are invalid.
+    ///
+    /// - The deserialization of a document `history` fails.
+    /// - The deserialization of a `document` fails.
     pub fn rerank(
         &mut self,
         history: Vec<JsValue>,
@@ -81,7 +84,8 @@ impl WXaynAi {
     /// Serializes the database of the reranker.
     ///
     /// # Errors
-    /// - The serialization fails.
+    ///
+    /// - The serialization of the database fails.
     pub fn serialize(&self) -> Result<Uint8Array, JsValue> {
         self.0
             .serialize()
