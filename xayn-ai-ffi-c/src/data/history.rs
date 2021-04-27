@@ -1,9 +1,11 @@
 use std::slice::from_raw_parts;
 
-use ffi_support::ExternError;
 use xayn_ai::{DocumentHistory, Relevance, UserFeedback};
 
-use crate::{result::error::CCode, utils::CStrPtr};
+use crate::{
+    result::error::{CCode, Error},
+    utils::CStrPtr,
+};
 
 /// A document relevance level.
 #[repr(u8)]
@@ -75,7 +77,7 @@ impl<'a> CHistories<'a> {
     /// - A `len` is too large to address the memory of a non-null [`CHistory`] array.
     /// - A non-null `id` doesn't point to an aligned, contiguous area of memory with a terminating
     /// null byte.
-    pub unsafe fn to_histories(&self) -> Result<Vec<DocumentHistory>, ExternError> {
+    pub unsafe fn to_histories(&self) -> Result<Vec<DocumentHistory>, Error> {
         match (self.data, self.len) {
             (None, _) | (_, 0) => Ok(Vec::new()),
             (Some(data), len) => unsafe { from_raw_parts::<'a>(data, len as usize) }
@@ -108,7 +110,6 @@ pub(crate) mod tests {
     use itertools::izip;
 
     use super::*;
-    use crate::result::error::error_message_drop;
 
     pub struct TestHistories<'a> {
         _ids: Pin<Vec<CString>>,
@@ -202,17 +203,14 @@ pub(crate) mod tests {
         let mut hists = TestHistories::default();
         hists.history[0].id = CStrPtr::null();
 
-        let mut error = unsafe { hists.histories.to_histories() }.unwrap_err();
-        assert_eq!(error.get_code(), CCode::HistoryIdPointer);
+        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
+        assert_eq!(error.code, CCode::HistoryIdPointer);
         assert_eq!(
-            error.get_message(),
+            error.message,
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::HistoryIdPointer,
-            )
-            .as_str(),
+            ),
         );
-
-        unsafe { error_message_drop(Some(&mut error)) };
     }
 }

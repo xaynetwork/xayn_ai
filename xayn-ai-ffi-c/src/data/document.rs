@@ -1,9 +1,11 @@
 use std::slice::from_raw_parts;
 
-use ffi_support::ExternError;
 use xayn_ai::Document;
 
-use crate::{result::error::CCode, utils::CStrPtr};
+use crate::{
+    result::error::{CCode, Error},
+    utils::CStrPtr,
+};
 
 /// A raw document.
 #[repr(C)]
@@ -35,7 +37,7 @@ impl<'a> CDocuments<'a> {
     /// - A `len` is too large to address the memory of a non-null [`CDocument`] array.
     /// - A non-null `id` or `snippet` doesn't point to an aligned, contiguous area of memory with a
     /// terminating null byte.
-    pub unsafe fn to_documents(&self) -> Result<Vec<Document>, ExternError> {
+    pub unsafe fn to_documents(&self) -> Result<Vec<Document>, Error> {
         match (self.data, self.len) {
             (None, _) | (_, 0) => Ok(Vec::new()),
             (Some(data), len) => unsafe { from_raw_parts::<'a>(data, len as usize) }
@@ -70,7 +72,6 @@ pub(crate) mod tests {
     use itertools::izip;
 
     use super::*;
-    use crate::result::error::error_message_drop;
 
     pub struct TestDocuments<'a> {
         _ids: Pin<Vec<CString>>,
@@ -162,18 +163,15 @@ pub(crate) mod tests {
         let mut docs = TestDocuments::default();
         docs.document[0].id = CStrPtr::null();
 
-        let mut error = unsafe { docs.documents.to_documents() }.unwrap_err();
-        assert_eq!(error.get_code(), CCode::DocumentIdPointer);
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code, CCode::DocumentIdPointer);
         assert_eq!(
-            error.get_message(),
+            error.message,
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentIdPointer,
-            )
-            .as_str(),
+            ),
         );
-
-        unsafe { error_message_drop(Some(&mut error)) };
     }
 
     #[test]
@@ -181,17 +179,14 @@ pub(crate) mod tests {
         let mut docs = TestDocuments::default();
         docs.document[0].snippet = CStrPtr::null();
 
-        let mut error = unsafe { docs.documents.to_documents() }.unwrap_err();
-        assert_eq!(error.get_code(), CCode::DocumentSnippetPointer);
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code, CCode::DocumentSnippetPointer);
         assert_eq!(
-            error.get_message(),
+            error.message,
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentSnippetPointer,
-            )
-            .as_str(),
+            ),
         );
-
-        unsafe { error_message_drop(Some(&mut error)) };
     }
 }

@@ -3,9 +3,9 @@ use std::{
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
-use ffi_support::{ExternError, IntoFfi};
+use ffi_support::IntoFfi;
 
-use crate::result::call_with_result;
+use crate::result::{call_with_result, error::CError};
 
 /// A bytes buffer.
 pub struct Bytes(pub(crate) Vec<u8>);
@@ -89,12 +89,11 @@ impl<'a> CBytes<'a> {
 /// # Safety
 /// The behavior is undefined if:
 /// - A `len` is too large to address the memory of a non-null [`u8`] array.
-/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
-/// [`ExternError`].
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 #[no_mangle]
 pub unsafe extern "C" fn bytes_new(
     len: u32,
-    error: Option<&mut ExternError>,
+    error: Option<&mut CError>,
 ) -> Option<&'static mut CBytes<'static>> {
     let new = || Ok(Bytes::new(len));
 
@@ -179,10 +178,10 @@ mod tests {
     #[test]
     fn test_new() {
         let buffer = TestBytes::default();
-        let mut error = ExternError::default();
+        let mut error = CError::success();
 
         let bytes = unsafe { bytes_new(buffer.bytes.len, Some(&mut error)) }.unwrap();
-        assert_eq!(error.get_code(), CCode::Success);
+        assert_eq!(error.code, CCode::Success);
         assert_eq!(unsafe { bytes.as_slice() }, buffer.vec.as_ref().get_ref());
 
         unsafe { bytes_drop(Some(bytes)) };
@@ -190,10 +189,10 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        let mut error = ExternError::default();
+        let mut error = CError::success();
 
         let bytes = unsafe { bytes_new(0, Some(&mut error)) }.unwrap();
-        assert_eq!(error.get_code(), CCode::Success);
+        assert_eq!(error.code, CCode::Success);
         assert!(unsafe { bytes.as_slice() }.is_empty());
 
         unsafe { bytes_drop(Some(bytes)) };

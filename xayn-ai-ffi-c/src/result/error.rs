@@ -1,14 +1,14 @@
-use std::panic::AssertUnwindSafe;
+use std::{any::Any, ffi::CString, panic::AssertUnwindSafe};
 
 use derive_more::Display;
-use ffi_support::{destroy_c_string, ErrorCode, ExternError};
+use ffi_support::IntoFfi;
 
-use crate::result::call_with_result;
+use crate::{result::call_with_result, utils::CStrPtr};
 
 /// The Xayn AI error codes.
-#[repr(i32)]
+#[repr(i8)]
 #[derive(Clone, Copy, Display)]
-#[cfg_attr(test, derive(Debug))]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum CCode {
     /// A warning or uncritical error.
     Fault = -2,
@@ -44,14 +44,104 @@ pub enum CCode {
 
 impl CCode {
     /// Provides context for the error code.
-    pub fn with_context(self, message: impl Into<String>) -> ExternError {
-        ExternError::new_error(ErrorCode::new(self as i32), message)
+    pub fn with_context(self, message: impl Into<String>) -> Error {
+        Error {
+            code: self,
+            message: message.into(),
+        }
+    }
+}
+
+/// The Xayn AI error information.
+#[cfg_attr(test, derive(Debug))]
+pub struct Error {
+    pub code: CCode,
+    pub message: String,
+}
+
+/// The raw Xayn AI error information.
+#[repr(C)]
+#[cfg_attr(test, derive(Debug))]
+pub struct CError<'a> {
+    /// The error code.
+    pub code: CCode,
+    /// The raw pointer to the error message.
+    pub message: CStrPtr<'a>,
+}
+
+unsafe impl IntoFfi for Error {
+    type Value = CError<'static>;
+
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        unreachable!("will be removed")
     }
 
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        Self::Value::new(self)
+    }
+}
+
+impl Error {
+    /// Creates the error information for the success code.
+    pub fn success() -> Self {
+        Error {
+            code: CCode::Success,
+            message: String::new(),
+        }
+    }
+
+    /// Creates the error information from the panic payload.
+    pub fn panic(payload: Box<dyn Any + Send + 'static>) -> Self {
+        // https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.payload
+        if let Some(message) = payload.downcast_ref::<&str>() {
+            CCode::Panic.with_context(*message)
+        } else if let Some(message) = payload.downcast_ref::<String>() {
+            CCode::Panic.with_context(message)
+        } else {
+            CCode::Panic.with_context("Unknown panic")
+        }
+    }
+}
+
+impl CError<'static> {
+    /// Creates the raw error information.
+    ///
+    /// If the code is success, then the message will be ignored, otherwise the message memory will
+    /// be leaked. If the message contains null bytes, only the bytes up to the first null byte will
+    /// be used.
+    pub(crate) fn new(error: Error) -> Self {
+        let message = if let CCode::Success = error.code {
+            CStrPtr::null()
+        } else {
+            let message = CString::new(error.message)
+                .unwrap_or_else(|null| {
+                    let position = null.nul_position();
+                    CString::new(&null.into_vec()[..position]).unwrap()
+                })
+                .into_bytes_with_nul();
+            if message.is_empty() {
+                CStrPtr::null()
+            } else {
+                CStrPtr(message.leak().first())
+            }
+        };
+
+        CError {
+            code: error.code,
+            message,
+        }
+    }
+}
+
+impl CError<'_> {
     /// See [`error_message_drop()`] for more.
-    unsafe fn drop_message(error: Option<&mut ExternError>) {
+    pub(crate) unsafe fn drop_message(error: Option<&mut Self>) {
         if let Some(error) = error {
-            unsafe { destroy_c_string(error.get_raw_message() as *mut _) }
+            if let Some(message) = error.message.0 {
+                unsafe { CString::from_raw((message as *const u8 as *mut u8).cast()) };
+            }
         }
     }
 }
@@ -65,10 +155,10 @@ impl CCode {
 ///
 /// # Safety
 /// The behavior is undefined if:
-/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with an
-/// [`ExternError`].
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 /// - A non-null error `message` doesn't point to memory allocated by [`xaynai_new()`],
-/// [`xaynai_rerank()`], [`xaynai_serialize()`], [`xaynai_faults()`] or [`xaynai_analytics()`].
+/// [`xaynai_rerank()`], [`xaynai_serialize()`], [`xaynai_faults()`], [`xaynai_analytics()`] or
+/// [`bytes_new()`].
 /// - A non-null error `message` is freed more than once.
 /// - A non-null error `message` is accessed after being freed.
 ///
@@ -77,12 +167,13 @@ impl CCode {
 /// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
 /// [`xaynai_faults()`]: crate::reranker::ai::xaynai_faults
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
+/// [`bytes_new()`]: crate::reranker::bytes::bytes_new
 #[no_mangle]
-pub unsafe extern "C" fn error_message_drop(error: Option<&mut ExternError>) {
+pub unsafe extern "C" fn error_message_drop(error: Option<&mut CError>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
         || {
-            unsafe { CCode::drop_message(error) };
+            unsafe { CError::drop_message(error) };
             Ok(())
         },
     );
@@ -95,21 +186,9 @@ pub unsafe extern "C" fn error_message_drop(error: Option<&mut ExternError>) {
 pub(crate) mod tests {
     use super::*;
 
-    impl PartialEq<ErrorCode> for CCode {
-        fn eq(&self, other: &ErrorCode) -> bool {
-            (*self as i32).eq(&other.code())
+    impl CError<'_> {
+        pub fn success() -> Self {
+            CError::new(Error::success())
         }
-    }
-
-    impl PartialEq<CCode> for ErrorCode {
-        fn eq(&self, other: &CCode) -> bool {
-            other.eq(self)
-        }
-    }
-
-    #[test]
-    fn test_error() {
-        assert_eq!(CCode::Panic, ErrorCode::PANIC);
-        assert_eq!(CCode::Success, ErrorCode::SUCCESS);
     }
 }

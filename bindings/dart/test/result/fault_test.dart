@@ -1,4 +1,4 @@
-import 'dart:ffi' show AllocatorAlloc, Int8, nullptr, StructPointer;
+import 'dart:ffi' show AllocatorAlloc, nullptr, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer, Utf8;
 import 'package:flutter_test/flutter_test.dart'
@@ -15,7 +15,7 @@ void main() {
       faultsPtr.ref.data = malloc.call<CError>(faults.length);
       faultsPtr.ref.len = faults.length;
       faults.asMap().forEach((i, fault) =>
-          faultsPtr.ref.data[i].message = fault.toNativeUtf8().cast<Int8>());
+          faultsPtr.ref.data[i].message = fault.toNativeUtf8().cast<Uint8>());
       expect(Faults(faultsPtr).toList(), equals(faults));
       for (var i = 0; i < faults.length; i++) {
         malloc.free(faultsPtr.ref.data[i].message.cast<Utf8>());

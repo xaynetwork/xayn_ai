@@ -1,9 +1,12 @@
 use std::{panic::AssertUnwindSafe, slice::from_raw_parts_mut};
 
-use ffi_support::{destroy_c_string, ExternError, IntoFfi};
+use ffi_support::IntoFfi;
 use xayn_ai::Error;
 
-use crate::result::{call_with_result, error::CCode};
+use crate::result::{
+    call_with_result,
+    error::{CCode, CError},
+};
 
 /// The Xayn Ai faults.
 pub struct Faults(Vec<String>);
@@ -12,7 +15,7 @@ pub struct Faults(Vec<String>);
 #[repr(C)]
 pub struct CFaults<'a> {
     /// The raw pointer to the faults.
-    pub data: Option<&'a ExternError>,
+    pub data: Option<&'a CError<'a>>,
     /// The number of faults.
     pub len: u32,
 }
@@ -39,7 +42,7 @@ unsafe impl IntoFfi for Faults {
         } else {
             self.0
                 .into_iter()
-                .map(|message| CCode::Fault.with_context(message))
+                .map(|message| CCode::Fault.with_context(message).into_ffi_value())
                 .collect::<Vec<_>>()
                 .leak()
                 .first()
@@ -56,14 +59,14 @@ impl CFaults<'_> {
             let faults = unsafe { Box::from_raw(faults) };
             if let Some(data) = faults.data {
                 if faults.len > 0 {
-                    let faults = unsafe {
+                    let mut faults = unsafe {
                         Box::from_raw(from_raw_parts_mut(
-                            data as *const ExternError as *mut ExternError,
+                            data as *const CError as *mut CError,
                             faults.len as usize,
                         ))
                     };
-                    for fault in faults.iter() {
-                        unsafe { destroy_c_string(fault.get_raw_message() as *mut _) }
+                    for fault in faults.iter_mut() {
+                        unsafe { CError::drop_message(Some(fault)) }
                     }
                 }
             }
@@ -141,8 +144,8 @@ mod tests {
             unsafe { from_raw_parts(faults.data.unwrap(), faults.len as usize) },
             buffer,
         ) {
-            assert_eq!(fault.get_code(), CCode::Fault);
-            assert_eq!(fault.get_message(), error.to_string().as_str());
+            assert_eq!(fault.code, CCode::Fault);
+            assert_eq!(fault.message.as_str_unchecked(), error.to_string());
         }
 
         unsafe { faults_drop(Some(faults)) };

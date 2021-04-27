@@ -2,9 +2,7 @@
 
 use std::{ffi::CStr, fmt::Display};
 
-use ffi_support::ExternError;
-
-use crate::result::error::CCode;
+use crate::result::error::{CCode, Error};
 
 /// This function does nothing.
 ///
@@ -14,9 +12,15 @@ pub extern "C" fn dummy_function() {}
 
 /// A raw C string.
 #[repr(transparent)]
-pub struct CStrPtr<'a>(Option<&'a u8>);
+#[cfg_attr(test, derive(Debug))]
+pub struct CStrPtr<'a>(pub(crate) Option<&'a u8>);
 
 impl<'a> CStrPtr<'a> {
+    /// Creates a null pointer.
+    pub fn null() -> Self {
+        Self(None)
+    }
+
     /// Reads a string from the pointer.
     ///
     /// # Errors
@@ -27,11 +31,7 @@ impl<'a> CStrPtr<'a> {
     /// The behavior is undefined if:
     /// - A non-null pointer doesn't point to an aligned, contiguous area of memory with a terminating
     /// null byte.
-    pub unsafe fn as_str(
-        &self,
-        code: CCode,
-        context: impl Display,
-    ) -> Result<&'a str, ExternError> {
+    pub unsafe fn as_str(&self, code: CCode, context: impl Display) -> Result<&'a str, Error> {
         let pointer = self
             .0
             .ok_or_else(|| code.with_context(format!("{}: The {} is null", context, code)))?
@@ -68,10 +68,6 @@ pub(crate) mod tests {
     }
 
     impl<'a> CStrPtr<'a> {
-        pub fn null() -> Self {
-            Self(None)
-        }
-
         /// Reads a string from the pointer.
         ///
         /// # Panics

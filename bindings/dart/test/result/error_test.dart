@@ -1,4 +1,4 @@
-import 'dart:ffi' show Int8, nullptr, StructPointer;
+import 'dart:ffi' show nullptr, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
@@ -13,7 +13,7 @@ void main() {
     test('fault', () {
       final error = XaynAiError();
       error.ptr.ref.code = Code.fault.toInt();
-      error.ptr.ref.message = 'test fault'.toNativeUtf8().cast<Int8>();
+      error.ptr.ref.message = 'test fault'.toNativeUtf8().cast<Uint8>();
 
       expect(error.isFault(), equals(true));
       expect(error.isPanic(), equals(false));
@@ -27,7 +27,7 @@ void main() {
     test('panic', () {
       final error = XaynAiError();
       error.ptr.ref.code = Code.panic.toInt();
-      error.ptr.ref.message = 'test panic'.toNativeUtf8().cast<Int8>();
+      error.ptr.ref.message = 'test panic'.toNativeUtf8().cast<Uint8>();
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(true));
@@ -53,7 +53,7 @@ void main() {
     test('error', () {
       final error = XaynAiError();
       error.ptr.ref.code = Code.aiPointer.toInt();
-      error.ptr.ref.message = 'test error'.toNativeUtf8().cast<Int8>();
+      error.ptr.ref.message = 'test error'.toNativeUtf8().cast<Uint8>();
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(false));
@@ -89,7 +89,7 @@ void main() {
       final code = Code.panic;
       final message = 'test panic';
       error.ptr.ref.code = code.toInt();
-      error.ptr.ref.message = message.toNativeUtf8().cast<Int8>();
+      error.ptr.ref.message = message.toNativeUtf8().cast<Uint8>();
 
       final exception = error.toException();
       expect(exception.code, equals(code));

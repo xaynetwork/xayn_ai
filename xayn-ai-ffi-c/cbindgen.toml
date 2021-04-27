@@ -6,14 +6,6 @@ include_version = true
 sys_includes = ["stdint.h"]
 no_includes = true
 
-[export]
-include = ["CCode"]
-exclude = ["ErrorCode"]
-
-[export.rename]
-"ErrorCode" = "CCode"
-"ExternError" = "CError"
-
 [parse]
 parse_deps = true
 include = ["ffi-support", "xayn-ai"]
