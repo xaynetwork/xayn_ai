@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:async/async.dart';
 
-import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiInputData;
+import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiSetupData;
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 ///
@@ -12,7 +12,7 @@ import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiInputData;
 /// to access the assets from an isolate.
 ///
 /// [`baseDiskPath`] must be a path to a directory where is possible to store the data.
-Future<XaynAiInputData> getInputData(String baseDiskPath) async {
+Future<XaynAiSetupData> getInputData(String baseDiskPath) async {
   // This is to avoid that two calls of this function can run concurrently.
   // Doing that can lead to invalid data on the disk.
   return _pathsCache.runOnce(() async {
@@ -21,14 +21,14 @@ Future<XaynAiInputData> getInputData(String baseDiskPath) async {
 }
 
 final _baseAssetsPath = 'packages/xayn_ai_ffi_dart/assets';
-final AsyncMemoizer<XaynAiInputData> _pathsCache = AsyncMemoizer();
+final AsyncMemoizer<XaynAiSetupData> _pathsCache = AsyncMemoizer();
 
-Future<XaynAiInputData> _getInputData(String baseDiskPath) async {
+Future<XaynAiSetupData> _getInputData(String baseDiskPath) async {
   final rubertDir = 'rubert_v0000';
   final model = await _getData(baseDiskPath, rubertDir, 'model.onnx');
   final vocab = await _getData(baseDiskPath, rubertDir, 'vocab.txt');
 
-  return XaynAiInputData(model, vocab);
+  return XaynAiSetupData(model, vocab);
 }
 
 /// Returns the path to the data, if the data is not on disk yet
