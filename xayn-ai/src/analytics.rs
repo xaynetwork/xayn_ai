@@ -375,26 +375,17 @@ mod tests {
 
     #[test]
     fn test_dcg_tests_from_dart() {
-        /*
-            List<double> relevances1 = [0, 0, 1, 1];
-            List<double> relevances2 = [0, 0, 1, 2];
-            expect(Metrics.dcgAtK(relevances1, 2), 0);
-            expect(Metrics.dcgAtK(relevances1, 4).toStringAsFixed(4), 1.34268.toStringAsFixed(4));
-            expect(Metrics.dcgAtK(relevances2, 4).toStringAsFixed(4), 2.5853523.toStringAsFixed(4));
-        */
         // there is no dcg@k function in my code. It's dcg(input_iter.take(k)).
         let res = dcg([0., 0., 1., 1.].iter().copied().take(2));
         assert!(approx_eq!(f32, res, 0.0, ulps = 2));
 
-        // FIXME: It turns out dart uses `log` (natural) but we and wikipedia do use `log2`...
-        // so this test will fail if the dart test values are used.
-        // Until this is resolved I will used the values from calculating the result
-        // "by hand: using log2.
         let res = dcg([0., 0., 1., 1.].iter().copied().take(4));
+        // Dart used ln instead of log2 so the values diverge.
         // assert_eq!(format!("{:.4}", res), "1.3426");
         assert_eq!(format!("{:.4}", res), "0.9307");
 
         let res = dcg([0., 0., 1., 2.].iter().copied().take(4));
+        // Dart used ln instead of log2 so the values diverge.
         // assert_eq!(format!("{:.4}", res), "2.5853");
         assert_eq!(format!("{:.4}", res), "1.7920");
     }
