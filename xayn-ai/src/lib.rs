@@ -1,3 +1,6 @@
+#[macro_use]
+mod utils;
+
 mod analytics;
 mod bert;
 mod coi;
@@ -7,7 +10,6 @@ mod error;
 mod ltr;
 mod mab;
 mod reranker;
-mod utils;
 
 pub use crate::{
     analytics::Analytics,
