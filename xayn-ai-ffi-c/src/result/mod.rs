@@ -5,42 +5,40 @@ pub(crate) mod fault;
 
 use std::panic::{catch_unwind, UnwindSafe};
 
-use ffi_support::IntoFfi;
-
 pub use self::{
     error::{error_message_drop, CCode, CError},
     fault::{faults_drop, CFaults},
 };
-use crate::result::error::Error;
+use crate::{result::error::Error, utils::IntoRaw};
 
 /// Calls a callback which returns a result.
 ///
-/// Similar to [`ffi_support::call_with_result()`] but with optional error handling:
+/// Catches an unwinding panic with optional error handling:
 /// - Ok: returns `T`'s FFI value.
 /// - Error/Panic: returns `T`'s default FFI value and optionally reports an error.
 pub(crate) fn call_with_result<F, T>(call: F, error: Option<&mut CError>) -> T::Value
 where
     F: UnwindSafe + FnOnce() -> Result<T, Error>,
-    T: IntoFfi,
+    T: IntoRaw,
 {
     match catch_unwind(call) {
         Ok(Ok(value)) => {
             if let Some(error) = error {
-                *error = Error::success().into_ffi_value();
+                *error = Error::success().into_raw();
             }
-            value.into_ffi_value()
+            value.into_raw()
         }
         Ok(Err(cause)) => {
             if let Some(error) = error {
-                *error = cause.into_ffi_value();
+                *error = cause.into_raw();
             }
-            T::ffi_default()
+            T::Value::default()
         }
         Err(cause) => {
             if let Some(error) = error {
-                *error = Error::panic(cause).into_ffi_value();
+                *error = Error::panic(cause).into_raw();
             }
-            T::ffi_default()
+            T::Value::default()
         }
     }
 }

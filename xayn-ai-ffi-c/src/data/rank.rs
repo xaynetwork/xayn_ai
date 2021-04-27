@@ -1,8 +1,6 @@
 use std::{panic::AssertUnwindSafe, slice::from_raw_parts_mut};
 
-use ffi_support::IntoFfi;
-
-use crate::result::call_with_result;
+use crate::{result::call_with_result, utils::IntoRaw};
 
 /// The ranks of the reranked documents.
 pub struct Ranks(Vec<u32>);
@@ -26,16 +24,11 @@ pub struct CRanks<'a> {
     pub len: u32,
 }
 
-unsafe impl IntoFfi for Ranks {
+unsafe impl IntoRaw for Ranks {
     type Value = Option<&'static mut CRanks<'static>>;
 
     #[inline]
-    fn ffi_default() -> Self::Value {
-        None
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> Self::Value {
+    fn into_raw(self) -> Self::Value {
         let len = self.0.len() as u32;
         let data = if self.0.is_empty() {
             None
@@ -98,7 +91,7 @@ pub(crate) mod tests {
     #[test]
     fn test_into_raw() {
         let buffer = (0..10).collect::<Vec<_>>();
-        let ranks = Ranks(buffer.clone()).into_ffi_value().unwrap();
+        let ranks = Ranks(buffer.clone()).into_raw().unwrap();
 
         assert!(ranks.data.is_some());
         assert_eq!(ranks.len as usize, buffer.len());
@@ -112,7 +105,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_into_empty() {
-        let ranks = Ranks(Vec::new()).into_ffi_value().unwrap();
+        let ranks = Ranks(Vec::new()).into_raw().unwrap();
 
         assert!(ranks.data.is_none());
         assert_eq!(ranks.len, 0);

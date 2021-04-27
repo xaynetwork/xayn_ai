@@ -16,11 +16,6 @@ pub extern "C" fn dummy_function() {}
 pub struct CStrPtr<'a>(pub(crate) Option<&'a u8>);
 
 impl<'a> CStrPtr<'a> {
-    /// Creates a null pointer.
-    pub fn null() -> Self {
-        Self(None)
-    }
-
     /// Reads a string from the pointer.
     ///
     /// # Errors
@@ -47,6 +42,29 @@ impl<'a> CStrPtr<'a> {
     }
 }
 
+/// Conversion of Rust values into C-compatible values.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - The `Value` is not compatible with the C ABI.
+/// - The `Value` is accessed after its lifetime has expired.
+pub(crate) unsafe trait IntoRaw {
+    /// A C-compatible value. Usually some kind of `#[repr(C)]` and `'static`.
+    type Value: Default + Send + Sized;
+
+    /// Converts the Rust value into the C value. Usually leaks memory for heap allocated values.
+    fn into_raw(self) -> Self::Value;
+}
+
+unsafe impl IntoRaw for () {
+    type Value = ();
+
+    #[inline]
+    fn into_raw(self) -> Self::Value {
+        // Safety: This is a no-op.
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use std::ffi::CStr;
@@ -68,6 +86,11 @@ pub(crate) mod tests {
     }
 
     impl<'a> CStrPtr<'a> {
+        /// Creates a null pointer.
+        pub fn null() -> Self {
+            Self(None)
+        }
+
         /// Reads a string from the pointer.
         ///
         /// # Panics

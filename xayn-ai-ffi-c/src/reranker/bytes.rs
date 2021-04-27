@@ -3,9 +3,10 @@ use std::{
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
-use ffi_support::IntoFfi;
-
-use crate::result::{call_with_result, error::CError};
+use crate::{
+    result::{call_with_result, error::CError},
+    utils::IntoRaw,
+};
 
 /// A bytes buffer.
 pub struct Bytes(pub(crate) Vec<u8>);
@@ -19,16 +20,11 @@ pub struct CBytes<'a> {
     pub len: u32,
 }
 
-unsafe impl IntoFfi for Bytes {
+unsafe impl IntoRaw for Bytes {
     type Value = Option<&'static mut CBytes<'static>>;
 
     #[inline]
-    fn ffi_default() -> Self::Value {
-        None
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> Self::Value {
+    fn into_raw(self) -> Self::Value {
         let len = self.0.len() as u32;
         let data = if self.0.is_empty() {
             None
@@ -155,7 +151,7 @@ mod tests {
     #[test]
     fn test_into_raw() {
         let buffer = TestBytes::default();
-        let bytes = Bytes(buffer.vec.to_vec()).into_ffi_value().unwrap();
+        let bytes = Bytes(buffer.vec.to_vec()).into_raw().unwrap();
 
         assert!(bytes.data.is_some());
         assert_eq!(bytes.len as usize, buffer.vec.len());
@@ -166,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_into_empty() {
-        let bytes = Bytes(Vec::new()).into_ffi_value().unwrap();
+        let bytes = Bytes(Vec::new()).into_raw().unwrap();
 
         assert!(bytes.data.is_none());
         assert_eq!(bytes.len, 0);
@@ -178,7 +174,7 @@ mod tests {
     #[test]
     fn test_new() {
         let buffer = TestBytes::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let bytes = unsafe { bytes_new(buffer.bytes.len, Some(&mut error)) }.unwrap();
         assert_eq!(error.code, CCode::Success);
@@ -189,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let bytes = unsafe { bytes_new(0, Some(&mut error)) }.unwrap();
         assert_eq!(error.code, CCode::Success);

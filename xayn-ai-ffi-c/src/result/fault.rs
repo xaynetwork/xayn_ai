@@ -1,11 +1,13 @@
 use std::{panic::AssertUnwindSafe, slice::from_raw_parts_mut};
 
-use ffi_support::IntoFfi;
 use xayn_ai::Error;
 
-use crate::result::{
-    call_with_result,
-    error::{CCode, CError},
+use crate::{
+    result::{
+        call_with_result,
+        error::{CCode, CError},
+    },
+    utils::IntoRaw,
 };
 
 /// The Xayn Ai faults.
@@ -26,23 +28,18 @@ impl From<&[Error]> for Faults {
     }
 }
 
-unsafe impl IntoFfi for Faults {
+unsafe impl IntoRaw for Faults {
     type Value = Option<&'static mut CFaults<'static>>;
 
     #[inline]
-    fn ffi_default() -> Self::Value {
-        None
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> Self::Value {
+    fn into_raw(self) -> Self::Value {
         let len = self.0.len() as u32;
         let data = if self.0.is_empty() {
             None
         } else {
             self.0
                 .into_iter()
-                .map(|message| CCode::Fault.with_context(message).into_ffi_value())
+                .map(|message| CCode::Fault.with_context(message).into_raw())
                 .collect::<Vec<_>>()
                 .leak()
                 .first()
@@ -136,7 +133,7 @@ mod tests {
     #[test]
     fn test_into_raw() {
         let buffer = TestFaults::default().0;
-        let faults = Faults::from(buffer.as_slice()).into_ffi_value().unwrap();
+        let faults = Faults::from(buffer.as_slice()).into_raw().unwrap();
 
         assert!(faults.data.is_some());
         assert_eq!(faults.len as usize, buffer.len());
@@ -153,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_into_empty() {
-        let faults = Faults(Vec::new()).into_ffi_value().unwrap();
+        let faults = Faults(Vec::new()).into_raw().unwrap();
 
         assert!(faults.data.is_none());
         assert_eq!(faults.len, 0);

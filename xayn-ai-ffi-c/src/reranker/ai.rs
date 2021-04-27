@@ -1,6 +1,5 @@
 use std::panic::AssertUnwindSafe;
 
-use ffi_support::IntoFfi;
 use xayn_ai::{Builder, Reranker};
 
 use crate::{
@@ -18,7 +17,7 @@ use crate::{
         error::{CCode, CError, Error},
         fault::{CFaults, Faults},
     },
-    utils::CStrPtr,
+    utils::{CStrPtr, IntoRaw},
 };
 
 /// The Xayn AI.
@@ -32,16 +31,11 @@ use crate::{
 /// [`error_message_drop()`]: crate::result::error::error_message_drop
 pub struct CXaynAi(Reranker);
 
-unsafe impl IntoFfi for CXaynAi {
+unsafe impl IntoRaw for CXaynAi {
     type Value = Option<&'static mut CXaynAi>;
 
     #[inline]
-    fn ffi_default() -> Self::Value {
-        None
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> Self::Value {
+    fn into_raw(self) -> Self::Value {
         Some(Box::leak(Box::new(self)))
     }
 }
@@ -390,7 +384,7 @@ mod tests {
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
@@ -421,7 +415,7 @@ mod tests {
         let vocab = TestFile::vocab();
         let model = TestFile::model();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
@@ -445,7 +439,7 @@ mod tests {
         let vocab = TestFile::vocab();
         let model = TestFile::model();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
@@ -469,7 +463,7 @@ mod tests {
         let vocab = TestFile::vocab();
         let model = TestFile::model();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
@@ -492,7 +486,7 @@ mod tests {
     fn test_vocab_null() {
         let model = TestFile::model();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = CStrPtr::null();
         assert!(
@@ -514,7 +508,7 @@ mod tests {
     fn test_vocab_invalid() {
         let model = TestFile::model();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = invalid.as_c_str().into();
@@ -534,7 +528,7 @@ mod tests {
     fn test_model_null() {
         let vocab = TestFile::vocab();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = CStrPtr::null();
         assert!(
@@ -556,7 +550,7 @@ mod tests {
     fn test_model_invalid() {
         let vocab = TestFile::vocab();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = invalid.as_c_str().into();
@@ -576,7 +570,7 @@ mod tests {
     fn test_ai_null_rerank() {
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = None;
         assert!(
@@ -594,7 +588,7 @@ mod tests {
 
     #[test]
     fn test_ai_null_serialize() {
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = None;
         assert!(unsafe { xaynai_serialize(invalid, Some(&mut error)) }.is_none());
@@ -609,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_ai_null_faults() {
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = None;
         assert!(unsafe { xaynai_faults(invalid, Some(&mut error)) }.is_none());
@@ -624,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_ai_null_analytics() {
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let invalid = None;
         assert!(unsafe { xaynai_analytics(invalid, Some(&mut error)) }.is_none());
@@ -643,7 +637,7 @@ mod tests {
         let model = TestFile::model();
         let docs = TestDocuments::default();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
@@ -677,7 +671,7 @@ mod tests {
         let model = TestFile::model();
         let hists = TestHistories::default();
         let db = TestDb::default();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
@@ -709,7 +703,7 @@ mod tests {
     fn test_serialized_empty() {
         let vocab = TestFile::vocab();
         let model = TestFile::model();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let empty = CBytes { data: None, len: 0 };
         let empty = Some(&empty);
@@ -724,7 +718,7 @@ mod tests {
     fn test_serialized_invalid() {
         let vocab = TestFile::vocab();
         let model = TestFile::model();
-        let mut error = CError::success();
+        let mut error = CError::default();
 
         let version = u8::MAX;
         let invalid = Pin::new(vec![version]);

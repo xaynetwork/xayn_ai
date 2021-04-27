@@ -1,9 +1,11 @@
 use std::{any::Any, ffi::CString, panic::AssertUnwindSafe};
 
 use derive_more::Display;
-use ffi_support::IntoFfi;
 
-use crate::{result::call_with_result, utils::CStrPtr};
+use crate::{
+    result::call_with_result,
+    utils::{CStrPtr, IntoRaw},
+};
 
 /// The Xayn AI error codes.
 #[repr(i8)]
@@ -69,69 +71,63 @@ pub struct CError<'a> {
     pub message: CStrPtr<'a>,
 }
 
-unsafe impl IntoFfi for Error {
+unsafe impl IntoRaw for Error {
     type Value = CError<'static>;
 
+    /// Creates the raw error information.
+    ///
+    /// If the code is success, then the message will be ignored, otherwise the message memory will
+    /// be leaked. If the message contains null bytes, only the bytes up to the first null byte will
+    /// be used.
     #[inline]
-    fn ffi_default() -> Self::Value {
-        unreachable!("will be removed")
-    }
+    fn into_raw(self) -> Self::Value {
+        let message = if let CCode::Success = self.code {
+            None
+        } else {
+            CString::new(self.message)
+                .unwrap_or_else(|null| {
+                    let position = null.nul_position();
+                    CString::new(&null.into_vec()[..position]).unwrap(
+                        // Safety: The bytes are cut off directly before the first null byte.
+                    )
+                })
+                .into_bytes_with_nul()
+                .leak()
+                .first()
+        };
 
-    #[inline]
-    fn into_ffi_value(self) -> Self::Value {
-        Self::Value::new(self)
+        CError {
+            code: self.code,
+            message: CStrPtr(message),
+        }
     }
 }
 
 impl Error {
     /// Creates the error information for the success code.
     pub fn success() -> Self {
-        Error {
-            code: CCode::Success,
-            message: String::new(),
-        }
+        CCode::Success.with_context(String::new())
     }
 
     /// Creates the error information from the panic payload.
     pub fn panic(payload: Box<dyn Any + Send + 'static>) -> Self {
         // https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.payload
-        if let Some(message) = payload.downcast_ref::<&str>() {
-            CCode::Panic.with_context(*message)
+        let message = if let Some(message) = payload.downcast_ref::<&str>() {
+            message
         } else if let Some(message) = payload.downcast_ref::<String>() {
-            CCode::Panic.with_context(message)
+            message
         } else {
-            CCode::Panic.with_context("Unknown panic")
-        }
+            "Unknown panic"
+        };
+
+        CCode::Panic.with_context(message)
     }
 }
 
-impl CError<'static> {
-    /// Creates the raw error information.
-    ///
-    /// If the code is success, then the message will be ignored, otherwise the message memory will
-    /// be leaked. If the message contains null bytes, only the bytes up to the first null byte will
-    /// be used.
-    pub(crate) fn new(error: Error) -> Self {
-        let message = if let CCode::Success = error.code {
-            CStrPtr::null()
-        } else {
-            let message = CString::new(error.message)
-                .unwrap_or_else(|null| {
-                    let position = null.nul_position();
-                    CString::new(&null.into_vec()[..position]).unwrap()
-                })
-                .into_bytes_with_nul();
-            if message.is_empty() {
-                CStrPtr::null()
-            } else {
-                CStrPtr(message.leak().first())
-            }
-        };
-
-        CError {
-            code: error.code,
-            message,
-        }
+impl Default for CError<'_> {
+    /// Defaults to success.
+    fn default() -> Self {
+        Error::success().into_raw()
     }
 }
 
@@ -180,15 +176,4 @@ pub unsafe extern "C" fn error_message_drop(error: Option<&mut CError>) {
     let error = None;
 
     call_with_result(drop, error);
-}
-
-#[cfg(test)]
-pub(crate) mod tests {
-    use super::*;
-
-    impl CError<'_> {
-        pub fn success() -> Self {
-            CError::new(Error::success())
-        }
-    }
 }

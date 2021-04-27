@@ -1,24 +1,18 @@
 use std::panic::AssertUnwindSafe;
 
-use ffi_support::IntoFfi;
 use xayn_ai::Analytics;
 
-use crate::result::call_with_result;
+use crate::{result::call_with_result, utils::IntoRaw};
 
 /// The raw analytics.
 pub struct CAnalytics(pub(crate) Option<Analytics>);
 
 // this is more like a dummy impl for now until we have fleshed out the analytics
-unsafe impl IntoFfi for CAnalytics {
+unsafe impl IntoRaw for CAnalytics {
     type Value = Option<&'static mut CAnalytics>;
 
     #[inline]
-    fn ffi_default() -> Self::Value {
-        None
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> Self::Value {
+    fn into_raw(self) -> Self::Value {
         Some(Box::leak(Box::new(self)))
     }
 }
