@@ -246,7 +246,7 @@ pub unsafe extern "C" fn xaynai_rerank(
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_serialize(
-    xaynai: *mut CXaynAi,
+    xaynai: *const CXaynAi,
     error: *mut ExternError,
 ) -> *mut CBytes<'static> {
     let serialize = || unsafe { CXaynAi::serialize(xaynai) };
@@ -272,7 +272,7 @@ pub unsafe extern "C" fn xaynai_serialize(
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_faults(
-    xaynai: *mut CXaynAi,
+    xaynai: *const CXaynAi,
     error: *mut ExternError,
 ) -> *mut CFaults {
     let faults = || unsafe { CXaynAi::faults(xaynai) };
@@ -296,7 +296,7 @@ pub unsafe extern "C" fn xaynai_faults(
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_analytics(
-    xaynai: *mut CXaynAi,
+    xaynai: *const CXaynAi,
     error: *mut ExternError,
 ) -> *mut CAnalytics {
     let analytics = || unsafe { CXaynAi::analytics(xaynai) };

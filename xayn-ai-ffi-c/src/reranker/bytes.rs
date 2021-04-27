@@ -78,7 +78,7 @@ impl<'a> CBytes<'a> {
             if !bytes.data.is_null() && bytes.len > 0 {
                 unsafe {
                     Box::from_raw(from_raw_parts_mut(
-                        bytes.data as *mut u32,
+                        bytes.data as *mut u8,
                         bytes.len as usize,
                     ))
                 };
