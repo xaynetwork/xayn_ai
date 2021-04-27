@@ -16,6 +16,7 @@ xayn-ai = { path = "../xayn-ai" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.23"
+itertools = "0.10.0"
 
 [lib]
 crate-type = ["cdylib"]

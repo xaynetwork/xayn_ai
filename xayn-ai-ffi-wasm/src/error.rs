@@ -5,6 +5,7 @@ use crate::utils::IntoJsResult;
 
 // placeholder / later we can have a crate that contains common code for c-ffi and wasm
 #[repr(i32)]
+#[cfg_attr(test, derive(Clone, Copy, Debug))]
 pub enum CCode {
     /// A warning or uncritical error.
     Fault = -2,
@@ -28,9 +29,10 @@ impl CCode {
 }
 
 #[derive(Serialize)]
+#[cfg_attr(test, derive(serde::Deserialize, Debug))]
 pub struct ExternError {
-    code: i32,
-    message: String,
+    pub(crate) code: i32,
+    pub(crate) message: String,
 }
 
 impl ExternError {

@@ -119,9 +119,15 @@ impl WXaynAi {
 #[cfg(target_arch = "wasm32")]
 #[cfg(test)]
 mod tests {
-    use wasm_bindgen_test::wasm_bindgen_test;
-
     use super::*;
+
+    use std::iter::repeat;
+
+    use itertools::izip;
+    use wasm_bindgen_test::wasm_bindgen_test;
+    use xayn_ai::{Relevance, UserFeedback};
+
+    use crate::error::ExternError;
 
     /// Path to the current vocabulary file.
     pub const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0000/vocab.txt");
@@ -129,21 +135,161 @@ mod tests {
     /// Path to the current onnx model file.
     pub const MODEL: &[u8] = include_bytes!("../../data/rubert_v0000/model.onnx");
 
+    fn test_histories() -> Vec<JsValue> {
+        let len = 6;
+        let ids = (0..len).map(|idx| idx.to_string()).collect::<Vec<_>>();
+
+        let relevances = repeat(Relevance::Low)
+            .take(len / 2)
+            .chain(repeat(Relevance::High).take(len - len / 2));
+        let feedbacks = repeat(UserFeedback::Irrelevant)
+            .take(len / 2)
+            .chain(repeat(UserFeedback::Relevant).take(len - len / 2));
+
+        let history = izip!(ids, relevances, feedbacks)
+            .map(|(id, relevance, user_feedback)| {
+                JsValue::from_serde(&DocumentHistory {
+                    id: id.as_str().into(),
+                    relevance,
+                    user_feedback,
+                })
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        history
+    }
+
+    fn test_documents() -> Vec<JsValue> {
+        let len = 10;
+        let ids = (0..len).map(|idx| idx.to_string()).collect::<Vec<_>>();
+
+        let snippets = (0..len)
+            .map(|idx| format!("snippet {}", idx))
+            .collect::<Vec<_>>();
+        let ranks = 0..len as usize;
+
+        let document = izip!(ids, snippets, ranks)
+            .map(|(id, snippet, rank)| {
+                JsValue::from_serde(&Document {
+                    id: id.as_str().into(),
+                    snippet,
+                    rank,
+                })
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        document
+    }
+
     #[wasm_bindgen_test]
-    fn test_reranker() {
+    fn test_rerank() {
         let mut xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        xaynai.rerank(test_histories(), test_documents()).unwrap();
+    }
 
-        let document = Document {
-            id: "1".into(),
-            rank: 0,
-            snippet: "abc".to_string(),
-        };
-        let js_document = JsValue::from_serde(&document).unwrap();
+    #[wasm_bindgen_test]
+    fn test_serialize() {
+        let xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        xaynai.serialize().unwrap();
+    }
 
-        let ranks = xaynai.rerank(vec![], vec![js_document]).unwrap();
-        assert_eq!(ranks, [0]);
+    #[wasm_bindgen_test]
+    fn test_faults() {
+        let xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        let faults = xaynai.faults();
+        assert!(faults.is_empty())
+    }
 
-        let ser = xaynai.serialize().unwrap();
-        assert!(ser.length() != 0)
+    #[wasm_bindgen_test]
+    fn test_analytics() {
+        let xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        let analytics = xaynai.analytics();
+        assert!(analytics.is_null())
+    }
+
+    #[wasm_bindgen_test]
+    fn test_vocab_invalid() {
+        let error: ExternError = WXaynAi::new(&[], MODEL, None)
+            .map_err(|e| JsValue::into_serde(&e).unwrap())
+            .err()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::InitAi as i32);
+        assert!(error
+            .message
+            .contains("Failed to initialize the ai: Failed to build the tokenizer: "));
+    }
+
+    // #[wasm_bindgen_test]
+    // fn test_model_invalid() {
+    //     let error: ExternError = WXaynAi::new(VOCAB, &[], None)
+    //         .map_err(|e| JsValue::into_serde(&e).unwrap())
+    //         .err()
+    //         .unwrap();
+
+    //     assert_eq!(error.code, CCode::InitAi as i32);
+    //     assert!(error.message.contains("Failed to initialize the ai: "));
+    // }
+
+    #[wasm_bindgen_test]
+    fn test_history_invalid() {
+        let mut xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        let error: ExternError = xaynai
+            .rerank(vec![JsValue::from("invalid")], test_documents())
+            .map_err(|e| JsValue::into_serde(&e).unwrap())
+            .err()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::HistoriesDeserialization as i32);
+        assert!(error
+            .message
+            .contains("Failed to deserialize the collection of histories: invalid type: "));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_history_empty() {
+        let mut xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        xaynai.rerank(vec![], test_documents()).unwrap();
+    }
+
+    #[wasm_bindgen_test]
+    fn test_documents_invalid() {
+        let mut xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        let error: ExternError = xaynai
+            .rerank(test_histories(), vec![JsValue::from("invalid")])
+            .map_err(|e| JsValue::into_serde(&e).unwrap())
+            .err()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::DocumentsDeserialization as i32);
+        assert!(error
+            .message
+            .contains("Failed to deserialize the collection of documents: invalid type: "));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_documents_empty() {
+        let mut xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
+        xaynai.rerank(test_histories(), vec![]).unwrap();
+    }
+
+    #[wasm_bindgen_test]
+    fn test_serialized_empty() {
+        WXaynAi::new(VOCAB, MODEL, Some(Box::new([]))).unwrap();
+    }
+
+    #[wasm_bindgen_test]
+    fn test_serialized_invalid() {
+        let error: ExternError = WXaynAi::new(VOCAB, MODEL, Some(Box::new([1, 2, 3])))
+            .map_err(|e| JsValue::into_serde(&e).unwrap())
+            .err()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::RerankerDeserialization as i32);
+        assert!(error.message.contains(
+            "Failed to deserialize the reranker database: Unsupported serialized data. "
+        ));
     }
 }
