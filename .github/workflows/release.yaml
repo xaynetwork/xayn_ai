@@ -247,11 +247,11 @@ jobs:
           mkdir -p ${{ env.ANDROID_LIBS_DIR }}
           cd /tmp/artifacts
           cp -r android-*/* ${{ env.ANDROID_LIBS_DIR }}
-          ls -lh ${{ env.ANDROID_LIBS_DIR }}
-          find ${{ env.DART_WORKSPACE }}/android/src/main/jniLibs
 
       - name: Copy headers
         run: |
+          find /tmp/artifacts/
           cd /tmp/artifacts/headers-${{ github.sha }}
+          find ./
           cp XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/ios/Classes
           cp genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
