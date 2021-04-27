@@ -5,11 +5,13 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    data::{document::DocumentHistory, document_data::DocumentDataWithMab},
+    data::{
+        document::{DocumentHistory, Relevance},
+        document_data::DocumentDataWithMab,
+    },
     error::Error,
     reranker::systems,
     utils::nan_safe_f32_cmp_desc,
-    Relevance,
 };
 
 /// Which k to use for nDCG@k
