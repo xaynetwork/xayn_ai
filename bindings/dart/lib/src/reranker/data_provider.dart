@@ -11,7 +11,7 @@ import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiSetupData;
 /// This function needs to be called in the main thread because it will not be allowed
 /// to access the assets from an isolate.
 ///
-/// [`baseDiskPath`] must be a path to a directory where is possible to store the data.
+/// [`baseDiskPath`] must be a path to a directory where it's possible to store the data.
 Future<XaynAiSetupData> getInputData(String baseDiskPath) async {
   // This is to avoid that two calls of this function can run concurrently.
   // Doing that can lead to invalid data on the disk.
