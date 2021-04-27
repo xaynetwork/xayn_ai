@@ -40,7 +40,7 @@ fn main() {
     let config = Config::from_file(bind_config).expect("Failed to read config.");
     generate_with_config(crate_dir, config)
         .expect("Failed to generate bindings.")
-        .write_to_file(bind_file.clone());
+        .write_to_file(&bind_file);
 
     // generate bindings for dart ios header
     let ios_tpl = read_to_string(ios_header_tpl).expect("Failed to read ios template.");
