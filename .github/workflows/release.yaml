@@ -167,7 +167,7 @@ jobs:
         with:
           name: headers-${{ github.sha }}
           path: |
-            ${{ env.DART_WORKSPACE }}/ios/ios/Classes/XaynAiFfiDartPlugin.h
+            ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h
             ${{ env.DART_WORKSPACE }}/lib/src/ffi/genesis.dart
 
   build-android-libs:
@@ -253,5 +253,5 @@ jobs:
           find /tmp/artifacts/
           cd /tmp/artifacts/headers-${{ github.sha }}
           find ./
-          cp XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/ios/Classes
-          cp genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
+          cp lib/src/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
+          cp ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/ios/Classes
