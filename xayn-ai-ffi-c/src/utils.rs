@@ -12,32 +12,80 @@ use crate::result::error::CCode;
 #[no_mangle]
 pub extern "C" fn dummy_function() {}
 
-pub(crate) unsafe fn ptr_to_str<'a>(
-    pointer: Option<&'a u8>,
-    code: CCode,
-    prefix: impl Display,
-) -> Result<&'a str, ExternError> {
-    let pointer = pointer
-        .ok_or_else(|| code.with_context(format!("{}: The {} is null", prefix, code)))?
-        as *const u8;
-    unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
-        .to_str()
-        .map_err(|cause| {
-            code.with_context(format!(
-                "{}: The {} contains invalid utf8: {}",
-                prefix, code, cause,
-            ))
-        })
+/// A raw C string.
+#[repr(transparent)]
+pub struct CStrPtr<'a>(Option<&'a u8>);
+
+impl<'a> CStrPtr<'a> {
+    /// Reads a string from the pointer.
+    ///
+    /// # Errors
+    /// Fails on null pointer and invalid utf8 encoding. The error is constructed from the `code`
+    /// and `context`.
+    ///
+    /// # Safety
+    /// The behavior is undefined if:
+    /// - A non-null pointer doesn't point to an aligned, contiguous area of memory with a terminating
+    /// null byte.
+    pub unsafe fn as_str(
+        &self,
+        code: CCode,
+        context: impl Display,
+    ) -> Result<&'a str, ExternError> {
+        let pointer = self
+            .0
+            .ok_or_else(|| code.with_context(format!("{}: The {} is null", context, code)))?
+            as *const u8;
+        unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
+            .to_str()
+            .map_err(|cause| {
+                code.with_context(format!(
+                    "{}: The {} contains invalid utf8: {}",
+                    context, code, cause
+                ))
+            })
+    }
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use std::ffi::CStr;
 
-    pub(crate) fn ptr_to_str_unchecked<'a>(pointer: Option<&'a u8>) -> &'a str {
-        let pointer = pointer.unwrap() as *const u8;
-        unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
-            .to_str()
-            .unwrap()
+    use super::*;
+
+    impl<'a, S> From<S> for CStrPtr<'a>
+    where
+        S: AsRef<CStr>,
+    {
+        /// Wraps the [`CStr`] as a pointer.
+        fn from(string: S) -> Self {
+            let pointer = string.as_ref().as_ptr().cast::<u8>();
+            Self(unsafe {
+                // Safety: The pointer comes from a valid &CStr.
+                pointer.as_ref()
+            })
+        }
+    }
+
+    impl<'a> CStrPtr<'a> {
+        pub fn null() -> Self {
+            Self(None)
+        }
+
+        /// Reads a string from the pointer.
+        ///
+        /// # Panics
+        /// Panics on null pointer and invalid utf8 encoding.
+        ///
+        /// # Safety
+        /// The behavior is undefined if:
+        /// - A non-null pointer doesn't point to an aligned, contiguous area of memory with a
+        /// terminating null byte.
+        pub fn as_str_unchecked(&self) -> &'a str {
+            let pointer = self.0.unwrap() as *const u8;
+            unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
+                .to_str()
+                .unwrap()
+        }
     }
 }

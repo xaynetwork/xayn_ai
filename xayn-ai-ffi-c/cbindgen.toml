@@ -13,7 +13,6 @@ exclude = ["ErrorCode"]
 [export.rename]
 "ErrorCode" = "CCode"
 "ExternError" = "CError"
-"FfiStr" = "CStr"
 
 [parse]
 parse_deps = true

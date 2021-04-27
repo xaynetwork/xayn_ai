@@ -18,7 +18,7 @@ use crate::{
         error::CCode,
         fault::{CFaults, Faults},
     },
-    utils::ptr_to_str,
+    utils::CStrPtr,
 };
 
 /// The Xayn AI.
@@ -49,14 +49,12 @@ unsafe impl IntoFfi for CXaynAi {
 impl CXaynAi {
     /// See [`xaynai_new()`] for more.
     unsafe fn new(
-        vocab: Option<&u8>,
-        model: Option<&u8>,
+        vocab: CStrPtr,
+        model: CStrPtr,
         serialized: Option<&CBytes>,
     ) -> Result<Self, ExternError> {
-        let vocab =
-            unsafe { ptr_to_str(vocab, CCode::VocabPointer, "Failed to initialize the ai") }?;
-        let model =
-            unsafe { ptr_to_str(model, CCode::ModelPointer, "Failed to initialize the ai") }?;
+        let vocab = unsafe { vocab.as_str(CCode::VocabPointer, "Failed to initialize the ai") }?;
+        let model = unsafe { model.as_str(CCode::ModelPointer, "Failed to initialize the ai") }?;
 
         let serialized = serialized
             .map(|bytes| unsafe { bytes.as_slice() })
@@ -169,8 +167,8 @@ impl CXaynAi {
 /// [`ExternError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
-    vocab: Option<&u8>,
-    model: Option<&u8>,
+    vocab: CStrPtr,
+    model: CStrPtr,
     serialized: Option<&CBytes>,
     error: Option<&mut ExternError>,
 ) -> Option<&'static mut CXaynAi> {
@@ -188,10 +186,9 @@ pub unsafe extern "C" fn xaynai_new(
 /// - The `documents` are invalid.
 /// - An unexpected panic happened.
 ///
-/// In case of a [`CCode::Panic`], the `xaynai` must not be accessed anymore and should be dropped
-/// via [`xaynai_drop()`]. The last known valid state can be restored by the caller via
-/// [`xaynai_new()`] with a previously serialized reranker database obtained from
-/// [`xaynai_serialize()`].
+/// In case of a [`CCode::Panic`] the Xayn AI must not be accessed anymore and should be dropped via
+/// [`xaynai_drop()`]. The last known valid state can be restored by the caller via [`xaynai_new()`]
+/// with a previously serialized reranker database obtained from [`xaynai_serialize()`].
 ///
 /// # Safety
 /// The behavior is undefined if:
@@ -340,39 +337,29 @@ mod tests {
         tests::{MODEL, VOCAB},
     };
 
-    struct TestVocab(Pin<CString>);
+    struct TestFile(Pin<CString>);
 
-    impl Drop for TestVocab {
+    impl Drop for TestFile {
         fn drop(&mut self) {}
     }
 
-    impl Default for TestVocab {
-        fn default() -> Self {
-            Self(Pin::new(CString::new(VOCAB).unwrap()))
+    impl TestFile {
+        fn new(file: &str) -> Self {
+            Self(Pin::new(CString::new(file).unwrap()))
+        }
+
+        fn vocab() -> Self {
+            Self::new(VOCAB)
+        }
+
+        fn model() -> Self {
+            Self::new(MODEL)
         }
     }
 
-    impl TestVocab {
-        fn as_ptr(&self) -> Option<&u8> {
-            unsafe { self.0.as_ptr().cast::<u8>().as_ref() }
-        }
-    }
-
-    struct TestModel(Pin<CString>);
-
-    impl Drop for TestModel {
-        fn drop(&mut self) {}
-    }
-
-    impl Default for TestModel {
-        fn default() -> Self {
-            Self(Pin::new(CString::new(MODEL).unwrap()))
-        }
-    }
-
-    impl TestModel {
-        fn as_ptr(&self) -> Option<&u8> {
-            unsafe { self.0.as_ptr().cast::<u8>().as_ref() }
+    impl TestFile {
+        fn as_ptr(&self) -> CStrPtr {
+            self.0.as_ref().get_ref().into()
         }
     }
 
@@ -403,8 +390,8 @@ mod tests {
 
     #[test]
     fn test_rerank() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
         let db = TestDb::default();
@@ -436,8 +423,8 @@ mod tests {
 
     #[test]
     fn test_serialize() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let db = TestDb::default();
         let mut error = ExternError::default();
 
@@ -460,8 +447,8 @@ mod tests {
 
     #[test]
     fn test_faults() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let db = TestDb::default();
         let mut error = ExternError::default();
 
@@ -484,8 +471,8 @@ mod tests {
 
     #[test]
     fn test_analytics() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let db = TestDb::default();
         let mut error = ExternError::default();
 
@@ -508,11 +495,11 @@ mod tests {
 
     #[test]
     fn test_vocab_null() {
-        let model = TestModel::default();
+        let model = TestFile::model();
         let db = TestDb::default();
         let mut error = ExternError::default();
 
-        let invalid = None;
+        let invalid = CStrPtr::null();
         assert!(
             unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), Some(&mut error)) }.is_none()
         );
@@ -531,12 +518,12 @@ mod tests {
 
     #[test]
     fn test_vocab_invalid() {
-        let model = TestModel::default();
+        let model = TestFile::model();
         let db = TestDb::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
-        let invalid = Some(unsafe { &*(invalid.as_ptr() as *const _) });
+        let invalid = invalid.as_c_str().into();
         assert!(
             unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), Some(&mut error)) }.is_none()
         );
@@ -551,11 +538,11 @@ mod tests {
 
     #[test]
     fn test_model_null() {
-        let vocab = TestVocab::default();
+        let vocab = TestFile::vocab();
         let db = TestDb::default();
         let mut error = ExternError::default();
 
-        let invalid = None;
+        let invalid = CStrPtr::null();
         assert!(
             unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), Some(&mut error)) }.is_none()
         );
@@ -574,12 +561,12 @@ mod tests {
 
     #[test]
     fn test_model_invalid() {
-        let vocab = TestVocab::default();
+        let vocab = TestFile::vocab();
         let db = TestDb::default();
         let mut error = ExternError::default();
 
         let invalid = CString::new("").unwrap();
-        let invalid = Some(unsafe { &*(invalid.as_ptr() as *const _) });
+        let invalid = invalid.as_c_str().into();
         assert!(
             unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), Some(&mut error)) }.is_none()
         );
@@ -659,8 +646,8 @@ mod tests {
 
     #[test]
     fn test_history_null() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let docs = TestDocuments::default();
         let db = TestDb::default();
         let mut error = ExternError::default();
@@ -693,8 +680,8 @@ mod tests {
 
     #[test]
     fn test_documents_null() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let hists = TestHistories::default();
         let db = TestDb::default();
         let mut error = ExternError::default();
@@ -727,8 +714,8 @@ mod tests {
 
     #[test]
     fn test_serialized_empty() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let mut error = ExternError::default();
 
         let empty = CBytes { data: None, len: 0 };
@@ -742,8 +729,8 @@ mod tests {
 
     #[test]
     fn test_serialized_invalid() {
-        let vocab = TestVocab::default();
-        let model = TestModel::default();
+        let vocab = TestFile::vocab();
+        let model = TestFile::model();
         let mut error = ExternError::default();
 
         let version = u8::MAX;
