@@ -45,12 +45,7 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{
-            CoiComponent,
-            DocumentIdComponent,
-            EmbeddingComponent,
-            InitialRankingComponent,
-        },
+        document_data::{CoiComponent, DocumentBaseComponent, EmbeddingComponent},
         CoiId,
     };
 
@@ -64,8 +59,8 @@ mod tests {
             neg_distance: 0.2,
         };
         let doc1 = DocumentDataWithCoi {
-            document_id: DocumentIdComponent { id },
-            initial_ranking: InitialRankingComponent {
+            document_base: DocumentBaseComponent {
+                id,
                 initial_ranking: 24,
             },
             embedding: EmbeddingComponent { embedding },
@@ -80,8 +75,8 @@ mod tests {
             neg_distance: 0.9,
         };
         let doc2 = DocumentDataWithCoi {
-            document_id: DocumentIdComponent { id },
-            initial_ranking: InitialRankingComponent {
+            document_base: DocumentBaseComponent {
+                id,
                 initial_ranking: 42,
             },
             embedding: EmbeddingComponent { embedding },

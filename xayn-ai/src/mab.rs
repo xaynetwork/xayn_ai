@@ -278,9 +278,8 @@ mod tests {
         document_data::{
             CoiComponent,
             ContextComponent,
-            DocumentIdComponent,
+            DocumentBaseComponent,
             EmbeddingComponent,
-            InitialRankingComponent,
             LtrComponent,
         },
     };
@@ -292,8 +291,10 @@ mod tests {
 
     fn with_ctx(id: DocumentId, coi_id: CoiId, context_value: f32) -> DocumentDataWithContext {
         DocumentDataWithContext {
-            document_id: DocumentIdComponent { id },
-            initial_ranking: InitialRankingComponent { initial_ranking: 0 },
+            document_base: DocumentBaseComponent {
+                id,
+                initial_ranking: 0,
+            },
             embedding: EmbeddingComponent {
                 embedding: arr1(&[]).into(),
             },
@@ -352,7 +353,7 @@ mod tests {
                 .unwrap_or_else(|| panic!("document from coi id {:?}", coi_id));
             let docs_id: HashSet<DocumentId> = docs
                 .iter()
-                .map(|doc| doc.0.document_id.id.clone())
+                .map(|doc| doc.0.document_base.id.clone())
                 .collect();
 
             assert_eq!(docs_id.len(), docs_id_ok.len());
@@ -388,7 +389,7 @@ mod tests {
             .into_iter()
             // into_sorted_vec returns elements in the revers order of what using pop will do
             .rev()
-            .map(|doc| doc.0.document_id.id)
+            .map(|doc| doc.0.document_base.id)
             .collect();
 
         assert_eq!(
@@ -415,7 +416,7 @@ mod tests {
             .into_iter()
             // into_sorted_vec returns elements in the revers order of what using pop will do
             .rev()
-            .map(|doc| doc.0.document_id.id)
+            .map(|doc| doc.0.document_base.id)
             .collect();
 
         assert_eq!(docs_id, vec![doc_id_2, doc_id_0, doc_id_1]);
@@ -650,7 +651,7 @@ mod tests {
                     let (documents_by_coi, document) =
                         pull_arms(&beta_sampler, &cois, documents_by_coi).expect("document");
 
-                    assert_eq!(doc_id, document.document_id.id);
+                    assert_eq!(doc_id, document.document_base.id);
 
                     documents_by_coi
                 });
@@ -737,7 +738,7 @@ mod tests {
                     let (documents_by_coi, document) =
                         pull_arms(&beta_sampler, &cois, documents_by_coi).expect("document");
 
-                    assert_eq!(doc_id, document.document_id.id);
+                    assert_eq!(doc_id, document.document_base.id);
 
                     documents_by_coi
                 });
@@ -789,7 +790,7 @@ mod tests {
                     let (documents_by_coi, document) =
                         pull_arms(&beta_sampler, &cois, documents_by_coi).expect("document");
 
-                    let ok = ok && doc_id == document.document_id.id;
+                    let ok = ok && doc_id == document.document_base.id;
 
                     (ok, documents_by_coi)
                 },
@@ -840,7 +841,7 @@ mod tests {
             .expect("documents");
         let documents_id: Vec<_> = documents
             .into_iter()
-            .map(|document| document.document_id.id)
+            .map(|document| document.document_base.id)
             .collect();
 
         let documents_id_ok = vec![doc_id_5, doc_id_4, doc_id_3, doc_id_2, doc_id_1, doc_id_0];
@@ -932,7 +933,7 @@ mod tests {
 
         for document in documents {
             let rank = documents_id_to_rank
-                .get(&document.document_id.id)
+                .get(&document.document_base.id)
                 .expect("rank");
             assert_eq!(document.mab.rank, *rank);
         }

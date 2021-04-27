@@ -57,7 +57,7 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
         let mut paired_initial_ranking_scores = Vec::new();
 
         for document in documents {
-            if let Some(relevance) = relevance_lookups.get(&document.document_id.id).copied() {
+            if let Some(relevance) = relevance_lookups.get(&document.document_base.id).copied() {
                 paired_ltr_scores.push((relevance, document.ltr.ltr_score));
                 paired_context_scores.push((relevance, document.context.context_value));
 
@@ -67,7 +67,7 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
                 let final_ranking_desc = -(document.mab.rank as f32);
                 paired_final_ranking_scores.push((relevance, final_ranking_desc));
 
-                let intial_ranking_desc = -(document.initial_ranking.initial_ranking as f32);
+                let intial_ranking_desc = -(document.document_base.initial_ranking as f32);
                 paired_initial_ranking_scores.push((relevance, intial_ranking_desc));
             }
         }

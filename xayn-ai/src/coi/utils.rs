@@ -139,10 +139,9 @@ pub(super) mod tests {
         data::{
             document_data::{
                 CoiComponent,
+                DocumentBaseComponent,
                 DocumentDataWithEmbedding,
-                DocumentIdComponent,
                 EmbeddingComponent,
-                InitialRankingComponent,
             },
             CoiId,
             CoiPoint,
@@ -223,10 +222,10 @@ pub(super) mod tests {
         embedding: &[f32],
     ) -> DocumentDataWithEmbedding {
         DocumentDataWithEmbedding {
-            document_id: DocumentIdComponent {
+            document_base: DocumentBaseComponent {
                 id: DocumentId(id.to_string()),
+                initial_ranking,
             },
-            initial_ranking: InitialRankingComponent { initial_ranking },
             embedding: EmbeddingComponent {
                 embedding: arr1(embedding).into(),
             },

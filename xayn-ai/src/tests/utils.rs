@@ -9,13 +9,12 @@ use crate::{
         document_data::{
             CoiComponent,
             ContextComponent,
+            DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
             DocumentDataWithEmbedding,
             DocumentDataWithMab,
-            DocumentIdComponent,
             EmbeddingComponent,
-            InitialRankingComponent,
             LtrComponent,
             MabComponent,
         },
@@ -56,10 +55,8 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl BertSystem) -> Ve
         .iter()
         .enumerate()
         .map(|(id, snippet)| DocumentDataWithDocument {
-            document_id: DocumentIdComponent {
+            document_base: DocumentBaseComponent {
                 id: DocumentId(id.to_string()),
-            },
-            initial_ranking: InitialRankingComponent {
                 initial_ranking: id,
             },
             document_content: DocumentContentComponent {
@@ -104,8 +101,10 @@ pub(crate) fn data_with_mab(
 ) -> Vec<DocumentDataWithMab> {
     ids_and_embeddings
         .map(|(id, initial_ranking, embedding)| DocumentDataWithMab {
-            document_id: DocumentIdComponent { id },
-            initial_ranking: InitialRankingComponent { initial_ranking },
+            document_base: DocumentBaseComponent {
+                id,
+                initial_ranking,
+            },
             embedding: EmbeddingComponent { embedding },
             coi: CoiComponent {
                 id: CoiId(1),
@@ -125,8 +124,10 @@ pub(crate) fn documents_with_embeddings_from_ids(
     from_ids(ids)
         .map(
             |(id, initial_ranking, embedding)| DocumentDataWithEmbedding {
-                document_id: DocumentIdComponent { id },
-                initial_ranking: InitialRankingComponent { initial_ranking },
+                document_base: DocumentBaseComponent {
+                    id,
+                    initial_ranking,
+                },
                 embedding: EmbeddingComponent { embedding },
             },
         )
