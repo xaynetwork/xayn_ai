@@ -1,3 +1,9 @@
+//! Feature extraction algorithm based on Dataiku's solution to Yandex Personalized Web Search
+//! Challenge [1]. See [2] for the first implementation in Python.
+//!
+//! [1] https://www.academia.edu/9872579/Dataikus_Solution_to_Yandexs_Personalized_Web_Search_Challenge
+//! [2] https://github.com/xaynetwork/soundgarden
+
 #![allow(dead_code)] // TEMP
 
 use itertools::Itertools;
@@ -36,6 +42,7 @@ struct QueryFeatures {
     avg_skips: f32,
 }
 
+/// Calculate query features for the given query and historical search results of a user.
 fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
     let history_q = history
         .iter()
@@ -89,7 +96,7 @@ fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
 /// Mean reciprocal rank of results filtered by outcome and a predicate.
 ///
 /// It is defined as the ratio:
-///```
+///```text
 ///   sum{1/r.position} + 0.283
 /// ----------------------------
 ///    |rs(outcome, pred)| + 1
@@ -133,15 +140,25 @@ struct Query {
 }
 
 struct SearchResult {
+    /// Session identifier.
     session_id: i32,
+    /// User identifier.
     user_id: i32,
+    /// Query identifier.
     query_id: i32,
+    /// Day of the search, an integer between 1 and 27.
     day: u8,
+    /// Words of the query, each masked.
     query_words: Vec<i32>,
+    /// URL of result, masked.
     url: i32,
+    /// Domain of result, masked.
     domain: i32,
+    /// Relevance level of the result.
     relevance: ClickSat,
+    /// Position among other results.
     position: Rank,
+    /// Query count within session.
     query_counter: u8,
 }
 
@@ -241,8 +258,8 @@ struct ClickCounts {
     click12: u32,
     /// Click count of results ranked 3-5.
     click345: u32,
-    /// Click count of results ranked 6-10.
-    click6to10: u32,
+    /// Click count of results ranked 6 upwards.
+    click6up: u32,
 }
 
 impl ClickCounts {
@@ -250,7 +267,7 @@ impl ClickCounts {
         Self {
             click12: 0,
             click345: 0,
-            click6to10: 0,
+            click6up: 0,
         }
     }
 
@@ -259,7 +276,7 @@ impl ClickCounts {
         match rank {
             First | Second => self.click12 += 1,
             Third | Fourth | Fifth => self.click345 += 1,
-            _ => self.click6to10 += 1,
+            _ => self.click6up += 1,
         };
         self
     }
@@ -272,7 +289,9 @@ fn click_counts(results: &[SearchResult]) -> ClickCounts {
         .fold(ClickCounts::new(), |counter, r| counter.incr(r.position))
 }
 
+/// Calculate user features for the given historical search results of a user.
 fn user_features(history: &[SearchResult]) -> UserFeatures {
+    // all queries over all sessions
     let all_queries = history
         .iter()
         .map(|r| (r.session_id, r.query_id, &r.query_words, r.query_counter))
@@ -340,6 +359,14 @@ struct CumFeatures {
     url: FeatMap,
 }
 
+/// Determines the cumulated features for a given search result.
+///
+/// These are given by sums of conditional probabilities:
+/// ```text
+/// sum{cond_prob(outcome, pred(r.url))}
+/// ```
+/// where the sum ranges over each search result `r` ranked above `res`. `pred` is the predicate
+/// corresponding to the cumulated feature, and `outcome` one of its specified atoms.
 fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
     let url = hist
         .iter()
@@ -353,7 +380,7 @@ fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
         // calculate specified cond probs for each of the above
         .flat_map(|r| {
             let pred = FilterPred::new(UrlOrDom::Url(r.url));
-            pred.cum_spec()
+            pred.cum_atoms()
                 .into_iter()
                 .map(move |outcome| (outcome, cond_prob(hist, outcome, pred)))
         })
@@ -388,6 +415,7 @@ struct AggregFeatures {
     url_query_curr: FeatMap,
 }
 
+/// Calculate aggregate features for the given search result and history of a user.
 fn aggreg_features(hist: &[SearchResult], r: SearchResult) -> AggregFeatures {
     let anterior = SessionCond::Anterior(r.session_id);
     let current = SessionCond::Current(r.session_id);
@@ -431,7 +459,7 @@ fn aggreg_feat(hist: &[SearchResult], r: &SearchResult, pred: FilterPred) -> Fea
         AtomFeat::SnippetQuality => snippet_quality(hist, r, pred),
         AtomFeat::CondProb(outcome) => cond_prob(hist, outcome, pred),
     };
-    pred.agg_spec()
+    pred.agg_atoms()
         .into_iter()
         .map(|atom_feat| (atom_feat, eval_atom(atom_feat)))
         .collect()
@@ -440,7 +468,7 @@ fn aggreg_feat(hist: &[SearchResult], r: &SearchResult, pred: FilterPred) -> Fea
 /// Quality of the snippet associated with a search result.
 ///
 /// Snippet quality is defined as:
-/// ```
+/// ```text
 ///       sum{score(r)}
 /// --------------------------
 /// |hist({Miss, Skip}, pred)|
@@ -528,7 +556,7 @@ impl<'a> ResultSet<'a> {
 /// Probability of an outcome conditioned on some predicate.
 ///
 /// It is defined:
-/// ```
+/// ```text
 /// |hist(outcome, pred)| + prior(outcome)
 /// --------------------------------------
 ///   |hist(pred)| + sum{prior(outcome')}
@@ -609,8 +637,10 @@ impl FilterPred {
         self
     }
 
-    /// Lookup the specification of the aggregate feature for this filter predicate.
-    fn agg_spec(&self) -> SmallVec<[AtomFeat; 6]> {
+    /// Lookup the atoms making up the aggregate feature for this filter predicate.
+    ///
+    /// Mapping of (predicate => atomic features) based on Dataiku's winning model (see paper).
+    fn agg_atoms(&self) -> SmallVec<[AtomFeat; 6]> {
         use AtomFeat::{
             CondProb,
             MeanRecipRank as MRR,
@@ -639,8 +669,11 @@ impl FilterPred {
         }
     }
 
-    /// Lookup the specification of the cumulated feature for this filter predicate.
-    fn cum_spec(&self) -> SmallVec<[ClickSat; 3]> {
+    /// Lookup the atoms making up the cumulated feature for this filter predicate.
+    ///
+    /// Mapping of (predicate => atomic features) based on Dataiku's winning model (see paper).
+    /// Note that for cumulated features, the atoms are always conditional probabilities.
+    fn cum_atoms(&self) -> SmallVec<[ClickSat; 3]> {
         use ClickSat::{High as click2, Medium as click1, Skip as skip};
         use SessionCond::All;
         use UrlOrDom::*;
