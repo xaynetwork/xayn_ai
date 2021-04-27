@@ -42,71 +42,122 @@
         let data = ai.serialize();
         console.log(data);
 
+        ai.rerank(history(), documents());
+        ai.rerank(history(), documents());
+
+        let analytics = ai.analytics();
+        console.log(analytics);
+
         // Free the xaynai instance
         ai.free();
       }
 
+      function history() {
+        return [
+            {
+                "id": "0",
+                "relevance": "Low",
+                "user_feedback": "Irrelevant"
+            },
+            {
+                "id": "1",
+                "relevance": "Medium",
+                "user_feedback": "Irrelevant"
+            }
+            ,
+            {
+                "id": "2",
+                "relevance": "High",
+                "user_feedback": "Irrelevant"
+            }
+            ,
+            {
+                "id": "3",
+                "relevance": "Low",
+                "user_feedback": "Irrelevant"
+            }
+            ,
+            {
+                "id": "4",
+                "relevance": "Medium",
+                "user_feedback": "Irrelevant"
+            }
+            ,
+            {
+                "id": "5",
+                "relevance": "High",
+                "user_feedback": "Irrelevant"
+            }
+            ,
+            {
+                "id": "6",
+                "relevance": "Low",
+                "user_feedback": "Relevant"
+            }
+            ,
+            {
+                "id": "7",
+                "relevance": "Medium",
+                "user_feedback": "Relevant"
+            }
+            ,
+            {
+                "id": "8",
+                "relevance": "High",
+                "user_feedback": "Relevant"
+            }
+            ,
+            {
+                "id": "9",
+                "relevance": "High",
+                "user_feedback": "Relevant"
+            }
+
+        ]
+      }
+
       function documents() {
-        let document_1 = {
-            "id": "1",
+        return [{
+            "id": "0",
             "rank": 0,
-            "snippet": "abc",
-        }
-
-        let document_2 = {
-            "id": "2",
+            "snippet": "ship",
+        },{
+            "id": "1",
             "rank": 1,
-            "snippet": "abcd",
-        }
-
-        let document_3 = {
-            "id": "3",
+            "snippet": "car",
+        },{
+            "id": "2",
             "rank": 2,
-            "snippet": "abcd",
-        }
-
-        let document_4 = {
-            "id": "4",
+            "snippet": "auto",
+        },{
+            "id": "3",
             "rank": 3,
-            "snippet": "abcd",
-        }
-
-        let document_5 = {
-            "id": "5",
+            "snippet": "flugzeug",
+        },{
+            "id": "4",
             "rank": 4,
-            "snippet": "abcd",
-        }
-
-        let document_6 = {
-            "id": "6",
+            "snippet": "plane",
+        },{
+            "id": "5",
             "rank": 5,
-            "snippet": "abcd",
-        }
-
-        let document_7 = {
-            "id": "7",
+            "snippet": "vehicle",
+        },{
+            "id": "6",
             "rank": 6,
-            "snippet": "abcd",
-        }
-
-        let document_8 = {
-            "id": "8",
+            "snippet": "truck",
+        },{
+            "id": "7",
             "rank": 7,
-            "snippet": "abcd",
-        }
-
-        let document_9 = {
-            "id": "9",
+            "snippet": "trunk",
+        },{
+            "id": "8",
             "rank": 8,
-            "snippet": "abcd",
-        }
-
-        let document_10 = {
-            "id": "10",
+            "snippet": "motorbike",
+        },{
+            "id": "9",
             "rank": 9,
-            "snippet": "abcd",
-        }
-        return [document_1, document_2, document_3, document_4, document_5, document_6, document_7, document_8, document_9, document_10]
+            "snippet": "bicycle",
+        }]
       }
 
       async function get_data(url) {

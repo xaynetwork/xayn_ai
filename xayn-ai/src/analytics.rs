@@ -3,6 +3,7 @@ use std::{cmp::Ordering, collections::HashMap};
 use anyhow::bail;
 use displaydoc::Display;
 use thiserror::Error;
+use serde::Serialize;
 
 use crate::{
     data::{
