@@ -41,6 +41,25 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
 }
 
 #[cfg(test)]
+macro_rules! assert_f32_eq {
+    ($left:expr, $right:expr) => {
+        assert_f32_eq! { $left, $right, ulps = 2 }
+    };
+    ($left:expr, $right:expr, ulps = $ulps:expr) => {{
+        let left = $left;
+        let right = $right;
+        let ulps = $ulps;
+        assert!(
+            ::float_cmp::approx_eq!(f32, $left, $right, ulps = ulps),
+            "approximated equal assertion failed (ulps={}): {} == {}",
+            ulps,
+            left,
+            right
+        );
+    }};
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

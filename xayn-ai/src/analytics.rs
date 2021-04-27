@@ -184,10 +184,8 @@ fn dcg(scores: impl Iterator<Item = f32>) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::{reranker::systems::AnalyticsSystem, tests, UserFeedback};
-
     use super::*;
-    use float_cmp::approx_eq;
+    use crate::{reranker::systems::AnalyticsSystem, tests, UserFeedback};
 
     #[test]
     fn test_full_analytics_system() {
@@ -213,19 +211,19 @@ mod tests {
         documents[2].mab.rank = 2;
 
         let Analytics {
-            ndcg_initial_ranking: _,
             ndcg_ltr,
             ndcg_context,
+            ndcg_initial_ranking: _,
             ndcg_final_ranking,
         } = AnalyticsSystem
             .compute_analytics(&history, &documents)
             .unwrap();
 
-        assert!(approx_eq!(f32, ndcg_ltr, 0.173_765_35, ulps = 2));
-        assert!(approx_eq!(f32, ndcg_context, 0.826_234_64, ulps = 2));
+        assert_f32_eq!(ndcg_ltr, 0.173_765_35);
+        assert_f32_eq!(ndcg_context, 0.826_234_64);
         //FIXME: Currently not possible as `ndcg_initial_ranking` is not yet computed
         // assert!(approx_eq!(f32, ndcg_initial_ranking, 0.7967075809905066, ulps = 2));
-        assert!(approx_eq!(f32, ndcg_final_ranking, 1.0, ulps = 2));
+        assert_f32_eq!(ndcg_final_ranking, 1.0);
     }
 
     #[test]
@@ -237,31 +235,31 @@ mod tests {
         let relevances = &mut [(0., -10.), (0., 1.), (1., 0.), (2., 6.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
         let res2 = ndcg_at_k([2., 0., 1., 0.].iter().copied(), 2);
-        assert!(approx_eq!(f32, res, res2, ulps = 2));
+        assert_f32_eq!(res, res2);
 
         let relevances = &mut [(0., 1.), (0., -10.), (1., -11.), (2., -11.6)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.0, ulps = 2));
+        assert_f32_eq!(res, 0.0);
 
         let relevances = &mut [(0., 1.), (0., -10.), (1., 100.), (2., 99.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
         let res2 = ndcg_at_k([1., 2., 1., 0.].iter().copied(), 2);
-        assert!(approx_eq!(f32, res, res2, ulps = 2));
+        assert_f32_eq!(res, res2);
     }
 
     #[test]
     fn test_calcuate_reordered_ndcg_at_k_score_without_reordering() {
         let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
+        assert_f32_eq!(res, 0.009_846_116);
 
         let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.489_142_48, ulps = 2));
+        assert_f32_eq!(res, 0.489_142_48);
 
         let relevances = &mut [(1., 12.), (4., 9.), (10., 7.), (3., 5.), (0., 4.), (6., 1.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.509_867_9, ulps = 2));
+        assert_f32_eq!(res, 0.509_867_9);
 
         let relevances = &mut [
             (-1., 12.),
@@ -272,7 +270,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.605_921_45, ulps = 2));
+        assert_f32_eq!(res, 0.605_921_45);
 
         let relevances = &mut [
             (-1., 12.),
@@ -283,7 +281,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.626_086_65, ulps = 2));
+        assert_f32_eq!(res, 0.626_086_65);
 
         let relevances = &mut [
             (-1., 12.),
@@ -294,22 +292,22 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.626_934_23, ulps = 2));
+        assert_f32_eq!(res, 0.626_934_23);
     }
 
     #[test]
     fn test_calcuate_reordered_ndcg_at_k_score_with_reordering() {
         let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
+        assert_f32_eq!(res, 0.009_846_116);
 
         let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.489_142_48, ulps = 2));
+        assert_f32_eq!(res, 0.489_142_48);
 
         let relevances = &mut [(4., 9.), (10., 7.), (6., 1.), (0., 4.), (3., 5.), (1., 12.)];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.509_867_9, ulps = 2));
+        assert_f32_eq!(res, 0.509_867_9);
 
         let relevances = &mut [
             (3., 5.),
@@ -320,7 +318,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 2);
-        assert!(approx_eq!(f32, res, 0.605_921_45, ulps = 2));
+        assert_f32_eq!(res, 0.605_921_45);
 
         let relevances = &mut [
             (3., 5.),
@@ -331,7 +329,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 4);
-        assert!(approx_eq!(f32, res, 0.626_086_65, ulps = 2));
+        assert_f32_eq!(res, 0.626_086_65);
 
         let relevances = &mut [
             (3., 5.),
@@ -342,7 +340,7 @@ mod tests {
             (-6., 1.),
         ];
         let res = calcuate_reordered_ndcg_at_k_score(relevances, 100);
-        assert!(approx_eq!(f32, res, 0.626_934_23, ulps = 2));
+        assert_f32_eq!(res, 0.626_934_23);
     }
 
     #[test]
@@ -354,30 +352,30 @@ mod tests {
     #[test]
     fn ndcg_at_k_produces_expected_values_for_k_larger_then_input() {
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 100);
-        assert!(approx_eq!(f32, res, 0.509_867_9, ulps = 2));
+        assert_f32_eq!(res, 0.509_867_9);
 
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 100);
-        assert!(approx_eq!(f32, res, 0.626_934_23, ulps = 2));
+        assert_f32_eq!(res, 0.626_934_23);
     }
 
     #[test]
     fn ndcg_at_k_produces_expected_values_for_k_smaller_then_input() {
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 2);
-        assert!(approx_eq!(f32, res, 0.009_846_116, ulps = 2));
+        assert_f32_eq!(res, 0.009_846_116);
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 4);
-        assert!(approx_eq!(f32, res, 0.489_142_48, ulps = 2));
+        assert_f32_eq!(res, 0.489_142_48);
 
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 2);
-        assert!(approx_eq!(f32, res, 0.605_921_45, ulps = 2));
+        assert_f32_eq!(res, 0.605_921_45);
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 4);
-        assert!(approx_eq!(f32, res, 0.626_086_65, ulps = 2));
+        assert_f32_eq!(res, 0.626_086_65);
     }
 
     #[test]
     fn test_dcg_tests_from_dart() {
         // there is no dcg@k function in my code. It's dcg(input_iter.take(k)).
         let res = dcg([0., 0., 1., 1.].iter().copied().take(2));
-        assert!(approx_eq!(f32, res, 0.0, ulps = 2));
+        assert_f32_eq!(res, 0.0);
 
         let res = dcg([0., 0., 1., 1.].iter().copied().take(4));
         // Dart used ln instead of log2 so the values diverge.
@@ -392,18 +390,11 @@ mod tests {
 
     #[test]
     fn dcg_produces_expected_results() {
-        assert!(approx_eq!(
-            f32,
-            dcg([3f32, 2., 3., 0., 1., 2.].iter().copied()),
-            13.848_264,
-            ulps = 2
-        ));
-        assert!(approx_eq!(
-            f32,
+        assert_f32_eq!(dcg([3f32, 2., 3., 0., 1., 2.].iter().copied()), 13.848_264);
+        assert_f32_eq!(
             dcg([-3.2, -2., -4., 0., -1., -2.].iter().copied()),
-            -2.293_710_2,
-            ulps = 2
-        ));
+            -2.293_710_2
+        );
     }
 
     #[test]
