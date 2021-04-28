@@ -315,16 +315,14 @@ jobs:
 
       - name: Copy headers
         run: |
-          find /tmp/artifacts/
           cd /tmp/artifacts/headers-${{ github.sha }}
-          find ./
           cp lib/src/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
           cp ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/Classes
 
       - name: Get current branch
         shell: bash
         #run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        run: echo "##[set-output name=branch;]$(echo rustai_test_release})"
+        run: echo "##[set-output name=branch;]$(echo rustai_test_release)"
         id: current_branch
 
       - name: Copy Repository
@@ -342,7 +340,7 @@ jobs:
           git config --global user.name $USERNAME
 
           # Check if the branch exists, if so, clone using the existing branch, if not, clone using the default branch and let git push to send to the right branch
-          # BRANCH_EXISTS=$(git ls-remote --heads "git@github.com:$DST_REPO.git" $BRANCH | wc -l);
+          BRANCH_EXISTS=$(git ls-remote --heads "git@github.com:$DST_REPO.git" $BRANCH | wc -l);
           if [ $BRANCH_EXISTS -eq 0 ];then
             git clone --depth 1 "git@github.com:$DST_REPO.git" $CLONE_DIR
           else
