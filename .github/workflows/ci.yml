@@ -3,6 +3,9 @@
 
 name: Rust-CI
 
+on:
+  push:
+
 env:
   RUST_STABLE: 1.51.0
   RUST_NIGHTLY: nightly-2021-04-19
