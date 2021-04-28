@@ -1,4 +1,5 @@
 use std::{
+    convert::Infallible,
     panic::AssertUnwindSafe,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
@@ -38,8 +39,9 @@ unsafe impl IntoRaw for Bytes {
 
 impl Bytes {
     /// See [`bytes_new()`] for more.
-    fn new(len: u32) -> Self {
-        Self(vec![0; len as usize])
+    #[allow(clippy::unnecessary_wraps)]
+    fn new(len: u32) -> Result<Self, Infallible> {
+        Ok(Self(vec![0; len as usize]))
     }
 }
 
@@ -59,7 +61,8 @@ impl<'a> CBytes<'a> {
     }
 
     /// See [`bytes_drop()`] for more.
-    unsafe fn drop(bytes: Option<&mut Self>) {
+    #[allow(clippy::unnecessary_wraps)]
+    unsafe fn drop(bytes: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(bytes) = bytes {
             let bytes = unsafe { Box::from_raw(bytes) };
             if let Some(data) = bytes.data {
@@ -73,6 +76,8 @@ impl<'a> CBytes<'a> {
                 }
             }
         }
+
+        Ok(())
     }
 }
 
@@ -91,7 +96,7 @@ pub unsafe extern "C" fn bytes_new(
     len: u32,
     error: Option<&mut CError>,
 ) -> Option<&'static mut CBytes<'static>> {
-    let new = || Ok(Bytes::new(len));
+    let new = || Bytes::new(len);
 
     call_with_result(new, error)
 }
@@ -110,10 +115,7 @@ pub unsafe extern "C" fn bytes_new(
 pub unsafe extern "C" fn bytes_drop(bytes: Option<&mut CBytes>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
-        || {
-            unsafe { CBytes::drop(bytes) };
-            Ok(())
-        },
+        || unsafe { CBytes::drop(bytes) },
     );
     let error = None;
 

@@ -16,10 +16,11 @@ use crate::{result::error::Error, utils::IntoRaw};
 /// Catches an unwinding panic with optional error handling:
 /// - Ok: returns `T`'s FFI value.
 /// - Error/Panic: returns `T`'s default FFI value and optionally reports an error.
-pub(crate) fn call_with_result<F, T>(call: F, error: Option<&mut CError>) -> T::Value
+pub(crate) fn call_with_result<F, T, E>(call: F, error: Option<&mut CError>) -> T::Value
 where
-    F: UnwindSafe + FnOnce() -> Result<T, Error>,
+    F: UnwindSafe + FnOnce() -> Result<T, E>,
     T: IntoRaw,
+    E: Into<Error>,
 {
     match catch_unwind(call) {
         Ok(Ok(value)) => {
@@ -30,7 +31,7 @@ where
         }
         Ok(Err(cause)) => {
             if let Some(error) = error {
-                *error = cause.into_raw();
+                *error = cause.into().into_raw();
             }
             T::Value::default()
         }

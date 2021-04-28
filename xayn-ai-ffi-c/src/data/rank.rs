@@ -1,4 +1,4 @@
-use std::{panic::AssertUnwindSafe, slice::from_raw_parts_mut};
+use std::{convert::Infallible, panic::AssertUnwindSafe, slice::from_raw_parts_mut};
 
 use crate::{result::call_with_result, utils::IntoRaw};
 
@@ -42,7 +42,8 @@ unsafe impl IntoRaw for Ranks {
 
 impl CRanks<'_> {
     /// See [`ranks_drop()`] for more.
-    unsafe fn drop(ranks: Option<&mut Self>) {
+    #[allow(clippy::unnecessary_wraps)]
+    unsafe fn drop(ranks: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(ranks) = ranks {
             let ranks = unsafe { Box::from_raw(ranks) };
             if let Some(data) = ranks.data {
@@ -56,6 +57,8 @@ impl CRanks<'_> {
                 }
             }
         }
+
+        Ok(())
     }
 }
 
@@ -72,10 +75,7 @@ impl CRanks<'_> {
 pub unsafe extern "C" fn ranks_drop(ranks: Option<&mut CRanks>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
-        || {
-            unsafe { CRanks::drop(ranks) };
-            Ok(())
-        },
+        || unsafe { CRanks::drop(ranks) },
     );
     let error = None;
 

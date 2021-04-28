@@ -1,4 +1,4 @@
-use std::{panic::AssertUnwindSafe, slice::from_raw_parts_mut};
+use std::{convert::Infallible, panic::AssertUnwindSafe, slice::from_raw_parts_mut};
 
 use xayn_ai::Error;
 
@@ -51,7 +51,8 @@ unsafe impl IntoRaw for Faults {
 
 impl CFaults<'_> {
     /// See [`faults_drop()`] for more.
-    unsafe fn drop(faults: Option<&mut Self>) {
+    #[allow(clippy::unnecessary_wraps)]
+    unsafe fn drop(faults: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(faults) = faults {
             let faults = unsafe { Box::from_raw(faults) };
             if let Some(data) = faults.data {
@@ -63,11 +64,13 @@ impl CFaults<'_> {
                         ))
                     };
                     for fault in faults.iter_mut() {
-                        unsafe { CError::drop_message(Some(fault)) }
+                        let _ = unsafe { CError::drop_message(Some(fault)) };
                     }
                 }
             }
         }
+
+        Ok(())
     }
 }
 
@@ -84,10 +87,7 @@ impl CFaults<'_> {
 pub unsafe extern "C" fn faults_drop(faults: Option<&mut CFaults>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
-        || {
-            unsafe { CFaults::drop(faults) };
-            Ok(())
-        },
+        || unsafe { CFaults::drop(faults) },
     );
     let error = None;
 

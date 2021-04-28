@@ -1,4 +1,4 @@
-use std::panic::AssertUnwindSafe;
+use std::{convert::Infallible, panic::AssertUnwindSafe};
 
 use xayn_ai::{Builder, Reranker};
 
@@ -132,10 +132,13 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_drop()`] for more.
-    unsafe fn drop(xaynai: Option<&mut Self>) {
+    #[allow(clippy::unnecessary_wraps)]
+    unsafe fn drop(xaynai: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(xaynai) = xaynai {
             unsafe { Box::from_raw(xaynai) };
         }
+
+        Ok(())
     }
 }
 
@@ -304,10 +307,7 @@ pub unsafe extern "C" fn xaynai_analytics(
 pub unsafe extern "C" fn xaynai_drop(xaynai: Option<&mut CXaynAi>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
-        || {
-            unsafe { CXaynAi::drop(xaynai) };
-            Ok(())
-        },
+        || unsafe { CXaynAi::drop(xaynai) },
     );
     let error = None;
 

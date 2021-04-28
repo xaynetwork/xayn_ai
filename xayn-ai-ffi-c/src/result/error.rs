@@ -1,4 +1,4 @@
-use std::{any::Any, ffi::CString, panic::AssertUnwindSafe};
+use std::{any::Any, convert::Infallible, ffi::CString, panic::AssertUnwindSafe};
 
 use derive_more::Display;
 
@@ -71,6 +71,12 @@ pub struct CError<'a> {
     pub message: CStrPtr<'a>,
 }
 
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        Self::success()
+    }
+}
+
 unsafe impl IntoRaw for Error {
     type Value = CError<'static>;
 
@@ -133,12 +139,15 @@ impl Default for CError<'_> {
 
 impl CError<'_> {
     /// See [`error_message_drop()`] for more.
-    pub(crate) unsafe fn drop_message(error: Option<&mut Self>) {
+    #[allow(clippy::unnecessary_wraps)]
+    pub(crate) unsafe fn drop_message(error: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(error) = error {
             if let Some(message) = error.message.0 {
                 unsafe { CString::from_raw((message as *const u8 as *mut u8).cast()) };
             }
         }
+
+        Ok(())
     }
 }
 
@@ -168,10 +177,7 @@ impl CError<'_> {
 pub unsafe extern "C" fn error_message_drop(error: Option<&mut CError>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
-        || {
-            unsafe { CError::drop_message(error) };
-            Ok(())
-        },
+        || unsafe { CError::drop_message(error) },
     );
     let error = None;
 

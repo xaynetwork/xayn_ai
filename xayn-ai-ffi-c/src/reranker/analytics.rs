@@ -1,4 +1,4 @@
-use std::panic::AssertUnwindSafe;
+use std::{convert::Infallible, panic::AssertUnwindSafe};
 
 use crate::{result::call_with_result, utils::IntoRaw};
 
@@ -20,10 +20,13 @@ unsafe impl IntoRaw for Analytics {
 
 impl CAnalytics {
     /// See [`analytics_drop()`] for more.
-    unsafe fn drop(analytics: Option<&mut Self>) {
+    #[allow(clippy::unnecessary_wraps)]
+    unsafe fn drop(analytics: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(analytics) = analytics {
             unsafe { Box::from_raw(analytics) };
         }
+
+        Ok(())
     }
 }
 
@@ -40,10 +43,7 @@ impl CAnalytics {
 pub unsafe extern "C" fn analytics_drop(analytics: Option<&mut CAnalytics>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
-        || {
-            unsafe { CAnalytics::drop(analytics) };
-            Ok(())
-        },
+        || unsafe { CAnalytics::drop(analytics) },
     );
     let error = None;
 
