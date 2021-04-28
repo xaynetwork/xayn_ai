@@ -177,3 +177,14 @@ pub unsafe extern "C" fn error_message_drop(error: Option<&mut CError>) {
 
     call_with_result(drop, error);
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    impl CError<'_> {
+        pub fn as_mut_ptr(&mut self) -> Option<&mut Self> {
+            Some(self)
+        }
+    }
+}

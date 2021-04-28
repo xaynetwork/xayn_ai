@@ -127,6 +127,13 @@ mod tests {
     use super::*;
     use crate::result::error::CCode;
 
+    impl CBytes<'_> {
+        #[allow(clippy::unnecessary_wraps)]
+        fn as_mut_ptr(&mut self) -> Option<&mut Self> {
+            Some(self)
+        }
+    }
+
     pub struct TestBytes<'a> {
         vec: Pin<Vec<u8>>,
         bytes: CBytes<'a>,
@@ -157,7 +164,7 @@ mod tests {
         assert_eq!(bytes.len as usize, buffer.vec.len());
         assert_eq!(unsafe { bytes.as_slice() }, buffer.vec.as_ref().get_ref());
 
-        unsafe { bytes_drop(Some(bytes)) };
+        unsafe { bytes_drop(bytes.as_mut_ptr()) };
     }
 
     #[test]
@@ -168,7 +175,7 @@ mod tests {
         assert_eq!(bytes.len, 0);
         assert!(unsafe { bytes.as_slice() }.is_empty());
 
-        unsafe { bytes_drop(Some(bytes)) };
+        unsafe { bytes_drop(bytes.as_mut_ptr()) };
     }
 
     #[test]
@@ -176,21 +183,21 @@ mod tests {
         let buffer = TestBytes::default();
         let mut error = CError::default();
 
-        let bytes = unsafe { bytes_new(buffer.bytes.len, Some(&mut error)) }.unwrap();
+        let bytes = unsafe { bytes_new(buffer.bytes.len, error.as_mut_ptr()) }.unwrap();
         assert_eq!(error.code, CCode::Success);
         assert_eq!(unsafe { bytes.as_slice() }, buffer.vec.as_ref().get_ref());
 
-        unsafe { bytes_drop(Some(bytes)) };
+        unsafe { bytes_drop(bytes.as_mut_ptr()) };
     }
 
     #[test]
     fn test_empty() {
         let mut error = CError::default();
 
-        let bytes = unsafe { bytes_new(0, Some(&mut error)) }.unwrap();
+        let bytes = unsafe { bytes_new(0, error.as_mut_ptr()) }.unwrap();
         assert_eq!(error.code, CCode::Success);
         assert!(unsafe { bytes.as_slice() }.is_empty());
 
-        unsafe { bytes_drop(Some(bytes)) };
+        unsafe { bytes_drop(bytes.as_mut_ptr()) };
     }
 }

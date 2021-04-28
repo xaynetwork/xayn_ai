@@ -102,6 +102,13 @@ mod tests {
 
     use super::*;
 
+    impl CFaults<'_> {
+        #[allow(clippy::unnecessary_wraps)]
+        fn as_mut_ptr(&mut self) -> Option<&mut Self> {
+            Some(self)
+        }
+    }
+
     struct TestFaults(Vec<Error>);
 
     impl Default for TestFaults {
@@ -145,7 +152,7 @@ mod tests {
             assert_eq!(fault.message.as_str_unchecked(), error.to_string());
         }
 
-        unsafe { faults_drop(Some(faults)) };
+        unsafe { faults_drop(faults.as_mut_ptr()) };
     }
 
     #[test]
@@ -155,6 +162,6 @@ mod tests {
         assert!(faults.data.is_none());
         assert_eq!(faults.len, 0);
 
-        unsafe { faults_drop(Some(faults)) };
+        unsafe { faults_drop(faults.as_mut_ptr()) };
     }
 }

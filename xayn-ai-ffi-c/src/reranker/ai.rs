@@ -32,7 +32,7 @@ use crate::{
 pub struct CXaynAi(Reranker);
 
 unsafe impl IntoRaw for CXaynAi {
-    type Value = Option<&'static mut CXaynAi>;
+    type Value = Option<&'static mut Self>;
 
     #[inline]
     fn into_raw(self) -> Self::Value {
@@ -160,8 +160,8 @@ impl CXaynAi {
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
-    vocab: CStrPtr<'_>,
-    model: CStrPtr<'_>,
+    vocab: CStrPtr,
+    model: CStrPtr,
     serialized: Option<&CBytes>,
     error: Option<&mut CError>,
 ) -> Option<&'static mut CXaynAi> {
@@ -206,8 +206,8 @@ pub unsafe extern "C" fn xaynai_new(
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
     xaynai: Option<&mut CXaynAi>,
-    histories: Option<&CHistories<'_>>,
-    documents: Option<&CDocuments<'_>>,
+    histories: Option<&CHistories>,
+    documents: Option<&CDocuments>,
     error: Option<&mut CError>,
 ) -> Option<&'static mut CRanks<'static>> {
     let rerank = AssertUnwindSafe(
@@ -326,6 +326,18 @@ mod tests {
         tests::{MODEL, VOCAB},
     };
 
+    impl CXaynAi {
+        #[allow(clippy::unnecessary_wraps)]
+        fn as_ptr(&self) -> Option<&Self> {
+            Some(self)
+        }
+
+        #[allow(clippy::unnecessary_wraps)]
+        fn as_mut_ptr(&mut self) -> Option<&mut Self> {
+            Some(self)
+        }
+    }
+
     struct TestFile(Pin<CString>);
 
     impl Drop for TestFile {
@@ -391,23 +403,23 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                Some(&mut error),
+                error.as_mut_ptr(),
             )
         }
         .unwrap();
         assert_eq!(error.code, CCode::Success);
         let ranks = unsafe {
             xaynai_rerank(
-                Some(xaynai),
+                xaynai.as_mut_ptr(),
                 hists.as_ptr(),
                 docs.as_ptr(),
-                Some(&mut error),
+                error.as_mut_ptr(),
             )
         };
         assert_eq!(error.code, CCode::Success);
 
         unsafe { ranks_drop(ranks) };
-        unsafe { xaynai_drop(Some(xaynai)) };
+        unsafe { xaynai_drop(xaynai.as_mut_ptr()) };
     }
 
     #[test]
@@ -422,16 +434,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                Some(&mut error),
+                error.as_mut_ptr(),
             )
         }
         .unwrap();
         assert_eq!(error.code, CCode::Success);
-        let db = unsafe { xaynai_serialize(Some(xaynai), Some(&mut error)) };
+        let db = unsafe { xaynai_serialize(xaynai.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.code, CCode::Success);
 
         unsafe { bytes_drop(db) };
-        unsafe { xaynai_drop(Some(xaynai)) };
+        unsafe { xaynai_drop(xaynai.as_mut_ptr()) };
     }
 
     #[test]
@@ -446,16 +458,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                Some(&mut error),
+                error.as_mut_ptr(),
             )
         }
         .unwrap();
         assert_eq!(error.code, CCode::Success);
-        let faults = unsafe { xaynai_faults(Some(xaynai), Some(&mut error)) };
+        let faults = unsafe { xaynai_faults(xaynai.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.code, CCode::Success);
 
         unsafe { faults_drop(faults) };
-        unsafe { xaynai_drop(Some(xaynai)) };
+        unsafe { xaynai_drop(xaynai.as_mut_ptr()) };
     }
 
     #[test]
@@ -470,16 +482,16 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                Some(&mut error),
+                error.as_mut_ptr(),
             )
         }
         .unwrap();
         assert_eq!(error.code, CCode::Success);
-        let analytics = unsafe { xaynai_analytics(Some(xaynai), Some(&mut error)) };
+        let analytics = unsafe { xaynai_analytics(xaynai.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.code, CCode::Success);
 
         unsafe { analytics_drop(analytics) };
-        unsafe { xaynai_drop(Some(xaynai)) };
+        unsafe { xaynai_drop(xaynai.as_mut_ptr()) };
     }
 
     #[test]
@@ -490,7 +502,8 @@ mod tests {
 
         let invalid = CStrPtr::null();
         assert!(
-            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), Some(&mut error)) }.is_none()
+            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
+                .is_none()
         );
         assert_eq!(error.code, CCode::VocabPointer);
         assert_eq!(
@@ -501,7 +514,7 @@ mod tests {
             ),
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -513,7 +526,8 @@ mod tests {
         let invalid = CString::new("").unwrap();
         let invalid = invalid.as_c_str().into();
         assert!(
-            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), Some(&mut error)) }.is_none()
+            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
+                .is_none()
         );
         assert_eq!(error.code, CCode::ReadFile);
         assert!(error
@@ -521,7 +535,7 @@ mod tests {
             .as_str_unchecked()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -532,7 +546,8 @@ mod tests {
 
         let invalid = CStrPtr::null();
         assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), Some(&mut error)) }.is_none()
+            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
+                .is_none()
         );
         assert_eq!(error.code, CCode::ModelPointer);
         assert_eq!(
@@ -543,7 +558,7 @@ mod tests {
             ),
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -555,7 +570,8 @@ mod tests {
         let invalid = CString::new("").unwrap();
         let invalid = invalid.as_c_str().into();
         assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), Some(&mut error)) }.is_none()
+            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
+                .is_none()
         );
         assert_eq!(error.code, CCode::ReadFile);
         assert!(error
@@ -563,7 +579,7 @@ mod tests {
             .as_str_unchecked()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -573,17 +589,17 @@ mod tests {
         let mut error = CError::default();
 
         let invalid = None;
-        assert!(
-            unsafe { xaynai_rerank(invalid, hists.as_ptr(), docs.as_ptr(), Some(&mut error)) }
-                .is_none()
-        );
+        assert!(unsafe {
+            xaynai_rerank(invalid, hists.as_ptr(), docs.as_ptr(), error.as_mut_ptr())
+        }
+        .is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
             error.message.as_str_unchecked(),
             "Failed to rerank the documents: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -591,14 +607,14 @@ mod tests {
         let mut error = CError::default();
 
         let invalid = None;
-        assert!(unsafe { xaynai_serialize(invalid, Some(&mut error)) }.is_none());
+        assert!(unsafe { xaynai_serialize(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
             error.message.as_str_unchecked(),
             "Failed to serialize the reranker database: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -606,14 +622,14 @@ mod tests {
         let mut error = CError::default();
 
         let invalid = None;
-        assert!(unsafe { xaynai_faults(invalid, Some(&mut error)) }.is_none());
+        assert!(unsafe { xaynai_faults(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
             error.message.as_str_unchecked(),
             "Failed to get the faults: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -621,14 +637,14 @@ mod tests {
         let mut error = CError::default();
 
         let invalid = None;
-        assert!(unsafe { xaynai_analytics(invalid, Some(&mut error)) }.is_none());
+        assert!(unsafe { xaynai_analytics(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
             error.message.as_str_unchecked(),
             "Failed to get the analytics: The ai pointer is null",
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -644,25 +660,30 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                Some(&mut error),
+                error.as_mut_ptr(),
             )
         }
         .unwrap();
         assert_eq!(error.code, CCode::Success);
 
         let invalid = None;
-        assert!(
-            unsafe { xaynai_rerank(Some(xaynai), invalid, docs.as_ptr(), Some(&mut error)) }
-                .is_none()
-        );
+        assert!(unsafe {
+            xaynai_rerank(
+                xaynai.as_mut_ptr(),
+                invalid,
+                docs.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
         assert_eq!(error.code, CCode::HistoriesPointer);
         assert_eq!(
             error.message.as_str_unchecked(),
             "Failed to rerank the documents: The document histories pointer is null",
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
-        unsafe { xaynai_drop(Some(xaynai)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai.as_mut_ptr()) };
     }
 
     #[test]
@@ -678,25 +699,30 @@ mod tests {
                 vocab.as_ptr(),
                 model.as_ptr(),
                 db.as_ptr(),
-                Some(&mut error),
+                error.as_mut_ptr(),
             )
         }
         .unwrap();
         assert_eq!(error.code, CCode::Success);
 
         let invalid = None;
-        assert!(
-            unsafe { xaynai_rerank(Some(xaynai), hists.as_ptr(), invalid, Some(&mut error)) }
-                .is_none()
-        );
+        assert!(unsafe {
+            xaynai_rerank(
+                xaynai.as_mut_ptr(),
+                hists.as_ptr(),
+                invalid,
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
         assert_eq!(error.code, CCode::DocumentsPointer);
         assert_eq!(
             error.message.as_str_unchecked(),
             "Failed to rerank the documents: The documents pointer is null",
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
-        unsafe { xaynai_drop(Some(xaynai)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai.as_mut_ptr()) };
     }
 
     #[test]
@@ -708,10 +734,11 @@ mod tests {
         let empty = CBytes { data: None, len: 0 };
         let empty = Some(&empty);
         let xaynai =
-            unsafe { xaynai_new(vocab.as_ptr(), model.as_ptr(), empty, Some(&mut error)) }.unwrap();
+            unsafe { xaynai_new(vocab.as_ptr(), model.as_ptr(), empty, error.as_mut_ptr()) }
+                .unwrap();
         assert_eq!(error.code, CCode::Success);
 
-        unsafe { xaynai_drop(Some(xaynai)) };
+        unsafe { xaynai_drop(xaynai.as_mut_ptr()) };
     }
 
     #[test]
@@ -728,7 +755,7 @@ mod tests {
         };
         let invalid = Some(&invalid);
         assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), model.as_ptr(), invalid, Some(&mut error)) }
+            unsafe { xaynai_new(vocab.as_ptr(), model.as_ptr(), invalid, error.as_mut_ptr()) }
                 .is_none()
         );
         assert_eq!(error.code, CCode::RerankerDeserialization);
@@ -740,6 +767,6 @@ mod tests {
             ),
         );
 
-        unsafe { error_message_drop(Some(&mut error)) };
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 }

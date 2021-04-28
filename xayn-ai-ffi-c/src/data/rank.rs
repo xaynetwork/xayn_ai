@@ -88,6 +88,13 @@ pub(crate) mod tests {
 
     use super::*;
 
+    impl CRanks<'_> {
+        #[allow(clippy::unnecessary_wraps)]
+        fn as_mut_ptr(&mut self) -> Option<&mut Self> {
+            Some(self)
+        }
+    }
+
     #[test]
     fn test_into_raw() {
         let buffer = (0..10).collect::<Vec<_>>();
@@ -100,7 +107,7 @@ pub(crate) mod tests {
             buffer,
         );
 
-        unsafe { ranks_drop(Some(ranks)) };
+        unsafe { ranks_drop(ranks.as_mut_ptr()) };
     }
 
     #[test]
@@ -110,6 +117,6 @@ pub(crate) mod tests {
         assert!(ranks.data.is_none());
         assert_eq!(ranks.len, 0);
 
-        unsafe { ranks_drop(Some(ranks)) };
+        unsafe { ranks_drop(ranks.as_mut_ptr()) };
     }
 }
