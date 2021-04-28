@@ -313,6 +313,20 @@ jobs:
           cd /tmp/artifacts/ios-*
           cp -r libxayn_ai_ffi_c.a ${{ env.DART_WORKSPACE }}/ios
 
+      - name: Copy data to assets
+        run: |
+          sh download_data.sh
+          cd ${{ env.DART_WORKSPACE }}/assets
+          # substitute symlink to data with the actual data
+          for file in ./*; do
+            # if file is a symlink
+            if [[ -L $file ]]; then
+              src=$(readlink $file);
+              rm $file;
+              cp -r $src $file;
+            fi;
+          done
+
       - name: Copy headers
         run: |
           cd /tmp/artifacts/headers-${{ github.sha }}
