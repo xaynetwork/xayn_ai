@@ -369,7 +369,7 @@ jobs:
           rsync -a ${{ env.DART_WORKSPACE}}/ .
 
           # Removing libs from .gitignore to being upload to the destination repo
-          sed -ie '/DELETE_AFTER_THIS_IN_RELEASE/,$d' .gitignore
+          sed -i -e '/DELETE_AFTER_THIS_IN_RELEASE/,$d' .gitignore
 
           git add -A
           # Commit only if something changed
