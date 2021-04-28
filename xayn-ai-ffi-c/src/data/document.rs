@@ -161,7 +161,7 @@ pub(crate) mod tests {
     #[test]
     fn test_document_id_null() {
         let mut docs = TestDocuments::default();
-        docs.document[0].id = CStrPtr::null();
+        docs.document[0].id = CStrPtr(None);
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code, CCode::DocumentIdPointer);
@@ -177,7 +177,7 @@ pub(crate) mod tests {
     #[test]
     fn test_document_snippet_null() {
         let mut docs = TestDocuments::default();
-        docs.document[0].snippet = CStrPtr::null();
+        docs.document[0].snippet = CStrPtr(None);
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code, CCode::DocumentSnippetPointer);

@@ -500,7 +500,7 @@ mod tests {
         let db = TestDb::default();
         let mut error = CError::default();
 
-        let invalid = CStrPtr::null();
+        let invalid = CStrPtr(None);
         assert!(
             unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
                 .is_none()
@@ -544,7 +544,7 @@ mod tests {
         let db = TestDb::default();
         let mut error = CError::default();
 
-        let invalid = CStrPtr::null();
+        let invalid = CStrPtr(None);
         assert!(
             unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
                 .is_none()

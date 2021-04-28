@@ -201,7 +201,7 @@ pub(crate) mod tests {
     #[test]
     fn test_history_id_null() {
         let mut hists = TestHistories::default();
-        hists.history[0].id = CStrPtr::null();
+        hists.history[0].id = CStrPtr(None);
 
         let error = unsafe { hists.histories.to_histories() }.unwrap_err();
         assert_eq!(error.code, CCode::HistoryIdPointer);

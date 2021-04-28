@@ -186,11 +186,48 @@ pub unsafe extern "C" fn error_message_drop(error: Option<&mut CError>) {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::panic::{catch_unwind, panic_any};
+
     use super::*;
 
     impl CError<'_> {
         pub fn as_mut_ptr(&mut self) -> Option<&mut Self> {
             Some(self)
         }
+    }
+
+    #[test]
+    fn test_into_raw_success() {
+        let error = Error::success().into_raw();
+        assert_eq!(error.code, CCode::Success);
+        assert!(error.message.0.is_none());
+
+        let error = CCode::Success.with_context("test success").into_raw();
+        assert_eq!(error.code, CCode::Success);
+        assert!(error.message.0.is_none());
+    }
+
+    #[test]
+    fn test_into_raw_error() {
+        let code = CCode::AiPointer;
+        let message = "test error";
+        let mut error = code.with_context(message).into_raw();
+
+        assert_eq!(error.code, code);
+        assert_eq!(error.message.as_str_unchecked(), message);
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_into_raw_panic() {
+        let message = "test panic";
+        let payload = catch_unwind(|| panic_any(message)).unwrap_err();
+        let mut error = Error::panic(payload).into_raw();
+
+        assert_eq!(error.code, CCode::Panic);
+        assert_eq!(error.message.as_str_unchecked(), message);
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 }

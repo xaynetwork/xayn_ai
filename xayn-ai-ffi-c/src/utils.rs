@@ -86,11 +86,6 @@ pub(crate) mod tests {
     }
 
     impl<'a> CStrPtr<'a> {
-        /// Creates a null pointer.
-        pub fn null() -> Self {
-            Self(None)
-        }
-
         /// Reads a string from the pointer.
         ///
         /// # Panics
