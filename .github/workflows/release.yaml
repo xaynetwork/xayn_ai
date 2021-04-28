@@ -166,6 +166,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: headers-${{ github.sha }}
+          retention-days: 1
           path: |
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h
             ${{ env.DART_WORKSPACE }}/lib/src/ffi/genesis.dart
@@ -226,6 +227,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: android-${{ matrix.target }}-${{ github.sha }}
+          retention-days: 1
           path: ${{ env.ANDROID_LIBS_DIR }}
 
   build-ios-libs:
@@ -277,6 +279,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: ios-universal-${{ github.sha }}
+          retention-days: 1
           path: target/universal/release/libxayn_ai_ffi_c.a
 
   release:
