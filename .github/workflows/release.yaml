@@ -340,14 +340,14 @@ jobs:
 
           # Check if the branch exists, if so, clone using the existing branch, if not, clone using the default branch and let git push to send to the right branch
           # BRANCH_EXISTS=$(git ls-remote --heads "git@github.com:$DST_REPO.git" $BRANCH | wc -l);
-          # if [ $BRANCH_EXISTS -eq 0 ];then
-          #   git clone --depth 1 "git@github.com:$DST_REPO.git" $CLONE_DIR
-          # else
-          #   git clone -b $BRANCH --depth 1 "git@github.com:$DST_REPO.git" $CLONE_DIR;
-          # fi
-          # cd $CLONE_DIR
+          if [ $BRANCH_EXISTS -eq 0 ];then
+            git clone --depth 1 "git@github.com:$DST_REPO.git" $CLONE_DIR
+          else
+            git clone -b $BRANCH --depth 1 "git@github.com:$DST_REPO.git" $CLONE_DIR;
+          fi
+          cd $CLONE_DIR
 
-          # # Cleaning all files on the destination repository
-          # git rm -r .
+          # Cleaning all files on the destination repository
+          git rm -r .
 
-          cp -r ${{ env.DART_WORKSPACE}} $CLONE_DIR
+          cp -r ${{ env.DART_WORKSPACE}} .
