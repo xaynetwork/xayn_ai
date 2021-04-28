@@ -24,3 +24,8 @@ crate-type = ["cdylib"]
 [package.metadata.wasm-pack.profile.profiling]
 # -g is required to keep the original function names
 wasm-opt = ['-O', '-g']
+
+[features]
+default = ["browser"]
+browser =[]
+node = []

@@ -119,6 +119,12 @@ impl WXaynAi {
 #[cfg(target_arch = "wasm32")]
 #[cfg(test)]
 mod tests {
+    #[cfg(all(feature = "browser", feature = "node"))]
+    compile_error!("feature `browser` and `node` may not be used at the same time");
+
+    #[cfg(feature = "browser")]
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
     use super::*;
 
     use std::iter::repeat;
@@ -130,10 +136,10 @@ mod tests {
     use crate::error::ExternError;
 
     /// Path to the current vocabulary file.
-    pub const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0000/vocab.txt");
+    const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0000/vocab.txt");
 
     /// Path to the current onnx model file.
-    pub const MODEL: &[u8] = include_bytes!("../../data/rubert_v0000/model.onnx");
+    const MODEL: &[u8] = include_bytes!("../../data/rubert_v0000/model.onnx");
 
     fn test_histories() -> Vec<JsValue> {
         let len = 6;
