@@ -367,6 +367,8 @@ jobs:
 
           cp -r ${{ env.DART_WORKSPACE}}/* .
 
+          ls -lha
+
           # Removing libs from .gitignore to being upload to the destination repo
           sed -i 's,android/src/main/jniLibs,,g' .gitignore
           sed -i 's,ios/libxayn_ai_ffi_c.a,,g' .gitignore
