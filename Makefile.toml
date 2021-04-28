@@ -3,7 +3,7 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 
 ANDROID_PLATFORM_VERSION = "21"
 ANDROID_LIBS_DIR = "bindings/dart/android/src/main/jniLibs"
-ANDROID_TARGETS = "armeabi-v7a arm64-v8a x86_64"
+ANDROID_TARGETS = "arm64-v8a x86_64 x86"
 
 IOS_TARGETS = "aarch64-apple-ios x86_64-apple-ios"
 
