@@ -2,6 +2,9 @@
 build/
 .packages
 pubspec.lock
+
+# We need to remove the following in the release repo
 android/src/main/jniLibs/
 ios/Classes/XaynAiFfiDartPlugin.h
 ios/libxayn_ai_ffi_c.a
+lib/src/ffi/genesis.dart
