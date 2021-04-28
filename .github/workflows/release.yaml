@@ -366,6 +366,8 @@ jobs:
           git rm -r .
 
           cp -r ${{ env.DART_WORKSPACE}} .
+          ls -la
+          find ./
 
           # Removing libs from .gitignore to being upload to the destination repo
           sed -i 's,android/src/main/jniLibs,,g' .gitignore
