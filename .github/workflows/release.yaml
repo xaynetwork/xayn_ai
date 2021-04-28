@@ -365,7 +365,7 @@ jobs:
           # Cleaning all files on the destination repository
           git rm -r .
 
-          cp -r ${{ env.DART_WORKSPACE}}/* .
+          rsync -a ${{ env.DART_WORKSPACE}}/ .
 
           ls -lha
 
