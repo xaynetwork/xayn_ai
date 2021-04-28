@@ -141,6 +141,12 @@ mod tests {
     /// Path to the current onnx model file.
     const MODEL: &[u8] = include_bytes!("../../data/rubert_v0000/model.onnx");
 
+    impl std::fmt::Debug for WXaynAi {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+            f.debug_struct("WXaynAi").finish()
+        }
+    }
+
     fn test_histories() -> Vec<JsValue> {
         let len = 6;
         let ids = (0..len).map(|idx| idx.to_string()).collect::<Vec<_>>();
@@ -217,9 +223,9 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_vocab_invalid() {
-        let error: ExternError = WXaynAi::new(&[], MODEL, None)
-            .map_err(|e| JsValue::into_serde(&e).unwrap())
-            .err()
+        let error = WXaynAi::new(&[], MODEL, None)
+            .unwrap_err()
+            .into_serde::<ExternError>()
             .unwrap();
 
         assert_eq!(error.code, CCode::InitAi as i32);
@@ -242,10 +248,10 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_history_invalid() {
         let mut xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
-        let error: ExternError = xaynai
+        let error = xaynai
             .rerank(vec![JsValue::from("invalid")], test_documents())
-            .map_err(|e| JsValue::into_serde(&e).unwrap())
-            .err()
+            .unwrap_err()
+            .into_serde::<ExternError>()
             .unwrap();
 
         assert_eq!(error.code, CCode::HistoriesDeserialization as i32);
@@ -263,10 +269,10 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_documents_invalid() {
         let mut xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
-        let error: ExternError = xaynai
+        let error = xaynai
             .rerank(test_histories(), vec![JsValue::from("invalid")])
-            .map_err(|e| JsValue::into_serde(&e).unwrap())
-            .err()
+            .unwrap_err()
+            .into_serde::<ExternError>()
             .unwrap();
 
         assert_eq!(error.code, CCode::DocumentsDeserialization as i32);
@@ -288,9 +294,9 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_serialized_invalid() {
-        let error: ExternError = WXaynAi::new(VOCAB, MODEL, Some(Box::new([1, 2, 3])))
-            .map_err(|e| JsValue::into_serde(&e).unwrap())
-            .err()
+        let error = WXaynAi::new(VOCAB, MODEL, Some(Box::new([1, 2, 3])))
+            .unwrap_err()
+            .into_serde::<ExternError>()
             .unwrap();
 
         assert_eq!(error.code, CCode::RerankerDeserialization as i32);
