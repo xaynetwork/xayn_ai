@@ -285,11 +285,11 @@ jobs:
     needs: [build-headers, build-android-libs, build-ios-libs]
     timeout-minutes: 60
     steps:
-      # - name: Install SSH key
-      #   uses: shimataro/ssh-key-action@v2
-      #   with:
-      #     key: ${{ secrets.SSH }}
-      #     known_hosts: ${{ secrets.KNOWN_HOSTS }}
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
 
       - name: Checkout
         uses: actions/checkout@v2
