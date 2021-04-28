@@ -61,7 +61,7 @@ impl WXaynAi {
         &mut self,
         histories: Vec<JsValue>,
         documents: Vec<JsValue>,
-    ) -> Result<Vec<usize>, JsValue> {
+    ) -> Result<JsValue, JsValue> {
         let histories = histories
             .iter()
             .map(|js_value| js_value.into_serde::<WHistory>().map(Into::into))
@@ -84,7 +84,12 @@ impl WXaynAi {
                 ))
             })
             .into_js_result()?;
-        Ok(self.0.rerank(&histories, &documents))
+
+        //FIXME If it matters we can do this much faster,
+        //      by not serializing through JsValue.
+        let outcomes = self.0.rerank(&histories, &documents);
+
+        Ok(JsValue::from_serde(&outcomes).expect("Failed to serialize the analytics"))
     }
 
     /// Serializes the database of the reranker.

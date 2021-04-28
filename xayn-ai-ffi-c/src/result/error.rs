@@ -209,7 +209,7 @@ mod tests {
         let mut error = code.with_context(message).into_raw();
 
         assert_eq!(error.code, code);
-        assert_eq!(error.message.as_ref().unwrap().as_str_unchecked(), message);
+        assert_eq!(error.message.as_ref().unwrap().as_str(), message);
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
         assert!(error.message.is_none());
@@ -222,7 +222,7 @@ mod tests {
         let mut error = Error::panic(payload).into_raw();
 
         assert_eq!(error.code, CCode::Panic);
-        assert_eq!(error.message.as_ref().unwrap().as_str_unchecked(), message);
+        assert_eq!(error.message.as_ref().unwrap().as_str(), message);
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
         assert!(error.message.is_none());

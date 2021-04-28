@@ -6,6 +6,7 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
     show SetupData;
+import 'package:xayn_ai_ffi_dart/src/data/outcomes.dart' show RerankingOutcomes;
 
 /// The Xayn AI.
 class XaynAi {
@@ -20,7 +21,7 @@ class XaynAi {
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
-  List<int> rerank(List<History> histories, List<Document> documents) =>
+  RerankingOutcomes rerank(List<History> histories, List<Document> documents) =>
       throw UnsupportedError('Unsupported platform.');
 
   /// Serializes the current state of the reranker.

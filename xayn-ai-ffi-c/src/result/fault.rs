@@ -91,10 +91,7 @@ mod tests {
 
         for (fault, error) in izip!(faults.as_slice(), buffer.0) {
             assert_eq!(fault.code, CCode::Fault);
-            assert_eq!(
-                fault.message.as_ref().unwrap().as_str_unchecked(),
-                error.to_string(),
-            );
+            assert_eq!(fault.message.as_ref().unwrap().as_str(), error.to_string(),);
         }
     }
 

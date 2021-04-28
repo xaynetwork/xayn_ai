@@ -149,8 +149,8 @@ pub(crate) mod tests {
         let documents = unsafe { docs.documents.to_documents() }.unwrap();
         assert_eq!(documents.len(), docs.len());
         for (d, cd) in izip!(documents, docs.document.as_ref().get_ref()) {
-            assert_eq!(d.id.0.to_string(), as_str_unchecked(cd.id));
-            assert_eq!(d.snippet, as_str_unchecked(cd.snippet));
+            assert_eq!(d.id.0.to_string(), unsafe { as_str_unchecked(cd.id) });
+            assert_eq!(d.snippet, unsafe { as_str_unchecked(cd.snippet) });
             assert_eq!(d.rank, cd.rank as usize);
         }
     }

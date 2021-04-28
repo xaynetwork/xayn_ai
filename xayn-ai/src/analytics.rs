@@ -45,12 +45,10 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
         // We need to be able to lookup relevances by document id.
         // and linear search is most likely a bad idea. So we create
         // a hashmap for the lookups.
-        let relevance_lookups: HashMap<_, _> = {
-            history
-                .iter()
-                .map(|h_doc| (&h_doc.id, score_for_relevance(h_doc.relevance)))
-                .collect()
-        };
+        let relevance_lookups: HashMap<_, _> = history
+            .iter()
+            .map(|h_doc| (&h_doc.id, score_for_relevance(h_doc.relevance)))
+            .collect();
 
         let mut paired_ltr_scores = Vec::new();
         let mut paired_context_scores = Vec::new();
@@ -356,7 +354,7 @@ mod tests {
     }
 
     #[test]
-    fn ndcg_at_k_produces_expected_values_for_k_larger_then_input() {
+    fn test_ndcg_at_k_produces_expected_values_for_k_larger_then_input() {
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 100);
         assert_approx_eq!(f32, res, 0.509_867_9);
 
@@ -365,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn ndcg_at_k_produces_expected_values_for_k_smaller_then_input() {
+    fn test_ndcg_at_k_produces_expected_values_for_k_smaller_then_input() {
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 2);
         assert_approx_eq!(f32, res, 0.009_846_116);
         let res = ndcg_at_k([1., 4., 10., 3., 0., 6.].iter().copied(), 4);
@@ -375,6 +373,14 @@ mod tests {
         assert_approx_eq!(f32, res, 0.605_921_45);
         let res = ndcg_at_k([-1., 7., -10., 3., 0., -6.].iter().copied(), 4);
         assert_approx_eq!(f32, res, 0.626_086_65);
+    }
+
+    #[test]
+    fn test_ndcg_at_k_works_if_the_ideal_dcg_is_0() {
+        let res = ndcg_at_k([0.0, 0.0].iter().copied(), 2);
+        assert_f32_eq!(res, 0.0);
+        let res = ndcg_at_k([-10.0, 0.0, 0.0, -8.0].iter().copied(), 2);
+        assert_f32_eq!(res, -0.999_023_44);
     }
 
     #[test]

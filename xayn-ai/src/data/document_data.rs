@@ -33,8 +33,8 @@ pub(crate) struct LtrComponent {
     pub(crate) ltr_score: f32,
 }
 
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct CoiComponent {
     /// The ID of the positive centre of interest
     pub(crate) id: CoiId,

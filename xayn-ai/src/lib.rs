@@ -13,7 +13,17 @@ mod smbert;
 
 pub use crate::{
     analytics::Analytics,
-    data::document::{Document, DocumentHistory, DocumentId, Ranks, Relevance, UserFeedback},
+    data::{
+        document::{
+            Document,
+            DocumentHistory,
+            DocumentId,
+            Relevance,
+            RerankingOutcomes,
+            UserFeedback,
+        },
+        CoiId,
+    },
     error::Error,
     reranker::public::{Builder, Reranker},
 };
