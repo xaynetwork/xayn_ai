@@ -9,7 +9,7 @@ on:
 env:
   RUST_STABLE: 1.51.0
   RUST_NIGHTLY: nightly-2021-04-19
-  CARGO_NDK: 2.2.0
+  CARGO_NDK: 2.3.0
   ANDROID_PLATFORM_VERSION: 21
   CARGO_LIPO: 3.1.1
   # cmd: shasum -a 256 cross
@@ -487,6 +487,9 @@ jobs:
             ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
             ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
           key: ${{ needs.build-xain-ai-lib.outputs.cache-key }}
+
+      - name: Download data
+        run: sh download_data.sh
 
       - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}

@@ -1,0 +1,55 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
+
+ANDROID_PLATFORM_VERSION = "21"
+ANDROID_LIBS_DIR = "bindings/dart/android/src/main/jniLibs"
+ANDROID_TARGETS = "arm64-v8a x86_64 x86"
+
+IOS_TARGETS = "aarch64-apple-ios x86_64-apple-ios"
+
+[config]
+skip_core_tasks = true
+# this avoids cargo make to run these tasks for each crate
+default_to_workspace = false
+
+[tasks.default]
+dependencies = ["build"]
+
+[tasks.build]
+dependencies = ["build-dart-bindgen"]
+
+[tasks.build-mobile.linux]
+dependencies = ["build-android"]
+
+[tasks.build-mobile.mac]
+dependencies = ["build-android", "build-ios"]
+
+# builds xayn-ai library that can be used to run flutter tests locally
+[tasks.build-local]
+script = ["""
+  cargo build
+"""]
+
+[tasks.build-dart-bindgen]
+workspace = false
+dependencies = ["build-local"]
+script = ["""
+  cd bindings/dart
+  flutter pub get
+  flutter pub run ffigen
+"""]
+
+[tasks.build-android]
+dependencies = ["build-dart-bindgen"]
+script = ["""
+  cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release
+"""]
+
+[tasks.build-ios]
+dependencies = ["build-dart-bindgen"]
+script = ["""
+  cargo lipo --targets $IOS_TARGETS --release
+  cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
+"""]
+
+

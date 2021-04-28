@@ -7,6 +7,7 @@ environment:
   flutter: '>=2.0.0 <3.0.0'
 
 dependencies:
+  async: '^2.5.0'
   ffi: '^1.0.0'
   flutter:
     sdk: 'flutter'
@@ -29,3 +30,22 @@ ffigen:
   compiler-opts-automatic:
     macos:
       include-c-standard-library: false
+
+# The following section is specific to Flutter.
+flutter:
+  # This section identifies this Flutter project as a plugin project.
+  # The 'pluginClass' and Android 'package' identifiers should not ordinarily
+  # be modified. They are used by the tooling to maintain consistency when
+  # adding or updating assets for this project.
+  plugin:
+    platforms:
+      android:
+        package: com.xayn.xayn_ai_ffi_dart
+        pluginClass: XaynAiFfiDartPlugin
+      ios:
+        pluginClass: XaynAiFfiDartPlugin
+
+  # To add assets to your plugin package, add an assets section, like this:
+  assets:
+    - assets/rubert_v0000/
+
