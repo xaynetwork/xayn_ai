@@ -366,3 +366,21 @@ jobs:
           git rm -r .
 
           cp -r ${{ env.DART_WORKSPACE}} .
+
+          # Removing libs from .gitignore to being upload to the destination repo
+          sed -i 's,android/src/main/jniLibs,,g' .gitignore
+          sed -i 's,ios/libxayn_ai_ffi_c.a,,g' .gitignore
+          sed -i 's,ios/Classes/XaynAiFfiDartPlugin.h,,g' .gitignore
+          sed -i 's,lib/src/ffi/genesis.dart,,g' .gitignore
+
+          git add -A
+          # Commit only if something changed
+          if [ $(git status --porcelain | wc -l) -gt 0 ]; then
+            git commit --message "$SRC_COMMIT_MSG
+
+            https://github.com/xaynetwork/xayn_ai/commit/$SRC_COMMIT
+            https://github.com/xaynetwork/xayn_ai/tree/$BRANCH"
+            # git fetch --tags git@github.com:xaynetwork/xain_ai.git
+            git push -u origin HEAD:$BRANCH
+            # git push --tags
+          fi
