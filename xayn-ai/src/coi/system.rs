@@ -211,8 +211,8 @@ mod tests {
             document::{DocumentId, Relevance, UserFeedback},
             document_data::{
                 ContextComponent,
+                DocumentBaseComponent,
                 DocumentDataWithMab,
-                DocumentIdComponent,
                 EmbeddingComponent,
                 LtrComponent,
                 MabComponent,
@@ -231,8 +231,9 @@ mod tests {
             .iter()
             .enumerate()
             .map(|(id, embedding)| DocumentDataWithMab {
-                document_id: DocumentIdComponent {
+                document_base: DocumentBaseComponent {
                     id: DocumentId(id.to_string()),
+                    initial_ranking: id,
                 },
                 embedding: EmbeddingComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),

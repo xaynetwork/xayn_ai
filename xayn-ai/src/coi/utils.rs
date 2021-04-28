@@ -139,8 +139,8 @@ pub(super) mod tests {
         data::{
             document_data::{
                 CoiComponent,
+                DocumentBaseComponent,
                 DocumentDataWithEmbedding,
-                DocumentIdComponent,
                 EmbeddingComponent,
             },
             CoiId,
@@ -212,17 +212,19 @@ pub(super) mod tests {
         embeddings
             .iter()
             .enumerate()
-            .map(|(id, embedding)| create_data_with_embedding(id, embedding.as_init_slice()))
+            .map(|(id, embedding)| create_data_with_embedding(id, id, embedding.as_init_slice()))
             .collect()
     }
 
     pub(crate) fn create_data_with_embedding(
         id: usize,
+        initial_ranking: usize,
         embedding: &[f32],
     ) -> DocumentDataWithEmbedding {
         DocumentDataWithEmbedding {
-            document_id: DocumentIdComponent {
+            document_base: DocumentBaseComponent {
                 id: DocumentId(id.to_string()),
+                initial_ranking,
             },
             embedding: EmbeddingComponent {
                 embedding: arr1(embedding).into(),
@@ -416,7 +418,7 @@ pub(super) mod tests {
         ]);
 
         let mut documents = create_data_with_embeddings(&[[1., 2., 3.], [3., 2., 1.]]);
-        documents.push(create_data_with_embedding(5, &[4., 5., 6.]));
+        documents.push(create_data_with_embedding(5, 0, &[4., 5., 6.]));
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
         let matching_documents = collect_matching_documents(&history, &documents);

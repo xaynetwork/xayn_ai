@@ -62,7 +62,7 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{CoiComponent, DocumentIdComponent, EmbeddingComponent, LtrComponent},
+        document_data::{CoiComponent, DocumentBaseComponent, EmbeddingComponent, LtrComponent},
         CoiId,
     };
 
@@ -80,7 +80,10 @@ mod tests {
             let embedding = arr1::<f32>(&[]).into();
 
             self.docs.push(DocumentDataWithLtr {
-                document_id: DocumentIdComponent { id },
+                document_base: DocumentBaseComponent {
+                    id,
+                    initial_ranking: 13,
+                },
                 embedding: EmbeddingComponent { embedding },
                 coi: CoiComponent {
                     id: CoiId(0),

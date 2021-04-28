@@ -11,11 +11,11 @@ use crate::{
     data::{
         document::{Document, DocumentHistory, Ranks},
         document_data::{
+            DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
             DocumentDataWithEmbedding,
             DocumentDataWithMab,
-            DocumentIdComponent,
         },
         UserInterests,
     },
@@ -66,8 +66,9 @@ where
     let documents: Vec<_> = documents
         .iter()
         .map(|document| DocumentDataWithDocument {
-            document_id: DocumentIdComponent {
+            document_base: DocumentBaseComponent {
                 id: document.id.clone(),
+                initial_ranking: document.rank,
             },
             document_content: DocumentContentComponent {
                 snippet: document.snippet.clone(),
@@ -101,7 +102,7 @@ where
 
     let ranks = documents
         .iter()
-        .map(|document| (document.document_id.id.clone(), document.mab.rank))
+        .map(|document| (document.document_base.id.clone(), document.mab.rank))
         .collect::<HashMap<_, _>>();
     let ranks = original_documents
         .iter()

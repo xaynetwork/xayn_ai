@@ -53,10 +53,11 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
 
         let mut paired_ltr_scores = Vec::new();
         let mut paired_context_scores = Vec::new();
-        let mut paired_final_ranking_score = Vec::new();
+        let mut paired_final_ranking_scores = Vec::new();
+        let mut paired_initial_ranking_scores = Vec::new();
 
         for document in documents {
-            if let Some(relevance) = relevance_lookups.get(&document.document_id.id).copied() {
+            if let Some(relevance) = relevance_lookups.get(&document.document_base.id).copied() {
                 paired_ltr_scores.push((relevance, document.ltr.ltr_score));
                 paired_context_scores.push((relevance, document.context.context_value));
 
@@ -64,7 +65,10 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
                 // it's the oposite, the solution carried over from the dart impl
                 // is to multiply by -1.
                 let final_ranking_desc = -(document.mab.rank as f32);
-                paired_final_ranking_score.push((relevance, final_ranking_desc));
+                paired_final_ranking_scores.push((relevance, final_ranking_desc));
+
+                let intial_ranking_desc = -(document.document_base.initial_ranking as f32);
+                paired_initial_ranking_scores.push((relevance, intial_ranking_desc));
             }
         }
 
@@ -78,13 +82,13 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
             calcuate_reordered_ndcg_at_k_score(&mut paired_context_scores, DEFAULT_NDCG_K);
 
         let ndcg_final_ranking =
-            calcuate_reordered_ndcg_at_k_score(&mut paired_final_ranking_score, DEFAULT_NDCG_K);
+            calcuate_reordered_ndcg_at_k_score(&mut paired_final_ranking_scores, DEFAULT_NDCG_K);
+
+        let ndcg_initial_ranking =
+            calcuate_reordered_ndcg_at_k_score(&mut paired_initial_ranking_scores, DEFAULT_NDCG_K);
 
         Ok(Analytics {
-            //FIXME: We currently have no access to the initial score as thiss will require
-            //       some changes to the main applications type state/component system this
-            //       will be done in a followup PR.
-            ndcg_initial_ranking: f32::NAN,
+            ndcg_initial_ranking,
             ndcg_ltr,
             ndcg_context,
             ndcg_final_ranking,
@@ -215,7 +219,7 @@ mod tests {
         let Analytics {
             ndcg_ltr,
             ndcg_context,
-            ndcg_initial_ranking: _,
+            ndcg_initial_ranking,
             ndcg_final_ranking,
         } = AnalyticsSystem
             .compute_analytics(&history, &documents)
@@ -223,8 +227,7 @@ mod tests {
 
         assert_f32_eq!(ndcg_ltr, 0.173_765_35);
         assert_f32_eq!(ndcg_context, 0.826_234_64);
-        //FIXME: Currently not possible as `ndcg_initial_ranking` is not yet computed
-        // assert!(approx_eq!(f32, ndcg_initial_ranking, 0.7967075809905066, ulps = 2));
+        assert_f32_eq!(ndcg_initial_ranking, 0.796_707_6);
         assert_f32_eq!(ndcg_final_ranking, 1.0);
     }
 
