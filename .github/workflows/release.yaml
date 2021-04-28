@@ -368,13 +368,8 @@ jobs:
 
           rsync -a ${{ env.DART_WORKSPACE}}/ .
 
-          ls -lha
-
           # Removing libs from .gitignore to being upload to the destination repo
-          sed -i 's,android/src/main/jniLibs,,g' .gitignore
-          sed -i 's,ios/libxayn_ai_ffi_c.a,,g' .gitignore
-          sed -i 's,ios/Classes/XaynAiFfiDartPlugin.h,,g' .gitignore
-          sed -i 's,lib/src/ffi/genesis.dart,,g' .gitignore
+          sed -ie '/DELETE_AFTER_THIS_IN_RELEASE/,$d' .gitignore
 
           git add -A
           # Commit only if something changed

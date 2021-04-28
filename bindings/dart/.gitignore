@@ -3,7 +3,7 @@ build/
 .packages
 pubspec.lock
 
-# We need to remove the following in the release repo
+# DELETE_AFTER_THIS_IN_RELEASE
 android/src/main/jniLibs/
 ios/Classes/XaynAiFfiDartPlugin.h
 ios/libxayn_ai_ffi_c.a
