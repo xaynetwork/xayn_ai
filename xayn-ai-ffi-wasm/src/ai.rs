@@ -234,16 +234,18 @@ mod tests {
             .contains("Failed to initialize the ai: Failed to build the tokenizer: "));
     }
 
-    // #[wasm_bindgen_test]
-    // fn test_model_invalid() {
-    //     let error: ExternError = WXaynAi::new(VOCAB, &[], None)
-    //         .map_err(|e| JsValue::into_serde(&e).unwrap())
-    //         .err()
-    //         .unwrap();
+    #[wasm_bindgen_test]
+    fn test_model_invalid() {
+        let error = WXaynAi::new(VOCAB, &[1], None)
+            .unwrap_err()
+            .into_serde::<ExternError>()
+            .unwrap();
 
-    //     assert_eq!(error.code, CCode::InitAi as i32);
-    //     assert!(error.message.contains("Failed to initialize the ai: "));
-    // }
+        assert_eq!(error.code, CCode::InitAi as i32);
+        assert!(error
+            .message
+            .contains("Failed to initialize the ai: Failed to build the model: "));
+    }
 
     #[wasm_bindgen_test]
     fn test_history_invalid() {
