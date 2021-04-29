@@ -1512,6 +1512,7 @@ dependencies = [
  "derive_more",
  "displaydoc",
  "float-cmp",
+ "itertools 0.10.0",
  "maplit",
  "mockall",
  "ndarray",
@@ -1520,6 +1521,7 @@ dependencies = [
  "rand_distr",
  "rubert",
  "serde",
+ "smallvec",
  "thiserror",
 ]
 
