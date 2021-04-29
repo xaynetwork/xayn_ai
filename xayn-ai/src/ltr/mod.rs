@@ -1,3 +1,5 @@
+mod features;
+
 use crate::{
     data::{
         document::DocumentHistory,
@@ -18,7 +20,7 @@ impl ConstLtr {
         // It must be between 0 and 1. Since this is used to compute the context value
         // and context value is used to update `alpha` and `beta` of the cois.
         // Using a value different from 0.5 will change the parameters of a coi in an
-        // umbalanced way.
+        // unbalanced way.
         Self
     }
 }

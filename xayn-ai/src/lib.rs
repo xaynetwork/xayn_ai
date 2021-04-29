@@ -7,7 +7,6 @@ mod coi;
 mod context;
 mod data;
 mod error;
-mod features;
 mod ltr;
 mod mab;
 mod reranker;
