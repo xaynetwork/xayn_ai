@@ -1,7 +1,14 @@
 name: Release-CI
 
 on:
+  workflow_dispatch:
+  # pull_request:
+  #   types: [closed]
+  #   branches:
+  #     - "master"
   push:
+    tags:
+      - "v*"
 
 env:
   RUST_STABLE: 1.51.0
@@ -343,8 +350,7 @@ jobs:
 
       - name: Get current branch
         shell: bash
-        #run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        run: echo "##[set-output name=branch;]$(echo rustai_test_release)"
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: current_branch
 
       - name: Copy Repository
@@ -387,7 +393,7 @@ jobs:
 
             https://github.com/xaynetwork/xayn_ai/commit/$SRC_COMMIT
             https://github.com/xaynetwork/xayn_ai/tree/$BRANCH"
-            # git fetch --tags git@github.com:xaynetwork/xain_ai.git
             git push -u origin HEAD:$BRANCH
-            # git push --tags
+            git fetch --tags git@github.com:xaynetwork/xain_ai.git
+            git push --tags
           fi
