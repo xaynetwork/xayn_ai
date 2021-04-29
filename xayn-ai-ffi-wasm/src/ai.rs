@@ -112,7 +112,7 @@ impl WXaynAi {
 
     /// Retrieves the analytics which were collected in the penultimate reranking.
     pub fn analytics(&self) -> JsValue {
-        JsValue::from_serde(&self.0.analytics()).unwrap()
+        JsValue::from_serde(&self.0.analytics()).expect("Failed to serialize the analytics")
     }
 }
 

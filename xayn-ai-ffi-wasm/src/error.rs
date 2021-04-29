@@ -46,6 +46,6 @@ impl ExternError {
 
 impl<T> IntoJsResult<T> for Result<T, ExternError> {
     fn into_js_result(self) -> Result<T, JsValue> {
-        self.map_err(|e| JsValue::from_serde(&e).unwrap())
+        self.map_err(|e| JsValue::from_serde(&e).expect("Failed to serialize the error"))
     }
 }
