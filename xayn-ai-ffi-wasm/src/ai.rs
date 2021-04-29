@@ -211,7 +211,7 @@ mod tests {
     fn test_faults() {
         let xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
         let faults = xaynai.faults();
-        assert!(faults.is_empty())
+        assert!(faults.is_empty());
     }
 
     #[wasm_bindgen_test]
