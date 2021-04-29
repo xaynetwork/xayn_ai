@@ -4,13 +4,12 @@ use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
 
 use super::{error::CCode, utils::IntoJsResult};
 
-#[wasm_bindgen]
 /// The Xayn AI.
+#[wasm_bindgen]
 pub struct WXaynAi(Reranker);
 
 #[wasm_bindgen]
 impl WXaynAi {
-    #[wasm_bindgen(constructor)]
     /// Creates and initializes the Xayn AI.
     ///
     /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
@@ -20,6 +19,7 @@ impl WXaynAi {
     ///
     /// - The `vocab` or `model` data are invalid.
     /// - The the data of the `serialized` database is invalid.
+    #[wasm_bindgen(constructor)]
     pub fn new(
         vocab: &[u8],
         model: &[u8],
