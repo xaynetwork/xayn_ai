@@ -1,9 +1,10 @@
-import 'dart:ffi' show nullptr, StructPointer, Uint8;
+import 'dart:ffi' show AllocatorAlloc, nullptr, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test;
 
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u8;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart'
     show Code, CodeInt, XaynAiError, XaynAiException;
 import '../utils.dart' show throwsXaynAiException;
@@ -13,13 +14,16 @@ void main() {
     test('fault', () {
       final error = XaynAiError();
       error.ptr.ref.code = Code.fault.toInt();
-      error.ptr.ref.message = 'test fault'.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
+      error.ptr.ref.message.ref.data =
+          'test fault'.toNativeUtf8().cast<Uint8>();
 
       expect(error.isFault(), equals(true));
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(false));
 
+      malloc.free(error.ptr.ref.message.ref.data);
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
     });
@@ -27,13 +31,16 @@ void main() {
     test('panic', () {
       final error = XaynAiError();
       error.ptr.ref.code = Code.panic.toInt();
-      error.ptr.ref.message = 'test panic'.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
+      error.ptr.ref.message.ref.data =
+          'test panic'.toNativeUtf8().cast<Uint8>();
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(true));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(true));
 
+      malloc.free(error.ptr.ref.message.ref.data);
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
     });
@@ -53,13 +60,16 @@ void main() {
     test('error', () {
       final error = XaynAiError();
       error.ptr.ref.code = Code.aiPointer.toInt();
-      error.ptr.ref.message = 'test error'.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
+      error.ptr.ref.message.ref.data =
+          'test error'.toNativeUtf8().cast<Uint8>();
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(false));
       expect(error.isSuccess(), equals(false));
       expect(error.isError(), equals(true));
 
+      malloc.free(error.ptr.ref.message.ref.data);
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
     });
@@ -89,13 +99,15 @@ void main() {
       final code = Code.panic;
       final message = 'test panic';
       error.ptr.ref.code = code.toInt();
-      error.ptr.ref.message = message.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
+      error.ptr.ref.message.ref.data = message.toNativeUtf8().cast<Uint8>();
 
       final exception = error.toException();
       expect(exception.code, equals(code));
       expect(exception.toString(), equals(message));
       expect(() => throw exception, throwsXaynAiException(code));
 
+      malloc.free(error.ptr.ref.message.ref.data);
       malloc.free(error.ptr.ref.message);
       malloc.free(error.ptr);
     });

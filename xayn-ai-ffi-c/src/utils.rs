@@ -1,6 +1,6 @@
 //! Utilities.
 
-use std::{ffi::CStr, fmt::Display};
+use std::{ffi::CStr, fmt::Display, marker::PhantomData, mem, ptr, slice};
 
 use crate::result::error::{CCode, Error};
 
@@ -62,6 +62,65 @@ unsafe impl IntoRaw for () {
     fn into_raw(self) -> Self::Value {}
 }
 
+#[repr(C)]
+#[cfg_attr(test, derive(Debug))]
+pub struct CBoxedSlice<T> {
+    data: *const T,
+    len: u64,
+    _owned: PhantomData<T>,
+}
+
+// owned, unaliased
+unsafe impl<T: Send> Send for CBoxedSlice<T> {}
+
+impl<T> From<Box<[T]>> for CBoxedSlice<T> {
+    fn from(boxed_slice: Box<[T]>) -> Self {
+        let len = boxed_slice.len() as u64;
+        let data = if boxed_slice.is_empty() {
+            ptr::null()
+        } else {
+            Box::leak(boxed_slice).as_mut_ptr() as *const T
+        };
+
+        Self {
+            data,
+            len,
+            _owned: PhantomData,
+        }
+    }
+}
+
+impl<T> Drop for CBoxedSlice<T> {
+    fn drop(&mut self) {
+        if self.is_sound() {
+            let raw_slice = ptr::slice_from_raw_parts_mut(self.data as *mut T, self.len as usize);
+            unsafe { Box::from_raw(raw_slice) };
+        }
+    }
+}
+
+impl<T> CBoxedSlice<T> {
+    // pointer is non-null and aligend, slice is non-empty and addressable
+    fn is_sound(&self) -> bool {
+        !self.data.is_null()
+            && self.data as usize % mem::align_of::<T>() == 0
+            && self.len > 0
+            && mem::size_of::<T>().saturating_mul(self.len as usize) <= isize::MAX as usize
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        self.is_sound()
+            .then(|| unsafe { slice::from_raw_parts(self.data, self.len as usize) })
+            .unwrap_or_default()
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        self.is_sound()
+            .then(|| unsafe { slice::from_raw_parts_mut(self.data as *mut T, self.len as usize) })
+            .unwrap_or_default()
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -79,6 +138,13 @@ pub(crate) mod tests {
         unsafe { CStr::from_ptr::<'a>((bytes.unwrap() as *const u8).cast()) }
             .to_str()
             .unwrap()
+    }
+
+    impl CBoxedSlice<u8> {
+        /// See [`as_str_unchecked()`] for more.
+        pub fn as_str_unchecked(&self) -> &str {
+            as_str_unchecked(self.as_slice().first())
+        }
     }
 
     /// Nullable pointer conversions.
@@ -101,4 +167,6 @@ pub(crate) mod tests {
             Some(self)
         }
     }
+
+    impl<T> AsPtr for CBoxedSlice<T> {}
 }

@@ -2,12 +2,12 @@ import 'dart:ffi' show nullptr, Pointer, StructPointer;
 
 import 'package:ffi/ffi.dart' show Utf8, Utf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CFaults;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_CError;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The Xayn Ai faults.
 class Faults {
-  Pointer<CFaults> _faults;
+  Pointer<CBoxedSlice_CError> _faults;
 
   /// Creates the faults.
   ///
@@ -22,7 +22,9 @@ class Faults {
               _faults.ref.len,
               (i) => _faults.ref.data[i].message == nullptr
                   ? ''
-                  : _faults.ref.data[i].message.cast<Utf8>().toDartString(),
+                  : _faults.ref.data[i].message.ref.data
+                      .cast<Utf8>()
+                      .toDartString(),
               growable: false,
             );
 

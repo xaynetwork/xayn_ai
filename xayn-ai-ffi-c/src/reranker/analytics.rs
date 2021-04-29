@@ -1,6 +1,4 @@
-use std::{convert::Infallible, panic::AssertUnwindSafe};
-
-use crate::{result::call_with_result, utils::IntoRaw};
+use crate::utils::IntoRaw;
 
 /// The analytics of the reranker.
 pub struct Analytics(pub(crate) Option<xayn_ai::Analytics>);
@@ -24,14 +22,6 @@ where
     }
 }
 
-impl CAnalytics {
-    /// See [`analytics_drop()`] for more.
-    #[allow(clippy::unnecessary_wraps)]
-    unsafe fn drop(_analytics: Option<Box<Self>>) -> Result<(), Infallible> {
-        Ok(())
-    }
-}
-
 /// Frees the memory of the analytics.
 ///
 /// # Safety
@@ -42,15 +32,7 @@ impl CAnalytics {
 ///
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
-pub unsafe extern "C" fn analytics_drop(analytics: Option<Box<CAnalytics>>) {
-    let drop = AssertUnwindSafe(
-        // Safety: The memory is dropped anyways.
-        || unsafe { CAnalytics::drop(analytics) },
-    );
-    let error = None;
-
-    call_with_result(drop, error);
-}
+pub unsafe extern "C" fn analytics_drop(_analytics: Option<Box<CAnalytics>>) {}
 
 #[cfg(test)]
 mod tests {

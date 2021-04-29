@@ -12,13 +12,13 @@ import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isEmpty, test;
 
 import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CRanks;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u32;
 
 void main() {
   group('Ranks', () {
     test('to list', () {
       final ranks = List.generate(10, (i) => i);
-      final ranksPtr = malloc.call<CRanks>();
+      final ranksPtr = malloc.call<CBoxedSlice_u32>();
       ranksPtr.ref.data = malloc.call<Uint32>(ranks.length);
       ranksPtr.ref.len = ranks.length;
       ranks.asMap().forEach((i, rank) => ranksPtr.ref.data[i] = rank);
@@ -33,7 +33,7 @@ void main() {
     });
 
     test('empty', () {
-      final ranksPtr = malloc.call<CRanks>();
+      final ranksPtr = malloc.call<CBoxedSlice_u32>();
       ranksPtr.ref.data = nullptr;
       ranksPtr.ref.len = 0;
       expect(Ranks(ranksPtr).toList(), isEmpty);

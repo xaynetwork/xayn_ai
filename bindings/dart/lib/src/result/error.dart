@@ -164,7 +164,7 @@ class XaynAiError {
     final code = CodeInt.fromInt(_error.ref.code);
     final message = _error.ref.message == nullptr
         ? ''
-        : _error.ref.message.cast<Utf8>().toDartString();
+        : _error.ref.message.ref.data.cast<Utf8>().toDartString();
     return XaynAiException(code, message);
   }
 

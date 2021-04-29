@@ -326,7 +326,7 @@ mod tests {
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
         tests::{MODEL, VOCAB},
-        utils::tests::{as_str_unchecked, AsPtr},
+        utils::tests::AsPtr,
     };
 
     impl AsPtr for CXaynAi {}
@@ -368,7 +368,7 @@ mod tests {
 
     impl Default for TestDb {
         fn default() -> Self {
-            Self(CBytes { data: None, len: 0 })
+            Self(Vec::new().into_boxed_slice().into())
         }
     }
 
@@ -491,7 +491,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::VocabPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             format!(
                 "Failed to initialize the ai: The {} is null",
                 CCode::VocabPointer,
@@ -514,7 +514,11 @@ mod tests {
                 .is_none()
         );
         assert_eq!(error.code, CCode::ReadFile);
-        assert!(as_str_unchecked(error.message.as_ref().map(AsRef::as_ref))
+        assert!(error
+            .message
+            .as_ref()
+            .unwrap()
+            .as_str_unchecked()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -533,7 +537,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::ModelPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             format!(
                 "Failed to initialize the ai: The {} is null",
                 CCode::ModelPointer,
@@ -556,7 +560,11 @@ mod tests {
                 .is_none()
         );
         assert_eq!(error.code, CCode::ReadFile);
-        assert!(as_str_unchecked(error.message.as_ref().map(AsRef::as_ref))
+        assert!(error
+            .message
+            .as_ref()
+            .unwrap()
+            .as_str_unchecked()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -575,7 +583,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             "Failed to rerank the documents: The ai pointer is null",
         );
 
@@ -590,7 +598,7 @@ mod tests {
         assert!(unsafe { xaynai_serialize(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             "Failed to serialize the reranker database: The ai pointer is null",
         );
 
@@ -605,7 +613,7 @@ mod tests {
         assert!(unsafe { xaynai_faults(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             "Failed to get the faults: The ai pointer is null",
         );
 
@@ -620,7 +628,7 @@ mod tests {
         assert!(unsafe { xaynai_analytics(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             "Failed to get the analytics: The ai pointer is null",
         );
 
@@ -658,7 +666,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::HistoriesPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             "Failed to rerank the documents: The document histories pointer is null",
         );
 
@@ -697,7 +705,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::DocumentsPointer);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             "Failed to rerank the documents: The documents pointer is null",
         );
 
@@ -711,11 +719,16 @@ mod tests {
         let model = TestFile::model();
         let mut error = CError::default();
 
-        let empty = CBytes { data: None, len: 0 };
-        let empty = Some(&empty);
-        let xaynai =
-            unsafe { xaynai_new(vocab.as_ptr(), model.as_ptr(), empty, error.as_mut_ptr()) }
-                .unwrap();
+        let empty: CBytes = Vec::new().into_boxed_slice().into();
+        let xaynai = unsafe {
+            xaynai_new(
+                vocab.as_ptr(),
+                model.as_ptr(),
+                empty.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
         assert_eq!(error.code, CCode::Success);
 
         unsafe { xaynai_drop(xaynai.into_ptr()) };
@@ -740,7 +753,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::RerankerDeserialization);
         assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            error.message.as_ref().unwrap().as_str_unchecked(),
             format!(
                 "Failed to deserialize the reranker database: Unsupported serialized data. Found version {} expected 0",
                 version,

@@ -2,7 +2,7 @@ use std::{any::Any, convert::Infallible, ffi::CString, panic::AssertUnwindSafe};
 
 use derive_more::Display;
 
-use crate::{result::call_with_result, utils::IntoRaw};
+use crate::{reranker::CBytes, result::call_with_result, utils::IntoRaw};
 
 /// The Xayn AI error codes.
 #[repr(i8)]
@@ -65,7 +65,7 @@ pub struct CError {
     /// The error code.
     pub code: CCode,
     /// The raw pointer to the error message.
-    pub message: Option<Box<u8>>,
+    pub message: Option<Box<CBytes>>,
 }
 
 impl From<Infallible> for Error {
@@ -99,11 +99,7 @@ where
                     )
                 })
                 .into_bytes_with_nul();
-            // Safety:
-            // Casting a Box<[u8]> to a Box<u8> is sound, but it leaks all values except the very
-            // first one. Since the slice is terminated with a single null byte, we are able to
-            // recover the length and reclaim the memory.
-            Some(unsafe { Box::from_raw(bytes.leak().as_mut_ptr()) })
+            Some(Box::new(bytes.into_boxed_slice().into()))
         };
 
         CError {
@@ -146,12 +142,7 @@ impl CError {
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) unsafe fn drop_message(error: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(error) = error {
-            if let Some(message) = error.message.take() {
-                // Safety:
-                // Casting a Box<u8> to a CString is sound, if it originated from boxed slice with
-                // a terminating null byte.
-                unsafe { CString::from_raw(Box::into_raw(message).cast()) };
-            }
+            error.message.take();
         }
 
         Ok(())
@@ -196,7 +187,7 @@ mod tests {
     use std::panic::{catch_unwind, panic_any};
 
     use super::*;
-    use crate::utils::tests::{as_str_unchecked, AsPtr};
+    use crate::utils::tests::AsPtr;
 
     impl AsPtr for CError {}
 
@@ -218,10 +209,7 @@ mod tests {
         let mut error = code.with_context(message).into_raw();
 
         assert_eq!(error.code, code);
-        assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
-            message,
-        );
+        assert_eq!(error.message.as_ref().unwrap().as_str_unchecked(), message,);
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -233,10 +221,7 @@ mod tests {
         let mut error = Error::panic(payload).into_raw();
 
         assert_eq!(error.code, CCode::Panic);
-        assert_eq!(
-            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
-            message,
-        );
+        assert_eq!(error.message.as_ref().unwrap().as_str_unchecked(), message,);
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
