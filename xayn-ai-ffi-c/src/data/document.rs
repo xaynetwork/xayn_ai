@@ -1,19 +1,19 @@
-use std::slice::from_raw_parts;
+use std::slice;
 
 use xayn_ai::Document;
 
 use crate::{
     result::error::{CCode, Error},
-    utils::CStrPtr,
+    utils::as_str,
 };
 
 /// A raw document.
 #[repr(C)]
 pub struct CDocument<'a> {
     /// The raw pointer to the document id.
-    pub id: CStrPtr<'a>,
+    pub id: Option<&'a u8>,
     /// The raw pointer to the document snippet.
-    pub snippet: CStrPtr<'a>,
+    pub snippet: Option<&'a u8>,
     /// The rank of the document.
     pub rank: u32,
 }
@@ -40,17 +40,20 @@ impl<'a> CDocuments<'a> {
     pub unsafe fn to_documents(&self) -> Result<Vec<Document>, Error> {
         match (self.data, self.len) {
             (None, _) | (_, 0) => Ok(Vec::new()),
-            (Some(data), len) => unsafe { from_raw_parts::<'a>(data, len as usize) }
+            (Some(data), len) => unsafe { slice::from_raw_parts::<'a>(data, len as usize) }
                 .iter()
                 .map(|document| {
                     let id = unsafe {
-                        document
-                            .id
-                            .as_str(CCode::DocumentIdPointer, "Failed to rerank the documents")
+                        as_str(
+                            document.id,
+                            CCode::DocumentIdPointer,
+                            "Failed to rerank the documents",
+                        )
                     }?
                     .into();
                     let snippet = unsafe {
-                        document.snippet.as_str(
+                        as_str(
+                            document.snippet,
                             CCode::DocumentSnippetPointer,
                             "Failed to rerank the documents",
                         )
@@ -72,6 +75,7 @@ pub(crate) mod tests {
     use itertools::izip;
 
     use super::*;
+    use crate::utils::tests::as_str_unchecked;
 
     pub struct TestDocuments<'a> {
         _ids: Pin<Vec<CString>>,
@@ -102,8 +106,8 @@ pub(crate) mod tests {
             let document = Pin::new(
                 izip!(_ids.as_ref().get_ref(), _snippets.as_ref().get_ref(), ranks)
                     .map(|(id, snippet, rank)| CDocument {
-                        id: id.into(),
-                        snippet: snippet.into(),
+                        id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
+                        snippet: unsafe { snippet.as_ptr().cast::<u8>().as_ref() },
                         rank,
                     })
                     .collect::<Vec<_>>(),
@@ -138,8 +142,8 @@ pub(crate) mod tests {
         let documents = unsafe { docs.documents.to_documents() }.unwrap();
         assert_eq!(documents.len(), docs.len());
         for (d, cd) in izip!(documents, docs.document.as_ref().get_ref()) {
-            assert_eq!(d.id.0, cd.id.as_str_unchecked());
-            assert_eq!(d.snippet, cd.snippet.as_str_unchecked());
+            assert_eq!(d.id.0, as_str_unchecked(cd.id));
+            assert_eq!(d.snippet, as_str_unchecked(cd.snippet));
             assert_eq!(d.rank, cd.rank as usize);
         }
     }
@@ -161,7 +165,7 @@ pub(crate) mod tests {
     #[test]
     fn test_document_id_null() {
         let mut docs = TestDocuments::default();
-        docs.document[0].id = CStrPtr(None);
+        docs.document[0].id = None;
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code, CCode::DocumentIdPointer);
@@ -177,7 +181,7 @@ pub(crate) mod tests {
     #[test]
     fn test_document_snippet_null() {
         let mut docs = TestDocuments::default();
-        docs.document[0].snippet = CStrPtr(None);
+        docs.document[0].snippet = None;
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code, CCode::DocumentSnippetPointer);

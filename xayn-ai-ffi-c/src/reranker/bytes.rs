@@ -1,8 +1,4 @@
-use std::{
-    convert::Infallible,
-    panic::AssertUnwindSafe,
-    slice::{from_raw_parts, from_raw_parts_mut},
-};
+use std::{convert::Infallible, panic::AssertUnwindSafe, slice};
 
 use crate::{
     result::{call_with_result, error::CError},
@@ -14,15 +10,21 @@ pub struct Bytes(pub(crate) Vec<u8>);
 
 /// A raw slice of bytes.
 #[repr(C)]
-pub struct CBytes<'a> {
+pub struct CBytes {
     /// The raw pointer to the bytes.
-    pub data: Option<&'a u8>,
+    pub data: Option<Box<u8>>,
     /// The number of bytes.
     pub len: u32,
 }
 
-unsafe impl IntoRaw for Bytes {
-    type Value = Option<&'static mut CBytes<'static>>;
+unsafe impl IntoRaw for Bytes
+where
+    CBytes: Sized,
+{
+    // Safety:
+    // CBytes is sized, hence Box<CBytes> is representable as a *mut CBytes and Option<Box<CBytes>>
+    // is applicable for the nullable pointer optimization.
+    type Value = Option<Box<CBytes>>;
 
     #[inline]
     fn into_raw(self) -> Self::Value {
@@ -30,10 +32,14 @@ unsafe impl IntoRaw for Bytes {
         let data = if self.0.is_empty() {
             None
         } else {
-            self.0.leak().first()
+            // Safety:
+            // Casting a Box<[u8]> to a Box<u8> is sound, but it leaks all values except the very
+            // first one. Hence we store the length of the slice next to the pointer to be able to
+            // reclaim the memory.
+            Some(unsafe { Box::from_raw(self.0.leak().as_mut_ptr()) })
         };
 
-        Some(Box::leak(Box::new(CBytes { data, len })))
+        Some(Box::new(CBytes { data, len }))
     }
 }
 
@@ -45,7 +51,7 @@ impl Bytes {
     }
 }
 
-impl<'a> CBytes<'a> {
+impl CBytes {
     /// Slices into the raw bytes.
     ///
     /// # Safety
@@ -53,23 +59,25 @@ impl<'a> CBytes<'a> {
     /// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least
     /// `len` many [`u8`]s.
     /// - A `len` is too large to address the memory of a non-null [`u8`] array.
-    pub unsafe fn as_slice(&self) -> &'a [u8] {
-        match (self.data, self.len) {
+    pub unsafe fn as_slice(&self) -> &[u8] {
+        match (self.data.as_ref(), self.len) {
             (None, _) | (_, 0) => &[],
-            (Some(data), len) => unsafe { from_raw_parts(data, len as usize) },
+            (Some(data), len) => unsafe { slice::from_raw_parts(data.as_ref(), len as usize) },
         }
     }
 
     /// See [`bytes_drop()`] for more.
     #[allow(clippy::unnecessary_wraps)]
-    unsafe fn drop(bytes: Option<&mut Self>) -> Result<(), Infallible> {
+    unsafe fn drop(bytes: Option<Box<Self>>) -> Result<(), Infallible> {
         if let Some(bytes) = bytes {
-            let bytes = unsafe { Box::from_raw(bytes) };
             if let Some(data) = bytes.data {
                 if bytes.len > 0 {
+                    // Safety:
+                    // Casting a Box<u8> to a Box<[u8]> is sound, if it originated from a boxed
+                    // slice with corresponding length.
                     unsafe {
-                        Box::from_raw(from_raw_parts_mut(
-                            data as *const u8 as *mut u8,
+                        Box::from_raw(slice::from_raw_parts_mut(
+                            Box::into_raw(data),
                             bytes.len as usize,
                         ))
                     };
@@ -92,10 +100,7 @@ impl<'a> CBytes<'a> {
 /// - A `len` is too large to address the memory of a non-null [`u8`] array.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 #[no_mangle]
-pub unsafe extern "C" fn bytes_new(
-    len: u32,
-    error: Option<&mut CError>,
-) -> Option<&'static mut CBytes<'static>> {
+pub unsafe extern "C" fn bytes_new(len: u32, error: Option<&mut CError>) -> Option<Box<CBytes>> {
     let new = || Bytes::new(len);
 
     call_with_result(new, error)
@@ -112,7 +117,7 @@ pub unsafe extern "C" fn bytes_new(
 ///
 /// [`xaynai_serialize()`]: crate::reranker::ai::xaynai_serialize
 #[no_mangle]
-pub unsafe extern "C" fn bytes_drop(bytes: Option<&mut CBytes>) {
+pub unsafe extern "C" fn bytes_drop(bytes: Option<Box<CBytes>>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
         || unsafe { CBytes::drop(bytes) },
@@ -124,49 +129,30 @@ pub unsafe extern "C" fn bytes_drop(bytes: Option<&mut CBytes>) {
 
 #[cfg(test)]
 mod tests {
-    use std::pin::Pin;
 
     use super::*;
-    use crate::result::error::CCode;
+    use crate::{result::error::CCode, utils::tests::AsPtr};
 
-    impl CBytes<'_> {
-        #[allow(clippy::unnecessary_wraps)]
-        fn as_mut_ptr(&mut self) -> Option<&mut Self> {
-            Some(self)
-        }
-    }
+    impl AsPtr for CBytes {}
 
-    pub struct TestBytes<'a> {
-        vec: Pin<Vec<u8>>,
-        bytes: CBytes<'a>,
-    }
+    struct TestBytes(Vec<u8>);
 
-    impl Drop for TestBytes<'_> {
-        fn drop(&mut self) {}
-    }
-
-    impl Default for TestBytes<'_> {
+    impl Default for TestBytes {
         fn default() -> Self {
-            let vec = Pin::new(vec![0; 10]);
-            let bytes = CBytes {
-                data: unsafe { vec.as_ptr().as_ref() },
-                len: vec.len() as u32,
-            };
-
-            Self { vec, bytes }
+            Self(vec![0; 10])
         }
     }
 
     #[test]
     fn test_into_raw() {
         let buffer = TestBytes::default();
-        let bytes = Bytes(buffer.vec.to_vec()).into_raw().unwrap();
+        let bytes = Bytes(buffer.0.clone()).into_raw().unwrap();
 
         assert!(bytes.data.is_some());
-        assert_eq!(bytes.len as usize, buffer.vec.len());
-        assert_eq!(unsafe { bytes.as_slice() }, buffer.vec.as_ref().get_ref());
+        assert_eq!(bytes.len as usize, buffer.0.len());
+        assert_eq!(unsafe { bytes.as_slice() }, buffer.0);
 
-        unsafe { bytes_drop(bytes.as_mut_ptr()) };
+        unsafe { bytes_drop(bytes.into_ptr()) };
     }
 
     #[test]
@@ -177,7 +163,7 @@ mod tests {
         assert_eq!(bytes.len, 0);
         assert!(unsafe { bytes.as_slice() }.is_empty());
 
-        unsafe { bytes_drop(bytes.as_mut_ptr()) };
+        unsafe { bytes_drop(bytes.into_ptr()) };
     }
 
     #[test]
@@ -185,11 +171,11 @@ mod tests {
         let buffer = TestBytes::default();
         let mut error = CError::default();
 
-        let bytes = unsafe { bytes_new(buffer.bytes.len, error.as_mut_ptr()) }.unwrap();
+        let bytes = unsafe { bytes_new(buffer.0.len() as u32, error.as_mut_ptr()) }.unwrap();
         assert_eq!(error.code, CCode::Success);
-        assert_eq!(unsafe { bytes.as_slice() }, buffer.vec.as_ref().get_ref());
+        assert_eq!(unsafe { bytes.as_slice() }, buffer.0);
 
-        unsafe { bytes_drop(bytes.as_mut_ptr()) };
+        unsafe { bytes_drop(bytes.into_ptr()) };
     }
 
     #[test]
@@ -200,6 +186,6 @@ mod tests {
         assert_eq!(error.code, CCode::Success);
         assert!(unsafe { bytes.as_slice() }.is_empty());
 
-        unsafe { bytes_drop(bytes.as_mut_ptr()) };
+        unsafe { bytes_drop(bytes.into_ptr()) };
     }
 }

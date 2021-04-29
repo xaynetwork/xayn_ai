@@ -2,10 +2,7 @@ use std::{any::Any, convert::Infallible, ffi::CString, panic::AssertUnwindSafe};
 
 use derive_more::Display;
 
-use crate::{
-    result::call_with_result,
-    utils::{CStrPtr, IntoRaw},
-};
+use crate::{result::call_with_result, utils::IntoRaw};
 
 /// The Xayn AI error codes.
 #[repr(i8)]
@@ -64,21 +61,25 @@ pub struct Error {
 /// The raw Xayn AI error information.
 #[repr(C)]
 #[cfg_attr(test, derive(Debug))]
-pub struct CError<'a> {
+pub struct CError {
     /// The error code.
     pub code: CCode,
     /// The raw pointer to the error message.
-    pub message: CStrPtr<'a>,
+    pub message: Option<Box<u8>>,
 }
 
 impl From<Infallible> for Error {
-    fn from(_: Infallible) -> Self {
+    fn from(_success: Infallible) -> Self {
         Self::success()
     }
 }
 
-unsafe impl IntoRaw for Error {
-    type Value = CError<'static>;
+unsafe impl IntoRaw for Error
+where
+    CError: Sized,
+{
+    // Safety: CError is sized and repr(C).
+    type Value = CError;
 
     /// Creates the raw error information.
     ///
@@ -90,21 +91,24 @@ unsafe impl IntoRaw for Error {
         let message = if let CCode::Success = self.code {
             None
         } else {
-            CString::new(self.message)
+            let bytes = CString::new(self.message)
                 .unwrap_or_else(|null| {
                     let position = null.nul_position();
                     CString::new(&null.into_vec()[..position]).unwrap(
                         // Safety: The bytes are cut off directly before the first null byte.
                     )
                 })
-                .into_bytes_with_nul()
-                .leak()
-                .first()
+                .into_bytes_with_nul();
+            // Safety:
+            // Casting a Box<[u8]> to a Box<u8> is sound, but it leaks all values except the very
+            // first one. Since the slice is terminated with a single null byte, we are able to
+            // recover the length and reclaim the memory.
+            Some(unsafe { Box::from_raw(bytes.leak().as_mut_ptr()) })
         };
 
         CError {
             code: self.code,
-            message: CStrPtr(message),
+            message,
         }
     }
 }
@@ -116,7 +120,7 @@ impl Error {
     }
 
     /// Creates the error information from the panic payload.
-    pub fn panic(payload: Box<dyn Any + Send + 'static>) -> Self {
+    pub fn panic(payload: Box<dyn Any + Send>) -> Self {
         // https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.payload
         let message = if let Some(message) = payload.downcast_ref::<&str>() {
             message
@@ -130,20 +134,23 @@ impl Error {
     }
 }
 
-impl Default for CError<'_> {
+impl Default for CError {
     /// Defaults to success.
     fn default() -> Self {
         Error::success().into_raw()
     }
 }
 
-impl CError<'_> {
+impl CError {
     /// See [`error_message_drop()`] for more.
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) unsafe fn drop_message(error: Option<&mut Self>) -> Result<(), Infallible> {
         if let Some(error) = error {
-            if let Some(message) = error.message.0 {
-                unsafe { CString::from_raw((message as *const u8 as *mut u8).cast()) };
+            if let Some(message) = error.message.take() {
+                // Safety:
+                // Casting a Box<u8> to a CString is sound, if it originated from boxed slice with
+                // a terminating null byte.
+                unsafe { CString::from_raw(Box::into_raw(message).cast()) };
             }
         }
 
@@ -185,26 +192,23 @@ pub unsafe extern "C" fn error_message_drop(error: Option<&mut CError>) {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use std::panic::{catch_unwind, panic_any};
 
     use super::*;
+    use crate::utils::tests::{as_str_unchecked, AsPtr};
 
-    impl CError<'_> {
-        pub fn as_mut_ptr(&mut self) -> Option<&mut Self> {
-            Some(self)
-        }
-    }
+    impl AsPtr for CError {}
 
     #[test]
     fn test_into_raw_success() {
         let error = Error::success().into_raw();
         assert_eq!(error.code, CCode::Success);
-        assert!(error.message.0.is_none());
+        assert!(error.message.is_none());
 
         let error = CCode::Success.with_context("test success").into_raw();
         assert_eq!(error.code, CCode::Success);
-        assert!(error.message.0.is_none());
+        assert!(error.message.is_none());
     }
 
     #[test]
@@ -214,7 +218,10 @@ pub(crate) mod tests {
         let mut error = code.with_context(message).into_raw();
 
         assert_eq!(error.code, code);
-        assert_eq!(error.message.as_str_unchecked(), message);
+        assert_eq!(
+            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            message,
+        );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -226,7 +233,10 @@ pub(crate) mod tests {
         let mut error = Error::panic(payload).into_raw();
 
         assert_eq!(error.code, CCode::Panic);
-        assert_eq!(error.message.as_str_unchecked(), message);
+        assert_eq!(
+            as_str_unchecked(error.message.as_ref().map(AsRef::as_ref)),
+            message,
+        );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }

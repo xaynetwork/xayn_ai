@@ -9,23 +9,25 @@ pub struct Analytics(pub(crate) Option<xayn_ai::Analytics>);
 pub struct CAnalytics(Analytics);
 
 // this is more like a dummy impl for now until we have fleshed out the analytics
-unsafe impl IntoRaw for Analytics {
-    type Value = Option<&'static mut CAnalytics>;
+unsafe impl IntoRaw for Analytics
+where
+    CAnalytics: Sized,
+{
+    // Safety:
+    // CAnalytics is sized, hence Box<CAnalyitics> is representable as a *mut CAnalytics and
+    // Option<Box<CAnalytics>> is eligible for the nullable pointer optimization.
+    type Value = Option<Box<CAnalytics>>;
 
     #[inline]
     fn into_raw(self) -> Self::Value {
-        Some(Box::leak(Box::new(CAnalytics(self))))
+        Some(Box::new(CAnalytics(self)))
     }
 }
 
 impl CAnalytics {
     /// See [`analytics_drop()`] for more.
     #[allow(clippy::unnecessary_wraps)]
-    unsafe fn drop(analytics: Option<&mut Self>) -> Result<(), Infallible> {
-        if let Some(analytics) = analytics {
-            unsafe { Box::from_raw(analytics) };
-        }
-
+    unsafe fn drop(_analytics: Option<Box<Self>>) -> Result<(), Infallible> {
         Ok(())
     }
 }
@@ -40,7 +42,7 @@ impl CAnalytics {
 ///
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
-pub unsafe extern "C" fn analytics_drop(analytics: Option<&mut CAnalytics>) {
+pub unsafe extern "C" fn analytics_drop(analytics: Option<Box<CAnalytics>>) {
     let drop = AssertUnwindSafe(
         // Safety: The memory is dropped anyways.
         || unsafe { CAnalytics::drop(analytics) },
@@ -48,4 +50,12 @@ pub unsafe extern "C" fn analytics_drop(analytics: Option<&mut CAnalytics>) {
     let error = None;
 
     call_with_result(drop, error);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::tests::AsPtr;
+
+    impl AsPtr for CAnalytics {}
 }

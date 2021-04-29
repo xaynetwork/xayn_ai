@@ -1,10 +1,10 @@
-use std::slice::from_raw_parts;
+use std::slice;
 
 use xayn_ai::{DocumentHistory, Relevance, UserFeedback};
 
 use crate::{
     result::error::{CCode, Error},
-    utils::CStrPtr,
+    utils::as_str,
 };
 
 /// A document relevance level.
@@ -51,7 +51,7 @@ impl From<CFeedback> for UserFeedback {
 #[repr(C)]
 pub struct CHistory<'a> {
     /// The raw pointer to the document id.
-    pub id: CStrPtr<'a>,
+    pub id: Option<&'a u8>,
     /// The relevance level of the document.
     pub relevance: CRelevance,
     /// The user feedback level of the document.
@@ -80,13 +80,15 @@ impl<'a> CHistories<'a> {
     pub unsafe fn to_histories(&self) -> Result<Vec<DocumentHistory>, Error> {
         match (self.data, self.len) {
             (None, _) | (_, 0) => Ok(Vec::new()),
-            (Some(data), len) => unsafe { from_raw_parts::<'a>(data, len as usize) }
+            (Some(data), len) => unsafe { slice::from_raw_parts::<'a>(data, len as usize) }
                 .iter()
                 .map(|history| {
                     let id = unsafe {
-                        history
-                            .id
-                            .as_str(CCode::HistoryIdPointer, "Failed to rerank the documents")
+                        as_str(
+                            history.id,
+                            CCode::HistoryIdPointer,
+                            "Failed to rerank the documents",
+                        )
                     }?
                     .into();
                     let relevance = history.relevance.into();
@@ -110,6 +112,7 @@ pub(crate) mod tests {
     use itertools::izip;
 
     use super::*;
+    use crate::utils::tests::as_str_unchecked;
 
     pub struct TestHistories<'a> {
         _ids: Pin<Vec<CString>>,
@@ -139,7 +142,7 @@ pub(crate) mod tests {
             let history = Pin::new(
                 izip!(_ids.as_ref().get_ref(), relevances, feedbacks)
                     .map(|(id, relevance, feedback)| CHistory {
-                        id: id.into(),
+                        id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
                         relevance,
                         feedback,
                     })
@@ -174,7 +177,7 @@ pub(crate) mod tests {
         let histories = unsafe { hists.histories.to_histories() }.unwrap();
         assert_eq!(histories.len(), hists.len());
         for (dh, ch) in izip!(histories, hists.history.as_ref().get_ref()) {
-            assert_eq!(dh.id.0, ch.id.as_str_unchecked());
+            assert_eq!(dh.id.0, as_str_unchecked(ch.id));
             assert_eq!(dh.relevance, ch.relevance.into());
             assert_eq!(dh.user_feedback, ch.feedback.into());
         }
@@ -201,7 +204,7 @@ pub(crate) mod tests {
     #[test]
     fn test_history_id_null() {
         let mut hists = TestHistories::default();
-        hists.history[0].id = CStrPtr(None);
+        hists.history[0].id = None;
 
         let error = unsafe { hists.histories.to_histories() }.unwrap_err();
         assert_eq!(error.code, CCode::HistoryIdPointer);

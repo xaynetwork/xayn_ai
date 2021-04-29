@@ -10,36 +10,32 @@ use crate::result::error::{CCode, Error};
 #[no_mangle]
 pub extern "C" fn dummy_function() {}
 
-/// A raw C string.
-#[repr(transparent)]
-#[cfg_attr(test, derive(Debug))]
-pub struct CStrPtr<'a>(pub(crate) Option<&'a u8>);
-
-impl<'a> CStrPtr<'a> {
-    /// Reads a string from the pointer.
-    ///
-    /// # Errors
-    /// Fails on null pointer and invalid utf8 encoding. The error is constructed from the `code`
-    /// and `context`.
-    ///
-    /// # Safety
-    /// The behavior is undefined if:
-    /// - A non-null pointer doesn't point to an aligned, contiguous area of memory with a terminating
-    /// null byte.
-    pub unsafe fn as_str(&self, code: CCode, context: impl Display) -> Result<&'a str, Error> {
-        let pointer = self
-            .0
-            .ok_or_else(|| code.with_context(format!("{}: The {} is null", context, code)))?
-            as *const u8;
-        unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
-            .to_str()
-            .map_err(|cause| {
-                code.with_context(format!(
-                    "{}: The {} contains invalid utf8: {}",
-                    context, code, cause
-                ))
-            })
-    }
+/// Reads a string slice from the borrowed bytes pointer.
+///
+/// # Errors
+/// Fails on null pointer and invalid utf8 encoding. The error is constructed from the `code`
+/// and `context`.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null `bytes` doesn't point to an aligned, contiguous area of memory with a terminating
+/// null byte.
+pub(crate) unsafe fn as_str<'a>(
+    bytes: Option<&'a u8>,
+    code: CCode,
+    context: impl Display,
+) -> Result<&'a str, Error> {
+    let pointer = bytes
+        .ok_or_else(|| code.with_context(format!("{}: The {} is null", context, code)))?
+        as *const u8;
+    unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
+        .to_str()
+        .map_err(|cause| {
+            code.with_context(format!(
+                "{}: The {} contains invalid utf8: {}",
+                context, code, cause,
+            ))
+        })
 }
 
 /// Conversion of Rust values into C-compatible values.
@@ -49,7 +45,9 @@ impl<'a> CStrPtr<'a> {
 /// - The `Value` is not compatible with the C ABI.
 /// - The `Value` is accessed after its lifetime has expired.
 pub(crate) unsafe trait IntoRaw {
-    /// A C-compatible value. Usually some kind of `#[repr(C)]` and `'static`.
+    /// A C-compatible value. Usually some kind of `#[repr(C)]` and `'static`/owned.
+    // https://doc.rust-lang.org/std/boxed/index.html#memory-layout
+    // https://rust-lang.github.io/unsafe-code-guidelines/layout/pointers.html
     type Value: Default + Send + Sized;
 
     /// Converts the Rust value into the C value. Usually leaks memory for heap allocated values.
@@ -57,49 +55,50 @@ pub(crate) unsafe trait IntoRaw {
 }
 
 unsafe impl IntoRaw for () {
+    // Safety: This is a no-op.
     type Value = ();
 
     #[inline]
-    fn into_raw(self) -> Self::Value {
-        // Safety: This is a no-op.
-    }
+    fn into_raw(self) -> Self::Value {}
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::ffi::CStr;
-
     use super::*;
 
-    impl<'a, S> From<S> for CStrPtr<'a>
-    where
-        S: AsRef<CStr>,
-    {
-        /// Wraps the [`CStr`] as a pointer.
-        fn from(string: S) -> Self {
-            let pointer = string.as_ref().as_ptr().cast::<u8>();
-            Self(unsafe {
-                // Safety: The pointer comes from a valid &CStr.
-                pointer.as_ref()
-            })
-        }
+    /// Reads a string slice from the borrowed bytes pointer.
+    ///
+    /// # Panics
+    /// Panics on null pointer and invalid utf8 encoding.
+    ///
+    /// # Safety
+    /// The behavior is undefined if:
+    /// - A non-null `bytes` doesn't point to an aligned, contiguous area of memory with a terminating
+    /// null byte.
+    pub fn as_str_unchecked<'a>(bytes: Option<&'a u8>) -> &'a str {
+        unsafe { CStr::from_ptr::<'a>((bytes.unwrap() as *const u8).cast()) }
+            .to_str()
+            .unwrap()
     }
 
-    impl<'a> CStrPtr<'a> {
-        /// Reads a string from the pointer.
-        ///
-        /// # Panics
-        /// Panics on null pointer and invalid utf8 encoding.
-        ///
-        /// # Safety
-        /// The behavior is undefined if:
-        /// - A non-null pointer doesn't point to an aligned, contiguous area of memory with a
-        /// terminating null byte.
-        pub fn as_str_unchecked(&self) -> &'a str {
-            let pointer = self.0.unwrap() as *const u8;
-            unsafe { CStr::from_ptr::<'a>(pointer.cast()) }
-                .to_str()
-                .unwrap()
+    /// Nullable pointer conversions.
+    pub trait AsPtr {
+        /// Casts as a borrowed pointer.
+        #[inline]
+        fn as_ptr(&self) -> Option<&Self> {
+            Some(self)
+        }
+
+        /// Casts as a mutable borrowed pointer.
+        #[inline]
+        fn as_mut_ptr(&mut self) -> Option<&mut Self> {
+            Some(self)
+        }
+
+        /// Casts into an owned pointer.
+        #[inline]
+        fn into_ptr(self: Box<Self>) -> Option<Box<Self>> {
+            Some(self)
         }
     }
 }
