@@ -274,7 +274,10 @@ jobs:
         run: cargo lipo --targets ${{ matrix.target }} --release
 
       - name: Strip symbols
-        run: strip -S -x -r target/${{ matrix.target}}/release/libxayn_ai_ffi_c.a
+        run: |
+          ls -l -r target/${{ matrix.target}}/release/libxayn_ai_ffi_c.a
+          strip -S -x -r target/${{ matrix.target}}/release/libxayn_ai_ffi_c.a
+          ls -l -r target/${{ matrix.target}}/release/libxayn_ai_ffi_c.a
 
       - name: Rename lib
         run: |
