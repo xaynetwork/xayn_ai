@@ -23,7 +23,7 @@ pub enum CCode {
 
 impl CCode {
     /// Provides context for the error code.
-    pub fn with_context(self, message: impl Into<String>) -> ExternError {
+    pub(crate) fn with_context(self, message: impl Into<String>) -> ExternError {
         ExternError::new_error(self as i32, message)
     }
 }
