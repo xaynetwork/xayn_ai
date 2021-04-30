@@ -34,7 +34,6 @@ wasm-pack test node -- --no-default-features --features=node
 ## Running the example
 
 ```shell
-ln -s $(pwd)/../data/ $(pwd)/example/data
 wasm-pack build --target web --release --no-typescript --out-dir example/pkg
 cd example
 python3 -m http.server
