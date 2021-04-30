@@ -1,4 +1,4 @@
-use crate::utils::{CBoxedSlice, IntoRaw};
+use crate::{slice::CBoxedSlice, utils::IntoRaw};
 
 /// The ranks of the reranked documents.
 pub struct Ranks(Vec<u32>);
@@ -57,6 +57,6 @@ mod tests {
     #[test]
     fn test_into_empty() {
         let ranks = Ranks(Vec::new()).into_raw().unwrap();
-        assert!(ranks.as_slice().is_empty());
+        assert!(ranks.is_empty());
     }
 }

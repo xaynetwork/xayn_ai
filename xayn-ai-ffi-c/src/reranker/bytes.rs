@@ -2,7 +2,8 @@ use std::convert::Infallible;
 
 use crate::{
     result::{call_with_result, error::CError},
-    utils::{CBoxedSlice, IntoRaw},
+    slice::CBoxedSlice,
+    utils::IntoRaw,
 };
 
 /// A bytes buffer.
@@ -66,38 +67,33 @@ pub unsafe extern "C" fn bytes_drop(_bytes: Option<Box<CBytes>>) {}
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::{result::error::CCode, utils::tests::AsPtr};
 
-    struct TestBytes(Vec<u8>);
-
-    impl Default for TestBytes {
-        fn default() -> Self {
-            Self(vec![0; 10])
-        }
+    const fn test_bytes<const N: usize>() -> [u8; N] {
+        [0; N]
     }
 
     #[test]
     fn test_into_raw() {
-        let buffer = TestBytes::default();
-        let bytes = Bytes(buffer.0.clone()).into_raw().unwrap();
-        assert_eq!(bytes.as_slice(), buffer.0);
+        let buffer = test_bytes::<10>();
+        let bytes = Bytes(buffer.to_vec()).into_raw().unwrap();
+        assert_eq!(bytes.as_slice(), buffer);
     }
 
     #[test]
     fn test_into_empty() {
-        let bytes = Bytes(Vec::new()).into_raw().unwrap();
-        assert!(bytes.as_slice().is_empty());
+        let bytes = Bytes(test_bytes::<0>().to_vec()).into_raw().unwrap();
+        assert!(bytes.is_empty());
     }
 
     #[test]
     fn test_new() {
-        let buffer = TestBytes::default();
+        let buffer = test_bytes::<10>();
         let mut error = CError::default();
-        let bytes = unsafe { bytes_new(buffer.0.len() as u64, error.as_mut_ptr()) }.unwrap();
+        let bytes = unsafe { bytes_new(buffer.len() as u64, error.as_mut_ptr()) }.unwrap();
         assert_eq!(error.code, CCode::Success);
-        assert_eq!(bytes.as_slice(), buffer.0);
+        assert_eq!(bytes.as_slice(), buffer);
     }
 
     #[test]
@@ -105,6 +101,6 @@ mod tests {
         let mut error = CError::default();
         let bytes = unsafe { bytes_new(0, error.as_mut_ptr()) }.unwrap();
         assert_eq!(error.code, CCode::Success);
-        assert!(bytes.as_slice().is_empty());
+        assert!(bytes.is_empty());
     }
 }

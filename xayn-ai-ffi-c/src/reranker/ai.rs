@@ -1,4 +1,4 @@
-use std::{convert::Infallible, panic::AssertUnwindSafe};
+use std::panic::AssertUnwindSafe;
 
 use xayn_ai::{Builder, Reranker};
 
@@ -135,12 +135,6 @@ impl CXaynAi {
         })?;
 
         Ok(Analytics(xaynai.0.analytics().cloned()))
-    }
-
-    /// See [`xaynai_drop()`] for more.
-    #[allow(clippy::unnecessary_wraps)]
-    unsafe fn drop(_xaynai: Option<Box<Self>>) -> Result<(), Infallible> {
-        Ok(())
     }
 }
 
@@ -306,15 +300,7 @@ pub unsafe extern "C" fn xaynai_analytics(
 /// - A non-null `xaynai` is freed more than once.
 /// - A non-null `xaynai` is accessed after being freed.
 #[no_mangle]
-pub unsafe extern "C" fn xaynai_drop(xaynai: Option<Box<CXaynAi>>) {
-    let drop = AssertUnwindSafe(
-        // Safety: The memory is dropped anyways.
-        || unsafe { CXaynAi::drop(xaynai) },
-    );
-    let error = None;
-
-    call_with_result(drop, error);
-}
+pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
 
 #[cfg(test)]
 mod tests {

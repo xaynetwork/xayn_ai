@@ -26,21 +26,6 @@ void main() {
       bytes.free();
     });
 
-    test('invalid data', () {
-      final len = 10;
-      final bytes = Bytes.fromList(Uint8List(len));
-      bytes.ptr.ref.len = 0;
-      expect(bytes.toList(), isEmpty);
-      bytes.ptr.ref.len = len;
-      bytes.free();
-    });
-
-    test('invalid len', () {
-      final bytes = Bytes.fromList(Uint8List(0));
-      bytes.ptr.ref.len = 10;
-      expect(bytes.toList(), isEmpty);
-    });
-
     test('free', () {
       final bytes =
           Bytes.fromList(Uint8List.fromList(List.generate(10, (i) => i)));

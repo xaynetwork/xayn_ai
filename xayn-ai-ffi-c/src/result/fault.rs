@@ -2,7 +2,8 @@ use xayn_ai::Error;
 
 use crate::{
     result::error::{CCode, CError},
-    utils::{CBoxedSlice, IntoRaw},
+    slice::CBoxedSlice,
+    utils::IntoRaw,
 };
 
 /// The Xayn Ai faults.
