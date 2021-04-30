@@ -116,8 +116,7 @@ impl WXaynAi {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-#[cfg(test)]
+#[cfg(all(test, target_arch = "wasm32"))]
 mod tests {
     #[cfg(all(feature = "browser", feature = "node"))]
     compile_error!("feature `browser` and `node` may not be used at the same time");
