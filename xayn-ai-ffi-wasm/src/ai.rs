@@ -217,7 +217,7 @@ mod tests {
     fn test_analytics() {
         let xaynai = WXaynAi::new(VOCAB, MODEL, None).unwrap();
         let analytics = xaynai.analytics();
-        assert!(analytics.is_null())
+        assert!(analytics.is_null());
     }
 
     #[wasm_bindgen_test]
