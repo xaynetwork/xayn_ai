@@ -2,6 +2,7 @@ use std::{cmp::Ordering, collections::HashMap};
 
 use anyhow::bail;
 use displaydoc::Display;
+use serde::Serialize;
 use thiserror::Error;
 
 use crate::{
@@ -17,7 +18,7 @@ use crate::{
 /// Which k to use for nDCG@k
 const DEFAULT_NDCG_K: usize = 2;
 /// Calculated analytics data.
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Analytics {
     /// The nDCG@k score between the LTR ranking and the relevance based ranking
     pub ndcg_ltr: f32,
