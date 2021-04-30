@@ -1,4 +1,4 @@
-import 'dart:ffi' show nullptr, StructPointer;
+import 'dart:ffi' show nullptr;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter_test/flutter_test.dart'

@@ -7,13 +7,49 @@ use std::{
     slice,
 };
 
+/// A boxed slice with a C-compatible ABI.
+///
+/// # C Layout
+/// ```
+/// struct CBoxedSlice<T> {
+///     data: *mut T,
+///     len: u64,
+/// }
+/// ```
+///
+/// # Safety
+/// If the boxed slice is only used within safe Rust or only immutably accessed outside of safe
+/// Rust, everything is sound and effectively behaves like a `Box<[T]>`.
+///
+/// However, if it is mutably accessed outside of safe Rust, then it is undefined behavior if:
+/// - A non-null `data` pointer doesn't point to an aligned, contiguous area of memory with exactly
+/// `len` many `T`s.
+/// - A null `data` pointer doesn't have `len` zero.
+/// - A `len` is too large to address a corresponding `[T]`.
+///
+/// Also, it's undefined behavior to transfer ownership of boxed slice to Rust which wasn't
+/// allocated in Rust before.
+///
+/// A partial soundness check can be done via `is_sound()`, but this is of course only feasible to a
+/// certain extend, ultimatly the caller is responsible to guarantee soundness when transferring
+/// this over the FFI boundary.
 #[repr(C)]
 pub struct CBoxedSlice<T: Sized> {
+    // behaves like a covariant *mut T
     data: Option<NonNull<T>>,
+    // fixed width integer for bindgen compatibility, u64 to save overflow checks
     len: u64,
+    // for dropcheck
     _owned: PhantomData<T>,
 }
 
+/// Creates a boxed slice from the pointer and length.
+///
+/// # Safety:
+/// The behavior is undefined if:
+/// - The `data` doesn't point to memory previously allocated in Rust as a `Box<[T]>` with the
+/// corresponding `len`.
+/// - The `data` doesn't own the memory or is accessed afterwards.
 unsafe fn into_boxed_slice_unchecked<T: Sized>(data: NonNull<T>, len: u64) -> Box<[T]> {
     let raw_slice = ptr::slice_from_raw_parts_mut(data.as_ptr(), len as usize);
     unsafe { Box::from_raw(raw_slice) }
@@ -23,6 +59,13 @@ impl<T> Drop for CBoxedSlice<T> {
     fn drop(&mut self) {
         if self.is_sound() {
             if let Some(data) = self.data {
+                // Safety:
+                // The pointer is aligned and non-null and its underlying memory is addressable
+                // within the length. The conversion of a valid pointer can't panic and the pointer
+                // isn't accessed afterwards.
+                // We can neither check that the pointer points to valid memory nor that the memory
+                // was actually allocated in Rust as a `Box<[T]>` though. In case of usage within
+                // safe Rust this is guaranteed, otherwise it's the caller's responsibility.
                 unsafe { into_boxed_slice_unchecked(data, self.len) };
             }
         }
@@ -30,7 +73,11 @@ impl<T> Drop for CBoxedSlice<T> {
 }
 
 impl<T> CBoxedSlice<T> {
+    /// Creates a boxed slice.
     pub fn new(boxed_slice: Box<[T]>) -> Self {
+        // Safety:
+        // The conversion of a valid pointer can't panic. In case of a later panic, the memory is
+        // freed via the `Drop` implementation.
         let len = boxed_slice.len() as u64;
         let data = NonNull::new(Box::leak(boxed_slice).as_mut_ptr());
         let _owned = PhantomData;
@@ -38,7 +85,12 @@ impl<T> CBoxedSlice<T> {
         Self { data, len, _owned }
     }
 
-    // aligned and addressable; or empty
+    /// Checks partially for soundness.
+    ///
+    /// This always holds if the boxed slice is only used within safe Rust. Otherwise this might be
+    /// called to check:
+    /// - Alignment of the pointer, even if it is dangling.
+    /// - Addressability wrt. the current target pointer width.
     pub fn is_sound(&self) -> bool {
         if let Some(data) = self.data {
             data.as_ptr() as usize % mem::align_of::<T>() == 0
@@ -48,30 +100,44 @@ impl<T> CBoxedSlice<T> {
         }
     }
 
+    /// Converts as a slice.
     pub fn as_slice(&self) -> &[T] {
         self.data
-            .map(|data| unsafe {
-                slice::from_raw_parts(data.as_ptr() as *const T, self.len as usize)
+            .map(|data| {
+                // Safety:
+                // The slice safety conditions must be ensured. In case of usage within safe Rust
+                // this is guaranteed, otherwise it's the caller's responsibility.
+                unsafe { slice::from_raw_parts(data.as_ptr() as *const T, self.len as usize) }
             })
             .unwrap_or_default()
     }
 
+    /// Converts as a mutable slice.
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.data
-            .map(|data| unsafe { slice::from_raw_parts_mut(data.as_ptr(), self.len as usize) })
+            .map(|data| {
+                // Safety: Same as for `as_slice()`.
+                unsafe { slice::from_raw_parts_mut(data.as_ptr(), self.len as usize) }
+            })
             .unwrap_or_default()
     }
 
+    /// Converts into a boxed slice.
     pub fn into_boxed_slice(self) -> Box<[T]> {
         self.data
-            .map(|data| unsafe { into_boxed_slice_unchecked(data, self.len) })
+            .map(|data| {
+                // Safety: Same as for `drop()`.
+                unsafe { into_boxed_slice_unchecked(data, self.len) }
+            })
             .unwrap_or_default()
     }
 
+    /// Gets the number of elements.
     pub fn len(&self) -> usize {
         self.len as usize
     }
 
+    /// Checks for the presence of any elements.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -130,10 +196,8 @@ impl<T> fmt::Pointer for CBoxedSlice<T> {
     }
 }
 
-// owned, unaliased
+// Safety: The data is owned and unaliased.
 unsafe impl<T: Send> Send for CBoxedSlice<T> {}
-
-// owned, unaliased
 unsafe impl<T: Sync> Sync for CBoxedSlice<T> {}
 
 #[cfg(test)]
