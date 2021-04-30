@@ -30,7 +30,7 @@ impl CCode {
 
 #[derive(Serialize)]
 #[cfg_attr(test, derive(serde::Deserialize, Debug))]
-pub struct ExternError {
+pub(crate) struct ExternError {
     pub(crate) code: i32,
     pub(crate) message: String,
 }
