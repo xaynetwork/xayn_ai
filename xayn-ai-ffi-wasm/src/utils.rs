@@ -1,6 +1,6 @@
 use wasm_bindgen::JsValue;
 
-pub trait IntoJsResult<T> {
+pub(crate) trait IntoJsResult<T> {
     fn into_js_result(self) -> Result<T, JsValue>;
 }
 
