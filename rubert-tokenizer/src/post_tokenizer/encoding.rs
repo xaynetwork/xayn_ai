@@ -71,7 +71,9 @@ where
             .splits
             .iter()
             .enumerate()
-            .map(|(idx, _)| Some(N::from_usize(idx).unwrap()))
+            .flat_map(|(idx, split)| {
+                iter::repeat(Some(N::from_usize(idx).unwrap())).take(split.tokens.len())
+            })
             .collect();
         let offsets = sequence
             .splits
