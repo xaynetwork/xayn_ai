@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader, Error as IoError, Read},
+    marker::PhantomData,
     path::Path,
 };
 
@@ -8,16 +9,17 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    model::{Model, ModelError},
+    model::{BertModel, Model, ModelError},
     pipeline::Pipeline,
     pooler::NonePooler,
     tokenizer::{Tokenizer, TokenizerError},
 };
 
 /// A builder to create a [`Pipeline`] pipeline.
-pub struct Builder<V, M, P> {
+pub struct Builder<V, M, K, P> {
     vocab: V,
     model: M,
+    model_kind: PhantomData<K>,
     accents: bool,
     lowercase: bool,
     token_size: usize,
@@ -37,12 +39,13 @@ pub enum BuilderError {
     Model(#[from] ModelError),
 }
 
-impl<V, M> Builder<V, M, NonePooler> {
+impl<V, M, K> Builder<V, M, K, NonePooler> {
     /// Creates a [`Pipeline`] pipeline builder from an in-memory vocabulary and model.
     pub fn new(vocab: V, model: M) -> Self {
         Self {
             vocab,
             model,
+            model_kind: PhantomData,
             accents: false,
             lowercase: true,
             token_size: 128,
@@ -51,7 +54,7 @@ impl<V, M> Builder<V, M, NonePooler> {
     }
 }
 
-impl Builder<BufReader<File>, BufReader<File>, NonePooler> {
+impl<K> Builder<BufReader<File>, BufReader<File>, K, NonePooler> {
     /// Creates a [`Pipeline`] builder from a vocabulary and model file.
     pub fn from_files(
         vocab: impl AsRef<Path>,
@@ -63,7 +66,7 @@ impl Builder<BufReader<File>, BufReader<File>, NonePooler> {
     }
 }
 
-impl<V, M, P> Builder<V, M, P> {
+impl<V, M, K, P> Builder<V, M, K, P> {
     /// Whether the tokenizer keeps accents.
     ///
     /// Defaults to `false`.
@@ -98,10 +101,11 @@ impl<V, M, P> Builder<V, M, P> {
     /// Sets pooling for the model.
     ///
     /// Defaults to `NonePooler`.
-    pub fn with_pooling<Q>(self, pooler: Q) -> Builder<V, M, Q> {
+    pub fn with_pooling<Q>(self, pooler: Q) -> Builder<V, M, K, Q> {
         Builder {
             vocab: self.vocab,
             model: self.model,
+            model_kind: self.model_kind,
             accents: self.accents,
             lowercase: self.lowercase,
             token_size: self.token_size,
@@ -113,8 +117,9 @@ impl<V, M, P> Builder<V, M, P> {
     ///
     /// # Errors
     /// Fails on invalid tokenizer or model settings.
-    pub fn build(self) -> Result<Pipeline<P>, BuilderError>
+    pub fn build(self) -> Result<Pipeline<K, P>, BuilderError>
     where
+        K: BertModel,
         V: BufRead,
         M: Read,
     {

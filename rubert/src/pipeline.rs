@@ -15,9 +15,9 @@ use crate::{
 /// Can be created via the [`Builder`] and consists of a tokenizer, a model and a pooler.
 ///
 /// [`Builder`]: crate::builder::Builder
-pub struct Pipeline<P> {
+pub struct Pipeline<K, P> {
     pub(crate) tokenizer: Tokenizer,
-    pub(crate) model: Model,
+    pub(crate) model: Model<K>,
     pub(crate) pooler: P,
 }
 
@@ -32,7 +32,7 @@ pub enum PipelineError {
     Pooler(#[from] PoolerError),
 }
 
-impl Pipeline<NonePooler> {
+impl<K> Pipeline<K, NonePooler> {
     /// Computes the embedding of the sequence.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embedding2, PipelineError> {
         let encoding = self.tokenizer.encode(sequence);
@@ -41,7 +41,7 @@ impl Pipeline<NonePooler> {
     }
 }
 
-impl Pipeline<FirstPooler> {
+impl<K> Pipeline<K, FirstPooler> {
     /// Computes the embedding of the sequence.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embedding1, PipelineError> {
         let encoding = self.tokenizer.encode(sequence);
@@ -50,7 +50,7 @@ impl Pipeline<FirstPooler> {
     }
 }
 
-impl Pipeline<AveragePooler> {
+impl<K> Pipeline<K, AveragePooler> {
     /// Computes the embedding of the sequence.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embedding1, PipelineError> {
         let encoding = self.tokenizer.encode(sequence);
@@ -62,7 +62,7 @@ impl Pipeline<AveragePooler> {
     }
 }
 
-impl<P> Pipeline<P> {
+impl<K, P> Pipeline<K, P> {
     /// Gets the token size.
     pub fn token_size(&self) -> usize {
         self.tokenizer.token_size
@@ -79,12 +79,13 @@ mod tests {
     use super::*;
     use crate::{
         builder::Builder,
+        model::kinds::SMBert,
         pooler::{AveragePooler, FirstPooler, NonePooler},
-        tests::{MODEL, VOCAB},
+        tests::{SMBERT_MODEL, VOCAB},
     };
 
-    fn pipeline<P>(pooler: P) -> Pipeline<P> {
-        Builder::from_files(VOCAB, MODEL)
+    fn pipeline<P>(pooler: P) -> Pipeline<SMBert, P> {
+        Builder::from_files(VOCAB, SMBERT_MODEL)
             .unwrap()
             .with_accents(false)
             .with_lowercase(true)
