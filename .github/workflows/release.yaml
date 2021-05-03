@@ -19,7 +19,7 @@ env:
   JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
-  RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
+  PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
 
 jobs:
   registry-cache:
@@ -225,6 +225,8 @@ jobs:
           key: ${{ needs.install-cargo-ndk.outputs.cache-key }}
 
       - name: Build Android library ${{ matrix.target }}
+        env:
+          RUSTFLAGS: ${{ env.PRODUCTION_RUSTFLAGS }}
         run: |
           cargo ndk \
             -t ${{ matrix.target }} \
@@ -283,6 +285,8 @@ jobs:
           key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
 
       - name: Build iOS library
+        env:
+          RUSTFLAGS: ${{ env.PRODUCTION_RUSTFLAGS }}
         run: cargo lipo --targets ${{ matrix.target }} --release
 
       - name: Strip symbols
@@ -382,7 +386,8 @@ jobs:
           cd $CLONE_DIR
 
           # Cleaning all files on the destination repository
-          git rm -r .
+          # --ignore-unmatch avoid to fail if the repository is empty
+          git rm --ignore-unmatch -r .
 
           rsync -a ${{ env.DART_WORKSPACE}}/ .
 
@@ -398,6 +403,6 @@ jobs:
             https://github.com/xaynetwork/xayn_ai/commit/$SRC_COMMIT
             https://github.com/xaynetwork/xayn_ai/tree/$BRANCH"
             git push -u origin HEAD:$BRANCH
-            git fetch --tags git@github.com:xaynetwork/xain_ai.git
+            git fetch --tags git@github.com:xaynetwork/xayn_ai.git
             git push --tags
           fi
