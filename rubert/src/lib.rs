@@ -30,7 +30,7 @@ mod tokenizer;
 
 pub use crate::{
     builder::{Builder, BuilderError},
-    pipeline::{RuBert, RuBertError},
+    pipeline::{Pipeline, PipelineError},
     pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler},
 };
 #[cfg(doc)]

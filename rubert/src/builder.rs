@@ -9,12 +9,12 @@ use thiserror::Error;
 
 use crate::{
     model::{Model, ModelError},
-    pipeline::RuBert,
+    pipeline::Pipeline,
     pooler::NonePooler,
     tokenizer::{Tokenizer, TokenizerError},
 };
 
-/// A builder to create a [`RuBert`] pipeline.
+/// A builder to create a [`Pipeline`] pipeline.
 pub struct Builder<V, M, P> {
     vocab: V,
     model: M,
@@ -38,7 +38,7 @@ pub enum BuilderError {
 }
 
 impl<V, M> Builder<V, M, NonePooler> {
-    /// Creates a [`RuBert`] pipeline builder from an in-memory vocabulary and model.
+    /// Creates a [`Pipeline`] pipeline builder from an in-memory vocabulary and model.
     pub fn new(vocab: V, model: M) -> Self {
         Self {
             vocab,
@@ -52,7 +52,7 @@ impl<V, M> Builder<V, M, NonePooler> {
 }
 
 impl Builder<BufReader<File>, BufReader<File>, NonePooler> {
-    /// Creates a [`RuBert`] pipeline builder from a vocabulary and model file.
+    /// Creates a [`Pipeline`] builder from a vocabulary and model file.
     pub fn from_files(
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
@@ -109,11 +109,11 @@ impl<V, M, P> Builder<V, M, P> {
         }
     }
 
-    /// Builds a [`RuBert`] pipeline.
+    /// Builds a [`Pipeline`].
     ///
     /// # Errors
     /// Fails on invalid tokenizer or model settings.
-    pub fn build(self) -> Result<RuBert<P>, BuilderError>
+    pub fn build(self) -> Result<Pipeline<P>, BuilderError>
     where
         V: BufRead,
         M: Read,
@@ -121,7 +121,7 @@ impl<V, M, P> Builder<V, M, P> {
         let tokenizer = Tokenizer::new(self.vocab, self.accents, self.lowercase, self.token_size)?;
         let model = Model::new(self.model, self.token_size)?;
 
-        Ok(RuBert {
+        Ok(Pipeline {
             tokenizer,
             model,
             pooler: self.pooler,
