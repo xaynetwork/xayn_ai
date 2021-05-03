@@ -47,8 +47,6 @@ pub(crate) unsafe fn as_str<'a>(
 /// - The `Value` is accessed after its lifetime has expired.
 pub(crate) unsafe trait IntoRaw {
     /// A C-compatible value. Usually some kind of `#[repr(C)]` and `'static`/owned.
-    // https://doc.rust-lang.org/std/boxed/index.html#memory-layout
-    // https://rust-lang.github.io/unsafe-code-guidelines/layout/pointers.html
     type Value: Default + Send + Sized;
 
     /// Converts the Rust value into the C value. Usually leaks memory for heap allocated values.
