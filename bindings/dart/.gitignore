@@ -2,6 +2,11 @@
 build/
 .packages
 pubspec.lock
+
+# When we push to the release repository
+# we need to upload also the following files.
+# DELETE_AFTER_THIS_IN_RELEASE
 android/src/main/jniLibs/
 ios/Classes/XaynAiFfiDartPlugin.h
 ios/libxayn_ai_ffi_c.a
+lib/src/ffi/genesis.dart

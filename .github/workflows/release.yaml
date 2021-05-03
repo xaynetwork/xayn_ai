@@ -1,0 +1,403 @@
+name: Release-CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [closed]
+    branches:
+      - "master"
+  push:
+    tags:
+      - "v*"
+
+env:
+  RUST_STABLE: 1.51.0
+  CARGO_NDK: 2.3.0
+  ANDROID_PLATFORM_VERSION: 21
+  CARGO_LIPO: 3.1.1
+  FLUTTER_VERSION: '2.0.0'
+  JAVA_VERSION: '12.x'
+  DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
+  ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
+  RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
+
+jobs:
+  registry-cache:
+    # we use the latest stable rustc + cargo version that is already installed on the image
+    # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
+    name: cargo-fetch
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      cache-date: ${{ steps.get-date.outputs.date }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # We want to create a new cache after a week. Otherwise, the cache will
+      # take up too much space by caching old dependencies
+      - name: Generate Year + ISO week number key
+        id: get-date
+        shell: bash
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y-%V")"
+
+      - name: Generate cargo registry cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
+
+      - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
+
+      - name: Fetch dependencies
+        run: cargo fetch
+
+  install-cargo-ndk:
+    name: install-cargo-ndk
+    runs-on: ubuntu-20.04
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    timeout-minutes: 15
+    steps:
+      - name: Generate cargo-ndk cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-ndk-bin-${{ env.CARGO_NDK }})"
+
+      - name: Restore ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        id: cargo-ndk-cache
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Install cargo-ndk ${{ env.CARGO_NDK }}
+        if: ${{ !steps.cargo-ndk-cache.outputs.cache-hit }}
+        run: cargo install cargo-ndk --version ${{ env.CARGO_NDK }}
+
+  install-cargo-lipo:
+    # we use the latest stable rustc + cargo version that is already installed on the image
+    # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
+    name: install-cargo-lipo
+    runs-on: macos-10.15
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    timeout-minutes: 15
+    steps:
+      - name: Generate cargo-lipo cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-lipo-bin-${{ env.CARGO_LIPO }})"
+
+      - name: Restore ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        id: cargo-lipo-cache
+        with:
+          path: ~/.cargo/bin/cargo-lipo
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
+        if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
+        run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
+
+  build-headers:
+    name: build-headers
+    needs: [registry-cache]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install libclang-10-dev
+        run: sudo apt-get install libclang-10-dev
+
+      - name: Setup java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
+
+      - name: Set path or install flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
+
+      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Restore build artifacts
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: Build headers
+        run: cargo check
+
+      - name: Install flutter dependencies
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub get
+
+      - name: Generate flutter ffi
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub run ffigen
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: headers-${{ github.sha }}
+          retention-days: 1
+          path: |
+            ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h
+            ${{ env.DART_WORKSPACE }}/lib/src/ffi/genesis.dart
+
+  build-android-libs:
+    name: build-android-libs
+    needs: [registry-cache, install-cargo-ndk]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        target: [aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
+
+      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Restore build artifacts
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: ${{ needs.install-cargo-ndk.outputs.cache-key }}
+
+      - name: Build Android library ${{ matrix.target }}
+        run: |
+          cargo ndk \
+            -t ${{ matrix.target }} \
+            -p ${{ env.ANDROID_PLATFORM_VERSION }} \
+            -o ${{ env.ANDROID_LIBS_DIR }} \
+            build --release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: android-${{ matrix.target }}-${{ github.sha }}
+          retention-days: 1
+          path: ${{ env.ANDROID_LIBS_DIR }}
+
+  build-ios-libs:
+    name: build-ios-libs
+    needs: [registry-cache, install-cargo-lipo]
+    runs-on: macos-10.15
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        target: [aarch64-apple-ios, x86_64-apple-ios]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
+
+      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Restore build artifacts
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: ~/.cargo/bin/cargo-lipo
+          key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
+
+      - name: Build iOS library
+        run: cargo lipo --targets ${{ matrix.target }} --release
+
+      - name: Strip symbols
+        run: |
+          strip -S -x -r target/${{ matrix.target}}/release/libxayn_ai_ffi_c.a
+
+      - name: Rename lib
+        run: |
+          dir=target/${{ matrix.target}}/release
+          mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ios-${{ matrix.target }}-${{ github.sha }}
+          retention-days: 1
+          path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
+
+  release:
+    name: release
+    runs-on: ubuntu-20.04
+    needs: [build-headers, build-android-libs, build-ios-libs]
+    timeout-minutes: 60
+    steps:
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: /tmp/artifacts/
+
+      - name: Copy Android libs
+        run: |
+          mkdir -p ${{ env.ANDROID_LIBS_DIR }}
+          cd /tmp/artifacts
+          cp -r android-*/* ${{ env.ANDROID_LIBS_DIR }}
+
+      - name: Copy iOS lib
+        run: |
+          cd /tmp/artifacts
+          cp -r ios-*/* ${{ env.DART_WORKSPACE }}/ios
+
+      - name: Copy data to assets
+        run: |
+          sh download_data.sh
+          cd ${{ env.DART_WORKSPACE }}/assets
+          # substitute symlink to data with the actual data
+          for file in ./*; do
+            # if file is a symlink
+            if [[ -L $file ]]; then
+              src=$(readlink $file);
+              rm $file;
+              cp -r $src $file;
+            fi;
+          done
+
+      - name: Copy headers
+        run: |
+          cd /tmp/artifacts/headers-${{ github.sha }}
+          cp lib/src/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
+          cp ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/Classes
+
+      - name: Get current branch
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: current_branch
+
+      - name: Copy Repository
+        shell: bash
+        run: |
+          # Create a temporary folder to clone the other repo
+          CLONE_DIR=$(mktemp -d)
+          DST_REPO='xaynetwork/xayn_ai_release'
+          EMAIL='ci@xayn.io'
+          USERNAME='ci'
+          BRANCH=${{ steps.current_branch.outputs.branch }}
+          SRC_COMMIT=$(git rev-parse HEAD)
+          SRC_COMMIT_MSG=$(git log --format=%B -n1)
+          git config --global user.email $EMAIL
+          git config --global user.name $USERNAME
+
+          # Check if the branch exists, if so, clone using the existing branch,
+          # if not, clone using the default branch and let git push to send to the right branch
+          BRANCH_EXISTS=$(git ls-remote --heads "git@github.com:$DST_REPO.git" $BRANCH | wc -l);
+          if [ $BRANCH_EXISTS -eq 0 ];then
+            git clone --depth 1 "git@github.com:$DST_REPO.git" $CLONE_DIR
+          else
+            git clone -b $BRANCH --depth 1 "git@github.com:$DST_REPO.git" $CLONE_DIR;
+          fi
+          cd $CLONE_DIR
+
+          # Cleaning all files on the destination repository
+          git rm -r .
+
+          rsync -a ${{ env.DART_WORKSPACE}}/ .
+
+          # Remove files from .gitignore that needs to be uploaded to the release repo
+          sed -i -e '/DELETE_AFTER_THIS_IN_RELEASE/,$d' .gitignore
+
+          git add -A
+
+          # Commit only if something changed
+          if [ $(git status --porcelain | wc -l) -gt 0 ]; then
+            git commit --message "$SRC_COMMIT_MSG
+
+            https://github.com/xaynetwork/xayn_ai/commit/$SRC_COMMIT
+            https://github.com/xaynetwork/xayn_ai/tree/$BRANCH"
+            git push -u origin HEAD:$BRANCH
+            git fetch --tags git@github.com:xaynetwork/xain_ai.git
+            git push --tags
+          fi
