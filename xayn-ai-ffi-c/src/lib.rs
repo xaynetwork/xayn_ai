@@ -5,6 +5,7 @@
 pub mod data;
 pub mod reranker;
 pub mod result;
+mod slice;
 pub mod utils;
 
 #[cfg(test)]

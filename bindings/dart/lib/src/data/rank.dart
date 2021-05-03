@@ -1,11 +1,11 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer, Uint32Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CRanks;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u32;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The ranks of the reranked documents.
 class Ranks {
-  Pointer<CRanks> _ranks;
+  Pointer<CBoxedSlice_u32> _ranks;
 
   /// Creates the ranks.
   ///

@@ -1,4 +1,4 @@
-import 'dart:ffi' show AllocatorAlloc, Int8, nullptr, Pointer, StructPointer;
+import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:meta/meta.dart' show visibleForTesting;
@@ -47,7 +47,7 @@ extension RelevanceInt on Relevance {
 enum Feedback {
   relevant,
   irrelevant,
-  none,
+  nil,
 }
 
 extension FeedbackInt on Feedback {
@@ -58,8 +58,8 @@ extension FeedbackInt on Feedback {
         return CFeedback.Relevant;
       case Feedback.irrelevant:
         return CFeedback.Irrelevant;
-      case Feedback.none:
-        return CFeedback.None;
+      case Feedback.nil:
+        return CFeedback.Nil;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -72,8 +72,8 @@ extension FeedbackInt on Feedback {
         return Feedback.relevant;
       case CFeedback.Irrelevant:
         return Feedback.irrelevant;
-      case CFeedback.None:
-        return Feedback.none;
+      case CFeedback.Nil:
+        return Feedback.nil;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -118,7 +118,7 @@ class Histories {
     } else {
       _hists.ref.data = malloc.call<CHistory>(_hists.ref.len);
       histories.asMap().forEach((i, history) {
-        _hists.ref.data[i].id = history._id.toNativeUtf8().cast<Int8>();
+        _hists.ref.data[i].id = history._id.toNativeUtf8().cast<Uint8>();
         _hists.ref.data[i].relevance = history._relevance.toInt();
         _hists.ref.data[i].feedback = history._feedback.toInt();
       });

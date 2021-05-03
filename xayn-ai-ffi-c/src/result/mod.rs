@@ -3,50 +3,43 @@
 pub(crate) mod error;
 pub(crate) mod fault;
 
-use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
-
-use ffi_support::{ExternError, IntoFfi};
+use std::panic::{catch_unwind, UnwindSafe};
 
 pub use self::{
-    error::{error_message_drop, CCode},
+    error::{error_message_drop, CCode, CError},
     fault::{faults_drop, CFaults},
 };
+use crate::{result::error::Error, utils::IntoRaw};
 
 /// Calls a callback which returns a result.
 ///
-/// Similar to [`ffi_support::call_with_result()`] but with additional functionality:
+/// Catches an unwinding panic with optional error handling:
 /// - Ok: returns `T`'s FFI value.
-/// - Error: returns `T`'s default FFI value and optionally reports an error.
-/// - Panic: returns `T`'s default FFI value, performs cleanup and optionally reports an error.
-pub(crate) fn call_with_result<F, G, T>(
-    call: F,
-    clean: G,
-    error: Option<&mut ExternError>,
-) -> T::Value
+/// - Error/Panic: returns `T`'s default FFI value and optionally reports an error.
+pub(crate) fn call_with_result<F, T, E>(call: F, error: Option<&mut CError>) -> T::Value
 where
-    F: UnwindSafe + FnOnce() -> Result<T, ExternError>,
-    G: RefUnwindSafe + FnOnce(),
-    T: IntoFfi,
+    F: UnwindSafe + FnOnce() -> Result<T, E>,
+    T: IntoRaw,
+    E: Into<Error>,
 {
     match catch_unwind(call) {
         Ok(Ok(value)) => {
             if let Some(error) = error {
-                *error = ExternError::success();
+                *error = Error::none().into_raw();
             }
-            value.into_ffi_value()
+            value.into_raw()
         }
         Ok(Err(cause)) => {
             if let Some(error) = error {
-                *error = cause;
+                *error = cause.into().into_raw();
             }
-            T::ffi_default()
+            T::Value::default()
         }
         Err(cause) => {
             if let Some(error) = error {
-                *error = cause.into();
+                *error = Error::panic(cause).into_raw();
             }
-            clean();
-            T::ffi_default()
+            T::Value::default()
         }
     }
 }

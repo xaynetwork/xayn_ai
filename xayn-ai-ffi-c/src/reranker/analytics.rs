@@ -1,20 +1,24 @@
-use ffi_support::implement_into_ffi_by_pointer;
-use xayn_ai::Analytics;
+use crate::utils::IntoRaw;
 
-use crate::result::call_with_result;
+/// The analytics of the reranker.
+pub struct Analytics(pub(crate) Option<xayn_ai::Analytics>);
 
 /// The raw analytics.
-pub struct CAnalytics(pub(crate) Option<Analytics>);
+pub struct CAnalytics(Analytics);
 
 // this is more like a dummy impl for now until we have fleshed out the analytics
-implement_into_ffi_by_pointer! { CAnalytics }
+unsafe impl IntoRaw for Analytics
+where
+    CAnalytics: Sized,
+{
+    // Safety:
+    // CAnalytics is sized, hence Box<CAnalytics> is representable as a *mut CAnalytics and
+    // Option<Box<CAnalytics>> is eligible for the nullable pointer optimization.
+    type Value = Option<Box<CAnalytics>>;
 
-impl CAnalytics {
-    /// See [`analytics_drop()`] for more.
-    unsafe fn drop(analytics: *mut Self) {
-        if !analytics.is_null() {
-            unsafe { Box::from_raw(analytics) };
-        }
+    #[inline]
+    fn into_raw(self) -> Self::Value {
+        Some(Box::new(CAnalytics(self)))
     }
 }
 
@@ -28,13 +32,12 @@ impl CAnalytics {
 ///
 /// [`xaynai_analytics()`]: crate::reranker::ai::xaynai_analytics
 #[no_mangle]
-pub unsafe extern "C" fn analytics_drop(analytics: *mut CAnalytics) {
-    let drop = || {
-        unsafe { CAnalytics::drop(analytics) };
-        Ok(())
-    };
-    let clean = || {};
-    let error = None;
+pub unsafe extern "C" fn analytics_drop(_analytics: Option<Box<CAnalytics>>) {}
 
-    call_with_result(drop, clean, error);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::tests::AsPtr;
+
+    impl AsPtr for CAnalytics {}
 }

@@ -1,13 +1,13 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer, Uint8Pointer;
 import 'dart:typed_data' show Uint8List;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBytes;
+import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u8;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 
 /// A bytes buffer.
 class Bytes {
-  late Pointer<CBytes> _bytes;
+  late Pointer<CBoxedSlice_u8> _bytes;
 
   /// Creates the bytes buffer from a pointer.
   ///
@@ -35,7 +35,7 @@ class Bytes {
   }
 
   /// Gets the pointer.
-  Pointer<CBytes> get ptr => _bytes;
+  Pointer<CBoxedSlice_u8> get ptr => _bytes;
 
   /// Converts the buffer to a list.
   Uint8List toList() {

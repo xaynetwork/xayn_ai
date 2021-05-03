@@ -1,8 +1,8 @@
 //! Feature extraction algorithm based on Dataiku's solution to Yandex Personalized Web Search
 //! Challenge [1]. See [2] for the first implementation in Python.
 //!
-//! [1] https://www.academia.edu/9872579/Dataikus_Solution_to_Yandexs_Personalized_Web_Search_Challenge
-//! [2] https://github.com/xaynetwork/soundgarden
+//! [1]: https://www.academia.edu/9872579/Dataikus_Solution_to_Yandexs_Personalized_Web_Search_Challenge
+//! [2]: https://github.com/xaynetwork/soundgarden
 
 #![allow(dead_code)] // TEMP
 

@@ -1,11 +1,4 @@
-use std::{
-    ptr::{null, null_mut},
-    slice::from_raw_parts_mut,
-};
-
-use ffi_support::{ExternError, IntoFfi};
-
-use crate::result::call_with_result;
+use crate::{slice::CBoxedSlice, utils::IntoRaw};
 
 /// The ranks of the reranked documents.
 pub struct Ranks(Vec<u32>);
@@ -21,50 +14,20 @@ impl From<xayn_ai::Ranks> for Ranks {
 /// The ranks are in the same logical order as the documents used in [`xaynai_rerank()`].
 ///
 /// [`xaynai_rerank()`]: crate::reranker::ai::xaynai_rerank
-#[repr(C)]
-pub struct CRanks {
-    /// The raw pointer to the ranks.
-    pub data: *const u32,
-    /// The number of ranks.
-    pub len: u32,
-}
+pub type CRanks = CBoxedSlice<u32>;
 
-unsafe impl IntoFfi for Ranks {
-    type Value = *mut CRanks;
-
-    #[inline]
-    fn ffi_default() -> Self::Value {
-        null_mut()
-    }
+unsafe impl IntoRaw for Ranks
+where
+    CRanks: Sized,
+{
+    // Safety:
+    // CRanks is sized, hence Box<CRanks> is representable as a *mut CRanks and Option<Box<CRanks>>
+    // is eligible for the nullable pointer optimization.
+    type Value = Option<Box<CRanks>>;
 
     #[inline]
-    fn into_ffi_value(self) -> Self::Value {
-        let len = self.0.len() as u32;
-        let data = if self.0.is_empty() {
-            null()
-        } else {
-            self.0.leak().as_ptr()
-        };
-        let ranks = CRanks { data, len };
-
-        Box::into_raw(Box::new(ranks))
-    }
-}
-
-impl CRanks {
-    /// See [`ranks_drop()`] for more.
-    unsafe fn drop(ranks: *mut Self) {
-        if !ranks.is_null() {
-            let ranks = unsafe { Box::from_raw(ranks) };
-            if !ranks.data.is_null() && ranks.len > 0 {
-                unsafe {
-                    Box::from_raw(from_raw_parts_mut(
-                        ranks.data as *mut u32,
-                        ranks.len as usize,
-                    ))
-                };
-            }
-        }
+    fn into_raw(self) -> Self::Value {
+        Some(Box::new(self.0.into_boxed_slice().into()))
     }
 }
 
@@ -78,46 +41,22 @@ impl CRanks {
 ///
 /// [`xaynai_rerank()`]: crate::reranker::ai::xaynai_rerank
 #[no_mangle]
-pub unsafe extern "C" fn ranks_drop(ranks: *mut CRanks) {
-    let drop = || {
-        unsafe { CRanks::drop(ranks) };
-        Result::<_, ExternError>::Ok(())
-    };
-    let clean = || {};
-    let error = None;
-
-    call_with_result(drop, clean, error);
-}
+pub unsafe extern "C" fn ranks_drop(_ranks: Option<Box<CRanks>>) {}
 
 #[cfg(test)]
-pub(crate) mod tests {
-    use std::slice::from_raw_parts;
-
+mod tests {
     use super::*;
 
     #[test]
     fn test_into_raw() {
         let buffer = (0..10).collect::<Vec<_>>();
-        let ranks = Ranks(buffer.clone()).into_ffi_value();
-
-        assert!(!ranks.is_null());
-        let data = unsafe { &*ranks }.data;
-        let len = unsafe { &*ranks }.len as usize;
-        assert!(!data.is_null());
-        assert_eq!(len, buffer.len());
-        assert_eq!(unsafe { from_raw_parts(data, len) }, buffer);
-
-        unsafe { ranks_drop(ranks) };
+        let ranks = Ranks(buffer.clone()).into_raw().unwrap();
+        assert_eq!(ranks.as_slice(), buffer);
     }
 
     #[test]
     fn test_into_empty() {
-        let ranks = Ranks(Vec::new()).into_ffi_value();
-
-        assert!(!ranks.is_null());
-        assert!(unsafe { &*ranks }.data.is_null());
-        assert_eq!(unsafe { &*ranks }.len, 0);
-
-        unsafe { ranks_drop(ranks) };
+        let ranks = Ranks(Vec::new()).into_raw().unwrap();
+        assert!(ranks.is_empty());
     }
 }
