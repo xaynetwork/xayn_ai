@@ -158,8 +158,8 @@ jobs:
         uses: actions/cache@v2.1.4
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-headers-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-headers-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-
 
       - name: Build headers
         run: cargo check
@@ -215,8 +215,8 @@ jobs:
         uses: actions/cache@v2.1.4
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
       - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
@@ -273,8 +273,8 @@ jobs:
         uses: actions/cache@v2.1.4
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
 
       - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
         uses: actions/cache@v2.1.4
