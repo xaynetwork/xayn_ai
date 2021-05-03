@@ -386,7 +386,8 @@ jobs:
           cd $CLONE_DIR
 
           # Cleaning all files on the destination repository
-          git rm -r .
+          # --ignore-unmatch avoid to fail if the repository is empty
+          git rm --ignore-unmatch -r .
 
           rsync -a ${{ env.DART_WORKSPACE}}/ .
 
