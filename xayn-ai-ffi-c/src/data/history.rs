@@ -34,7 +34,7 @@ impl From<CRelevance> for Relevance {
 pub enum CFeedback {
     Relevant = 0,
     Irrelevant = 1,
-    None = 2,
+    Nil = 2,
 }
 
 impl From<CFeedback> for UserFeedback {
@@ -42,7 +42,7 @@ impl From<CFeedback> for UserFeedback {
         match feedback {
             CFeedback::Relevant => Self::Relevant,
             CFeedback::Irrelevant => Self::Irrelevant,
-            CFeedback::None => Self::None,
+            CFeedback::Nil => Self::None,
         }
     }
 }

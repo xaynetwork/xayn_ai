@@ -9,12 +9,12 @@ use crate::{reranker::CBytes, result::call_with_result, utils::IntoRaw};
 #[derive(Clone, Copy, Display)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum CCode {
-    /// A warning or uncritical error.
+    /// A warning or noncritical error.
     Fault = -2,
     /// An irrecoverable error.
     Panic = -1,
     /// No error.
-    Success = 0,
+    None = 0,
     /// A vocab null pointer error.
     VocabPointer = 1,
     /// A model null pointer error.
@@ -69,8 +69,8 @@ pub struct CError {
 }
 
 impl From<Infallible> for Error {
-    fn from(_success: Infallible) -> Self {
-        Self::success()
+    fn from(_none: Infallible) -> Self {
+        Self::none()
     }
 }
 
@@ -88,7 +88,7 @@ where
     /// be used.
     #[inline]
     fn into_raw(self) -> Self::Value {
-        let message = if let CCode::Success = self.code {
+        let message = if let CCode::None = self.code {
             None
         } else {
             let bytes = CString::new(self.message)
@@ -110,9 +110,9 @@ where
 }
 
 impl Error {
-    /// Creates the error information for the success code.
-    pub fn success() -> Self {
-        CCode::Success.with_context(String::new())
+    /// Creates the error information for the no error code.
+    pub fn none() -> Self {
+        CCode::None.with_context(String::new())
     }
 
     /// Creates the error information from the panic payload.
@@ -133,7 +133,7 @@ impl Error {
 impl Default for CError {
     /// Defaults to success.
     fn default() -> Self {
-        Error::success().into_raw()
+        Error::none().into_raw()
     }
 }
 
@@ -193,12 +193,12 @@ mod tests {
 
     #[test]
     fn test_into_raw_success() {
-        let error = Error::success().into_raw();
-        assert_eq!(error.code, CCode::Success);
+        let error = Error::none().into_raw();
+        assert_eq!(error.code, CCode::None);
         assert!(error.message.is_none());
 
-        let error = CCode::Success.with_context("test success").into_raw();
-        assert_eq!(error.code, CCode::Success);
+        let error = CCode::None.with_context("test none").into_raw();
+        assert_eq!(error.code, CCode::None);
         assert!(error.message.is_none());
     }
 

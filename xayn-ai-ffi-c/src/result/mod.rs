@@ -25,7 +25,7 @@ where
     match catch_unwind(call) {
         Ok(Ok(value)) => {
             if let Some(error) = error {
-                *error = Error::success().into_raw();
+                *error = Error::none().into_raw();
             }
             value.into_raw()
         }

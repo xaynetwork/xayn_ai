@@ -12,7 +12,7 @@ where
     CAnalytics: Sized,
 {
     // Safety:
-    // CAnalytics is sized, hence Box<CAnalyitics> is representable as a *mut CAnalytics and
+    // CAnalytics is sized, hence Box<CAnalytics> is representable as a *mut CAnalytics and
     // Option<Box<CAnalytics>> is eligible for the nullable pointer optimization.
     type Value = Option<Box<CAnalytics>>;
 

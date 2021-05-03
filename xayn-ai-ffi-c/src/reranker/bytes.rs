@@ -92,7 +92,7 @@ mod tests {
         let buffer = test_bytes::<10>();
         let mut error = CError::default();
         let bytes = unsafe { bytes_new(buffer.len() as u64, error.as_mut_ptr()) }.unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
         assert_eq!(bytes.as_slice(), buffer);
     }
 
@@ -100,7 +100,7 @@ mod tests {
     fn test_empty() {
         let mut error = CError::default();
         let bytes = unsafe { bytes_new(0, error.as_mut_ptr()) }.unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
         assert!(bytes.is_empty());
     }
 }

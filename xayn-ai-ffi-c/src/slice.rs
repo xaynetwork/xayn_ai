@@ -155,6 +155,12 @@ impl<T> From<CBoxedSlice<T>> for Box<[T]> {
     }
 }
 
+impl<T: Clone> Clone for CBoxedSlice<T> {
+    fn clone(&self) -> Self {
+        self.as_slice().to_vec().into_boxed_slice().into()
+    }
+}
+
 impl<T> Deref for CBoxedSlice<T> {
     type Target = [T];
 

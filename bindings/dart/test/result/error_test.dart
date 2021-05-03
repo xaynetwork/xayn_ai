@@ -20,7 +20,7 @@ void main() {
 
       expect(error.isFault(), equals(true));
       expect(error.isPanic(), equals(false));
-      expect(error.isSuccess(), equals(false));
+      expect(error.isNone(), equals(false));
       expect(error.isError(), equals(false));
 
       malloc.free(error.ptr.ref.message.ref.data);
@@ -37,7 +37,7 @@ void main() {
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(true));
-      expect(error.isSuccess(), equals(false));
+      expect(error.isNone(), equals(false));
       expect(error.isError(), equals(true));
 
       malloc.free(error.ptr.ref.message.ref.data);
@@ -45,13 +45,13 @@ void main() {
       malloc.free(error.ptr);
     });
 
-    test('success', () {
+    test('none', () {
       final error = XaynAiError();
 
       expect(error.ptr, isNot(equals(nullptr)));
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(false));
-      expect(error.isSuccess(), equals(true));
+      expect(error.isNone(), equals(true));
       expect(error.isError(), equals(false));
 
       malloc.free(error.ptr);
@@ -66,7 +66,7 @@ void main() {
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(false));
-      expect(error.isSuccess(), equals(false));
+      expect(error.isNone(), equals(false));
       expect(error.isError(), equals(true));
 
       malloc.free(error.ptr.ref.message.ref.data);

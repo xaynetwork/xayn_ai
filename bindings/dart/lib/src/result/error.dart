@@ -7,14 +7,14 @@ import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 
 /// The Xayn AI error codes.
 enum Code {
-  /// A warning or uncritical error.
+  /// A warning or noncritical error.
   fault,
 
   /// An irrecoverable error.
   panic,
 
   /// No error.
-  success,
+  none,
 
   /// A vocab null pointer error.
   vocabPointer,
@@ -61,8 +61,8 @@ extension CodeInt on Code {
         return CCode.Fault;
       case Code.panic:
         return CCode.Panic;
-      case Code.success:
-        return CCode.Success;
+      case Code.none:
+        return CCode.None;
       case Code.vocabPointer:
         return CCode.VocabPointer;
       case Code.modelPointer:
@@ -99,8 +99,8 @@ extension CodeInt on Code {
         return Code.fault;
       case CCode.Panic:
         return Code.panic;
-      case CCode.Success:
-        return Code.success;
+      case CCode.None:
+        return Code.none;
       case CCode.VocabPointer:
         return Code.vocabPointer;
       case CCode.ModelPointer:
@@ -140,7 +140,7 @@ class XaynAiError {
   /// This constructor never throws an exception.
   XaynAiError() {
     _error = malloc.call<CError>();
-    _error.ref.code = CCode.Success;
+    _error.ref.code = CCode.None;
     _error.ref.message = nullptr;
   }
 
@@ -153,11 +153,11 @@ class XaynAiError {
   /// Checks for an irrecoverable error code.
   bool isPanic() => _error.ref.code == CCode.Panic;
 
-  /// Checks for a success code.
-  bool isSuccess() => _error.ref.code == CCode.Success;
+  /// Checks for a no error code.
+  bool isNone() => _error.ref.code == CCode.None;
 
   /// Checks for an error code (both recoverable and irrecoverable).
-  bool isError() => !isSuccess() && !isFault();
+  bool isError() => !isNone() && !isFault();
 
   /// Creates an exception from the error information.
   XaynAiException toException() {

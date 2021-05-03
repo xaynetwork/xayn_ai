@@ -376,7 +376,7 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
         let ranks = unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
@@ -386,7 +386,7 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
 
         unsafe { ranks_drop(ranks.into_ptr()) };
         unsafe { xaynai_drop(xaynai.into_ptr()) };
@@ -408,9 +408,9 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
         let db = unsafe { xaynai_serialize(xaynai.as_ptr(), error.as_mut_ptr()) }.unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
 
         unsafe { bytes_drop(db.into_ptr()) };
         unsafe { xaynai_drop(xaynai.into_ptr()) };
@@ -432,9 +432,9 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
         let faults = unsafe { xaynai_faults(xaynai.as_ptr(), error.as_mut_ptr()) };
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
 
         unsafe { faults_drop(faults) };
         unsafe { xaynai_drop(xaynai.into_ptr()) };
@@ -456,9 +456,9 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
         let analytics = unsafe { xaynai_analytics(xaynai.as_ptr(), error.as_mut_ptr()) }.unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
 
         unsafe { analytics_drop(analytics.into_ptr()) };
         unsafe { xaynai_drop(xaynai.into_ptr()) };
@@ -638,7 +638,7 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
 
         let invalid = None;
         assert!(unsafe {
@@ -677,7 +677,7 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
 
         let invalid = None;
         assert!(unsafe {
@@ -715,7 +715,7 @@ mod tests {
             )
         }
         .unwrap();
-        assert_eq!(error.code, CCode::Success);
+        assert_eq!(error.code, CCode::None);
 
         unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
