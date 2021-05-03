@@ -403,6 +403,6 @@ jobs:
             https://github.com/xaynetwork/xayn_ai/commit/$SRC_COMMIT
             https://github.com/xaynetwork/xayn_ai/tree/$BRANCH"
             git push -u origin HEAD:$BRANCH
-            git fetch --tags git@github.com:xaynetwork/xain_ai.git
+            git fetch --tags git@github.com:xaynetwork/xayn_ai.git
             git push --tags
           fi
