@@ -92,7 +92,7 @@ pub(crate) trait AnalyticsSystem {
 /// At the moment this exists only to avoid to have 7+ generics around
 pub(crate) trait CommonSystems {
     fn database(&self) -> &dyn Database;
-    fn bert(&self) -> &dyn BertSystem;
+    fn smbert(&self) -> &dyn BertSystem;
     fn coi(&self) -> &dyn CoiSystem;
     fn ltr(&self) -> &dyn LtrSystem;
     fn context(&self) -> &dyn ContextSystem;

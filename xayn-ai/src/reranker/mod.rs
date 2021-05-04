@@ -76,7 +76,7 @@ where
         })
         .collect();
 
-    common_systems.bert().compute_embedding(documents)
+    common_systems.smbert().compute_embedding(documents)
 }
 
 fn rerank<CS>(

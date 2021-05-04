@@ -43,7 +43,7 @@ impl CommonSystems for Systems {
         &self.database
     }
 
-    fn bert(&self) -> &dyn BertSystem {
+    fn smbert(&self) -> &dyn BertSystem {
         &self.bert
     }
 
