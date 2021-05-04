@@ -22,6 +22,7 @@ use crate::{
 use mockall::automock;
 
 #[cfg_attr(test, automock)]
+#[allow(clippy::upper_case_acronyms)]
 pub(crate) trait SMBertSystem {
     fn compute_embedding(
         &self,

@@ -36,10 +36,14 @@ pub use crate::{
     pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler},
 };
 
+#[allow(clippy::upper_case_acronyms)] 
 pub type SMBert = Pipeline<kinds::SMBert, AveragePooler>;
+#[allow(clippy::upper_case_acronyms)] 
 pub type QAMBert = Pipeline<kinds::QAMBert, AveragePooler>;
 
+#[allow(clippy::upper_case_acronyms)] 
 pub type SMBertBuilder<V, M> = Builder<V, M, kinds::SMBert, NonePooler>;
+#[allow(clippy::upper_case_acronyms)] 
 pub type QAMBertBuilder<V, M> = Builder<V, M, kinds::QAMBert, NonePooler>;
 
 #[cfg(doc)]

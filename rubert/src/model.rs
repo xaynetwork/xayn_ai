@@ -26,10 +26,12 @@ pub mod kinds {
     //! It must be passed together with `vocab` and `model` parameters.
     //! Passing the wrong kind with respect to the model can lead to a wrong output of the pipeline.
 
-    /// Sentence Embedding Multilingual Bert
+    /// Sentence (Embedding) Multilingual Bert
+    #[allow(clippy::upper_case_acronyms)]
     pub struct SMBert;
 
-    /// Question Answering Embedding Multilingual Bert
+    /// Question Answering (Embedding) Multilingual Bert
+    #[allow(clippy::upper_case_acronyms)]
     pub struct QAMBert;
 }
 

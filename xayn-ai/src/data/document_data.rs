@@ -22,6 +22,7 @@ pub(crate) struct DocumentContentComponent {
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub(crate) struct SMBertEmbeddingComponent {
     pub(crate) embedding: Embedding,
 }
@@ -66,6 +67,7 @@ pub(crate) struct DocumentDataWithDocument {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub(crate) struct DocumentDataWithSMBert {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) embedding: SMBertEmbeddingComponent,
