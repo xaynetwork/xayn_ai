@@ -21,7 +21,7 @@ pub struct Pipeline<K, P> {
     pub(crate) pooler: P,
 }
 
-/// The potential errors of the [`Pipeline`] pipeline.
+/// The potential errors of the [`Pipeline`].
 #[derive(Debug, Display, Error)]
 pub enum PipelineError {
     /// Failed to run the tokenizer: {0}
