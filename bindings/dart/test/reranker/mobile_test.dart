@@ -3,7 +3,7 @@ import 'dart:typed_data' show Uint8List;
 import 'package:flutter_test/flutter_test.dart'
     show contains, equals, expect, group, isEmpty, isNot, test;
 
-import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAi;
+import 'package:xayn_ai_ffi_dart/src/reranker/mobile.dart' show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show Code;
 import '../utils.dart'
     show documents, histories, model, throwsXaynAiException, vocab;

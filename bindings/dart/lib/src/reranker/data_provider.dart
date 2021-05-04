@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:async/async.dart';
 
-import 'package:xayn_ai_ffi_dart/src/reranker/ai.dart' show XaynAiSetupData;
+import 'package:xayn_ai_ffi_dart/src/reranker/mobile.dart' show XaynAiSetupData;
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 ///
