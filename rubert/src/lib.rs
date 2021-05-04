@@ -36,13 +36,19 @@ pub use crate::{
     pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler},
 };
 
+/// A sentence (embedding) multilingual Bert model.
 #[allow(clippy::upper_case_acronyms)]
 pub type SMBert = Pipeline<kinds::SMBert, AveragePooler>;
+
+/// A question answering (embedding) multilingual Bert model.
 #[allow(clippy::upper_case_acronyms)]
 pub type QAMBert = Pipeline<kinds::QAMBert, AveragePooler>;
 
+/// A builder to create a [`SMBert`] pipeline.
 #[allow(clippy::upper_case_acronyms)]
 pub type SMBertBuilder<V, M> = Builder<V, M, kinds::SMBert, NonePooler>;
+
+/// A builder to create a [`QAMBert`] pipeline.
 #[allow(clippy::upper_case_acronyms)]
 pub type QAMBertBuilder<V, M> = Builder<V, M, kinds::QAMBert, NonePooler>;
 
