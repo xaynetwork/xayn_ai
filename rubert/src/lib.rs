@@ -5,10 +5,10 @@
 //! f32-arrays and their shape depends on the pooling strategy.
 //!
 //! ```no_run
-//! use rubert::{Builder, FirstPooler};
+//! use rubert::{SMBertBuilder, FirstPooler};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let rubert = Builder::from_files("vocab.txt", "model.onnx")?
+//!     let rubert = SMBertBuilder::from_files("vocab.txt", "model.onnx")?
 //!         .with_accents(false)
 //!         .with_lowercase(true)
 //!         .with_token_size(64)?
