@@ -40,7 +40,7 @@ pub enum BuilderError {
 }
 
 impl<V, M, K> Builder<V, M, K, NonePooler> {
-    /// Creates a [`Pipeline`] pipeline builder from an in-memory vocabulary and model.
+    /// Creates a [`Pipeline`] builder from an in-memory vocabulary and model.
     pub fn new(vocab: V, model: M) -> Self {
         Self {
             vocab,
