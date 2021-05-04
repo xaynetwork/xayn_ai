@@ -55,5 +55,4 @@ script = ["""
 [tasks.build-wasm]
 script = ["""
   wasm-pack build --target web --release --no-typescript --out-dir ../bindings/dart_wasm xayn-ai-ffi-wasm
-  rm bindings/dart_wasm/.gitignore bindings/dart_wasm/package.json
 """]
