@@ -14,7 +14,7 @@ use crate::{
             DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
+            DocumentDataWithSMBert,
             DocumentDataWithMab,
         },
         UserInterests,
@@ -59,7 +59,7 @@ where
 fn make_documents_with_embedding<CS>(
     common_systems: &CS,
     documents: &[Document],
-) -> Result<Vec<DocumentDataWithEmbedding>, Error>
+) -> Result<Vec<DocumentDataWithSMBert>, Error>
 where
     CS: CommonSystems,
 {
@@ -115,7 +115,7 @@ where
 #[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
 #[derive(Serialize, Deserialize)]
 enum PreviousDocuments {
-    Embedding(Vec<DocumentDataWithEmbedding>),
+    Embedding(Vec<DocumentDataWithSMBert>),
     Mab(Vec<DocumentDataWithMab>),
 }
 

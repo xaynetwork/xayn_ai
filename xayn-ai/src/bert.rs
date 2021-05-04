@@ -3,7 +3,7 @@ use rubert::{Embedding1, SMBert};
 use crate::{
     data::document_data::{
         DocumentDataWithDocument,
-        DocumentDataWithEmbedding,
+        DocumentDataWithSMBert,
         SMBertEmbeddingComponent,
     },
     error::Error,
@@ -16,7 +16,7 @@ impl BertSystem for SMBert {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
-    ) -> Result<Vec<DocumentDataWithEmbedding>, Error> {
+    ) -> Result<Vec<DocumentDataWithSMBert>, Error> {
         // TODO: optional parallelization
         documents
             .into_iter()
@@ -24,7 +24,7 @@ impl BertSystem for SMBert {
                 let embedding = self.run(document.document_content.snippet.as_str());
                 embedding
                     .map(|embedding| {
-                        DocumentDataWithEmbedding::from_document(
+                        DocumentDataWithSMBert::from_document(
                             document,
                             SMBertEmbeddingComponent { embedding },
                         )

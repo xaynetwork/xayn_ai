@@ -7,7 +7,7 @@ use crate::{
             DocumentDataWithCoi,
             DocumentDataWithContext,
             DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
+            DocumentDataWithSMBert,
             DocumentDataWithLtr,
             DocumentDataWithMab,
             SMBertEmbeddingComponent,
@@ -26,7 +26,7 @@ pub(crate) trait BertSystem {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
-    ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
+    ) -> Result<Vec<DocumentDataWithSMBert>, Error>;
 }
 
 pub(crate) trait CoiSystemData {
@@ -40,7 +40,7 @@ pub(crate) trait CoiSystem {
     /// Add centre of interest information to a document
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithEmbedding>,
+        documents: Vec<DocumentDataWithSMBert>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error>;
 

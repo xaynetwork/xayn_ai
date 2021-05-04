@@ -16,7 +16,7 @@ use crate::{
         },
     },
     data::{
-        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithEmbedding},
+        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
         CoiPoint,
         UserInterests,
     },
@@ -154,7 +154,7 @@ impl CoiSystem {
 impl systems::CoiSystem for CoiSystem {
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithEmbedding>,
+        documents: Vec<DocumentDataWithSMBert>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
         documents

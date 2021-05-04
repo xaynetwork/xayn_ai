@@ -12,7 +12,7 @@ use crate::{
             DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
+            DocumentDataWithSMBert,
             DocumentDataWithMab,
             SMBertEmbeddingComponent,
             LtrComponent,
@@ -120,10 +120,10 @@ pub(crate) fn data_with_mab(
 
 pub(crate) fn documents_with_embeddings_from_ids(
     ids: Range<u32>,
-) -> Vec<DocumentDataWithEmbedding> {
+) -> Vec<DocumentDataWithSMBert> {
     from_ids(ids)
         .map(
-            |(id, initial_ranking, embedding)| DocumentDataWithEmbedding {
+            |(id, initial_ranking, embedding)| DocumentDataWithSMBert {
                 document_base: DocumentBaseComponent {
                     id,
                     initial_ranking,

@@ -66,12 +66,12 @@ pub(crate) struct DocumentDataWithDocument {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub(crate) struct DocumentDataWithEmbedding {
+pub(crate) struct DocumentDataWithSMBert {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) embedding: SMBertEmbeddingComponent,
 }
 
-impl DocumentDataWithEmbedding {
+impl DocumentDataWithSMBert {
     pub(crate) fn from_document(
         document: DocumentDataWithDocument,
         embedding: SMBertEmbeddingComponent,
@@ -83,7 +83,7 @@ impl DocumentDataWithEmbedding {
     }
 }
 
-impl CoiSystemData for DocumentDataWithEmbedding {
+impl CoiSystemData for DocumentDataWithSMBert {
     fn id(&self) -> &DocumentId {
         &self.document_base.id
     }
@@ -104,7 +104,7 @@ pub(crate) struct DocumentDataWithCoi {
 }
 
 impl DocumentDataWithCoi {
-    pub(crate) fn from_document(document: DocumentDataWithEmbedding, coi: CoiComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithSMBert, coi: CoiComponent) -> Self {
         Self {
             document_base: document.document_base,
             embedding: document.embedding,
@@ -216,7 +216,7 @@ mod tests {
             embedding: arr1(&[1., 2., 3., 4.]).into(),
         };
         let document_data =
-            DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
+            DocumentDataWithSMBert::from_document(document_data, embedding.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.embedding, embedding);
 

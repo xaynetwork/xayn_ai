@@ -140,7 +140,7 @@ pub(super) mod tests {
             document_data::{
                 CoiComponent,
                 DocumentBaseComponent,
-                DocumentDataWithEmbedding,
+                DocumentDataWithSMBert,
                 SMBertEmbeddingComponent,
             },
             CoiId,
@@ -208,7 +208,7 @@ pub(super) mod tests {
 
     pub(crate) fn create_data_with_embeddings(
         embeddings: &[impl FixedInitializer<Elem = f32>],
-    ) -> Vec<DocumentDataWithEmbedding> {
+    ) -> Vec<DocumentDataWithSMBert> {
         embeddings
             .iter()
             .enumerate()
@@ -220,8 +220,8 @@ pub(super) mod tests {
         id: usize,
         initial_ranking: usize,
         embedding: &[f32],
-    ) -> DocumentDataWithEmbedding {
-        DocumentDataWithEmbedding {
+    ) -> DocumentDataWithSMBert {
+        DocumentDataWithSMBert {
             document_base: DocumentBaseComponent {
                 id: DocumentId(id.to_string()),
                 initial_ranking,
