@@ -279,8 +279,8 @@ mod tests {
             CoiComponent,
             ContextComponent,
             DocumentBaseComponent,
-            SMBertEmbeddingComponent,
             LtrComponent,
+            SMBertEmbeddingComponent,
         },
     };
     use ndarray::arr1;

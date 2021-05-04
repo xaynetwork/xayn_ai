@@ -217,8 +217,7 @@ mod tests {
         let embedding = SMBertEmbeddingComponent {
             embedding: arr1(&[1., 2., 3., 4.]).into(),
         };
-        let document_data =
-            DocumentDataWithSMBert::from_document(document_data, embedding.clone());
+        let document_data = DocumentDataWithSMBert::from_document(document_data, embedding.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.embedding, embedding);
 

@@ -11,15 +11,15 @@ use crate::{
         database::Database,
         systems::{
             AnalyticsSystem,
-            SMBertSystem,
             CoiSystem,
             CommonSystems,
             ContextSystem,
             LtrSystem,
             MabSystem,
+            SMBertSystem,
         },
     },
-    tests::{MemDb, MockSMBertSystem, MockBetaSample},
+    tests::{MemDb, MockBetaSample, MockSMBertSystem},
 };
 
 // can later be used for integration tests

@@ -19,12 +19,12 @@ use super::{
     database::{Database, Db},
     systems::{
         AnalyticsSystem,
-        SMBertSystem,
         CoiSystem,
         CommonSystems,
         ContextSystem,
         LtrSystem,
         MabSystem,
+        SMBertSystem,
     },
 };
 

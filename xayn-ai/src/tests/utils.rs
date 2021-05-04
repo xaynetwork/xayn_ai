@@ -12,18 +12,18 @@ use crate::{
             DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
-            DocumentDataWithSMBert,
             DocumentDataWithMab,
-            SMBertEmbeddingComponent,
+            DocumentDataWithSMBert,
             LtrComponent,
             MabComponent,
+            SMBertEmbeddingComponent,
         },
         CoiId,
         CoiPoint,
         NegativeCoi,
         PositiveCoi,
     },
-    reranker::systems::{SMBertSystem, CoiSystemData},
+    reranker::systems::{CoiSystemData, SMBertSystem},
     Document,
     DocumentHistory,
     DocumentId,
@@ -118,19 +118,15 @@ pub(crate) fn data_with_mab(
         .collect()
 }
 
-pub(crate) fn documents_with_embeddings_from_ids(
-    ids: Range<u32>,
-) -> Vec<DocumentDataWithSMBert> {
+pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<DocumentDataWithSMBert> {
     from_ids(ids)
-        .map(
-            |(id, initial_ranking, embedding)| DocumentDataWithSMBert {
-                document_base: DocumentBaseComponent {
-                    id,
-                    initial_ranking,
-                },
-                embedding: SMBertEmbeddingComponent { embedding },
+        .map(|(id, initial_ranking, embedding)| DocumentDataWithSMBert {
+            document_base: DocumentBaseComponent {
+                id,
+                initial_ranking,
             },
-        )
+            embedding: SMBertEmbeddingComponent { embedding },
+        })
         .collect()
 }
 
