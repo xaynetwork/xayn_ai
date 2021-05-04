@@ -4,7 +4,7 @@ use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
     coi::CoiSystem as CoiSys,
     context::Context,
-    data::document_data::{DocumentDataWithEmbedding, EmbeddingComponent},
+    data::document_data::{DocumentDataWithEmbedding, SMBertEmbeddingComponent},
     ltr::ConstLtr,
     mab::MabRanking,
     reranker::{
@@ -68,7 +68,7 @@ pub(crate) fn mocked_bert_system() -> MockBertSystem {
 
                 DocumentDataWithEmbedding {
                     document_base: doc.document_base,
-                    embedding: EmbeddingComponent {
+                    embedding: SMBertEmbeddingComponent {
                         embedding: arr1(&embedding).into(),
                     },
                 }

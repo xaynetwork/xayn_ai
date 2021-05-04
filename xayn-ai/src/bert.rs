@@ -4,7 +4,7 @@ use crate::{
     data::document_data::{
         DocumentDataWithDocument,
         DocumentDataWithEmbedding,
-        EmbeddingComponent,
+        SMBertEmbeddingComponent,
     },
     error::Error,
     reranker::systems::BertSystem,
@@ -26,7 +26,7 @@ impl BertSystem for SMBert {
                     .map(|embedding| {
                         DocumentDataWithEmbedding::from_document(
                             document,
-                            EmbeddingComponent { embedding },
+                            SMBertEmbeddingComponent { embedding },
                         )
                     })
                     .map_err(Into::into)

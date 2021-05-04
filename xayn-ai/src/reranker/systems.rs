@@ -10,7 +10,7 @@ use crate::{
             DocumentDataWithEmbedding,
             DocumentDataWithLtr,
             DocumentDataWithMab,
-            EmbeddingComponent,
+            SMBertEmbeddingComponent,
         },
         UserInterests,
     },
@@ -31,7 +31,7 @@ pub(crate) trait BertSystem {
 
 pub(crate) trait CoiSystemData {
     fn id(&self) -> &DocumentId;
-    fn embedding(&self) -> &EmbeddingComponent;
+    fn embedding(&self) -> &SMBertEmbeddingComponent;
     fn coi(&self) -> Option<&CoiComponent>;
 }
 

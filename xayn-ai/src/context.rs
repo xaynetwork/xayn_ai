@@ -62,7 +62,7 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{CoiComponent, DocumentBaseComponent, EmbeddingComponent, LtrComponent},
+        document_data::{CoiComponent, DocumentBaseComponent, SMBertEmbeddingComponent, LtrComponent},
         CoiId,
     };
 
@@ -84,7 +84,7 @@ mod tests {
                     id,
                     initial_ranking: 13,
                 },
-                embedding: EmbeddingComponent { embedding },
+                embedding: SMBertEmbeddingComponent { embedding },
                 coi: CoiComponent {
                     id: CoiId(0),
                     pos_distance,

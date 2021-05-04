@@ -213,7 +213,7 @@ mod tests {
                 ContextComponent,
                 DocumentBaseComponent,
                 DocumentDataWithMab,
-                EmbeddingComponent,
+                SMBertEmbeddingComponent,
                 LtrComponent,
                 MabComponent,
             },
@@ -235,7 +235,7 @@ mod tests {
                     id: DocumentId(id.to_string()),
                     initial_ranking: id,
                 },
-                embedding: EmbeddingComponent {
+                embedding: SMBertEmbeddingComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),
                 },
                 coi: CoiComponent {

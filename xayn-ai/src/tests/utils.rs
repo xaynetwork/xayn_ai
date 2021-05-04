@@ -14,7 +14,7 @@ use crate::{
             DocumentDataWithDocument,
             DocumentDataWithEmbedding,
             DocumentDataWithMab,
-            EmbeddingComponent,
+            SMBertEmbeddingComponent,
             LtrComponent,
             MabComponent,
         },
@@ -105,7 +105,7 @@ pub(crate) fn data_with_mab(
                 id,
                 initial_ranking,
             },
-            embedding: EmbeddingComponent { embedding },
+            embedding: SMBertEmbeddingComponent { embedding },
             coi: CoiComponent {
                 id: CoiId(1),
                 pos_distance: 0.1,
@@ -128,7 +128,7 @@ pub(crate) fn documents_with_embeddings_from_ids(
                     id,
                     initial_ranking,
                 },
-                embedding: EmbeddingComponent { embedding },
+                embedding: SMBertEmbeddingComponent { embedding },
             },
         )
         .collect()
