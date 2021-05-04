@@ -26,7 +26,7 @@ pub(crate) use crate::{
         database::MockDatabase,
         systems::{
             MockAnalyticsSystem,
-            MockBertSystem,
+            MockSMBertSystem,
             MockCoiSystem,
             MockContextSystem,
             MockLtrSystem,

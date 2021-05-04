@@ -23,7 +23,7 @@ use crate::{
         NegativeCoi,
         PositiveCoi,
     },
-    reranker::systems::{BertSystem, CoiSystemData},
+    reranker::systems::{SMBertSystem, CoiSystemData},
     Document,
     DocumentHistory,
     DocumentId,
@@ -50,7 +50,7 @@ pub(crate) fn documents_from_words(
     .collect()
 }
 
-fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl BertSystem) -> Vec<CP> {
+fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl SMBertSystem) -> Vec<CP> {
     let documents = snippets
         .iter()
         .enumerate()
@@ -73,11 +73,11 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl BertSystem) -> Ve
         .collect()
 }
 
-pub(crate) fn pos_cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<PositiveCoi> {
+pub(crate) fn pos_cois_from_words(snippets: &[&str], bert: impl SMBertSystem) -> Vec<PositiveCoi> {
     cois_from_words(snippets, bert)
 }
 
-pub(crate) fn neg_cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<NegativeCoi> {
+pub(crate) fn neg_cois_from_words(snippets: &[&str], bert: impl SMBertSystem) -> Vec<NegativeCoi> {
     cois_from_words(snippets, bert)
 }
 

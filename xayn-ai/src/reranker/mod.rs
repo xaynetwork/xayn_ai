@@ -263,7 +263,7 @@ mod tests {
     use crate::{
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
-        reranker::systems::BertSystem,
+        reranker::systems::SMBertSystem,
         tests::{
             document_history,
             documents_from_ids,
@@ -274,7 +274,7 @@ mod tests {
             mocked_bert_system,
             MemDb,
             MockAnalyticsSystem,
-            MockBertSystem,
+            MockSMBertSystem,
             MockCoiSystem,
             MockCommonSystems,
             MockContextSystem,
@@ -585,7 +585,7 @@ mod tests {
         };
     }
 
-    test_system_failure!(bert, MockBertSystem, compute_embedding, |_|, false);
+    test_system_failure!(bert, MockSMBertSystem, compute_embedding, |_|, false);
     test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
     test_system_failure!(context, MockContextSystem, compute_context, |_|);
     test_system_failure!(mab, MockMabSystem, compute_mab, |_,_|);
@@ -640,7 +640,7 @@ mod tests {
         let mut called = 0;
 
         let cs = MockCommonSystems::default().set_bert(|| {
-            let mut bert = MockBertSystem::new();
+            let mut bert = MockSMBertSystem::new();
             bert.expect_compute_embedding().returning(move |docs| {
                 let res = match called {
                     0 => Err(MockError::Fail.into()),

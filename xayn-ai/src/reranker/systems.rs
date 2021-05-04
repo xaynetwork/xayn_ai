@@ -22,7 +22,7 @@ use crate::{
 use mockall::automock;
 
 #[cfg_attr(test, automock)]
-pub(crate) trait BertSystem {
+pub(crate) trait SMBertSystem {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
@@ -92,7 +92,7 @@ pub(crate) trait AnalyticsSystem {
 /// At the moment this exists only to avoid to have 7+ generics around
 pub(crate) trait CommonSystems {
     fn database(&self) -> &dyn Database;
-    fn smbert(&self) -> &dyn BertSystem;
+    fn smbert(&self) -> &dyn SMBertSystem;
     fn coi(&self) -> &dyn CoiSystem;
     fn ltr(&self) -> &dyn LtrSystem;
     fn context(&self) -> &dyn ContextSystem;

@@ -19,7 +19,7 @@ use super::{
     database::{Database, Db},
     systems::{
         AnalyticsSystem,
-        BertSystem,
+        SMBertSystem,
         CoiSystem,
         CommonSystems,
         ContextSystem,
@@ -43,7 +43,7 @@ impl CommonSystems for Systems {
         &self.database
     }
 
-    fn smbert(&self) -> &dyn BertSystem {
+    fn smbert(&self) -> &dyn SMBertSystem {
         &self.bert
     }
 

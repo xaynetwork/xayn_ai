@@ -7,12 +7,12 @@ use crate::{
         SMBertEmbeddingComponent,
     },
     error::Error,
-    reranker::systems::BertSystem,
+    reranker::systems::SMBertSystem,
 };
 
 pub(crate) type Embedding = Embedding1;
 
-impl BertSystem for SMBert {
+impl SMBertSystem for SMBert {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
