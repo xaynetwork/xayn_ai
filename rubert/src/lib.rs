@@ -65,10 +65,10 @@ pub(crate) mod tests {
 
     /// Path to the current vocabulary file.
     /// The vocabulary is in common between the bert models
-    pub const VOCAB: &str = "../data/rubert_v0000/vocab.txt";
+    pub const VOCAB: &str = "../data/rubert_v0001/vocab.txt";
 
     /// Path to the current onnx smbert model file.
-    pub const SMBERT_MODEL: &str = "../data/rubert_v0000/model.onnx";
+    pub const SMBERT_MODEL: &str = "../data/rubert_v0001/smbert.onnx";
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn hash_file(file: &str) -> u64 {

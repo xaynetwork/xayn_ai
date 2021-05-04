@@ -135,10 +135,10 @@ mod tests {
     use crate::error::ExternError;
 
     /// Path to the current vocabulary file.
-    const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0000/vocab.txt");
+    const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0001/vocab.txt");
 
     /// Path to the current onnx model file.
-    const MODEL: &[u8] = include_bytes!("../../data/rubert_v0000/model.onnx");
+    const MODEL: &[u8] = include_bytes!("../../data/rubert_v0001/smbert.onnx");
 
     impl std::fmt::Debug for WXaynAi {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
