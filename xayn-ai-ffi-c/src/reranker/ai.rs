@@ -309,7 +309,7 @@ mod tests {
     use super::*;
     use crate::{
         data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
-        reranker::{analytics::analytics_drop, bytes::bytes_drop},
+        reranker::bytes::bytes_drop,
         result::{error::error_message_drop, fault::faults_drop},
         tests::{SMBERT_MODEL, VOCAB},
         utils::tests::AsPtr,
@@ -457,10 +457,12 @@ mod tests {
         }
         .unwrap();
         assert_eq!(error.code, CCode::None);
-        let analytics = unsafe { xaynai_analytics(xaynai.as_ptr(), error.as_mut_ptr()) }.unwrap();
+        // by default there are no analytics available
+        let analytics = unsafe { xaynai_analytics(xaynai.as_ptr(), error.as_mut_ptr()) };
+        assert!(analytics.is_none());
         assert_eq!(error.code, CCode::None);
 
-        unsafe { analytics_drop(analytics.into_ptr()) };
+        drop(analytics);
         unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
 

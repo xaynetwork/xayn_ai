@@ -128,18 +128,19 @@ class XaynAi {
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
-  void analytics() {
+  Analytics? analytics() {
     final error = XaynAiError();
 
-    final analytics = Analytics(ffi.xaynai_analytics(_ai, error.ptr));
+    final builder =
+        Analytics.fromCBuilder(ffi.xaynai_analytics(_ai, error.ptr));
     try {
       if (error.isError()) {
         throw error.toException();
       }
-      return;
+      return builder.buildFromC();
     } finally {
+      builder.free();
       error.free();
-      analytics.free();
     }
   }
 
