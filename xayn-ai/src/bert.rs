@@ -1,4 +1,4 @@
-use rubert::{AveragePooler, Embedding1, RuBert};
+use rubert::{Embedding1, SMBert};
 
 use crate::{
     data::document_data::{
@@ -12,7 +12,7 @@ use crate::{
 
 pub(crate) type Embedding = Embedding1;
 
-impl BertSystem for RuBert<AveragePooler> {
+impl BertSystem for SMBert {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,

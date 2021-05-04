@@ -28,11 +28,20 @@ mod pipeline;
 mod pooler;
 mod tokenizer;
 
+use crate::model::kinds;
+
 pub use crate::{
     builder::{Builder, BuilderError},
     pipeline::{Pipeline, PipelineError},
     pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler},
 };
+
+pub type SMBert = Pipeline<kinds::SMBert, AveragePooler>;
+pub type QAMBert = Pipeline<kinds::QAMBert, AveragePooler>;
+
+pub type SMBertBuilder<V, M> = Builder<V, M, kinds::SMBert, NonePooler>;
+pub type QAMBertBuilder<V, M> = Builder<V, M, kinds::QAMBert, NonePooler>;
+
 #[cfg(doc)]
 pub use crate::{
     model::ModelError,
