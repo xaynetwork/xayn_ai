@@ -28,14 +28,14 @@ class Bytes {
       if (error.isError()) {
         throw error.toException();
       }
+      assertNeq(_bytes, nullptr);
+      assert(listEquals(
+        _bytes.ref.data.asTypedList(_bytes.ref.len),
+        Uint8List(bytes.length),
+      ));
     } finally {
       error.free();
     }
-    assertNeq(_bytes, nullptr);
-    assert(listEquals(
-      _bytes.ref.data.asTypedList(_bytes.ref.len),
-      Uint8List(bytes.length),
-    ));
 
     bytes.asMap().forEach((i, byte) {
       _bytes.ref.data[i] = byte;
@@ -47,7 +47,12 @@ class Bytes {
 
   /// Converts the buffer to a list.
   Uint8List toList() {
-    if (_bytes == nullptr || _bytes.ref.data == nullptr) {
+    assert(
+      _bytes == nullptr || _bytes.ref.data != nullptr,
+      'unexpected bytes pointer state',
+    );
+
+    if (_bytes == nullptr) {
       return Uint8List(0);
     } else {
       final bytes = Uint8List(_bytes.ref.len);
@@ -60,6 +65,11 @@ class Bytes {
 
   /// Frees the memory.
   void free() {
+    assert(
+      _bytes == nullptr || _bytes.ref.data != nullptr,
+      'unexpected bytes pointer state',
+    );
+
     if (_bytes != nullptr) {
       ffi.bytes_drop(_bytes);
       _bytes = nullptr;

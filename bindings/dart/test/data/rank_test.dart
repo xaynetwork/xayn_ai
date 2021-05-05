@@ -2,6 +2,7 @@ import 'dart:ffi'
     show
         AllocatorAlloc,
         nullptr,
+        Pointer,
         StructPointer,
         Uint32,
         // ignore: unused_shown_name
@@ -34,10 +35,9 @@ void main() {
 
     test('empty', () {
       final ranksPtr = malloc.call<CBoxedSlice_u32>();
-      ranksPtr.ref.data = nullptr;
+      ranksPtr.ref.data = Pointer.fromAddress(4);
       ranksPtr.ref.len = 0;
       expect(Ranks(ranksPtr).toList(), isEmpty);
-      malloc.free(ranksPtr.ref.data);
       malloc.free(ranksPtr);
     });
   });

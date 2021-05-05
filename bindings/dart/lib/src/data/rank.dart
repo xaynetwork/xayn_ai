@@ -13,13 +13,24 @@ class Ranks {
   Ranks(this._ranks);
 
   /// Converts the ranks to a list, which is in the same logical order as the documents.
-  List<int> toList() =>
-      _ranks == nullptr || _ranks.ref.data == nullptr || _ranks.ref.len == 0
-          ? List.empty()
-          : _ranks.ref.data.asTypedList(_ranks.ref.len).toList(growable: false);
+  List<int> toList() {
+    assert(
+      _ranks == nullptr || _ranks.ref.data != nullptr,
+      'unexpected ranks pointer state',
+    );
+
+    return _ranks == nullptr
+        ? List.empty()
+        : _ranks.ref.data.asTypedList(_ranks.ref.len).toList(growable: false);
+  }
 
   /// Frees the memory.
   void free() {
+    assert(
+      _ranks == nullptr || _ranks.ref.data != nullptr,
+      'unexpected ranks pointer state',
+    );
+
     if (_ranks != nullptr) {
       ffi.ranks_drop(_ranks);
       _ranks = nullptr;
