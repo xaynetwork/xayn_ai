@@ -59,7 +59,41 @@ pub unsafe extern "C" fn analytics_drop(_analytics: Option<Box<CAnalytics>>) {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::tests::AsPtr;
 
-    impl AsPtr for CAnalytics {}
+    #[test]
+    fn test_convert_some_analytics_to_c_analytics() {
+        #![allow(clippy::clippy::float_cmp)]
+
+        let analytics = Analytics(Some(xayn_ai::Analytics {
+            ndcg_ltr: 0.25,
+            ndcg_context: 0.75,
+            ndcg_initial_ranking: 1.125,
+            ndcg_final_ranking: 2.825,
+        }));
+
+        let c_analytics = analytics.into_raw();
+
+        assert!(c_analytics.is_some());
+        let c_analytics = c_analytics.unwrap();
+        assert_eq!(c_analytics.ndcg_ltr, 0.25);
+        assert_eq!(c_analytics.ndcg_context, 0.75);
+        assert_eq!(c_analytics.ndcg_initial_ranking, 1.125);
+        assert_eq!(c_analytics.ndcg_final_ranking, 2.825);
+
+        unsafe {
+            analytics_drop(Some(c_analytics));
+        }
+    }
+
+    #[test]
+    fn test_convert_none_analytics_to_c_analytics() {
+        let analytics = Analytics(None);
+        let c_analytics = analytics.into_raw();
+
+        assert!(c_analytics.is_none());
+
+        unsafe {
+            analytics_drop(c_analytics);
+        }
+    }
 }
