@@ -34,7 +34,9 @@ impl From<CRelevance> for Relevance {
 pub enum CFeedback {
     Relevant = 0,
     Irrelevant = 1,
-    Nil = 2,
+    // We cannot use None nor Nil because they are reserved
+    // keyword in dart or objective-C
+    NotGiven = 2,
 }
 
 impl From<CFeedback> for UserFeedback {
@@ -42,7 +44,7 @@ impl From<CFeedback> for UserFeedback {
         match feedback {
             CFeedback::Relevant => Self::Relevant,
             CFeedback::Irrelevant => Self::Irrelevant,
-            CFeedback::Nil => Self::None,
+            CFeedback::NotGiven => Self::None,
         }
     }
 }

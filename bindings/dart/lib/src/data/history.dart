@@ -47,7 +47,7 @@ extension RelevanceInt on Relevance {
 enum Feedback {
   relevant,
   irrelevant,
-  nil,
+  notGiven,
 }
 
 extension FeedbackInt on Feedback {
@@ -58,8 +58,8 @@ extension FeedbackInt on Feedback {
         return CFeedback.Relevant;
       case Feedback.irrelevant:
         return CFeedback.Irrelevant;
-      case Feedback.nil:
-        return CFeedback.Nil;
+      case Feedback.notGiven:
+        return CFeedback.NotGiven;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -72,8 +72,8 @@ extension FeedbackInt on Feedback {
         return Feedback.relevant;
       case CFeedback.Irrelevant:
         return Feedback.irrelevant;
-      case CFeedback.Nil:
-        return Feedback.nil;
+      case CFeedback.NotGiven:
+        return Feedback.notGiven;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
