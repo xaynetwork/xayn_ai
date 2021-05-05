@@ -28,17 +28,11 @@ where
     #[inline]
     fn into_raw(self) -> Self::Value {
         self.0.map(|analytics| {
-            let xayn_ai::Analytics {
-                ndcg_ltr,
-                ndcg_context,
-                ndcg_initial_ranking,
-                ndcg_final_ranking,
-            } = analytics;
             Box::new(CAnalytics {
-                ndcg_ltr,
-                ndcg_context,
-                ndcg_initial_ranking,
-                ndcg_final_ranking,
+                ndcg_ltr: analytics.ndcg_ltr,
+                ndcg_context: analytics.ndcg_context,
+                ndcg_initial_ranking: analytics.ndcg_initial_ranking,
+                ndcg_final_ranking: analytics.ndcg_final_ranking,
             })
         })
     }
