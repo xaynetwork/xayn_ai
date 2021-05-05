@@ -311,7 +311,7 @@ mod tests {
         data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
-        tests::{MODEL, VOCAB},
+        tests::{SMBERT_MODEL, VOCAB},
         utils::tests::AsPtr,
     };
 
@@ -333,7 +333,7 @@ mod tests {
         }
 
         fn model() -> Self {
-            Self::new(MODEL)
+            Self::new(SMBERT_MODEL)
         }
     }
 
