@@ -18,37 +18,31 @@ class Faults {
   /// Converts the faults to a list.
   List<String> toList() {
     assert(
-      _faults == nullptr ||
-          (_faults.ref.data == nullptr && _faults.ref.len == 0) ||
-          (_faults.ref.data != nullptr && _faults.ref.len > 0),
+      _faults == nullptr || _faults.ref.data != nullptr,
       'unexpected faults pointer state',
     );
 
-    if (_faults == nullptr ||
-        _faults.ref.data == nullptr ||
-        _faults.ref.len == 0) {
-      return List.empty();
-    } else {
-      return List.generate(
-        _faults.ref.len,
-        (i) {
-          if (_faults.ref.data[i].message == nullptr) {
-            return '';
-          } else {
-            assertNeq(_faults.ref.data[i].message.ref.data, nullptr);
-            assertEq(
-              _faults.ref.data[i].message.ref.len,
-              _faults.ref.data[i].message.ref.data.cast<Utf8>().length + 1,
-            );
+    return _faults == nullptr
+        ? List.empty()
+        : List.generate(
+            _faults.ref.len,
+            (i) {
+              if (_faults.ref.data[i].message == nullptr) {
+                return '';
+              } else {
+                assertNeq(_faults.ref.data[i].message.ref.data, nullptr);
+                assertEq(
+                  _faults.ref.data[i].message.ref.len,
+                  _faults.ref.data[i].message.ref.data.cast<Utf8>().length + 1,
+                );
 
-            return _faults.ref.data[i].message.ref.data
-                .cast<Utf8>()
-                .toDartString();
-          }
-        },
-        growable: false,
-      );
-    }
+                return _faults.ref.data[i].message.ref.data
+                    .cast<Utf8>()
+                    .toDartString();
+              }
+            },
+            growable: false,
+          );
   }
 
   /// Frees the memory.

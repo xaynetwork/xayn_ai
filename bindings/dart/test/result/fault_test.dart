@@ -1,4 +1,4 @@
-import 'dart:ffi' show AllocatorAlloc, nullptr, StructPointer, Uint8;
+import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer, Utf8, Utf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
@@ -38,10 +38,9 @@ void main() {
 
     test('empty', () {
       final faultsPtr = malloc.call<CBoxedSlice_CError>();
-      faultsPtr.ref.data = nullptr;
+      faultsPtr.ref.data = Pointer.fromAddress(16);
       faultsPtr.ref.len = 0;
       expect(Faults(faultsPtr).toList(), isEmpty);
-      malloc.free(faultsPtr.ref.data);
       malloc.free(faultsPtr);
     });
   });
