@@ -1,6 +1,6 @@
 import 'dart:ffi' show AllocatorAlloc, nullptr, StructPointer, Uint8;
 
-import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer, Utf8;
+import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer, Utf8, Utf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isEmpty, test;
 
@@ -19,10 +19,12 @@ void main() {
         faultsPtr.ref.data[i].message = malloc.call<CBoxedSlice_u8>();
         faultsPtr.ref.data[i].message.ref.data =
             fault.toNativeUtf8().cast<Uint8>();
+        faultsPtr.ref.data[i].message.ref.len =
+            faultsPtr.ref.data[i].message.ref.data.cast<Utf8>().length + 1;
       });
       expect(Faults(faultsPtr).toList(), equals(faults));
       for (var i = 0; i < faults.length; i++) {
-        malloc.free(faultsPtr.ref.data[i].message.ref.data.cast<Utf8>());
+        malloc.free(faultsPtr.ref.data[i].message.ref.data);
         malloc.free(faultsPtr.ref.data[i].message);
       }
       malloc.free(faultsPtr.ref.data);
