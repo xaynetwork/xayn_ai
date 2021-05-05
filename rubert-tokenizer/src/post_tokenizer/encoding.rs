@@ -541,6 +541,7 @@ impl<N> Encoding<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{model::string::Token, normalizer::string::NormalizedString};
 
     #[test]
     fn test_merge() {
@@ -671,5 +672,109 @@ mod tests {
 
         encoding.tokens = vec!["[UNK]".into()];
         assert_eq!(encoding.decode("", "", "", "[UNK]", "", true), "");
+    }
+
+    #[test]
+    fn test_into_encoding() {
+        let sequence = TokenizedString {
+            splits: vec![
+                Split {
+                    normalized: NormalizedString {
+                        original: "a ab abb".to_string(),
+                        normalized: "a".to_string(),
+                        alignments: vec![Offsets(0, 1)],
+                        offset: 0,
+                    },
+                    tokens: vec![Token {
+                        id: 0,
+                        value: "a".to_string(),
+                        offsets: Offsets(0, 1),
+                    }],
+                },
+                Split {
+                    normalized: NormalizedString {
+                        original: "a ab abb".to_string(),
+                        normalized: "ab".to_string(),
+                        alignments: vec![Offsets(2, 4)],
+                        offset: 0,
+                    },
+                    tokens: vec![
+                        Token {
+                            id: 0,
+                            value: "a".to_string(),
+                            offsets: Offsets(2, 3),
+                        },
+                        Token {
+                            id: 1,
+                            value: "##b".to_string(),
+                            offsets: Offsets(3, 4),
+                        },
+                    ],
+                },
+                Split {
+                    normalized: NormalizedString {
+                        original: "a ab abb".to_string(),
+                        normalized: "abb".to_string(),
+                        alignments: vec![Offsets(5, 8)],
+                        offset: 0,
+                    },
+                    tokens: vec![
+                        Token {
+                            id: 0,
+                            value: "a".to_string(),
+                            offsets: Offsets(5, 6),
+                        },
+                        Token {
+                            id: 1,
+                            value: "##b".to_string(),
+                            offsets: Offsets(6, 7),
+                        },
+                        Token {
+                            id: 1,
+                            value: "##b".to_string(),
+                            offsets: Offsets(7, 8),
+                        },
+                    ],
+                },
+            ],
+        };
+        let encoding = Encoding::from(sequence);
+        assert_eq!(encoding.ids, [0, 0, 1, 0, 1, 1]);
+        assert_eq!(encoding.type_ids, [0; 6]);
+        assert_eq!(encoding.tokens, ["a", "a", "##b", "a", "##b", "##b"]);
+        assert_eq!(
+            encoding.word_indices,
+            [Some(0), Some(1), Some(1), Some(2), Some(2), Some(2)],
+        );
+        assert_eq!(
+            encoding.offsets,
+            [
+                Offsets(0, 1),
+                Offsets(2, 3),
+                Offsets(3, 4),
+                Offsets(5, 6),
+                Offsets(6, 7),
+                Offsets(7, 8),
+            ],
+        );
+        assert_eq!(encoding.special_tokens_mask, [0; 6]);
+        assert_eq!(encoding.attention_mask, [1; 6]);
+        assert!(encoding.sequence_ranges.is_none());
+        assert!(encoding.overflowing.is_none());
+    }
+
+    #[test]
+    fn test_into_encoding_empty() {
+        let sequence = TokenizedString::<i32> { splits: vec![] };
+        let encoding = Encoding::from(sequence);
+        assert!(encoding.ids.is_empty());
+        assert!(encoding.type_ids.is_empty());
+        assert!(encoding.tokens.is_empty());
+        assert!(encoding.word_indices.is_empty());
+        assert!(encoding.offsets.is_empty());
+        assert!(encoding.special_tokens_mask.is_empty());
+        assert!(encoding.attention_mask.is_empty());
+        assert!(encoding.sequence_ranges.is_none());
+        assert!(encoding.overflowing.is_none());
     }
 }
