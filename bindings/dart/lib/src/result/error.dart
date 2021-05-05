@@ -4,6 +4,8 @@ import 'package:ffi/ffi.dart' show malloc, Utf8, Utf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CCode, CError;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/utils.dart'
+    show debugAssert, debugAssertEq, debugAssertNeq;
 
 /// The Xayn AI error codes.
 enum Code {
@@ -148,28 +150,49 @@ class XaynAiError {
   Pointer<CError> get ptr => _error;
 
   /// Checks for a fault code.
-  bool isFault() => _error.ref.code == CCode.Fault;
+  bool isFault() {
+    debugAssertNeq(_error, nullptr);
+    return _error.ref.code == CCode.Fault;
+  }
 
   /// Checks for an irrecoverable error code.
-  bool isPanic() => _error.ref.code == CCode.Panic;
+  bool isPanic() {
+    debugAssertNeq(_error, nullptr);
+    return _error.ref.code == CCode.Panic;
+  }
 
   /// Checks for a no error code.
-  bool isNone() => _error.ref.code == CCode.None;
+  bool isNone() {
+    debugAssertNeq(_error, nullptr);
+    return _error.ref.code == CCode.None;
+  }
 
   /// Checks for an error code (both recoverable and irrecoverable).
   bool isError() => !isNone() && !isFault();
 
   /// Creates an exception from the error information.
   XaynAiException toException() {
+    debugAssertNeq(_error, nullptr);
     final code = CodeInt.fromInt(_error.ref.code);
+    debugAssert(_error.ref.message == nullptr ||
+        (_error.ref.message.ref.data != nullptr &&
+            _error.ref.message.ref.len ==
+                _error.ref.message.ref.data.cast<Utf8>().length + 1));
     final message = _error.ref.message == nullptr
         ? ''
         : _error.ref.message.ref.data.cast<Utf8>().toDartString();
+
     return XaynAiException(code, message);
   }
 
   /// Frees the memory.
   void free() {
+    debugAssert(_error == nullptr ||
+        _error.ref.message == nullptr ||
+        (_error.ref.message.ref.data != nullptr &&
+            _error.ref.message.ref.len ==
+                _error.ref.message.ref.data.cast<Utf8>().length + 1));
+
     if (_error != nullptr) {
       ffi.error_message_drop(_error);
       malloc.free(_error);
