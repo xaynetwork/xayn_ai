@@ -1,5 +1,6 @@
 use std::{
     io::{Error as IoError, Read},
+    marker::PhantomData,
     sync::Arc,
 };
 
@@ -20,10 +21,29 @@ use tract_onnx::prelude::{
 
 use crate::tokenizer::Encoding;
 
+pub mod kinds {
+    //! Types [SMBert] and [QAMBert] represent the kind of model that we want.
+    //! It must be passed together with `vocab` and `model` parameters.
+    //! Passing the wrong kind with respect to the model can lead to a wrong output of the pipeline.
+
+    use super::BertModel;
+
+    /// Sentence (Embedding) Multilingual Bert
+    #[allow(clippy::upper_case_acronyms)]
+    pub struct SMBert;
+    impl BertModel for SMBert {}
+
+    /// Question Answering (Embedding) Multilingual Bert
+    #[allow(clippy::upper_case_acronyms)]
+    pub struct QAMBert;
+    impl BertModel for QAMBert {}
+}
+
 /// A Bert onnx model.
-pub struct Model {
+pub struct Model<K> {
     plan: TypedSimplePlan<TypedModel>,
     pub(crate) embedding_size: usize,
+    _kind: PhantomData<K>,
 }
 
 /// The potential errors of the model.
@@ -37,19 +57,15 @@ pub enum ModelError {
     Shape,
 }
 
-/// The predicted encoding.
-#[derive(Clone, Deref, From)]
-pub struct Prediction(Arc<Tensor>);
-
-impl Model {
+pub trait BertModel: Sized {
     /// Creates a model from an onnx model file.
     ///
     /// Requires the maximum number of tokens per tokenized sequence.
-    pub fn new(
+    fn load(
         // `Read` instead of `AsRef<Path>` is needed for wasm
         mut model: impl Read,
         token_size: usize,
-    ) -> Result<Self, ModelError> {
+    ) -> Result<Model<Self>, ModelError> {
         let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
@@ -75,9 +91,16 @@ impl Model {
         Ok(Model {
             plan,
             embedding_size,
+            _kind: PhantomData,
         })
     }
+}
 
+/// The predicted encoding.
+#[derive(Clone, Deref, From)]
+pub struct Prediction(Arc<Tensor>);
+
+impl<K> Model<K> {
     /// Runs prediction on the encoded sequence.
     pub fn predict(&self, encoding: Encoding) -> Result<Prediction, ModelError> {
         let inputs = tvec!(
@@ -91,19 +114,35 @@ impl Model {
     }
 }
 
+impl<K> Model<K>
+where
+    K: BertModel,
+{
+    /// Creates a model from an onnx model file.
+    ///
+    /// Requires the maximum number of tokens per tokenized sequence.
+    pub fn new(
+        // `Read` instead of `AsRef<Path>` is needed for wasm
+        model: impl Read,
+        token_size: usize,
+    ) -> Result<Self, ModelError> {
+        <K as BertModel>::load(model, token_size)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::Array2;
     use std::{fs::File, io::BufReader};
 
     use super::*;
-    use crate::tests::MODEL;
+    use crate::tests::SMBERT_MODEL;
 
     #[test]
     fn test_predict() {
         let shape = (1, 64);
-        let model = BufReader::new(File::open(MODEL).unwrap());
-        let model = Model::new(model, shape.1).unwrap();
+        let model = BufReader::new(File::open(SMBERT_MODEL).unwrap());
+        let model = Model::<kinds::SMBert>::new(model, shape.1).unwrap();
 
         let encoding = Encoding {
             token_ids: Array2::from_elem(shape, 0).into(),

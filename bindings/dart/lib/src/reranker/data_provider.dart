@@ -24,8 +24,8 @@ final _baseAssetsPath = 'packages/xayn_ai_ffi_dart/assets';
 final AsyncMemoizer<XaynAiSetupData> _pathsCache = AsyncMemoizer();
 
 Future<XaynAiSetupData> _getInputData(String baseDiskPath) async {
-  final rubertDir = 'rubert_v0000';
-  final model = await _getData(baseDiskPath, rubertDir, 'model.onnx');
+  final rubertDir = 'rubert_v0001';
+  final model = await _getData(baseDiskPath, rubertDir, 'smbert.onnx');
   final vocab = await _getData(baseDiskPath, rubertDir, 'vocab.txt');
 
   return XaynAiSetupData(model, vocab);

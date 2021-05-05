@@ -140,8 +140,8 @@ pub(super) mod tests {
             document_data::{
                 CoiComponent,
                 DocumentBaseComponent,
-                DocumentDataWithEmbedding,
-                EmbeddingComponent,
+                DocumentDataWithSMBert,
+                SMBertEmbeddingComponent,
             },
             CoiId,
             CoiPoint,
@@ -152,7 +152,7 @@ pub(super) mod tests {
 
     pub(crate) struct MockCoiDoc {
         id: DocumentId,
-        embedding: EmbeddingComponent,
+        embedding: SMBertEmbeddingComponent,
         coi: Option<CoiComponent>,
     }
 
@@ -161,7 +161,7 @@ pub(super) mod tests {
             &self.id
         }
 
-        fn embedding(&self) -> &EmbeddingComponent {
+        fn embedding(&self) -> &SMBertEmbeddingComponent {
             &self.embedding
         }
 
@@ -174,7 +174,7 @@ pub(super) mod tests {
         ids.iter()
             .map(|id| MockCoiDoc {
                 id: DocumentId("0".to_string()),
-                embedding: EmbeddingComponent {
+                embedding: SMBertEmbeddingComponent {
                     embedding: arr1(&[]).into(),
                 },
                 coi: Some(CoiComponent {
@@ -208,7 +208,7 @@ pub(super) mod tests {
 
     pub(crate) fn create_data_with_embeddings(
         embeddings: &[impl FixedInitializer<Elem = f32>],
-    ) -> Vec<DocumentDataWithEmbedding> {
+    ) -> Vec<DocumentDataWithSMBert> {
         embeddings
             .iter()
             .enumerate()
@@ -220,13 +220,13 @@ pub(super) mod tests {
         id: usize,
         initial_ranking: usize,
         embedding: &[f32],
-    ) -> DocumentDataWithEmbedding {
-        DocumentDataWithEmbedding {
+    ) -> DocumentDataWithSMBert {
+        DocumentDataWithSMBert {
             document_base: DocumentBaseComponent {
                 id: DocumentId(id.to_string()),
                 initial_ranking,
             },
-            embedding: EmbeddingComponent {
+            embedding: SMBertEmbeddingComponent {
                 embedding: arr1(embedding).into(),
             },
         }

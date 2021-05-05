@@ -19,10 +19,10 @@ pub(crate) mod tests {
     };
 
     /// Path to the current vocabulary file.
-    pub const VOCAB: &str = "../data/rubert_v0000/vocab.txt";
+    pub const VOCAB: &str = "../data/rubert_v0001/vocab.txt";
 
     /// Path to the current onnx model file.
-    pub const MODEL: &str = "../data/rubert_v0000/model.onnx";
+    pub const SMBERT_MODEL: &str = "../data/rubert_v0001/smbert.onnx";
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn hash_file(file: &str) -> u64 {
@@ -47,6 +47,6 @@ pub(crate) mod tests {
     #[test]
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn test_model_unchanged() {
-        assert_eq!(hash_file(MODEL), 13727150546539837987);
+        assert_eq!(hash_file(SMBERT_MODEL), 13727150546539837987);
     }
 }

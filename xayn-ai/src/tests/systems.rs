@@ -4,22 +4,22 @@ use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
     coi::CoiSystem as CoiSys,
     context::Context,
-    data::document_data::{DocumentDataWithEmbedding, EmbeddingComponent},
+    data::document_data::{DocumentDataWithSMBert, SMBertEmbeddingComponent},
     ltr::ConstLtr,
     mab::MabRanking,
     reranker::{
         database::Database,
         systems::{
             AnalyticsSystem,
-            BertSystem,
             CoiSystem,
             CommonSystems,
             ContextSystem,
             LtrSystem,
             MabSystem,
+            SMBertSystem,
         },
     },
-    tests::{MemDb, MockBertSystem, MockBetaSample},
+    tests::{MemDb, MockBetaSample, MockSMBertSystem},
 };
 
 // can later be used for integration tests
@@ -51,8 +51,8 @@ use crate::{
 //     }
 // }
 
-pub(crate) fn mocked_bert_system() -> MockBertSystem {
-    let mut mock_bert = MockBertSystem::new();
+pub(crate) fn mocked_bert_system() -> MockSMBertSystem {
+    let mut mock_bert = MockSMBertSystem::new();
     mock_bert.expect_compute_embedding().returning(|docs| {
         Ok(docs
             .into_iter()
@@ -66,9 +66,9 @@ pub(crate) fn mocked_bert_system() -> MockBertSystem {
                     .collect();
                 embedding.resize(128, 0.);
 
-                DocumentDataWithEmbedding {
+                DocumentDataWithSMBert {
                     document_base: doc.document_base,
-                    embedding: EmbeddingComponent {
+                    embedding: SMBertEmbeddingComponent {
                         embedding: arr1(&embedding).into(),
                     },
                 }
@@ -81,7 +81,7 @@ pub(crate) fn mocked_bert_system() -> MockBertSystem {
 pub(crate) struct MockCommonSystems<Db, Bert, Coi, Ltr, Context, Mab, Analytics>
 where
     Db: Database,
-    Bert: BertSystem,
+    Bert: SMBertSystem,
     Coi: CoiSystem,
     Ltr: LtrSystem,
     Context: ContextSystem,
@@ -101,7 +101,7 @@ impl<Db, Bert, Coi, Ltr, Context, Mab, Analytics> CommonSystems
     for MockCommonSystems<Db, Bert, Coi, Ltr, Context, Mab, Analytics>
 where
     Db: Database,
-    Bert: BertSystem,
+    Bert: SMBertSystem,
     Coi: CoiSystem,
     Ltr: LtrSystem,
     Context: ContextSystem,
@@ -112,7 +112,7 @@ where
         &self.database
     }
 
-    fn bert(&self) -> &dyn BertSystem {
+    fn smbert(&self) -> &dyn SMBertSystem {
         &self.bert
     }
 
@@ -140,7 +140,7 @@ where
 impl
     MockCommonSystems<
         MemDb,
-        MockBertSystem,
+        MockSMBertSystem,
         CoiSys,
         ConstLtr,
         Context,
@@ -171,7 +171,7 @@ impl<Db, Bert, Coi, Ltr, Context, Mab, Analytics>
     MockCommonSystems<Db, Bert, Coi, Ltr, Context, Mab, Analytics>
 where
     Db: Database,
-    Bert: BertSystem,
+    Bert: SMBertSystem,
     Coi: CoiSystem,
     Ltr: LtrSystem,
     Context: ContextSystem,
@@ -193,7 +193,7 @@ where
         }
     }
 
-    pub(crate) fn set_bert<B: BertSystem>(
+    pub(crate) fn set_bert<B: SMBertSystem>(
         self,
         f: impl FnOnce() -> B,
     ) -> MockCommonSystems<Db, B, Coi, Ltr, Context, Mab, Analytics> {
@@ -287,7 +287,7 @@ where
 impl Default
     for MockCommonSystems<
         MemDb,
-        MockBertSystem,
+        MockSMBertSystem,
         CoiSys,
         ConstLtr,
         Context,

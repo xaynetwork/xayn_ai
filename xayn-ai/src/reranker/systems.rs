@@ -7,10 +7,10 @@ use crate::{
             DocumentDataWithCoi,
             DocumentDataWithContext,
             DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
             DocumentDataWithLtr,
             DocumentDataWithMab,
-            EmbeddingComponent,
+            DocumentDataWithSMBert,
+            SMBertEmbeddingComponent,
         },
         UserInterests,
     },
@@ -22,16 +22,17 @@ use crate::{
 use mockall::automock;
 
 #[cfg_attr(test, automock)]
-pub(crate) trait BertSystem {
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) trait SMBertSystem {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
-    ) -> Result<Vec<DocumentDataWithEmbedding>, Error>;
+    ) -> Result<Vec<DocumentDataWithSMBert>, Error>;
 }
 
 pub(crate) trait CoiSystemData {
     fn id(&self) -> &DocumentId;
-    fn embedding(&self) -> &EmbeddingComponent;
+    fn embedding(&self) -> &SMBertEmbeddingComponent;
     fn coi(&self) -> Option<&CoiComponent>;
 }
 
@@ -40,7 +41,7 @@ pub(crate) trait CoiSystem {
     /// Add centre of interest information to a document
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithEmbedding>,
+        documents: Vec<DocumentDataWithSMBert>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error>;
 
@@ -92,7 +93,7 @@ pub(crate) trait AnalyticsSystem {
 /// At the moment this exists only to avoid to have 7+ generics around
 pub(crate) trait CommonSystems {
     fn database(&self) -> &dyn Database;
-    fn bert(&self) -> &dyn BertSystem;
+    fn smbert(&self) -> &dyn SMBertSystem;
     fn coi(&self) -> &dyn CoiSystem;
     fn ltr(&self) -> &dyn LtrSystem;
     fn context(&self) -> &dyn ContextSystem;

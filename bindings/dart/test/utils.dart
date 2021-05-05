@@ -7,8 +7,8 @@ import 'package:xayn_ai_ffi_dart/src/data/history.dart'
 import 'package:xayn_ai_ffi_dart/src/result/error.dart'
     show Code, XaynAiException;
 
-const vocab = '../../data/rubert_v0000/vocab.txt';
-const model = '../../data/rubert_v0000/model.onnx';
+const vocab = '../../data/rubert_v0001/vocab.txt';
+const model = '../../data/rubert_v0001/smbert.onnx';
 
 final histories = [
   History('0', Relevance.low, Feedback.irrelevant),

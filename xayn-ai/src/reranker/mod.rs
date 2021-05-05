@@ -14,8 +14,8 @@ use crate::{
             DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
             DocumentDataWithMab,
+            DocumentDataWithSMBert,
         },
         UserInterests,
     },
@@ -59,7 +59,7 @@ where
 fn make_documents_with_embedding<CS>(
     common_systems: &CS,
     documents: &[Document],
-) -> Result<Vec<DocumentDataWithEmbedding>, Error>
+) -> Result<Vec<DocumentDataWithSMBert>, Error>
 where
     CS: CommonSystems,
 {
@@ -76,7 +76,7 @@ where
         })
         .collect();
 
-    common_systems.bert().compute_embedding(documents)
+    common_systems.smbert().compute_embedding(documents)
 }
 
 fn rerank<CS>(
@@ -115,7 +115,7 @@ where
 #[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
 #[derive(Serialize, Deserialize)]
 enum PreviousDocuments {
-    Embedding(Vec<DocumentDataWithEmbedding>),
+    Embedding(Vec<DocumentDataWithSMBert>),
     Mab(Vec<DocumentDataWithMab>),
 }
 
@@ -263,7 +263,7 @@ mod tests {
     use crate::{
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
-        reranker::systems::BertSystem,
+        reranker::systems::SMBertSystem,
         tests::{
             document_history,
             documents_from_ids,
@@ -274,13 +274,13 @@ mod tests {
             mocked_bert_system,
             MemDb,
             MockAnalyticsSystem,
-            MockBertSystem,
             MockCoiSystem,
             MockCommonSystems,
             MockContextSystem,
             MockDatabase,
             MockLtrSystem,
             MockMabSystem,
+            MockSMBertSystem,
         },
     };
     use anyhow::bail;
@@ -585,7 +585,7 @@ mod tests {
         };
     }
 
-    test_system_failure!(bert, MockBertSystem, compute_embedding, |_|, false);
+    test_system_failure!(bert, MockSMBertSystem, compute_embedding, |_|, false);
     test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
     test_system_failure!(context, MockContextSystem, compute_context, |_|);
     test_system_failure!(mab, MockMabSystem, compute_mab, |_,_|);
@@ -640,7 +640,7 @@ mod tests {
         let mut called = 0;
 
         let cs = MockCommonSystems::default().set_bert(|| {
-            let mut bert = MockBertSystem::new();
+            let mut bert = MockSMBertSystem::new();
             bert.expect_compute_embedding().returning(move |docs| {
                 let res = match called {
                     0 => Err(MockError::Fail.into()),

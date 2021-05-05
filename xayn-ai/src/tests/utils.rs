@@ -12,18 +12,18 @@ use crate::{
             DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
-            DocumentDataWithEmbedding,
             DocumentDataWithMab,
-            EmbeddingComponent,
+            DocumentDataWithSMBert,
             LtrComponent,
             MabComponent,
+            SMBertEmbeddingComponent,
         },
         CoiId,
         CoiPoint,
         NegativeCoi,
         PositiveCoi,
     },
-    reranker::systems::{BertSystem, CoiSystemData},
+    reranker::systems::{CoiSystemData, SMBertSystem},
     Document,
     DocumentHistory,
     DocumentId,
@@ -50,7 +50,7 @@ pub(crate) fn documents_from_words(
     .collect()
 }
 
-fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl BertSystem) -> Vec<CP> {
+fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl SMBertSystem) -> Vec<CP> {
     let documents = snippets
         .iter()
         .enumerate()
@@ -73,11 +73,11 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl BertSystem) -> Ve
         .collect()
 }
 
-pub(crate) fn pos_cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<PositiveCoi> {
+pub(crate) fn pos_cois_from_words(snippets: &[&str], bert: impl SMBertSystem) -> Vec<PositiveCoi> {
     cois_from_words(snippets, bert)
 }
 
-pub(crate) fn neg_cois_from_words(snippets: &[&str], bert: impl BertSystem) -> Vec<NegativeCoi> {
+pub(crate) fn neg_cois_from_words(snippets: &[&str], bert: impl SMBertSystem) -> Vec<NegativeCoi> {
     cois_from_words(snippets, bert)
 }
 
@@ -105,7 +105,7 @@ pub(crate) fn data_with_mab(
                 id,
                 initial_ranking,
             },
-            embedding: EmbeddingComponent { embedding },
+            embedding: SMBertEmbeddingComponent { embedding },
             coi: CoiComponent {
                 id: CoiId(1),
                 pos_distance: 0.1,
@@ -118,19 +118,15 @@ pub(crate) fn data_with_mab(
         .collect()
 }
 
-pub(crate) fn documents_with_embeddings_from_ids(
-    ids: Range<u32>,
-) -> Vec<DocumentDataWithEmbedding> {
+pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<DocumentDataWithSMBert> {
     from_ids(ids)
-        .map(
-            |(id, initial_ranking, embedding)| DocumentDataWithEmbedding {
-                document_base: DocumentBaseComponent {
-                    id,
-                    initial_ranking,
-                },
-                embedding: EmbeddingComponent { embedding },
+        .map(|(id, initial_ranking, embedding)| DocumentDataWithSMBert {
+            document_base: DocumentBaseComponent {
+                id,
+                initial_ranking,
             },
-        )
+            embedding: SMBertEmbeddingComponent { embedding },
+        })
         .collect()
 }
 

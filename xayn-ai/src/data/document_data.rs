@@ -22,7 +22,8 @@ pub(crate) struct DocumentContentComponent {
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub(crate) struct EmbeddingComponent {
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) struct SMBertEmbeddingComponent {
     pub(crate) embedding: Embedding,
 }
 
@@ -66,15 +67,16 @@ pub(crate) struct DocumentDataWithDocument {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub(crate) struct DocumentDataWithEmbedding {
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) struct DocumentDataWithSMBert {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) embedding: SMBertEmbeddingComponent,
 }
 
-impl DocumentDataWithEmbedding {
+impl DocumentDataWithSMBert {
     pub(crate) fn from_document(
         document: DocumentDataWithDocument,
-        embedding: EmbeddingComponent,
+        embedding: SMBertEmbeddingComponent,
     ) -> Self {
         Self {
             document_base: document.document_base,
@@ -83,12 +85,12 @@ impl DocumentDataWithEmbedding {
     }
 }
 
-impl CoiSystemData for DocumentDataWithEmbedding {
+impl CoiSystemData for DocumentDataWithSMBert {
     fn id(&self) -> &DocumentId {
         &self.document_base.id
     }
 
-    fn embedding(&self) -> &EmbeddingComponent {
+    fn embedding(&self) -> &SMBertEmbeddingComponent {
         &self.embedding
     }
 
@@ -99,12 +101,12 @@ impl CoiSystemData for DocumentDataWithEmbedding {
 
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) embedding: SMBertEmbeddingComponent,
     pub(crate) coi: CoiComponent,
 }
 
 impl DocumentDataWithCoi {
-    pub(crate) fn from_document(document: DocumentDataWithEmbedding, coi: CoiComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithSMBert, coi: CoiComponent) -> Self {
         Self {
             document_base: document.document_base,
             embedding: document.embedding,
@@ -116,7 +118,7 @@ impl DocumentDataWithCoi {
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct DocumentDataWithLtr {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) embedding: SMBertEmbeddingComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
 }
@@ -135,7 +137,7 @@ impl DocumentDataWithLtr {
 #[cfg_attr(test, derive(Debug, Clone))]
 pub(crate) struct DocumentDataWithContext {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) embedding: SMBertEmbeddingComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
     pub(crate) context: ContextComponent,
@@ -157,7 +159,7 @@ impl DocumentDataWithContext {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentDataWithMab {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: EmbeddingComponent,
+    pub(crate) embedding: SMBertEmbeddingComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
     pub(crate) context: ContextComponent,
@@ -182,7 +184,7 @@ impl CoiSystemData for DocumentDataWithMab {
         &self.document_base.id
     }
 
-    fn embedding(&self) -> &EmbeddingComponent {
+    fn embedding(&self) -> &SMBertEmbeddingComponent {
         &self.embedding
     }
 
@@ -212,11 +214,10 @@ mod tests {
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.document_content, document_content);
 
-        let embedding = EmbeddingComponent {
+        let embedding = SMBertEmbeddingComponent {
             embedding: arr1(&[1., 2., 3., 4.]).into(),
         };
-        let document_data =
-            DocumentDataWithEmbedding::from_document(document_data, embedding.clone());
+        let document_data = DocumentDataWithSMBert::from_document(document_data, embedding.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.embedding, embedding);
 

@@ -10,8 +10,8 @@
         await init();
 
         console.time("load_data");
-        let vocab = await get_data("data/rubert_v0000/vocab.txt");
-        let model = await get_data("data/rubert_v0000/model.onnx");
+        let vocab = await get_data("data/rubert_v0001/vocab.txt");
+        let model = await get_data("data/rubert_v0001/smbert.onnx");
         let vocab_buffer = new Uint8Array(vocab);
         let model_buffer = new Uint8Array(model);
         console.timeEnd("load_data");

@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use rubert::{AveragePooler, Builder as RuBertBuilder, NonePooler, RuBert};
+use rubert::{AveragePooler, SMBert, SMBertBuilder};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
@@ -19,18 +19,18 @@ use super::{
     database::{Database, Db},
     systems::{
         AnalyticsSystem,
-        BertSystem,
         CoiSystem,
         CommonSystems,
         ContextSystem,
         LtrSystem,
         MabSystem,
+        SMBertSystem,
     },
 };
 
 pub struct Systems {
     database: Db,
-    bert: RuBert<AveragePooler>,
+    bert: SMBert,
     coi: CoiSystemImpl,
     ltr: ConstLtr,
     context: Context,
@@ -43,7 +43,7 @@ impl CommonSystems for Systems {
         &self.database
     }
 
-    fn bert(&self) -> &dyn BertSystem {
+    fn smbert(&self) -> &dyn SMBertSystem {
         &self.bert
     }
 
@@ -90,14 +90,14 @@ impl Reranker {
 
 pub struct Builder<V, M> {
     database: Db,
-    bert: RuBertBuilder<V, M, NonePooler>,
+    bert: SMBertBuilder<V, M>,
 }
 
 impl Default for Builder<(), ()> {
     fn default() -> Self {
         Self {
             database: Db::default(),
-            bert: RuBertBuilder::new((), ()),
+            bert: SMBertBuilder::new((), ()),
         }
     }
 }
@@ -111,7 +111,7 @@ impl<V, M> Builder<V, M> {
     pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N> {
         Builder {
             database: self.database,
-            bert: RuBertBuilder::new(vocab, model),
+            bert: SMBertBuilder::new(vocab, model),
         }
     }
 
@@ -122,7 +122,7 @@ impl<V, M> Builder<V, M> {
     ) -> Result<Builder<impl BufRead, impl Read>, Error> {
         Ok(Builder {
             database: self.database,
-            bert: RuBertBuilder::from_files(vocab, model)?,
+            bert: SMBertBuilder::from_files(vocab, model)?,
         })
     }
 

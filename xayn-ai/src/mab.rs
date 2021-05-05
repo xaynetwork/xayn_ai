@@ -279,8 +279,8 @@ mod tests {
             CoiComponent,
             ContextComponent,
             DocumentBaseComponent,
-            EmbeddingComponent,
             LtrComponent,
+            SMBertEmbeddingComponent,
         },
     };
     use ndarray::arr1;
@@ -295,7 +295,7 @@ mod tests {
                 id,
                 initial_ranking: 0,
             },
-            embedding: EmbeddingComponent {
+            embedding: SMBertEmbeddingComponent {
                 embedding: arr1(&[]).into(),
             },
             coi: CoiComponent {

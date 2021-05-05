@@ -1,22 +1,22 @@
-use rubert::{AveragePooler, Embedding1, RuBert};
+use rubert::{Embedding1, SMBert};
 
 use crate::{
     data::document_data::{
         DocumentDataWithDocument,
-        DocumentDataWithEmbedding,
-        EmbeddingComponent,
+        DocumentDataWithSMBert,
+        SMBertEmbeddingComponent,
     },
     error::Error,
-    reranker::systems::BertSystem,
+    reranker::systems::SMBertSystem,
 };
 
 pub(crate) type Embedding = Embedding1;
 
-impl BertSystem for RuBert<AveragePooler> {
+impl SMBertSystem for SMBert {
     fn compute_embedding(
         &self,
         documents: Vec<DocumentDataWithDocument>,
-    ) -> Result<Vec<DocumentDataWithEmbedding>, Error> {
+    ) -> Result<Vec<DocumentDataWithSMBert>, Error> {
         // TODO: optional parallelization
         documents
             .into_iter()
@@ -24,9 +24,9 @@ impl BertSystem for RuBert<AveragePooler> {
                 let embedding = self.run(document.document_content.snippet.as_str());
                 embedding
                     .map(|embedding| {
-                        DocumentDataWithEmbedding::from_document(
+                        DocumentDataWithSMBert::from_document(
                             document,
-                            EmbeddingComponent { embedding },
+                            SMBertEmbeddingComponent { embedding },
                         )
                     })
                     .map_err(Into::into)
