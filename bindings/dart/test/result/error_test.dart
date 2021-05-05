@@ -110,6 +110,8 @@ void main() {
       error.ptr.ref.code = code.toInt();
       error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
       error.ptr.ref.message.ref.data = message.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message.ref.len =
+          error.ptr.ref.message.ref.data.cast<Utf8>().length + 1;
 
       final exception = error.toException();
       expect(exception.code, equals(code));

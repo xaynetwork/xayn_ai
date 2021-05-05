@@ -4,8 +4,7 @@ import 'package:ffi/ffi.dart' show malloc, Utf8, Utf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CCode, CError;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
-import 'package:xayn_ai_ffi_dart/src/utils.dart'
-    show debugAssert, debugAssertEq, debugAssertNeq;
+import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 
 /// The Xayn AI error codes.
 enum Code {
@@ -151,19 +150,19 @@ class XaynAiError {
 
   /// Checks for a fault code.
   bool isFault() {
-    debugAssertNeq(_error, nullptr);
+    assertNeq(_error, nullptr);
     return _error.ref.code == CCode.Fault;
   }
 
   /// Checks for an irrecoverable error code.
   bool isPanic() {
-    debugAssertNeq(_error, nullptr);
+    assertNeq(_error, nullptr);
     return _error.ref.code == CCode.Panic;
   }
 
   /// Checks for a no error code.
   bool isNone() {
-    debugAssertNeq(_error, nullptr);
+    assertNeq(_error, nullptr);
     return _error.ref.code == CCode.None;
   }
 
@@ -172,12 +171,15 @@ class XaynAiError {
 
   /// Creates an exception from the error information.
   XaynAiException toException() {
-    debugAssertNeq(_error, nullptr);
+    assertNeq(_error, nullptr);
     final code = CodeInt.fromInt(_error.ref.code);
-    debugAssert(_error.ref.message == nullptr ||
-        (_error.ref.message.ref.data != nullptr &&
-            _error.ref.message.ref.len ==
-                _error.ref.message.ref.data.cast<Utf8>().length + 1));
+    assert(
+      _error.ref.message == nullptr ||
+          (_error.ref.message.ref.data != nullptr &&
+              _error.ref.message.ref.len ==
+                  _error.ref.message.ref.data.cast<Utf8>().length + 1),
+      'unexpected error pointer state',
+    );
     final message = _error.ref.message == nullptr
         ? ''
         : _error.ref.message.ref.data.cast<Utf8>().toDartString();
@@ -187,11 +189,14 @@ class XaynAiError {
 
   /// Frees the memory.
   void free() {
-    debugAssert(_error == nullptr ||
-        _error.ref.message == nullptr ||
-        (_error.ref.message.ref.data != nullptr &&
-            _error.ref.message.ref.len ==
-                _error.ref.message.ref.data.cast<Utf8>().length + 1));
+    assert(
+      _error == nullptr ||
+          _error.ref.message == nullptr ||
+          (_error.ref.message.ref.data != nullptr &&
+              _error.ref.message.ref.len ==
+                  _error.ref.message.ref.data.cast<Utf8>().length + 1),
+      'unexpected error pointer state',
+    );
 
     if (_error != nullptr) {
       ffi.error_message_drop(_error);

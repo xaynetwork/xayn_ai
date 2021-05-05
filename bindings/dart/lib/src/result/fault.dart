@@ -4,8 +4,7 @@ import 'package:ffi/ffi.dart' show Utf8, Utf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_CError;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
-import 'package:xayn_ai_ffi_dart/src/utils.dart'
-    show debugAssert, debugAssertEq, debugAssertNeq;
+import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertEq, assertNeq;
 
 /// The Xayn Ai faults.
 class Faults {
@@ -18,9 +17,12 @@ class Faults {
 
   /// Converts the faults to a list.
   List<String> toList() {
-    debugAssert(_faults == nullptr ||
-        (_faults.ref.data == nullptr && _faults.ref.len == 0) ||
-        (_faults.ref.data != nullptr && _faults.ref.len > 0));
+    assert(
+      _faults == nullptr ||
+          (_faults.ref.data == nullptr && _faults.ref.len == 0) ||
+          (_faults.ref.data != nullptr && _faults.ref.len > 0),
+      'unexpected faults pointer state',
+    );
 
     if (_faults == nullptr ||
         _faults.ref.data == nullptr ||
@@ -33,8 +35,8 @@ class Faults {
           if (_faults.ref.data[i].message == nullptr) {
             return '';
           } else {
-            debugAssertNeq(_faults.ref.data[i].message.ref.data, nullptr);
-            debugAssertEq(
+            assertNeq(_faults.ref.data[i].message.ref.data, nullptr);
+            assertEq(
               _faults.ref.data[i].message.ref.len,
               _faults.ref.data[i].message.ref.data.cast<Utf8>().length + 1,
             );
