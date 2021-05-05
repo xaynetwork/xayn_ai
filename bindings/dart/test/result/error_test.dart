@@ -1,6 +1,6 @@
 import 'dart:ffi' show AllocatorAlloc, nullptr, StructPointer, Uint8;
 
-import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
+import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer, Utf8, Utf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test;
 
@@ -17,6 +17,8 @@ void main() {
       error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
       error.ptr.ref.message.ref.data =
           'test fault'.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message.ref.len =
+          error.ptr.ref.message.ref.data.cast<Utf8>().length + 1;
 
       expect(error.isFault(), equals(true));
       expect(error.isPanic(), equals(false));
@@ -25,7 +27,8 @@ void main() {
 
       malloc.free(error.ptr.ref.message.ref.data);
       malloc.free(error.ptr.ref.message);
-      malloc.free(error.ptr);
+      error.ptr.ref.message = nullptr;
+      error.free();
     });
 
     test('panic', () {
@@ -34,6 +37,8 @@ void main() {
       error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
       error.ptr.ref.message.ref.data =
           'test panic'.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message.ref.len =
+          error.ptr.ref.message.ref.data.cast<Utf8>().length + 1;
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(true));
@@ -42,7 +47,8 @@ void main() {
 
       malloc.free(error.ptr.ref.message.ref.data);
       malloc.free(error.ptr.ref.message);
-      malloc.free(error.ptr);
+      error.ptr.ref.message = nullptr;
+      error.free();
     });
 
     test('none', () {
@@ -54,7 +60,7 @@ void main() {
       expect(error.isNone(), equals(true));
       expect(error.isError(), equals(false));
 
-      malloc.free(error.ptr);
+      error.free();
     });
 
     test('error', () {
@@ -63,6 +69,8 @@ void main() {
       error.ptr.ref.message = malloc.call<CBoxedSlice_u8>();
       error.ptr.ref.message.ref.data =
           'test error'.toNativeUtf8().cast<Uint8>();
+      error.ptr.ref.message.ref.len =
+          error.ptr.ref.message.ref.data.cast<Utf8>().length + 1;
 
       expect(error.isFault(), equals(false));
       expect(error.isPanic(), equals(false));
@@ -71,7 +79,8 @@ void main() {
 
       malloc.free(error.ptr.ref.message.ref.data);
       malloc.free(error.ptr.ref.message);
-      malloc.free(error.ptr);
+      error.ptr.ref.message = nullptr;
+      error.free();
     });
 
     test('free', () {

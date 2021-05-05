@@ -212,6 +212,7 @@ mod tests {
         assert_eq!(error.message.as_ref().unwrap().as_str_unchecked(), message);
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
+        assert!(error.message.is_none());
     }
 
     #[test]
@@ -224,5 +225,6 @@ mod tests {
         assert_eq!(error.message.as_ref().unwrap().as_str_unchecked(), message);
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
+        assert!(error.message.is_none());
     }
 }
