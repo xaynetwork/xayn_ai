@@ -48,7 +48,8 @@ jobs:
         uses: actions/cache@v2.1.4
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ steps.cache-key.outputs.key }}
           restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
@@ -78,7 +79,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
@@ -107,7 +109,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
@@ -147,7 +150,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
@@ -184,7 +188,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
@@ -227,7 +232,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
@@ -298,7 +304,8 @@ jobs:
         uses: actions/cache@v2.1.4
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
@@ -350,7 +357,8 @@ jobs:
         uses: actions/cache@v2.1.4
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
@@ -394,7 +402,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
             ~/.cargo/git
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
