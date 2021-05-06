@@ -1,7 +1,7 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer, Uint32Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u32;
-import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CBoxedSlice_u32;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/library.dart' show ffi;
 
 /// The ranks of the reranked documents.
 class Ranks {

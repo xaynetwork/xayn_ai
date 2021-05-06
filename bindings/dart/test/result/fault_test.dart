@@ -4,7 +4,7 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer, Utf8, Utf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isEmpty, test;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart'
     show CError, CBoxedSlice_CError, CBoxedSlice_u8;
 import 'package:xayn_ai_ffi_dart/src/result/fault.dart' show Faults;
 

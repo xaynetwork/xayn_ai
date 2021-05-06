@@ -53,10 +53,10 @@ impl WXaynAi {
     /// - The deserialization of a `document` fails.
     pub fn rerank(
         &mut self,
-        history: Vec<JsValue>,
+        histories: Vec<JsValue>,
         documents: Vec<JsValue>,
     ) -> Result<Vec<usize>, JsValue> {
-        let history = history
+        let histories = histories
             .iter()
             .map(JsValue::into_serde)
             .collect::<Result<Vec<DocumentHistory>, _>>()
@@ -78,7 +78,7 @@ impl WXaynAi {
                 ))
             })
             .into_js_result()?;
-        Ok(self.0.rerank(&history, &documents))
+        Ok(self.0.rerank(&histories, &documents))
     }
 
     /// Serializes the database of the reranker.

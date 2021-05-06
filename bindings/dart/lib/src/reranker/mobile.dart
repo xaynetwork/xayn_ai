@@ -7,8 +7,8 @@ import 'package:xayn_ai_ffi_dart/src/data/document.dart'
     show Document, Documents;
 import 'package:xayn_ai_ffi_dart/src/data/history.dart' show Histories, History;
 import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
-import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CXaynAi;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart'
     show Analytics, AnalyticsBuilder;
 import 'package:xayn_ai_ffi_dart/src/reranker/bytes.dart' show Bytes;
@@ -27,11 +27,6 @@ class XaynAiSetupData {
 }
 
 /// The Xayn AI.
-///
-/// # Examples
-/// - Create a Xayn AI with [`XaynAi()`].
-/// - Rerank documents with [`rerank()`].
-/// - Free memory with [`free()`].
 class XaynAi {
   late Pointer<CXaynAi> _ai;
 

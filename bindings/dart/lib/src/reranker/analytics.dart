@@ -1,7 +1,7 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CAnalytics;
-import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CAnalytics;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/library.dart' show ffi;
 
 class Analytics {
   /// The nDCG@k score between the LTR ranking and the relevance based ranking

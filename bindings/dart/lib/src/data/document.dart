@@ -3,7 +3,7 @@ import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8;
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:meta/meta.dart' show visibleForTesting;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart'
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart'
     show CDocument, CDocuments;
 
 /// The document.

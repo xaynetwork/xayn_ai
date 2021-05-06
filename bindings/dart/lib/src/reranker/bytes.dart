@@ -3,8 +3,8 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/foundation.dart' show listEquals;
 
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u8;
-import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CBoxedSlice_u8;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 

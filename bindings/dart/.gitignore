@@ -9,4 +9,4 @@ pubspec.lock
 android/src/main/jniLibs/
 ios/Classes/XaynAiFfiDartPlugin.h
 ios/libxayn_ai_ffi_c.a
-lib/src/ffi/genesis.dart
+lib/src/ffi/c/genesis.dart

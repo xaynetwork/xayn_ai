@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isEmpty, test;
 
 import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u32;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CBoxedSlice_u32;
 
 void main() {
   group('Ranks', () {
