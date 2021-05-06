@@ -1,0 +1,11 @@
+[package]
+name = "list-net"
+version = "0.1.0"
+authors = ["Xayn Engineering <engineering@xaynet.dev>"]
+edition = "2018"
+
+[dependencies]
+# to be kept in sync with tract-core
+ndarray = { version = "=0.13.0", features = ["serde"] }
+itertools = "0.10.0"
+float-cmp = "0.8.0"
