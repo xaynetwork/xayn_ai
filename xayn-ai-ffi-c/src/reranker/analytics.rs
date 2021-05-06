@@ -1,7 +1,7 @@
 use crate::utils::IntoRaw;
 
 /// The analytics of the reranker.
-pub struct Analytics(pub(crate) Option<xayn_ai::Analytics>);
+pub(super) struct Analytics(pub(crate) Option<xayn_ai::Analytics>);
 
 #[repr(C)]
 pub struct CAnalytics {
@@ -52,12 +52,12 @@ pub unsafe extern "C" fn analytics_drop(_analytics: Option<Box<CAnalytics>>) {}
 
 #[cfg(test)]
 mod tests {
+    use xayn_ai::assert_f32_eq;
+
     use super::*;
 
     #[test]
     fn test_convert_some_analytics_to_c_analytics() {
-        #![allow(clippy::clippy::float_cmp)]
-
         let analytics = Analytics(Some(xayn_ai::Analytics {
             ndcg_ltr: 0.25,
             ndcg_context: 0.75,
@@ -65,14 +65,12 @@ mod tests {
             ndcg_final_ranking: 2.825,
         }));
 
-        let c_analytics = analytics.into_raw();
+        let c_analytics = analytics.into_raw().unwrap();
 
-        assert!(c_analytics.is_some());
-        let c_analytics = c_analytics.unwrap();
-        assert_eq!(c_analytics.ndcg_ltr, 0.25);
-        assert_eq!(c_analytics.ndcg_context, 0.75);
-        assert_eq!(c_analytics.ndcg_initial_ranking, 1.125);
-        assert_eq!(c_analytics.ndcg_final_ranking, 2.825);
+        assert_f32_eq!(c_analytics.ndcg_ltr, 0.25, ulps = 0);
+        assert_f32_eq!(c_analytics.ndcg_context, 0.75, ulps = 0);
+        assert_f32_eq!(c_analytics.ndcg_initial_ranking, 1.125, ulps = 0);
+        assert_f32_eq!(c_analytics.ndcg_final_ranking, 2.825, ulps = 0);
 
         unsafe {
             analytics_drop(Some(c_analytics));

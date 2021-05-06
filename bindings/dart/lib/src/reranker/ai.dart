@@ -9,7 +9,8 @@ import 'package:xayn_ai_ffi_dart/src/data/history.dart' show Histories, History;
 import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
-import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart' show Analytics;
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart'
+    show Analytics, AnalyticsBuilder;
 import 'package:xayn_ai_ffi_dart/src/reranker/bytes.dart' show Bytes;
 import 'package:xayn_ai_ffi_dart/src/reranker/data_provider.dart'
     show getInputData;
@@ -131,13 +132,12 @@ class XaynAi {
   Analytics? analytics() {
     final error = XaynAiError();
 
-    final builder =
-        Analytics.fromCBuilder(ffi.xaynai_analytics(_ai, error.ptr));
+    final builder = AnalyticsBuilder(ffi.xaynai_analytics(_ai, error.ptr));
     try {
       if (error.isError()) {
         throw error.toException();
       }
-      return builder.buildFromC();
+      return builder.build();
     } finally {
       builder.free();
       error.free();

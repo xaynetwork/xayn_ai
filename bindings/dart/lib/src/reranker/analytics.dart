@@ -16,20 +16,21 @@ class Analytics {
   /// The nDCG@k score between the final ranking and the relevance based ranking
   final double ndcgFinalRanking;
 
-  Analytics._(this.ndcgLtr, this.ndcgContext, this.ndcgInitialRanking,
-      this.ndcgFinalRanking);
-
-  static AnalyticsFromCBuilder fromCBuilder(Pointer<CAnalytics> cAnalytics) =>
-      AnalyticsFromCBuilder._(cAnalytics);
+  Analytics._(
+    this.ndcgLtr,
+    this.ndcgContext,
+    this.ndcgInitialRanking,
+    this.ndcgFinalRanking,
+  );
 }
 
-class AnalyticsFromCBuilder {
+class AnalyticsBuilder {
   final Pointer<CAnalytics> _cAnalytics;
   bool _freed = false;
 
-  AnalyticsFromCBuilder._(this._cAnalytics);
+  AnalyticsBuilder(this._cAnalytics);
 
-  Analytics? buildFromC() {
+  Analytics? build() {
     if (_freed) {
       throw StateError('CAnalytics already freed');
     } else if (_cAnalytics == nullptr) {
@@ -37,8 +38,12 @@ class AnalyticsFromCBuilder {
       return null;
     } else {
       final cval = _cAnalytics.ref;
-      return Analytics._(cval.ndcg_ltr, cval.ndcg_context,
-          cval.ndcg_initial_ranking, cval.ndcg_final_ranking);
+      return Analytics._(
+        cval.ndcg_ltr,
+        cval.ndcg_context,
+        cval.ndcg_initial_ranking,
+        cval.ndcg_final_ranking,
+      );
     }
   }
 
@@ -48,8 +53,6 @@ class AnalyticsFromCBuilder {
       _freed = true;
       // drop impl's are nullptr safe, but we don't want to call into ffi in tests
       if (_cAnalytics != nullptr) ffi.analytics_drop(_cAnalytics);
-    } else {
-      throw StateError('CAnalytics already freed (double free)');
     }
   }
 }

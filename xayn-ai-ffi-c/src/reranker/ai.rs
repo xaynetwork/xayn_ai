@@ -309,7 +309,7 @@ mod tests {
     use super::*;
     use crate::{
         data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
-        reranker::bytes::bytes_drop,
+        reranker::{analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
         tests::{SMBERT_MODEL, VOCAB},
         utils::tests::AsPtr,
@@ -462,7 +462,7 @@ mod tests {
         assert!(analytics.is_none());
         assert_eq!(error.code, CCode::None);
 
-        drop(analytics);
+        unsafe { analytics_drop(analytics) };
         unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
 

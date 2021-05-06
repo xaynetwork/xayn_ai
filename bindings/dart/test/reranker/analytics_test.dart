@@ -3,7 +3,8 @@ import 'dart:ffi' show nullptr, AllocatorAlloc, StructPointer;
 import 'package:ffi/ffi.dart' show calloc;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNotNull, isNull, test, throwsStateError;
-import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart' show Analytics;
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart'
+    show AnalyticsBuilder;
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CAnalytics;
 
 void main() {
@@ -15,8 +16,8 @@ void main() {
       cAnalytics.ref.ndcg_initial_ranking = 0.125;
       cAnalytics.ref.ndcg_final_ranking = -25.25;
       try {
-        final builder = Analytics.fromCBuilder(cAnalytics);
-        final analytics = builder.buildFromC();
+        final builder = AnalyticsBuilder(cAnalytics);
+        final analytics = builder.build();
         //satify dart non null analytics
         if (analytics == null) return expect(analytics, isNotNull);
         expect(analytics.ndcgLtr, equals(0.25));
@@ -30,19 +31,16 @@ void main() {
     });
 
     test('can be empty', () {
-      final builder = Analytics.fromCBuilder(nullptr);
-      final analytics = builder.buildFromC();
+      final builder = AnalyticsBuilder(nullptr);
+      final analytics = builder.build();
       expect(analytics, isNull);
     });
 
     test('throw error on use after free', () {
-      final builder = Analytics.fromCBuilder(nullptr);
+      final builder = AnalyticsBuilder(nullptr);
       builder.free();
       expect(() {
-        builder.free();
-      }, throwsStateError);
-      expect(() {
-        builder.buildFromC();
+        builder.build();
       }, throwsStateError);
     });
   });
