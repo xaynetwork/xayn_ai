@@ -1,7 +1,7 @@
 #!/bin/sh
-# This script take in input a directory, the name of the archive and a version.
-# It crate an archive, in the current directory, in the correct format
-# and add the necessary informations to verify it's content.
+# This script takes as input a directory, the name of the archive and a version.
+# It creates an archive in the correct format in the current directory
+# and adds the necessary information to verify its content.
 # The archive will contain the directory name and the provided version.
 # If the option --upload is provided the script will upload the archive to the s3 bucket.
 
@@ -60,4 +60,3 @@ rm -rf $TMP_DIR
 if [ "$UPLOAD" = true ]; then
   s3cmd put --acl-public --guess-mime-type $ARCHIVE_NAME $URL
 fi
-
