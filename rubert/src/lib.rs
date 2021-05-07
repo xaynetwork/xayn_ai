@@ -1,4 +1,3 @@
-#![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
 //! The RuBert pipeline computes embeddings of sequences.
 //!
 //! Sequences are anything string-like and can also be single words or snippets. The embeddings are
@@ -21,6 +20,7 @@
 //!     Ok(())
 //! }
 //! ```
+#![forbid(rustdoc::broken_intra_doc_links, rustdoc::private_intra_doc_links)]
 
 mod builder;
 mod model;
