@@ -4,7 +4,13 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:async/async.dart';
 
-import 'package:xayn_ai_ffi_dart/src/reranker/mobile.dart' show XaynAiSetupData;
+/// Data that can be used to initialize [`XaynAi`].
+class XaynAiSetupData {
+  late String model;
+  late String vocab;
+
+  XaynAiSetupData(this.model, this.vocab);
+}
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 ///

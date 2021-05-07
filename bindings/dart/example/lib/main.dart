@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart'
 import 'package:stats/stats.dart' show Stats;
 import 'package:xayn_ai_ffi_dart/package.dart'
     show XaynAi, Document, Relevance, History, Feedback;
+import 'package:xayn_ai_ffi_dart/src/reranker/data_provider.dart'
+    show getInputData;
 
 void main() {
   runApp(MyApp());
@@ -35,7 +37,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> initAi() async {
     final data = await getApplicationDocumentsDirectory()
-        .then((dir) => XaynAi.inputData(dir.path));
+        .then((dir) => getInputData(dir.path));
 
     // If the widget was removed from the tree while the asynchronous platform
     // message was in flight, we want to discard the reply rather than calling
@@ -43,7 +45,7 @@ class _MyAppState extends State<MyApp> {
     if (!mounted) return;
 
     setState(() {
-      _ai = XaynAi.fromInputData(data);
+      _ai = XaynAi(data.vocab, data.model);
       _msg = '';
     });
   }

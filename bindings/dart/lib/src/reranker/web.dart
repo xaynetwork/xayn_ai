@@ -8,6 +8,7 @@ import 'package:js/js.dart' show anonymous, JS;
 import 'package:xayn_ai_ffi_dart/src/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/data/history.dart'
     show FeedbackCast, History, RelevanceCast;
+import 'package:xayn_ai_ffi_dart/src/reranker/base.dart' as base;
 
 @JS()
 @anonymous
@@ -53,7 +54,7 @@ class _XaynAi {
 }
 
 /// The Xayn AI.
-class XaynAi {
+class XaynAi implements base.XaynAi {
   late _XaynAi _ai;
 
   /// Creates and initializes the Xayn AI.
@@ -71,6 +72,7 @@ class XaynAi {
   /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
+  @override
   List<int> rerank(List<History> histories, List<Document> documents) {
     final hists = List.generate(
       histories.length,
@@ -95,11 +97,13 @@ class XaynAi {
   }
 
   /// Serializes the current state of the reranker.
+  @override
   Uint8List serialize() => _ai.serialize();
 
   /// Retrieves faults which might occur during reranking.
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
+  @override
   List<String> faults() {
     final faults = _ai.faults();
 
@@ -111,7 +115,12 @@ class XaynAi {
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
+  @override
   void analytics() {
     _ai.analytics();
   }
+
+  /// Frees the memory.
+  @override
+  void free() {}
 }
