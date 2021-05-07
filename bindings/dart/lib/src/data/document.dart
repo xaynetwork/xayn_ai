@@ -1,7 +1,6 @@
 import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
-import 'package:meta/meta.dart' show visibleForTesting;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart'
     show CDocument, CDocuments;
@@ -22,13 +21,13 @@ class Document {
     }
   }
 
-  @visibleForTesting
+  /// Gets the id.
   String get id => _id;
 
-  @visibleForTesting
+  /// Gets the snippet.
   String get snippet => _snippet;
 
-  @visibleForTesting
+  /// Gets the rank.
   int get rank => _rank;
 }
 

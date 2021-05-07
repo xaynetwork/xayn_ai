@@ -1,7 +1,6 @@
 import 'dart:ffi' show AllocatorAlloc, nullptr, Pointer, StructPointer, Uint8;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
-import 'package:meta/meta.dart' show visibleForTesting;
 
 import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart'
     show CFeedback, CHistories, CHistory, CRelevance;
@@ -13,7 +12,7 @@ enum Relevance {
   high,
 }
 
-extension RelevanceInt on Relevance {
+extension RelevanceCast on Relevance {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
@@ -41,6 +40,34 @@ extension RelevanceInt on Relevance {
         throw UnsupportedError('Undefined enum variant.');
     }
   }
+
+  /// Gets the variant name.
+  String toStr() {
+    switch (this) {
+      case Relevance.low:
+        return 'Low';
+      case Relevance.medium:
+        return 'Medium';
+      case Relevance.high:
+        return 'High';
+      default:
+        throw UnsupportedError('Undefined enum variant.');
+    }
+  }
+
+  /// Creates the relevance level from a variant name.
+  static Relevance fromStr(String variant) {
+    switch (variant) {
+      case 'Low':
+        return Relevance.low;
+      case 'Medium':
+        return Relevance.medium;
+      case 'High':
+        return Relevance.high;
+      default:
+        throw UnsupportedError('Undefined enum variant.');
+    }
+  }
 }
 
 /// A user feedback level.
@@ -50,7 +77,7 @@ enum Feedback {
   notGiven,
 }
 
-extension FeedbackInt on Feedback {
+extension FeedbackCast on Feedback {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
@@ -78,6 +105,34 @@ extension FeedbackInt on Feedback {
         throw UnsupportedError('Undefined enum variant.');
     }
   }
+
+  /// Gets the variant name.
+  String toStr() {
+    switch (this) {
+      case Feedback.relevant:
+        return 'Relevant';
+      case Feedback.irrelevant:
+        return 'Irrelevant';
+      case Feedback.notGiven:
+        return 'NotGiven';
+      default:
+        throw UnsupportedError('Undefined enum variant.');
+    }
+  }
+
+  /// Creates the feedback level from a variant name.
+  static Feedback fromStr(String variant) {
+    switch (variant) {
+      case 'Relevant':
+        return Feedback.relevant;
+      case 'Irrelevant':
+        return Feedback.irrelevant;
+      case 'NotGiven':
+        return Feedback.notGiven;
+      default:
+        throw UnsupportedError('Undefined enum variant.');
+    }
+  }
 }
 
 /// The document history.
@@ -93,13 +148,13 @@ class History {
     }
   }
 
-  @visibleForTesting
+  /// Gets the id.
   String get id => _id;
 
-  @visibleForTesting
+  /// Gets the relevance level.
   Relevance get relevance => _relevance;
 
-  @visibleForTesting
+  /// Gets the user feedback.
   Feedback get feedback => _feedback;
 }
 

@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test, throwsArgumentError;
 
 import 'package:xayn_ai_ffi_dart/src/data/history.dart'
-    show Feedback, FeedbackInt, Histories, History, Relevance, RelevanceInt;
+    show Feedback, FeedbackCast, Histories, History, Relevance, RelevanceCast;
 import '../utils.dart' show histories;
 
 void main() {
