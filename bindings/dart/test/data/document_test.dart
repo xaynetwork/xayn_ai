@@ -4,8 +4,8 @@ import 'package:ffi/ffi.dart' show Utf8, Utf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test, throwsArgumentError;
 
-import 'package:xayn_ai_ffi_dart/src/data/document.dart'
-    show Document, Documents;
+import 'package:xayn_ai_ffi_dart/src/data/document.dart' show Document;
+import 'package:xayn_ai_ffi_dart/src/data/documents.dart' show Documents;
 import '../utils.dart' show documents;
 
 void main() {

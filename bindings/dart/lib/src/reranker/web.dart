@@ -7,7 +7,7 @@ import 'package:js/js.dart' show anonymous, JS;
 
 import 'package:xayn_ai_ffi_dart/src/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/data/history.dart'
-    show FeedbackCast, History, RelevanceCast;
+    show FeedbackStr, History, RelevanceStr;
 import 'package:xayn_ai_ffi_dart/src/reranker/base.dart' as base;
 
 @JS('WebAssembly.RuntimeError')

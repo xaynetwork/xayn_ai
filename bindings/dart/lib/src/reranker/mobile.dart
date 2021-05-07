@@ -3,9 +3,10 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
-import 'package:xayn_ai_ffi_dart/src/data/document.dart'
-    show Document, Documents;
-import 'package:xayn_ai_ffi_dart/src/data/history.dart' show Histories, History;
+import 'package:xayn_ai_ffi_dart/src/data/document.dart' show Document;
+import 'package:xayn_ai_ffi_dart/src/data/documents.dart' show Documents;
+import 'package:xayn_ai_ffi_dart/src/data/history.dart' show History;
+import 'package:xayn_ai_ffi_dart/src/data/histories.dart' show Histories;
 import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
 import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/c/library.dart' show ffi;
