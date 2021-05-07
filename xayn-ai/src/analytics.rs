@@ -89,9 +89,9 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
             calcuate_reordered_ndcg_at_k_score(&mut paired_initial_ranking_scores, DEFAULT_NDCG_K);
 
         Ok(Analytics {
-            ndcg_initial_ranking,
             ndcg_ltr,
             ndcg_context,
+            ndcg_initial_ranking,
             ndcg_final_ranking,
         })
     }
