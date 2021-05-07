@@ -1,8 +1,8 @@
-import 'dart:async';
-import 'dart:io';
+import 'dart:async' show Future;
+import 'dart:io' show Directory, File;
 
-import 'package:flutter/services.dart';
-import 'package:async/async.dart';
+import 'package:async/async.dart' show AsyncMemoizer;
+import 'package:flutter/services.dart' show rootBundle;
 
 /// Data that can be used to initialize [`XaynAi`].
 class XaynAiSetupData {

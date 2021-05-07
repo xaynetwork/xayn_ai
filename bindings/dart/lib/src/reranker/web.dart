@@ -1,4 +1,4 @@
-@JS('xayn_ai_ffi_wasm')
+@JS()
 library web;
 
 import 'dart:typed_data' show Uint32List, Uint8List;
@@ -44,7 +44,7 @@ class _Analytics {
   external factory _Analytics();
 }
 
-@JS('WXaynAi')
+@JS('xayn_ai_ffi_wasm.WXaynAi')
 class _XaynAi {
   external _XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]);
   external Uint32List rerank(
