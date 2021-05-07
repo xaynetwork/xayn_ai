@@ -12,6 +12,7 @@ xayn-ai = { path = "../xayn-ai" }
 
 [dev-dependencies]
 itertools = "0.10.0"
+float-cmp = "0.8.0"
 
 [build-dependencies]
 cbindgen = "=0.18.0"

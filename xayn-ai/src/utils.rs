@@ -40,7 +40,20 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
     nan_safe_f32_cmp(b, a)
 }
 
-#[cfg(test)]
+/// Compares to f32 floats with approximate equality of 2 ulps.
+///
+/// To specify other number of ulps you can use `assert_f32_eq!(left, right, ulps=n)`
+/// instead of `assert_f32_eq!(left, right)`.
+///
+/// # De-Facto #[cfg(test)]
+///
+/// As this is also used by some FFI binding crates, we export and we can't limit it
+/// to `#[cfg(test)]`.
+///
+/// But you can't use this outside of dev/test builds, it won't compile as float-cmp is a
+/// dev . Furthermore in dependencies which use this you need to have the `float-cmp`
+/// dependency available.
+#[macro_export]
 macro_rules! assert_f32_eq {
     ($left:expr, $right:expr) => {
         assert_f32_eq! { $left, $right, ulps = 2 }
