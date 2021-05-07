@@ -10,6 +10,9 @@ import 'package:xayn_ai_ffi_dart/src/data/history.dart'
     show FeedbackCast, History, RelevanceCast;
 import 'package:xayn_ai_ffi_dart/src/reranker/base.dart' as base;
 
+@JS('WebAssembly.RuntimeError')
+class _RuntimeException {}
+
 @JS()
 @anonymous
 class _History {
@@ -62,7 +65,13 @@ class XaynAi implements base.XaynAi {
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
   XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]) {
-    _ai = _XaynAi(vocab, model, serialized);
+    try {
+      _ai = _XaynAi(vocab, model, serialized);
+    } on _RuntimeException {
+      throw Exception('WebAssembly RuntimeError');
+    } catch (exception) {
+      rethrow;
+    }
   }
 
   /// Reranks the documents.
@@ -93,19 +102,43 @@ class XaynAi implements base.XaynAi {
       growable: false,
     );
 
-    return _ai.rerank(hists, docs).toList(growable: false);
+    late final Uint32List ranks;
+    try {
+      ranks = _ai.rerank(hists, docs);
+    } on _RuntimeException {
+      throw Exception('WebAssembly RuntimeError');
+    } catch (exception) {
+      rethrow;
+    }
+
+    return ranks.toList(growable: false);
   }
 
   /// Serializes the current state of the reranker.
   @override
-  Uint8List serialize() => _ai.serialize();
+  Uint8List serialize() {
+    try {
+      return _ai.serialize();
+    } on _RuntimeException {
+      throw Exception('WebAssembly RuntimeError');
+    } catch (exception) {
+      rethrow;
+    }
+  }
 
   /// Retrieves faults which might occur during reranking.
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
   @override
   List<String> faults() {
-    final faults = _ai.faults();
+    late final List<_Fault> faults;
+    try {
+      faults = _ai.faults();
+    } on _RuntimeException {
+      throw Exception('WebAssembly RuntimeError');
+    } catch (exception) {
+      rethrow;
+    }
 
     return List.generate(
       faults.length,
@@ -117,7 +150,13 @@ class XaynAi implements base.XaynAi {
   /// Retrieves the analytics which were collected in the penultimate reranking.
   @override
   void analytics() {
-    _ai.analytics();
+    try {
+      _ai.analytics();
+    } on _RuntimeException {
+      throw Exception('WebAssembly RuntimeError');
+    } catch (exception) {
+      rethrow;
+    }
   }
 
   /// Frees the memory.
