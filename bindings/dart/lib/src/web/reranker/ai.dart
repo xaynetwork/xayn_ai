@@ -17,7 +17,7 @@ import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
 import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
     show JsAnalytics, ToAnalytics;
 import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
-    show JsRuntimeException;
+    show JsRuntimeException, ToXaynAiException;
 import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
     show JsFault, ToStrings;
 
@@ -47,10 +47,8 @@ class XaynAi implements base.XaynAi {
       : _freed = false {
     try {
       _ai = _XaynAi(vocab, model, serialized);
-    } on JsRuntimeException {
-      throw Exception('WebAssembly RuntimeError');
-    } catch (exception) {
-      rethrow;
+    } on JsRuntimeException catch (exception) {
+      throw exception.toXaynAiException();
     }
   }
 
@@ -71,10 +69,8 @@ class XaynAi implements base.XaynAi {
       return _ai
           .rerank(histories.toHistories(), documents.toDocuments())
           .toList(growable: false);
-    } on JsRuntimeException {
-      throw Exception('WebAssembly RuntimeError');
-    } catch (exception) {
-      rethrow;
+    } on JsRuntimeException catch (exception) {
+      throw exception.toXaynAiException();
     }
   }
 
@@ -87,10 +83,8 @@ class XaynAi implements base.XaynAi {
 
     try {
       return _ai.serialize();
-    } on JsRuntimeException {
-      throw Exception('WebAssembly RuntimeError');
-    } catch (exception) {
-      rethrow;
+    } on JsRuntimeException catch (exception) {
+      throw exception.toXaynAiException();
     }
   }
 
@@ -105,10 +99,8 @@ class XaynAi implements base.XaynAi {
 
     try {
       return _ai.faults().toStrings();
-    } on JsRuntimeException {
-      throw Exception('WebAssembly RuntimeError');
-    } catch (exception) {
-      rethrow;
+    } on JsRuntimeException catch (exception) {
+      throw exception.toXaynAiException();
     }
   }
 
@@ -121,10 +113,8 @@ class XaynAi implements base.XaynAi {
 
     try {
       return _ai.analytics()?.toAnalytics();
-    } on JsRuntimeException {
-      throw Exception('WebAssembly RuntimeError');
-    } catch (exception) {
-      rethrow;
+    } on JsRuntimeException catch (exception) {
+      throw exception.toXaynAiException();
     }
   }
 
