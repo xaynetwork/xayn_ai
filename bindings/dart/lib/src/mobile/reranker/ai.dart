@@ -8,6 +8,7 @@ import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as base;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/document.dart' show Documents;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart' show Histories;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/rank.dart' show Ranks;
@@ -18,7 +19,6 @@ import 'package:xayn_ai_ffi_dart/src/mobile/reranker/analytics.dart'
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/bytes.dart' show Bytes;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/fault.dart' show Faults;
-import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 
 /// The Xayn AI.
 class XaynAi implements base.XaynAi {

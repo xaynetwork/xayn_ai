@@ -3,11 +3,11 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/foundation.dart' show listEquals;
 
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
     show CBoxedSlice_u8;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart' show XaynAiError;
-import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 
 /// A bytes buffer.
 class Bytes {

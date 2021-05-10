@@ -2,10 +2,11 @@ import 'dart:ffi' show nullptr, Pointer, StructPointer;
 
 import 'package:ffi/ffi.dart' show Utf8, Utf8Pointer;
 
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart'
+    show assertEq, assertNeq;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
     show CBoxedSlice_CError;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
-import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertEq, assertNeq;
 
 /// The Xayn Ai faults.
 class Faults {

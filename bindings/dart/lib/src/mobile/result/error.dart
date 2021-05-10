@@ -4,10 +4,10 @@ import 'package:ffi/ffi.dart' show malloc, Utf8, Utf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
     show CCode, CError;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
-import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 
 extension CodeToInt on Code {
   /// Gets the discriminant.
