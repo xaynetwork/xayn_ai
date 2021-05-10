@@ -1,4 +1,3 @@
-#![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
 //! A Bert tokenizer which converts sequences into encodings.
 //!
 //! This is a very condensed and heavily refactored version of [huggingface's `tokenizers`] crate.
@@ -49,6 +48,11 @@
 //! [huggingface's `tokenizers`]: https://crates.io/crates/tokenizers
 //! [`Num`]: num_traits::Num
 //! [`FromPrimitive`]: num_traits::FromPrimitive
+#![forbid(
+    unsafe_op_in_unsafe_fn,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::private_intra_doc_links
+)]
 
 mod builder;
 mod model;

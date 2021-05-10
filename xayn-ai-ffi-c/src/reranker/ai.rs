@@ -17,6 +17,7 @@ use crate::{
         error::{CCode, CError, Error},
         fault::{CFaults, Faults},
     },
+    slice::CBoxedSlice,
     utils::{as_str, IntoRaw},
 };
 
@@ -56,9 +57,7 @@ impl CXaynAi {
         let vocab = unsafe { as_str(vocab, CCode::VocabPointer, "Failed to initialize the ai") }?;
         let model = unsafe { as_str(model, CCode::ModelPointer, "Failed to initialize the ai") }?;
 
-        let serialized = serialized
-            .map(|bytes| unsafe { bytes.as_slice() })
-            .unwrap_or_default();
+        let serialized = serialized.map(CBoxedSlice::as_slice).unwrap_or_default();
 
         Builder::default()
             .with_bert_from_file(vocab, model)
@@ -89,19 +88,17 @@ impl CXaynAi {
             CCode::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
 
-        let histories = histories
-            .ok_or_else(|| {
-                CCode::HistoriesPointer.with_context(
-                    "Failed to rerank the documents: The document histories pointer is null",
-                )
-            })?
-            .to_histories()?;
-        let documents = documents
-            .ok_or_else(|| {
-                CCode::DocumentsPointer
-                    .with_context("Failed to rerank the documents: The documents pointer is null")
-            })?
-            .to_documents()?;
+        let histories = histories.ok_or_else(|| {
+            CCode::HistoriesPointer.with_context(
+                "Failed to rerank the documents: The document histories pointer is null",
+            )
+        })?;
+        let histories = unsafe { histories.to_histories() }?;
+        let documents = documents.ok_or_else(|| {
+            CCode::DocumentsPointer
+                .with_context("Failed to rerank the documents: The documents pointer is null")
+        })?;
+        let documents = unsafe { documents.to_documents() }?;
 
         Ok(xaynai.0.rerank(&histories, &documents).into())
     }

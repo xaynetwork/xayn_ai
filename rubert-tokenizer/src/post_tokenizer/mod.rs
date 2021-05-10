@@ -113,8 +113,8 @@ where
             offsets,
             special_tokens_mask,
             attention_mask,
-            overflowing,
             sequence_ranges,
+            overflowing,
         }
     }
 }

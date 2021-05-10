@@ -61,7 +61,7 @@ impl<'a> CDocuments<'a> {
                     .into();
                     let rank = document.rank as usize;
 
-                    Ok(Document { id, snippet, rank })
+                    Ok(Document { id, rank, snippet })
                 })
                 .collect(),
         }
