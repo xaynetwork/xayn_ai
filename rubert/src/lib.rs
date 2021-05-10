@@ -20,7 +20,11 @@
 //!     Ok(())
 //! }
 //! ```
-#![forbid(rustdoc::broken_intra_doc_links, rustdoc::private_intra_doc_links)]
+#![forbid(
+    unsafe_op_in_unsafe_fn,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::private_intra_doc_links
+)]
 
 mod builder;
 mod model;
