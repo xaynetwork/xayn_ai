@@ -1,11 +1,13 @@
 use serde::Serialize;
+use serde_repr::Serialize_repr;
 use wasm_bindgen::JsValue;
 
 use crate::utils::IntoJsResult;
 
 // placeholder / later we can have a crate that contains common code for c-ffi and wasm
-#[repr(i32)]
-#[cfg_attr(test, derive(Clone, Copy, Debug))]
+#[repr(i8)]
+#[derive(Serialize_repr)]
+#[cfg_attr(test, derive(Clone, Copy, Debug, serde_repr::Deserialize_repr))]
 pub enum CCode {
     /// A warning or uncritical error.
     Fault = -2,
@@ -24,19 +26,19 @@ pub enum CCode {
 impl CCode {
     /// Provides context for the error code.
     pub(crate) fn with_context(self, message: impl Into<String>) -> ExternError {
-        ExternError::new_error(self as i32, message)
+        ExternError::new_error(self, message)
     }
 }
 
 #[derive(Serialize)]
 #[cfg_attr(test, derive(serde::Deserialize, Debug))]
 pub(crate) struct ExternError {
-    pub(crate) code: i32,
+    pub(crate) code: CCode,
     pub(crate) message: String,
 }
 
 impl ExternError {
-    fn new_error(code: i32, message: impl Into<String>) -> Self {
+    fn new_error(code: CCode, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),

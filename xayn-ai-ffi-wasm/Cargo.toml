@@ -11,6 +11,7 @@ console_error_panic_hook = "0.1.6"
 getrandom = { version = "0.2.2", features = ["js"] }
 js-sys = "0.3.50"
 serde = { version = "1.0.125", features = ["derive"] }
+serde_repr = "0.1.6"
 wasm-bindgen = { version = "0.2.73", features = ["serde-serialize"] }
 xayn-ai = { path = "../xayn-ai" }
 

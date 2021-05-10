@@ -1144,6 +1144,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_repr"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2dc6b7951b17b051f3210b063f12cc17320e2fe30ae05b0fe2a3abb068551c76"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1688,6 +1699,7 @@ dependencies = [
  "itertools 0.10.0",
  "js-sys",
  "serde",
+ "serde_repr",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "xayn-ai",

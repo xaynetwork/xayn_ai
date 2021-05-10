@@ -6,29 +6,29 @@ import 'package:js/js.dart' show anonymous, JS;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show Feedback, History, Relevance;
 
-extension RelevanceStr on Relevance {
-  /// Gets the variant name.
-  String toStr() {
+extension RelevanceInt on Relevance {
+  /// Gets the discriminant.
+  int toInt() {
     switch (this) {
       case Relevance.low:
-        return 'Low';
+        return 0;
       case Relevance.medium:
-        return 'Medium';
+        return 1;
       case Relevance.high:
-        return 'High';
+        return 2;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
   }
 
-  /// Creates the relevance level from a variant name.
-  static Relevance fromStr(String variant) {
-    switch (variant) {
-      case 'Low':
+  /// Creates the relevance level from a discriminant.
+  static Relevance fromInt(int idx) {
+    switch (idx) {
+      case 0:
         return Relevance.low;
-      case 'Medium':
+      case 1:
         return Relevance.medium;
-      case 'High':
+      case 2:
         return Relevance.high;
       default:
         throw UnsupportedError('Undefined enum variant.');
@@ -36,29 +36,29 @@ extension RelevanceStr on Relevance {
   }
 }
 
-extension FeedbackStr on Feedback {
-  /// Gets the variant name.
-  String toStr() {
+extension FeedbackInt on Feedback {
+  /// Gets the discriminant.
+  int toInt() {
     switch (this) {
       case Feedback.relevant:
-        return 'Relevant';
+        return 0;
       case Feedback.irrelevant:
-        return 'Irrelevant';
+        return 1;
       case Feedback.notGiven:
-        return 'NotGiven';
+        return 2;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
   }
 
-  /// Creates the feedback level from a variant name.
-  static Feedback fromStr(String variant) {
-    switch (variant) {
-      case 'Relevant':
+  /// Creates the feedback level from a discriminant.
+  static Feedback fromInt(int idx) {
+    switch (idx) {
+      case 0:
         return Feedback.relevant;
-      case 'Irrelevant':
+      case 1:
         return Feedback.irrelevant;
-      case 'NotGiven':
+      case 2:
         return Feedback.notGiven;
       default:
         throw UnsupportedError('Undefined enum variant.');
@@ -69,12 +69,7 @@ extension FeedbackStr on Feedback {
 @JS()
 @anonymous
 class JsHistory {
-  external factory JsHistory({
-    String id,
-    String relevance,
-    // ignore: non_constant_identifier_names
-    String user_feedback,
-  });
+  external factory JsHistory({String id, int relevance, int feedback});
 }
 
 extension ToJsHistories on List<History> {
@@ -83,8 +78,8 @@ extension ToJsHistories on List<History> {
         length,
         (i) => JsHistory(
           id: this[i].id,
-          relevance: this[i].relevance.toStr(),
-          user_feedback: this[i].feedback.toStr(),
+          relevance: this[i].relevance.toInt(),
+          feedback: this[i].feedback.toInt(),
         ),
         growable: false,
       );

@@ -2,7 +2,7 @@ use js_sys::Uint8Array;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
 
-use super::{error::CCode, utils::IntoJsResult};
+use super::{error::CCode, history::WHistory, utils::IntoJsResult};
 
 /// The Xayn AI.
 #[wasm_bindgen]
@@ -58,7 +58,7 @@ impl WXaynAi {
     ) -> Result<Vec<usize>, JsValue> {
         let histories = histories
             .iter()
-            .map(JsValue::into_serde)
+            .map(|js_value| js_value.into_serde::<WHistory>().map(Into::into))
             .collect::<Result<Vec<DocumentHistory>, _>>()
             .map_err(|cause| {
                 CCode::HistoriesDeserialization.with_context(format!(
