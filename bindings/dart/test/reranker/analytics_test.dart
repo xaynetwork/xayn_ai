@@ -18,12 +18,11 @@ void main() {
       try {
         final builder = AnalyticsBuilder(cAnalytics);
         final analytics = builder.build();
-        //satify dart non null analytics
-        if (analytics == null) return expect(analytics, isNotNull);
-        expect(analytics.ndcgLtr, equals(0.25));
-        expect(analytics.ndcgContext, equals(0.75));
-        expect(analytics.ndcgInitialRanking, equals(0.125));
-        expect(analytics.ndcgFinalRanking, equals(-25.25));
+        expect(analytics, isNotNull);
+        expect(analytics?.ndcgLtr, equals(0.25));
+        expect(analytics?.ndcgContext, equals(0.75));
+        expect(analytics?.ndcgInitialRanking, equals(0.125));
+        expect(analytics?.ndcgFinalRanking, equals(-25.25));
         //must not call builder.free()
       } finally {
         calloc.free(cAnalytics);

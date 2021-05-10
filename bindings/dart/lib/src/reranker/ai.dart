@@ -16,6 +16,7 @@ import 'package:xayn_ai_ffi_dart/src/reranker/data_provider.dart'
     show getInputData;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/result/fault.dart' show Faults;
+import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 
 /// Data that can be used to initialize [`XaynAi`].
 class XaynAiSetupData {
@@ -50,6 +51,7 @@ class XaynAi {
       if (error.isError()) {
         throw error.toException();
       }
+      assertNeq(_ai, nullptr);
     } finally {
       malloc.free(vocabPtr);
       malloc.free(modelPtr);

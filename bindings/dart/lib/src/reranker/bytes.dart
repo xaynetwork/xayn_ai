@@ -1,9 +1,12 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer, Uint8Pointer;
 import 'dart:typed_data' show Uint8List;
 
+import 'package:flutter/foundation.dart' show listEquals;
+
 import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CBoxedSlice_u8;
 import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;
+import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 
 /// A bytes buffer.
 class Bytes {
@@ -25,6 +28,11 @@ class Bytes {
       if (error.isError()) {
         throw error.toException();
       }
+      assertNeq(_bytes, nullptr);
+      assert(listEquals(
+        _bytes.ref.data.asTypedList(_bytes.ref.len),
+        Uint8List(bytes.length),
+      ));
     } finally {
       error.free();
     }
@@ -39,7 +47,12 @@ class Bytes {
 
   /// Converts the buffer to a list.
   Uint8List toList() {
-    if (_bytes == nullptr || _bytes.ref.data == nullptr) {
+    assert(
+      _bytes == nullptr || _bytes.ref.data != nullptr,
+      'unexpected bytes pointer state',
+    );
+
+    if (_bytes == nullptr) {
       return Uint8List(0);
     } else {
       final bytes = Uint8List(_bytes.ref.len);
@@ -52,6 +65,11 @@ class Bytes {
 
   /// Frees the memory.
   void free() {
+    assert(
+      _bytes == nullptr || _bytes.ref.data != nullptr,
+      'unexpected bytes pointer state',
+    );
+
     if (_bytes != nullptr) {
       ffi.bytes_drop(_bytes);
       _bytes = nullptr;
