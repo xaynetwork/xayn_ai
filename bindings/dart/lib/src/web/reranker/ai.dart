@@ -3,81 +3,34 @@ library ai;
 
 import 'dart:typed_data' show Uint32List, Uint8List;
 
-import 'package:js/js.dart' show anonymous, JS;
+import 'package:js/js.dart' show JS;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as base;
+import 'package:xayn_ai_ffi_dart/src/web/data/document.dart'
+    show JsDocument, ToJsDocuments;
 import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
-    show FeedbackStr, RelevanceStr;
-
-@JS('WebAssembly.RuntimeError')
-class _RuntimeException {}
-
-@JS()
-@anonymous
-class _History {
-  external factory _History({
-    String id,
-    String relevance,
-    // ignore: non_constant_identifier_names
-    String user_feedback,
-  });
-}
-
-@JS()
-@anonymous
-class _Document {
-  external factory _Document({String id, int rank, String snippet});
-}
-
-@JS()
-@anonymous
-class _Fault {
-  external String get message;
-  external factory _Fault({
-    // ignore: unused_element
-    int code,
-    // ignore: unused_element
-    String message,
-  });
-}
-
-@JS()
-@anonymous
-class _Analytics {
-  // ignore: non_constant_identifier_names
-  external double get ndcg_ltr;
-  // ignore: non_constant_identifier_names
-  external double get ndcg_context;
-  // ignore: non_constant_identifier_names
-  external double get ndcg_initial_ranking;
-  // ignore: non_constant_identifier_names
-  external double get ndcg_final_ranking;
-  external factory _Analytics({
-    // ignore: non_constant_identifier_names, unused_element
-    double ndcg_ltr,
-    // ignore: non_constant_identifier_names, unused_element
-    double ndcg_context,
-    // ignore: non_constant_identifier_names, unused_element
-    double ndcg_initial_ranking,
-    // ignore: non_constant_identifier_names, unused_element
-    double ndcg_final_ranking,
-  });
-}
+    show JsHistory, ToJsHistories;
+import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
+    show JsAnalytics, ToAnalytics;
+import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
+    show JsRuntimeException;
+import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
+    show JsFault, ToStrings;
 
 @JS('xayn_ai_ffi_wasm.WXaynAi')
 class _XaynAi {
   external _XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]);
   external Uint32List rerank(
-    List<_History> history,
-    List<_Document> documents,
+    List<JsHistory> history,
+    List<JsDocument> documents,
   );
   external Uint8List serialize();
-  external List<_Fault> faults();
-  external _Analytics? analytics();
+  external List<JsFault> faults();
+  external JsAnalytics? analytics();
   external void free();
 }
 
@@ -94,7 +47,7 @@ class XaynAi implements base.XaynAi {
       : _freed = false {
     try {
       _ai = _XaynAi(vocab, model, serialized);
-    } on _RuntimeException {
+    } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
@@ -114,29 +67,10 @@ class XaynAi implements base.XaynAi {
       throw StateError('XaynAi was already freed');
     }
 
-    final hists = List.generate(
-      histories.length,
-      (i) => _History(
-        id: histories[i].id,
-        relevance: histories[i].relevance.toStr(),
-        user_feedback: histories[i].feedback.toStr(),
-      ),
-      growable: false,
-    );
-    final docs = List.generate(
-      documents.length,
-      (i) => _Document(
-        id: documents[i].id,
-        rank: documents[i].rank,
-        snippet: documents[i].snippet,
-      ),
-      growable: false,
-    );
-
     late final Uint32List ranks;
     try {
-      ranks = _ai.rerank(hists, docs);
-    } on _RuntimeException {
+      ranks = _ai.rerank(histories.toHistories(), documents.toDocuments());
+    } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
@@ -154,7 +88,7 @@ class XaynAi implements base.XaynAi {
 
     try {
       return _ai.serialize();
-    } on _RuntimeException {
+    } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
@@ -170,20 +104,16 @@ class XaynAi implements base.XaynAi {
       throw StateError('XaynAi was already freed');
     }
 
-    late final List<_Fault> faults;
+    late final List<JsFault> faults;
     try {
       faults = _ai.faults();
-    } on _RuntimeException {
+    } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
     }
 
-    return List.generate(
-      faults.length,
-      (i) => faults[i].message,
-      growable: false,
-    );
+    return faults.toStrings();
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
@@ -193,25 +123,16 @@ class XaynAi implements base.XaynAi {
       throw StateError('XaynAi was already freed');
     }
 
-    late final _Analytics? analytics;
+    late final JsAnalytics? analytics;
     try {
       analytics = _ai.analytics();
-    } on _RuntimeException {
+    } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
     }
 
-    if (analytics == null) {
-      return null;
-    } else {
-      return Analytics(
-        analytics.ndcg_ltr,
-        analytics.ndcg_context,
-        analytics.ndcg_initial_ranking,
-        analytics.ndcg_final_ranking,
-      );
-    }
+    return analytics?.toAnalytics();
   }
 
   /// Frees the memory.

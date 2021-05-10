@@ -1,5 +1,10 @@
+@JS()
+library history;
+
+import 'package:js/js.dart' show anonymous, JS;
+
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
-    show Feedback, Relevance;
+    show Feedback, History, Relevance;
 
 extension RelevanceStr on Relevance {
   /// Gets the variant name.
@@ -59,4 +64,27 @@ extension FeedbackStr on Feedback {
         throw UnsupportedError('Undefined enum variant.');
     }
   }
+}
+
+@JS()
+@anonymous
+class JsHistory {
+  external factory JsHistory({
+    String id,
+    String relevance,
+    // ignore: non_constant_identifier_names
+    String user_feedback,
+  });
+}
+
+extension ToJsHistories on List<History> {
+  List<JsHistory> toHistories() => List.generate(
+        length,
+        (i) => JsHistory(
+          id: this[i].id,
+          relevance: this[i].relevance.toStr(),
+          user_feedback: this[i].feedback.toStr(),
+        ),
+        growable: false,
+      );
 }
