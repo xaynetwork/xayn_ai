@@ -48,16 +48,9 @@ enum Code {
 
 /// A Xayn AI exception.
 class XaynAiException implements Exception {
-  final Code _code;
-  final String _message;
+  final Code code;
+  final String message;
 
   /// Creates a Xayn AI exception.
-  const XaynAiException(this._code, this._message);
-
-  /// Gets the code.
-  Code get code => _code;
-
-  /// Gets the message.
-  @override
-  String toString() => _message;
+  const XaynAiException(this.code, this.message);
 }

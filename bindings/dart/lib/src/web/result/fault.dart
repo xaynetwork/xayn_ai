@@ -7,6 +7,7 @@ import 'package:js/js.dart' show anonymous, JS;
 @anonymous
 class JsFault {
   external String get message;
+
   external factory JsFault({
     // ignore: unused_element
     int code,
@@ -16,6 +17,7 @@ class JsFault {
 }
 
 extension ToStrings on List<JsFault> {
+  /// Gets the messages of the faults.
   List<String> toStrings() => List.generate(
         length,
         (i) => this[i].message,

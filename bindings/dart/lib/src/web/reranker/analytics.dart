@@ -11,12 +11,16 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
 class JsAnalytics {
   // ignore: non_constant_identifier_names
   external double get ndcg_ltr;
+
   // ignore: non_constant_identifier_names
   external double get ndcg_context;
+
   // ignore: non_constant_identifier_names
   external double get ndcg_initial_ranking;
+
   // ignore: non_constant_identifier_names
   external double get ndcg_final_ranking;
+
   external factory JsAnalytics({
     // ignore: non_constant_identifier_names, unused_element
     double ndcg_ltr,
@@ -30,6 +34,7 @@ class JsAnalytics {
 }
 
 extension ToAnalytics on JsAnalytics {
+  /// Creates analytics from the current JS analytics.
   Analytics toAnalytics() => Analytics(
         ndcg_ltr,
         ndcg_context,

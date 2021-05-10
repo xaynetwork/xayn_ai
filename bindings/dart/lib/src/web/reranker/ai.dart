@@ -24,13 +24,18 @@ import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
 @JS('xayn_ai_ffi_wasm.WXaynAi')
 class _XaynAi {
   external _XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]);
+
   external Uint32List rerank(
     List<JsHistory> history,
     List<JsDocument> documents,
   );
+
   external Uint8List serialize();
+
   external List<JsFault> faults();
+
   external JsAnalytics? analytics();
+
   external void free();
 }
 
