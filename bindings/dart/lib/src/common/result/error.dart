@@ -59,4 +59,7 @@ class XaynAiException implements Exception {
 
   /// Creates a Xayn AI exception.
   const XaynAiException(this.code, this.message);
+
+  @override
+  String toString() => message;
 }

@@ -9,7 +9,7 @@ import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
     show CBoxedSlice_u8;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart'
-    show CodeInt, XaynAiError;
+    show CodeToInt, XaynAiError;
 import '../utils.dart' show throwsXaynAiException;
 
 void main() {

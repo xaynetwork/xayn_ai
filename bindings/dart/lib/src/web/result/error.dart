@@ -6,7 +6,7 @@ import 'package:js/js.dart' show anonymous, JS;
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
 
-extension CodeInt on Code {
+extension CodeToInt on Code {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
@@ -28,10 +28,12 @@ extension CodeInt on Code {
         throw UnsupportedError('Undefined enum variant.');
     }
   }
+}
 
+extension IntToCode on int {
   /// Creates the error code from a discriminant.
-  static Code fromInt(int idx) {
-    switch (idx) {
+  Code toCode() {
+    switch (this) {
       case -2:
         return Code.fault;
       case -1:
@@ -64,10 +66,7 @@ class XaynAiError {
 
 extension XaynAiErrorToException on XaynAiError {
   /// Creates an exception from the error information.
-  XaynAiException toException() => XaynAiException(
-        CodeInt.fromInt(code),
-        message,
-      );
+  XaynAiException toException() => XaynAiException(code.toCode(), message);
 }
 
 @JS('WebAssembly.RuntimeError')

@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart'
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show Feedback, History, Relevance;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart'
-    show FeedbackInt, Histories, RelevanceInt;
+    show FeedbackToInt, Histories, RelevanceToInt;
 import '../utils.dart' show histories;
 
 void main() {

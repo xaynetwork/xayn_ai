@@ -6,7 +6,7 @@ import 'package:js/js.dart' show anonymous, JS;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show Feedback, History, Relevance;
 
-extension RelevanceInt on Relevance {
+extension RelevanceToInt on Relevance {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
@@ -20,23 +20,9 @@ extension RelevanceInt on Relevance {
         throw UnsupportedError('Undefined enum variant.');
     }
   }
-
-  /// Creates the relevance level from a discriminant.
-  static Relevance fromInt(int idx) {
-    switch (idx) {
-      case 0:
-        return Relevance.low;
-      case 1:
-        return Relevance.medium;
-      case 2:
-        return Relevance.high;
-      default:
-        throw UnsupportedError('Undefined enum variant.');
-    }
-  }
 }
 
-extension FeedbackInt on Feedback {
+extension FeedbackToInt on Feedback {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
@@ -46,20 +32,6 @@ extension FeedbackInt on Feedback {
         return 1;
       case Feedback.notGiven:
         return 2;
-      default:
-        throw UnsupportedError('Undefined enum variant.');
-    }
-  }
-
-  /// Creates the feedback level from a discriminant.
-  static Feedback fromInt(int idx) {
-    switch (idx) {
-      case 0:
-        return Feedback.relevant;
-      case 1:
-        return Feedback.irrelevant;
-      case 2:
-        return Feedback.notGiven;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }

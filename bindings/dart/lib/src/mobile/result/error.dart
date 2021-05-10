@@ -9,7 +9,7 @@ import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/utils.dart' show assertNeq;
 
-extension CodeInt on Code {
+extension CodeToInt on Code {
   /// Gets the discriminant.
   int toInt() {
     switch (this) {
@@ -47,10 +47,12 @@ extension CodeInt on Code {
         throw UnsupportedError('Undefined enum variant.');
     }
   }
+}
 
+extension IntToCode on int {
   /// Creates the error code from a discriminant.
-  static Code fromInt(int idx) {
-    switch (idx) {
+  Code toCode() {
+    switch (this) {
       case CCode.Fault:
         return Code.fault;
       case CCode.Panic:
@@ -127,7 +129,6 @@ class XaynAiError {
   /// Creates an exception from the error information.
   XaynAiException toException() {
     assertNeq(_error, nullptr);
-    final code = CodeInt.fromInt(_error.ref.code);
     assert(
       _error.ref.message == nullptr ||
           (_error.ref.message.ref.data != nullptr &&
@@ -135,6 +136,8 @@ class XaynAiError {
                   _error.ref.message.ref.data.cast<Utf8>().length + 1),
       'unexpected error pointer state',
     );
+
+    final code = _error.ref.code.toCode();
     final message = _error.ref.message == nullptr
         ? ''
         : _error.ref.message.ref.data.cast<Utf8>().toDartString();

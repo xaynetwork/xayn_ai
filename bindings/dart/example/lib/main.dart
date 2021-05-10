@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart'
 import 'package:stats/stats.dart' show Stats;
 import 'package:xayn_ai_ffi_dart/package.dart'
     show XaynAi, Document, Relevance, History, Feedback;
-import 'package:xayn_ai_ffi_dart/src/reranker/data_provider.dart'
+import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
     show getInputData;
 
 void main() {
