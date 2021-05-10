@@ -67,16 +67,15 @@ class XaynAi implements base.XaynAi {
       throw StateError('XaynAi was already freed');
     }
 
-    late final Uint32List ranks;
     try {
-      ranks = _ai.rerank(histories.toHistories(), documents.toDocuments());
+      return _ai
+          .rerank(histories.toHistories(), documents.toDocuments())
+          .toList(growable: false);
     } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
     }
-
-    return ranks.toList(growable: false);
   }
 
   /// Serializes the current state of the reranker.
@@ -104,16 +103,13 @@ class XaynAi implements base.XaynAi {
       throw StateError('XaynAi was already freed');
     }
 
-    late final List<JsFault> faults;
     try {
-      faults = _ai.faults();
+      return _ai.faults().toStrings();
     } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
     }
-
-    return faults.toStrings();
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
@@ -123,16 +119,13 @@ class XaynAi implements base.XaynAi {
       throw StateError('XaynAi was already freed');
     }
 
-    late final JsAnalytics? analytics;
     try {
-      analytics = _ai.analytics();
+      return _ai.analytics()?.toAnalytics();
     } on JsRuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
     }
-
-    return analytics?.toAnalytics();
   }
 
   /// Frees the memory.
