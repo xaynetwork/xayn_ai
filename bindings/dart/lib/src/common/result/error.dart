@@ -44,6 +44,12 @@ enum Code {
 
   /// Serialization of reranker database error.
   rerankerSerialization,
+
+  /// Deserialization of history collection error.
+  historiesDeserialization,
+
+  /// Deserialization of document collection error.
+  documentsDeserialization,
 }
 
 /// A Xayn AI exception.

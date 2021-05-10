@@ -17,7 +17,11 @@ import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
 import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
     show JsAnalytics, ToAnalytics;
 import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
-    show JsRuntimeException, ToXaynAiException;
+    show
+        RuntimeError,
+        RuntimeErrorToException,
+        XaynAiError,
+        XaynAiErrorToException;
 import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
     show JsFault, ToStrings;
 
@@ -52,8 +56,10 @@ class XaynAi implements base.XaynAi {
       : _freed = false {
     try {
       _ai = _XaynAi(vocab, model, serialized);
-    } on JsRuntimeException catch (exception) {
-      throw exception.toXaynAiException();
+    } on XaynAiError catch (error) {
+      throw error.toException();
+    } on RuntimeError catch (error) {
+      throw error.toException();
     }
   }
 
@@ -74,9 +80,11 @@ class XaynAi implements base.XaynAi {
       return _ai
           .rerank(histories.toHistories(), documents.toDocuments())
           .toList(growable: false);
-    } on JsRuntimeException catch (exception) {
+    } on XaynAiError catch (error) {
+      throw error.toException();
+    } on RuntimeError catch (error) {
       free();
-      throw exception.toXaynAiException();
+      throw error.toException();
     }
   }
 
@@ -93,9 +101,11 @@ class XaynAi implements base.XaynAi {
 
     try {
       return _ai.serialize();
-    } on JsRuntimeException catch (exception) {
+    } on XaynAiError catch (error) {
+      throw error.toException();
+    } on RuntimeError catch (error) {
       free();
-      throw exception.toXaynAiException();
+      throw error.toException();
     }
   }
 
@@ -114,9 +124,9 @@ class XaynAi implements base.XaynAi {
 
     try {
       return _ai.faults().toStrings();
-    } on JsRuntimeException catch (exception) {
+    } on RuntimeError catch (error) {
       free();
-      throw exception.toXaynAiException();
+      throw error.toException();
     }
   }
 
@@ -133,9 +143,9 @@ class XaynAi implements base.XaynAi {
 
     try {
       return _ai.analytics()?.toAnalytics();
-    } on JsRuntimeException catch (exception) {
+    } on RuntimeError catch (error) {
       free();
-      throw exception.toXaynAiException();
+      throw error.toException();
     }
   }
 
