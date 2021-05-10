@@ -10,8 +10,9 @@ import 'package:xayn_ai_ffi_dart/src/data/histories.dart' show Histories;
 import 'package:xayn_ai_ffi_dart/src/data/rank.dart' show Ranks;
 import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/ffi/c/library.dart' show ffi;
-import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart'
-    show Analytics, AnalyticsBuilder;
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart' show Analytics;
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics_builder.dart'
+    show AnalyticsBuilder;
 import 'package:xayn_ai_ffi_dart/src/reranker/bytes.dart' show Bytes;
 import 'package:xayn_ai_ffi_dart/src/reranker/base.dart' as base;
 import 'package:xayn_ai_ffi_dart/src/result/error.dart' show XaynAiError;

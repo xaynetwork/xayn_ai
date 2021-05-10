@@ -2,6 +2,7 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/data/history.dart' show History;
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart' show Analytics;
 
 abstract class XaynAi {
   factory XaynAi(dynamic vocab, dynamic model, [dynamic? serialized]) =>
@@ -10,6 +11,6 @@ abstract class XaynAi {
       throw UnsupportedError('Plattform not supported');
   Uint8List serialize() => throw UnsupportedError('Plattform not supported');
   List<String> faults() => throw UnsupportedError('Plattform not supported');
-  void analytics() => throw UnsupportedError('Plattform not supported');
+  Analytics? analytics() => throw UnsupportedError('Plattform not supported');
   void free() => throw UnsupportedError('Plattform not supported');
 }

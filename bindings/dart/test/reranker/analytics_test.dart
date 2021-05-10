@@ -3,9 +3,9 @@ import 'dart:ffi' show nullptr, AllocatorAlloc, StructPointer;
 import 'package:ffi/ffi.dart' show calloc;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNotNull, isNull, test, throwsStateError;
-import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart'
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics_builder.dart'
     show AnalyticsBuilder;
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CAnalytics;
+import 'package:xayn_ai_ffi_dart/src/ffi/c/genesis.dart' show CAnalytics;
 
 void main() {
   group('Analytics', () {

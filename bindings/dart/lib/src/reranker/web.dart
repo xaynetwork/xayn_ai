@@ -8,6 +8,7 @@ import 'package:js/js.dart' show anonymous, JS;
 import 'package:xayn_ai_ffi_dart/src/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/data/history.dart'
     show FeedbackStr, History, RelevanceStr;
+import 'package:xayn_ai_ffi_dart/src/reranker/analytics.dart' show Analytics;
 import 'package:xayn_ai_ffi_dart/src/reranker/base.dart' as base;
 
 @JS('WebAssembly.RuntimeError')
@@ -34,14 +35,35 @@ class _Document {
 @anonymous
 class _Fault {
   external String get message;
-  // ignore: unused_element
-  external factory _Fault({int code, String message});
+  external factory _Fault({
+    // ignore: unused_element
+    int code,
+    // ignore: unused_element
+    String message,
+  });
 }
 
 @JS()
 @anonymous
 class _Analytics {
-  external factory _Analytics();
+  // ignore: non_constant_identifier_names
+  external double get ndcg_ltr;
+  // ignore: non_constant_identifier_names
+  external double get ndcg_context;
+  // ignore: non_constant_identifier_names
+  external double get ndcg_initial_ranking;
+  // ignore: non_constant_identifier_names
+  external double get ndcg_final_ranking;
+  external factory _Analytics({
+    // ignore: non_constant_identifier_names, unused_element
+    double ndcg_ltr,
+    // ignore: non_constant_identifier_names, unused_element
+    double ndcg_context,
+    // ignore: non_constant_identifier_names, unused_element
+    double ndcg_initial_ranking,
+    // ignore: non_constant_identifier_names, unused_element
+    double ndcg_final_ranking,
+  });
 }
 
 @JS('xayn_ai_ffi_wasm.WXaynAi')
@@ -149,14 +171,22 @@ class XaynAi implements base.XaynAi {
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
   @override
-  void analytics() {
+  Analytics? analytics() {
+    late final _Analytics analytics;
     try {
-      _ai.analytics();
+      analytics = _ai.analytics();
     } on _RuntimeException {
       throw Exception('WebAssembly RuntimeError');
     } catch (exception) {
       rethrow;
     }
+
+    return Analytics(
+      analytics.ndcg_ltr,
+      analytics.ndcg_context,
+      analytics.ndcg_initial_ranking,
+      analytics.ndcg_final_ranking,
+    );
   }
 
   /// Frees the memory.
