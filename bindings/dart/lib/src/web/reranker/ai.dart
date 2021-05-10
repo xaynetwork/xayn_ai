@@ -75,11 +75,16 @@ class XaynAi implements base.XaynAi {
           .rerank(histories.toHistories(), documents.toDocuments())
           .toList(growable: false);
     } on JsRuntimeException catch (exception) {
+      free();
       throw exception.toXaynAiException();
     }
   }
 
   /// Serializes the current state of the reranker.
+  ///
+  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// valid state can be restored with a previously serialized reranker database obtained from
+  /// [`serialize()`].
   @override
   Uint8List serialize() {
     if (_freed) {
@@ -89,6 +94,7 @@ class XaynAi implements base.XaynAi {
     try {
       return _ai.serialize();
     } on JsRuntimeException catch (exception) {
+      free();
       throw exception.toXaynAiException();
     }
   }
@@ -96,6 +102,10 @@ class XaynAi implements base.XaynAi {
   /// Retrieves faults which might occur during reranking.
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
+  ///
+  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// valid state can be restored with a previously serialized reranker database obtained from
+  /// [`serialize()`].
   @override
   List<String> faults() {
     if (_freed) {
@@ -105,11 +115,16 @@ class XaynAi implements base.XaynAi {
     try {
       return _ai.faults().toStrings();
     } on JsRuntimeException catch (exception) {
+      free();
       throw exception.toXaynAiException();
     }
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
+  ///
+  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// valid state can be restored with a previously serialized reranker database obtained from
+  /// [`serialize()`].
   @override
   Analytics? analytics() {
     if (_freed) {
@@ -119,6 +134,7 @@ class XaynAi implements base.XaynAi {
     try {
       return _ai.analytics()?.toAnalytics();
     } on JsRuntimeException catch (exception) {
+      free();
       throw exception.toXaynAiException();
     }
   }
