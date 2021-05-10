@@ -75,18 +75,21 @@ class _XaynAi {
   );
   external Uint8List serialize();
   external List<_Fault> faults();
-  external _Analytics analytics();
+  external _Analytics? analytics();
+  external void free();
 }
 
 /// The Xayn AI.
 class XaynAi implements base.XaynAi {
   late _XaynAi _ai;
+  bool _freed;
 
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]) {
+  XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized])
+      : _freed = false {
     try {
       _ai = _XaynAi(vocab, model, serialized);
     } on _RuntimeException {
@@ -105,6 +108,10 @@ class XaynAi implements base.XaynAi {
   /// [`serialize()`].
   @override
   List<int> rerank(List<History> histories, List<Document> documents) {
+    if (_freed) {
+      throw StateError('XaynAi was already freed');
+    }
+
     final hists = List.generate(
       histories.length,
       (i) => _History(
@@ -139,6 +146,10 @@ class XaynAi implements base.XaynAi {
   /// Serializes the current state of the reranker.
   @override
   Uint8List serialize() {
+    if (_freed) {
+      throw StateError('XaynAi was already freed');
+    }
+
     try {
       return _ai.serialize();
     } on _RuntimeException {
@@ -153,6 +164,10 @@ class XaynAi implements base.XaynAi {
   /// Faults can range from warnings to errors which are handled in some default way internally.
   @override
   List<String> faults() {
+    if (_freed) {
+      throw StateError('XaynAi was already freed');
+    }
+
     late final List<_Fault> faults;
     try {
       faults = _ai.faults();
@@ -172,7 +187,11 @@ class XaynAi implements base.XaynAi {
   /// Retrieves the analytics which were collected in the penultimate reranking.
   @override
   Analytics? analytics() {
-    late final _Analytics analytics;
+    if (_freed) {
+      throw StateError('XaynAi was already freed');
+    }
+
+    late final _Analytics? analytics;
     try {
       analytics = _ai.analytics();
     } on _RuntimeException {
@@ -181,15 +200,24 @@ class XaynAi implements base.XaynAi {
       rethrow;
     }
 
-    return Analytics(
-      analytics.ndcg_ltr,
-      analytics.ndcg_context,
-      analytics.ndcg_initial_ranking,
-      analytics.ndcg_final_ranking,
-    );
+    if (analytics == null) {
+      return null;
+    } else {
+      return Analytics(
+        analytics.ndcg_ltr,
+        analytics.ndcg_context,
+        analytics.ndcg_initial_ranking,
+        analytics.ndcg_final_ranking,
+      );
+    }
   }
 
   /// Frees the memory.
   @override
-  void free() {}
+  void free() {
+    if (!_freed) {
+      _freed = true;
+      _ai.free();
+    }
+  }
 }
