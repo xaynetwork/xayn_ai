@@ -597,9 +597,12 @@ dependencies = [
 name = "list-net"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "float-cmp",
  "itertools 0.10.0",
  "ndarray",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

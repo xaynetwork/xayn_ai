@@ -1,5 +1,6 @@
 //! Inspired by  Xayn network : Searchgarden/test_bert/src/ndlayers/
 
+pub mod io;
 pub mod nn_layer;
 mod softmax;
 
