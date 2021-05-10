@@ -15,8 +15,12 @@
 //! 4. Kind Flatten: -- [(nr_docs, 1) => (nr_docs,)]
 //! 5. Kind SoftMax: nr_docs units [nr_docs => nr_docs, but sum == 1]
 
+use std::io::{self, Read};
+
 use ndarray::{Array1, Array2, Ix2, LinalgScalar};
 use ndutils::nn_layer::{Dense1D, Dense2D};
+
+use crate::ndutils::io::BinParams;
 
 /**
     input [[features_for_doc_1],
@@ -96,6 +100,10 @@ where
     //         }
     //     }
 
+    pub fn load(source: impl Read) -> Result<Self, io::Error> {
+        let _params = BinParams::load(source).expect("TODO");
+        todo!()
+    }
     /// Runs List net on the input.
     ///
     /// The input is a 2 dimensional array

@@ -2,6 +2,7 @@
 !/data/.gitkeep
 /target/
 /.vscode/
+__pycache__
 
 # MacOS files
 .DS_Store
