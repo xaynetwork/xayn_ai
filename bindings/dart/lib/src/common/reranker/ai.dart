@@ -4,13 +4,15 @@ import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
+    show SetupData;
 
 abstract class XaynAi {
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
-  /// reranker database, otherwise creates a new one.
-  factory XaynAi(dynamic vocab, dynamic model, [dynamic? serialized]) =>
+  /// Requires the data to setup the AI, e.g. the vocabulary and model of the tokenizer/embedder.
+  /// Optionally accepts the serialized reranker database, otherwise creates a new one.
+  factory XaynAi(SetupData data, [Uint8List? serialized]) =>
       throw UnsupportedError('Plattform not supported');
 
   /// Reranks the documents.

@@ -9,13 +9,16 @@ import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as base;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
+    show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/web/data/document.dart'
     show JsDocument, ToJsDocuments;
 import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
     show JsHistory, ToJsHistories;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
     show JsAnalytics, ToAnalytics;
+import 'package:xayn_ai_ffi_dart/src/web/reranker/data_provider.dart'
+    show SetupData;
 import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
     show
         RuntimeError,
@@ -44,7 +47,7 @@ class _XaynAi {
 }
 
 /// The Xayn AI.
-class XaynAi implements base.XaynAi {
+class XaynAi implements common.XaynAi {
   late _XaynAi _ai;
   bool _freed;
 
@@ -52,10 +55,9 @@ class XaynAi implements base.XaynAi {
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized])
-      : _freed = false {
+  XaynAi(SetupData data, [Uint8List? serialized]) : _freed = false {
     try {
-      _ai = _XaynAi(vocab, model, serialized);
+      _ai = _XaynAi(data.vocab, data.model, serialized);
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
