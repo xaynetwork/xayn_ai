@@ -48,14 +48,13 @@ class _XaynAi {
 
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
-  late _XaynAi _ai;
-  bool _freed;
+  late _XaynAi? _ai;
 
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi(SetupData data, [Uint8List? serialized]) : _freed = false {
+  XaynAi(SetupData data, [Uint8List? serialized]) {
     try {
       _ai = _XaynAi(data.vocab, data.model, serialized);
     } on XaynAiError catch (error) {
@@ -74,18 +73,20 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   List<int> rerank(List<History> histories, List<Document> documents) {
-    if (_freed) {
+    if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai
+      return _ai!
           .rerank(histories.toJsHistories(), documents.toJsDocuments())
           .toList(growable: false);
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
-      free();
+      // the memory is automatically cleaned up by the js garbage collector once all reference to
+      // _ai are gone, which usually happens when creating a new wasm instance
+      _ai = null;
       throw error.toException();
     }
   }
@@ -97,16 +98,16 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   Uint8List serialize() {
-    if (_freed) {
+    if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai.serialize();
+      return _ai!.serialize();
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
-      free();
+      _ai = null;
       throw error.toException();
     }
   }
@@ -120,14 +121,14 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   List<String> faults() {
-    if (_freed) {
+    if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai.faults().toStrings();
+      return _ai!.faults().toStrings();
     } on RuntimeError catch (error) {
-      free();
+      _ai = null;
       throw error.toException();
     }
   }
@@ -139,14 +140,14 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   Analytics? analytics() {
-    if (_freed) {
+    if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai.analytics()?.toAnalytics();
+      return _ai!.analytics()?.toAnalytics();
     } on RuntimeError catch (error) {
-      free();
+      _ai = null;
       throw error.toException();
     }
   }
@@ -154,9 +155,7 @@ class XaynAi implements common.XaynAi {
   /// Frees the memory.
   @override
   void free() {
-    if (!_freed) {
-      _freed = true;
-      _ai.free();
-    }
+    _ai?.free();
+    _ai = null;
   }
 }
