@@ -20,10 +20,11 @@ use std::{io::Read, path::Path};
 use ndutils::io::LoadingBinParamsFailed;
 use thiserror::Error;
 
-use ndarray::{Array1, Array2, Ix2};
+use ndarray::{Array1, Array2, Dimension, IntoDimension, Ix, Ix2};
 use ndlayers::{
     activation::{Linear, Relu, Softmax},
     Dense,
+    IncompatibleMatrices,
     LoadingDenseFailed,
 };
 
@@ -55,6 +56,9 @@ pub struct ListNet {
 }
 
 impl ListNet {
+    /// Currently input is fixed to (10, 50)
+    const INPUT_SHAPE: [Ix; 2] = [10, 50];
+
     /// Load list net from file at given path.
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, LoadingListNetFailed> {
         let params = BinParams::load_from_file(path)?;
@@ -72,19 +76,36 @@ impl ListNet {
         let mut params = params.with_scope("ltr/v1");
 
         let dense_1 = Dense::load(params.with_scope("dense_1"), Relu::default())?;
+        let dense_1_out_shape = dense_1.check_in_out_shapes(Self::INPUT_SHAPE.into_dimension())?;
+
         let dense_2 = Dense::load(params.with_scope("dense_2"), Relu::default())?;
+        let dense_2_out_shape = dense_2.check_in_out_shapes(dense_1_out_shape)?;
+
         let scores = Dense::load(params.with_scope("scores"), Linear::default())?;
+        let scores_out_shape = scores.check_in_out_shapes(dense_2_out_shape)?;
+        let flattened_shape = [scores_out_shape.size()].into_dimension();
+
         let scores_prop_dist =
             Dense::load(params.with_scope("scores_prop_dist"), Softmax::default())?;
+        let scores_prop_dist_out_shape = scores_prop_dist.check_in_out_shapes(flattened_shape)?;
 
-        //TODO check dimensions match
-
-        Ok(Self {
-            dense_1,
-            dense_2,
-            scores,
-            scores_prop_dist,
-        })
+        if scores_prop_dist_out_shape.clone().into_pattern() == 10 {
+            Ok(Self {
+                dense_1,
+                dense_2,
+                scores,
+                scores_prop_dist,
+            })
+        } else {
+            Err(IncompatibleMatrices {
+                name_left: "scores_prop_dist/output",
+                shape_left: scores_prop_dist_out_shape.into_dyn(),
+                name_right: "list_net/output",
+                shape_right: (10,).into_dimension().into_dyn(),
+                hint: "expected scores_prop_dist output shape to be equal to (10,)",
+            }
+            .into())
+        }
     }
 
     /// Runs List net on the input.
@@ -112,6 +133,10 @@ pub enum LoadingListNetFailed {
     /// Failed to create instance of `Dense`.
     #[error(transparent)]
     Dense(#[from] LoadingDenseFailed),
+
+    /// Parameter configuration error
+    #[error(transparent)]
+    IncompatibleMatrices(#[from] IncompatibleMatrices),
 }
 
 #[cfg(test)]
