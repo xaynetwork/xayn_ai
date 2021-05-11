@@ -33,7 +33,7 @@ class _XaynAi {
   external _XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]);
 
   external Uint32List rerank(
-    List<JsHistory> history,
+    List<JsHistory> histories,
     List<JsDocument> documents,
   );
 
