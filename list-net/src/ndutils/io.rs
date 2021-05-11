@@ -2,14 +2,15 @@
 use bincode::Options;
 use std::{
     collections::HashMap,
-    convert::TryFrom,
-    io::{self, Read},
+    convert::{TryFrom, TryInto},
+    fs::File,
+    io::{self, BufReader, Read},
+    path::Path,
 };
 use thiserror::Error;
 
 use ndarray::{ArrayBase, Data, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
 use serde::{Deserialize, Serialize};
-
 /// Deserialization helper representing a flattened array.
 ///
 /// The flattened array is in `C` format, i.e. it's
@@ -60,24 +61,34 @@ where
     {
         let inner = InnerFlattenedArray::<A>::deserialize(deserializer)?;
         if inner.data.len() != inner.shape.iter().product::<usize>() {
-            Err(<D::Error as serde::de::Error>::custom(DimensionMismatch))
+            Err(<D::Error as serde::de::Error>::custom(
+                UnexpectedNumberOfDimensions,
+            ))
         } else {
             Ok(Self { inner })
         }
     }
 }
 
-//TODO derive error
 #[derive(Debug, Error)]
-#[error("Expected and found dimension do not match")]
-pub(crate) struct DimensionMismatch;
+#[error("Expected and found number of dimensions do not match")]
+pub struct UnexpectedNumberOfDimensions;
+
+#[derive(Debug, Error)]
+pub enum FailedToRetrieveParams {
+    #[error(transparent)]
+    UnexpectedNumberOfDimensions(#[from] UnexpectedNumberOfDimensions),
+
+    #[error("Missing parameters for {name}.")]
+    MissingParameters { name: String },
+}
 
 impl<S, D> TryFrom<FlattenedArray<S::Elem>> for ArrayBase<S, D>
 where
     D: Dimension + DimensionTryFromSliceHelper,
     S: DataOwned,
 {
-    type Error = DimensionMismatch;
+    type Error = UnexpectedNumberOfDimensions;
 
     fn try_from(array: FlattenedArray<S::Elem>) -> Result<Self, Self::Error> {
         let shape = D::try_from(&array.inner.shape)?;
@@ -97,27 +108,25 @@ where
 /// it. But `ndarray` only ships with conversion methods from `Vec<Ix>`/`&[Ix]`
 /// to `IxDyn` but not to the various specific dims.
 pub(crate) trait DimensionTryFromSliceHelper: Sized {
-    fn try_from(slice: &[Ix]) -> Result<Self, DimensionMismatch>;
+    fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions>;
 }
 
 impl<const N: usize> DimensionTryFromSliceHelper for Dim<[Ix; N]>
 where
     [Ix; N]: IntoDimension<Dim = Dim<[Ix; N]>>,
 {
-    fn try_from(slice: &[Ix]) -> Result<Self, DimensionMismatch> {
+    fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions> {
         <[Ix; N]>::try_from(slice)
             .map(IntoDimension::into_dimension)
-            .map_err(|_| DimensionMismatch)
+            .map_err(|_| UnexpectedNumberOfDimensions)
     }
 }
 
 impl DimensionTryFromSliceHelper for IxDyn {
-    fn try_from(slice: &[Ix]) -> Result<Self, DimensionMismatch> {
+    fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions> {
         Ok(slice.into_dimension())
     }
 }
-
-//TODO binparams deserialization thingy
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(test, derive(Debug, Default, PartialEq))]
 pub(crate) struct BinParams {
@@ -126,6 +135,12 @@ pub(crate) struct BinParams {
 }
 
 impl BinParams {
+    pub(crate) fn load_from_file(file: impl AsRef<Path>) -> Result<Self, LoadingBinParamsFailed> {
+        let file = File::open(file)?;
+        let source = BufReader::new(file);
+        Self::load(source)
+    }
+
     pub(crate) fn load(mut source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
         Self::load_check_version(&mut source)?;
         let bincode = Self::setup_bincode();
@@ -158,8 +173,30 @@ impl BinParams {
         }
     }
 
-    pub(crate) fn take_params(&mut self, name: &str) -> Option<FlattenedArray<f32>> {
-        self.params.remove(name)
+    pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
+    where
+        FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
+    {
+        let result = self
+            .params
+            .remove(name)
+            .ok_or_else(|| FailedToRetrieveParams::MissingParameters {
+                name: name.to_owned(),
+            })?
+            .try_into()?;
+
+        Ok(result)
+    }
+
+    /// Creates a new `BinParamsWithScope` instance.
+    ///
+    /// The name prefix will be  scope + '/'. Passing a empty
+    /// scope in is possible.
+    pub(crate) fn with_scope<'b>(&'b mut self, scope: &str) -> BinParamsWithScope<'b> {
+        BinParamsWithScope {
+            params: self,
+            prefix: scope.to_owned() + "/",
+        }
     }
 }
 
@@ -175,10 +212,37 @@ pub enum LoadingBinParamsFailed {
     DeserializationFailed(#[from] bincode::Error),
 }
 
+/// A wrapper embedding a prefix with the bin params.
+//Note: In the future we might have some Loader trait but given
+//that we currently only use it at one place that would be
+//overkill
+pub(crate) struct BinParamsWithScope<'a> {
+    params: &'a mut BinParams,
+    prefix: String,
+}
+
+impl<'a> BinParamsWithScope<'a> {
+    pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
+    where
+        FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
+    {
+        let name = self.prefix.clone() + name;
+        self.params.take(&name)
+    }
+
+    /// Returns a instance where the nem prefix is extended by the given scope.
+    ///
+    /// The new prefix is the old prefix + the scope + '/'.
+    pub(crate) fn with_scope<'b>(&'b mut self, scope: &str) -> BinParamsWithScope<'b> {
+        BinParamsWithScope {
+            params: self.params,
+            prefix: format!("{}{}/", self.prefix, scope),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use ndarray::{arr1, arr2, Array1, Array2};
 
     use super::*;
@@ -235,8 +299,8 @@ mod tests {
     #[test]
     fn bin_params_can_load_arrays_of_specific_dimensions() {
         let mut loaded = BinParams::load(BIN_PARAMS_MOCK_DATA_1).unwrap();
-        let array1: Array2<f32> = loaded.take_params("a").unwrap().try_into().unwrap();
-        let array2: Array1<f32> = loaded.take_params("b").unwrap().try_into().unwrap();
+        let array1 = loaded.take::<Array2<f32>>("a").unwrap();
+        let array2 = loaded.take::<Array1<f32>>("b").unwrap();
 
         assert_eq!(array1, arr2(&[[1.0f32, 2.], [3., 4.]]));
         assert_eq!(array2, arr1(&[3.0f32, 2., 1., 4.]));
