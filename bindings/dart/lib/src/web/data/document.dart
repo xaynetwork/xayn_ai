@@ -13,7 +13,7 @@ class JsDocument {
 
 extension ToJsDocuments on List<Document> {
   /// Creates JS documents from the current documents.
-  List<JsDocument> toDocuments() => List.generate(
+  List<JsDocument> toJsDocuments() => List.generate(
         length,
         (i) => JsDocument(
           id: this[i].id,

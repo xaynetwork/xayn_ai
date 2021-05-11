@@ -80,7 +80,7 @@ class XaynAi implements common.XaynAi {
 
     try {
       return _ai
-          .rerank(histories.toHistories(), documents.toDocuments())
+          .rerank(histories.toJsHistories(), documents.toJsDocuments())
           .toList(growable: false);
     } on XaynAiError catch (error) {
       throw error.toException();

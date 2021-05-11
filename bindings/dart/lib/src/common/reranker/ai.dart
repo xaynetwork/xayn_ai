@@ -13,25 +13,25 @@ abstract class XaynAi {
   /// Requires the data to setup the AI, e.g. the vocabulary and model of the tokenizer/embedder.
   /// Optionally accepts the serialized reranker database, otherwise creates a new one.
   factory XaynAi(SetupData data, [Uint8List? serialized]) =>
-      throw UnsupportedError('Plattform not supported');
+      throw UnsupportedError('Unsupported platform.');
 
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
   List<int> rerank(List<History> histories, List<Document> documents) =>
-      throw UnsupportedError('Plattform not supported');
+      throw UnsupportedError('Unsupported platform.');
 
   /// Serializes the current state of the reranker.
-  Uint8List serialize() => throw UnsupportedError('Plattform not supported');
+  Uint8List serialize() => throw UnsupportedError('Unsupported platform.');
 
   /// Retrieves faults which might occur during reranking.
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
-  List<String> faults() => throw UnsupportedError('Plattform not supported');
+  List<String> faults() => throw UnsupportedError('Unsupported platform.');
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
-  Analytics? analytics() => throw UnsupportedError('Plattform not supported');
+  Analytics? analytics() => throw UnsupportedError('Unsupported platform.');
 
   /// Frees the memory.
-  void free() => throw UnsupportedError('Plattform not supported');
+  void free() => throw UnsupportedError('Unsupported platform.');
 }

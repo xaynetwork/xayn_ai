@@ -9,8 +9,8 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 
 /// Data that can be used to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
-  late String vocab;
-  late String model;
+  final String vocab;
+  final String model;
 
   static const _baseAssetsPath = 'packages/xayn_ai_ffi_dart/assets';
   static final AsyncMemoizer<SetupData> _pathsCache = AsyncMemoizer();

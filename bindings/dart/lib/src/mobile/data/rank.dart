@@ -6,7 +6,7 @@ import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
 
 /// The ranks of the reranked documents.
 class Ranks {
-  Pointer<CBoxedSlice_u32> _ranks;
+  late Pointer<CBoxedSlice_u32> _ranks;
 
   /// Creates the ranks.
   ///

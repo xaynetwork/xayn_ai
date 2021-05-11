@@ -14,23 +14,14 @@ enum Feedback {
 
 /// The document history.
 class History {
-  final String _id;
-  final Relevance _relevance;
-  final Feedback _feedback;
+  final String id;
+  final Relevance relevance;
+  final Feedback feedback;
 
   /// Creates the document history.
-  History(this._id, this._relevance, this._feedback) {
-    if (_id.isEmpty) {
+  History(this.id, this.relevance, this.feedback) {
+    if (id.isEmpty) {
       throw ArgumentError('empty document history id');
     }
   }
-
-  /// Gets the id.
-  String get id => _id;
-
-  /// Gets the relevance level.
-  Relevance get relevance => _relevance;
-
-  /// Gets the user feedback.
-  Feedback get feedback => _feedback;
 }

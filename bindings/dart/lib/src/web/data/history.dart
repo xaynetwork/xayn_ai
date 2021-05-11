@@ -46,7 +46,7 @@ class JsHistory {
 
 extension ToJsHistories on List<History> {
   /// Creates JS histories from the current histories.
-  List<JsHistory> toHistories() => List.generate(
+  List<JsHistory> toJsHistories() => List.generate(
         length,
         (i) => JsHistory(
           id: this[i].id,
