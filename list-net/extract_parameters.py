@@ -121,9 +121,11 @@ If the first byte is == 0x1 and excluded
 the rest is bincode decodeable as mentioned
 above. This is also why all length are in
 u64.
-"""
 
-#TODO refactor(a lot), and add tests
+Be aware the all the "length" fields like
+`ndim`, `n_params` etc. represent the number
+of elements, **not** the number of bytes.
+"""
 
 import onnx, onnx.numpy_helper
 from typing import Tuple, Dict
@@ -155,65 +157,87 @@ def load_list_net_parameters(path):
     return result
 
 
-VERSION=1
-#u64
-LEN_SIZE=8
-ENDIAN='little'
+class Bincode:
+    BIG_ENDIAN='big'
+    LITTLE_ENDIAN='little'
+
+    """
+    Supports encoding a subset of bincode.
+
+    Only serialization/encoding is supported not decoding.
+
+    Only fixed sized integer encoding is supported for now.
+    """
+
+    def __init__(self, *, output, byteorder = LITTLE_ENDIAN):
+        self.byteorder = byteorder
+        self.output = output
+
+    def write_string(self, string):
+        encoded = string.encode('utf-8')
+        self.write_byte_slice(encoded)
+
+    def write_byte_slice(self, data):
+        self.write_usize(len(data))
+        self.output.write(data)
+
+
+    def write_usize(self, usize):
+        # bincode encodes usize/isize as u64/i64
+        encoded = usize.to_bytes(8, byteorder=self.byteorder)
+        self.output.write(encoded)
+
+    def write_byte(self, byte):
+        encoded = byte.to_bytes(1, byteorder=self.byteorder)
+        self.output.write(encoded)
+
+    def write_map(self, input_map, write_key, write_value):
+        self.write_usize(len(input_map))
+        for (key, value) in input_map.items():
+            write_key(key)
+            write_value(value)
+
+    def write_list(self, seq, write_item):
+        self.write_usize(len(seq))
+        for item in seq:
+            write_item(item)
+
+    def write_array(self, array):
+        """
+        Writes a numpy array, does not write the type of the array,
+        it's expected that it's implied in rust through the type
+        system.
+        """
+        self.write_list(array.shape, self.write_usize)
+
+        # create dtype with needed byte order
+        dtype = array.dtype.newbyteorder(self.byteorder)
+        # row based, byte-order was already managed
+        # oder='C' => row based array
+        # casting='equiv' => only allow byte-order changes
+        # copy=False => don't copy the array if not necessary
+        array_bytes = array.astype(dtype, order='C', casting='equiv', copy=False).tobytes(order='C')
+        # write NUMBER OF ELEMENTS in the array
+        self.write_usize(array.size)
+        self.output.write(array_bytes)
+
+
+BIN_PARAMS_VERSION=1
+
 
 def write_list_net_parameters(path, matrices):
     with open(path, 'wb') as out:
-        write_list_net_parameters_to_sink(matrices, out)
+        encoder = Bincode(output=out)
+        write_list_net_parameters_to_encoder(encoder, matrices)
 
-def write_list_net_parameters_to_sink(matrices, out):
-    version = VERSION.to_bytes(1, ENDIAN)
-    out.write(version)
-
-    write_map(matrices, write_string, write_array, out)
-
-def write_map(input_map, write_key, write_value, out):
-    length = len(input_map).to_bytes(LEN_SIZE, ENDIAN)
-    out.write(length)
-
-    for (key, value) in input_map.items():
-        write_key(key, out)
-        write_value(value, out)
-
-
-def write_byte_slice(data, out):
-    length = len(data).to_bytes(LEN_SIZE, ENDIAN)
-    out.write(length)
-    out.write(data)
-
-def write_string(string, out):
-    encoded = string.encode('utf-8')
-    write_byte_slice(encoded, out)
-
-def write_shape(shape, out):
-    length = len(shape)
-    assert length > 0, "can only serialize arrays not scalar values"
-    length = length.to_bytes(LEN_SIZE, ENDIAN)
-    out.write(length)
-    for dim in shape:
-        dim = dim.to_bytes(LEN_SIZE, ENDIAN)
-        out.write(dim)
-
-def write_array(array, out):
-    write_shape(array.shape, out)
-    # row based, byte-order was already managed
-    # '<f4' (dtype) => little endian 4byte float
-    # oder='C' => row based array
-    # casting='equiv' => only allow byte-order changes
-    # copy=False => don't copy the array if not necessary
-    array_bytes = array.astype('<f4', order='C', casting='equiv', copy=False).tobytes(order='C')
-    n_elements = array.size.to_bytes(LEN_SIZE, ENDIAN)
-    out.write(n_elements)
-    out.write(array_bytes)
+def write_list_net_parameters_to_encoder(encoder, matrices):
+    encoder.write_byte(BIN_PARAMS_VERSION)
+    encoder.write_map(matrices, encoder.write_string, encoder.write_array)
 
 
 # given from numpy import array, float32
 #input:  {'a': array([[1., 2.], [3., 4.]], dtype=float32), 'b': array([3., 2., 1., 4.], dtype=float32)}
-#output: b'\x01\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00a\x02\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x80@\x01\x00\x00\x00\x00\x00\x00\x00b\x01\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00@@\x00\x00\x00@\x00\x00\x80?\x00\x00\x80@'
-
+#output: b'\x01\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00a\x02\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x80@\x01\x00\x00\x00\x00\x00\x00\x00b\x01\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00@@\x00\x00\x00@\x00\x00\x80?\x00\x00\x80@'
 
 if __name__ == '__main__':
     import sys
