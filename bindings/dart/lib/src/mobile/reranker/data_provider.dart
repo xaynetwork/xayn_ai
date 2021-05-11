@@ -1,4 +1,3 @@
-import 'dart:async' show Future;
 import 'dart:io' show Directory, File;
 
 import 'package:async/async.dart' show AsyncMemoizer;
@@ -39,7 +38,10 @@ class SetupData implements common.SetupData {
   /// Returns the path to the data, if the data is not on disk yet
   /// it will be copied from the bundle to the disk.
   static Future<String> _getData(
-      String baseDiskPath, String assetDirName, String assetName) async {
+    String baseDiskPath,
+    String assetDirName,
+    String assetName,
+  ) async {
     final assetPath = _joinPaths([_baseAssetsPath, assetDirName, assetName]);
     final data = await rootBundle.load(assetPath);
 

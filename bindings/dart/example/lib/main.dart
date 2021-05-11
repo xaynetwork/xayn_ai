@@ -1,15 +1,25 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart' hide Feedback;
-
+import 'package:flutter/material.dart'
+    show
+        AppBar,
+        BuildContext,
+        Center,
+        Colors,
+        Column,
+        ElevatedButton,
+        MaterialApp,
+        runApp,
+        Scaffold,
+        State,
+        StatefulWidget,
+        Text,
+        TextStyle,
+        Widget;
 import 'package:path_provider/path_provider.dart'
     show getApplicationDocumentsDirectory;
 import 'package:stats/stats.dart' show Stats;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show XaynAi, Document, Relevance, History, Feedback;
-import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
-    show SetupData;
+    show Document, Relevance, History, Feedback, SetupData, XaynAi;
 
 void main() {
   runApp(MyApp());
