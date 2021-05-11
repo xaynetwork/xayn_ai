@@ -7,7 +7,10 @@ use crate::utils::IntoJsResult;
 // placeholder / later we can have a crate that contains common code for c-ffi and wasm
 #[repr(i8)]
 #[derive(Serialize_repr)]
-#[cfg_attr(test, derive(Clone, Copy, Debug, serde_repr::Deserialize_repr))]
+#[cfg_attr(
+    test,
+    derive(Clone, Copy, Debug, serde_repr::Deserialize_repr, PartialEq)
+)]
 pub enum CCode {
     /// A warning or uncritical error.
     Fault = -2,
