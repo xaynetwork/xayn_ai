@@ -1,15 +1,14 @@
 //! Inspired by  Xayn network : Searchgarden/test_bert/src/ndlayers/
 
 pub mod io;
-pub mod nn_layer;
 mod softmax;
 
 use ndarray::{Array, ArrayBase, Axis, Data, LinalgScalar, NdFloat, RemoveAxis};
 pub use softmax::*;
 
-/// A python like index where negative values can be used to index from the end.
+/// A python like axis index where negative values can be used to index from the end.
 ///
-/// Do not use this for performance sensitive code, like iteratively indexing an array.
+/// Do not use this for performance sensitive code, like iteratively indexing a large array.
 ///
 /// # Panic
 ///
@@ -22,7 +21,7 @@ pub use softmax::*;
 ///
 /// if that is not true this will panic.
 #[inline]
-pub fn pylike_idx(idx: isize, len: usize) -> usize {
+pub fn relative_index(idx: isize, len: usize) -> usize {
     assert!(len <= isize::MAX as usize && idx > isize::MIN);
     let len = len as isize;
     assert!(idx < len && -idx <= len);
@@ -82,25 +81,25 @@ mod tests {
 
     #[test]
     fn test_pylike_idx_panics_on_overflow() {
-        catch_unwind(|| pylike_idx(0, usize::MAX)).unwrap_err();
-        catch_unwind(|| pylike_idx(isize::MAX, 1)).unwrap_err();
+        catch_unwind(|| relative_index(0, usize::MAX)).unwrap_err();
+        catch_unwind(|| relative_index(isize::MAX, 1)).unwrap_err();
     }
 
     #[test]
     fn test_pylike_idx_panics_on_out_of_bounds() {
-        catch_unwind(|| pylike_idx(3, 3)).unwrap_err();
-        catch_unwind(|| pylike_idx(10, 3)).unwrap_err();
-        catch_unwind(|| pylike_idx(-4, 3)).unwrap_err();
+        catch_unwind(|| relative_index(3, 3)).unwrap_err();
+        catch_unwind(|| relative_index(10, 3)).unwrap_err();
+        catch_unwind(|| relative_index(-4, 3)).unwrap_err();
     }
 
     #[test]
     fn test_pylike_idx_returns_the_right_idx() {
-        assert_eq!(pylike_idx(1, 10), 1);
-        assert_eq!(pylike_idx(0, 10), 0);
-        assert_eq!(pylike_idx(9, 10), 9);
-        assert_eq!(pylike_idx(-10, 10), 0);
-        assert_eq!(pylike_idx(-1, 10), 9);
-        assert_eq!(pylike_idx(-9, 10), 1);
+        assert_eq!(relative_index(1, 10), 1);
+        assert_eq!(relative_index(0, 10), 0);
+        assert_eq!(relative_index(9, 10), 9);
+        assert_eq!(relative_index(-10, 10), 0);
+        assert_eq!(relative_index(-1, 10), 9);
+        assert_eq!(relative_index(-9, 10), 1);
     }
 
     #[test]

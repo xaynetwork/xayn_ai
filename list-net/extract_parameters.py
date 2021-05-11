@@ -9,14 +9,14 @@ we still can do this as bincode guarantees a stable data format (except on new m
 Extracted Tensor Initial Values
 ===============================
 
-- 'dense_1/Dense2D/weights'         from 'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0'
-- 'dense_1/Dense2D/bias'            from 'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0'
-- 'dense_2/Dense2D/weights'         from 'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0'
-- 'dense_2/Dense2D/bias'            from 'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0'
-- 'scores/Dense2D/weights'          from 'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0'
-- 'scores/Dense2D/bias'             from 'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0'
-- 'scores_prop_dis/Dense1D/weights' from 'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0'
-- 'scores_prop_dis/Dense1D/bias'    from 'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0'
+- 'ltr/v1/dense_1/weights'         from 'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0'
+- 'ltr/v1/dense_1/bias'            from 'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0'
+- 'ltr/v1/dense_2/weights'         from 'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0'
+- 'ltr/v1/dense_2/bias'            from 'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0'
+- 'ltr/v1/scores/weights'          from 'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0'
+- 'ltr/v1/scores/bias'             from 'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0'
+- 'ltr/v1/scores_prop_dist/weights' from 'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0'
+- 'ltr/v1/scores_prop_dist/bias'    from 'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0'
 
 All other parameters are only used to configure the pipeline like,
 making sure we gather into the right matrix after doing a tensor
@@ -129,24 +129,24 @@ import onnx, onnx.numpy_helper
 from typing import Tuple, Dict
 
 LIST_NET_NAME_MAPPING = {
-    'ltr/v1/dense_1/Dense2D/weights'         : 'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0',
-    'ltr/v1/dense_1/Dense2D/bias'            : 'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0',
-    'ltr/v1/dense_2/Dense2D/weights'         : 'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0',
-    'ltr/v1/dense_2/Dense2D/bias'            : 'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0',
-    'ltr/v1/scores/Dense2D/weights'          : 'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0',
-    'ltr/v1/scores/Dense2D/bias'             : 'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0',
-    'ltr/v1/scores_prop_dis/Dense1D/weights' : 'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0',
-    'ltr/v1/scores_prop_dis/Dense1D/bias'    : 'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0',
+    'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0'           : 'ltr/v1/dense_1/weights'        ,
+    'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0'             : 'ltr/v1/dense_1/bias'           ,
+    'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0'           : 'ltr/v1/dense_2/weights'        ,
+    'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0'             : 'ltr/v1/dense_2/bias'           ,
+    'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0'            : 'ltr/v1/scores/weights'         ,
+    'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0'              : 'ltr/v1/scores/bias'            ,
+    'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0'     : 'ltr/v1/scores_prop_dist/weights',
+    'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0'    : 'ltr/v1/scores_prop_dist/bias'   ,
 }
 
 def load_list_net_parameters(path):
     model = onnx.load(path)
 
-    result = { name: None for name in LIST_NET_NAME_MAPPING.keys() }
+    result = { name: None for name in LIST_NET_NAME_MAPPING.values() }
 
     for tensor in model.graph.initializer:
         if tensor.name in LIST_NET_NAME_MAPPING:
-            result[tensor.name] = onnx.numpy_helper.to_array(tensor)
+            result[LIST_NET_NAME_MAPPING[tensor.name]] = onnx.numpy_helper.to_array(tensor)
 
     for (name, val) in result.items():
         if val is None:
@@ -205,7 +205,7 @@ def write_array(array, out):
     # casting='equiv' => only allow byte-order changes
     # copy=False => don't copy the array if not necessary
     array_bytes = array.astype('<f4', order='C', casting='equiv', copy=False).tobytes(order='C')
-    n_elements = len(array.size).to_bytes(LEN_SIZE, ENDIAN)
+    n_elements = array.size.to_bytes(LEN_SIZE, ENDIAN)
     out.write(n_elements)
     out.write(array_bytes)
 

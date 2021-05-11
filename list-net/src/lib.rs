@@ -15,106 +15,158 @@
 //! 4. Kind Flatten: -- [(nr_docs, 1) => (nr_docs,)]
 //! 5. Kind SoftMax: nr_docs units [nr_docs => nr_docs, but sum == 1]
 
-use std::io::{self, Read};
+use std::{io::Read, path::Path};
 
-use ndarray::{Array1, Array2, Ix2, LinalgScalar};
-use ndutils::nn_layer::{Dense1D, Dense2D};
+use ndutils::io::LoadingBinParamsFailed;
+use thiserror::Error;
+
+use ndarray::{Array1, Array2, Ix2};
+use ndlayers::{
+    activation::{Linear, Relu, Softmax},
+    Dense,
+    LoadingDenseFailed,
+};
 
 use crate::ndutils::io::BinParams;
-
-/**
-    input [[features_for_doc_1],
-           [features_for_doc_2],
-           ...]
-
-    dense == activation(input · weights + bias)
-        .e.g reLu(input · weights + bias)
-
-
-    Dim Transitions (no batch):
-
-    (nr_docs, nr_features) => (nr_docs, 48) => (nr_docs, 8) => (nr_docs => 1) => (nr_docs,) => (nr_docs,)
-
-
-    Weight Matrices (shapes):
-        - (nr_features, 48)
-        - (48, 8)
-        - (8, 1)  <= we can make this a vector multiplication if we don't use batching for learning (==merged it with flatten)
-
-    Bias Vectors (shapes):
-        - (48,)
-        - (8,)
-        - (1,)
-
-
-    Activation Functions:
-        - linear: (element wise) in keras == identity function
-        - reLu: (element wise) max(0, x)
-        - softmax: (NOT element wise, but dimensions wise over one axis) o_i = exp(x_i) / sum(over x_j's: exp(x_j))
-            - three step implementations: 1) element wise: exp(x) 3) per dimension over axis wise:  sum(x_i) 2) per dimension over axis element wise: x/sum_for_dim
-*/
 
 #[macro_use]
 mod utils;
 
-pub mod ndutils;
+mod ndlayers;
+mod ndutils;
 
-pub struct ListNet<A>
-where
-    A: LinalgScalar,
-{
-    dense_1: Dense2D<A>,
-    dense_2: Dense2D<A>,
-    scores: Dense2D<A>,
-    scores_prop_dist: Dense1D<A>,
+/// ListNet implementations.
+///
+/// This chains following feed forward layers:
+///
+/// The input is currently fixed to 10 document with 50 features each
+/// in the shape `(10, 50)`
+///
+/// 1. Dense with 48 units, bias and reLu activation function (out shape: `(10, 48)`)
+/// 2. Dense with 8 units, bias and reLu activation function (out shape: `(10, 8)`)
+/// 3. Dense with 1 unit, bias and linear activation function (out shape: `(10, 1)`)
+/// 4. Flattening to the number of input documents. (out shape `(10,)`)
+/// 5. Dense with `nr_of_input_documents` (10) units, bias and softmax activation function (out shape `(10,)`)
+pub struct ListNet {
+    dense_1: Dense<Relu>,
+    dense_2: Dense<Relu>,
+    scores: Dense<Linear>,
+    scores_prop_dist: Dense<Softmax>,
 }
 
-// pub type Data = TODO;
-
-impl<A> ListNet<A>
-where
-    A: LinalgScalar,
-{
-    //     pub fn create(&self, nr_documents: usize, nr_features: usize, parameters: Data) -> Self {
-    //         //--- all this is independent of nr_documents ---//
-
-    //         // (nr_docs, nr_features) => (nr_docs, 48)
-    //         let l_dense_1 = Dense2D::build(nr_features, 48, parameters.get("l_dense_1"), ReLu::new());
-    //         // (nr_docs, 48) => (nr_docs, 8)
-    //         let l_dense_2 = Dense2D::build(l_dense_1.units, 8, parameters.get("l_dense_2"), ReLu::new());
-    //         // (nr_docs, 8) => (nr_docs, 1)
-    //         let l_scores = Dense2D::build(l_dense_2.units, 1, parameters.get("l_scores"), Linear::new());
-
-    //         // (nr_docs, 1) => (nr_docs,)
-    //         // has not parameters we need to setup
-
-    //         //--- the weights of this depend on nr_documents ---//
-    //         // (nr_docs,) => (nr_docs,)
-    //         let l_scores_prop_dist = Dense1D::build(nr_documents, parameters.get("l_scores_prop_dist"), SoftMax::new(0));
-
-    //         ListNet {
-    //             l_dense_1,
-    //             l_dense_2,
-    //             l_scores,
-    //             l_scores_prop_dist
-    //         }
-    //     }
-
-    pub fn load(source: impl Read) -> Result<Self, io::Error> {
-        let _params = BinParams::load(source).expect("TODO");
-        todo!()
+impl ListNet {
+    /// Load list net from file at given path.
+    pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, LoadingListNetFailed> {
+        let params = BinParams::load_from_file(path)?;
+        Self::load(params)
     }
+
+    /// Load list net from byte reader.
+    pub fn load_from_source(params_source: impl Read) -> Result<Self, LoadingListNetFailed> {
+        let params = BinParams::load(params_source)?;
+        Self::load(params)
+    }
+
+    /// Load list net from `BinParams`.
+    pub(crate) fn load(mut params: BinParams) -> Result<Self, LoadingListNetFailed> {
+        let mut params = params.with_scope("ltr/v1");
+
+        let dense_1 = Dense::load(params.with_scope("dense_1"), Relu::default())?;
+        let dense_2 = Dense::load(params.with_scope("dense_2"), Relu::default())?;
+        let scores = Dense::load(params.with_scope("scores"), Linear::default())?;
+        let scores_prop_dist =
+            Dense::load(params.with_scope("scores_prop_dist"), Softmax::default())?;
+
+        //TODO check dimensions match
+
+        Ok(Self {
+            dense_1,
+            dense_2,
+            scores,
+            scores_prop_dist,
+        })
+    }
+
     /// Runs List net on the input.
     ///
     /// The input is a 2 dimensional array
     /// with the shape `(number_of_documents, number_of_feature_per_document)`.
-    pub fn run(&self, inputs: Array2<A>) -> Array1<A> {
-        let dense1_out = self.dense_1.apply_to(inputs);
-        let dense2_out = self.dense_2.apply_to(dense1_out);
-        let scores = self.scores.apply_to(dense2_out);
+    pub fn run(&self, inputs: Array2<f32>) -> Array1<f32> {
+        let dense1_out = self.dense_1.run(inputs);
+        let dense2_out = self.dense_2.run(dense1_out);
+        let scores = self.scores.run(dense2_out);
         let shape: Ix2 = scores.raw_dim();
         debug_assert_eq!(shape[1], 1);
-        let scores = scores.into_shape((shape[0],)).unwrap();
-        self.scores_prop_dist.apply_to(scores)
+        let scores: Array1<f32> = scores.into_shape((shape[0],)).unwrap();
+        self.scores_prop_dist.run(scores)
+    }
+}
+
+/// Loading list net failed.
+#[derive(Debug, Error)]
+pub enum LoadingListNetFailed {
+    /// Failed to load bin params.
+    #[error(transparent)]
+    BinParams(#[from] LoadingBinParamsFailed),
+
+    /// Failed to create instance of `Dense`.
+    #[error(transparent)]
+    Dense(#[from] LoadingDenseFailed),
+}
+
+#[cfg(test)]
+mod tests {
+
+    use ndarray::arr1;
+
+    use super::*;
+
+    const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0002.binparams";
+
+    /// A single List-Net Input, cast to shape (10, 50).
+    ///
+    /// The `arr2` helper is currently only implemented up
+    /// to a N of 16. (We need 50.)
+    #[rustfmt::skip]
+    const SAMPLE_INPUTS: &[f32; 500] = &[
+        1.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        2.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        3.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        4.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        5.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        6.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        7.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        8.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        9.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+        10.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,0.0,0.283,0.283,0.283,0.283,0.0,0.0,0.283,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.283,0.0,0.0,4.0,0.0,0.0,0.0,0.283,0.0,0.0,2.475_141_5,31.0,12.0,8.0,91.0,2.219_780_2,3.673_913,0.0,0.0,0.0,4.0,0.0,
+    ];
+
+    #[test]
+    fn test_list_net_end_to_end() {
+        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+
+        let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
+            .into_shape((10, 50))
+            .unwrap();
+
+        let outcome = list_net.run(inputs);
+
+        //FIXME: Check if the values are correct.
+        assert_ndarray_eq!(
+            f32,
+            outcome,
+            arr1(&[
+                0.30562896,
+                0.1503916,
+                0.115954444,
+                0.093693145,
+                0.077109516,
+                0.06528697,
+                0.056171637,
+                0.049953047,
+                0.044394825,
+                0.04141591,
+            ])
+        );
     }
 }
