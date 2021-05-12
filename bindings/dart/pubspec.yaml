@@ -17,6 +17,7 @@ dev_dependencies:
   flutter_test:
     sdk: 'flutter'
   pedantic: '^1.11.0'
+  uuid: '^3.0.4'
 
 ffigen:
   name: 'XaynAiFfi'

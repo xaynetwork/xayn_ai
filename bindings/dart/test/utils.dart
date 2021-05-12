@@ -10,6 +10,8 @@ import 'package:xayn_ai_ffi_dart/src/result/error.dart'
 const vocab = '../../data/rubert_v0001/vocab.txt';
 const model = '../../data/rubert_v0001/smbert.onnx';
 
+String documentIdFromInt(int id) {}
+
 final histories = [
   History('0', Relevance.low, Feedback.irrelevant),
   History('1', Relevance.high, Feedback.relevant),
