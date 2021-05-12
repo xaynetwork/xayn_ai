@@ -9,17 +9,25 @@ SELF_DIR_PATH=$(dirname "$SELF_PATH")
 # but the data should go in the correct destination
 DATA_DIR="$SELF_DIR_PATH/data/"
 
-download_rubert()
-{
-  VERSION=$1
-  ARCHIVE="rubert_${VERSION}.tgz"
-  URL="http://s3-de-central.profitbricks.com/xayn-yellow-bert/rubert/$ARCHIVE"
+CHECKSUM_FILE="sha256sums"
 
-  curl $URL -o $DATA_DIR/$ARCHIVE
+download()
+{
+  NAME=$1
+  VERSION=$2
+  ARCHIVE_BASENAME="${NAME}_$VERSION"
+  ARCHIVE_NAME="$ARCHIVE_BASENAME.tgz"
+  URL="http://s3-de-central.profitbricks.com/xayn-yellow-bert/$NAME/$ARCHIVE_NAME"
+
+  curl $URL -o $DATA_DIR/$ARCHIVE_NAME
 
   cd $DATA_DIR
-  tar -zxf $ARCHIVE
+  tar -zxf $ARCHIVE_NAME
+
+  # check content
+  cd $ARCHIVE_BASENAME
+  shasum -c $CHECKSUM_FILE
 }
 
-download_rubert v0001
+download rubert v0001
 
