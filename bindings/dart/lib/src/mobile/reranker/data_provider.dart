@@ -32,7 +32,7 @@ class SetupData implements common.SetupData {
     final vocab = await _getData(baseDiskPath, rubertDir, 'vocab.txt');
     final model = await _getData(baseDiskPath, rubertDir, 'smbert.onnx');
 
-    return SetupData(model, vocab);
+    return SetupData(vocab, model);
   }
 
   /// Returns the path to the data, if the data is not on disk yet
