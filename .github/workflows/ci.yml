@@ -677,7 +677,10 @@ jobs:
         run: mv xayn-ai-ffi-c/ffi.h ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
 
       - name: Download all artifacts
-        # https://github.com/actions/download-artifact/issues/6
+        # Currently we can only download all artifacts. Using wildcards is not
+        # yet supported. https://github.com/actions/download-artifact/issues/6
+        # That said, we're downloading the Linux artifacts twice, but doing it
+        # in two download steps would be a bit overkill.
         if: matrix.os == 'macos-10.15'
         uses: actions/download-artifact@v2
         with:
