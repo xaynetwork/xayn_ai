@@ -130,7 +130,7 @@ mod tests {
 
     use itertools::izip;
     use wasm_bindgen_test::wasm_bindgen_test;
-    use xayn_ai::{Relevance, UserFeedback, DocumentId};
+    use xayn_ai::{DocumentId, Relevance, UserFeedback};
 
     use crate::error::ExternError;
 
@@ -148,7 +148,9 @@ mod tests {
 
     fn test_histories() -> Vec<JsValue> {
         let len = 6;
-        let ids = (0..len).map(|idx| DocumentId::from_u128(idx as u128)).collect::<Vec<_>>();
+        let ids = (0..len)
+            .map(|idx| DocumentId::from_u128(idx as u128))
+            .collect::<Vec<_>>();
 
         let relevances = repeat(Relevance::Low)
             .take(len / 2)
@@ -173,7 +175,9 @@ mod tests {
 
     fn test_documents() -> Vec<JsValue> {
         let len = 10;
-        let ids = (0..len).map(|idx| DocumentId::from_u128(idx as u128)).collect::<Vec<_>>();
+        let ids = (0..len)
+            .map(|idx| DocumentId::from_u128(idx as u128))
+            .collect::<Vec<_>>();
 
         let snippets = (0..len)
             .map(|idx| format!("snippet {}", idx))
@@ -182,12 +186,7 @@ mod tests {
 
         let document = izip!(ids, snippets, ranks)
             .map(|(id, snippet, rank)| {
-                JsValue::from_serde(&Document {
-                    id,
-                    snippet,
-                    rank,
-                })
-                .unwrap()
+                JsValue::from_serde(&Document { id, snippet, rank }).unwrap()
             })
             .collect::<Vec<_>>();
 
