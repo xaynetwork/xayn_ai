@@ -10,16 +10,16 @@ import 'package:xayn_ai_ffi_dart/src/result/error.dart'
 const vocab = '../../data/rubert_v0001/vocab.txt';
 const model = '../../data/rubert_v0001/smbert.onnx';
 
-String documentIdFromInt(int id) {}
-
 final histories = [
-  History('0', Relevance.low, Feedback.irrelevant),
-  History('1', Relevance.high, Feedback.relevant),
+  History('00000000-0000-0000-0000-000000000000', Relevance.low,
+      Feedback.irrelevant),
+  History('00000000-0000-0000-0000-000000000001', Relevance.high,
+      Feedback.relevant),
 ];
 final documents = [
-  Document('0', 'abc', 0),
-  Document('1', 'def', 1),
-  Document('2', 'ghi', 2),
+  Document('00000000-0000-0000-0000-000000000000', 'abc', 0),
+  Document('00000000-0000-0000-0000-000000000001', 'def', 1),
+  Document('00000000-0000-0000-0000-000000000002', 'ghi', 2),
 ];
 
 Matcher throwsXaynAiException(Code code) => throwsA(
