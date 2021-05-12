@@ -146,7 +146,7 @@ mod tests {
 
     use super::*;
 
-    const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0002.binparams";
+    const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0000/ltr_v0000.binparams";
 
     /// A single List-Net Input, cast to shape (10, 50).
     ///
