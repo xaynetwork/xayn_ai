@@ -389,7 +389,7 @@ jobs:
 
       - name: Prepare lib for upload
         run: |
-          dir=target/${{ matrix.target}}/debug
+          dir=target/${{ matrix.target }}/debug
           mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
       - name: Upload library artifacts
