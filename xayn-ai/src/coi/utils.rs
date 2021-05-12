@@ -173,7 +173,7 @@ pub(super) mod tests {
     fn create_docs_from_coi_id(ids: &[usize]) -> Vec<MockCoiDoc> {
         ids.iter()
             .map(|id| MockCoiDoc {
-                id: DocumentId("0".to_string()),
+                id: DocumentId::from_u128(0),
                 embedding: SMBertEmbeddingComponent {
                     embedding: arr1(&[]).into(),
                 },
@@ -424,10 +424,10 @@ pub(super) mod tests {
         let matching_documents = collect_matching_documents(&history, &documents);
 
         assert_eq!(matching_documents.len(), 2);
-        assert_eq!(matching_documents[0].0.id.0, "0");
-        assert_eq!(matching_documents[0].1.id().0, "0");
+        assert_eq!(matching_documents[0].0.id, DocumentId::from_u128(0));
+        assert_eq!(*matching_documents[0].1.id(), DocumentId::from_u128(0));
 
-        assert_eq!(matching_documents[1].0.id.0, "1");
-        assert_eq!(matching_documents[1].1.id().0, "1");
+        assert_eq!(matching_documents[1].0.id, DocumentId::from_u128(1));
+        assert_eq!(*matching_documents[1].1.id(), DocumentId::from_u128(0));
     }
 }

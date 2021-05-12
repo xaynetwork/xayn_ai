@@ -1,4 +1,4 @@
-use std::slice;
+use std::{convert::TryInto, slice};
 
 use xayn_ai::Document;
 
@@ -49,8 +49,12 @@ impl<'a> CDocuments<'a> {
                             CCode::DocumentIdPointer,
                             "Failed to rerank the documents",
                         )
-                    }?
-                    .into();
+                    }
+                    .and_then(|s| {
+                        s.try_into().map_err(|e| {
+                            CCode::DocumentIdPointer.with_context(format!("Invalid uuid string: {}", e))
+                        })
+                    })?;
                     let snippet = unsafe {
                         as_str(
                             document.snippet,
@@ -74,6 +78,8 @@ pub(crate) mod tests {
 
     use itertools::izip;
 
+    use xayn_ai::DocumentId;
+
     use super::*;
     use crate::utils::tests::as_str_unchecked;
 
@@ -93,7 +99,7 @@ pub(crate) mod tests {
             let len = 10;
             let _ids = Pin::new(
                 (0..len)
-                    .map(|idx| CString::new(idx.to_string()).unwrap())
+                    .map(|idx| CString::new(DocumentId::from_u128(idx).to_string()).unwrap())
                     .collect::<Vec<_>>(),
             );
             let _snippets = Pin::new(
@@ -142,7 +148,7 @@ pub(crate) mod tests {
         let documents = unsafe { docs.documents.to_documents() }.unwrap();
         assert_eq!(documents.len(), docs.len());
         for (d, cd) in izip!(documents, docs.document.as_ref().get_ref()) {
-            assert_eq!(d.id.0, as_str_unchecked(cd.id));
+            assert_eq!(d.id.0.to_string(), as_str_unchecked(cd.id));
             assert_eq!(d.snippet, as_str_unchecked(cd.snippet));
             assert_eq!(d.rank, cd.rank as usize);
         }

@@ -1,12 +1,27 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+use derive_more::Display;
+
+use std::convert::TryFrom;
+
+use crate::Error;
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
-pub struct DocumentId(pub String);
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+pub struct DocumentId(pub Uuid);
 
-impl From<&str> for DocumentId {
-    fn from(id: &str) -> Self {
-        Self(id.to_string())
+impl DocumentId {
+    //// Creates a DocumentId from a 128bit value in big-endian order.
+    pub fn from_u128(id: u128) -> Self {
+        DocumentId(Uuid::from_u128(id))
+    }
+}
+
+impl TryFrom<&str> for DocumentId {
+    type Error = Error;
+
+    fn try_from(id: &str) -> Result<Self, Self::Error> {
+        Ok(DocumentId(Uuid::parse_str(id)?))
     }
 }
 

@@ -1,4 +1,4 @@
-use std::slice;
+use std::{convert::TryInto, slice};
 
 use xayn_ai::{DocumentHistory, Relevance, UserFeedback};
 
@@ -91,8 +91,13 @@ impl<'a> CHistories<'a> {
                             CCode::HistoryIdPointer,
                             "Failed to rerank the documents",
                         )
-                    }?
-                    .into();
+                    }
+                    .and_then(|s| {
+                        s.try_into().map_err(|e| {
+                            CCode::HistoriesPointer.with_context(format!("Invalid uuid string: {}", e))
+                        })
+                    })?;
+
                     let relevance = history.relevance.into();
                     let user_feedback = history.feedback.into();
 
@@ -113,6 +118,7 @@ pub(crate) mod tests {
 
     use itertools::izip;
 
+    use xayn_ai::DocumentId;
     use super::*;
     use crate::utils::tests::as_str_unchecked;
 
@@ -131,7 +137,7 @@ pub(crate) mod tests {
             let len = 6;
             let _ids = Pin::new(
                 (0..len)
-                    .map(|idx| CString::new(idx.to_string()).unwrap())
+                    .map(|idx| CString::new(DocumentId::from_u128(idx as u128).to_string()).unwrap())
                     .collect::<Vec<_>>(),
             );
             let relevances = repeat(CRelevance::Low)
@@ -179,7 +185,7 @@ pub(crate) mod tests {
         let histories = unsafe { hists.histories.to_histories() }.unwrap();
         assert_eq!(histories.len(), hists.len());
         for (dh, ch) in izip!(histories, hists.history.as_ref().get_ref()) {
-            assert_eq!(dh.id.0, as_str_unchecked(ch.id));
+            assert_eq!(dh.id.0.to_string(), as_str_unchecked(ch.id));
             assert_eq!(dh.relevance, ch.relevance.into());
             assert_eq!(dh.user_feedback, ch.feedback.into());
         }

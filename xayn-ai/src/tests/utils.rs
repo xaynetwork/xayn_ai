@@ -158,7 +158,7 @@ pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> Ranks {
 pub(crate) fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec<DocumentHistory> {
     docs.into_iter()
         .map(|(id, relevance, user_feedback)| DocumentHistory {
-            id: DocumentId(id.to_string()),
+            id: DocumentId::from_u128(id as u128),
             relevance,
             user_feedback,
         })
@@ -172,7 +172,7 @@ pub(crate) fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec
 pub(crate) fn from_ids(ids: Range<u32>) -> impl Iterator<Item = (DocumentId, usize, Embedding)> {
     ids.map(|id| {
         (
-            DocumentId(id.to_string()),
+            DocumentId::from_u128(id as u128),
             id as usize,
             arr1(&vec![id as f32; 128]).into(),
         )
