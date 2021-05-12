@@ -567,7 +567,7 @@ jobs:
         working-directory: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
         run: |
           mv xayn-ai-ffi-c/ffi.h ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
-          cp -r target ${{ github.workspace }}
+          cp -R target ${{ github.workspace }}
 
       - name: Download data
         run: sh download_data.sh
