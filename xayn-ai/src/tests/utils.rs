@@ -29,10 +29,10 @@ use crate::{
     DocumentId,
 };
 
-pub(crate) fn documents_from_ids(ids: Range<u32>) -> Vec<Document> {
+pub(crate) fn documents_from_ids(ids: Range<u128>) -> Vec<Document> {
     ids.enumerate()
         .map(|(rank, id)| Document {
-            id: DocumentId(id.to_string()),
+            id: DocumentId::from_u128(id),
             rank,
             snippet: id.to_string(),
         })
@@ -43,7 +43,7 @@ pub(crate) fn documents_from_words(
     ctx: impl Iterator<Item = (usize, impl ToString)>,
 ) -> Vec<Document> {
     ctx.map(|(id, snippet)| Document {
-        id: DocumentId(id.to_string()),
+        id: DocumentId::from_u128(id as u128),
         rank: id,
         snippet: snippet.to_string(),
     })
@@ -56,7 +56,7 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl SMBertSystem) -> 
         .enumerate()
         .map(|(id, snippet)| DocumentDataWithDocument {
             document_base: DocumentBaseComponent {
-                id: DocumentId(id.to_string()),
+                id: DocumentId::from_u128(id as u128),
                 initial_ranking: id,
             },
             document_content: DocumentContentComponent {

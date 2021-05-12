@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn transition_and_get() {
         let document_id = DocumentBaseComponent {
-            id: DocumentId("id".to_string()),
+            id: DocumentId::from_u128(0),
             initial_ranking: 23,
         };
         let document_content = DocumentContentComponent {

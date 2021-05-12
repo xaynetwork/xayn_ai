@@ -94,7 +94,8 @@ impl<'a> CHistories<'a> {
                     }
                     .and_then(|s| {
                         s.try_into().map_err(|e| {
-                            CCode::HistoriesPointer.with_context(format!("Invalid uuid string: {}", e))
+                            CCode::HistoriesPointer
+                                .with_context(format!("Invalid uuid string: {}", e))
                         })
                     })?;
 
@@ -118,9 +119,9 @@ pub(crate) mod tests {
 
     use itertools::izip;
 
-    use xayn_ai::DocumentId;
     use super::*;
     use crate::utils::tests::as_str_unchecked;
+    use xayn_ai::DocumentId;
 
     pub struct TestHistories<'a> {
         _ids: Pin<Vec<CString>>,
@@ -137,7 +138,9 @@ pub(crate) mod tests {
             let len = 6;
             let _ids = Pin::new(
                 (0..len)
-                    .map(|idx| CString::new(DocumentId::from_u128(idx as u128).to_string()).unwrap())
+                    .map(|idx| {
+                        CString::new(DocumentId::from_u128(idx as u128).to_string()).unwrap()
+                    })
                     .collect::<Vec<_>>(),
             );
             let relevances = repeat(CRelevance::Low)

@@ -53,7 +53,7 @@ mod tests {
 
     #[test]
     fn test_const_value() {
-        let id = DocumentId("id1".to_string());
+        let id = DocumentId::from_u128(0);
         let embedding = arr1(&[1., 2., 3., 4.]).into();
         let coi = CoiComponent {
             id: CoiId(9),
@@ -69,7 +69,7 @@ mod tests {
             coi,
         };
 
-        let id = DocumentId("id2".to_string());
+        let id = DocumentId::from_u128(1);
         let embedding = arr1(&[5., 6., 7.]).into();
         let coi = CoiComponent {
             id: CoiId(5),

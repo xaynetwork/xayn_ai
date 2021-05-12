@@ -52,7 +52,8 @@ impl<'a> CDocuments<'a> {
                     }
                     .and_then(|s| {
                         s.try_into().map_err(|e| {
-                            CCode::DocumentIdPointer.with_context(format!("Invalid uuid string: {}", e))
+                            CCode::DocumentIdPointer
+                                .with_context(format!("Invalid uuid string: {}", e))
                         })
                     })?;
                     let snippet = unsafe {

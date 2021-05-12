@@ -1,6 +1,6 @@
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use derive_more::Display;
 
 use std::convert::TryFrom;
 

@@ -212,18 +212,20 @@ pub(super) mod tests {
         embeddings
             .iter()
             .enumerate()
-            .map(|(id, embedding)| create_data_with_embedding(id, id, embedding.as_init_slice()))
+            .map(|(id, embedding)| {
+                create_data_with_embedding(id as u128, id, embedding.as_init_slice())
+            })
             .collect()
     }
 
     pub(crate) fn create_data_with_embedding(
-        id: usize,
+        id: u128,
         initial_ranking: usize,
         embedding: &[f32],
     ) -> DocumentDataWithSMBert {
         DocumentDataWithSMBert {
             document_base: DocumentBaseComponent {
-                id: DocumentId(id.to_string()),
+                id: DocumentId::from_u128(id),
                 initial_ranking,
             },
             embedding: SMBertEmbeddingComponent {
@@ -239,7 +241,7 @@ pub(super) mod tests {
             .into_iter()
             .enumerate()
             .map(|(id, (relevance, user_feedback))| DocumentHistory {
-                id: DocumentId(id.to_string()),
+                id: DocumentId::from_u128(id as u128),
                 relevance,
                 user_feedback,
             })
@@ -297,7 +299,7 @@ pub(super) mod tests {
     #[test]
     fn test_user_feedback() {
         let mut history = DocumentHistory {
-            id: DocumentId("1".to_string()),
+            id: DocumentId::from_u128(1),
             relevance: Relevance::Low,
             user_feedback: UserFeedback::Irrelevant,
         };
@@ -428,6 +430,6 @@ pub(super) mod tests {
         assert_eq!(*matching_documents[0].1.id(), DocumentId::from_u128(0));
 
         assert_eq!(matching_documents[1].0.id, DocumentId::from_u128(1));
-        assert_eq!(*matching_documents[1].1.id(), DocumentId::from_u128(0));
+        assert_eq!(*matching_documents[1].1.id(), DocumentId::from_u128(1));
     }
 }
