@@ -232,7 +232,7 @@ mod tests {
             .enumerate()
             .map(|(id, embedding)| DocumentDataWithMab {
                 document_base: DocumentBaseComponent {
-                    id: DocumentId(id.to_string()),
+                    id: DocumentId::from_u128(id as u128),
                     initial_ranking: id,
                 },
                 embedding: SMBertEmbeddingComponent {

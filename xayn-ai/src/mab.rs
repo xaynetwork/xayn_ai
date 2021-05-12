@@ -333,11 +333,11 @@ mod tests {
 
     #[test]
     fn test_group_by_coi_group_ok() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
-        let doc_id_3 = DocumentId("3".to_string());
-        let doc_id_4 = DocumentId("4".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
+        let doc_id_3 = DocumentId::from_u128(3);
+        let doc_id_4 = DocumentId::from_u128(4);
 
         let group = group_by_coi(vec![
             with_ctx(doc_id_0.clone(), CoiId(0), 0.),
@@ -369,11 +369,11 @@ mod tests {
 
     #[test]
     fn test_group_by_coi_order_by_context_value_desc() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
-        let doc_id_3 = DocumentId("3".to_string());
-        let doc_id_4 = DocumentId("4".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
+        let doc_id_3 = DocumentId::from_u128(3);
+        let doc_id_4 = DocumentId::from_u128(4);
 
         let mut group = group_by_coi(vec![
             with_ctx(doc_id_0.clone(), CoiId(0), 0.4),
@@ -400,9 +400,9 @@ mod tests {
 
     #[test]
     fn test_group_by_coi_context_value_nan_is_min() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
 
         let mut group = group_by_coi(vec![
             with_ctx(doc_id_0.clone(), CoiId(0), 0.2),
@@ -443,7 +443,7 @@ mod tests {
     fn test_update_coi_no_coi() {
         let error = update_cois(
             HashMap::new(),
-            &[with_ctx(DocumentId("0".to_string()), CoiId(0), 0.)],
+            &[with_ctx(DocumentId::from_u128(0), CoiId(0), 0.)],
         )
         .expect_err("no coi");
         assert!(matches!(error, MabError::DocumentCoiDoesNotExist));
@@ -458,8 +458,8 @@ mod tests {
         let error = update_cois(
             cois.clone(),
             &[
-                with_ctx(DocumentId("".to_string()), CoiId(0), 0.35),
-                with_ctx(DocumentId("".to_string()), CoiId(0), -1.),
+                with_ctx(DocumentId::from_u128(0), CoiId(0), 0.35),
+                with_ctx(DocumentId::from_u128(1), CoiId(0), -1.),
             ],
         )
         .expect_err("invalid context value");
@@ -468,8 +468,8 @@ mod tests {
         let error = update_cois(
             cois,
             &[
-                with_ctx(DocumentId("".to_string()), CoiId(0), 0.35),
-                with_ctx(DocumentId("".to_string()), CoiId(0), 1.01),
+                with_ctx(DocumentId::from_u128(0), CoiId(0), 0.35),
+                with_ctx(DocumentId::from_u128(1), CoiId(0), 1.01),
             ],
         )
         .expect_err("invalid context value");
@@ -486,10 +486,10 @@ mod tests {
         let cois = update_cois(
             cois,
             &vec![
-                with_ctx(DocumentId("".to_string()), CoiId(1), 1.),
-                with_ctx(DocumentId("".to_string()), CoiId(0), 0.35),
-                with_ctx(DocumentId("".to_string()), CoiId(1), 0.2),
-                with_ctx(DocumentId("".to_string()), CoiId(0), 0.6),
+                with_ctx(DocumentId::from_u128(0), CoiId(1), 1.),
+                with_ctx(DocumentId::from_u128(1), CoiId(0), 0.35),
+                with_ctx(DocumentId::from_u128(2), CoiId(1), 0.2),
+                with_ctx(DocumentId::from_u128(3), CoiId(0), 0.6),
             ],
         )
         .expect("cois");
@@ -509,8 +509,8 @@ mod tests {
     #[test]
     fn test_pull_arms_coi_empty() {
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(DocumentId("0".to_string()), CoiId(0), 0.),
-            with_ctx(DocumentId("1".to_string()), CoiId(1), 0.),
+            with_ctx(DocumentId::from_u128(0), CoiId(0), 0.),
+            with_ctx(DocumentId::from_u128(1), CoiId(1), 0.),
         ]);
 
         let beta_sampler = MockBetaSample::new();
@@ -526,8 +526,7 @@ mod tests {
             CoiId(0) => coi!(CoiId(0), 0.91),
         };
 
-        let documents_by_coi =
-            group_by_coi(vec![with_ctx(DocumentId("1".to_string()), CoiId(1), 0.)]);
+        let documents_by_coi = group_by_coi(vec![with_ctx(DocumentId::from_u128(1), CoiId(1), 0.)]);
 
         let beta_sampler = MockBetaSample::new();
 
@@ -561,8 +560,8 @@ mod tests {
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(DocumentId("1".to_string()), CoiId(0), 0.),
-            with_ctx(DocumentId("2".to_string()), CoiId(1), 0.),
+            with_ctx(DocumentId::from_u128(1), CoiId(0), 0.),
+            with_ctx(DocumentId::from_u128(2), CoiId(1), 0.),
         ]);
 
         let mut beta_sampler = MockBetaSample::new();
@@ -615,12 +614,12 @@ mod tests {
 
     #[test]
     fn test_pull_arms_multiple_coi_ok() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
-        let doc_id_3 = DocumentId("3".to_string());
-        let doc_id_4 = DocumentId("4".to_string());
-        let doc_id_5 = DocumentId("5".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
+        let doc_id_3 = DocumentId::from_u128(3);
+        let doc_id_4 = DocumentId::from_u128(4);
+        let doc_id_5 = DocumentId::from_u128(5);
 
         let cois = hashmap! {
             CoiId(0) => coi!(CoiId(0), 0.1),
@@ -661,12 +660,12 @@ mod tests {
 
     #[test]
     fn test_pull_arms_multiple_coi_custom_sampler() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
-        let doc_id_3 = DocumentId("3".to_string());
-        let doc_id_4 = DocumentId("4".to_string());
-        let doc_id_5 = DocumentId("5".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
+        let doc_id_3 = DocumentId::from_u128(3);
+        let doc_id_4 = DocumentId::from_u128(4);
+        let doc_id_5 = DocumentId::from_u128(5);
 
         let coi1 = 1.;
         let coi4 = 4.;
@@ -748,11 +747,11 @@ mod tests {
 
     #[test]
     fn test_pull_arms_multiple_coi_real_sampler() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
-        let doc_id_3 = DocumentId("3".to_string());
-        let doc_id_4 = DocumentId("4".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
+        let doc_id_3 = DocumentId::from_u128(3);
+        let doc_id_4 = DocumentId::from_u128(4);
 
         let cois = hashmap! {
             // high probability of low values
@@ -807,12 +806,12 @@ mod tests {
 
     #[test]
     fn test_mab_ranking_iter_ok() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
-        let doc_id_3 = DocumentId("3".to_string());
-        let doc_id_4 = DocumentId("4".to_string());
-        let doc_id_5 = DocumentId("5".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
+        let doc_id_3 = DocumentId::from_u128(3);
+        let doc_id_4 = DocumentId::from_u128(4);
+        let doc_id_5 = DocumentId::from_u128(5);
 
         let cois = hashmap! {
             CoiId(0) => coi!(CoiId(0), 0.1),
@@ -861,8 +860,7 @@ mod tests {
 
     #[test]
     fn test_mab_ranking_iter_propagate_errors() {
-        let documents_by_coi =
-            group_by_coi(vec![with_ctx(DocumentId("0".to_string()), CoiId(0), 0.)]);
+        let documents_by_coi = group_by_coi(vec![with_ctx(DocumentId::from_u128(0), CoiId(0), 0.)]);
 
         let beta_sampler = MockBetaSample::new();
 
@@ -891,12 +889,12 @@ mod tests {
 
     #[test]
     fn test_mab_ranking_ok() {
-        let doc_id_0 = DocumentId("0".to_string());
-        let doc_id_1 = DocumentId("1".to_string());
-        let doc_id_2 = DocumentId("2".to_string());
-        let doc_id_3 = DocumentId("3".to_string());
-        let doc_id_4 = DocumentId("4".to_string());
-        let doc_id_5 = DocumentId("5".to_string());
+        let doc_id_0 = DocumentId::from_u128(0);
+        let doc_id_1 = DocumentId::from_u128(1);
+        let doc_id_2 = DocumentId::from_u128(2);
+        let doc_id_3 = DocumentId::from_u128(3);
+        let doc_id_4 = DocumentId::from_u128(4);
+        let doc_id_5 = DocumentId::from_u128(5);
 
         let mut user_interests = UserInterests::new();
         user_interests.positive = vec![
