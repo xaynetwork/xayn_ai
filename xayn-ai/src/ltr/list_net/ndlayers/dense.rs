@@ -1,4 +1,4 @@
-use crate::ndutils::io::{
+use super::super::ndutils::io::{
     BinParamsWithScope,
     FailedToRetrieveParams,
     UnexpectedNumberOfDimensions,
@@ -124,7 +124,7 @@ where
 mod tests {
     use ndarray::{arr1, arr2, Array1, Array2, IntoDimension};
 
-    use crate::ndlayers::activation::{Linear, Relu};
+    use super::super::activation::{Linear, Relu};
 
     use super::Dense;
 

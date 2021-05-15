@@ -1,6 +1,6 @@
 use ndarray::{ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
-use crate::ndutils::{relative_index, softmax};
+use super::super::ndutils::{relative_index, softmax};
 
 use super::ActivationFunction;
 
@@ -103,7 +103,7 @@ impl<A> ActivationFunction<A> for Linear {
 mod tests {
     use ndarray::{arr3, Axis};
 
-    use crate::ndlayers::{
+    use super::super::{
         activation::{Linear, Softmax},
         ActivationFunction,
     };
@@ -146,13 +146,14 @@ mod tests {
 
     #[test]
     fn test_softmax_activation_function_works() {
+        use super::super::super::ndutils::softmax;
         let relu = Softmax::new(-2);
         let array = arr3(&[
             [[-1.0f32, 2.], [3.5, -4.0]],
             [[3.0, 2.4], [-3.0, -1.2]],
             [[-12.0, -2.0], [2.0, 12.0]],
         ]);
-        let expected = crate::ndutils::softmax(array.clone(), Axis(1));
+        let expected = softmax(array.clone(), Axis(1));
         let output = relu.apply_to(array);
         assert_ndarray_eq!(f32, output, expected);
     }

@@ -14,10 +14,10 @@
 //! 3. Kind Dense: linear; 1units; with bias [8 => 1]
 //! 4. Kind Flatten: -- [(nr_docs, 1) => (nr_docs,)]
 //! 5. Kind SoftMax: nr_docs units [nr_docs => nr_docs, but sum == 1]
-
+#![allow(unused)]//TODO tmp
 use std::{io::Read, path::Path};
 
-use ndutils::io::LoadingBinParamsFailed;
+use ndutils::io::{BinParams, LoadingBinParamsFailed};
 use thiserror::Error;
 
 use ndarray::{Array1, Array2, Dimension, IntoDimension, Ix, Ix2};
@@ -27,8 +27,6 @@ use ndlayers::{
     IncompatibleMatrices,
     LoadingDenseFailed,
 };
-
-use crate::ndutils::io::BinParams;
 
 #[macro_use]
 mod utils;
