@@ -1,9 +1,6 @@
 //! C FFI for the Xayn AI.
-#![forbid(
-    unsafe_op_in_unsafe_fn,
-    rustdoc::broken_intra_doc_links,
-    rustdoc::private_intra_doc_links
-)]
+#![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
+#![allow(unused_unsafe)]
 
 pub mod data;
 pub mod reranker;
