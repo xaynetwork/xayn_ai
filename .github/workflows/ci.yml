@@ -711,4 +711,9 @@ jobs:
 
       - name: Build flutter example
         working-directory: ${{ env.DART_WORKSPACE }}/example
-        run:  ${{ matrix.cmd }}
+        run: ${{ matrix.cmd }}
+
+      - name: Build archive
+        if: matrix.os == 'macos-10.15'
+        working-directory: ${{ env.DART_WORKSPACE }}/example
+        run: xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner archive -configuration release -archivePath build/Runner.xcarchive
