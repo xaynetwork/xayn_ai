@@ -386,7 +386,7 @@ jobs:
       - name: Build iOS library ${{ matrix.target }}
         working-directory: ./xayn-ai-ffi-c
         env:
-          RUSTFLAGS: -Cembed-bitcode=yes
+          RUSTFLAGS: -Cdebuginfo=0
         run: cargo lipo --targets ${{ matrix.target }}
 
       - name: Prepare lib for upload
