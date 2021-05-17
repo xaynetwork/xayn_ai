@@ -20,7 +20,7 @@ env:
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
   PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
-  CARGO_INCREMENTAL=0
+  CARGO_INCREMENTAL: 0
 
 jobs:
   registry-cache:
