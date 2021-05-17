@@ -14,7 +14,7 @@
 //! 3. Kind Dense: linear; 1units; with bias [8 => 1]
 //! 4. Kind Flatten: -- [(nr_docs, 1) => (nr_docs,)]
 //! 5. Kind SoftMax: nr_docs units [nr_docs => nr_docs, but sum == 1]
-#![allow(unused)]//TODO tmp
+#![allow(unused)] //TODO tmp
 use std::{io::Read, path::Path};
 
 use ndutils::io::{BinParams, LoadingBinParamsFailed};
