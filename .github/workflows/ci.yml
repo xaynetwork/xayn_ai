@@ -24,7 +24,7 @@ env:
   FLUTTER_VERSION: '2.0.0'
   JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
-  CARGO_INCREMENTAL=0
+  CARGO_INCREMENTAL: 0
 
 jobs:
   registry-cache:
