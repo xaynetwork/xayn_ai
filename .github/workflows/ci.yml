@@ -7,7 +7,7 @@ on:
   push:
 
 env:
-  RUST_STABLE: 1.52.1
+  RUST_STABLE: 1.51
   RUST_NIGHTLY: nightly-2021-05-10
   CARGO_NDK: 2.3.0
   ANDROID_PLATFORM_VERSION: 21
@@ -24,6 +24,7 @@ env:
   FLUTTER_VERSION: '2.0.0'
   JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
+  CARGO_INCREMENTAL: 0
 
 jobs:
   registry-cache:
