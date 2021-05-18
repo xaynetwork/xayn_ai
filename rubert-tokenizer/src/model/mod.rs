@@ -19,6 +19,7 @@ use crate::{
 pub type Vocab<N> = HashMap<String, N>;
 
 /// A Bert word piece model.
+#[cfg_attr(test, derive(Debug))]
 pub struct Model<N> {
     pub vocab: Vocab<N>,
     pub unk_id: N,
@@ -38,6 +39,8 @@ pub enum ModelError {
     UnkToken,
     /// Missing the continuing subword prefix in the vocabulary
     SubwordPrefix,
+    /// Missing any entry in the vocabulary
+    EmptyVocab,
 }
 
 impl<N> Model<N> {
@@ -46,10 +49,14 @@ impl<N> Model<N> {
     where
         N: FromPrimitive,
     {
-        vocab
-            .lines()
+        let mut words = vocab.lines().peekable();
+        if words.peek().is_none() {
+            return Err(ModelError::EmptyVocab);
+        }
+
+        words
             .enumerate()
-            .map(|(idx, word)| -> Result<(String, N), ModelError> {
+            .map(|(idx, word)| {
                 Ok((
                     word?.trim().to_string(),
                     N::from_usize(idx).ok_or(ModelError::DataType)?,
@@ -73,7 +80,7 @@ impl<N> Model<N> {
             .copied()
             .ok_or(ModelError::UnkToken)?;
 
-        if !vocab.keys().any(|word| word.contains(prefix.as_str())) {
+        if !vocab.keys().any(|word| word.starts_with(prefix.as_str())) {
             return Err(ModelError::SubwordPrefix);
         }
 
@@ -99,6 +106,81 @@ impl<N> Model<N> {
 mod tests {
     use super::*;
     use crate::{normalizer::string::Offsets, pre_tokenizer::PreTokenizer};
+
+    impl PartialEq for ModelError {
+        fn eq(&self, other: &Self) -> bool {
+            if let (&ModelError::DataType, &ModelError::DataType)
+            | (&ModelError::UnkToken, &ModelError::UnkToken)
+            | (&ModelError::SubwordPrefix, &ModelError::SubwordPrefix)
+            | (&ModelError::EmptyVocab, &ModelError::EmptyVocab) = (self, other)
+            {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_vocab() {
+        let words = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a", "##b"];
+        let vocab = words
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        let vocab = Model::<u32>::parse_vocab(vocab.as_slice()).unwrap();
+        assert_eq!(vocab.len(), words.len());
+        for word in vocab.keys() {
+            assert!(words.contains(&word.as_str()));
+        }
+    }
+
+    #[test]
+    fn test_parse_vocab_empty() {
+        assert_eq!(
+            Model::<u32>::parse_vocab(Vec::new().as_slice()).unwrap_err(),
+            ModelError::EmptyVocab,
+        );
+    }
+
+    #[test]
+    fn test_model_missing_unk() {
+        let vocab = ["[CLS]", "[SEP]", "[PAD]", "a", "##b"]
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        assert_eq!(
+            Model::new(
+                Model::<u32>::parse_vocab(vocab.as_slice()).unwrap(),
+                "[UNK]".into(),
+                "[##]".into(),
+                10,
+            )
+            .unwrap_err(),
+            ModelError::UnkToken,
+        );
+    }
+
+    #[test]
+    fn test_model_missing_prefix() {
+        let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        assert_eq!(
+            Model::new(
+                Model::<u32>::parse_vocab(vocab.as_slice()).unwrap(),
+                "[UNK]".into(),
+                "[##]".into(),
+                10,
+            )
+            .unwrap_err(),
+            ModelError::SubwordPrefix,
+        );
+    }
 
     fn assert_eq<N>(actual: TokenizedString<N>, expected: Vec<Vec<(&str, N, Offsets)>>)
     where
