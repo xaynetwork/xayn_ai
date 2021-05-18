@@ -29,17 +29,22 @@ pub mod kinds {
     use super::BertModel;
 
     /// Sentence (Embedding) Multilingual Bert
+    #[derive(Debug)]
     #[allow(clippy::upper_case_acronyms)]
     pub struct SMBert;
+
     impl BertModel for SMBert {}
 
     /// Question Answering (Embedding) Multilingual Bert
+    #[derive(Debug)]
     #[allow(clippy::upper_case_acronyms)]
     pub struct QAMBert;
+
     impl BertModel for QAMBert {}
 }
 
 /// A Bert onnx model.
+#[derive(Debug)]
 pub struct Model<K> {
     plan: TypedSimplePlan<TypedModel>,
     pub(crate) embedding_size: usize,
@@ -55,12 +60,17 @@ pub enum ModelError {
     Tract(#[from] TractError),
     /// Invalid onnx model shapes
     Shape,
+    /// Empty model file
+    Empty,
 }
 
 pub trait BertModel: Sized {
     /// Creates a model from an onnx model file.
     ///
     /// Requires the maximum number of tokens per tokenized sequence.
+    ///
+    /// # Panics
+    /// Panics if the model is empty (due to the way tract implemented the onnx model parsing).
     fn load(
         // `Read` instead of `AsRef<Path>` is needed for wasm
         mut model: impl Read,
@@ -137,6 +147,29 @@ mod tests {
 
     use super::*;
     use crate::tests::SMBERT_MODEL;
+
+    #[test]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    fn test_model_empty() {
+        let _ = Model::<kinds::SMBert>::new(Vec::new().as_slice(), 10);
+    }
+
+    #[test]
+    fn test_model_invalid() {
+        assert!(matches!(
+            Model::<kinds::SMBert>::new([0].as_ref(), 10).unwrap_err(),
+            ModelError::Tract(_),
+        ));
+    }
+
+    #[test]
+    fn test_token_size_invalid() {
+        let model = BufReader::new(File::open(SMBERT_MODEL).unwrap());
+        assert!(matches!(
+            Model::<kinds::SMBert>::new(model, 0).unwrap_err(),
+            ModelError::Tract(_),
+        ));
+    }
 
     #[test]
     fn test_predict() {
