@@ -378,7 +378,7 @@ pub(crate) fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
 /// --------------------------
 /// |hist({Miss, Skip}, pred)|
 /// ```
-/// where the sum ranges over all result sets containing a URL matching `res.url`.
+/// where the sum ranges over all result sets containing a result `r` with URL matching that of `res`.
 pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
     let pred_filtered = hist.iter().filter(|r| pred.apply(r));
     let denom = pred_filtered
@@ -395,7 +395,11 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
         })
         .sum::<f32>();
 
-    numer / denom
+    if denom == 0. {
+        0.
+    } else {
+        numer / denom
+    }
 }
 
 /// Scores the search result ranked at position `pos` in the result set `rs`.
@@ -412,11 +416,19 @@ fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
         ClickSat::Miss | ClickSat::Low => 0.,
         ClickSat::Skip => {
             let total_clicks = rs.cumulative_clicks(Rank::Last) as f32;
-            -total_clicks.recip()
+            if total_clicks == 0. {
+                0.
+            } else {
+                -total_clicks.recip()
+            }
         }
         _ => {
             let cum_clicks = rs.cumulative_clicks(pos) as f32;
-            cum_clicks.recip()
+            if cum_clicks == 0. {
+                0.
+            } else {
+                cum_clicks.recip()
+            }
         }
     }
 }
