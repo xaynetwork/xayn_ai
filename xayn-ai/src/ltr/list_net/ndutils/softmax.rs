@@ -43,7 +43,7 @@ mod tests {
             0.23412167,
             0.6364086,
         ]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(0)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(0)), res);
     }
 
     #[test]
@@ -73,7 +73,7 @@ mod tests {
                 0.01587624,
             ],
         ]);
-        assert_ndarray_eq!(f32, softmax(arr.clone(), Axis(0)), res);
+        assert_approx_eq!(f32, softmax(arr.clone(), Axis(0)), res);
 
         // axis 1
         let res = arr2(&[
@@ -87,7 +87,7 @@ mod tests {
             [0.6364086, 0.23412167, 0.08612854, 0.03168492, 0.011656231],
             [0.3057477, 0.04137845, 0.3057477, 0.04137845, 0.3057477],
         ]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(1)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(1)), res);
     }
 
     #[test]
@@ -125,7 +125,7 @@ mod tests {
                 [0.880797, 0.98201376, 0.880797, 0.98201376, 0.880797],
             ],
         ]);
-        assert_ndarray_eq!(f32, softmax(arr.clone(), Axis(0)), res);
+        assert_approx_eq!(f32, softmax(arr.clone(), Axis(0)), res);
 
         // axis 1
         let res = arr3(&[
@@ -152,7 +152,7 @@ mod tests {
                 [0.66524094, 0.66524094, 0.66524094, 0.66524094, 0.66524094],
             ],
         ]);
-        assert_ndarray_eq!(f32, softmax(arr.clone(), Axis(1)), res);
+        assert_approx_eq!(f32, softmax(arr.clone(), Axis(1)), res);
 
         // axis 2
         let res = arr3(&[
@@ -173,7 +173,7 @@ mod tests {
                 [0.2, 0.2, 0.2, 0.2, 0.2],
             ],
         ]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(2)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(2)), res);
     }
 
     #[test]
@@ -181,12 +181,12 @@ mod tests {
         // 2D axis 0
         let arr = arr2(&[[-1_f32, 0., 1., 2., 3.]]);
         let res = arr2(&[[1_f32, 1., 1., 1., 1.]]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(0)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(0)), res);
 
         // 2D axis 1
         let arr = arr2(&[[-1_f32], [9.], [1.]]);
         let res = arr2(&[[1_f32], [1.], [1.]]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(1)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(1)), res);
 
         // 3D axis 0
         let arr = arr3(&[[
@@ -199,16 +199,16 @@ mod tests {
             [1., 1., 1., 1., 1.],
             [1., 1., 1., 1., 1.],
         ]]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(0)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(0)), res);
 
         // 3D axis 1
         let arr = arr3(&[[[-1_f32, 0., 1., 2., 3.]], [[1., 1., 1., 1., 1.]]]);
         let res = arr3(&[[[1_f32, 1., 1., 1., 1.]], [[1., 1., 1., 1., 1.]]]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(1)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(1)), res);
 
         // 3D axis 2
         let arr = arr3(&[[[-1_f32], [9.], [1.]], [[1.], [2.], [3.]]]);
         let res = arr3(&[[[1_f32], [1.], [1.]], [[1.], [1.], [1.]]]);
-        assert_ndarray_eq!(f32, softmax(arr, Axis(2)), res);
+        assert_approx_eq!(f32, softmax(arr, Axis(2)), res);
     }
 }

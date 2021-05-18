@@ -118,7 +118,7 @@ mod tests {
             [[0.0, 0.0], [2.0, 12.0]],
         ]);
         let output = relu.apply_to(array);
-        assert_ndarray_eq!(f32, output, expected);
+        assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
@@ -131,7 +131,7 @@ mod tests {
         ]);
         let expected = array.clone();
         let output = relu.apply_to(array);
-        assert_ndarray_eq!(f32, output, expected);
+        assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
@@ -145,6 +145,6 @@ mod tests {
         ]);
         let expected = softmax(array.clone(), Axis(1));
         let output = relu.apply_to(array);
-        assert_ndarray_eq!(f32, output, expected);
+        assert_approx_eq!(f32, output, expected);
     }
 }

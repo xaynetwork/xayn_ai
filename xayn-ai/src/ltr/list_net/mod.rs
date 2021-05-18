@@ -13,9 +13,6 @@ use ndlayers::{
     LoadingDenseFailed,
 };
 
-#[macro_use]
-mod utils;
-
 mod ndlayers;
 mod ndutils;
 

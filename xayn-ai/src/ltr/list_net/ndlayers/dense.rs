@@ -141,13 +141,13 @@ mod tests {
         let inputs = arr2(&[[10., 1., -10.], [0., 10., 0.]]);
         let expected = arr2(&[[-15.5, 30.], [40.5, 82.]]);
         let res = dense.run(inputs);
-        assert_ndarray_eq!(f32, res, expected);
+        assert_approx_eq!(f32, res, expected);
 
         // (..., features) = (1, 3);
         let inputs = arr2(&[[0.5, 1.0, -0.5]]);
         let expected = arr2(&[[3.5, 11.]]);
         let res = dense.run(inputs);
-        assert_ndarray_eq!(f32, res, expected);
+        assert_approx_eq!(f32, res, expected);
     }
 
     #[test]
@@ -159,7 +159,7 @@ mod tests {
         let inputs = arr2(&[[10., 1., -10.], [0., 10., 0.]]);
         let expected = arr2(&[[0.0, 30.], [40.5, 82.]]);
         let res = dense.run(inputs);
-        assert_ndarray_eq!(f32, res, expected);
+        assert_approx_eq!(f32, res, expected);
     }
 
     #[test]
@@ -181,13 +181,13 @@ mod tests {
         let inputs = arr1(&[10., 1., -10.]);
         let expected = arr1(&[-15.5, 30.]);
         let res = dense.run(inputs);
-        assert_ndarray_eq!(f32, res, expected);
+        assert_approx_eq!(f32, res, expected);
 
         // (..., features) = (1, 3);
         let inputs = arr1(&[0.5, 1.0, -0.5]);
         let expected = arr1(&[3.5, 11.]);
         let res = dense.run(inputs);
-        assert_ndarray_eq!(f32, res, expected);
+        assert_approx_eq!(f32, res, expected);
     }
 
     #[test]

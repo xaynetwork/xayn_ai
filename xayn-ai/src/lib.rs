@@ -20,3 +20,7 @@ pub use crate::{
 
 #[cfg(test)]
 mod tests;
+
+// Reexport for assert_approx_eq for usage in FFI crates.
+#[doc(hidden)]
+pub use self::utils::ApproxAssertIterHelper;
