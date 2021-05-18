@@ -1,3 +1,5 @@
+import 'package:meta/meta.dart' show immutable;
+
 /// A document relevance level.
 enum Relevance {
   low,
@@ -13,6 +15,7 @@ enum Feedback {
 }
 
 /// The document history.
+@immutable
 class History {
   final String id;
   final Relevance relevance;

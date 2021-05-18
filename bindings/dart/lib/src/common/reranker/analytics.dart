@@ -1,3 +1,7 @@
+import 'package:meta/meta.dart' show immutable;
+
+/// The analytics of the Xayn AI.
+@immutable
 class Analytics {
   /// The nDCG@k score between the LTR ranking and the relevance based ranking.
   final double ndcgLtr;
@@ -11,6 +15,7 @@ class Analytics {
   /// The nDCG@k score between the final ranking and the relevance based ranking.
   final double ndcgFinalRanking;
 
+  /// Creates the analytics from the individual values.
   Analytics(
     this.ndcgLtr,
     this.ndcgContext,

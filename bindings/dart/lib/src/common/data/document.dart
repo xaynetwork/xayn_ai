@@ -1,4 +1,7 @@
+import 'package:meta/meta.dart' show immutable;
+
 /// The document.
+@immutable
 class Document {
   final String id;
   final String snippet;

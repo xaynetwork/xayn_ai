@@ -5,12 +5,17 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart' show CAnalytics;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
 
+/// The raw analytics.
 class AnalyticsBuilder {
   final Pointer<CAnalytics> _cAnalytics;
   bool _freed = false;
 
+  /// Creates the analytics from a pointer.
+  ///
+  /// This constructor never throws an exception.
   AnalyticsBuilder(this._cAnalytics);
 
+  /// Builds the analytics from raw.
   Analytics? build() {
     if (_freed) {
       throw StateError('CAnalytics already freed');

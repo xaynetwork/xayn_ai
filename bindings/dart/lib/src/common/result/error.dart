@@ -1,3 +1,5 @@
+import 'package:meta/meta.dart' show immutable;
+
 /// The Xayn AI error codes.
 enum Code {
   /// A warning or noncritical error.
@@ -53,6 +55,7 @@ enum Code {
 }
 
 /// A Xayn AI exception.
+@immutable
 class XaynAiException implements Exception {
   final Code code;
   final String message;
