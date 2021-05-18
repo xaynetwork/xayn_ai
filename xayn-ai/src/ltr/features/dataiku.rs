@@ -56,6 +56,17 @@ pub(crate) struct Query {
     pub(crate) words: Vec<i32>,
 }
 
+#[derive(PartialEq)]
+pub(crate) enum DayOfWeek {
+    Mon,
+    Tue,
+    Wed,
+    Thu,
+    Fri,
+    Sat,
+    Sun,
+}
+
 pub struct SearchResult {
     /// Session identifier.
     pub(crate) session_id: i32,
@@ -63,8 +74,8 @@ pub struct SearchResult {
     pub(crate) user_id: i32,
     /// Query identifier.
     pub(crate) query_id: i32,
-    /// Day of the search, an integer between 1 and 27.
-    pub(crate) day: u8,
+    /// Day of week search was performed.
+    pub(crate) day: DayOfWeek,
     /// Words of the query, each masked.
     pub(crate) query_words: Vec<i32>,
     /// URL of result, masked.
@@ -138,8 +149,11 @@ fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
         .iter()
         .filter(|r| r.domain == domain && r.relevance > ClickSat::Low)
         .fold((0, 0), |(wknd, wkday), r| {
-            // dataiku observation of Yandex dataset: day 1 is Tue
-            if r.day % 7 == 5 || r.day % 7 == 6 {
+            // NOTE weekend days should obviously be Sat/Sun but there is a bug
+            // in soundgarden that effectively treats Thu/Fri as weekends
+            // instead. since the model has been trained as such with the
+            // soundgarden implementation, we match that behaviour here.
+            if r.day == DayOfWeek::Thu || r.day == DayOfWeek::Fri {
                 (wknd + 1, wkday)
             } else {
                 (wknd, wkday + 1)
