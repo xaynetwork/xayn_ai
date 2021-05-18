@@ -1,5 +1,8 @@
 use std::cmp::Ordering;
 
+#[cfg(test)]
+use ndarray::Ix;
+
 #[macro_export]
 macro_rules! to_vec_of_ref_of {
     ($data: expr, $type:ty) => {
@@ -72,8 +75,178 @@ macro_rules! assert_f32_eq {
     }};
 }
 
+//TODO doc
+#[cfg(test)]
+macro_rules! assert_approx_eq {
+    ($t:ty, $left:expr, $right:expr) => {
+        assert_approx_eq!($t, $left, $right, ulps = 2)
+    };
+    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr) => {{
+        let ulps = $ulps;
+        let left = $left;
+        let right = $right;
+        let mut left_iter =
+            $crate::utils::ApproxAssertIterHelper::indexed_iter_logical_order(&left, Vec::new());
+        let mut right_iter =
+            $crate::utils::ApproxAssertIterHelper::indexed_iter_logical_order(&right, Vec::new());
+        loop {
+            match (left_iter.next(), right_iter.next()) {
+                (Some((lidx, lv)), Some((ridx, rv))) => {
+                    assert_eq!(
+                        lidx, ridx,
+                        "Dimensionality mismatch when iterating in logical order: {:?} != {:?}",
+                        lidx, ridx
+                    );
+                    assert!(
+                        ::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps),
+                        "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}",
+                        ulps=ulps,
+                        lv=lv,
+                        rv=rv,
+                        idx=lidx,
+                    );
+                }
+                (Some(pair), None) => {
+                    panic!("Left input is longer starting with from index {:?}", pair);
+                }
+                (None, Some(pair)) => {
+                    panic!("Left input is longer starting with from index {:?}", pair);
+                }
+                (None, None) => break,
+            }
+        }
+    }};
+}
+
+//TODO DOC
+#[cfg(test)]
+pub trait ApproxAssertIterHelper<'a>: Copy {
+    type LeafElement;
+
+    /// Iterates over ...
+    // We use box here because it's for now simpler to implement as we can't use impl Trait in this scenario,
+    // as as we only use it for testing with not to big arrays it's should not be a perf. problem (at the same
+    // time the arrays are to big to just always wrap them in `ndarray::arrX`, which is currently limited in
+    // the size each dimension can have as it doesn't yet use const generics).
+    fn indexed_iter_logical_order(
+        self,
+        prefix: Vec<Ix>,
+    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a>;
+}
+
+#[cfg(test)]
+mod approx_helper_iter_impls {
+    use ndarray::{ArrayBase, Data, Dimension, IntoDimension};
+
+    use super::*;
+
+    impl<'a> ApproxAssertIterHelper<'a> for &'a f32 {
+        type LeafElement = f32;
+
+        fn indexed_iter_logical_order(
+            self,
+            prefix: Vec<Ix>,
+        ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
+            let iter = std::iter::once((prefix, *self));
+            Box::new(iter)
+        }
+    }
+
+    impl<'a, T> ApproxAssertIterHelper<'a> for &'a &'a T
+    where
+        &'a T: ApproxAssertIterHelper<'a>,
+        T: 'a + ?Sized,
+    {
+        type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
+
+        fn indexed_iter_logical_order(
+            self,
+            prefix: Vec<Ix>,
+        ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
+            (*self).indexed_iter_logical_order(prefix)
+        }
+    }
+
+    //impl for other primitives when needed
+
+    impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a Vec<T>
+    where
+        &'a T: ApproxAssertIterHelper<'a>,
+    {
+        type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
+
+        fn indexed_iter_logical_order(
+            self,
+            prefix: Vec<Ix>,
+        ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
+            self.as_slice().indexed_iter_logical_order(prefix)
+        }
+    }
+
+    impl<'a, T, const N: usize> ApproxAssertIterHelper<'a> for &'a [T; N]
+    where
+        &'a T: ApproxAssertIterHelper<'a>,
+    {
+        type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
+
+        fn indexed_iter_logical_order(
+            self,
+            prefix: Vec<Ix>,
+        ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
+            self.as_ref().indexed_iter_logical_order(prefix)
+        }
+    }
+
+    impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a [T]
+    where
+        &'a T: ApproxAssertIterHelper<'a>,
+    {
+        type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
+
+        fn indexed_iter_logical_order(
+            self,
+            prefix: Vec<Ix>,
+        ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
+            let iter = self.iter().enumerate().flat_map(move |(idx, el)| {
+                let mut new_prefix = prefix.clone();
+                new_prefix.push(idx);
+                el.indexed_iter_logical_order(new_prefix)
+            });
+
+            Box::new(iter)
+        }
+    }
+
+    impl<'a, S, D> ApproxAssertIterHelper<'a> for &'a ArrayBase<S, D>
+    where
+        S: Data,
+        S::Elem: Copy,
+        &'a S::Elem: ApproxAssertIterHelper<'a>,
+        D: Dimension,
+    {
+        type LeafElement = S::Elem;
+
+        fn indexed_iter_logical_order(
+            self,
+            prefix: Vec<Ix>,
+        ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
+            let iter = self.indexed_iter().map(move |(idx, elm)| {
+                let mut new_prefix = prefix.clone();
+                new_prefix.extend(idx.into_dimension().as_array_view().iter());
+                (new_prefix, *elm)
+            });
+
+            Box::new(iter)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::panic::catch_unwind;
+
+    use ndarray::{arr1, arr2, arr3};
+
     use super::*;
 
     #[test]
@@ -114,4 +287,55 @@ mod tests {
         assert_eq!(nan_safe_f32_cmp(&f32::NAN, &12.), Ordering::Less);
         assert_eq!(nan_safe_f32_cmp_desc(&f32::NAN, &12.), Ordering::Greater);
     }
+
+    #[test]
+    fn test_assert_approx_eq_float() {
+        assert_approx_eq!(f32, 0.15039155, 0.1503916, ulps = 3);
+        catch_unwind(|| assert_approx_eq!(f32, 0.15039155, 0.1503916, ulps = 2)).unwrap_err();
+    }
+
+    #[test]
+    fn test_assert_approx_eq_iterable_1d() {
+        assert_approx_eq!(f32, &[0.25, 1.25], &[0.25, 1.25]);
+        assert_approx_eq!(f32, &[0.25, 1.25], arr1(&[0.25, 1.25]));
+        let err = catch_unwind(|| {
+            assert_approx_eq!(f32, &[0.35, 4.35], arr1(&[0.35, 4.45]));
+        })
+        .unwrap_err();
+
+        let err_msg = err.downcast::<String>().unwrap();
+        assert!(err_msg.contains("at index [1]"));
+    }
+
+    #[test]
+    fn test_assert_approx_eq_iterable_nested() {
+        assert_approx_eq!(
+            f32,
+            &[[0.25, 1.25], [0.0, 0.125]],
+            &[[0.25, 1.25], [0.0, 0.125]]
+        );
+        assert_approx_eq!(
+            f32,
+            &[[0.25, 1.25], [0.0, 0.125]],
+            arr2(&[[0.25, 1.25], [0.0, 0.125]])
+        );
+        assert_approx_eq!(
+            f32,
+            &[[[0.25, 1.25], [0.0, 0.125]]],
+            arr3(&[[[0.25, 1.25], [0.0, 0.125]]])
+        );
+        let err = catch_unwind(|| {
+            assert_approx_eq!(
+                f32,
+                &[[[0.25, 1.25, 0.], [0.0, 0.125, 0.]]],
+                arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]])
+            );
+        })
+        .unwrap_err();
+
+        let err_msg = err.downcast::<String>().unwrap();
+        assert!(err_msg.contains("at index [0, 1, 2]"));
+    }
+
+    //TODO test failure cases
 }

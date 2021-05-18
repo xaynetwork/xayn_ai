@@ -177,7 +177,6 @@ impl ListNet {
         let chunk_size = Self::INPUT_NR_DOCUMENTS / 2;
         debug_assert_eq!(Self::INPUT_NR_DOCUMENTS % 2, 0);
 
-        //TODO test that capacity calc
         let mut propabilities =
             Vec::with_capacity(size_with_chunk_padding(nr_documents, chunk_size));
         let mut chunks = inputs.axis_chunks_iter(Axis(0), chunk_size);
@@ -245,7 +244,7 @@ mod tests {
 
     use std::collections::HashSet;
 
-    use ndarray::{arr1, Array, IxDyn};
+    use ndarray::{Array, IxDyn};
 
     use super::*;
 
@@ -377,7 +376,7 @@ mod tests {
 
         let outcome = list_net.run_for_10(inputs);
 
-        assert_ndarray_eq!(f32, outcome, arr1(EXPECTED_OUTPUTS));
+        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS);
     }
     #[test]
     fn test_list_net_run_for_10_can_be_used_with_into_raw_vec() {
@@ -389,10 +388,7 @@ mod tests {
 
         let outcome = list_net.run_for_10(inputs).into_raw_vec();
 
-        //TODO assert_approx_eq!([f32]);
-        for (l, r) in outcome.iter().zip(EXPECTED_OUTPUTS.iter()) {
-            assert_f32_eq!(*l, *r);
-        }
+        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS);
     }
 
     #[test]
@@ -410,10 +406,7 @@ mod tests {
 
         let outcome = list_net.run(inputs);
 
-        //TODO assert_approx_eq!([f32]);
-        for (l, r) in outcome.iter().zip(EXPECTED_OUTPUTS.iter()) {
-            assert_f32_eq!(*l, *r);
-        }
+        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps = 4);
     }
 
     #[test]
@@ -448,14 +441,9 @@ mod tests {
         let mut subs_outs = sub1_out;
         subs_outs.extend_from_slice(&sub2_out[5..]);
         subs_outs.extend_from_slice(&sub3_out[5..]);
+        subs_outs.truncate(17);
 
-        //TODO assert_approx_eq!([f32]);
-        for (l, r) in big_out.iter().zip(subs_outs.iter()) {
-            assert_f32_eq!(*l, *r);
-        }
-
-        assert_eq!(big_out.len(), 17);
-        assert_eq!(subs_outs.len(), 20);
+        assert_approx_eq!(f32, big_out, subs_outs, ulps = 4);
     }
 
     #[test]
@@ -474,11 +462,7 @@ mod tests {
 
         let out_padded = list_net.run(to_few_inputs_padded);
 
-        //TODO assert_approx_eq!([f32]);
-        for (l, r) in out.iter().zip(out_padded.iter()) {
-            assert_f32_eq!(*l, *r);
-        }
-
+        assert_approx_eq!(f32, &out, &out_padded[..out.len()], ulps = 4);
         assert_eq!((out.len(), out_padded.len()), (3, 10));
     }
 
