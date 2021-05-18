@@ -432,15 +432,21 @@ fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
 /// The formula uses some form of additive smoothing with `prior(Miss)` = `1` and `0` otherwise.
 /// See Dataiku paper. Note then the `sum` term amounts to `1`.
 pub(crate) fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPred) -> f32 {
-    let prior = if outcome == ClickSat::Miss { 1 } else { 0 };
+    let hist_pred = hist.iter().filter(|r| pred.apply(r));
+    let hist_pred_outcome = hist_pred.clone().filter(|r| r.relevance == outcome).count();
 
-    let filtered_by_pred = hist.iter().filter(|r| pred.apply(r)).collect_vec();
-    let denom = 1 + filtered_by_pred.len();
-    let numer = prior
-        + filtered_by_pred
-            .into_iter()
-            .filter(|r| r.relevance == outcome)
-            .count();
+    // NOTE soundgarden implements conditional probabilities differently to
+    // Dataiku's spec. nevertheless, since the model has been trained as such on
+    // the soundgarden implementation, we match its behaviour here.
+    let (numer, denom) = if let ClickSat::Miss = outcome {
+        (hist_pred_outcome + 1, hist_pred.count() + hist_pred_outcome)
+    } else {
+        (hist_pred_outcome, hist_pred.count())
+    };
 
-    numer as f32 / denom as f32
+    if denom == 0 {
+        0.
+    } else {
+        numer as f32 / denom as f32
+    }
 }
