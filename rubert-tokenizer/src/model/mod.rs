@@ -19,7 +19,7 @@ use crate::{
 pub type Vocab<N> = HashMap<String, N>;
 
 /// A Bert word piece model.
-#[cfg_attr(test, derive(Debug))]
+#[derive(Debug)]
 pub struct Model<N> {
     pub vocab: Vocab<N>,
     pub unk_id: N,
@@ -41,6 +41,21 @@ pub enum ModelError {
     SubwordPrefix,
     /// Missing any entry in the vocabulary
     EmptyVocab,
+}
+
+impl PartialEq for ModelError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (&ModelError::DataType, &ModelError::DataType)
+            | (&ModelError::UnkToken, &ModelError::UnkToken)
+            | (&ModelError::SubwordPrefix, &ModelError::SubwordPrefix)
+            | (&ModelError::EmptyVocab, &ModelError::EmptyVocab) => true,
+            (&ModelError::Vocab(ref this), &ModelError::Vocab(ref other)) => {
+                this.kind() == other.kind()
+            }
+            _ => false,
+        }
+    }
 }
 
 impl<N> Model<N> {
@@ -106,20 +121,6 @@ impl<N> Model<N> {
 mod tests {
     use super::*;
     use crate::{normalizer::string::Offsets, pre_tokenizer::PreTokenizer};
-
-    impl PartialEq for ModelError {
-        fn eq(&self, other: &Self) -> bool {
-            if let (&ModelError::DataType, &ModelError::DataType)
-            | (&ModelError::UnkToken, &ModelError::UnkToken)
-            | (&ModelError::SubwordPrefix, &ModelError::SubwordPrefix)
-            | (&ModelError::EmptyVocab, &ModelError::EmptyVocab) = (self, other)
-            {
-                true
-            } else {
-                false
-            }
-        }
-    }
 
     #[test]
     fn test_parse_vocab() {

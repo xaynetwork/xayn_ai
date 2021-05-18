@@ -8,13 +8,14 @@ use thiserror::Error;
 use ndarray::{Array1, Array2, Axis};
 
 /// A pre-configured Bert tokenizer.
+#[derive(Debug)]
 pub struct Tokenizer {
     tokenizer: BertTokenizer<i64>,
     pub(crate) token_size: usize,
 }
 
 /// The potential errors of the tokenizer.
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Display, Error, PartialEq)]
 pub enum TokenizerError {
     /// Failed to build the tokenizer: {0}
     Builder(#[from] BuilderError),
@@ -90,8 +91,83 @@ mod tests {
     use ndarray::ArrayView;
     use std::{fs::File, io::BufReader};
 
+    use rubert_tokenizer::{ModelError, PaddingError, PostTokenizerError};
+
     use super::*;
     use crate::tests::VOCAB;
+
+    #[test]
+    fn test_vocab_empty() {
+        assert_eq!(
+            Tokenizer::new(Vec::new().as_slice(), true, true, 10).unwrap_err(),
+            TokenizerError::Builder(BuilderError::Model(ModelError::EmptyVocab)),
+        );
+    }
+
+    #[test]
+    fn test_vocab_missing_cls() {
+        let vocab = ["[SEP]", "[PAD]", "[UNK]", "a", "##b"]
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        assert_eq!(
+            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            TokenizerError::Builder(BuilderError::PostTokenizer(PostTokenizerError::ClsToken)),
+        );
+    }
+
+    #[test]
+    fn test_vocab_missing_sep() {
+        let vocab = ["[CLS]", "[PAD]", "[UNK]", "a", "##b"]
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        assert_eq!(
+            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            TokenizerError::Builder(BuilderError::PostTokenizer(PostTokenizerError::SepToken)),
+        );
+    }
+
+    #[test]
+    fn test_vocab_missing_pad() {
+        let vocab = ["[CLS]", "[SEP]", "[UNK]", "a", "##b"]
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        assert_eq!(
+            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            TokenizerError::Builder(BuilderError::Padding(PaddingError::PadToken)),
+        );
+    }
+
+    #[test]
+    fn test_vocab_missing_unk() {
+        let vocab = ["[CLS]", "[SEP]", "[PAD]", "a", "##b"]
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        assert_eq!(
+            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            TokenizerError::Builder(BuilderError::Model(ModelError::UnkToken)),
+        );
+    }
+
+    #[test]
+    fn test_vocab_missing_prefix() {
+        let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
+            .iter()
+            .map(|word| word.as_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .join([10].as_ref());
+        assert_eq!(
+            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            TokenizerError::Builder(BuilderError::Model(ModelError::SubwordPrefix)),
+        );
+    }
 
     fn tokenizer(token_size: usize) -> Tokenizer {
         let vocab = BufReader::new(File::open(VOCAB).unwrap());

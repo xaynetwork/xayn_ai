@@ -13,6 +13,7 @@ use crate::{
 /// Bert word piece model and a Bert post-tokenizer including truncation and padding strategies.
 ///
 /// [`Builder`]: crate::Builder
+#[derive(Debug)]
 pub struct Tokenizer<N> {
     pub(crate) normalizer: Normalizer,
     pub(crate) pre_tokenizer: PreTokenizer,

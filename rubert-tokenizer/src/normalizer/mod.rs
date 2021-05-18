@@ -6,6 +6,7 @@ use unicode_categories::UnicodeCategories;
 use crate::normalizer::string::NormalizedString;
 
 /// A Bert normalizer.
+#[derive(Debug)]
 pub struct Normalizer {
     cleanup: bool,
     chinese: bool,
