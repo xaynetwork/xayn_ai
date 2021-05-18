@@ -27,6 +27,12 @@ impl WXaynAi {
     ) -> Result<WXaynAi, JsValue> {
         console_error_panic_hook::set_once();
 
+        if model.is_empty() {
+            return Err(CCode::InitAi
+                .with_context("Failed to initialize the ai: Missing any value in the onnx model"))
+            .into_js_result();
+        }
+
         Builder::default()
             .with_serialized_database(&serialized.unwrap_or_default())
             .map_err(|cause| {
@@ -219,21 +225,36 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_vocab_invalid() {
+    fn test_vocab_empty() {
         let error = WXaynAi::new(&[], SMBERT_MODEL, None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
 
         assert_eq!(error.code, CCode::InitAi);
-        assert!(error
-            .message
-            .contains("Failed to initialize the ai: Failed to build the tokenizer: "));
+        assert_eq!(
+            error.message,
+            "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_model_empty() {
+        let error = WXaynAi::new(VOCAB, &[], None)
+            .unwrap_err()
+            .into_serde::<ExternError>()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(
+            error.message,
+            "Failed to initialize the ai: Missing any value in the onnx model",
+        );
     }
 
     #[wasm_bindgen_test]
     fn test_model_invalid() {
-        let error = WXaynAi::new(VOCAB, &[1], None)
+        let error = WXaynAi::new(VOCAB, &[0], None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
