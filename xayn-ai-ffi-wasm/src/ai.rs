@@ -2,7 +2,7 @@ use js_sys::Uint8Array;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
 
-use super::{error::CCode, utils::IntoJsResult};
+use super::{error::CCode, history::WHistory, utils::IntoJsResult};
 
 /// The Xayn AI.
 #[wasm_bindgen]
@@ -53,12 +53,12 @@ impl WXaynAi {
     /// - The deserialization of a `document` fails.
     pub fn rerank(
         &mut self,
-        history: Vec<JsValue>,
+        histories: Vec<JsValue>,
         documents: Vec<JsValue>,
     ) -> Result<Vec<usize>, JsValue> {
-        let history = history
+        let histories = histories
             .iter()
-            .map(JsValue::into_serde)
+            .map(|js_value| js_value.into_serde::<WHistory>().map(Into::into))
             .collect::<Result<Vec<DocumentHistory>, _>>()
             .map_err(|cause| {
                 CCode::HistoriesDeserialization.with_context(format!(
@@ -78,7 +78,7 @@ impl WXaynAi {
                 ))
             })
             .into_js_result()?;
-        Ok(self.0.rerank(&history, &documents))
+        Ok(self.0.rerank(&histories, &documents))
     }
 
     /// Serializes the database of the reranker.
@@ -130,9 +130,9 @@ mod tests {
 
     use itertools::izip;
     use wasm_bindgen_test::wasm_bindgen_test;
-    use xayn_ai::{DocumentId, Relevance, UserFeedback};
+    use xayn_ai::{DocumentHistory, DocumentId, Relevance, UserFeedback};
 
-    use crate::error::ExternError;
+    use crate::{error::ExternError, history::WHistory};
 
     /// Path to the current vocabulary file.
     const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0001/vocab.txt");
@@ -152,25 +152,26 @@ mod tests {
             .map(|idx| DocumentId::from_u128(idx as u128))
             .collect::<Vec<_>>();
 
-        let relevances = repeat(Relevance::Low)
+        let relevances = repeat(Relevance::Low.into())
             .take(len / 2)
-            .chain(repeat(Relevance::High).take(len - len / 2));
-        let feedbacks = repeat(UserFeedback::Irrelevant)
+            .chain(repeat(Relevance::High.into()).take(len - len / 2));
+        let feedbacks = repeat(UserFeedback::Irrelevant.into())
             .take(len / 2)
-            .chain(repeat(UserFeedback::Relevant).take(len - len / 2));
+            .chain(repeat(UserFeedback::Relevant.into()).take(len - len / 2));
 
-        let history = izip!(ids, relevances, feedbacks)
+        izip!(ids, relevances, feedbacks)
             .map(|(id, relevance, user_feedback)| {
-                JsValue::from_serde(&DocumentHistory {
-                    id,
-                    relevance,
-                    user_feedback,
-                })
+                JsValue::from_serde::<WHistory>(
+                    &DocumentHistory {
+                        id,
+                        relevance,
+                        user_feedback,
+                    }
+                    .into(),
+                )
                 .unwrap()
             })
-            .collect::<Vec<_>>();
-
-        history
+            .collect()
     }
 
     fn test_documents() -> Vec<JsValue> {
@@ -184,13 +185,11 @@ mod tests {
             .collect::<Vec<_>>();
         let ranks = 0..len as usize;
 
-        let document = izip!(ids, snippets, ranks)
+        izip!(ids, snippets, ranks)
             .map(|(id, snippet, rank)| {
                 JsValue::from_serde(&Document { id, snippet, rank }).unwrap()
             })
-            .collect::<Vec<_>>();
-
-        document
+            .collect()
     }
 
     #[wasm_bindgen_test]
@@ -226,7 +225,7 @@ mod tests {
             .into_serde::<ExternError>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi as i32);
+        assert_eq!(error.code, CCode::InitAi);
         assert!(error
             .message
             .contains("Failed to initialize the ai: Failed to build the tokenizer: "));
@@ -239,7 +238,7 @@ mod tests {
             .into_serde::<ExternError>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi as i32);
+        assert_eq!(error.code, CCode::InitAi);
         assert!(error
             .message
             .contains("Failed to initialize the ai: Failed to build the model: "));
@@ -254,7 +253,7 @@ mod tests {
             .into_serde::<ExternError>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::HistoriesDeserialization as i32);
+        assert_eq!(error.code, CCode::HistoriesDeserialization);
         assert!(error
             .message
             .contains("Failed to deserialize the collection of histories: invalid type: "));
@@ -275,7 +274,7 @@ mod tests {
             .into_serde::<ExternError>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::DocumentsDeserialization as i32);
+        assert_eq!(error.code, CCode::DocumentsDeserialization);
         assert!(error
             .message
             .contains("Failed to deserialize the collection of documents: invalid type: "));
@@ -299,7 +298,7 @@ mod tests {
             .into_serde::<ExternError>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::RerankerDeserialization as i32);
+        assert_eq!(error.code, CCode::RerankerDeserialization);
         assert!(error.message.contains(
             "Failed to deserialize the reranker database: Unsupported serialized data. "
         ));

@@ -11,6 +11,8 @@ dependencies:
   ffi: '^1.0.0'
   flutter:
     sdk: 'flutter'
+  js: '^0.6.3'
+  meta: '^1.3.0'
 
 dev_dependencies:
   ffigen: '^2.4.2'
@@ -21,7 +23,7 @@ dev_dependencies:
 ffigen:
   name: 'XaynAiFfi'
   description: 'Bindings to the xayn-ai-ffi-c library.'
-  output: 'lib/src/ffi/genesis.dart'
+  output: 'lib/src/mobile/ffi/genesis.dart'
   headers:
     entry-points:
       - '../../xayn-ai-ffi-c/ffi.h'

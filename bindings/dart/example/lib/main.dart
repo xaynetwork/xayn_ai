@@ -1,12 +1,25 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart' hide Feedback;
-
+import 'package:flutter/material.dart'
+    show
+        AppBar,
+        BuildContext,
+        Center,
+        Colors,
+        Column,
+        ElevatedButton,
+        MaterialApp,
+        runApp,
+        Scaffold,
+        State,
+        StatefulWidget,
+        Text,
+        TextStyle,
+        Widget;
 import 'package:path_provider/path_provider.dart'
     show getApplicationDocumentsDirectory;
 import 'package:stats/stats.dart' show Stats;
+
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show XaynAi, Document, Relevance, History, Feedback;
+    show Document, Relevance, History, Feedback, SetupData, XaynAi;
 
 void main() {
   runApp(MyApp());
@@ -35,7 +48,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> initAi() async {
     final data = await getApplicationDocumentsDirectory()
-        .then((dir) => XaynAi.inputData(dir.path));
+        .then((dir) => SetupData.getInputData(dir.path));
 
     // If the widget was removed from the tree while the asynchronous platform
     // message was in flight, we want to discard the reply rather than calling
@@ -43,7 +56,7 @@ class _MyAppState extends State<MyApp> {
     if (!mounted) return;
 
     setState(() {
-      _ai = XaynAi.fromInputData(data);
+      _ai = XaynAi(data);
       _msg = '';
     });
   }
