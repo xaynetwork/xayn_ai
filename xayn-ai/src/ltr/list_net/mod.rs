@@ -1,20 +1,5 @@
-//! ListNet implementation using NdArray.
-//!
-//!
-//!
-//!
-//! # Architecture
-//!
-//! ListNet has a comparable simple architecture, having following
-//! stack of layers:
-//!
-//! 0. Kind Input: Type f32; Shape (nr_docs, nr_of_features);
-//! 1. Kind Dense: reLu; 48units; with bias  [nr_of_features => 48]
-//! 2. Kind Dense: reLu;  8units; with bias  [48 => 8]
-//! 3. Kind Dense: linear; 1units; with bias [8 => 1]
-//! 4. Kind Flatten: -- [(nr_docs, 1) => (nr_docs,)]
-//! 5. Kind SoftMax: nr_docs units [nr_docs => nr_docs, but sum == 1]
-#![allow(unused)] //TODO tmp
+//! ListNet implementation using the NdArray crate.
+
 use std::{io::Read, path::Path};
 
 use ndutils::io::{BinParams, LoadingBinParamsFailed};
@@ -38,19 +23,24 @@ mod ndutils;
 ///
 /// This chains following feed forward layers:
 ///
-/// The input is currently fixed to 10 document with 50 features each
-/// in the shape `(10, 50)`
+/// The underlying ListNet is fixed  to 10 document with 50 features each in the shape `(10, 50)`.
+/// But the [`ListNet.run()`] method combines a chunked approach with padding to allow any
+/// number of documents as input.
 ///
-/// 1. Dense with 48 units, bias and reLu activation function (out shape: `(10, 48)`)
-/// 2. Dense with 8 units, bias and reLu activation function (out shape: `(10, 8)`)
-/// 3. Dense with 1 unit, bias and linear activation function (out shape: `(10, 1)`)
+/// # Underlying FNN Architecture
+///
+/// 0. Input shape `(10, 50)`
+/// 1. Dense layer with 48 units, bias and reLu activation function (out shape: `(10, 48)`)
+/// 2. Dense layer with 8 units, bias and reLu activation function (out shape: `(10, 8)`)
+/// 3. Dense layer with 1 unit, bias and linear activation function (out shape: `(10, 1)`)
 /// 4. Flattening to the number of input documents. (out shape `(10,)`)
 /// 5. Dense with `nr_of_input_documents` (10) units, bias and softmax activation function (out shape `(10,)`)
+#[allow(unused)] //TODO tmp
 pub struct ListNet {
     dense_1: Dense<Relu>,
     dense_2: Dense<Relu>,
     scores: Dense<Linear>,
-    scores_prop_dist: Dense<Softmax>,
+    scores_prob_dist: Dense<Softmax>,
 }
 
 impl ListNet {
@@ -58,21 +48,21 @@ impl ListNet {
     const INPUT_SHAPE: [Ix; 2] = [10, 50];
 
     /// Load list net from file at given path.
+    #[allow(unused)] //TODO tmp
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, LoadingListNetFailed> {
         let params = BinParams::load_from_file(path)?;
         Self::load(params)
     }
 
     /// Load list net from byte reader.
+    #[allow(unused)] //TODO tmp
     pub fn load_from_source(params_source: impl Read) -> Result<Self, LoadingListNetFailed> {
         let params = BinParams::load(params_source)?;
         Self::load(params)
     }
 
     /// Load list net from `BinParams`.
-    pub(crate) fn load(mut params: BinParams) -> Result<Self, LoadingListNetFailed> {
-        let mut params = params.with_scope("ltr/v1");
-
+    fn load(mut params: BinParams) -> Result<Self, LoadingListNetFailed> {
         let dense_1 = Dense::load(params.with_scope("dense_1"), Relu::default())?;
         let dense_1_out_shape = dense_1.check_in_out_shapes(Self::INPUT_SHAPE.into_dimension())?;
 
@@ -83,24 +73,28 @@ impl ListNet {
         let scores_out_shape = scores.check_in_out_shapes(dense_2_out_shape)?;
         let flattened_shape = [scores_out_shape.size()].into_dimension();
 
-        let scores_prop_dist =
-            Dense::load(params.with_scope("scores_prop_dist"), Softmax::default())?;
-        let scores_prop_dist_out_shape = scores_prop_dist.check_in_out_shapes(flattened_shape)?;
+        let scores_prob_dist =
+            Dense::load(params.with_scope("scores_prob_dist"), Softmax::default())?;
+        let scores_prob_dist_out_shape = scores_prob_dist.check_in_out_shapes(flattened_shape)?;
 
-        if scores_prop_dist_out_shape.clone().into_pattern() == 10 {
+        if !params.is_empty() {
+            Err(LoadingListNetFailed::LeftoverBinParams {
+                params: params.keys().map(Into::into).collect(),
+            })
+        } else if scores_prob_dist_out_shape.clone().into_pattern() == 10 {
             Ok(Self {
                 dense_1,
                 dense_2,
                 scores,
-                scores_prop_dist,
+                scores_prob_dist,
             })
         } else {
             Err(IncompatibleMatrices {
-                name_left: "scores_prop_dist/output",
-                shape_left: scores_prop_dist_out_shape.into_dyn(),
+                name_left: "scores_prob_dist/output",
+                shape_left: scores_prob_dist_out_shape.into_dyn(),
                 name_right: "list_net/output",
                 shape_right: (10,).into_dimension().into_dyn(),
-                hint: "expected scores_prop_dist output shape to be equal to (10,)",
+                hint: "expected scores_prob_dist output shape to be equal to (10,)",
             }
             .into())
         }
@@ -108,8 +102,16 @@ impl ListNet {
 
     /// Runs List net on the input.
     ///
-    /// The input is a 2 dimensional array
-    /// with the shape `(number_of_documents, number_of_feature_per_document)`.
+    /// Only exactly 50 features are supported.
+    ///
+    /// The internal implementation only supports exact 10 documents.
+    ///
+    /// TODO implement:
+    /// If there are less then 10 documents the last document gets
+    /// repeated to pad the input to exactly 10 documents. If there
+    /// are more then 10 documents the evaluation will be done in
+    /// chunks.
+    #[allow(unused)] //TODO tmp
     pub fn run(&self, inputs: Array2<f32>) -> Array1<f32> {
         let dense1_out = self.dense_1.run(inputs);
         let dense2_out = self.dense_2.run(dense1_out);
@@ -117,7 +119,7 @@ impl ListNet {
         let shape: Ix2 = scores.raw_dim();
         debug_assert_eq!(shape[1], 1);
         let scores: Array1<f32> = scores.into_shape((shape[0],)).unwrap();
-        self.scores_prop_dist.run(scores)
+        self.scores_prob_dist.run(scores)
     }
 }
 
@@ -135,6 +137,13 @@ pub enum LoadingListNetFailed {
     /// Parameter configuration error
     #[error(transparent)]
     IncompatibleMatrices(#[from] IncompatibleMatrices),
+
+    /// BinParams file contains additional parameter,
+    /// we loaded the wrong model!
+    #[error(
+        "BinParams contains additional parameters, we likely have the wrong model data: {params:?}"
+    )]
+    LeftoverBinParams { params: Vec<String> },
 }
 
 #[cfg(test)]
@@ -144,7 +153,7 @@ mod tests {
 
     use super::*;
 
-    const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0000/ltr_v0000.binparams";
+    const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
 
     /// A single List-Net Input, cast to shape (10, 50).
     ///
@@ -192,4 +201,6 @@ mod tests {
             ])
         );
     }
+
+    //TODO test is_empty(), keys() error on leftover
 }

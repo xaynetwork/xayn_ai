@@ -29,10 +29,14 @@ where
 
 /// Softmax activation function.
 ///
-/// # Panics
+/// # Panics on usage
 ///
-/// Using a `Softmax` with a out-of-bounds axis
-/// will panic.
+/// - if the relative axis index is out of bounds
+///
+/// E.g. you can't use a `Softmax` activation function
+/// with an relative axis index of 10 on a array which
+/// is 2-dimensional (and as such only has support the
+/// relative axis indices 0,1,-1,-2).
 pub(crate) struct Softmax {
     rel_axis_idx: isize,
 }
@@ -49,10 +53,6 @@ impl Softmax {
     ///
     /// The axis is specified as a relative index, i.e. you can use `-1` to always run softmax
     /// over the last axis.
-    ///
-    /// # Panics
-    ///
-    /// See the documentation on the `ActivationFunction` implementation.
     pub(crate) fn new(rel_axis_idx: isize) -> Softmax {
         Self { rel_axis_idx }
     }
@@ -64,10 +64,9 @@ where
 {
     /// Applies the activation function to given array.
     ///
-    /// # Panic
+    /// # Panics
     ///
-    /// If the relative index is out of bound or would cause an overflow this will
-    /// panic.
+    /// - If the relative axis index is out of bounds this will panic.
     fn apply_to<S, D>(&self, input: ArrayBase<S, D>) -> ArrayBase<S, D>
     where
         S: DataOwned<Elem = A> + DataMut<Elem = A>,
@@ -80,10 +79,10 @@ where
 
 /// Linear activation function.
 ///
-/// Currently not configurable and as such equivalent to a identity function
-/// (like in `keras`).
+/// Like common this is a identity function used
+/// if there no activation function is needed.
 ///
-/// Crate new instances using `Default::default()`.
+/// Create new instances using `Default::default()`.
 #[derive(Default)]
 pub(crate) struct Linear {
     _priv: (),
@@ -103,12 +102,7 @@ impl<A> ActivationFunction<A> for Linear {
 mod tests {
     use ndarray::{arr3, Axis};
 
-    use super::super::{
-        activation::{Linear, Softmax},
-        ActivationFunction,
-    };
-
-    use super::Relu;
+    use super::*;
 
     #[test]
     fn test_relu_activation_function_works() {
@@ -135,11 +129,7 @@ mod tests {
             [[3.0, 2.4], [-3.0, -1.2]],
             [[-12.0, -2.0], [2.0, 12.0]],
         ]);
-        let expected = arr3(&[
-            [[-1.0f32, 2.], [3.5, -4.0]],
-            [[3.0, 2.4], [-3.0, -1.2]],
-            [[-12.0, -2.0], [2.0, 12.0]],
-        ]);
+        let expected = array.clone();
         let output = relu.apply_to(array);
         assert_ndarray_eq!(f32, output, expected);
     }

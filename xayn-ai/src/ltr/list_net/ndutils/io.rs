@@ -1,4 +1,5 @@
 //! This module contains utility for loading storing ndarray arrays
+
 use bincode::Options;
 use std::{
     collections::HashMap,
@@ -9,45 +10,39 @@ use std::{
 };
 use thiserror::Error;
 
-use ndarray::{ArrayBase, Data, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
+use ndarray::{ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
 use serde::{Deserialize, Serialize};
+
+#[cfg(test)]
+use ndarray::Array;
+
 /// Deserialization helper representing a flattened array.
 ///
-/// The flattened array is in `C` format, i.e. it's
-/// row first (instead of column first, `F` format).
+/// The flattened array is in row-major order.
 #[derive(Serialize)]
-#[serde(transparent)]
 #[cfg_attr(test, derive(Debug, Default, PartialEq))]
 pub(crate) struct FlattenedArray<A> {
-    inner: InnerFlattenedArray<A>,
-}
-
-/// Helper to get a post serialization invariant check.
-#[derive(Serialize, Deserialize)]
-#[cfg_attr(test, derive(Debug, Default, PartialEq))]
-struct InnerFlattenedArray<A> {
     shape: Vec<Ix>,
     /// There is a invariant that the length of data is
-    /// equal to the product of all values in shape
+    /// equal to the product of all values in shape.
     data: Vec<A>,
 }
 
-impl<S, D> From<ArrayBase<S, D>> for FlattenedArray<S::Elem>
+#[cfg(test)]
+impl<A, D> From<Array<A, D>> for FlattenedArray<A>
 where
-    S: Data,
-    S::Elem: Clone,
+    A: Copy,
     D: Dimension,
 {
-    fn from(array: ArrayBase<S, D>) -> Self {
+    fn from(array: Array<A, D>) -> Self {
+        //only used in tests so we don't care about the
+        //unnecessary addition allocation, if used outside
+        //of tests consider using `is_standard_layout()` and
+        //`.into_raw_vec()`.
         let shape = array.shape().to_owned();
-        let n_elements = array.len();
-        // if we would know array is not a view and in memory
-        // order we could use into_raw_vec...
-        let data = array.into_shape((n_elements,)).unwrap().to_vec();
+        let data = array.iter().copied().collect();
 
-        FlattenedArray {
-            inner: InnerFlattenedArray { shape, data },
-        }
+        FlattenedArray { shape, data }
     }
 }
 
@@ -59,13 +54,24 @@ where
     where
         D: serde::Deserializer<'de>,
     {
-        let inner = InnerFlattenedArray::<A>::deserialize(deserializer)?;
-        if inner.data.len() != inner.shape.iter().product::<usize>() {
-            Err(<D::Error as serde::de::Error>::custom(
+        let helper = FlattenedArrayDeserializationHelper::<A>::deserialize(deserializer)?;
+
+        if helper.data.len() != helper.shape.iter().product::<usize>() {
+            return Err(<D::Error as serde::de::Error>::custom(
                 UnexpectedNumberOfDimensions,
-            ))
+            ));
         } else {
-            Ok(Self { inner })
+            return Ok(Self {
+                shape: helper.shape,
+                data: helper.data,
+            });
+        };
+
+        /// Helper to get a post serialization invariant check.
+        #[derive(Deserialize)]
+        struct FlattenedArrayDeserializationHelper<A> {
+            shape: Vec<Ix>,
+            data: Vec<A>,
         }
     }
 }
@@ -85,15 +91,15 @@ pub enum FailedToRetrieveParams {
 
 impl<S, D> TryFrom<FlattenedArray<S::Elem>> for ArrayBase<S, D>
 where
-    D: Dimension + DimensionTryFromSliceHelper,
+    D: Dimension + TryIntoDimension,
     S: DataOwned,
 {
     type Error = UnexpectedNumberOfDimensions;
 
     fn try_from(array: FlattenedArray<S::Elem>) -> Result<Self, Self::Error> {
-        let shape = D::try_from(&array.inner.shape)?;
+        let shape = D::try_from(&array.shape)?;
 
-        let flattend = ArrayBase::<S, Ix1>::from(array.inner.data);
+        let flattend = ArrayBase::<S, Ix1>::from(array.data);
         let output = flattend.into_shape(shape);
         // This can only fail if the FlattenedArray invariant is violated, which
         // we do check when deserializing it!
@@ -107,11 +113,11 @@ where
 /// so we must deserialize it as a `Vec<usize>` (or similar) and then convert
 /// it. But `ndarray` only ships with conversion methods from `Vec<Ix>`/`&[Ix]`
 /// to `IxDyn` but not to the various specific dims.
-pub(crate) trait DimensionTryFromSliceHelper: Sized {
+pub(crate) trait TryIntoDimension: Sized {
     fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions>;
 }
 
-impl<const N: usize> DimensionTryFromSliceHelper for Dim<[Ix; N]>
+impl<const N: usize> TryIntoDimension for Dim<[Ix; N]>
 where
     [Ix; N]: IntoDimension<Dim = Dim<[Ix; N]>>,
 {
@@ -122,7 +128,7 @@ where
     }
 }
 
-impl DimensionTryFromSliceHelper for IxDyn {
+impl TryIntoDimension for IxDyn {
     fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions> {
         Ok(slice.into_dimension())
     }
@@ -130,7 +136,6 @@ impl DimensionTryFromSliceHelper for IxDyn {
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(test, derive(Debug, Default, PartialEq))]
 pub(crate) struct BinParams {
-    // for now limited to f32
     params: HashMap<String, FlattenedArray<f32>>,
 }
 
@@ -141,10 +146,9 @@ impl BinParams {
         Self::load(source)
     }
 
-    pub(crate) fn load(mut source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
-        Self::load_check_version(&mut source)?;
+    pub(crate) fn load(source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
         let bincode = Self::setup_bincode();
-        Ok(bincode.deserialize_from(source)?)
+        bincode.deserialize_from(source).map_err(Into::into)
     }
 
     fn setup_bincode() -> impl bincode::Options {
@@ -152,40 +156,31 @@ impl BinParams {
         // convey exactly which options we use.
         bincode::DefaultOptions::new()
             .with_little_endian()
-            // 500MiB input limit,
-            // way bigger then we could ever use
-            // (as we run on phones)
-            .with_limit(500 * 1024 * 1024)
             .with_fixint_encoding()
             .reject_trailing_bytes()
     }
 
-    fn load_check_version(source: &mut impl Read) -> Result<(), LoadingBinParamsFailed> {
-        let mut version_buf = [0u8; 1];
-        source.read_exact(&mut version_buf)?;
+    /// True if this instance is empty.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.params.is_empty()
+    }
 
-        if version_buf[0] == 0x1 {
-            Ok(())
-        } else {
-            Err(LoadingBinParamsFailed::UnsupportedVersion {
-                version: version_buf[0],
-            })
-        }
+    /// List the keys contained in this instance.
+    pub(crate) fn keys(&self) -> impl Iterator<Item = &str> {
+        self.params.keys().map(|s| &**s)
     }
 
     pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
     {
-        let result = self
-            .params
+        self.params
             .remove(name)
             .ok_or_else(|| FailedToRetrieveParams::MissingParameters {
                 name: name.to_owned(),
             })?
-            .try_into()?;
-
-        Ok(result)
+            .try_into()
+            .map_err(Into::into)
     }
 
     /// Creates a new `BinParamsWithScope` instance.
@@ -204,9 +199,6 @@ impl BinParams {
 pub enum LoadingBinParamsFailed {
     #[error(transparent)]
     Io(#[from] io::Error),
-
-    #[error("Loading failed: Unsupported version: {version}")]
-    UnsupportedVersion { version: u8 },
 
     #[error(transparent)]
     DeserializationFailed(#[from] bincode::Error),
@@ -229,16 +221,6 @@ impl<'a> BinParamsWithScope<'a> {
         let name = self.prefix.clone() + name;
         self.params.take(&name)
     }
-
-    /// Returns a instance where the nem prefix is extended by the given scope.
-    ///
-    /// The new prefix is the old prefix + the scope + '/'.
-    pub(crate) fn with_scope<'b>(&'b mut self, scope: &str) -> BinParamsWithScope<'b> {
-        BinParamsWithScope {
-            params: self.params,
-            prefix: format!("{}{}/", self.prefix, scope),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -254,7 +236,6 @@ mod tests {
 
     #[rustfmt::skip]
     const BIN_PARAMS_MOCK_DATA_1: &[u8] = &[
-        0x1, // Version
         0x2,0x0,0x0,0x0,0x0,0x0,0x0,0x0, // map len 2
         0x1,0x0,0x0,0x0,0x0,0x0,0x0,0x0, // string(key) len 1
         0x61, // "a"

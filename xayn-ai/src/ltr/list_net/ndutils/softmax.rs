@@ -1,7 +1,5 @@
 use ndarray::{ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
-use super::{max_axis_same_rank, sum_axis_same_rank};
-
 /// Computes softmax along specified axis.
 ///
 /// Inspired by [autograd's softmax implementation], especially the trick to subtract the max value
@@ -14,14 +12,16 @@ where
     S: DataOwned<Elem = A> + DataMut<Elem = A>,
     D: Dimension + RemoveAxis,
 {
-    // Subtract `max` to prevent overflow, this seems to
-    // not affect the outcome of the softmax.
-    let max = max_axis_same_rank(&array, axis);
+    // Subtract `max` to prevent overflow, this
+    // doesn't affect the outcome of the softmax.
+    let max = array
+        .fold_axis(axis, A::min_value(), |state, val| A::max(*state, *val))
+        .insert_axis(axis);
     let mut tmp = array - max;
 
     // Standard 3step softmax, 1) exp(x), 2) sum up, 3) divide through sum
     tmp.mapv_inplace(|v| v.exp());
-    let sum = sum_axis_same_rank(&tmp, axis);
+    let sum = tmp.sum_axis(axis).insert_axis(axis);
     tmp / sum
 }
 

@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use super::ActivationFunction;
 
-/// Error triggered if to matrices which should be used together are not compatible.
+/// Error triggered if two matrices which should be used together are not compatible.
 #[derive(Debug, Error)]
 #[error("Can't combine {name_left}({shape_left:?}) with {name_right}({shape_right:?}): {hint}")]
 pub struct IncompatibleMatrices {
@@ -28,6 +28,7 @@ pub enum LoadingDenseFailed {
     #[error(transparent)]
     FailedToRetrieveParams(#[from] FailedToRetrieveParams),
 }
+
 /// A dense feed forward network layer.
 ///
 /// This can be used for both 1D and 2D inputs depending
@@ -104,7 +105,7 @@ where
                 shape_left: shape.into_dyn(),
                 name_right,
                 shape_right: shape_right.into_dyn(),
-                hint: "can only use dot product with 1 or 2 dimensions arrays",
+                hint: "can only use dot product with 1- or 2-dimensional arrays",
             }),
         }
     }
