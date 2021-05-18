@@ -34,7 +34,7 @@ where
 /// - if the relative axis index is out of bounds
 ///
 /// E.g. you can't use a `Softmax` activation function
-/// with an relative axis index of 10 on a array which
+/// with an relative axis index of 10 on an array which
 /// is 2-dimensional (and as such only has support the
 /// relative axis indices 0,1,-1,-2).
 pub(crate) struct Softmax {

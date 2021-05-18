@@ -373,7 +373,7 @@ mod tests {
 
         let outcome = list_net.run_for_10(inputs);
 
-        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS);
+        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps=4);
     }
     #[test]
     fn test_list_net_run_for_10_can_be_used_with_into_raw_vec() {
@@ -385,7 +385,7 @@ mod tests {
 
         let outcome = list_net.run_for_10(inputs).into_raw_vec();
 
-        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS);
+        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps=4);
     }
 
     #[test]
@@ -394,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn run_works_with_10_inputs() {
+    fn test_run_works_with_10_inputs() {
         let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
