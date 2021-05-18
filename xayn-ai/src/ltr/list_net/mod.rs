@@ -373,7 +373,7 @@ mod tests {
 
         let outcome = list_net.run_for_10(inputs);
 
-        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps=4);
+        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps = 4);
     }
     #[test]
     fn test_list_net_run_for_10_can_be_used_with_into_raw_vec() {
@@ -385,7 +385,7 @@ mod tests {
 
         let outcome = list_net.run_for_10(inputs).into_raw_vec();
 
-        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps=4);
+        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps = 4);
     }
 
     #[test]

@@ -324,13 +324,12 @@ mod tests {
     fn test_assert_approx_eq_iterable_1d() {
         assert_approx_eq!(f32, &[0.25, 1.25], &[0.25, 1.25]);
         assert_approx_eq!(f32, &[0.25, 1.25], arr1(&[0.25, 1.25]));
-        let err = catch_unwind(|| {
-            assert_approx_eq!(f32, &[0.35, 4.35], arr1(&[0.35, 4.45]));
-        })
-        .unwrap_err();
+    }
 
-        let err_msg = err.downcast::<String>().unwrap();
-        assert!(err_msg.contains("at index [1]"));
+    #[test]
+    #[should_panic(expected = "at index [1]")]
+    fn test_assert_approx_eq_fails() {
+        assert_approx_eq!(f32, &[0.35, 4.35], arr1(&[0.35, 4.45]));
     }
 
     #[test]
