@@ -5,9 +5,7 @@ pub use softmax::*;
 
 /// A python like axis index where negative values can be used to index from the end.
 ///
-/// Do not use this for performance sensitive code, like iteratively indexing a large array.
-///
-/// # Panic
+/// # Panics
 ///
 /// It's asserted that all of following hold:
 ///
@@ -32,21 +30,39 @@ pub(crate) fn relative_index(idx: isize, len: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::panic::catch_unwind;
-
     use super::*;
+    mod relative_index_panics {
+        use super::super::*;
 
-    #[test]
-    fn test_pylike_idx_panics_on_overflow() {
-        catch_unwind(|| relative_index(0, usize::MAX)).unwrap_err();
-        catch_unwind(|| relative_index(isize::MAX, 1)).unwrap_err();
-    }
+        #[should_panic]
+        #[test]
+        fn test_large_len() {
+            relative_index(0, isize::MAX as usize + 1);
+        }
 
-    #[test]
-    fn test_pylike_idx_panics_on_out_of_bounds() {
-        catch_unwind(|| relative_index(3, 3)).unwrap_err();
-        catch_unwind(|| relative_index(10, 3)).unwrap_err();
-        catch_unwind(|| relative_index(-4, 3)).unwrap_err();
+        #[should_panic]
+        #[test]
+        fn test_large_index() {
+            relative_index(isize::MAX, 1);
+        }
+
+        #[should_panic]
+        #[test]
+        fn test_out_of_bounds1() {
+            relative_index(3, 3);
+        }
+
+        #[should_panic]
+        #[test]
+        fn test_out_of_bounds2() {
+            relative_index(10, 3);
+        }
+
+        #[should_panic]
+        #[test]
+        fn test_out_of_bounds3() {
+            relative_index(-4, 3);
+        }
     }
 
     #[test]

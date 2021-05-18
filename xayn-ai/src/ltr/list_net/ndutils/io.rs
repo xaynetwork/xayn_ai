@@ -56,9 +56,13 @@ where
     {
         let helper = FlattenedArrayDeserializationHelper::<A>::deserialize(deserializer)?;
 
-        if helper.data.len() != helper.shape.iter().product::<usize>() {
+        let expected_data_len = helper.shape.iter().product::<usize>();
+        if helper.data.len() != expected_data_len {
             return Err(<D::Error as serde::de::Error>::custom(
-                UnexpectedNumberOfDimensions,
+                UnexpectedNumberOfDimensions {
+                    got: helper.data.len(),
+                    expected: expected_data_len,
+                },
             ));
         } else {
             return Ok(Self {
@@ -77,8 +81,11 @@ where
 }
 
 #[derive(Debug, Error)]
-#[error("Expected and found number of dimensions do not match")]
-pub struct UnexpectedNumberOfDimensions;
+#[error("Unexpected number of dimensions: got={got}, expected={expected}")]
+pub struct UnexpectedNumberOfDimensions {
+    got: usize,
+    expected: usize,
+}
 
 #[derive(Debug, Error)]
 pub enum FailedToRetrieveParams {
@@ -124,7 +131,10 @@ where
     fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions> {
         <[Ix; N]>::try_from(slice)
             .map(IntoDimension::into_dimension)
-            .map_err(|_| UnexpectedNumberOfDimensions)
+            .map_err(|_| UnexpectedNumberOfDimensions {
+                got: slice.len(),
+                expected: N,
+            })
     }
 }
 

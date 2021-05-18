@@ -149,7 +149,9 @@ pub enum LoadingListNetFailed {
 #[cfg(test)]
 mod tests {
 
-    use ndarray::arr1;
+    use std::collections::HashSet;
+
+    use ndarray::{arr1, Array, IxDyn};
 
     use super::*;
 
@@ -202,5 +204,44 @@ mod tests {
         );
     }
 
-    //TODO test is_empty(), keys() error on leftover
+    const EMPTY_BIN_PARAMS: &[u8] = &[0u8; 8];
+
+    const BIN_PARAMS_WITH_EMPTY_ARRAY_AND_KEY: &[u8] = &[
+        1u8, 0, 0, 0, 0, 0, 0, 0, // 1 entry
+        0, 0, 0, 0, 0, 0, 0, 0, // empty string key
+        1, 0, 0, 0, 0, 0, 0, 0, // 1 dimensional array
+        0, 0, 0, 0, 0, 0, 0, 0, // the dimension is 0
+        0, 0, 0, 0, 0, 0, 0, 0, // and we have 0 bytes of data data
+    ];
+
+    const BIN_PARAMS_WITH_SOME_KEYS: &[u8] = &[
+        2u8, 0, 0, 0, 0, 0, 0, 0, // 2 entries
+        3, 0, 0, 0, 0, 0, 0, 0, b'f', b'o', b'o', // key 1
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // shape [0]
+        0, 0, 0, 0, 0, 0, 0, 0, // and data
+        3, 0, 0, 0, 0, 0, 0, 0, b'b', b'a', b'r', // key 2
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // shape [0]
+        0, 0, 0, 0, 0, 0, 0, 0, // and data
+    ];
+
+    #[test]
+    fn test_is_empty() {
+        let params = BinParams::load(EMPTY_BIN_PARAMS).unwrap();
+        assert!(params.is_empty());
+
+        let mut params = BinParams::load(BIN_PARAMS_WITH_EMPTY_ARRAY_AND_KEY).unwrap();
+        assert!(!params.is_empty());
+
+        let array: Array<f32, IxDyn> = params.take("").unwrap();
+        assert_eq!(array.shape(), &[0]);
+    }
+
+    #[test]
+    fn test_keys() {
+        let params = BinParams::load(BIN_PARAMS_WITH_SOME_KEYS).unwrap();
+        let mut expected = HashSet::default();
+        expected.insert("foo");
+        expected.insert("bar");
+        assert_eq!(params.keys().collect::<HashSet<_>>(), expected);
+    }
 }
