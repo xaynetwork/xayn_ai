@@ -1,37 +1,27 @@
 #!/usr/bin/python3
 
 """
-Extracts ListNet weights from a onnx file and writes them into a bincode compatible file.
+Extracts ListNet weights from an onnx file and writes them into a bincode compatible file.
 
 We write a bincode compatible format. Even through there is no official bincode specifications
-we still can do this as bincode guarantees a stable data format (except on new major releses).
+we still can do this as bincode guarantees a stable data format (except on new major releases).
 
 Extracted Tensor Initial Values
 ===============================
 
-- 'ltr/v1/dense_1/weights'         from 'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0'
-- 'ltr/v1/dense_1/bias'            from 'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0'
-- 'ltr/v1/dense_2/weights'         from 'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0'
-- 'ltr/v1/dense_2/bias'            from 'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0'
-- 'ltr/v1/scores/weights'          from 'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0'
-- 'ltr/v1/scores/bias'             from 'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0'
-- 'ltr/v1/scores_prop_dist/weights' from 'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0'
-- 'ltr/v1/scores_prop_dist/bias'    from 'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0'
+- 'dense_1/weights'          from 'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0'
+- 'dense_1/bias'             from 'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0'
+- 'dense_2/weights'          from 'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0'
+- 'dense_2/bias'             from 'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0'
+- 'scores/weights'           from 'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0'
+- 'scores/bias'              from 'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0'
+- 'scores_prob_dist/weights' from 'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0'
+- 'scores_prob_dist/bias'    from 'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0'
 
 All other parameters are only used to configure the pipeline like,
 making sure we gather into the right matrix after doing a tensor
 dot multiplication, which axis to run the softmax on, into which
 form to flatten etc.
-
-Pre-Amble
-==========
-
-A file/stream is prefixed with a single version *byte*,
-this must be read/skipped over before passing the rest
-to bincode.
-
-The current version is 0x01.
-
 
 Required Bincode Option
 ========================
@@ -58,15 +48,9 @@ struct Array {
 }
 ```
 
-Be aware that the order of fields matters
-for serde, and especially bincode.
+Be aware that the order of fields matters for serde, and especially bincode.
 
-Data should be reinterpreted as a nested
-array based on 'C" format (i.e. row based,
-i.e. an array of rows). Be aware that this
-is independent of the byte-order. 'C' format
-just mens row based instead of column based
-(which is known as 'F', i.e. fortran format).
+Data should be reinterpreted as a multi-dimensional array in row-major order.
 
 Bincode Serialization Format (Unofficial Spec)
 ==============================================
@@ -105,7 +89,7 @@ Final Binary Format
 ====================
 
 ```ascii
-[version=0x1:u8][nr_arrays:u64](
+[nr_arrays:u64](
     [name_len:u64][name_utf8:u8]*name_len
     [ndim:u64][dim:u64]*ndim
     [n_params:u64][param:f32]*n_params
@@ -117,34 +101,37 @@ There is a additional invariant that
 is not meet conversion to `ndarray::Array`
 and similar will fail.
 
-If the first byte is == 0x1 and excluded
-the rest is bincode decodeable as mentioned
-above. This is also why all length are in
-u64.
+The whole blob is bincode decodeable as
+mentioned above. This is also why all
+length are in u64.
 
 Be aware the all the "length" fields like
 `ndim`, `n_params` etc. represent the number
 of elements, **not** the number of bytes.
 """
 
+from numpy import ndarray
 import onnx, onnx.numpy_helper
-from typing import Tuple, Dict
+from typing import Any, AnyStr, BinaryIO, Callable, List, Tuple, Dict, T, TypeVar
 
-LIST_NET_NAME_MAPPING = {
-    'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0'           : 'ltr/v1/dense_1/weights'        ,
-    'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0'             : 'ltr/v1/dense_1/bias'           ,
-    'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0'           : 'ltr/v1/dense_2/weights'        ,
-    'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0'             : 'ltr/v1/dense_2/bias'           ,
-    'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0'            : 'ltr/v1/scores/weights'         ,
-    'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0'              : 'ltr/v1/scores/bias'            ,
-    'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0'     : 'ltr/v1/scores_prop_dist/weights',
-    'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0'    : 'ltr/v1/scores_prop_dist/bias'   ,
+V = TypeVar('V')
+Matrices = Dict[str, ndarray]
+
+LIST_NET_NAME_MAPPING: Dict[str, str] = {
+    'StatefulPartitionedCall/functional_1/dense_1/Tensordot/ReadVariableOp:0'           : 'dense_1/weights'        ,
+    'StatefulPartitionedCall/functional_1/dense_1/BiasAdd/ReadVariableOp:0'             : 'dense_1/bias'           ,
+    'StatefulPartitionedCall/functional_1/dense_2/Tensordot/ReadVariableOp:0'           : 'dense_2/weights'        ,
+    'StatefulPartitionedCall/functional_1/dense_2/BiasAdd/ReadVariableOp:0'             : 'dense_2/bias'           ,
+    'StatefulPartitionedCall/functional_1/scores/Tensordot/ReadVariableOp:0'            : 'scores/weights'         ,
+    'StatefulPartitionedCall/functional_1/scores/BiasAdd/ReadVariableOp:0'              : 'scores/bias'            ,
+    'StatefulPartitionedCall/functional_1/scores_prob_dist/MatMul/ReadVariableOp:0'     : 'scores_prob_dist/weights',
+    'StatefulPartitionedCall/functional_1/scores_prob_dist/BiasAdd/ReadVariableOp:0'    : 'scores_prob_dist/bias'   ,
 }
 
-def load_list_net_parameters(path):
+def load_list_net_parameters(path: str) -> Matrices:
     model = onnx.load(path)
 
-    result = { name: None for name in LIST_NET_NAME_MAPPING.values() }
+    result: dict[str, ndarray] = { name: None for name in LIST_NET_NAME_MAPPING.values() }
 
     for tensor in model.graph.initializer:
         if tensor.name in LIST_NET_NAME_MAPPING:
@@ -158,8 +145,8 @@ def load_list_net_parameters(path):
 
 
 class Bincode:
-    BIG_ENDIAN='big'
-    LITTLE_ENDIAN='little'
+    BIG_ENDIAN: str ='big'
+    LITTLE_ENDIAN: str ='little'
 
     """
     Supports encoding a subset of bincode.
@@ -169,40 +156,40 @@ class Bincode:
     Only fixed sized integer encoding is supported for now.
     """
 
-    def __init__(self, *, output, byteorder = LITTLE_ENDIAN):
+    def __init__(self, *, output: BinaryIO, byteorder: str = LITTLE_ENDIAN):
         self.byteorder = byteorder
         self.output = output
 
-    def write_string(self, string):
+    def write_string(self, string: str) -> None:
         encoded = string.encode('utf-8')
         self.write_byte_slice(encoded)
 
-    def write_byte_slice(self, data):
+    def write_byte_slice(self, data: bytes) -> None:
         self.write_usize(len(data))
         self.output.write(data)
 
 
-    def write_usize(self, usize):
+    def write_usize(self, usize: int) -> None:
         # bincode encodes usize/isize as u64/i64
         encoded = usize.to_bytes(8, byteorder=self.byteorder)
         self.output.write(encoded)
 
-    def write_byte(self, byte):
+    def write_byte(self, byte: int) -> None:
         encoded = byte.to_bytes(1, byteorder=self.byteorder)
         self.output.write(encoded)
 
-    def write_map(self, input_map, write_key, write_value):
+    def write_map(self, input_map: Dict[T, V], write_key: Callable[[T], None], write_value: Callable[[V], None]):
         self.write_usize(len(input_map))
         for (key, value) in input_map.items():
             write_key(key)
             write_value(value)
 
-    def write_list(self, seq, write_item):
+    def write_list(self, seq: List[T], write_item: Callable[[T], None]):
         self.write_usize(len(seq))
         for item in seq:
             write_item(item)
 
-    def write_array(self, array):
+    def write_array(self, array: ndarray):
         """
         Writes a numpy array, does not write the type of the array,
         it's expected that it's implied in rust through the type
@@ -212,8 +199,8 @@ class Bincode:
 
         # create dtype with needed byte order
         dtype = array.dtype.newbyteorder(self.byteorder)
-        # row based, byte-order was already managed
-        # oder='C' => row based array
+        # row-major, byte-order was already managed
+        # oder='C' => row-major array
         # casting='equiv' => only allow byte-order changes
         # copy=False => don't copy the array if not necessary
         array_bytes = array.astype(dtype, order='C', casting='equiv', copy=False).tobytes(order='C')
@@ -222,16 +209,12 @@ class Bincode:
         self.output.write(array_bytes)
 
 
-BIN_PARAMS_VERSION=1
-
-
-def write_list_net_parameters(path, matrices):
+def write_list_net_parameters(path: str, matrices: Matrices):
     with open(path, 'wb') as out:
         encoder = Bincode(output=out)
         write_list_net_parameters_to_encoder(encoder, matrices)
 
-def write_list_net_parameters_to_encoder(encoder, matrices):
-    encoder.write_byte(BIN_PARAMS_VERSION)
+def write_list_net_parameters_to_encoder(encoder: Bincode, matrices: Matrices):
     encoder.write_map(matrices, encoder.write_string, encoder.write_array)
 
 
@@ -246,6 +229,6 @@ if __name__ == '__main__':
     in_path = sys.argv[2]
     out_path = sys.argv[4]
 
-    matrices = load_list_net_parameters(in_path)
+    matrices: Matrices = load_list_net_parameters(in_path)
     write_list_net_parameters(out_path, matrices)
 
