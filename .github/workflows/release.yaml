@@ -180,7 +180,7 @@ jobs:
           retention-days: 1
           path: |
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h
-            ${{ env.DART_WORKSPACE }}/lib/src/ffi/genesis.dart
+            ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi/genesis.dart
 
   build-android-libs:
     name: build-android-libs
@@ -354,7 +354,7 @@ jobs:
       - name: Copy headers
         run: |
           cd /tmp/artifacts/headers-${{ github.sha }}
-          cp lib/src/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
+          cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
           cp ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/Classes
 
       - name: Get current branch
