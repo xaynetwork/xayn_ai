@@ -385,8 +385,6 @@ jobs:
 
       - name: Build iOS library ${{ matrix.target }}
         working-directory: ./xayn-ai-ffi-c
-        env:
-          RUSTFLAGS: -Cdebuginfo=0
         run: cargo lipo --targets ${{ matrix.target }}
 
       - name: Prepare lib for upload
@@ -667,10 +665,6 @@ jobs:
       - name: Install libclang-10-dev
         if: matrix.os == 'ubuntu-20.04'
         run: sudo apt-get install libclang-10-dev
-
-      # - name: Set XCode version to 12.2
-      #   if: matrix.os == 'macos-10.15'
-      #   run: sudo xcode-select -s /Applications/Xcode_12.2.app/Contents/Developer
 
       - name: Download ${{ needs.build-linux-lib.outputs.cache-key }} artifacts
         uses: actions/download-artifact@v2
