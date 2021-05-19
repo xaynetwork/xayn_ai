@@ -10,81 +10,6 @@ use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
-/// Mean reciprocal rank of results filtered by outcome and a predicate.
-///
-/// It is defined as the ratio:
-///```text
-///   sum{1/r.position} + 0.283
-/// ----------------------------
-///    |rs(outcome, pred)| + 1
-/// ```
-/// where the sum ranges over each search result `r` in `rs`(`outcome`, `pred`),
-/// i.e. satisfying `pred` and matching `outcome`.
-///
-/// The formula uses some form of additive smoothing with a prior 0.283 (see Dataiku paper).
-pub(crate) fn mean_recip_rank(
-    rs: &[impl AsRef<SearchResult>],
-    outcome: Option<MrrOutcome>,
-    pred: Option<FilterPred>,
-) -> f32 {
-    let filtered = rs
-        .iter()
-        .filter(|r| {
-            let relevance = r.as_ref().relevance;
-            match outcome {
-                Some(MrrOutcome::Miss) => relevance == ClickSat::Miss,
-                Some(MrrOutcome::Skip) => relevance == ClickSat::Skip,
-                Some(MrrOutcome::Click) => relevance > ClickSat::Low,
-                None => true,
-            }
-        })
-        .filter(|r| pred.map_or(true, |p| p.apply(r)))
-        .collect_vec();
-
-    let denom = 1. + filtered.len() as f32;
-    let numer = 0.283 // prior recip rank assuming uniform distributed ranks
-        + filtered
-            .into_iter()
-            .map(|r| f32::from(r.as_ref().position).recip())
-            .sum::<f32>();
-
-    numer / denom
-}
-
-pub(crate) struct Query {
-    pub(crate) id: i32,
-    pub(crate) words: Vec<i32>,
-}
-
-pub struct SearchResult {
-    /// Session identifier.
-    pub(crate) session_id: i32,
-    /// User identifier.
-    pub(crate) user_id: i32,
-    /// Query identifier.
-    pub(crate) query_id: i32,
-    /// Day of the search, an integer between 1 and 27.
-    pub(crate) day: u8,
-    /// Words of the query, each masked.
-    pub(crate) query_words: Vec<i32>,
-    /// URL of result, masked.
-    pub(crate) url: i32,
-    /// Domain of result, masked.
-    pub(crate) domain: i32,
-    /// Relevance level of the result.
-    pub(crate) relevance: ClickSat,
-    /// Position among other results.
-    pub(crate) position: Rank,
-    /// Query count within session.
-    pub(crate) query_counter: u8,
-}
-
-impl AsRef<SearchResult> for SearchResult {
-    fn as_ref(&self) -> &SearchResult {
-        self
-    }
-}
-
 /// Click satisfaction score.
 ///
 /// Based on Yandex notion of dwell-time: time elapsed between a click and the next action.
@@ -122,51 +47,45 @@ impl From<Rank> for f32 {
     }
 }
 
-/// Counts the variety of query terms over a given test session.
-fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
-    query
-        .iter()
-        .filter(|r| r.session_id == session_id)
-        .flat_map(|r| &r.query_words)
-        .unique()
-        .count()
+#[derive(PartialEq)]
+pub(crate) enum DayOfWeek {
+    Mon,
+    Tue,
+    Wed,
+    Thu,
+    Fri,
+    Sat,
+    Sun,
 }
 
-/// Weekend seasonality of a given domain.
-fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
-    let (clicks_wknd, clicks_wkday) = history
-        .iter()
-        .filter(|r| r.domain == domain && r.relevance > ClickSat::Low)
-        .fold((0, 0), |(wknd, wkday), r| {
-            // dataiku observation of Yandex dataset: day 1 is Tue
-            if r.day % 7 == 5 || r.day % 7 == 6 {
-                (wknd + 1, wkday)
-            } else {
-                (wknd, wkday + 1)
-            }
-        });
-
-    2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
+/// Data pertaining to a single result from a search.
+pub struct SearchResult {
+    /// Session identifier.
+    pub(crate) session_id: i32,
+    /// User identifier.
+    pub(crate) user_id: i32,
+    /// Query identifier.
+    pub(crate) query_id: i32,
+    /// Day of week search was performed.
+    pub(crate) day: DayOfWeek,
+    /// Words of the query, each masked.
+    pub(crate) query_words: Vec<i32>,
+    /// URL of result, masked.
+    pub(crate) url: i32,
+    /// Domain of result, masked.
+    pub(crate) domain: i32,
+    /// Relevance level of the result.
+    pub(crate) relevance: ClickSat,
+    /// Position among other results.
+    pub(crate) position: Rank,
+    /// Query count within session.
+    pub(crate) query_counter: u8,
 }
 
-/// Entropy over the rank of the given results that were clicked.
-pub(crate) fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
-    let rank_freqs = results
-        .iter()
-        .filter_map(|r| {
-            let r = r.as_ref();
-            (r.relevance > ClickSat::Low).then(|| r.position)
-        })
-        .counts();
-
-    let freqs_sum = rank_freqs.values().sum::<usize>() as f32;
-    rank_freqs
-        .into_iter()
-        .map(|(_, freq)| {
-            let prob = freq as f32 / freqs_sum;
-            -prob * prob.log2()
-        })
-        .sum()
+impl AsRef<SearchResult> for SearchResult {
+    fn as_ref(&self) -> &SearchResult {
+        self
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -190,57 +109,6 @@ pub(crate) enum AtomFeat {
 }
 
 pub(crate) type FeatMap = HashMap<AtomFeat, f32>;
-
-/// Quality of the snippet associated with a search result.
-///
-/// Snippet quality is defined as:
-/// ```text
-///       sum{score(r)}
-/// --------------------------
-/// |hist({Miss, Skip}, pred)|
-/// ```
-/// where the sum ranges over all result sets containing a URL matching `res.url`.
-pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
-    let pred_filtered = hist.iter().filter(|r| pred.apply(r));
-    let denom = pred_filtered
-        .clone()
-        .filter(|r| r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
-        .count() as f32;
-
-    let numer = pred_filtered
-        .group_by(|r| (r.session_id, r.query_counter))
-        .into_iter()
-        .filter_map(|(_, rs)| {
-            let rs = ResultSet::new(rs.collect());
-            rs.rank_of(res.url).map(|pos| snippet_score(rs, pos))
-        })
-        .sum::<f32>();
-
-    numer / denom
-}
-
-/// Scores the search result ranked at position `pos` in the result set `rs`.
-///
-/// The score(r) of a search result r is defined:
-/// *  0           if r is a `Miss`
-/// *  1 / p       if r is the pth clicked result of the page
-/// * -1 / p_final if r is a `Skip`
-///
-/// As click ordering information is unavailable, assume it follows the ranking order.
-fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
-    match rs.get(pos).relevance {
-        // NOTE unclear how to score Low, treat as a Miss
-        ClickSat::Miss | ClickSat::Low => 0.,
-        ClickSat::Skip => {
-            let total_clicks = rs.cumulative_clicks(Rank::Last) as f32;
-            -total_clicks.recip()
-        }
-        _ => {
-            let cum_clicks = rs.cumulative_clicks(pos) as f32;
-            cum_clicks.recip()
-        }
-    }
-}
 
 #[derive(Clone)]
 /// Search results from some query.
@@ -279,28 +147,9 @@ impl<'a> ResultSet<'a> {
     }
 }
 
-/// Probability of an outcome conditioned on some predicate.
-///
-/// It is defined:
-/// ```text
-/// |hist(outcome, pred)| + prior(outcome)
-/// --------------------------------------
-///   |hist(pred)| + sum{prior(outcome')}
-/// ```
-/// The formula uses some form of additive smoothing with `prior(Miss)` = `1` and `0` otherwise.
-/// See Dataiku paper. Note then the `sum` term amounts to `1`.
-pub(crate) fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPred) -> f32 {
-    let prior = if outcome == ClickSat::Miss { 1 } else { 0 };
-
-    let filtered_by_pred = hist.iter().filter(|r| pred.apply(r)).collect_vec();
-    let denom = 1 + filtered_by_pred.len();
-    let numer = prior
-        + filtered_by_pred
-            .into_iter()
-            .filter(|r| r.relevance == outcome)
-            .count();
-
-    numer as f32 / denom as f32
+pub(crate) struct Query {
+    pub(crate) id: i32,
+    pub(crate) words: Vec<i32>,
 }
 
 struct DocAddr {
@@ -428,5 +277,189 @@ impl FilterPred {
             SessionCond::All => true,
         };
         doc_cond && query_cond && session_cond
+    }
+}
+
+/// Mean reciprocal rank of results filtered by outcome and a predicate.
+///
+/// It is defined as the ratio:
+///```text
+///   sum{1/r.position} + 0.283
+/// ----------------------------
+///    |rs(outcome, pred)| + 1
+/// ```
+/// where the sum ranges over each search result `r` in `rs`(`outcome`, `pred`),
+/// i.e. satisfying `pred` and matching `outcome`.
+///
+/// The formula uses some form of additive smoothing with a prior 0.283 (see Dataiku paper).
+pub(crate) fn mean_recip_rank(
+    rs: &[impl AsRef<SearchResult>],
+    outcome: Option<MrrOutcome>,
+    pred: Option<FilterPred>,
+) -> f32 {
+    let filtered = rs
+        .iter()
+        .filter(|r| {
+            let relevance = r.as_ref().relevance;
+            match outcome {
+                Some(MrrOutcome::Miss) => relevance == ClickSat::Miss,
+                Some(MrrOutcome::Skip) => relevance == ClickSat::Skip,
+                Some(MrrOutcome::Click) => relevance > ClickSat::Low,
+                None => true,
+            }
+        })
+        .filter(|r| pred.map_or(true, |p| p.apply(r)))
+        .collect_vec();
+
+    let denom = 1. + filtered.len() as f32;
+    let numer = 0.283 // prior recip rank assuming uniform distributed ranks
+        + filtered
+            .into_iter()
+            .map(|r| f32::from(r.as_ref().position).recip())
+            .sum::<f32>();
+
+    numer / denom
+}
+
+/// Counts the variety of query terms over a given test session.
+fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
+    query
+        .iter()
+        .filter(|r| r.session_id == session_id)
+        .flat_map(|r| &r.query_words)
+        .unique()
+        .count()
+}
+
+/// Weekend seasonality of a given domain.
+fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
+    let (clicks_wknd, clicks_wkday) = history
+        .iter()
+        .filter(|r| r.domain == domain && r.relevance > ClickSat::Low)
+        .fold((0, 0), |(wknd, wkday), r| {
+            // NOTE weekend days should obviously be Sat/Sun but there is a bug
+            // in soundgarden that effectively treats Thu/Fri as weekends
+            // instead. since the model has been trained as such with the
+            // soundgarden implementation, we match that behaviour here.
+            if r.day == DayOfWeek::Thu || r.day == DayOfWeek::Fri {
+                (wknd + 1, wkday)
+            } else {
+                (wknd, wkday + 1)
+            }
+        });
+
+    2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
+}
+
+/// Entropy over the rank of the given results that were clicked.
+pub(crate) fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
+    let rank_freqs = results
+        .iter()
+        .filter_map(|r| {
+            let r = r.as_ref();
+            (r.relevance > ClickSat::Low).then(|| r.position)
+        })
+        .counts();
+
+    let freqs_sum = rank_freqs.values().sum::<usize>() as f32;
+    rank_freqs
+        .into_iter()
+        .map(|(_, freq)| {
+            let prob = freq as f32 / freqs_sum;
+            -prob * prob.log2()
+        })
+        .sum()
+}
+
+/// Quality of the snippet associated with a search result.
+///
+/// Snippet quality is defined as:
+/// ```text
+///       sum{score(r)}
+/// --------------------------
+/// |hist({Miss, Skip}, pred)|
+/// ```
+/// where the sum ranges over all result sets containing a result `r` with URL matching that of `res`.
+pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
+    let pred_filtered = hist.iter().filter(|r| pred.apply(r));
+    let denom = pred_filtered
+        .clone()
+        .filter(|r| r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
+        .count() as f32;
+
+    if denom == 0. {
+        return 0.;
+    }
+
+    let numer = pred_filtered
+        .group_by(|r| (r.session_id, r.query_counter))
+        .into_iter()
+        .filter_map(|(_, rs)| {
+            let rs = ResultSet::new(rs.collect());
+            rs.rank_of(res.url).map(|pos| snippet_score(rs, pos))
+        })
+        .sum::<f32>();
+
+    numer / denom
+}
+
+/// Scores the search result ranked at position `pos` in the result set `rs`.
+///
+/// The score(r) of a search result r is defined:
+/// *  0           if r is a `Miss`
+/// *  1 / p       if r is the pth clicked result of the page
+/// * -1 / p_final if r is a `Skip`
+///
+/// As click ordering information is unavailable, assume it follows the ranking order.
+fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
+    match rs.get(pos).relevance {
+        // NOTE unclear how to score Low, treat as a Miss
+        ClickSat::Miss | ClickSat::Low => 0.,
+        ClickSat::Skip => {
+            let total_clicks = rs.cumulative_clicks(Rank::Last) as f32;
+            if total_clicks == 0. {
+                0.
+            } else {
+                -total_clicks.recip()
+            }
+        }
+        _ => {
+            let cum_clicks = rs.cumulative_clicks(pos) as f32;
+            if cum_clicks == 0. {
+                0.
+            } else {
+                cum_clicks.recip()
+            }
+        }
+    }
+}
+
+/// Probability of an outcome conditioned on some predicate.
+///
+/// It is defined:
+/// ```text
+/// |hist(outcome, pred)| + prior(outcome)
+/// --------------------------------------
+///   |hist(pred)| + sum{prior(outcome')}
+/// ```
+/// The formula uses some form of additive smoothing with `prior(Miss)` = `1` and `0` otherwise.
+/// See Dataiku paper. Note then the `sum` term amounts to `1`.
+pub(crate) fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPred) -> f32 {
+    let hist_pred = hist.iter().filter(|r| pred.apply(r));
+    let hist_pred_outcome = hist_pred.clone().filter(|r| r.relevance == outcome).count();
+
+    // NOTE soundgarden implements conditional probabilities differently to
+    // Dataiku's spec. nevertheless, since the model has been trained as such on
+    // the soundgarden implementation, we match its behaviour here.
+    let (numer, denom) = if let ClickSat::Miss = outcome {
+        (hist_pred_outcome + 1, hist_pred.count() + hist_pred_outcome)
+    } else {
+        (hist_pred_outcome, hist_pred.count())
+    };
+
+    if denom == 0 {
+        0.
+    } else {
+        numer as f32 / denom as f32
     }
 }
