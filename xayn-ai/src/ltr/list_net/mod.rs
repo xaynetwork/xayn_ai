@@ -5,7 +5,7 @@ use std::{io::Read, path::Path};
 use ndutils::io::{BinParams, LoadingBinParamsFailed};
 use thiserror::Error;
 
-use ndarray::{Array1, Array2, ArrayView2, Axis, Dimension, IntoDimension, Ix, Ix2};
+use ndarray::{Array1, Array2, ArrayView2, Axis, Dimension, IntoDimension, Ix};
 use ndlayers::{
     activation::{Linear, Relu, Softmax},
     Dense,
@@ -17,8 +17,6 @@ mod ndlayers;
 mod ndutils;
 
 /// ListNet implementations.
-///
-/// This chains following feed forward layers:
 ///
 /// The underlying ListNet is fixed  to 10 document with 50 features each in the shape `(10, 50)`.
 /// But the [`ListNet.run()`] method combines a chunked approach with padding to allow any
@@ -41,10 +39,10 @@ pub struct ListNet {
 }
 
 impl ListNet {
-    /// Number of documents directly  reranked
+    /// Number of documents directly reranked
     const INPUT_NR_DOCUMENTS: Ix = 10;
 
-    /// Nuber of features per document
+    /// Number of features per document
     const INPUT_NR_FEATURES: Ix = 50;
 
     /// Currently input is fixed to (10, 50)
@@ -84,7 +82,7 @@ impl ListNet {
             Err(LoadingListNetFailed::LeftoverBinParams {
                 params: params.keys().map(Into::into).collect(),
             })
-        } else if scores_prob_dist_out_shape.clone().into_pattern() == 10 {
+        } else if scores_prob_dist_out_shape.slice() == [10] {
             Ok(Self {
                 dense_1,
                 dense_2,
@@ -106,7 +104,7 @@ impl ListNet {
     /// The input is a 2 dimensional array
     /// with the shape `(number_of_documents, number_of_feature_per_document)`.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// Panics if the total number of documents is != 10, or nr of features != 50.
     fn run_for_10(&self, inputs: Array2<f32>) -> Array1<f32> {
@@ -119,21 +117,21 @@ impl ListNet {
         let dense1_out = self.dense_1.run(inputs);
         let dense2_out = self.dense_2.run(dense1_out);
         let scores = self.scores.run(dense2_out);
-        let shape: Ix2 = scores.raw_dim();
-        debug_assert_eq!(shape[1], 1);
-        let scores: Array1<f32> = scores.into_shape((shape[0],)).unwrap();
+        debug_assert_eq!(scores.shape()[1], 1);
+        // flattens the array by removing axis 1
+        let scores: Array1<f32> = scores.index_axis_move(Axis(1), 0);
         self.scores_prob_dist.run(scores)
     }
 
     /// Runs list net based on a number of input chunks.
     ///
-    /// The total number of documents must be no grater then 10, but can
+    /// The total number of documents must be no greater than 10, but can
     /// be smaller in which case it's padded by repeating the last document.
     ///
     /// Any results calculated for paddings are removed before returning the
     /// output.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// - Panics if the total number of documents is > 10, or nr of features != 50.
     /// - Panics if there are no input chunks or some of them are empty!
@@ -174,7 +172,7 @@ impl ListNet {
         let chunk_size = Self::INPUT_NR_DOCUMENTS / 2;
         debug_assert_eq!(Self::INPUT_NR_DOCUMENTS % 2, 0);
 
-        let mut propabilities =
+        let mut probabilities =
             Vec::with_capacity(size_with_chunk_padding(nr_documents, chunk_size));
         let mut chunks = inputs.axis_chunks_iter(Axis(0), chunk_size);
 
@@ -188,29 +186,28 @@ impl ListNet {
 
             if first_iteration {
                 first_iteration = false;
-                propabilities.extend_from_slice(&sub_outputs);
+                probabilities.extend_from_slice(&sub_outputs);
             } else {
-                propabilities.extend_from_slice(&sub_outputs[chunk_size..]);
+                probabilities.extend_from_slice(&sub_outputs[chunk_size..]);
             }
         }
 
         // If we only had one chunk we didn't run the loop.
         if first_iteration {
             let sub_outputs = self.run_chunked(&[first]);
-            propabilities.extend_from_slice(&sub_outputs);
+            probabilities.extend_from_slice(&sub_outputs);
         }
 
-        propabilities
+        probabilities
     }
 }
 
+/// # Panics
+///
+/// If called with `size==0`.
+#[inline]
 fn size_with_chunk_padding(size: usize, chunk_size: usize) -> usize {
-    let partial = size % chunk_size;
-    if partial == 0 {
-        size
-    } else {
-        size + chunk_size - partial
-    }
+    size - 1 + chunk_size - (size - 1) % chunk_size
 }
 
 /// Loading list net failed.
@@ -372,6 +369,7 @@ mod tests {
 
         assert!(list_net.run_for_10(inputs).is_standard_layout());
     }
+
     #[test]
     fn test_list_net_run_for_10_can_be_used_with_into_raw_vec() {
         let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
@@ -401,6 +399,14 @@ mod tests {
         let outcome = list_net.run(inputs);
 
         assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps = 4);
+    }
+
+    #[test]
+    fn test_running_list_net_with_no_inputs_works() {
+        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let inputs = Array2::<f32>::zeros((0, 50));
+        let outputs = list_net.run(inputs);
+        assert!(outputs.is_empty());
     }
 
     #[test]
@@ -462,7 +468,6 @@ mod tests {
 
     #[test]
     fn test_size_with_chunk_padding() {
-        assert_eq!(size_with_chunk_padding(0, 5), 0);
         assert_eq!(size_with_chunk_padding(10, 5), 10);
         assert_eq!(size_with_chunk_padding(11, 5), 15);
         assert_eq!(size_with_chunk_padding(14, 5), 15);

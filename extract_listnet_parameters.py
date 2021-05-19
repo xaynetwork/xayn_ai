@@ -31,7 +31,7 @@ as such the deserializer must be setup to use
 exactly that. (We would save 3+9*nr_arrays bytes
 only which isn't worth it.)
 
-LittleEndianness is used for all integer.
+The little-endian byte order is used for all integers.
 
 
 What is Serialized
@@ -135,7 +135,8 @@ def load_list_net_parameters(path: str) -> Matrices:
 
     for tensor in model.graph.initializer:
         if tensor.name in LIST_NET_NAME_MAPPING:
-            result[LIST_NET_NAME_MAPPING[tensor.name]] = onnx.numpy_helper.to_array(tensor)
+            data = onnx.numpy_helper.to_array(tensor).astype('f4', casting='equiv', copy=False)
+            result[LIST_NET_NAME_MAPPING[tensor.name]] = data
 
     for (name, val) in result.items():
         if val is None:
