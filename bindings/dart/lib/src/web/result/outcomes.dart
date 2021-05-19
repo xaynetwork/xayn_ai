@@ -1,8 +1,6 @@
 @JS()
 library outcomes;
 
-import 'dart:typed_data' show Float32List, Uint16List;
-
 import 'package:js/js.dart' show anonymous, JS;
 
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
@@ -12,13 +10,13 @@ import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
 @anonymous
 class JsRerankingOutcomes {
   // ignore: non_constant_identifier_names
-  external Uint16List final_ranking;
+  external List<int> final_ranking;
 
   // ignore: non_constant_identifier_names
-  external Float32List? qa_mbert_similarities;
+  external List<double>? qa_mbert_similarities;
 
   // ignore: non_constant_identifier_names
-  external Float32List? context_scores;
+  external List<double>? context_scores;
 }
 
 extension ToRerankingOutcomes on JsRerankingOutcomes {

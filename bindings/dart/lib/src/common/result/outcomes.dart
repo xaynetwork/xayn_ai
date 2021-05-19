@@ -1,5 +1,3 @@
-import 'dart:typed_data' show Float32List, Uint16List;
-
 /// Type containing all reranking outcomes.
 ///
 /// Some of the outcomes can be empty if they
@@ -14,17 +12,17 @@ class RerankingOutcomes {
   /// The final ranking in order of the input documents.
   ///
   /// Should only be empty if there where no input documents.
-  final Uint16List finalRanks;
+  final List<int> finalRanks;
 
   /// The QA-mBERT similarities in order of the input documents.
   ///
   /// Can be empty if not calculated.
-  final Float32List? qaMBertSimilarities;
+  final List<double>? qaMBertSimilarities;
 
   /// The context scores for all documents in order of the input documents.
   ///
   /// Can be empty if not calculated.
-  final Float32List? contextScores;
+  final List<double>? contextScores;
 
   /// Create a new instance from it's parts.
   ///
