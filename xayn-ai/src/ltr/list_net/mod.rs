@@ -66,13 +66,13 @@ impl ListNet {
 
     /// Load list net from `BinParams`.
     fn load(mut params: BinParams) -> Result<Self, LoadingListNetFailed> {
-        let dense_1 = Dense::load(params.with_scope("dense_1"), Relu::default())?;
+        let dense_1 = Dense::load(params.with_scope("dense_1"), Relu)?;
         let dense_1_out_shape = dense_1.check_in_out_shapes(Self::INPUT_SHAPE.into_dimension())?;
 
-        let dense_2 = Dense::load(params.with_scope("dense_2"), Relu::default())?;
+        let dense_2 = Dense::load(params.with_scope("dense_2"), Relu)?;
         let dense_2_out_shape = dense_2.check_in_out_shapes(dense_1_out_shape)?;
 
-        let scores = Dense::load(params.with_scope("scores"), Linear::default())?;
+        let scores = Dense::load(params.with_scope("scores"), Linear)?;
         let scores_out_shape = scores.check_in_out_shapes(dense_2_out_shape)?;
         let flattened_shape = [scores_out_shape.size()].into_dimension();
 
@@ -370,9 +370,7 @@ mod tests {
             .into_shape((10, 50))
             .unwrap();
 
-        let outcome = list_net.run_for_10(inputs);
-
-        assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps = 4);
+        assert!(list_net.run_for_10(inputs).is_standard_layout());
     }
     #[test]
     fn test_list_net_run_for_10_can_be_used_with_into_raw_vec() {
@@ -406,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_net_for_more_then_10_works() {
+    fn test_list_net_for_more_than_10_works() {
         //TODO load once
         let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
 
@@ -443,7 +441,7 @@ mod tests {
     }
 
     #[test]
-    fn test_to_few_inputs() {
+    fn test_too_few_inputs() {
         let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
 
         let to_few_inputs = Array1::from(SAMPLE_INPUTS_TO_FEW.to_vec())

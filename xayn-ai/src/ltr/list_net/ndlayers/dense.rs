@@ -135,7 +135,7 @@ mod tests {
         let weights = arr2(&[[1.0f32, 2.], [4., 8.], [3., 0.]]);
         // (units,) = (2,)
         let bias = arr1(&[0.5, 2.0]);
-        let dense = Dense::new(weights, bias, Linear::default()).unwrap();
+        let dense = Dense::new(weights, bias, Linear).unwrap();
 
         // (..., features) = (2, 3);
         let inputs = arr2(&[[10., 1., -10.], [0., 10., 0.]]);
@@ -154,7 +154,7 @@ mod tests {
     fn test_activation_function_is_called() {
         let weights = arr2(&[[1.0f32, 2.], [4., 8.], [3., 0.]]);
         let bias = arr1(&[0.5, 2.0]);
-        let dense = Dense::new(weights, bias, Relu::default()).unwrap();
+        let dense = Dense::new(weights, bias, Relu).unwrap();
 
         let inputs = arr2(&[[10., 1., -10.], [0., 10., 0.]]);
         let expected = arr2(&[[0.0, 30.], [40.5, 82.]]);
@@ -166,7 +166,7 @@ mod tests {
     fn test_dense_2d_new_panics_if_shapes_do_not_match() {
         let weights = Array2::<f32>::ones((2, 3));
         let bias = Array1::ones((2,));
-        assert!(Dense::new(weights, bias, Linear::default()).is_err());
+        assert!(Dense::new(weights, bias, Linear).is_err());
     }
 
     #[test]
@@ -175,7 +175,7 @@ mod tests {
         let weights = arr2(&[[1.0f32, 2.], [4., 8.], [3., 0.]]);
         // (units,) = (2,)
         let bias = arr1(&[0.5, 2.0]);
-        let dense = Dense::new(weights, bias, Linear::default()).unwrap();
+        let dense = Dense::new(weights, bias, Linear).unwrap();
 
         // (..., features) = (2, 3);
         let inputs = arr1(&[10., 1., -10.]);
@@ -194,14 +194,14 @@ mod tests {
     fn test_dense_1d_new_errors_if_shapes_do_not_match() {
         let weights = Array2::<f32>::ones((2, 3));
         let bias = Array1::ones((2,));
-        assert!(Dense::new(weights, bias, Linear::default()).is_err());
+        assert!(Dense::new(weights, bias, Linear).is_err());
     }
 
     #[test]
     fn test_check_in_out_shape() {
         let weights = Array2::<f32>::ones((5, 4));
         let bias = Array1::<f32>::ones((4,));
-        let dense = Dense::new(weights, bias, Linear::default()).unwrap();
+        let dense = Dense::new(weights, bias, Linear).unwrap();
 
         let dim = [10, 5].into_dimension();
         let out_shape = dense.check_in_out_shapes(dim).unwrap();

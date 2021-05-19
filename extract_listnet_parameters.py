@@ -28,7 +28,7 @@ Required Bincode Option
 
 This serializes using `Fixed` integer encoding,
 as such the deserializer must be setup to use
-exactly that. (We would safe 3+9*nr_arrays bytes
+exactly that. (We would save 3+9*nr_arrays bytes
 only which isn't worth it.)
 
 LittleEndianness is used for all integer.
@@ -64,7 +64,7 @@ little endianness.
 
 Same is true for floats.
 
-usize/iszie
+usize/isize
 ------------
 
 Are always encoded as u64,i64.
@@ -96,14 +96,14 @@ Final Binary Format
 )*nr_arrays
 ```
 
-There is a additional invariant that
+There is an additional invariant that
 `n_params == 1*...*dim[ndim-1]`, if that
-is not meet conversion to `ndarray::Array`
+is not met, conversion to `ndarray::Array`
 and similar will fail.
 
 The whole blob is bincode decodeable as
 mentioned above. This is also why all
-length are in u64.
+lengths are in u64.
 
 Be aware the all the "length" fields like
 `ndim`, `n_params` etc. represent the number

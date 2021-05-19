@@ -5,13 +5,7 @@ use super::super::ndutils::{relative_index, softmax};
 use super::ActivationFunction;
 
 /// reLu activation function.
-///
-/// Currently this can't be parametrized and therefore has
-/// only the `Default::default()` constructor.
-#[derive(Default)]
-pub(crate) struct Relu {
-    _priv: (),
-}
+pub(crate) struct Relu;
 
 impl<A> ActivationFunction<A> for Relu
 where
@@ -80,13 +74,8 @@ where
 /// Linear activation function.
 ///
 /// Like common this is a identity function used
-/// if there no activation function is needed.
-///
-/// Create new instances using `Default::default()`.
-#[derive(Default)]
-pub(crate) struct Linear {
-    _priv: (),
-}
+/// in cases where there no activation function is needed.
+pub(crate) struct Linear;
 
 impl<A> ActivationFunction<A> for Linear {
     fn apply_to<S, D>(&self, input: ArrayBase<S, D>) -> ArrayBase<S, D>
@@ -106,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_relu_activation_function_works() {
-        let relu = Relu::default();
+        let relu = Relu;
         let array = arr3(&[
             [[-1.0f32, 2.], [3.5, -4.0]],
             [[3.0, 2.4], [-3.0, -1.2]],
@@ -123,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_linear_activation_function_works() {
-        let relu = Linear::default();
+        let relu = Linear;
         let array = arr3(&[
             [[-1.0f32, 2.], [3.5, -4.0]],
             [[3.0, 2.4], [-3.0, -1.2]],
