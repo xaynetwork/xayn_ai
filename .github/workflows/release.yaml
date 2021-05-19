@@ -345,7 +345,7 @@ jobs:
 
       - name: Build WASM library
         run: |
-          wasm-pack build --target web --release --no-typescript --out-dir ${{ runner.temp }}/wasm xayn-ai-ffi-wasm
+          wasm-pack build xayn-ai-ffi-wasm --target web --release --no-typescript --out-dir ${{ runner.temp }}/wasm --out-name genesis
           rm ${{ runner.temp }}/wasm/.gitignore ${{ runner.temp }}/wasm/package.json
 
       - name: Upload artifact

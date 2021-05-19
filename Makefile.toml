@@ -54,5 +54,5 @@ script = ["""
 
 [tasks.build-wasm]
 script = ["""
-  wasm-pack build --target web --release --no-typescript --out-dir ../bindings/dart_wasm xayn-ai-ffi-wasm
+  wasm-pack build xayn-ai-ffi-wasm --target web --release --no-typescript --out-dir ../bindings/dart/lib/src/web/ffi --out-name genesis
 """]
