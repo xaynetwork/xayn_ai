@@ -42,11 +42,11 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
     nan_safe_f32_cmp(b, a)
 }
 
-/// Compares to things with approximate equality.
+/// Compares two "things" with approximate equality.
 ///
 /// # Examples
 ///
-/// This can be used to compare two floating point number:
+/// This can be used to compare two floating point numbers:
 ///
 /// ```
 /// use xayn_ai::assert_approx_eq;
@@ -74,9 +74,9 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
 ///
 /// The number of `ulps` defaults to `2` if not specified.
 ///
-/// # Missing Implementation
+/// # Missing Implementations
 ///
-/// Implementations for other primitives and smart pointer or other sequential containers
+/// Implementations for other primitives, smart pointer types or other sequential containers
 /// can easily be added on demand.
 ///
 /// Non sequential containers are not supported.
@@ -153,17 +153,19 @@ pub trait ApproxAssertIterHelper<'a>: Copy {
 
     /// Flattened iterates over all leaf elements in this instance.
     ///
-    /// The passed in `prefix` is the "index" at which this was called.
+    /// The passed in `index_prefix` is the "index" at which
+    /// this instance is placed.
     ///
     /// Leaf values implementing this should just return a iterator
-    /// which yields a single element which is their value and the
-    /// passed in prefix.
+    /// which yields a single tuple of their value and the
+    /// passed in index prefix.
     ///
-    /// Sequential containers are supposed to yield a element for each
-    /// element index in them and the index pushed to a clone of `prefix`.
+    /// Sequential containers are supposed to yield a tuple for each
+    /// element in them in which the index is created by pushing
+    /// the elements index in this container onto the `index_prefix`.
     fn indexed_iter_logical_order(
         self,
-        prefix: Vec<Ix>,
+        index_prefix: Vec<Ix>,
     ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a>;
 }
 
@@ -193,8 +195,6 @@ where
         (*self).indexed_iter_logical_order(prefix)
     }
 }
-
-//impl for other primitives when needed
 
 impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a Vec<T>
 where
@@ -333,6 +333,16 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "at index [0, 1, 2]")]
+    fn test_assert_approx_eq_fails_multi_dimensional() {
+        assert_approx_eq!(
+            f32,
+            &[[[0.25, 1.25, 0.], [0.0, 0.125, 0.]]],
+            arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]])
+        );
+    }
+
+    #[test]
     fn test_assert_approx_eq_iterable_nested() {
         assert_approx_eq!(
             f32,
@@ -349,18 +359,11 @@ mod tests {
             &[[[0.25, 1.25], [0.0, 0.125]]],
             arr3(&[[[0.25, 1.25], [0.0, 0.125]]])
         );
-        let err = catch_unwind(|| {
-            assert_approx_eq!(
-                f32,
-                &[[[0.25, 1.25, 0.], [0.0, 0.125, 0.]]],
-                arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]])
-            );
-        })
-        .unwrap_err();
-
-        let err_msg = err.downcast::<String>().unwrap();
-        assert!(err_msg.contains("at index [0, 1, 2]"));
     }
 
-    //TODO test failure cases
+    #[test]
+    #[should_panic(expected = "[0, 2]")]
+    fn test_panic_at_different_length() {
+        assert_approx_eq!(f32, &[[1., 2., 3.]], &[[1., 2.]]);
+    }
 }
