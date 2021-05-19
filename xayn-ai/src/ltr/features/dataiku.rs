@@ -58,6 +58,7 @@ pub(crate) enum DayOfWeek {
     Sun,
 }
 
+/// Data pertaining to a single result from a search.
 pub struct SearchResult {
     /// Session identifier.
     pub(crate) session_id: i32,
@@ -386,6 +387,10 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
         .filter(|r| r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
         .count() as f32;
 
+    if denom == 0. {
+        return 0.;
+    }
+
     let numer = pred_filtered
         .group_by(|r| (r.session_id, r.query_counter))
         .into_iter()
@@ -395,11 +400,7 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
         })
         .sum::<f32>();
 
-    if denom == 0. {
-        0.
-    } else {
-        numer / denom
-    }
+    numer / denom
 }
 
 /// Scores the search result ranked at position `pos` in the result set `rs`.
