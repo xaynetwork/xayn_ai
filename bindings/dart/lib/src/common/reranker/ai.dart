@@ -6,7 +6,8 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
     show SetupData;
-import 'package:xayn_ai_ffi_dart/src/data/outcomes.dart' show RerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
+    show RerankingOutcomes;
 
 /// The Xayn AI.
 class XaynAi {

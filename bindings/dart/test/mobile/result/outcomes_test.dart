@@ -11,15 +11,24 @@ import 'dart:ffi'
         Float,
         // ignore: unused_shown_name
         FloatPointer;
-import 'dart:typed_data' show Float32List;
 
 import 'package:ffi/ffi.dart' show calloc;
 import 'package:flutter_test/flutter_test.dart'
-    show equals, expect, group, test, throwsStateError;
+    show
+        equals,
+        expect,
+        group,
+        isNull,
+        test,
+        throwsArgumentError,
+        throwsStateError;
 
-import 'package:xayn_ai_ffi_dart/src/data/outcomes.dart'
-    show RerankingOutcomes, RerankingOutcomesBuilder;
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CRerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
+    show RerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
+    show RerankingOutcomesBuilder;
+import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
+    show CRerankingOutcomes;
 
 class Delayed {
   final List<void Function()> _toClean;
@@ -103,7 +112,60 @@ void main() {
 
       expect(dartOutcomes.contextScores, equals([0.25, 0.5, 0.75]));
 
-      expect(dartOutcomes.qaMBertSimilarities, equals(<Float32List>[]));
+      expect(dartOutcomes.qaMBertSimilarities, isNull);
+    });
+
+    test('create from C repr with null rankings throw', () {
+      final delayed = Delayed();
+      try {
+        // We MUST NOT call `builder.free()` or similar.
+        final outcomes = calloc.call<CRerankingOutcomes>();
+        delayed.free(outcomes);
+
+        outcomes.ref.final_ranking.data = nullptr;
+        outcomes.ref.final_ranking.len = 0;
+        outcomes.ref.context_scores.data = nullptr;
+        outcomes.ref.context_scores.len = 0;
+        outcomes.ref.qa_mbert_similarities.data = nullptr;
+        outcomes.ref.qa_mbert_similarities.len = 0;
+
+        final builder = RerankingOutcomesBuilder(outcomes);
+        expect(() {
+          builder.build();
+        }, throwsArgumentError);
+      } finally {
+        delayed.runDelayed();
+      }
+    });
+
+    test('create from C repr with 0 rankings works', () {
+      final RerankingOutcomes dartOutcomes;
+      final delayed = Delayed();
+      try {
+        // We MUST NOT call `builder.free()` or similar.
+        final outcomes = calloc.call<CRerankingOutcomes>();
+        delayed.free(outcomes);
+
+        // We need the equivalent of `NonNull::dangeling()`,
+        // which is alginment as ptr addres which here is 2.
+        outcomes.ref.final_ranking.data = Pointer<Uint16>.fromAddress(2);
+        // length need to be 0
+        outcomes.ref.final_ranking.len = 0;
+
+        outcomes.ref.context_scores.data = nullptr;
+        outcomes.ref.context_scores.len = 0;
+        outcomes.ref.qa_mbert_similarities.data = nullptr;
+        outcomes.ref.qa_mbert_similarities.len = 0;
+
+        final builder = RerankingOutcomesBuilder(outcomes);
+        dartOutcomes = builder.build();
+      } finally {
+        delayed.runDelayed();
+      }
+
+      expect(dartOutcomes.finalRanks.length, equals(0));
+      expect(dartOutcomes.contextScores, isNull);
+      expect(dartOutcomes.qaMBertSimilarities, isNull);
     });
   });
 }

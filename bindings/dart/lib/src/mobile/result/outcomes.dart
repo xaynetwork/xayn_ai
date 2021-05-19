@@ -1,43 +1,12 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer;
-import 'dart:typed_data' show Float32List, Uint16List;
 
-import 'package:xayn_ai_ffi_dart/src/data/slice.dart'
+import 'package:xayn_ai_ffi_dart/src/mobile/result/slice.dart'
     show BoxedSliceF32List, BoxedSliceU16List;
-import 'package:xayn_ai_ffi_dart/src/ffi/genesis.dart' show CRerankingOutcomes;
-import 'package:xayn_ai_ffi_dart/src/ffi/library.dart' show ffi;
-
-/// Type containing all reranking outcomes.
-///
-/// Some of the outcomes can be empty if they
-/// had not been calculated. This can happen due to
-/// configurations when running rerank or if an
-/// non-panic error happened during execution and
-/// as such only partial results are available.
-///
-/// Note that `finalRanks` is empty if and only if there
-/// had been no input documents.
-class RerankingOutcomes {
-  /// The final ranking in order of the input documents.
-  ///
-  /// Should only be empty if there where no input documents.
-  final Uint16List finalRanks;
-
-  /// The QA-mBERT similarities in order of the input documents.
-  ///
-  /// Can be empty if not calculated.
-  final Float32List qaMBertSimilarities;
-
-  /// The context scores for all documents in order of the input documents.
-  ///
-  /// Can be empty if not calculated.
-  final Float32List contextScores;
-
-  RerankingOutcomes._(
-    this.finalRanks,
-    this.contextScores,
-    this.qaMBertSimilarities,
-  );
-}
+import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
+    show RerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
+    show CRerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
 
 class RerankingOutcomesBuilder {
   final Pointer<CRerankingOutcomes> _cOutcomes;
@@ -62,10 +31,13 @@ class RerankingOutcomesBuilder {
           'Error codes should be checked befor building outcomes from C.');
     } else {
       final finalRanking = _cOutcomes.ref.final_ranking.toList();
+      if (finalRanking == null) {
+        throw ArgumentError('Final rankings outcome was null.');
+      }
       final contextScores = _cOutcomes.ref.context_scores.toList();
       final qaMBertSimilarities = _cOutcomes.ref.qa_mbert_similarities.toList();
 
-      return RerankingOutcomes._(
+      return RerankingOutcomes.fromParts(
         finalRanking,
         contextScores,
         qaMBertSimilarities,

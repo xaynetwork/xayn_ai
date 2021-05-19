@@ -45,8 +45,8 @@ where
 
         Some(Box::new(CRerankingOutcomes {
             final_ranking: final_ranking.into(),
-            qa_mbert_similarities: qa_mbert_similarities.unwrap_or_default().into(),
-            context_scores: context_scores.unwrap_or_default().into(),
+            qa_mbert_similarities: qa_mbert_similarities.into(),
+            context_scores: context_scores.into(),
         }))
     }
 }

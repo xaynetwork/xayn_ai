@@ -10,8 +10,10 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
-import 'package:xayn_ai_ffi_dart/src/data/outcomes.dart'
-    show RerankingOutcomes, RerankingOutcomesBuilder;
+import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
+    show RerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
+    show RerankingOutcomesBuilder;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/document.dart' show Documents;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart' show Histories;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart' show CXaynAi;

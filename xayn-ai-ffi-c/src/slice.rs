@@ -89,6 +89,15 @@ impl<T> CBoxedSlice<T> {
         }
     }
 
+    // Creates a empty boxed slice with none hint.
+    pub fn new_none() -> Self {
+        Self {
+            data: None,
+            len: 0,
+            _owned: PhantomData,
+        }
+    }
+
     /// Checks partially for soundness.
     ///
     /// This always holds if the boxed slice is only used within safe Rust. Otherwise this might be
@@ -149,6 +158,11 @@ impl<T> CBoxedSlice<T> {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    /// Checks if it is not just empty but implies it is `None`
+    pub fn is_none(&self) -> bool {
+        self.data.is_none()
+    }
 }
 
 #[cfg(test)]
@@ -167,6 +181,19 @@ impl<T> From<Vec<T>> for CBoxedSlice<T> {
 impl<T> From<Box<[T]>> for CBoxedSlice<T> {
     fn from(boxed_slice: Box<[T]>) -> Self {
         Self::new(boxed_slice)
+    }
+}
+
+impl<T, E> From<Option<T>> for CBoxedSlice<E>
+where
+    CBoxedSlice<E>: From<T>,
+{
+    fn from(val: Option<T>) -> Self {
+        if let Some(val) = val {
+            Self::from(val)
+        } else {
+            Self::new_none()
+        }
     }
 }
 
@@ -266,5 +293,17 @@ mod tests {
     fn test_len() {
         let slice = CBoxedSlice::from(vec![1u8, 2, 4]);
         assert_eq!(slice.len(), 3);
+    }
+
+    #[test]
+    fn test_construct_from_option() {
+        let slice = CBoxedSlice::from(Some(vec![1u8, 2, 4]));
+        assert_eq!(slice.as_ref(), [1, 2, 4]);
+        assert!(!slice.is_none());
+
+        let none: Option<Vec<u8>> = None;
+        let slice = CBoxedSlice::from(none);
+        assert_eq!(slice.as_ref(), &[]);
+        assert!(slice.is_none());
     }
 }
