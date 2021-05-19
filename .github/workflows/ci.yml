@@ -395,7 +395,7 @@ jobs:
       - name: Upload library artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: build-ios-${{ matrix.target }}-${{ hashFiles('target/*-apple-ios/debug/libxayn_ai_ffi_c_*-apple-ios.a') }}
+          name: build-ios-${{ matrix.target }}-${{ github.sha }}
           retention-days: 1
           if-no-files-found: error
           path: target/${{ matrix.target}}/debug/libxayn_ai_ffi_c_${{ matrix.target }}.a
@@ -676,22 +676,27 @@ jobs:
         working-directory: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
         run: mv xayn-ai-ffi-c/ffi.h ${{ github.workspace }}/xayn-ai-ffi-c/ffi.h
 
-      - name: Download all artifacts
-        # Currently we can only download all artifacts. Using wildcards is not
-        # yet supported. https://github.com/actions/download-artifact/issues/6
-        # That said, we're downloading the Linux artifacts twice, but doing it
-        # in two download steps would be a bit overkill.
+      - name: Download iOS aarch64 artifacts
         if: matrix.os == 'macos-10.15'
         uses: actions/download-artifact@v2
         with:
-          path: ${{ runner.temp }}/all-artifacts/
+          name: build-ios-aarch64-apple-ios-${{ github.sha }}
+          path: ${{ runner.temp }}/build-ios-${{ github.sha }}
 
-      - name: Move iOS libs
+      - name: Download iOS x84_64 artifacts
         if: matrix.os == 'macos-10.15'
-        working-directory: ${{ runner.temp }}/all-artifacts/
+        uses: actions/download-artifact@v2
+        with:
+          name: build-ios-x86_64-apple-ios-${{ github.sha }}
+          path: ${{ runner.temp }}/build-ios-${{ github.sha }}
+
+      - name: Move iOS artifacts
+        if: matrix.os == 'macos-10.15'
         run: |
-          find build-x86_64-unknown-linux-gnu-*/bindings/dart/ios/Classes/XaynAiFfiDartPlugin.h -exec cp \{\} ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h \;
-          find build-ios-*/ -iname '*.a' -exec cp \{\} ${{ env.DART_WORKSPACE }}/ios \;
+          cd ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
+          cp bindings/dart/ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/Classes/
+          cd ${{ runner.temp }}/build-ios-${{ github.sha }}
+          find . -iname '*.a' -exec cp \{\} ${{ env.DART_WORKSPACE }}/ios \;
 
       - name: Set path or install flutter
         uses: subosito/flutter-action@v1
