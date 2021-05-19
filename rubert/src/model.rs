@@ -60,8 +60,6 @@ pub enum ModelError {
     Tract(#[from] TractError),
     /// Invalid onnx model shapes
     Shape,
-    /// Empty model file
-    Empty,
 }
 
 pub trait BertModel: Sized {

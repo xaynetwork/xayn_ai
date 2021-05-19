@@ -156,7 +156,7 @@ mod tests {
             Model::new(
                 Model::<u32>::parse_vocab(vocab.as_slice()).unwrap(),
                 "[UNK]".into(),
-                "[##]".into(),
+                "##".into(),
                 10,
             )
             .unwrap_err(),
@@ -166,6 +166,7 @@ mod tests {
 
     #[test]
     fn test_model_missing_prefix() {
+        // let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
         let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
             .iter()
             .map(|word| word.as_bytes().to_vec())
@@ -175,7 +176,7 @@ mod tests {
             Model::new(
                 Model::<u32>::parse_vocab(vocab.as_slice()).unwrap(),
                 "[UNK]".into(),
-                "[##]".into(),
+                "##".into(),
                 10,
             )
             .unwrap_err(),
