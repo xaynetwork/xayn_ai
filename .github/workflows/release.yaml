@@ -246,7 +246,7 @@ jobs:
     name: build-ios-libs
     needs: [registry-cache, install-cargo-lipo]
     runs-on: macos-10.15
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       matrix:
         target: [aarch64-apple-ios, x86_64-apple-ios]
