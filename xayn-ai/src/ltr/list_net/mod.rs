@@ -239,10 +239,14 @@ mod tests {
     use std::collections::HashSet;
 
     use ndarray::{Array, IxDyn};
+    use once_cell::sync::Lazy;
 
     use super::*;
 
     const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
+
+    static LIST_NET: Lazy<ListNet> =
+        Lazy::new(|| ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap());
 
     /// A single List-Net Input, cast to shape (10, 50).
     ///
@@ -361,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_list_net_end_to_end_with_run_for_10() {
-        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let list_net = &*LIST_NET;
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
@@ -372,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_list_net_run_for_10_can_be_used_with_into_raw_vec() {
-        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let list_net = &*LIST_NET;
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
@@ -390,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_run_works_with_10_inputs() {
-        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let list_net = &*LIST_NET;
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
@@ -403,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_running_list_net_with_no_inputs_works() {
-        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let list_net = &*LIST_NET;
         let inputs = Array2::<f32>::zeros((0, 50));
         let outputs = list_net.run(inputs);
         assert!(outputs.is_empty());
@@ -412,7 +416,7 @@ mod tests {
     #[test]
     fn test_list_net_for_more_than_10_works() {
         //TODO load once
-        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let list_net = &*LIST_NET;
 
         let big_inputs = Array1::from(SAMPLE_INPUTS_REMIX.to_vec())
             .into_shape((17, 50))
@@ -448,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_too_few_inputs() {
-        let list_net = ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let list_net = &*LIST_NET;
 
         let to_few_inputs = Array1::from(SAMPLE_INPUTS_TO_FEW.to_vec())
             .into_shape((3, 50))
