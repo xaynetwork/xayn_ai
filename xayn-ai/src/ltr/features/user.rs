@@ -64,7 +64,7 @@ fn user_features(history: &[SearchResult]) -> UserFeatures {
         .sum::<usize>() as f32
         / num_queries as f32;
 
-    let words_per_session = words_per_session(all_queries.into_iter());
+    let words_per_session = words_per_session(all_queries.into_iter().map(|tpl| (tpl.0, tpl.2)));
 
     UserFeatures {
         click_entropy,
@@ -84,15 +84,14 @@ fn click_counts(results: &[SearchResult]) -> ClickCounts {
 }
 
 /// Calculate mean number of unique query words per session.
-fn words_per_session<'a>(all_queries: impl Iterator<Item = (i32, i32, &'a Vec<i32>, u8)>) -> f32 {
-    let words_by_session =
-        all_queries.fold(HashMap::new(), |mut words_by_session, (s, _, ws, _)| {
-            let words = words_by_session
-                .entry(s)
-                .or_insert_with(HashSet::<i32>::new);
-            words.extend(ws);
-            words_by_session
-        });
+///
+/// `queries` is an iterator of unique `(session_id, query_words)` tuples over the search history.
+fn words_per_session<'a>(queries: impl Iterator<Item = (i32, &'a Vec<String>)>) -> f32 {
+    let words_by_session = queries.fold(HashMap::new(), |mut words_by_session, (s, ws)| {
+        let words = words_by_session.entry(s).or_insert_with(HashSet::new);
+        words.extend(ws);
+        words_by_session
+    });
 
     let num_sessions = words_by_session.len();
     words_by_session

@@ -38,8 +38,8 @@ struct AggregFeatures {
 fn aggreg_features(hist: &[SearchResult], r: SearchResult) -> AggregFeatures {
     let anterior = SessionCond::Anterior(r.session_id);
     let current = SessionCond::Current(r.session_id);
-    let r_url = UrlOrDom::Url(r.url);
-    let r_dom = UrlOrDom::Dom(r.domain);
+    let r_url = UrlOrDom::Url(&r.url);
+    let r_dom = UrlOrDom::Dom(&r.domain);
 
     let pred_dom = FilterPred::new(r_dom);
     let dom = aggreg_feat(hist, &r, pred_dom);

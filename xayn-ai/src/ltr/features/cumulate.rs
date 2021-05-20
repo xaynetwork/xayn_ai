@@ -36,7 +36,7 @@ fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
         })
         // calculate specified cond probs for each of the above
         .flat_map(|r| {
-            let pred = FilterPred::new(UrlOrDom::Url(r.url));
+            let pred = FilterPred::new(UrlOrDom::Url(&r.url));
             pred.cum_atoms()
                 .into_iter()
                 .map(move |outcome| (outcome, cond_prob(hist, outcome, pred)))
