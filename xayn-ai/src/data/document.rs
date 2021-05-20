@@ -87,7 +87,7 @@ pub struct RerankingOutcomes {
     /// But if various steps fail this might be based on something
     /// else, in the extreme case this is just the initial ranking.
     ///
-    /// Make sure to retrieve the errors from the `Reranker`.
+    /// Make sure to check for the errors from the `Reranker`.
     pub final_ranking: Vec<u16>,
 
     /// The QA-mBERT outcomes (similarities)

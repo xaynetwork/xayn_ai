@@ -20,7 +20,7 @@ class RerankingOutcomesBuilder {
   /// the `finally` block `builder.free()` is called.
   ///
   /// If this is called and the pointer with which this instance was
-  /// created was a `nullptr` a exception is thrown. As you *should* only
+  /// created was a `nullptr` an exception is thrown. As you *should* only
   /// call this after checking the error codes this should not happen in
   /// practice.
   RerankingOutcomes build() {

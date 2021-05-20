@@ -89,7 +89,7 @@ impl<T> CBoxedSlice<T> {
         }
     }
 
-    // Creates a empty boxed slice with none hint.
+    // Creates an empty boxed slice with none hint.
     pub fn new_none() -> Self {
         Self {
             data: None,
@@ -159,7 +159,7 @@ impl<T> CBoxedSlice<T> {
         self.len == 0
     }
 
-    /// Checks if it is not just empty but implies it is `None`
+    /// Checks if it is not just empty but implies it is `None`.
     pub fn is_none(&self) -> bool {
         self.data.is_none()
     }

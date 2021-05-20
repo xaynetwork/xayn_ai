@@ -372,7 +372,7 @@ mod tests {
         //
         // Safe: But due to non-null optimizations we know that `Option<Box<T>>` is equivalent to
         // `*mut T`, and as such `extern "C"` functions have the same layout. It should be noted
-        // that this should only ever be used for testing, function pointers are on of the largely
+        // that this should only ever be used for testing, function pointers are one of the largely
         // under specified parts of rust, using "C" function pointers makes this better but I
         // wouldn't want to put this into release/production code. Still it helps us to better
         // test extern "C" destructors.

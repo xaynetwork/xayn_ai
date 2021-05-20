@@ -24,7 +24,7 @@ class RerankingOutcomes {
   /// Can be empty if not calculated.
   final List<double>? contextScores;
 
-  /// Create a new instance from it's parts.
+  /// Create a new instance from its parts.
   ///
   /// Besides for testing this should ONLY be used by the `mobile/` and `web/`
   /// FFI binding.

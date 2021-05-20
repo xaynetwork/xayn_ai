@@ -12,12 +12,20 @@ pub struct CRerankingOutcomes {
 
     /// See [`xayn_ai::RerankingOutcomes.qa_mbert_similarities`].
     ///
-    /// An empty slice either implies it was `None` or the input document list was empty.
+    /// If it was `None` the `CBoxedSlice` instance will have a
+    /// null-pointer and a length of 0.
+    ///
+    /// If it was `Some` but still empty it will have a dangling
+    /// pointer and a length of 0.
     pub qa_mbert_similarities: CBoxedSlice<f32>,
 
     /// See [`xayn_ai::RerankingOutcomes.context_scores`].
     ///
-    /// Empty slice implies it was `None` (or the input document list was empty)
+    /// If it was `None` the `CBoxedSlice` instance will have a
+    /// null-pointer and a length of 0.
+    ///
+    /// If it was `Some` but still empty it will have a dangling
+    /// pointer and a length of 0.
     pub context_scores: CBoxedSlice<f32>,
 }
 
@@ -70,7 +78,7 @@ impl From<xayn_ai::RerankingOutcomes> for RerankingOutcomes {
 ///
 /// # Safety
 ///
-/// This is safe (in rust terms) as long as the C-FFI does keep it's
+/// This is safe (in rust terms) as long as the C-FFI does keep its
 /// constraints and doesn't violate any rust constraints wrt. the
 /// passed in data (which makes it always rust-safe).
 ///
@@ -81,7 +89,7 @@ impl From<xayn_ai::RerankingOutcomes> for RerankingOutcomes {
 /// - it must be aligned properly and non-dangling
 ///     - which always should be the case if it was properly allocated by rust
 /// - and the data-structure behind the pointer must not have been changed in
-///   any way which would brake rust invariants (just don't change it at all!).
+///   any way which would break rust invariants (just don't change it at all!).
 #[no_mangle]
 pub unsafe extern "C" fn reranking_outcomes_drop(_input: Option<Box<CRerankingOutcomes>>) {}
 

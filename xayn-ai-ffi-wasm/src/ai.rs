@@ -85,8 +85,6 @@ impl WXaynAi {
             })
             .into_js_result()?;
 
-        //FIXME If it matters we can do this much faster,
-        //      by not serializing through JsValue.
         let outcomes = self.0.rerank(&histories, &documents);
 
         Ok(JsValue::from_serde(&outcomes).expect("Failed to serialize the analytics"))

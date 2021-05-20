@@ -35,9 +35,9 @@ class Delayed {
 
   Delayed() : _toClean = List.empty(growable: true);
 
-  /// Frees the memory (calloc) once cleanup is called.
-  // I might seem that wrapping `alloc` would be a good idea, but it doesn't
-  // work due to limitations of `malloc`/`calloc` `.call`/`.allocate`.
+  // Frees the memory (calloc) once cleanup is called.
+  // It might seem that wrapping `alloc` would be a good idea, but it doesn't
+  // work due to limitations of `malloc`/`calloc` and `.call`/`.allocate`.
   void free<T extends NativeType>(Pointer<T> ptr) {
     _toClean.add(() {
       calloc.free(ptr);
@@ -75,8 +75,8 @@ void main() {
       const numberOfDocs = 3;
       final delayed = Delayed();
       try {
-        // As we allocate this manually we also need to free it manually!!
-        // we MUST NOT call `builder.free()` or any other function which
+        // As we allocate this manually we also need to free it manually!
+        // We MUST NOT call `builder.free()` or any other function which
         // passes back ownership to rust (where it could be dropped).
         final outcomes = calloc.call<CRerankingOutcomes>();
         delayed.free(outcomes);
@@ -103,7 +103,7 @@ void main() {
 
         final builder = RerankingOutcomesBuilder(outcomes);
         dartOutcomes = builder.build();
-        //must not call: builder.free()
+        //We MUST NOT call: builder.free()
       } finally {
         delayed.runDelayed();
       }
@@ -146,10 +146,10 @@ void main() {
         final outcomes = calloc.call<CRerankingOutcomes>();
         delayed.free(outcomes);
 
-        // We need the equivalent of `NonNull::dangeling()`,
-        // which is alginment as ptr addres which here is 2.
+        // We need the equivalent of `NonNull::dangling()`,
+        // which is the alginment as ptr address which here is 2.
         outcomes.ref.final_ranking.data = Pointer<Uint16>.fromAddress(2);
-        // length need to be 0
+        // length needs to be 0
         outcomes.ref.final_ranking.len = 0;
 
         outcomes.ref.context_scores.data = nullptr;
