@@ -1,7 +1,13 @@
 #!/bin/sh
 
+set -eu
+
 # path to this file
-SELF_PATH="$(readlink -f "$0")"
+if ! SELF_PATH="$(readlink -f "$0")"; then
+    echo "WARNING: readlink -f doesn't exist, using relative paths, this might lead to problems."
+    SELF_PATH="$0"
+fi
+
 # path to the directory where this file is
 SELF_DIR_PATH="$(dirname "$SELF_PATH")"
 
