@@ -140,7 +140,8 @@ pub(super) mod tests {
             document_data::{
                 CoiComponent,
                 DocumentBaseComponent,
-                DocumentDataWithSMBert,
+                DocumentDataWithQAMBert,
+                QAMBertComponent,
                 SMBertEmbeddingComponent,
             },
             CoiId,
@@ -208,7 +209,7 @@ pub(super) mod tests {
 
     pub(crate) fn create_data_with_embeddings(
         embeddings: &[impl FixedInitializer<Elem = f32>],
-    ) -> Vec<DocumentDataWithSMBert> {
+    ) -> Vec<DocumentDataWithQAMBert> {
         embeddings
             .iter()
             .enumerate()
@@ -222,8 +223,8 @@ pub(super) mod tests {
         id: u128,
         initial_ranking: usize,
         embedding: &[f32],
-    ) -> DocumentDataWithSMBert {
-        DocumentDataWithSMBert {
+    ) -> DocumentDataWithQAMBert {
+        DocumentDataWithQAMBert {
             document_base: DocumentBaseComponent {
                 id: DocumentId::from_u128(id),
                 initial_ranking,
@@ -231,6 +232,7 @@ pub(super) mod tests {
             embedding: SMBertEmbeddingComponent {
                 embedding: arr1(embedding).into(),
             },
+            qambert: QAMBertComponent { similarity: 0.5 },
         }
     }
 

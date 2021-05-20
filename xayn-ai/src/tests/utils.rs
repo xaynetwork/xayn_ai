@@ -15,6 +15,7 @@ use crate::{
             DocumentDataWithSMBert,
             LtrComponent,
             MabComponent,
+            QAMBertComponent,
             SMBertEmbeddingComponent,
         },
         CoiId,
@@ -113,6 +114,7 @@ pub(crate) fn data_with_mab(
                 initial_ranking,
             },
             embedding: SMBertEmbeddingComponent { embedding },
+            qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {
                 id: CoiId(1),
                 pos_distance: 0.1,
@@ -131,6 +133,9 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking,
+            },
+            document_content: DocumentContentComponent {
+                snippet: "snippet".to_string(),
             },
             embedding: SMBertEmbeddingComponent { embedding },
         })

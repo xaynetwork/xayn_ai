@@ -15,7 +15,7 @@ use crate::{
         },
     },
     data::{
-        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
+        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
         CoiPoint,
         UserInterests,
     },
@@ -154,7 +154,7 @@ impl CoiSystem {
 impl systems::CoiSystem for CoiSystem {
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: Vec<DocumentDataWithQAMBert>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
         documents
@@ -215,6 +215,7 @@ mod tests {
                 DocumentDataWithMab,
                 LtrComponent,
                 MabComponent,
+                QAMBertComponent,
                 SMBertEmbeddingComponent,
             },
             CoiId,
@@ -238,6 +239,7 @@ mod tests {
                 embedding: SMBertEmbeddingComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),
                 },
+                qambert: QAMBertComponent { similarity: 0.5 },
                 coi: CoiComponent {
                     id: CoiId(1),
                     pos_distance: 0.1,

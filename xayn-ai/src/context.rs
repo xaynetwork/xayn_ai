@@ -66,6 +66,7 @@ mod tests {
             CoiComponent,
             DocumentBaseComponent,
             LtrComponent,
+            QAMBertComponent,
             SMBertEmbeddingComponent,
         },
         CoiId,
@@ -90,6 +91,7 @@ mod tests {
                     initial_ranking: 13,
                 },
                 embedding: SMBertEmbeddingComponent { embedding },
+                qambert: QAMBertComponent { similarity: 0.5 },
                 coi: CoiComponent {
                     id: CoiId(0),
                     pos_distance,

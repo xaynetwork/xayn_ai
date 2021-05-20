@@ -91,6 +91,7 @@ where
     let original_documents = documents;
 
     let documents = make_documents_with_embedding(common_systems, documents)?;
+    let documents = common_systems.qambert().compute_similarity("", documents)?;
     let documents = common_systems
         .coi()
         .compute_coi(documents, &user_interests)?;

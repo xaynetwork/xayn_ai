@@ -12,6 +12,7 @@ use crate::{
     data::document::{Document, DocumentHistory, Ranks},
     ltr::ConstLtr,
     mab::{BetaSampler, MabRanking},
+    qambert::DummyQAMBert,
     Error,
 };
 
@@ -24,6 +25,7 @@ use super::{
         ContextSystem,
         LtrSystem,
         MabSystem,
+        QAMBertSystem,
         SMBertSystem,
     },
 };
@@ -31,6 +33,7 @@ use super::{
 pub struct Systems {
     database: Db,
     smbert: SMBert,
+    qambert: DummyQAMBert,
     coi: CoiSystemImpl,
     ltr: ConstLtr,
     context: Context,
@@ -45,6 +48,10 @@ impl CommonSystems for Systems {
 
     fn smbert(&self) -> &dyn SMBertSystem {
         &self.smbert
+    }
+
+    fn qambert(&self) -> &dyn QAMBertSystem {
+        &self.qambert
     }
 
     fn coi(&self) -> &dyn CoiSystem {
@@ -139,6 +146,7 @@ impl<V, M> Builder<V, M> {
             .with_lowercase(true)
             .with_pooling(AveragePooler)
             .build()?;
+        let qambert = DummyQAMBert;
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
         let ltr = ConstLtr::new();
         let context = Context;
@@ -148,6 +156,7 @@ impl<V, M> Builder<V, M> {
         super::Reranker::new(Systems {
             database,
             smbert,
+            qambert,
             coi,
             ltr,
             context,

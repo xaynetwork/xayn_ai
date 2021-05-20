@@ -280,6 +280,7 @@ mod tests {
             ContextComponent,
             DocumentBaseComponent,
             LtrComponent,
+            QAMBertComponent,
             SMBertEmbeddingComponent,
         },
     };
@@ -298,6 +299,7 @@ mod tests {
             embedding: SMBertEmbeddingComponent {
                 embedding: arr1(&[]).into(),
             },
+            qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {
                 id: coi_id,
                 pos_distance: 0.,

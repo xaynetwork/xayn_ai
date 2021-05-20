@@ -8,6 +8,7 @@ mod data;
 mod error;
 mod ltr;
 mod mab;
+mod qambert;
 mod reranker;
 mod smbert;
 
