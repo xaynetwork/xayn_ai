@@ -239,7 +239,7 @@ jobs:
     name: build-ios-libs
     needs: [registry-cache, install-cargo-lipo]
     runs-on: macos-10.15
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       matrix:
         target: [aarch64-apple-ios, x86_64-apple-ios]
@@ -347,7 +347,7 @@ jobs:
       - name: Copy headers
         run: |
           cd /tmp/artifacts/headers-${{ github.sha }}
-          cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/ffi
+          cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi
           cp ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/Classes
 
       - name: Get current branch
