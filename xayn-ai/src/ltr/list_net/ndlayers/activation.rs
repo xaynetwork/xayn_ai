@@ -1,6 +1,6 @@
 use ndarray::{ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
-use super::super::ndutils::{relative_index, softmax};
+use super::super::ndutils::softmax;
 
 use super::ActivationFunction;
 
@@ -66,8 +66,15 @@ where
         S: DataOwned<Elem = A> + DataMut<Elem = A>,
         D: Dimension + RemoveAxis,
     {
-        let axis = Axis(relative_index(self.rel_axis_idx, input.ndim()));
-        softmax(input, axis)
+        let ndim = input.ndim();
+        let axis = if self.rel_axis_idx < 0 {
+            let idx = self.rel_axis_idx.abs() as usize;
+            ndim - idx
+        } else {
+            self.rel_axis_idx as usize
+        };
+
+        softmax(input, Axis(axis))
     }
 }
 
