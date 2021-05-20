@@ -2,14 +2,12 @@
 
 set -eu
 
-# path to this file
-if ! SELF_PATH="$(readlink -f "$0")"; then
-    echo "WARNING: readlink -f doesn't exist, using relative paths, this might lead to problems."
-    SELF_PATH="$0"
-fi
+# We can't use `pushd` or `readlink -f` so we
+# fall back to this.
+CALLING_BASE_DIR="$(pwd -L)"
 
 # path to the directory where this file is
-SELF_DIR_PATH="$(dirname "$SELF_PATH")"
+SELF_DIR_PATH="$(dirname "$0")"
 
 # in this way we can call the script from different directory
 # but the data should go in the correct destination
@@ -19,6 +17,7 @@ CHECKSUM_FILE="sha256sums"
 
 download()
 {
+  cd "$CALLING_BASE_DIR"
   NAME="$1"
   VERSION="$2"
   ARCHIVE_BASENAME="${NAME}_$VERSION"
