@@ -33,7 +33,7 @@ impl ClickCounts {
     }
 }
 
-struct UserFeatures {
+pub(crate) struct UserFeatures {
     /// Entropy over ranks of clicked results.
     click_entropy: f32,
     /// Click counts of results ranked 1-2, 3-6, 6-10 resp.
@@ -47,7 +47,7 @@ struct UserFeatures {
 }
 
 /// Calculate user features for the given historical search results of a user.
-fn user_features(history: &[SearchResult]) -> UserFeatures {
+pub(crate) fn user_features(history: &[SearchResult]) -> UserFeatures {
     let click_entropy = click_entropy(history);
     let click_counts = click_counts(history);
 

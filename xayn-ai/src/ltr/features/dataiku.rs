@@ -10,6 +10,17 @@ use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
+use super::{
+    aggreg_features,
+    cum_features,
+    query_features,
+    user_features,
+    AggregFeatures,
+    CumFeatures,
+    QueryFeatures,
+    UserFeatures,
+};
+
 /// Click satisfaction score.
 ///
 /// Based on Yandex notion of dwell-time: time elapsed between a click and the next action.
@@ -149,7 +160,7 @@ impl<'a> ResultSet<'a> {
 
 pub(crate) struct Query {
     pub(crate) id: i32,
-    pub(crate) words: Vec<i32>,
+    pub(crate) words: Vec<String>,
 }
 
 struct DocAddr<'a> {
@@ -277,6 +288,42 @@ impl<'a> FilterPred<'a> {
             SessionCond::All => true,
         };
         doc_cond && query_cond && session_cond
+    }
+}
+
+struct Features {
+    rank: Rank,
+    aggreg: AggregFeatures,
+    user: UserFeatures,
+    query: QueryFeatures,
+    cum: CumFeatures,
+    terms_variety: usize,
+    seasonality: f32,
+}
+
+fn build_features(hist: &[SearchResult], res: SearchResult) -> Features {
+    let rank = res.position;
+    let aggreg = aggreg_features(hist, &res);
+    let user = user_features(hist);
+    let query = query_features(
+        hist,
+        Query {
+            id: res.query_id,
+            words: res.query_words.clone(),
+        },
+    );
+    let cum = cum_features(hist, &res);
+    let terms_variety = terms_variety(hist, res.session_id);
+    let seasonality = seasonality(hist, res.domain);
+
+    Features {
+        rank,
+        aggreg,
+        user,
+        query,
+        cum,
+        terms_variety,
+        seasonality,
     }
 }
 

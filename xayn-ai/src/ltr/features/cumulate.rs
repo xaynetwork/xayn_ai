@@ -11,7 +11,7 @@ use crate::ltr::features::dataiku::{
 use std::collections::HashMap;
 
 /// Cumulated features for a given user.
-struct CumFeatures {
+pub(crate) struct CumFeatures {
     /// Cumulated feature for matching URL.
     url: FeatMap,
 }
@@ -24,7 +24,8 @@ struct CumFeatures {
 /// ```
 /// where the sum ranges over each search result `r` ranked above `res`. `pred` is the predicate
 /// corresponding to the cumulated feature, and `outcome` one of its specified atoms.
-fn cum_features(hist: &[SearchResult], res: SearchResult) -> CumFeatures {
+pub(crate) fn cum_features(hist: &[SearchResult], res: impl AsRef<SearchResult>) -> CumFeatures {
+    let res = res.as_ref();
     let url = hist
         .iter()
         // if res is ranked n, get the n-1 results ranked above res

@@ -13,7 +13,7 @@ use crate::ltr::features::dataiku::{
 };
 
 /// Aggregate features for a given user.
-struct AggregFeatures {
+pub(crate) struct AggregFeatures {
     /// Aggregate feature for matching domain.
     dom: FeatMap,
     /// Aggregate feature for matching domain over anterior sessions.
@@ -35,7 +35,12 @@ struct AggregFeatures {
 }
 
 /// Calculate aggregate features for the given search result and history of a user.
-fn aggreg_features(hist: &[SearchResult], r: SearchResult) -> AggregFeatures {
+pub(crate) fn aggreg_features(
+    hist: &[SearchResult],
+    res: impl AsRef<SearchResult>,
+) -> AggregFeatures {
+    let r = res.as_ref();
+
     let anterior = SessionCond::Anterior(r.session_id);
     let current = SessionCond::Current(r.session_id);
     let r_url = UrlOrDom::Url(&r.url);

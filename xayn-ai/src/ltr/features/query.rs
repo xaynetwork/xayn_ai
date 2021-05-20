@@ -10,7 +10,7 @@ use crate::ltr::features::dataiku::{
 use itertools::Itertools;
 use std::collections::HashSet;
 
-struct QueryFeatures {
+pub(crate) struct QueryFeatures {
     /// Entropy over ranks of clicked results.
     click_entropy: f32,
     /// Number of terms.
@@ -30,7 +30,7 @@ struct QueryFeatures {
 }
 
 /// Calculate query features for the given query and historical search results of a user.
-fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
+pub(crate) fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
     // history filtered by query
     let history_q = history
         .iter()
