@@ -271,7 +271,7 @@ mod tests {
             expected_rerank_unchanged,
             from_ids,
             history_for_prev_docs,
-            mocked_bert_system,
+            mocked_smbert_system,
             MemDb,
             MockAnalyticsSystem,
             MockCoiSystem,
@@ -306,7 +306,7 @@ mod tests {
                 UserInterests,
             },
             reranker::{PreviousDocuments, RerankerData},
-            tests::{data_with_mab, documents_from_words, mocked_bert_system, pos_cois_from_words},
+            tests::{data_with_mab, documents_from_words, mocked_smbert_system, pos_cois_from_words},
         };
 
         pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {
@@ -316,7 +316,7 @@ mod tests {
 
         // This seems to not be used anymore, just commenting out for the moment
         // pub(super) fn reranker_data_with_mab_from_words(words: &[&str]) -> RerankerData {
-        //     let docs = documents_with_embeddings_from_words(words, mocked_bert_system())
+        //     let docs = documents_with_embeddings_from_words(words, mocked_smbert_system())
         //         .map(|d| (d.document_id.id, d.embedding.embedding));
         //     reranker_data(data_with_mab(docs))
         // }
@@ -336,7 +336,7 @@ mod tests {
             RerankerData {
                 prev_documents: docs.into(),
                 user_interests: UserInterests {
-                    positive: pos_cois_from_words(&["vehicle"], mocked_bert_system()),
+                    positive: pos_cois_from_words(&["vehicle"], mocked_smbert_system()),
                     ..Default::default()
                 },
             }
@@ -549,7 +549,7 @@ mod tests {
         // If any of the systems fail in the `rerank` method, the `Reranker`
         // should return the results/`Document`s in an unchanged order and
         // create the previous documents from the current `Document`s.
-        // An exception is the bert system which of course cannot create
+        // An exception is the smbert system which of course cannot create
         // previous documents if it fails.
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = documents_from_ids(0..10);
@@ -585,7 +585,7 @@ mod tests {
         };
     }
 
-    test_system_failure!(bert, MockSMBertSystem, compute_embedding, |_|, false);
+    test_system_failure!(smbert, MockSMBertSystem, compute_embedding, |_|, false);
     test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
     test_system_failure!(context, MockContextSystem, compute_context, |_|);
     test_system_failure!(mab, MockMabSystem, compute_mab, |_,_|);
@@ -632,25 +632,25 @@ mod tests {
         test_system_failure(cs, true);
     }
 
-    /// If the bert system fails spontaneously in the `rerank` function, the
+    /// If the smbert system fails spontaneously in the `rerank` function, the
     /// `Reranker` should return the results/`Document`s in an unchanged order
     /// and create the previous documents from the current `Document`s.
     #[test]
-    fn test_system_failure_bert_fails_in_rerank() {
+    fn test_system_failure_smbert_fails_in_rerank() {
         let mut called = 0;
 
-        let cs = MockCommonSystems::default().set_bert(|| {
-            let mut bert = MockSMBertSystem::new();
-            bert.expect_compute_embedding().returning(move |docs| {
+        let cs = MockCommonSystems::default().set_smbert(|| {
+            let mut smbert = MockSMBertSystem::new();
+            smbert.expect_compute_embedding().returning(move |docs| {
                 let res = match called {
                     0 => Err(MockError::Fail.into()),
-                    1 => mocked_bert_system().compute_embedding(docs),
+                    1 => mocked_smbert_system().compute_embedding(docs),
                     _ => panic!("`compute_embedding` should only be called twice"),
                 };
                 called += 1;
                 res
             });
-            bert
+            smbert
         });
 
         let mut reranker = Reranker::new(cs).unwrap();

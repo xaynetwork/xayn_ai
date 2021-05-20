@@ -4,7 +4,7 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    bert::Embedding,
+    smbert::Embedding,
     coi::{
         config::Configuration,
         utils::{

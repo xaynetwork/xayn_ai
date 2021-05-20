@@ -4,7 +4,7 @@ mod utils;
 
 pub(crate) use self::{
     mem_db::MemDb,
-    systems::{mocked_bert_system, MockCommonSystems},
+    systems::{mocked_smbert_system, MockCommonSystems},
     utils::{
         data_with_mab,
         document_history,

@@ -70,7 +70,7 @@ mod tests {
         tests::{
             data_with_mab,
             from_ids,
-            mocked_bert_system,
+            mocked_smbert_system,
             neg_cois_from_words,
             pos_cois_from_words,
         },
@@ -79,8 +79,8 @@ mod tests {
     #[test]
     fn test_database_serialize_load() {
         let words = &["a", "b", "c"];
-        let pos_cois = pos_cois_from_words(words, mocked_bert_system());
-        let neg_cois = neg_cois_from_words(words, mocked_bert_system());
+        let pos_cois = pos_cois_from_words(words, mocked_smbert_system());
+        let neg_cois = neg_cois_from_words(words, mocked_smbert_system());
         let user_interests = UserInterests {
             positive: pos_cois,
             negative: neg_cois,

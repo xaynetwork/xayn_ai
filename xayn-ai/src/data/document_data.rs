@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    bert::Embedding,
+    smbert::Embedding,
     data::{document::DocumentId, CoiId},
     reranker::systems::CoiSystemData,
 };

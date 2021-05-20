@@ -3,7 +3,7 @@ use std::ops::Range;
 use ndarray::arr1;
 
 use crate::{
-    bert::Embedding,
+    smbert::Embedding,
     data::{
         document::{Ranks, Relevance, UserFeedback},
         document_data::{
@@ -50,7 +50,7 @@ pub(crate) fn documents_from_words(
     .collect()
 }
 
-fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl SMBertSystem) -> Vec<CP> {
+fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -> Vec<CP> {
     let documents = snippets
         .iter()
         .enumerate()
@@ -65,7 +65,7 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl SMBertSystem) -> 
         })
         .collect();
 
-    bert.compute_embedding(documents)
+    smbert.compute_embedding(documents)
         .unwrap()
         .into_iter()
         .enumerate()
@@ -73,12 +73,12 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], bert: impl SMBertSystem) -> 
         .collect()
 }
 
-pub(crate) fn pos_cois_from_words(snippets: &[&str], bert: impl SMBertSystem) -> Vec<PositiveCoi> {
-    cois_from_words(snippets, bert)
+pub(crate) fn pos_cois_from_words(snippets: &[&str], smbert: impl SMBertSystem) -> Vec<PositiveCoi> {
+    cois_from_words(snippets, smbert)
 }
 
-pub(crate) fn neg_cois_from_words(snippets: &[&str], bert: impl SMBertSystem) -> Vec<NegativeCoi> {
-    cois_from_words(snippets, bert)
+pub(crate) fn neg_cois_from_words(snippets: &[&str], smbert: impl SMBertSystem) -> Vec<NegativeCoi> {
+    cois_from_words(snippets, smbert)
 }
 
 pub(crate) fn history_for_prev_docs(
@@ -133,7 +133,7 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
 // Not used at the moment, but could be useful in the short future
 // pub(crate) fn documents_with_embeddings_from_words(
 //     words: &[&str],
-//     bert: impl BertSystem,
+//     smbert: impl BertSystem,
 // ) -> impl Iterator<Item = DocumentDataWithEmbedding> {
 //     let documents = words
 //         .iter()
@@ -148,7 +148,7 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
 //         })
 //         .collect();
 
-//     bert.compute_embedding(documents).unwrap().into_iter()
+//     smbert.compute_embedding(documents).unwrap().into_iter()
 // }
 
 pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> Ranks {

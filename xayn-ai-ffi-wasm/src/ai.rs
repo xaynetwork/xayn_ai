@@ -36,7 +36,7 @@ impl WXaynAi {
                 ))
             })
             .into_js_result()?
-            .with_bert_from_reader(vocab, model)
+            .with_smbert_from_reader(vocab, model)
             .build()
             .map(WXaynAi)
             .map_err(|cause| {

@@ -60,7 +60,7 @@ impl CXaynAi {
         let serialized = serialized.map(CBoxedSlice::as_slice).unwrap_or_default();
 
         Builder::default()
-            .with_bert_from_file(vocab, model)
+            .with_smbert_from_file(vocab, model)
             .map_err(|cause| {
                 CCode::ReadFile.with_context(format!("Failed to initialize the ai: {}", cause))
             })?

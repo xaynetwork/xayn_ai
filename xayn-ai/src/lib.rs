@@ -2,7 +2,7 @@
 mod utils;
 
 mod analytics;
-mod bert;
+mod smbert;
 mod coi;
 mod context;
 mod data;
