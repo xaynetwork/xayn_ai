@@ -181,7 +181,7 @@ class Bincode:
 
     def write_map(self, input_map: Dict[T, V], write_key: Callable[[T], None], write_value: Callable[[V], None]):
         self.write_usize(len(input_map))
-        for (key, value) in input_map.items():
+        for key, value in input_map.items():
             write_key(key)
             write_value(value)
 
@@ -218,10 +218,6 @@ def write_list_net_parameters(path: str, matrices: Matrices):
 def write_list_net_parameters_to_encoder(encoder: Bincode, matrices: Matrices):
     encoder.write_map(matrices, encoder.write_string, encoder.write_array)
 
-
-# given from numpy import array, float32
-#input:  {'a': array([[1., 2.], [3., 4.]], dtype=float32), 'b': array([3., 2., 1., 4.], dtype=float32)}
-#output: b'\x01\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00a\x02\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x80@\x01\x00\x00\x00\x00\x00\x00\x00b\x01\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00@@\x00\x00\x00@\x00\x00\x80?\x00\x00\x80@'
 
 if __name__ == '__main__':
     import sys
