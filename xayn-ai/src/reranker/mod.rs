@@ -319,13 +319,6 @@ mod tests {
             reranker_data(docs)
         }
 
-        // This seems to not be used anymore, just commenting out for the moment
-        // pub(super) fn reranker_data_with_mab_from_words(words: &[&str]) -> RerankerData {
-        //     let docs = documents_with_embeddings_from_words(words, mocked_smbert_system())
-        //         .map(|d| (d.document_id.id, d.embedding.embedding));
-        //     reranker_data(data_with_mab(docs))
-        // }
-
         pub(super) fn documents() -> Vec<Document> {
             documents_from_words(
                 (0..6).zip(&["ship", "car", "auto", "flugzeug", "plane", "vehicle"]),

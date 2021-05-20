@@ -22,35 +22,6 @@ use crate::{
     tests::{MemDb, MockBetaSample, MockSMBertSystem},
 };
 
-// can later be used for integration tests
-// pub fn global_smbert_system() -> &'static Arc<RuBert<AveragePooler>> {
-//     static SMBERT_SYSTEM: OnceCell<Arc<RuBert<AveragePooler>>> = OnceCell::new();
-//     SMBERT_SYSTEM.get_or_init(|| {
-//         let smbert = SMBertBuilder::from_files(
-//             "../data/rubert_v0000/vocab.txt",
-//             "../data/rubert_v0000/model.onnx",
-//         )
-//         .expect("failed to create smbert builder from files")
-//         .with_token_size(90)
-//         .expect("infallible: token size >= 2")
-//         .with_accents(false)
-//         .with_lowercase(true)
-//         .with_pooling(AveragePooler)
-//         .build()
-//         .expect("failed to build smbert");
-//         Arc::new(smbert)
-//     })
-// }
-
-// impl SMBertSystem for Arc<RuBert<AveragePooler>> {
-//     fn compute_embedding(
-//         &self,
-//         documents: Vec<DocumentDataWithDocument>,
-//     ) -> Result<Vec<DocumentDataWithEmbedding>, Error> {
-//         self.as_ref().compute_embedding(documents)
-//     }
-// }
-
 pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
     let mut mock_smbert = MockSMBertSystem::new();
     mock_smbert.expect_compute_embedding().returning(|docs| {

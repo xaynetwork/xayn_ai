@@ -137,27 +137,6 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
         .collect()
 }
 
-// Not used at the moment, but could be useful in the short future
-// pub(crate) fn documents_with_embeddings_from_words(
-//     words: &[&str],
-//     smbert: impl BertSystem,
-// ) -> impl Iterator<Item = DocumentDataWithEmbedding> {
-//     let documents = words
-//         .iter()
-//         .enumerate()
-//         .map(|(id, snippet)| DocumentDataWithDocument {
-//             document_id: DocumentIdComponent {
-//                 id: DocumentId(id.to_string()),
-//             },
-//             document_content: DocumentContentComponent {
-//                 snippet: snippet.to_string(),
-//             },
-//         })
-//         .collect();
-
-//     smbert.compute_embedding(documents).unwrap().into_iter()
-// }
-
 pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> Ranks {
     docs.iter().map(|doc| doc.rank).collect()
 }
