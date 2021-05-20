@@ -18,7 +18,7 @@ mod ndutils;
 
 /// ListNet implementations.
 ///
-/// The underlying ListNet is fixed  to 10 document with 50 features each in the shape `(10, 50)`.
+/// The underlying ListNet is fixed at 10 documents with 50 features each in the shape `(10, 50)`.
 /// But the [`ListNet.run()`] method combines a chunked approach with padding to allow any
 /// number of documents as input.
 ///
@@ -45,24 +45,24 @@ impl ListNet {
     /// Number of features per document
     const INPUT_NR_FEATURES: Ix = 50;
 
-    /// Currently input is fixed to (10, 50)
+    /// Shape of input: `INPUT_NR_DOCUMENTS` x `INPUT_NR_FEATURES`
     const INPUT_SHAPE: [Ix; 2] = [Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_FEATURES];
 
-    /// Load list net from file at given path.
+    /// Load ListNet from file at given path.
     #[allow(unused)] //TODO tmp
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, LoadingListNetFailed> {
         let params = BinParams::load_from_file(path)?;
         Self::load(params)
     }
 
-    /// Load list net from byte reader.
+    /// Load ListNet from byte reader.
     #[allow(unused)] //TODO tmp
     pub fn load_from_source(params_source: impl Read) -> Result<Self, LoadingListNetFailed> {
         let params = BinParams::load(params_source)?;
         Self::load(params)
     }
 
-    /// Load list net from `BinParams`.
+    /// Load ListNet from `BinParams`.
     fn load(mut params: BinParams) -> Result<Self, LoadingListNetFailed> {
         let dense_1 = Dense::load(params.with_scope("dense_1"), Relu)?;
         let dense_1_out_shape = dense_1.check_in_out_shapes(Self::INPUT_SHAPE.into_dimension())?;
@@ -101,17 +101,19 @@ impl ListNet {
         }
     }
 
-    /// The input is a 2 dimensional array
-    /// with the shape `(number_of_documents, number_of_feature_per_document)`.
+    /// The input is a 2-dimensional array
+    /// with shape `(number_of_documents, number_of_features_per_document)`.
     ///
     /// # Panics
     ///
-    /// Panics if the total number of documents is != 10, or nr of features != 50.
+    /// Panics if the total number of documents is not 10, or if the number of features is not 50.
     fn run_for_10(&self, inputs: Array2<f32>) -> Array1<f32> {
         assert_eq!(
             inputs.shape(),
             Self::INPUT_SHAPE,
-            "only exact 10 documents with exact 50 features are supported, got: {:?}",
+            "only exactly {} documents with exactly {} features are supported, got: {:?}",
+            Self::INPUT_NR_DOCUMENTS,
+            Self::INPUT_NR_FEATURES,
             inputs.shape()
         );
         let dense1_out = self.dense_1.run(inputs);
@@ -123,7 +125,7 @@ impl ListNet {
         self.scores_prob_dist.run(scores)
     }
 
-    /// Runs list net based on a number of input chunks.
+    /// Runs ListNet based on a number of input chunks.
     ///
     /// The total number of documents must be no greater than 10, but can
     /// be smaller in which case it's padded by repeating the last document.
@@ -133,8 +135,8 @@ impl ListNet {
     ///
     /// # Panics
     ///
-    /// - Panics if the total number of documents is > 10, or nr of features != 50.
-    /// - Panics if there are no input chunks or some of them are empty!
+    /// - Panics if the total number of documents is > 10, or number of features is not 50.
+    /// - Panics if there are no input chunks or at least one is empty!
     fn run_chunked(&self, input_chunks: &[ArrayView2<f32>]) -> Vec<f32> {
         let nr_of_input_documents = input_chunks.iter().map(|chunk| chunk.shape()[0]).sum();
 
@@ -147,13 +149,13 @@ impl ListNet {
         outputs
     }
 
-    /// Runs List net on the input. Requires exactly 10 documents (list items).
+    /// Runs ListNet on the input. Requires exactly 10 documents (list items).
     ///
     /// Only exactly 50 features are supported.
     ///
-    /// The internal implementation only supports exact 10 documents.
+    /// The internal implementation only supports exactly 10 documents.
     ///
-    /// If there are less then 10 documents the last document gets
+    /// If there are less then 10 documents, the last document gets
     /// repeated to pad the input to exactly 10 documents. If there
     /// are more then 10 documents the evaluation will be done in
     /// chunks.
@@ -180,7 +182,7 @@ impl ListNet {
 
         let mut first_iteration = true;
         // We could optimize this by:
-        // - first running all doc count independent list net steps and only then run this partitioned algorithm.
+        // - first running all doc count independent ListNet steps and only then run this partitioned algorithm.
         for chunk in chunks {
             let sub_outputs = self.run_chunked(&[first, chunk]);
 
@@ -210,7 +212,7 @@ fn size_with_chunk_padding(size: usize, chunk_size: usize) -> usize {
     size - 1 + chunk_size - (size - 1) % chunk_size
 }
 
-/// Loading list net failed.
+/// ListNet load failure.
 #[derive(Debug, Error)]
 pub enum LoadingListNetFailed {
     /// Failed to load bin params.
@@ -221,15 +223,13 @@ pub enum LoadingListNetFailed {
     #[error(transparent)]
     Dense(#[from] LoadingDenseFailed),
 
-    /// Parameter configuration error
+    /// Tied to load a ListNet containing incompatible matrices.
     #[error(transparent)]
     IncompatibleMatrices(#[from] IncompatibleMatrices),
 
-    /// BinParams file contains additional parameter,
-    /// we loaded the wrong model!
-    #[error(
-        "BinParams contains additional parameters, we likely have the wrong model data: {params:?}"
-    )]
+    /// BinParams file contains additional parameters,
+    /// probably due to loading the wrong model.
+    #[error("BinParams contains additional parameters, model data is probably wrong: {params:?}")]
     LeftoverBinParams { params: Vec<String> },
 }
 
@@ -248,7 +248,7 @@ mod tests {
     static LIST_NET: Lazy<ListNet> =
         Lazy::new(|| ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap());
 
-    /// A single List-Net Input, cast to shape (10, 50).
+    /// A single ListNet Input, cast to shape (10, 50).
     ///
     /// The `arr2` helper is currently only implemented up
     /// to a N of 16. (We need 50.)

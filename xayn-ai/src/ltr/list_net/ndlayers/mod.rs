@@ -5,11 +5,11 @@ pub use dense::*;
 
 use ndarray::{ArrayBase, DataMut, DataOwned, Dimension, RemoveAxis};
 
-/// Trait representing a activation functions.
+/// Trait representing an activation function.
 pub(crate) trait ActivationFunction<A> {
-    /// Applies the activation function to given array.
+    /// Applies the activation function to the given array.
     ///
-    /// In most cases this will call `input.mapv_inplace` and
+    /// In most cases this will call `input.mapv_inplace` to
     /// apply some function element wise.
     ///
     /// # Panics
@@ -18,7 +18,7 @@ pub(crate) trait ActivationFunction<A> {
     /// called with incompatible inputs.
     ///
     /// For example using a `Softmax` activation function which
-    /// should create the `Softmax` over the 10th axis can not
+    /// should create the `Softmax` over the 10th axis cannot
     /// work if the input array only has 2 axes.
     ///
     /// Any activation function for which this can happen should
