@@ -13,7 +13,7 @@ SELF_DIR_PATH="$(dirname "$SELF_PATH")"
 
 # in this way we can call the script from different directory
 # but the data should go in the correct destination
-DATA_DIR="$SELF_DIR_PATH/data/"
+DATA_DIR="$SELF_DIR_PATH/data"
 
 CHECKSUM_FILE="sha256sums"
 
