@@ -306,7 +306,12 @@ mod tests {
                 UserInterests,
             },
             reranker::{PreviousDocuments, RerankerData},
-            tests::{data_with_mab, documents_from_words, mocked_smbert_system, pos_cois_from_words},
+            tests::{
+                data_with_mab,
+                documents_from_words,
+                mocked_smbert_system,
+                pos_cois_from_words,
+            },
         };
 
         pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {

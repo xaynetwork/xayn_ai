@@ -2,7 +2,6 @@
 mod utils;
 
 mod analytics;
-mod smbert;
 mod coi;
 mod context;
 mod data;
@@ -10,6 +9,7 @@ mod error;
 mod ltr;
 mod mab;
 mod reranker;
+mod smbert;
 
 pub use crate::{
     analytics::Analytics,

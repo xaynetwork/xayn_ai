@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    smbert::Embedding,
     data::{document::DocumentId, CoiId},
     reranker::systems::CoiSystemData,
+    smbert::Embedding,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]

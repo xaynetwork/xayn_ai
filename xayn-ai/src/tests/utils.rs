@@ -3,7 +3,6 @@ use std::ops::Range;
 use ndarray::arr1;
 
 use crate::{
-    smbert::Embedding,
     data::{
         document::{Ranks, Relevance, UserFeedback},
         document_data::{
@@ -24,6 +23,7 @@ use crate::{
         PositiveCoi,
     },
     reranker::systems::{CoiSystemData, SMBertSystem},
+    smbert::Embedding,
     Document,
     DocumentHistory,
     DocumentId,
@@ -65,7 +65,8 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -
         })
         .collect();
 
-    smbert.compute_embedding(documents)
+    smbert
+        .compute_embedding(documents)
         .unwrap()
         .into_iter()
         .enumerate()
@@ -73,11 +74,17 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -
         .collect()
 }
 
-pub(crate) fn pos_cois_from_words(snippets: &[&str], smbert: impl SMBertSystem) -> Vec<PositiveCoi> {
+pub(crate) fn pos_cois_from_words(
+    snippets: &[&str],
+    smbert: impl SMBertSystem,
+) -> Vec<PositiveCoi> {
     cois_from_words(snippets, smbert)
 }
 
-pub(crate) fn neg_cois_from_words(snippets: &[&str], smbert: impl SMBertSystem) -> Vec<NegativeCoi> {
+pub(crate) fn neg_cois_from_words(
+    snippets: &[&str],
+    smbert: impl SMBertSystem,
+) -> Vec<NegativeCoi> {
     cois_from_words(snippets, smbert)
 }
 
