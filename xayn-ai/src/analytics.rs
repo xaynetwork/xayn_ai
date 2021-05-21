@@ -378,9 +378,9 @@ mod tests {
     #[test]
     fn test_ndcg_at_k_works_if_the_ideal_dcg_is_0() {
         let res = ndcg_at_k([0.0, 0.0].iter().copied(), 2);
-        assert_f32_eq!(res, 0.0);
+        assert_approx_eq!(f32, res, 0.0);
         let res = ndcg_at_k([-10.0, 0.0, 0.0, -8.0].iter().copied(), 2);
-        assert_f32_eq!(res, -0.999_023_44);
+        assert_approx_eq!(f32, res, -0.999_023_44);
     }
 
     #[test]

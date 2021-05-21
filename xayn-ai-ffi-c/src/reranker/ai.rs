@@ -531,7 +531,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
         );
 
@@ -605,7 +605,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::Panic);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "called `Option::unwrap()` on a `None` value",
         );
 
