@@ -81,9 +81,9 @@ macro_rules! impl_coi_system_data_no_coi {
     };
 }
 
-// Document usage order:
-// DocumentDataWithDocument -> DocumentDataWithEmbedding -> DocumentDataWithCoi ->
-// DocumentDataWithLtr -> DocumentDataWithContext -> DocumentDataWithMab
+/// Document usage order:
+/// [`DocumentDataWithDocument`] -> [`DocumentDataWithSMBert`] -> [`DocumentDataWithCoi`] ->
+/// [`DocumentDataWithLtr`] -> [`DocumentDataWithContext`] -> [`DocumentDataWithMab`]
 
 pub(crate) struct DocumentDataWithDocument {
     pub(crate) document_base: DocumentBaseComponent,
