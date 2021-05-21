@@ -172,7 +172,6 @@ impl
     }
 }
 
-#[allow(dead_code)]
 impl<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics>
     MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics>
 where
@@ -217,6 +216,7 @@ where
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn set_qambert<B: QAMBertSystem>(
         self,
         f: impl FnOnce() -> B,
