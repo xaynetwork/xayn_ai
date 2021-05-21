@@ -3,7 +3,7 @@ pub(crate) mod document_data;
 
 use serde::{Deserialize, Serialize};
 
-use crate::bert::Embedding;
+use crate::smbert::Embedding;
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Debug))]

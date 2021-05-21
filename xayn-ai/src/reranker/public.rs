@@ -30,7 +30,7 @@ use super::{
 
 pub struct Systems {
     database: Db,
-    bert: SMBert,
+    smbert: SMBert,
     coi: CoiSystemImpl,
     ltr: ConstLtr,
     context: Context,
@@ -44,7 +44,7 @@ impl CommonSystems for Systems {
     }
 
     fn smbert(&self) -> &dyn SMBertSystem {
-        &self.bert
+        &self.smbert
     }
 
     fn coi(&self) -> &dyn CoiSystem {
@@ -90,14 +90,14 @@ impl Reranker {
 
 pub struct Builder<V, M> {
     database: Db,
-    bert: SMBertBuilder<V, M>,
+    smbert: SMBertBuilder<V, M>,
 }
 
 impl Default for Builder<(), ()> {
     fn default() -> Self {
         Self {
             database: Db::default(),
-            bert: SMBertBuilder::new((), ()),
+            smbert: SMBertBuilder::new((), ()),
         }
     }
 }
@@ -108,21 +108,21 @@ impl<V, M> Builder<V, M> {
         Ok(self)
     }
 
-    pub fn with_bert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N> {
+    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N> {
         Builder {
             database: self.database,
-            bert: SMBertBuilder::new(vocab, model),
+            smbert: SMBertBuilder::new(vocab, model),
         }
     }
 
-    pub fn with_bert_from_file(
+    pub fn with_smbert_from_file(
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
     ) -> Result<Builder<impl BufRead, impl Read>, Error> {
         Ok(Builder {
             database: self.database,
-            bert: SMBertBuilder::from_files(vocab, model)?,
+            smbert: SMBertBuilder::from_files(vocab, model)?,
         })
     }
 
@@ -132,8 +132,8 @@ impl<V, M> Builder<V, M> {
         M: Read,
     {
         let database = self.database;
-        let bert = self
-            .bert
+        let smbert = self
+            .smbert
             .with_token_size(90)?
             .with_accents(false)
             .with_lowercase(true)
@@ -147,7 +147,7 @@ impl<V, M> Builder<V, M> {
 
         super::Reranker::new(Systems {
             database,
-            bert,
+            smbert,
             coi,
             ltr,
             context,

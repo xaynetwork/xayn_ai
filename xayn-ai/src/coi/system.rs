@@ -4,7 +4,6 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    bert::Embedding,
     coi::{
         config::Configuration,
         utils::{
@@ -21,6 +20,7 @@ use crate::{
         UserInterests,
     },
     reranker::systems::{self, CoiSystemData},
+    smbert::Embedding,
     DocumentHistory,
     Error,
 };
