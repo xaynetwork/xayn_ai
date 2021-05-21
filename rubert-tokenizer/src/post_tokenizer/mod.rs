@@ -16,6 +16,7 @@ use crate::{
 };
 
 /// A Bert post-tokenizer.
+#[derive(Debug)]
 pub struct PostTokenizer<N> {
     cls_id: N,
     pub(crate) cls_token: SmallString,
@@ -24,7 +25,7 @@ pub struct PostTokenizer<N> {
 }
 
 /// The potential erros of the post-tokenizer.
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Display, Error, PartialEq)]
 pub enum PostTokenizerError {
     /// Missing the class token in the vocabulary
     ClsToken,

@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// A Bert pre-tokenizer.
+#[derive(Debug)]
 pub struct PreTokenizer;
 
 impl PreTokenizer {

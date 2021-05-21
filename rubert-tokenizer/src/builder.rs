@@ -42,7 +42,7 @@ pub struct Builder<N> {
 }
 
 /// The potential errors of the builder.
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Display, Error, PartialEq)]
 pub enum BuilderError {
     /// Failed to build the model: {0}
     Model(#[from] ModelError),

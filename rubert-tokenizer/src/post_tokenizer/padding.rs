@@ -5,16 +5,18 @@ use thiserror::Error;
 use crate::{model::Vocab, post_tokenizer::encoding::Encoding, SmallString};
 
 /// A padding strategy.
+#[derive(Debug)]
 pub struct Padding<N>(Paddings<N>);
 
 /// The potential errors of the padding strategy.
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Display, Error, PartialEq)]
 pub enum PaddingError {
     /// Missing the padding token in the vocabulary
     PadToken,
 }
 
 /// The available padding strategies.
+#[derive(Debug)]
 enum Paddings<N> {
     /// No padding.
     None,
