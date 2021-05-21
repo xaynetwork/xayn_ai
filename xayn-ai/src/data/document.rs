@@ -2,9 +2,8 @@ use derive_more::Display;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use std::{convert::TryFrom, default::Default};
 use uuid::Uuid;
-
-use std::convert::TryFrom;
 
 use crate::Error;
 
@@ -13,7 +12,7 @@ use crate::reranker::systems::CoiSystemData;
 use super::document_data::DocumentDataWithMab;
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
 pub struct DocumentId(pub Uuid);
 
 impl DocumentId {
@@ -31,6 +30,14 @@ impl TryFrom<&str> for DocumentId {
     }
 }
 
+#[repr(transparent)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
+pub struct SessionId(pub Uuid);
+
+#[repr(transparent)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
+pub struct QueryId(pub Uuid);
+
 /// This represents a result from the query.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Document {
@@ -40,8 +47,8 @@ pub struct Document {
     pub rank: usize,
     pub snippet: String,
 }
-
-#[derive(Debug, Serialize, Deserialize)]
+// TODO extend Document with LTR2 fields
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DocumentHistory {
     /// unique identifier of this document
     pub id: DocumentId,
@@ -49,6 +56,24 @@ pub struct DocumentHistory {
     pub relevance: Relevance,
     /// A flag that indicates whether the user liked the document
     pub user_feedback: UserFeedback,
+    /// Session of the document
+    pub session: SessionId,
+    /// Query count within session
+    pub query_count: u8,
+    /// Query identifier of the document
+    pub query_id: QueryId,
+    /// Query of the document
+    pub query_words: String,
+    /// Day of week query was performed.
+    pub day: DayOfWeek,
+    /// URL of the document
+    pub url: String,
+    /// Domain of the document
+    pub domain: String,
+    /// Reranked position of the document
+    pub rank: usize,
+    /// User interaction for the document
+    pub user_action: UserAction,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -56,6 +81,12 @@ pub enum UserFeedback {
     Relevant,
     Irrelevant,
     None,
+}
+
+impl Default for UserFeedback {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -134,5 +165,41 @@ impl RerankingOutcomes {
             qa_mbert_similarities: None,
             context_scores: None,
         }
+    }
+}
+
+impl Default for Relevance {
+    fn default() -> Self {
+        Self::Low
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum UserAction {
+    Click,
+    Skip,
+    Miss,
+}
+
+impl Default for UserAction {
+    fn default() -> Self {
+        Self::Miss
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum DayOfWeek {
+    Mon,
+    Tue,
+    Wed,
+    Thu,
+    Fri,
+    Sat,
+    Sun,
+}
+
+impl Default for DayOfWeek {
+    fn default() -> Self {
+        DayOfWeek::Mon // TEMP completely arbitrary
     }
 }

@@ -189,6 +189,7 @@ mod tests {
                         id,
                         relevance,
                         user_feedback,
+                        ..Default::default()
                     }
                     .into(),
                 )

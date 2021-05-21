@@ -100,6 +100,7 @@ pub(crate) fn history_for_prev_docs(
             id: doc.id().clone(),
             relevance,
             user_feedback,
+            ..Default::default()
         })
         .collect()
 }
@@ -152,6 +153,7 @@ pub(crate) fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec
             id: DocumentId::from_u128(id as u128),
             relevance,
             user_feedback,
+            ..Default::default()
         })
         .collect()
 }

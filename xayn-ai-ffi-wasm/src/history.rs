@@ -60,6 +60,7 @@ impl From<WHistory> for DocumentHistory {
             id: history.id,
             relevance: history.relevance.into(),
             user_feedback: history.feedback.into(),
+            ..Default::default()
         }
     }
 }

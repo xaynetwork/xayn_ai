@@ -106,6 +106,7 @@ impl<'a> CHistories<'a> {
                         id,
                         relevance,
                         user_feedback,
+                        ..Default::default()
                     })
                 })
                 .collect(),
