@@ -125,12 +125,7 @@ mod tests {
     #[test]
     fn test_parse_vocab() {
         let words = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a", "##b"];
-        let vocab = words
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
-        let vocab = Model::<u32>::parse_vocab(vocab.as_slice()).unwrap();
+        let vocab = Model::<u32>::parse_vocab(words.join("\n").as_bytes()).unwrap();
         assert_eq!(vocab.len(), words.len());
         for word in vocab.keys() {
             assert!(words.contains(&word.as_str()));
@@ -147,39 +142,28 @@ mod tests {
 
     #[test]
     fn test_model_missing_unk() {
-        let vocab = ["[CLS]", "[SEP]", "[PAD]", "a", "##b"]
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
+        let vocab = Model::<u32>::parse_vocab(
+            ["[CLS]", "[SEP]", "[PAD]", "a", "##b"]
+                .join("\n")
+                .as_bytes(),
+        )
+        .unwrap();
         assert_eq!(
-            Model::new(
-                Model::<u32>::parse_vocab(vocab.as_slice()).unwrap(),
-                "[UNK]".into(),
-                "##".into(),
-                10,
-            )
-            .unwrap_err(),
+            Model::new(vocab, "[UNK]".into(), "##".into(), 10,).unwrap_err(),
             ModelError::UnkToken,
         );
     }
 
     #[test]
     fn test_model_missing_prefix() {
-        // let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
-        let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
+        let vocab = Model::<u32>::parse_vocab(
+            ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
+                .join("\n")
+                .as_bytes(),
+        )
+        .unwrap();
         assert_eq!(
-            Model::new(
-                Model::<u32>::parse_vocab(vocab.as_slice()).unwrap(),
-                "[UNK]".into(),
-                "##".into(),
-                10,
-            )
-            .unwrap_err(),
+            Model::new(vocab, "[UNK]".into(), "##".into(), 10,).unwrap_err(),
             ModelError::SubwordPrefix,
         );
     }

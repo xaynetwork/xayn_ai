@@ -106,65 +106,45 @@ mod tests {
 
     #[test]
     fn test_vocab_missing_cls() {
-        let vocab = ["[SEP]", "[PAD]", "[UNK]", "a", "##b"]
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
+        let vocab = ["[SEP]", "[PAD]", "[UNK]", "a", "##b"].join("\n");
         assert_eq!(
-            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            Tokenizer::new(vocab.as_bytes(), true, true, 10).unwrap_err(),
             TokenizerError::Builder(BuilderError::PostTokenizer(PostTokenizerError::ClsToken)),
         );
     }
 
     #[test]
     fn test_vocab_missing_sep() {
-        let vocab = ["[CLS]", "[PAD]", "[UNK]", "a", "##b"]
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
+        let vocab = ["[CLS]", "[PAD]", "[UNK]", "a", "##b"].join("\n");
         assert_eq!(
-            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            Tokenizer::new(vocab.as_bytes(), true, true, 10).unwrap_err(),
             TokenizerError::Builder(BuilderError::PostTokenizer(PostTokenizerError::SepToken)),
         );
     }
 
     #[test]
     fn test_vocab_missing_pad() {
-        let vocab = ["[CLS]", "[SEP]", "[UNK]", "a", "##b"]
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
+        let vocab = ["[CLS]", "[SEP]", "[UNK]", "a", "##b"].join("\n");
         assert_eq!(
-            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            Tokenizer::new(vocab.as_bytes(), true, true, 10).unwrap_err(),
             TokenizerError::Builder(BuilderError::Padding(PaddingError::PadToken)),
         );
     }
 
     #[test]
     fn test_vocab_missing_unk() {
-        let vocab = ["[CLS]", "[SEP]", "[PAD]", "a", "##b"]
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
+        let vocab = ["[CLS]", "[SEP]", "[PAD]", "a", "##b"].join("\n");
         assert_eq!(
-            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            Tokenizer::new(vocab.as_bytes(), true, true, 10).unwrap_err(),
             TokenizerError::Builder(BuilderError::Model(ModelError::UnkToken)),
         );
     }
 
     #[test]
     fn test_vocab_missing_prefix() {
-        let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"]
-            .iter()
-            .map(|word| word.as_bytes().to_vec())
-            .collect::<Vec<Vec<u8>>>()
-            .join([10].as_ref());
+        let vocab = ["[CLS]", "[SEP]", "[PAD]", "[UNK]", "a##b"].join("\n");
         assert_eq!(
-            Tokenizer::new(vocab.as_slice(), true, true, 10).unwrap_err(),
+            Tokenizer::new(vocab.as_bytes(), true, true, 10).unwrap_err(),
             TokenizerError::Builder(BuilderError::Model(ModelError::SubwordPrefix)),
         );
     }
