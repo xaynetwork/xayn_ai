@@ -8,7 +8,7 @@ use crate::{
         DocumentDataWithQAMBert,
         DocumentDataWithSMBert,
         QAMBertComponent,
-        SMBertEmbeddingComponent,
+        SMBertComponent,
     },
     ltr::ConstLtr,
     mab::MabRanking,
@@ -47,7 +47,7 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
                 DocumentDataWithSMBert {
                     document_base: doc.document_base,
                     document_content: doc.document_content,
-                    embedding: SMBertEmbeddingComponent {
+                    embedding: SMBertComponent {
                         embedding: arr1(&embedding).into(),
                     },
                 }

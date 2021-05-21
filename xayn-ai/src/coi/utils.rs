@@ -142,7 +142,7 @@ pub(super) mod tests {
                 DocumentBaseComponent,
                 DocumentDataWithQAMBert,
                 QAMBertComponent,
-                SMBertEmbeddingComponent,
+                SMBertComponent,
             },
             CoiId,
             CoiPoint,
@@ -153,7 +153,7 @@ pub(super) mod tests {
 
     pub(crate) struct MockCoiDoc {
         id: DocumentId,
-        embedding: SMBertEmbeddingComponent,
+        embedding: SMBertComponent,
         coi: Option<CoiComponent>,
     }
 
@@ -162,7 +162,7 @@ pub(super) mod tests {
             &self.id
         }
 
-        fn embedding(&self) -> &SMBertEmbeddingComponent {
+        fn embedding(&self) -> &SMBertComponent {
             &self.embedding
         }
 
@@ -175,7 +175,7 @@ pub(super) mod tests {
         ids.iter()
             .map(|id| MockCoiDoc {
                 id: DocumentId::from_u128(0),
-                embedding: SMBertEmbeddingComponent {
+                embedding: SMBertComponent {
                     embedding: arr1(&[]).into(),
                 },
                 coi: Some(CoiComponent {
@@ -229,7 +229,7 @@ pub(super) mod tests {
                 id: DocumentId::from_u128(id),
                 initial_ranking,
             },
-            embedding: SMBertEmbeddingComponent {
+            embedding: SMBertComponent {
                 embedding: arr1(embedding).into(),
             },
             qambert: QAMBertComponent { similarity: 0.5 },

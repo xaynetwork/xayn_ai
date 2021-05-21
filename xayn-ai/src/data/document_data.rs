@@ -23,7 +23,7 @@ pub(crate) struct DocumentContentComponent {
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
-pub(crate) struct SMBertEmbeddingComponent {
+pub(crate) struct SMBertComponent {
     pub(crate) embedding: Embedding,
 }
 
@@ -70,7 +70,7 @@ macro_rules! impl_coi_system_data_no_coi {
                 &self.document_base.id
             }
 
-            fn embedding(&self) -> &SMBertEmbeddingComponent {
+            fn embedding(&self) -> &SMBertComponent {
                 &self.embedding
             }
 
@@ -96,13 +96,13 @@ pub(crate) struct DocumentDataWithDocument {
 pub(crate) struct DocumentDataWithSMBert {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) document_content: DocumentContentComponent,
-    pub(crate) embedding: SMBertEmbeddingComponent,
+    pub(crate) embedding: SMBertComponent,
 }
 
 impl DocumentDataWithSMBert {
     pub(crate) fn from_document(
         document: DocumentDataWithDocument,
-        embedding: SMBertEmbeddingComponent,
+        embedding: SMBertComponent,
     ) -> Self {
         Self {
             document_base: document.document_base,
@@ -119,7 +119,7 @@ impl_coi_system_data_no_coi!(DocumentDataWithSMBert);
 #[allow(clippy::upper_case_acronyms)]
 pub(crate) struct DocumentDataWithQAMBert {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertEmbeddingComponent,
+    pub(crate) embedding: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
 }
 
@@ -140,7 +140,7 @@ impl_coi_system_data_no_coi!(DocumentDataWithQAMBert);
 
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertEmbeddingComponent,
+    pub(crate) embedding: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
 }
@@ -159,7 +159,7 @@ impl DocumentDataWithCoi {
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct DocumentDataWithLtr {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertEmbeddingComponent,
+    pub(crate) embedding: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -180,7 +180,7 @@ impl DocumentDataWithLtr {
 #[cfg_attr(test, derive(Debug, Clone))]
 pub(crate) struct DocumentDataWithContext {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertEmbeddingComponent,
+    pub(crate) embedding: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -204,7 +204,7 @@ impl DocumentDataWithContext {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentDataWithMab {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertEmbeddingComponent,
+    pub(crate) embedding: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -231,7 +231,7 @@ impl CoiSystemData for DocumentDataWithMab {
         &self.document_base.id
     }
 
-    fn embedding(&self) -> &SMBertEmbeddingComponent {
+    fn embedding(&self) -> &SMBertComponent {
         &self.embedding
     }
 
@@ -261,7 +261,7 @@ mod tests {
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.document_content, document_content);
 
-        let embedding = SMBertEmbeddingComponent {
+        let embedding = SMBertComponent {
             embedding: arr1(&[1., 2., 3., 4.]).into(),
         };
         let document_data = DocumentDataWithSMBert::from_document(document_data, embedding.clone());

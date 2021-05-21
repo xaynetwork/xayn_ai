@@ -216,7 +216,7 @@ mod tests {
                 LtrComponent,
                 MabComponent,
                 QAMBertComponent,
-                SMBertEmbeddingComponent,
+                SMBertComponent,
             },
             CoiId,
             PositiveCoi,
@@ -236,7 +236,7 @@ mod tests {
                     id: DocumentId::from_u128(id as u128),
                     initial_ranking: id,
                 },
-                embedding: SMBertEmbeddingComponent {
+                embedding: SMBertComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),
                 },
                 qambert: QAMBertComponent { similarity: 0.5 },

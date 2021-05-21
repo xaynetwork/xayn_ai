@@ -281,7 +281,7 @@ mod tests {
             DocumentBaseComponent,
             LtrComponent,
             QAMBertComponent,
-            SMBertEmbeddingComponent,
+            SMBertComponent,
         },
     };
     use ndarray::arr1;
@@ -296,7 +296,7 @@ mod tests {
                 id,
                 initial_ranking: 0,
             },
-            embedding: SMBertEmbeddingComponent {
+            embedding: SMBertComponent {
                 embedding: arr1(&[]).into(),
             },
             qambert: QAMBertComponent { similarity: 0.5 },

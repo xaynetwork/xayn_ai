@@ -11,7 +11,7 @@ use crate::{
             DocumentDataWithMab,
             DocumentDataWithQAMBert,
             DocumentDataWithSMBert,
-            SMBertEmbeddingComponent,
+            SMBertComponent,
         },
         UserInterests,
     },
@@ -43,7 +43,7 @@ pub(crate) trait QAMBertSystem {
 
 pub(crate) trait CoiSystemData {
     fn id(&self) -> &DocumentId;
-    fn embedding(&self) -> &SMBertEmbeddingComponent;
+    fn embedding(&self) -> &SMBertComponent;
     fn coi(&self) -> Option<&CoiComponent>;
 }
 
