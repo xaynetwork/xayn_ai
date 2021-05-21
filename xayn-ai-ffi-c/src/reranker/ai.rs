@@ -303,6 +303,8 @@ pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
 mod tests {
     use std::{ffi::CString, pin::Pin};
 
+    use tempfile::Builder as TempBuilder;
+
     use super::*;
     use crate::{
         data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
@@ -487,6 +489,34 @@ mod tests {
     }
 
     #[test]
+    fn test_vocab_empty() {
+        let model = TestFile::model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = TempBuilder::new()
+            .prefix("vocab")
+            .suffix(".txt")
+            .rand_bytes(0)
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
+        let invalid = CString::new(invalid.to_str().unwrap()).unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(
+            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
+                .is_none()
+        );
+        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str_unchecked(),
+            "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
     fn test_vocab_invalid() {
         let model = TestFile::model();
         let db = TestDb::default();
@@ -527,6 +557,34 @@ mod tests {
                 "Failed to initialize the ai: The {} is null",
                 CCode::ModelPointer,
             ),
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_model_empty() {
+        let vocab = TestFile::vocab();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = TempBuilder::new()
+            .prefix("smbert")
+            .suffix(".onnx")
+            .rand_bytes(0)
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
+        let invalid = CString::new(invalid.to_str().unwrap()).unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(
+            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
+                .is_none()
+        );
+        assert_eq!(error.code, CCode::Panic);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str_unchecked(),
+            "called `Option::unwrap()` on a `None` value",
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };

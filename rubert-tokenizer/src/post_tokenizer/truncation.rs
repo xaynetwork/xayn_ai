@@ -4,10 +4,11 @@ use thiserror::Error;
 use crate::post_tokenizer::{encoding::Encoding, ADDED_TOKENS};
 
 /// A truncation strategy.
+#[derive(Debug)]
 pub struct Truncation(Truncations);
 
 /// The potential errors of the truncation strategy.
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Display, Error, PartialEq)]
 pub enum TruncationError {
     /** Invalid truncation length, must be greater or equal to the number of special tokens added by
     the post-tokenizer */
@@ -18,6 +19,7 @@ pub enum TruncationError {
 }
 
 /// The available truncation strategies.
+#[derive(Debug)]
 enum Truncations {
     /// No truncation.
     None,
