@@ -47,7 +47,7 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
                 DocumentDataWithSMBert {
                     document_base: doc.document_base,
                     document_content: doc.document_content,
-                    embedding: SMBertComponent {
+                    smbert: SMBertComponent {
                         embedding: arr1(&embedding).into(),
                     },
                 }
@@ -66,7 +66,7 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
                 .into_iter()
                 .map(|doc| DocumentDataWithQAMBert {
                     document_base: doc.document_base,
-                    embedding: doc.embedding,
+                    smbert: doc.smbert,
                     qambert: QAMBertComponent { similarity: 0.5 },
                 })
                 .collect())

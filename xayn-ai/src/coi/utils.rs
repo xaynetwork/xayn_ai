@@ -153,7 +153,7 @@ pub(super) mod tests {
 
     pub(crate) struct MockCoiDoc {
         id: DocumentId,
-        embedding: SMBertComponent,
+        smbert: SMBertComponent,
         coi: Option<CoiComponent>,
     }
 
@@ -162,8 +162,8 @@ pub(super) mod tests {
             &self.id
         }
 
-        fn embedding(&self) -> &SMBertComponent {
-            &self.embedding
+        fn smbert(&self) -> &SMBertComponent {
+            &self.smbert
         }
 
         fn coi(&self) -> Option<&CoiComponent> {
@@ -175,7 +175,7 @@ pub(super) mod tests {
         ids.iter()
             .map(|id| MockCoiDoc {
                 id: DocumentId::from_u128(0),
-                embedding: SMBertComponent {
+                smbert: SMBertComponent {
                     embedding: arr1(&[]).into(),
                 },
                 coi: Some(CoiComponent {
@@ -229,7 +229,7 @@ pub(super) mod tests {
                 id: DocumentId::from_u128(id),
                 initial_ranking,
             },
-            embedding: SMBertComponent {
+            smbert: SMBertComponent {
                 embedding: arr1(embedding).into(),
             },
             qambert: QAMBertComponent { similarity: 0.5 },
@@ -405,11 +405,11 @@ pub(super) mod tests {
             classify_documents_based_on_user_feedback(matching_documents);
 
         assert_eq!(positive_docs.len(), 2);
-        assert_eq!(positive_docs[0].embedding.embedding, arr1(&[3., 2., 1.]));
-        assert_eq!(positive_docs[1].embedding.embedding, arr1(&[4., 5., 6.]));
+        assert_eq!(positive_docs[0].smbert.embedding, arr1(&[3., 2., 1.]));
+        assert_eq!(positive_docs[1].smbert.embedding, arr1(&[4., 5., 6.]));
 
         assert_eq!(negative_docs.len(), 1);
-        assert_eq!(negative_docs[0].embedding.embedding, arr1(&[1., 2., 3.]));
+        assert_eq!(negative_docs[0].smbert.embedding, arr1(&[1., 2., 3.]));
     }
 
     #[test]

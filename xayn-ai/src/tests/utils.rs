@@ -71,7 +71,7 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -
         .unwrap()
         .into_iter()
         .enumerate()
-        .map(|(id, doc)| CP::new(id, doc.embedding.embedding))
+        .map(|(id, doc)| CP::new(id, doc.smbert.embedding))
         .collect()
 }
 
@@ -113,7 +113,7 @@ pub(crate) fn data_with_mab(
                 id,
                 initial_ranking,
             },
-            embedding: SMBertComponent { embedding },
+            smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {
                 id: CoiId(1),
@@ -137,7 +137,7 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
             document_content: DocumentContentComponent {
                 snippet: "snippet".to_string(),
             },
-            embedding: SMBertComponent { embedding },
+            smbert: SMBertComponent { embedding },
         })
         .collect()
 }

@@ -296,7 +296,7 @@ mod tests {
                 id,
                 initial_ranking: 0,
             },
-            embedding: SMBertComponent {
+            smbert: SMBertComponent {
                 embedding: arr1(&[]).into(),
             },
             qambert: QAMBertComponent { similarity: 0.5 },

@@ -70,8 +70,8 @@ macro_rules! impl_coi_system_data_no_coi {
                 &self.document_base.id
             }
 
-            fn embedding(&self) -> &SMBertComponent {
-                &self.embedding
+            fn smbert(&self) -> &SMBertComponent {
+                &self.smbert
             }
 
             fn coi(&self) -> Option<&CoiComponent> {
@@ -96,18 +96,18 @@ pub(crate) struct DocumentDataWithDocument {
 pub(crate) struct DocumentDataWithSMBert {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) document_content: DocumentContentComponent,
-    pub(crate) embedding: SMBertComponent,
+    pub(crate) smbert: SMBertComponent,
 }
 
 impl DocumentDataWithSMBert {
     pub(crate) fn from_document(
         document: DocumentDataWithDocument,
-        embedding: SMBertComponent,
+        smbert: SMBertComponent,
     ) -> Self {
         Self {
             document_base: document.document_base,
             document_content: document.document_content,
-            embedding,
+            smbert,
         }
     }
 }
@@ -119,7 +119,7 @@ impl_coi_system_data_no_coi!(DocumentDataWithSMBert);
 #[allow(clippy::upper_case_acronyms)]
 pub(crate) struct DocumentDataWithQAMBert {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertComponent,
+    pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
 }
 
@@ -130,7 +130,7 @@ impl DocumentDataWithQAMBert {
     ) -> Self {
         Self {
             document_base: document.document_base,
-            embedding: document.embedding,
+            smbert: document.smbert,
             qambert,
         }
     }
@@ -140,7 +140,7 @@ impl_coi_system_data_no_coi!(DocumentDataWithQAMBert);
 
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertComponent,
+    pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
 }
@@ -149,7 +149,7 @@ impl DocumentDataWithCoi {
     pub(crate) fn from_document(document: DocumentDataWithQAMBert, coi: CoiComponent) -> Self {
         Self {
             document_base: document.document_base,
-            embedding: document.embedding,
+            smbert: document.smbert,
             qambert: document.qambert,
             coi,
         }
@@ -159,7 +159,7 @@ impl DocumentDataWithCoi {
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct DocumentDataWithLtr {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertComponent,
+    pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -169,7 +169,7 @@ impl DocumentDataWithLtr {
     pub(crate) fn from_document(document: DocumentDataWithCoi, ltr: LtrComponent) -> Self {
         Self {
             document_base: document.document_base,
-            embedding: document.embedding,
+            smbert: document.smbert,
             qambert: document.qambert,
             coi: document.coi,
             ltr,
@@ -180,7 +180,7 @@ impl DocumentDataWithLtr {
 #[cfg_attr(test, derive(Debug, Clone))]
 pub(crate) struct DocumentDataWithContext {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertComponent,
+    pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -191,7 +191,7 @@ impl DocumentDataWithContext {
     pub(crate) fn from_document(document: DocumentDataWithLtr, context: ContextComponent) -> Self {
         Self {
             document_base: document.document_base,
-            embedding: document.embedding,
+            smbert: document.smbert,
             qambert: document.qambert,
             coi: document.coi,
             ltr: document.ltr,
@@ -204,7 +204,7 @@ impl DocumentDataWithContext {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentDataWithMab {
     pub(crate) document_base: DocumentBaseComponent,
-    pub(crate) embedding: SMBertComponent,
+    pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
@@ -216,7 +216,7 @@ impl DocumentDataWithMab {
     pub(crate) fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
         Self {
             document_base: document.document_base,
-            embedding: document.embedding,
+            smbert: document.smbert,
             qambert: document.qambert,
             coi: document.coi,
             ltr: document.ltr,
@@ -231,8 +231,8 @@ impl CoiSystemData for DocumentDataWithMab {
         &self.document_base.id
     }
 
-    fn embedding(&self) -> &SMBertComponent {
-        &self.embedding
+    fn smbert(&self) -> &SMBertComponent {
+        &self.smbert
     }
 
     fn coi(&self) -> Option<&CoiComponent> {
@@ -266,12 +266,12 @@ mod tests {
         };
         let document_data = DocumentDataWithSMBert::from_document(document_data, embedding.clone());
         assert_eq!(document_data.document_base, document_id);
-        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.smbert, embedding);
 
         let qambert = QAMBertComponent { similarity: 0.5 };
         let document_data = DocumentDataWithQAMBert::from_document(document_data, qambert.clone());
         assert_eq!(document_data.document_base, document_id);
-        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
 
         let coi = CoiComponent {
@@ -281,14 +281,14 @@ mod tests {
         };
         let document_data = DocumentDataWithCoi::from_document(document_data, coi.clone());
         assert_eq!(document_data.document_base, document_id);
-        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
         assert_eq!(document_data.coi, coi);
 
         let ltr = LtrComponent { ltr_score: 0.3 };
         let document_data = DocumentDataWithLtr::from_document(document_data, ltr.clone());
         assert_eq!(document_data.document_base, document_id);
-        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
         assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
@@ -298,7 +298,7 @@ mod tests {
         };
         let document_data = DocumentDataWithContext::from_document(document_data, context.clone());
         assert_eq!(document_data.document_base, document_id);
-        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
         assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
@@ -307,7 +307,7 @@ mod tests {
         let mab = MabComponent { rank: 3 };
         let document_data = DocumentDataWithMab::from_document(document_data, mab.clone());
         assert_eq!(document_data.document_base, document_id);
-        assert_eq!(document_data.embedding, embedding);
+        assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
         assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);

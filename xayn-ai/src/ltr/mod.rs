@@ -70,7 +70,7 @@ mod tests {
                 id,
                 initial_ranking: 24,
             },
-            embedding: SMBertComponent { embedding },
+            smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi,
         };
@@ -87,7 +87,7 @@ mod tests {
                 id,
                 initial_ranking: 42,
             },
-            embedding: SMBertComponent { embedding },
+            smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi,
         };

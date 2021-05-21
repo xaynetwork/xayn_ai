@@ -124,7 +124,7 @@ impl CoiSystem {
     /// Updates the CoIs based on the embeddings of docs.
     fn update_cois<CP: CoiPoint>(&self, docs: &[&dyn CoiSystemData], cois: Vec<CP>) -> Vec<CP> {
         docs.iter().fold(cois, |cois, doc| {
-            self.update_coi(&doc.embedding().embedding, cois)
+            self.update_coi(&doc.smbert().embedding, cois)
         })
     }
 
@@ -161,7 +161,7 @@ impl systems::CoiSystem for CoiSystem {
             .into_iter()
             .map(|document| {
                 let coi = self
-                    .compute_coi_for_embedding(&document.embedding.embedding, user_interests)
+                    .compute_coi_for_embedding(&document.smbert.embedding, user_interests)
                     .ok_or(CoiSystemError::NoCoi)?;
                 Ok(DocumentDataWithCoi::from_document(document, coi))
             })
@@ -236,7 +236,7 @@ mod tests {
                     id: DocumentId::from_u128(id as u128),
                     initial_ranking: id,
                 },
-                embedding: SMBertComponent {
+                smbert: SMBertComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),
                 },
                 qambert: QAMBertComponent { similarity: 0.5 },
