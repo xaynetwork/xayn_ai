@@ -158,11 +158,6 @@ impl<'a> ResultSet<'a> {
     }
 }
 
-pub(crate) struct Query {
-    pub(crate) id: i32,
-    pub(crate) words: Vec<String>,
-}
-
 struct DocAddr<'a> {
     url: UrlOrDom<'a>,
     dom: UrlOrDom<'a>,
@@ -291,29 +286,37 @@ impl<'a> FilterPred<'a> {
     }
 }
 
+/// Families of features for a non-personalised search result, based on Dataiku's specification.
 struct Features {
+    /// Unpersonalised rank.
     rank: Rank,
+    /// Aggregate features.
     aggreg: AggregFeatures,
+    /// User features.
     user: UserFeatures,
+    /// Query features.
     query: QueryFeatures,
+    /// Cumulated features.
     cum: CumFeatures,
+    /// Terms variety count.
     terms_variety: usize,
+    /// Weekend domain seasonality.
     seasonality: f32,
 }
 
+/// Build features for a user's search `res`ult given her past search `hist`ory.
 fn build_features(hist: &[SearchResult], res: SearchResult) -> Features {
     let rank = res.position;
     let aggreg = aggreg_features(hist, &res);
     let user = user_features(hist);
-    let query = query_features(
-        hist,
-        Query {
-            id: res.query_id,
-            words: res.query_words.clone(),
-        },
-    );
+    let query = query_features(hist, &res);
     let cum = cum_features(hist, &res);
     let terms_variety = terms_variety(hist, res.session_id);
+    // NOTE according to Dataiku spec, this should be the weekend seasonality
+    // factor when `res.day` is a weekend, otherwise the inverse (weekday
+    // seasonality) factor. a bug in soundgarden sets this to always be weekend
+    // seasonality but since the model is trained on it, we match that
+    // behaviour here.
     let seasonality = seasonality(hist, res.domain);
 
     Features {

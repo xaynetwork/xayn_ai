@@ -1,12 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{
-    click_entropy,
-    mean_recip_rank,
-    ClickSat,
-    Query,
-    SearchResult,
-};
+use crate::ltr::features::dataiku::{click_entropy, mean_recip_rank, ClickSat, SearchResult};
 use itertools::Itertools;
 use std::collections::HashSet;
 
@@ -29,12 +23,12 @@ pub(crate) struct QueryFeatures {
     avg_skips: f32,
 }
 
-/// Calculate query features for the given query and historical search results of a user.
-pub(crate) fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
+/// Calculate query features for the given search result and history of a user.
+pub(crate) fn query_features(history: &[SearchResult], res: &SearchResult) -> QueryFeatures {
     // history filtered by query
     let history_q = history
         .iter()
-        .filter(|r| r.query_id == query.id)
+        .filter(|r| r.query_id == res.query_id)
         .collect_vec();
 
     let click_entropy = click_entropy(&history_q);
@@ -60,7 +54,7 @@ pub(crate) fn query_features(history: &[SearchResult], query: Query) -> QueryFea
 
     QueryFeatures {
         click_entropy,
-        num_terms: query.words.len(),
+        num_terms: res.query_words.len(),
         rank_per_session,
         occurs_per_session,
         num_occurs,
