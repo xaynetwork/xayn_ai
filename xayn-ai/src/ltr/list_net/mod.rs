@@ -131,8 +131,8 @@ impl ListNet {
     /// The input can be passed in as a single array or two chunks which need to be
     /// concatenated.
     ///
-    /// This will pad the input by repeat the last document,
-    /// so that it can call `ListNet.run_for_10` with exactly
+    /// This will pad the input by repeating the last document,
+    /// so that it can call [`run_for_10()`] with exactly
     /// 10 documents.
     ///
     /// # Panics
@@ -170,7 +170,7 @@ impl ListNet {
         outputs
     }
 
-    /// Runs ListNet on the input. Requires exactly 10 documents (list items).
+    /// Runs ListNet on the input.
     ///
     /// Only exactly 50 features are supported.
     ///
