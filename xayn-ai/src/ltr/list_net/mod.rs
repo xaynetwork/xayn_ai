@@ -146,9 +146,7 @@ impl ListNet {
     ) -> Vec<f32> {
         let mut nr_documents = first.shape()[0];
 
-        let last = second.unwrap_or(first);
-        let last_row = last.slice(s![-1.., ..]);
-
+        let last_row;
         let mut stack = vec![first.clone().reborrow()];
 
         if let Some(second) = second {
@@ -158,6 +156,7 @@ impl ListNet {
 
         if nr_documents < Self::INPUT_NR_DOCUMENTS {
             let nr_missing = Self::INPUT_NR_DOCUMENTS - nr_documents;
+            last_row = stack.last().unwrap().clone().slice_move(s![-1.., ..]);
             let padding = last_row
                 .broadcast((nr_missing, Self::INPUT_NR_FEATURES))
                 .unwrap();
