@@ -47,12 +47,7 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{
-            CoiComponent,
-            DocumentBaseComponent,
-            QAMBertComponent,
-            SMBertComponent,
-        },
+        document_data::{CoiComponent, DocumentBaseComponent, QAMBertComponent, SMBertComponent},
         CoiId,
     };
 

@@ -112,7 +112,7 @@ impl DocumentDataWithSMBert {
     }
 }
 
-impl_coi_system_data_no_coi!{DocumentDataWithSMBert}
+impl_coi_system_data_no_coi! {DocumentDataWithSMBert}
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
@@ -136,7 +136,7 @@ impl DocumentDataWithQAMBert {
     }
 }
 
-impl_coi_system_data_no_coi!{DocumentDataWithQAMBert}
+impl_coi_system_data_no_coi! {DocumentDataWithQAMBert}
 
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_base: DocumentBaseComponent,

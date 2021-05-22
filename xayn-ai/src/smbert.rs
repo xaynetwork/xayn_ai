@@ -1,11 +1,7 @@
 use rubert::{Embedding1, SMBert};
 
 use crate::{
-    data::document_data::{
-        DocumentDataWithDocument,
-        DocumentDataWithSMBert,
-        SMBertComponent,
-    },
+    data::document_data::{DocumentDataWithDocument, DocumentDataWithSMBert, SMBertComponent},
     error::Error,
     reranker::systems::SMBertSystem,
 };
