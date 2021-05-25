@@ -47,6 +47,10 @@ extension CodeToInt on Code {
         return CCode.RerankerDeserialization;
       case Code.rerankerSerialization:
         return CCode.RerankerSerialization;
+      case Code.historiesDeserialization:
+        return CCode.HistoriesDeserialization;
+      case Code.documentsDeserialization:
+        return CCode.DocumentsDeserialization;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -91,6 +95,10 @@ extension IntToCode on int {
         return Code.rerankerDeserialization;
       case CCode.RerankerSerialization:
         return Code.rerankerSerialization;
+      case CCode.HistoriesDeserialization:
+        return Code.historiesDeserialization;
+      case CCode.DocumentsDeserialization:
+        return Code.documentsDeserialization;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
