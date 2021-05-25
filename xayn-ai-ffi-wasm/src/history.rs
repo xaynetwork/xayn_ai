@@ -51,6 +51,9 @@ impl From<WUserAction> for UserAction {
     }
 }
 
+/// A document history.
+///
+/// The enum fields are serializable as integers instead of strings.
 #[derive(Deserialize, Serialize)]
 pub struct WHistory {
     id: DocumentId,

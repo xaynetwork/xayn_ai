@@ -25,10 +25,10 @@ use std::fmt;
 /// However, if it is mutably accessed outside of safe Rust, then it is undefined behavior if:
 /// - A non-null `data` pointer doesn't point to an aligned, contiguous area of memory with exactly
 /// `len` many `T`s.
-/// - A null `data` pointer doesn't have `len` zero.
+/// - A null or dangling `data` pointer doesn't have `len` zero.
 /// - A `len` is too large to address a corresponding `[T]`.
 ///
-/// Also, it's undefined behavior to transfer ownership of boxed slice to Rust which wasn't
+/// Also, it's undefined behavior to transfer ownership of a boxed slice to Rust which wasn't
 /// allocated in Rust before.
 ///
 /// A partial soundness check can be done via `is_sound()`, but this is of course only feasible to a

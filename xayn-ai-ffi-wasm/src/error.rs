@@ -1,7 +1,9 @@
 use wasm_bindgen::JsValue;
 use xayn_ai_ffi::Error;
 
+/// An interface to convert results into JS compatible results.
 pub trait IntoJsResult<T> {
+    /// Converts an error into a JS compatible value, while any value stays untouched.
     fn into_js_result(self) -> Result<T, JsValue>;
 }
 
