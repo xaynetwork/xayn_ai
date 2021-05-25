@@ -4,7 +4,7 @@ use ndarray::arr1;
 
 use crate::{
     data::{
-        document::{Ranks, Relevance, UserFeedback},
+        document::{Relevance, UserFeedback},
         document_data::{
             CoiComponent,
             ContextComponent,
@@ -137,8 +137,8 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
         .collect()
 }
 
-pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> Ranks {
-    docs.iter().map(|doc| doc.rank).collect()
+pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> Vec<u16> {
+    docs.iter().map(|doc| doc.rank as u16).collect()
 }
 
 pub(crate) fn document_history(docs: Vec<(u32, Relevance, UserFeedback)>) -> Vec<DocumentHistory> {

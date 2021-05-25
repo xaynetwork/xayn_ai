@@ -14,11 +14,12 @@ void main() {
   group('XaynAi', () {
     test('rerank full', () {
       final ai = XaynAi(SetupData(vocab, model));
-      final ranks = ai.rerank(histories, documents);
+      final outcome = ai.rerank(histories, documents);
       final faults = ai.faults();
 
-      expect(ranks.length, equals(documents.length));
-      documents.forEach((document) => expect(ranks, contains(document.rank)));
+      expect(outcome.finalRanks.length, equals(documents.length));
+      documents.forEach(
+          (document) => expect(outcome.finalRanks, contains(document.rank)));
       expect(faults, isNot(isEmpty));
 
       ai.free();
@@ -26,10 +27,10 @@ void main() {
 
     test('rerank empty', () {
       final ai = XaynAi(SetupData(vocab, model));
-      final ranks = ai.rerank([], []);
+      final outcome = ai.rerank([], []);
       final faults = ai.faults();
 
-      expect(ranks, isEmpty);
+      expect(outcome.finalRanks, isEmpty);
       expect(faults, isNot(isEmpty));
 
       ai.free();
@@ -37,11 +38,12 @@ void main() {
 
     test('rerank empty hists', () {
       final ai = XaynAi(SetupData(vocab, model));
-      final ranks = ai.rerank([], documents);
+      final outcome = ai.rerank([], documents);
       final faults = ai.faults();
 
-      expect(ranks.length, equals(documents.length));
-      documents.forEach((document) => expect(ranks, contains(document.rank)));
+      expect(outcome.finalRanks.length, equals(documents.length));
+      documents.forEach(
+          (document) => expect(outcome.finalRanks, contains(document.rank)));
       expect(faults, isNot(isEmpty));
 
       ai.free();
@@ -49,10 +51,10 @@ void main() {
 
     test('rerank empty docs', () {
       final ai = XaynAi(SetupData(vocab, model));
-      final ranks = ai.rerank(histories, []);
+      final outcome = ai.rerank(histories, []);
       final faults = ai.faults();
 
-      expect(ranks, isEmpty);
+      expect(outcome.finalRanks, isEmpty);
       expect(faults, isNot(isEmpty));
 
       ai.free();

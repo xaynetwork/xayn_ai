@@ -188,7 +188,7 @@ pub(crate) mod tests {
         let histories = unsafe { hists.histories.to_histories() }.unwrap();
         assert_eq!(histories.len(), hists.len());
         for (dh, ch) in izip!(histories, hists.history.as_ref().get_ref()) {
-            assert_eq!(dh.id.0.to_string(), as_str_unchecked(ch.id));
+            assert_eq!(dh.id.0.to_string(), unsafe { as_str_unchecked(ch.id) });
             assert_eq!(dh.relevance, ch.relevance.into());
             assert_eq!(dh.user_feedback, ch.feedback.into());
         }

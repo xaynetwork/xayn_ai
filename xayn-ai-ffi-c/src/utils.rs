@@ -65,16 +65,23 @@ unsafe impl IntoRaw for () {
 pub(crate) mod tests {
     use super::*;
 
-    /// Reads a string slice from the borrowed bytes pointer.
+    /// Assuming the reference points to the first byte in a CStr converts it into a &str.
     ///
     /// # Panics
-    /// Panics on null pointer and invalid utf8 encoding.
+    ///
+    /// Panics if `None` is passed in or the if it's not in a  valid utf8 encoding.
     ///
     /// # Safety
+    ///
     /// The behavior is undefined if:
-    /// - A non-null `bytes` doesn't point to an aligned, contiguous area of memory with a terminating
-    /// null byte.
-    pub fn as_str_unchecked<'a>(bytes: Option<&'a u8>) -> &'a str {
+    ///
+    /// - The byte reference passed in is not the beginning of a null terminated
+    ///   c-string.
+    ///
+    /// As we accept a `&u8` we already have the guarantees that the pointer is
+    /// not dangling as else the creation of the `Option<&u8>` would have been
+    /// invalid.
+    pub unsafe fn as_str_unchecked<'a>(bytes: Option<&'a u8>) -> &'a str {
         unsafe { CStr::from_ptr::<'a>((bytes.unwrap() as *const u8).cast()) }
             .to_str()
             .unwrap()

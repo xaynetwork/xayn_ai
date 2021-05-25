@@ -1,7 +1,7 @@
 @JS()
 library ai;
 
-import 'dart:typed_data' show Uint32List, Uint8List;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:js/js.dart' show JS;
 
@@ -11,6 +11,8 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
     show XaynAi;
+import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
+    show RerankingOutcomes;
 import 'package:xayn_ai_ffi_dart/src/web/data/document.dart'
     show JsDocument, ToJsDocuments;
 import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
@@ -27,12 +29,14 @@ import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
         XaynAiErrorToException;
 import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
     show JsFault, ToStrings;
+import 'package:xayn_ai_ffi_dart/src/web/result/outcomes.dart'
+    show JsRerankingOutcomes, ToRerankingOutcomes;
 
 @JS('xayn_ai_ffi_wasm.WXaynAi')
 class _XaynAi {
   external _XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]);
 
-  external Uint32List rerank(
+  external JsRerankingOutcomes rerank(
     List<JsHistory> histories,
     List<JsDocument> documents,
   );
@@ -72,7 +76,7 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  List<int> rerank(List<History> histories, List<Document> documents) {
+  RerankingOutcomes rerank(List<History> histories, List<Document> documents) {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
@@ -80,7 +84,7 @@ class XaynAi implements common.XaynAi {
     try {
       return _ai!
           .rerank(histories.toJsHistories(), documents.toJsDocuments())
-          .toList(growable: false);
+          .toRerankingOutcomes();
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {

@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::smbert::Embedding;
 
+// Hint: We use this id new-type in FFI so repr(transparent) needs to be kept
 #[repr(transparent)]
-#[cfg_attr(test, derive(Debug))]
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
-pub(crate) struct CoiId(pub usize);
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
+pub struct CoiId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone, Serialize, Deserialize)]
