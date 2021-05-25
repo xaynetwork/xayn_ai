@@ -15,7 +15,7 @@ use crate::{
         },
     },
     data::{
-        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
+        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
         CoiPoint,
         UserInterests,
     },
@@ -124,7 +124,7 @@ impl CoiSystem {
     /// Updates the CoIs based on the embeddings of docs.
     fn update_cois<CP: CoiPoint>(&self, docs: &[&dyn CoiSystemData], cois: Vec<CP>) -> Vec<CP> {
         docs.iter().fold(cois, |cois, doc| {
-            self.update_coi(&doc.embedding().embedding, cois)
+            self.update_coi(&doc.smbert().embedding, cois)
         })
     }
 
@@ -154,14 +154,14 @@ impl CoiSystem {
 impl systems::CoiSystem for CoiSystem {
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: Vec<DocumentDataWithQAMBert>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
         documents
             .into_iter()
             .map(|document| {
                 let coi = self
-                    .compute_coi_for_embedding(&document.embedding.embedding, user_interests)
+                    .compute_coi_for_embedding(&document.smbert.embedding, user_interests)
                     .ok_or(CoiSystemError::NoCoi)?;
                 Ok(DocumentDataWithCoi::from_document(document, coi))
             })
@@ -215,7 +215,8 @@ mod tests {
                 DocumentDataWithMab,
                 LtrComponent,
                 MabComponent,
-                SMBertEmbeddingComponent,
+                QAMBertComponent,
+                SMBertComponent,
             },
             CoiId,
             PositiveCoi,
@@ -235,9 +236,10 @@ mod tests {
                     id: DocumentId::from_u128(id as u128),
                     initial_ranking: id,
                 },
-                embedding: SMBertEmbeddingComponent {
+                smbert: SMBertComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),
                 },
+                qambert: QAMBertComponent { similarity: 0.5 },
                 coi: CoiComponent {
                     id: CoiId(1),
                     pos_distance: 0.1,

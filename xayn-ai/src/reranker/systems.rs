@@ -9,8 +9,9 @@ use crate::{
             DocumentDataWithDocument,
             DocumentDataWithLtr,
             DocumentDataWithMab,
+            DocumentDataWithQAMBert,
             DocumentDataWithSMBert,
-            SMBertEmbeddingComponent,
+            SMBertComponent,
         },
         UserInterests,
     },
@@ -30,9 +31,19 @@ pub(crate) trait SMBertSystem {
     ) -> Result<Vec<DocumentDataWithSMBert>, Error>;
 }
 
+#[cfg_attr(test, automock)]
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) trait QAMBertSystem {
+    fn compute_similarity(
+        &self,
+        query: &str,
+        documents: Vec<DocumentDataWithSMBert>,
+    ) -> Result<Vec<DocumentDataWithQAMBert>, Error>;
+}
+
 pub(crate) trait CoiSystemData {
     fn id(&self) -> &DocumentId;
-    fn embedding(&self) -> &SMBertEmbeddingComponent;
+    fn smbert(&self) -> &SMBertComponent;
     fn coi(&self) -> Option<&CoiComponent>;
 }
 
@@ -41,7 +52,7 @@ pub(crate) trait CoiSystem {
     /// Add centre of interest information to a document
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: Vec<DocumentDataWithQAMBert>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error>;
 
@@ -94,6 +105,7 @@ pub(crate) trait AnalyticsSystem {
 pub(crate) trait CommonSystems {
     fn database(&self) -> &dyn Database;
     fn smbert(&self) -> &dyn SMBertSystem;
+    fn qambert(&self) -> &dyn QAMBertSystem;
     fn coi(&self) -> &dyn CoiSystem;
     fn ltr(&self) -> &dyn LtrSystem;
     fn context(&self) -> &dyn ContextSystem;

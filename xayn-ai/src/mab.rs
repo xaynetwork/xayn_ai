@@ -280,7 +280,8 @@ mod tests {
             ContextComponent,
             DocumentBaseComponent,
             LtrComponent,
-            SMBertEmbeddingComponent,
+            QAMBertComponent,
+            SMBertComponent,
         },
     };
     use ndarray::arr1;
@@ -295,9 +296,10 @@ mod tests {
                 id,
                 initial_ranking: 0,
             },
-            embedding: SMBertEmbeddingComponent {
+            smbert: SMBertComponent {
                 embedding: arr1(&[]).into(),
             },
+            qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {
                 id: coi_id,
                 pos_distance: 0.,

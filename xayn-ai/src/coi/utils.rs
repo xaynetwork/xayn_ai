@@ -140,8 +140,9 @@ pub(super) mod tests {
             document_data::{
                 CoiComponent,
                 DocumentBaseComponent,
-                DocumentDataWithSMBert,
-                SMBertEmbeddingComponent,
+                DocumentDataWithQAMBert,
+                QAMBertComponent,
+                SMBertComponent,
             },
             CoiId,
             CoiPoint,
@@ -152,7 +153,7 @@ pub(super) mod tests {
 
     pub(crate) struct MockCoiDoc {
         id: DocumentId,
-        embedding: SMBertEmbeddingComponent,
+        smbert: SMBertComponent,
         coi: Option<CoiComponent>,
     }
 
@@ -161,8 +162,8 @@ pub(super) mod tests {
             &self.id
         }
 
-        fn embedding(&self) -> &SMBertEmbeddingComponent {
-            &self.embedding
+        fn smbert(&self) -> &SMBertComponent {
+            &self.smbert
         }
 
         fn coi(&self) -> Option<&CoiComponent> {
@@ -174,7 +175,7 @@ pub(super) mod tests {
         ids.iter()
             .map(|id| MockCoiDoc {
                 id: DocumentId::from_u128(0),
-                embedding: SMBertEmbeddingComponent {
+                smbert: SMBertComponent {
                     embedding: arr1(&[]).into(),
                 },
                 coi: Some(CoiComponent {
@@ -208,7 +209,7 @@ pub(super) mod tests {
 
     pub(crate) fn create_data_with_embeddings(
         embeddings: &[impl FixedInitializer<Elem = f32>],
-    ) -> Vec<DocumentDataWithSMBert> {
+    ) -> Vec<DocumentDataWithQAMBert> {
         embeddings
             .iter()
             .enumerate()
@@ -222,15 +223,16 @@ pub(super) mod tests {
         id: u128,
         initial_ranking: usize,
         embedding: &[f32],
-    ) -> DocumentDataWithSMBert {
-        DocumentDataWithSMBert {
+    ) -> DocumentDataWithQAMBert {
+        DocumentDataWithQAMBert {
             document_base: DocumentBaseComponent {
                 id: DocumentId::from_u128(id),
                 initial_ranking,
             },
-            embedding: SMBertEmbeddingComponent {
+            smbert: SMBertComponent {
                 embedding: arr1(embedding).into(),
             },
+            qambert: QAMBertComponent { similarity: 0.5 },
         }
     }
 
@@ -403,11 +405,11 @@ pub(super) mod tests {
             classify_documents_based_on_user_feedback(matching_documents);
 
         assert_eq!(positive_docs.len(), 2);
-        assert_eq!(positive_docs[0].embedding.embedding, arr1(&[3., 2., 1.]));
-        assert_eq!(positive_docs[1].embedding.embedding, arr1(&[4., 5., 6.]));
+        assert_eq!(positive_docs[0].smbert.embedding, arr1(&[3., 2., 1.]));
+        assert_eq!(positive_docs[1].smbert.embedding, arr1(&[4., 5., 6.]));
 
         assert_eq!(negative_docs.len(), 1);
-        assert_eq!(negative_docs[0].embedding.embedding, arr1(&[1., 2., 3.]));
+        assert_eq!(negative_docs[0].smbert.embedding, arr1(&[1., 2., 3.]));
     }
 
     #[test]

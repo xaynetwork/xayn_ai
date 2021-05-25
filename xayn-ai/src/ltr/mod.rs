@@ -48,7 +48,7 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{CoiComponent, DocumentBaseComponent, SMBertEmbeddingComponent},
+        document_data::{CoiComponent, DocumentBaseComponent, QAMBertComponent, SMBertComponent},
         CoiId,
     };
 
@@ -66,7 +66,8 @@ mod tests {
                 id,
                 initial_ranking: 24,
             },
-            embedding: SMBertEmbeddingComponent { embedding },
+            smbert: SMBertComponent { embedding },
+            qambert: QAMBertComponent { similarity: 0.5 },
             coi,
         };
 
@@ -82,7 +83,8 @@ mod tests {
                 id,
                 initial_ranking: 42,
             },
-            embedding: SMBertEmbeddingComponent { embedding },
+            smbert: SMBertComponent { embedding },
+            qambert: QAMBertComponent { similarity: 0.5 },
             coi,
         };
 
