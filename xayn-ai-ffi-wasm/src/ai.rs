@@ -1,8 +1,9 @@
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
+use xayn_ai_ffi::CCode;
 
-use super::{error::CCode, history::WHistory, utils::IntoJsResult};
+use crate::{error::IntoJsResult, history::WHistory};
 
 /// The Xayn AI.
 #[wasm_bindgen]
@@ -34,7 +35,7 @@ impl WXaynAi {
             .map_err(|cause| {
                 CCode::RerankerDeserialization.with_context(format!(
                     "Failed to deserialize the reranker database: {}",
-                    cause
+                    cause,
                 ))
             })
             .into_js_result()?
@@ -66,7 +67,7 @@ impl WXaynAi {
             .map_err(|cause| {
                 CCode::HistoriesDeserialization.with_context(format!(
                     "Failed to deserialize the collection of histories: {}",
-                    cause
+                    cause,
                 ))
             })
             .into_js_result()?;
@@ -77,7 +78,7 @@ impl WXaynAi {
             .map_err(|cause| {
                 CCode::DocumentsDeserialization.with_context(format!(
                     "Failed to deserialize the collection of documents: {}",
-                    cause
+                    cause,
                 ))
             })
             .into_js_result()?;
@@ -146,8 +147,9 @@ mod tests {
         UserAction,
         UserFeedback,
     };
+    use xayn_ai_ffi::Error;
 
-    use crate::{error::ExternError, history::WHistory};
+    use crate::history::WHistory;
 
     /// Path to the current smbert vocabulary file.
     const SMBERT_VOCAB: &[u8] = include_bytes!("../../data/smbert_v0000/vocab.txt");
@@ -353,12 +355,12 @@ mod tests {
     fn test_smbert_vocab_empty() {
         let error = WXaynAi::new(&[], SMBERT_MODEL, QAMBERT_VOCAB, QAMBERT_MODEL, None)
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
-            error.message,
+            error.message(),
             "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
         );
     }
@@ -367,10 +369,10 @@ mod tests {
     fn test_qambert_vocab_empty() {
         let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, &[], QAMBERT_MODEL, None)
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
             error.message,
             "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
@@ -422,12 +424,12 @@ mod tests {
     fn test_qambert_model_invalid() {
         let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, QAMBERT_VOCAB, &[0], None)
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(error.code(), CCode::InitAi);
         assert!(error
-            .message
+            .message()
             .contains("Failed to initialize the ai: Failed to build the model: "));
     }
 
@@ -444,12 +446,12 @@ mod tests {
         let error = xaynai
             .rerank(vec![JsValue::from("invalid")], test_documents())
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::HistoriesDeserialization);
+        assert_eq!(error.code(), CCode::HistoriesDeserialization);
         assert!(error
-            .message
+            .message()
             .contains("Failed to deserialize the collection of histories: invalid type: "));
     }
 
@@ -479,12 +481,12 @@ mod tests {
         let error = xaynai
             .rerank(test_histories(), vec![JsValue::from("invalid")])
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::DocumentsDeserialization);
+        assert_eq!(error.code(), CCode::DocumentsDeserialization);
         assert!(error
-            .message
+            .message()
             .contains("Failed to deserialize the collection of documents: invalid type: "));
     }
 
@@ -523,11 +525,11 @@ mod tests {
             Some(Box::new([1, 2, 3])),
         )
         .unwrap_err()
-        .into_serde::<ExternError>()
+        .into_serde::<Error>()
         .unwrap();
 
-        assert_eq!(error.code, CCode::RerankerDeserialization);
-        assert!(error.message.contains(
+        assert_eq!(error.code(), CCode::RerankerDeserialization);
+        assert!(error.message().contains(
             "Failed to deserialize the reranker database: Unsupported serialized data. "
         ));
     }

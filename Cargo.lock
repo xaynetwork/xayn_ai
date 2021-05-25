@@ -1721,4 +1721,5 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "xayn-ai",
+ "xayn-ai-ffi",
 ]

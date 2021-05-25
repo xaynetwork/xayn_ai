@@ -14,10 +14,11 @@ serde = { version = "1.0.125", features = ["derive"] }
 serde_repr = "0.1.6"
 wasm-bindgen = { version = "0.2.73", features = ["serde-serialize"] }
 xayn-ai = { path = "../xayn-ai" }
+xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.23"
 itertools = "0.10.0"
+wasm-bindgen-test = "0.3.23"
 
 [lib]
 crate-type = ["cdylib"]
