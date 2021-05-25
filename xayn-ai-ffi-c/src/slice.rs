@@ -1,11 +1,12 @@
 use std::{
-    fmt,
     marker::PhantomData,
-    mem,
-    ops::{Deref, DerefMut},
+    mem::{self, ManuallyDrop},
     ptr::{self, NonNull},
     slice,
 };
+
+#[cfg(test)]
+use std::fmt;
 
 /// A boxed slice with a C-compatible ABI.
 ///
@@ -49,7 +50,8 @@ pub struct CBoxedSlice<T: Sized> {
 /// The behavior is undefined if:
 /// - The `data` doesn't point to memory previously allocated in Rust as a `Box<[T]>` with the
 /// corresponding `len`.
-/// - The `data` doesn't own the memory or is accessed afterwards.
+/// - The `data` pointer does own the memory and isn't used after wards in **any** way.
+///   Ownership is moved into the returned `Box<[T]>`.
 unsafe fn into_boxed_slice_unchecked<T: Sized>(data: NonNull<T>, len: u64) -> Box<[T]> {
     let raw_slice = ptr::slice_from_raw_parts_mut(data.as_ptr(), len as usize);
     unsafe { Box::from_raw(raw_slice) }
@@ -80,9 +82,20 @@ impl<T> CBoxedSlice<T> {
         // freed via the `Drop` implementation.
         let len = boxed_slice.len() as u64;
         let data = NonNull::new(Box::leak(boxed_slice).as_mut_ptr());
-        let _owned = PhantomData;
+        Self {
+            data,
+            len,
+            _owned: PhantomData,
+        }
+    }
 
-        Self { data, len, _owned }
+    // Creates an empty boxed slice with none hint.
+    pub fn new_none() -> Self {
+        Self {
+            data: None,
+            len: 0,
+            _owned: PhantomData,
+        }
     }
 
     /// Checks partially for soundness.
@@ -124,10 +137,14 @@ impl<T> CBoxedSlice<T> {
 
     /// Converts into a boxed slice.
     pub fn into_boxed_slice(self) -> Box<[T]> {
-        self.data
+        // Dropping it after calling into_boxed_slice_unchecked is
+        // unsafe (use-after free) and if `data` is `None` we need
+        // no drop even after into_boxed_slice_unchecked is called.
+        let me = ManuallyDrop::new(self);
+        me.data
             .map(|data| {
                 // Safety: Same as for `drop()`.
-                unsafe { into_boxed_slice_unchecked(data, self.len) }
+                unsafe { into_boxed_slice_unchecked(data, me.len) }
             })
             .unwrap_or_default()
     }
@@ -141,6 +158,24 @@ impl<T> CBoxedSlice<T> {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    /// Checks if it is not just empty but implies it is `None`.
+    pub fn is_none(&self) -> bool {
+        self.data.is_none()
+    }
+}
+
+#[cfg(test)]
+impl<T: fmt::Debug> fmt::Debug for CBoxedSlice<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self.as_slice(), f)
+    }
+}
+
+impl<T> From<Vec<T>> for CBoxedSlice<T> {
+    fn from(vec: Vec<T>) -> Self {
+        Self::from(vec.into_boxed_slice())
+    }
 }
 
 impl<T> From<Box<[T]>> for CBoxedSlice<T> {
@@ -149,56 +184,33 @@ impl<T> From<Box<[T]>> for CBoxedSlice<T> {
     }
 }
 
-impl<T> From<CBoxedSlice<T>> for Box<[T]> {
-    fn from(boxed_slice: CBoxedSlice<T>) -> Self {
-        boxed_slice.into_boxed_slice()
+impl<T, E> From<Option<T>> for CBoxedSlice<E>
+where
+    CBoxedSlice<E>: From<T>,
+{
+    fn from(val: Option<T>) -> Self {
+        if let Some(val) = val {
+            Self::from(val)
+        } else {
+            Self::new_none()
+        }
     }
 }
 
-impl<T: Clone> Clone for CBoxedSlice<T> {
-    fn clone(&self) -> Self {
-        self.as_slice().to_vec().into_boxed_slice().into()
-    }
-}
-
-impl<T> Deref for CBoxedSlice<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
-impl<T> DerefMut for CBoxedSlice<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut_slice()
-    }
-}
-
+#[cfg(test)]
 impl<T> AsRef<[T]> for CBoxedSlice<T> {
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<T> AsMut<[T]> for CBoxedSlice<T> {
-    fn as_mut(&mut self) -> &mut [T] {
-        self.as_mut_slice()
-    }
-}
-
-impl<T: fmt::Debug> fmt::Debug for CBoxedSlice<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self.as_slice(), f)
-    }
-}
-
-impl<T> fmt::Pointer for CBoxedSlice<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Pointer::fmt(
-            &self.data.map(NonNull::as_ptr).unwrap_or_else(ptr::null_mut),
-            f,
-        )
+#[cfg(test)]
+impl<T1, T2, const N: usize> PartialEq<[T2; N]> for CBoxedSlice<T1>
+where
+    T1: PartialEq<T2>,
+{
+    fn eq(&self, other: &[T2; N]) -> bool {
+        self.as_ref().eq(other)
     }
 }
 
@@ -207,16 +219,91 @@ unsafe impl<T: Send> Send for CBoxedSlice<T> {}
 unsafe impl<T: Sync> Sync for CBoxedSlice<T> {}
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
+    use std::{ffi::CStr, mem::ManuallyDrop};
+
     use super::*;
-    use crate::utils::tests::{as_str_unchecked, AsPtr};
+    use crate::utils::tests::AsPtr;
 
     impl CBoxedSlice<u8> {
-        /// See [`as_str_unchecked()`] for more.
-        pub fn as_str_unchecked(&self) -> &str {
-            as_str_unchecked(self.as_slice().first())
+        /// Interprets the slice as a &CStr and then &str.
+        ///
+        /// # Panic
+        ///
+        /// This panics if the bytes are not a valid string.
+        pub fn as_str(&self) -> &str {
+            CStr::from_bytes_with_nul(self.as_slice())
+                .unwrap()
+                .to_str()
+                .unwrap()
         }
     }
 
     impl<T> AsPtr for CBoxedSlice<T> {}
+
+    #[test]
+    fn test_soundness_check() {
+        let _owned = PhantomData::<f64>;
+        let mut with_null_ptr = ManuallyDrop::new(CBoxedSlice {
+            data: None,
+            len: 0,
+            _owned,
+        });
+        assert_eq!(with_null_ptr.is_sound(), true);
+        with_null_ptr.len = 1;
+        assert_eq!(with_null_ptr.is_sound(), false);
+
+        let mut with_dangeling = ManuallyDrop::new(CBoxedSlice {
+            data: Some(NonNull::dangling()),
+            len: 0,
+            _owned,
+        });
+        assert_eq!(with_dangeling.is_sound(), true);
+        // allocation soundness can't be checked by is sound
+        with_dangeling.len = 4;
+        assert_eq!(with_dangeling.is_sound(), true);
+
+        with_dangeling.len = isize::MAX as u64;
+        assert_eq!(with_dangeling.is_sound(), false);
+
+        with_dangeling.len = 0;
+        assert_eq!(with_dangeling.is_sound(), true);
+        with_dangeling.data = NonNull::new(1 as _);
+        assert_eq!(with_dangeling.is_sound(), false);
+    }
+
+    #[test]
+    fn test_as_mut_slice() {
+        let mut slice = CBoxedSlice::from(vec![1u8, 2, 4]);
+        assert_eq!(slice.as_mut_slice(), &mut [1, 2, 4]);
+    }
+
+    #[test]
+    fn test_into_boxed_slice() {
+        let slice = CBoxedSlice::from(vec![1u8, 2, 4]);
+        dbg!((&slice.data, &slice.len));
+        dbg!(&slice);
+        let slice = slice.into_boxed_slice();
+        dbg!(&*slice as *const _);
+        dbg!(&slice);
+        assert_eq!(&*slice, &[1u8, 2, 4]);
+    }
+
+    #[test]
+    fn test_len() {
+        let slice = CBoxedSlice::from(vec![1u8, 2, 4]);
+        assert_eq!(slice.len(), 3);
+    }
+
+    #[test]
+    fn test_construct_from_option() {
+        let slice = CBoxedSlice::from(Some(vec![1u8, 2, 4]));
+        assert_eq!(slice.as_ref(), [1, 2, 4]);
+        assert!(!slice.is_none());
+
+        let none: Option<Vec<u8>> = None;
+        let slice = CBoxedSlice::from(none);
+        assert_eq!(slice.as_ref(), &[]);
+        assert!(slice.is_none());
+    }
 }

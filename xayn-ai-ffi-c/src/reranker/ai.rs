@@ -6,7 +6,8 @@ use crate::{
     data::{
         document::CDocuments,
         history::CHistories,
-        rank::{CRanks, Ranks},
+        outcomes::RerankingOutcomes,
+        CRerankingOutcomes,
     },
     reranker::{
         analytics::{Analytics, CAnalytics},
@@ -83,7 +84,7 @@ impl CXaynAi {
         xaynai: Option<&mut Self>,
         histories: Option<&CHistories>,
         documents: Option<&CDocuments>,
-    ) -> Result<Ranks, Error> {
+    ) -> Result<RerankingOutcomes, Error> {
         let xaynai = xaynai.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to rerank the documents: The ai pointer is null")
         })?;
@@ -205,7 +206,7 @@ pub unsafe extern "C" fn xaynai_rerank(
     histories: Option<&CHistories>,
     documents: Option<&CDocuments>,
     error: Option<&mut CError>,
-) -> Option<Box<CRanks>> {
+) -> Option<Box<CRerankingOutcomes>> {
     let rerank = AssertUnwindSafe(
         // Safety: It's the caller's responsibility to clean up in case of a panic.
         || unsafe { CXaynAi::rerank(xaynai, histories, documents) },
@@ -301,14 +302,18 @@ pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::CString, pin::Pin};
+    use std::{ffi::CString, mem, pin::Pin};
 
     use tempfile::Builder as TempBuilder;
 
     use super::*;
     use crate::{
-        data::{document::tests::TestDocuments, history::tests::TestHistories, rank::ranks_drop},
-        reranker::{analytics_drop, bytes::bytes_drop},
+        data::{
+            document::tests::TestDocuments,
+            history::tests::TestHistories,
+            outcomes::reranking_outcomes_drop,
+        },
+        reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
         tests::{SMBERT_MODEL, VOCAB},
         utils::tests::AsPtr,
@@ -357,6 +362,23 @@ mod tests {
         }
     }
 
+    /// Casts a function pointer to an extern C function to a unsafe extern C function which takes a pointer instead of a opt. box.
+    ///
+    /// The cast is safe (as far as possible), the usage of the resulting function not so much.
+    fn cast_drop_fn<T>(func: unsafe extern "C" fn(Option<Box<T>>)) -> unsafe extern "C" fn(*mut T) {
+        debug_assert_eq!(mem::size_of::<Option<Box<T>>>(), mem::size_of::<*mut T>());
+
+        // We can't cast function pointers in rust using `as`.
+        //
+        // Safe: But due to non-null optimizations we know that `Option<Box<T>>` is equivalent to
+        // `*mut T`, and as such `extern "C"` functions have the same layout. It should be noted
+        // that this should only ever be used for testing, function pointers are one of the largely
+        // under specified parts of rust, using "C" function pointers makes this better but I
+        // wouldn't want to put this into release/production code. Still it helps us to better
+        // test extern "C" destructors.
+        unsafe { mem::transmute(func) }
+    }
+
     #[test]
     fn test_rerank() {
         let vocab = TestFile::vocab();
@@ -376,7 +398,7 @@ mod tests {
         }
         .unwrap();
         assert_eq!(error.code, CCode::None);
-        let ranks = unsafe {
+        let outcomes = unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
                 hists.as_ptr(),
@@ -387,8 +409,8 @@ mod tests {
         .unwrap();
         assert_eq!(error.code, CCode::None);
 
-        unsafe { ranks_drop(ranks.into_ptr()) };
-        unsafe { xaynai_drop(xaynai.into_ptr()) };
+        unsafe { cast_drop_fn(reranking_outcomes_drop)(Box::into_raw(outcomes)) };
+        unsafe { cast_drop_fn(xaynai_drop)(Box::into_raw(xaynai)) };
     }
 
     #[test]
@@ -478,7 +500,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::VocabPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             format!(
                 "Failed to initialize the ai: The {} is null",
                 CCode::VocabPointer,
@@ -509,7 +531,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
         );
 
@@ -533,7 +555,7 @@ mod tests {
             .message
             .as_ref()
             .unwrap()
-            .as_str_unchecked()
+            .as_str()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -552,7 +574,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::ModelPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             format!(
                 "Failed to initialize the ai: The {} is null",
                 CCode::ModelPointer,
@@ -583,7 +605,7 @@ mod tests {
         );
         assert_eq!(error.code, CCode::Panic);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "called `Option::unwrap()` on a `None` value",
         );
 
@@ -607,7 +629,7 @@ mod tests {
             .message
             .as_ref()
             .unwrap()
-            .as_str_unchecked()
+            .as_str()
             .contains("Failed to initialize the ai: Failed to load a data file: "));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -626,7 +648,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to rerank the documents: The ai pointer is null",
         );
 
@@ -641,7 +663,7 @@ mod tests {
         assert!(unsafe { xaynai_serialize(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to serialize the reranker database: The ai pointer is null",
         );
 
@@ -656,7 +678,7 @@ mod tests {
         assert!(unsafe { xaynai_faults(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to get the faults: The ai pointer is null",
         );
 
@@ -671,7 +693,7 @@ mod tests {
         assert!(unsafe { xaynai_analytics(invalid, error.as_mut_ptr()) }.is_none());
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to get the analytics: The ai pointer is null",
         );
 
@@ -709,7 +731,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::HistoriesPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to rerank the documents: The document histories pointer is null",
         );
 
@@ -748,7 +770,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::DocumentsPointer);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             "Failed to rerank the documents: The documents pointer is null",
         );
 
@@ -796,7 +818,7 @@ mod tests {
         .is_none());
         assert_eq!(error.code, CCode::RerankerDeserialization);
         assert_eq!(
-            error.message.as_ref().unwrap().as_str_unchecked(),
+            error.message.as_ref().unwrap().as_str(),
             format!(
                 "Failed to deserialize the reranker database: Unsupported serialized data. Found version {} expected 0",
                 version,

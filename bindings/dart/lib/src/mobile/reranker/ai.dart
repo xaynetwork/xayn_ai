@@ -10,9 +10,12 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
+import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
+    show RerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
+    show RerankingOutcomesBuilder;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/document.dart' show Documents;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart' show Histories;
-import 'package:xayn_ai_ffi_dart/src/mobile/data/rank.dart' show Ranks;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart' show CXaynAi;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/analytics.dart'
@@ -60,12 +63,14 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  List<int> rerank(List<History> histories, List<Document> documents) {
+  RerankingOutcomes rerank(List<History> histories, List<Document> documents) {
     final hists = Histories(histories);
     final docs = Documents(documents);
     final error = XaynAiError();
 
-    final ranks = Ranks(ffi.xaynai_rerank(_ai, hists.ptr, docs.ptr, error.ptr));
+    final outcomeBuilder = RerankingOutcomesBuilder(
+        ffi.xaynai_rerank(_ai, hists.ptr, docs.ptr, error.ptr));
+
     try {
       if (error.isError()) {
         if (error.isPanic()) {
@@ -73,12 +78,12 @@ class XaynAi implements common.XaynAi {
         }
         throw error.toException();
       }
-      return ranks.toList();
+      return outcomeBuilder.build();
     } finally {
       hists.free();
       docs.free();
       error.free();
-      ranks.free();
+      outcomeBuilder.free();
     }
   }
 
