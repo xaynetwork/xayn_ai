@@ -5,11 +5,13 @@ pub(crate) mod fault;
 
 use std::panic::{catch_unwind, UnwindSafe};
 
+use xayn_ai_ffi::Error;
+
 pub use self::{
-    error::{error_message_drop, CCode, CError},
+    error::{error_message_drop, CError},
     fault::{faults_drop, CFaults},
 };
-use crate::{result::error::Error, utils::IntoRaw};
+use crate::utils::IntoRaw;
 
 /// Calls a callback which returns a result.
 ///

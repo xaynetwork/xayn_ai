@@ -6,6 +6,6 @@ pub(crate) mod outcomes;
 
 pub use self::{
     document::{CDocument, CDocuments},
-    history::{CFeedback, CHistories, CHistory, CRelevance},
+    history::{CHistories, CHistory},
     outcomes::{reranking_outcomes_drop, CRerankingOutcomes},
 };

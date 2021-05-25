@@ -1,6 +1,7 @@
 use std::panic::AssertUnwindSafe;
 
 use xayn_ai::{Builder, Reranker};
+use xayn_ai_ffi::{CCode, Error};
 
 use crate::{
     data::{
@@ -15,7 +16,7 @@ use crate::{
     },
     result::{
         call_with_result,
-        error::{CCode, CError, Error},
+        error::CError,
         fault::{CFaults, Faults},
     },
     slice::CBoxedSlice,

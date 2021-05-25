@@ -1,53 +1,9 @@
 use std::{convert::TryInto, slice};
 
-use xayn_ai::{DayOfWeek, DocumentHistory, Relevance, UserAction, UserFeedback};
+use xayn_ai::{DayOfWeek, DocumentHistory, UserAction};
+use xayn_ai_ffi::{CCode, CFeedback, CRelevance, Error};
 
-use crate::{
-    result::error::{CCode, Error},
-    utils::as_str,
-};
-
-/// A document relevance level.
-#[repr(u8)]
-#[derive(Clone, Copy)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub enum CRelevance {
-    Low = 0,
-    Medium = 1,
-    High = 2,
-}
-
-impl From<CRelevance> for Relevance {
-    fn from(relevance: CRelevance) -> Self {
-        match relevance {
-            CRelevance::Low => Self::Low,
-            CRelevance::Medium => Self::Medium,
-            CRelevance::High => Self::High,
-        }
-    }
-}
-
-/// A user feedback level.
-#[repr(u8)]
-#[derive(Clone, Copy)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub enum CFeedback {
-    Relevant = 0,
-    Irrelevant = 1,
-    // We cannot use None nor Nil because they are reserved
-    // keyword in dart or objective-C
-    NotGiven = 2,
-}
-
-impl From<CFeedback> for UserFeedback {
-    fn from(feedback: CFeedback) -> Self {
-        match feedback {
-            CFeedback::Relevant => Self::Relevant,
-            CFeedback::Irrelevant => Self::Irrelevant,
-            CFeedback::NotGiven => Self::None,
-        }
-    }
-}
+use crate::utils::as_str;
 
 /// Day of the week.
 #[repr(u8)]
@@ -402,9 +358,9 @@ pub(crate) mod tests {
         hists.history[0].id = None;
 
         let error = unsafe { hists.histories.to_histories() }.unwrap_err();
-        assert_eq!(error.code, CCode::HistoryIdPointer);
+        assert_eq!(error.code(), CCode::HistoryIdPointer);
         assert_eq!(
-            error.message,
+            error.message(),
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::HistoryIdPointer,

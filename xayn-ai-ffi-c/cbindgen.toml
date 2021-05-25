@@ -8,4 +8,4 @@ no_includes = true
 
 [parse]
 parse_deps = true
-include = ["xayn-ai"]
+include = ["xayn-ai-ffi"]
