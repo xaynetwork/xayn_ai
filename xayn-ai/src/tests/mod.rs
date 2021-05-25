@@ -30,6 +30,7 @@ pub(crate) use crate::{
             MockContextSystem,
             MockLtrSystem,
             MockMabSystem,
+            MockQAMBertSystem,
             MockSMBertSystem,
         },
     },

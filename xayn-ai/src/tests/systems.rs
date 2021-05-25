@@ -4,7 +4,12 @@ use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
     coi::CoiSystem as CoiSys,
     context::Context,
-    data::document_data::{DocumentDataWithSMBert, SMBertEmbeddingComponent},
+    data::document_data::{
+        DocumentDataWithQAMBert,
+        DocumentDataWithSMBert,
+        QAMBertComponent,
+        SMBertComponent,
+    },
     ltr::ConstLtr,
     mab::MabRanking,
     reranker::{
@@ -16,10 +21,11 @@ use crate::{
             ContextSystem,
             LtrSystem,
             MabSystem,
+            QAMBertSystem,
             SMBertSystem,
         },
     },
-    tests::{MemDb, MockBetaSample, MockSMBertSystem},
+    tests::{MemDb, MockBetaSample, MockQAMBertSystem, MockSMBertSystem},
 };
 
 pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
@@ -30,6 +36,7 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
             .map(|doc| {
                 let mut embedding: Vec<f32> = doc
                     .document_content
+                    .clone()
                     .snippet
                     .into_bytes()
                     .into_iter()
@@ -39,7 +46,8 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
 
                 DocumentDataWithSMBert {
                     document_base: doc.document_base,
-                    embedding: SMBertEmbeddingComponent {
+                    document_content: doc.document_content,
+                    smbert: SMBertComponent {
                         embedding: arr1(&embedding).into(),
                     },
                 }
@@ -49,10 +57,29 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
     mock_smbert
 }
 
-pub(crate) struct MockCommonSystems<Db, SMBert, Coi, Ltr, Context, Mab, Analytics>
+pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
+    let mut mock_qambert = MockQAMBertSystem::new();
+    mock_qambert
+        .expect_compute_similarity()
+        .returning(|_query, docs| {
+            Ok(docs
+                .into_iter()
+                .map(|doc| DocumentDataWithQAMBert {
+                    document_base: doc.document_base,
+                    smbert: doc.smbert,
+                    qambert: QAMBertComponent { similarity: 0.5 },
+                })
+                .collect())
+        });
+
+    mock_qambert
+}
+
+pub(crate) struct MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics>
 where
     Db: Database,
     SMBert: SMBertSystem,
+    QAMBert: QAMBertSystem,
     Coi: CoiSystem,
     Ltr: LtrSystem,
     Context: ContextSystem,
@@ -61,6 +88,7 @@ where
 {
     database: Db,
     smbert: SMBert,
+    qambert: QAMBert,
     coi: Coi,
     ltr: Ltr,
     context: Context,
@@ -68,11 +96,12 @@ where
     analytics: Analytics,
 }
 
-impl<Db, SMBert, Coi, Ltr, Context, Mab, Analytics> CommonSystems
-    for MockCommonSystems<Db, SMBert, Coi, Ltr, Context, Mab, Analytics>
+impl<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics> CommonSystems
+    for MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics>
 where
     Db: Database,
     SMBert: SMBertSystem,
+    QAMBert: QAMBertSystem,
     Coi: CoiSystem,
     Ltr: LtrSystem,
     Context: ContextSystem,
@@ -85,6 +114,10 @@ where
 
     fn smbert(&self) -> &dyn SMBertSystem {
         &self.smbert
+    }
+
+    fn qambert(&self) -> &dyn QAMBertSystem {
+        &self.qambert
     }
 
     fn coi(&self) -> &dyn CoiSystem {
@@ -112,6 +145,7 @@ impl
     MockCommonSystems<
         MemDb,
         MockSMBertSystem,
+        MockQAMBertSystem,
         CoiSys,
         ConstLtr,
         Context,
@@ -128,6 +162,7 @@ impl
         Self {
             database: MemDb::new(),
             smbert: mocked_smbert_system(),
+            qambert: mocked_qambert_system(),
             coi: CoiSys::default(),
             ltr: ConstLtr::new(),
             context: Context,
@@ -137,12 +172,12 @@ impl
     }
 }
 
-#[allow(dead_code)]
-impl<Db, SMBert, Coi, Ltr, Context, Mab, Analytics>
-    MockCommonSystems<Db, SMBert, Coi, Ltr, Context, Mab, Analytics>
+impl<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics>
+    MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics>
 where
     Db: Database,
     SMBert: SMBertSystem,
+    QAMBert: QAMBertSystem,
     Coi: CoiSystem,
     Ltr: LtrSystem,
     Context: ContextSystem,
@@ -152,10 +187,11 @@ where
     pub(crate) fn set_db<D: Database>(
         self,
         f: impl FnOnce() -> D,
-    ) -> MockCommonSystems<D, SMBert, Coi, Ltr, Context, Mab, Analytics> {
+    ) -> MockCommonSystems<D, SMBert, QAMBert, Coi, Ltr, Context, Mab, Analytics> {
         MockCommonSystems {
             database: f(),
             smbert: self.smbert,
+            qambert: self.qambert,
             coi: self.coi,
             ltr: self.ltr,
             context: self.context,
@@ -167,10 +203,28 @@ where
     pub(crate) fn set_smbert<B: SMBertSystem>(
         self,
         f: impl FnOnce() -> B,
-    ) -> MockCommonSystems<Db, B, Coi, Ltr, Context, Mab, Analytics> {
+    ) -> MockCommonSystems<Db, B, QAMBert, Coi, Ltr, Context, Mab, Analytics> {
         MockCommonSystems {
             database: self.database,
             smbert: f(),
+            qambert: self.qambert,
+            coi: self.coi,
+            ltr: self.ltr,
+            context: self.context,
+            mab: self.mab,
+            analytics: self.analytics,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn set_qambert<B: QAMBertSystem>(
+        self,
+        f: impl FnOnce() -> B,
+    ) -> MockCommonSystems<Db, SMBert, B, Coi, Ltr, Context, Mab, Analytics> {
+        MockCommonSystems {
+            database: self.database,
+            smbert: self.smbert,
+            qambert: f(),
             coi: self.coi,
             ltr: self.ltr,
             context: self.context,
@@ -182,10 +236,11 @@ where
     pub(crate) fn set_coi<C: CoiSystem>(
         self,
         f: impl FnOnce() -> C,
-    ) -> MockCommonSystems<Db, SMBert, C, Ltr, Context, Mab, Analytics> {
+    ) -> MockCommonSystems<Db, SMBert, QAMBert, C, Ltr, Context, Mab, Analytics> {
         MockCommonSystems {
             database: self.database,
             smbert: self.smbert,
+            qambert: self.qambert,
             coi: f(),
             ltr: self.ltr,
             context: self.context,
@@ -197,10 +252,11 @@ where
     pub(crate) fn set_ltr<L: LtrSystem>(
         self,
         f: impl FnOnce() -> L,
-    ) -> MockCommonSystems<Db, SMBert, Coi, L, Context, Mab, Analytics> {
+    ) -> MockCommonSystems<Db, SMBert, QAMBert, Coi, L, Context, Mab, Analytics> {
         MockCommonSystems {
             database: self.database,
             smbert: self.smbert,
+            qambert: self.qambert,
             coi: self.coi,
             ltr: f(),
             context: self.context,
@@ -212,10 +268,11 @@ where
     pub(crate) fn set_context<C: ContextSystem>(
         self,
         f: impl FnOnce() -> C,
-    ) -> MockCommonSystems<Db, SMBert, Coi, Ltr, C, Mab, Analytics> {
+    ) -> MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, C, Mab, Analytics> {
         MockCommonSystems {
             database: self.database,
             smbert: self.smbert,
+            qambert: self.qambert,
             coi: self.coi,
             ltr: self.ltr,
             context: f(),
@@ -227,10 +284,11 @@ where
     pub(crate) fn set_mab<M: MabSystem>(
         self,
         f: impl FnOnce() -> M,
-    ) -> MockCommonSystems<Db, SMBert, Coi, Ltr, Context, M, Analytics> {
+    ) -> MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, Context, M, Analytics> {
         MockCommonSystems {
             database: self.database,
             smbert: self.smbert,
+            qambert: self.qambert,
             coi: self.coi,
             ltr: self.ltr,
             context: self.context,
@@ -242,10 +300,11 @@ where
     pub(crate) fn set_analytics<A: AnalyticsSystem>(
         self,
         f: impl FnOnce() -> A,
-    ) -> MockCommonSystems<Db, SMBert, Coi, Ltr, Context, Mab, A> {
+    ) -> MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, Context, Mab, A> {
         MockCommonSystems {
             database: self.database,
             smbert: self.smbert,
+            qambert: self.qambert,
             coi: self.coi,
             ltr: self.ltr,
             context: self.context,
@@ -259,6 +318,7 @@ impl Default
     for MockCommonSystems<
         MemDb,
         MockSMBertSystem,
+        MockQAMBertSystem,
         CoiSys,
         ConstLtr,
         Context,
