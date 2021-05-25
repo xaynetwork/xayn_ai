@@ -7,8 +7,7 @@ use crate::{
     data::{
         document::CDocuments,
         history::CHistories,
-        outcomes::RerankingOutcomes,
-        CRerankingOutcomes,
+        outcomes::{CRerankingOutcomes, RerankingOutcomes},
     },
     reranker::{
         analytics::{Analytics, CAnalytics},
@@ -28,9 +27,10 @@ use crate::{
 /// # Examples
 /// - Create a Xayn AI with [`xaynai_new()`].
 /// - Rerank documents with [`xaynai_rerank()`].
-/// - Free memory with [`xaynai_drop()`], [`ranks_drop()`] and [`error_message_drop()`].
+/// - Free memory with [`xaynai_drop()`], [`reranking_outcomes_drop()`] and
+/// [`error_message_drop()`].
 ///
-/// [`ranks_drop()`]: crate::data::rank::ranks_drop
+/// [`reranking_outcomes_drop()`]: crate::data::outcomes::reranking_outcomes_drop
 /// [`error_message_drop()`]: crate::result::error::error_message_drop
 pub struct CXaynAi(Reranker);
 

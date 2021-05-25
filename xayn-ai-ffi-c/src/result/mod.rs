@@ -7,11 +7,15 @@ use std::panic::{catch_unwind, UnwindSafe};
 
 use xayn_ai_ffi::Error;
 
+#[cfg(not(doc))]
+use crate::result::error::CError;
+use crate::utils::IntoRaw;
+
+#[cfg(doc)]
 pub use self::{
     error::{error_message_drop, CError},
     fault::{faults_drop, CFaults},
 };
-use crate::utils::IntoRaw;
 
 /// Calls a callback which returns a result.
 ///

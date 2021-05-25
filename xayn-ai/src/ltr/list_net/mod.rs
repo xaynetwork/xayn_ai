@@ -139,6 +139,8 @@ impl ListNet {
     ///
     /// - If the number of features is not equals to [`ListNet::INPUT_NR_FEATURES`].
     /// - If more then [`ListNet::INPUT_NR_DOCUMENTS`] documents where passed into it.
+    ///
+    /// [`run_for_10()`]: self::ListNet::run_for_10
     fn run_padded<'a>(
         &self,
         first: ArrayView2<'a, f32>,

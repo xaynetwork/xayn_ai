@@ -126,6 +126,7 @@ impl<T> CBoxedSlice<T> {
     }
 
     /// Converts as a mutable slice.
+    #[cfg_attr(not(doc), allow(dead_code))]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.data
             .map(|data| {
@@ -136,6 +137,7 @@ impl<T> CBoxedSlice<T> {
     }
 
     /// Converts into a boxed slice.
+    #[cfg_attr(not(doc), allow(dead_code))]
     pub fn into_boxed_slice(self) -> Box<[T]> {
         // Dropping it after calling into_boxed_slice_unchecked is
         // unsafe (use-after free) and if `data` is `None` we need
@@ -150,16 +152,19 @@ impl<T> CBoxedSlice<T> {
     }
 
     /// Gets the number of elements.
+    #[cfg_attr(not(doc), allow(dead_code))]
     pub fn len(&self) -> usize {
         self.len as usize
     }
 
     /// Checks for the presence of any elements.
+    #[cfg_attr(not(doc), allow(dead_code))]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Checks if it is not just empty but implies it is `None`.
+    #[cfg_attr(not(doc), allow(dead_code))]
     pub fn is_none(&self) -> bool {
         self.data.is_none()
     }

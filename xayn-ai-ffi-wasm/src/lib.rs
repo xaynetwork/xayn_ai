@@ -8,5 +8,5 @@ mod error;
 #[cfg(not(tarpaulin))]
 mod history;
 
-#[cfg(not(tarpaulin))]
+#[cfg(all(not(tarpaulin), doc))]
 pub use crate::ai::WXaynAi;

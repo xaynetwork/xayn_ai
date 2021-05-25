@@ -2,7 +2,7 @@ use std::{convert::Infallible, ffi::CString, panic::AssertUnwindSafe};
 
 use xayn_ai_ffi::{CCode, Error};
 
-use crate::{reranker::CBytes, result::call_with_result, utils::IntoRaw};
+use crate::{reranker::bytes::CBytes, result::call_with_result, utils::IntoRaw};
 
 /// The raw Xayn AI error information.
 #[repr(C)]
