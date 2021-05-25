@@ -25,7 +25,7 @@ env:
   # takes a considerable amount of time if it is compiled with the default opt-level
   # for tests. Therefore, we compile them with a higher opt-level to run them faster.
   OPT_TESTS_RUSTFLAGS: '-C opt-level=3 -C debug-assertions=yes -D warnings'
-  FLUTTER_VERSION: '2.0.6'
+  FLUTTER_VERSION: '2.2.0'
   JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   CARGO_INCREMENTAL: 0
