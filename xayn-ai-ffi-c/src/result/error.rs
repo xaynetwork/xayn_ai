@@ -37,8 +37,14 @@ pub enum CCode {
     DocumentIdPointer = 9,
     /// A document snippet null pointer error.
     DocumentSnippetPointer = 10,
+    /// A document session id null pointer error.
+    DocumentSessionPointer = 11,
+    DocumentQueryIdPointer = 12,
+    DocumentQueryWordsPointer = 13,
+    DocumentUrlPointer = 14,
+    DocumentDomainPointer = 15,
     /// Deserialization of reranker database error.
-    RerankerDeserialization = 11,
+    RerankerDeserialization = 16,
     /// Serialization of reranker database error.
     RerankerSerialization = 12,
     /// A qambert vocab null pointer error.

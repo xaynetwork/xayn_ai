@@ -16,6 +16,18 @@ pub struct CDocument<'a> {
     pub snippet: Option<&'a u8>,
     /// The rank of the document.
     pub rank: u32,
+    /// The raw pointer to the document session id.
+    pub session: Option<&'a u8>,
+    /// Query count within session
+    pub query_count: u32,
+    /// The raw pointer to the document query id.
+    pub query_id: Option<&'a u8>,
+    /// The raw pointer to the document query words.
+    pub query_words: Option<&'a u8>,
+    /// The raw pointer to the document URL.
+    pub url: Option<&'a u8>,
+    /// The raw pointer to the document domain.
+    pub domain: Option<&'a u8>,
 }
 
 /// A raw slice of documents.
@@ -65,8 +77,69 @@ impl<'a> CDocuments<'a> {
                     }?
                     .into();
                     let rank = document.rank as usize;
+                    let session = unsafe {
+                        as_str(
+                            document.session,
+                            CCode::DocumentSessionPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }
+                    .and_then(|s| {
+                        s.try_into().map_err(|e| {
+                            CCode::DocumentSessionPointer
+                                .with_context(format!("Invalid uuid string: {}", e))
+                        })
+                    })?;
+                    let query_count = document.query_count as usize;
+                    let query_id = unsafe {
+                        as_str(
+                            document.query_id,
+                            CCode::DocumentQueryIdPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }
+                    .and_then(|s| {
+                        s.try_into().map_err(|e| {
+                            CCode::DocumentQueryIdPointer
+                                .with_context(format!("Invalid uuid string: {}", e))
+                        })
+                    })?;
+                    let query_words = unsafe {
+                        as_str(
+                            document.query_words,
+                            CCode::DocumentQueryWordsPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
+                    let url = unsafe {
+                        as_str(
+                            document.url,
+                            CCode::DocumentUrlPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
+                    let domain = unsafe {
+                        as_str(
+                            document.domain,
+                            CCode::DocumentDomainPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
 
-                    Ok(Document { id, rank, snippet })
+                    Ok(Document {
+                        id,
+                        rank,
+                        snippet,
+                        session,
+                        query_count,
+                        query_id,
+                        query_words,
+                        url,
+                        domain,
+                    })
                 })
                 .collect(),
         }
@@ -75,11 +148,11 @@ impl<'a> CDocuments<'a> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::{ffi::CString, pin::Pin};
+    use std::{ffi::CString, iter, pin::Pin};
 
     use itertools::izip;
 
-    use xayn_ai::DocumentId;
+    use xayn_ai::{DocumentId, QueryId, SessionId};
 
     use super::*;
     use crate::utils::tests::as_str_unchecked;
@@ -109,15 +182,59 @@ pub(crate) mod tests {
                     .collect::<Vec<_>>(),
             );
             let ranks = 0..len as u32;
+            let _sessions = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(SessionId::from_u128(idx).to_string()).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let query_counts = iter::repeat(1u32);
+            let _query_ids = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(QueryId::from_u128(idx).to_string()).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let _query_words = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("query {}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let _urls = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("url-{}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let _domains = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("domain-{}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
 
             let document = Pin::new(
-                izip!(_ids.as_ref().get_ref(), _snippets.as_ref().get_ref(), ranks)
-                    .map(|(id, snippet, rank)| CDocument {
+                izip!(
+                    _ids.as_ref().get_ref(),
+                    _snippets.as_ref().get_ref(),
+                    ranks,
+                    _sessions.as_ref().get_ref(),
+                    query_counts,
+                    _query_ids.as_ref().get_ref(),
+                    _query_words.as_ref().get_ref(),
+                    _urls.as_ref().get_ref(),
+                    _domains.as_ref().get_ref()
+                )
+                .map(
+                    |(id, snippet, rank, session, q_count, q_id, q_words, url, domain)| CDocument {
                         id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
                         snippet: unsafe { snippet.as_ptr().cast::<u8>().as_ref() },
                         rank,
-                    })
-                    .collect::<Vec<_>>(),
+                        session: unsafe { session.as_ptr().cast::<u8>().as_ref() },
+                        query_count: q_count,
+                        query_id: unsafe { q_id.as_ptr().cast::<u8>().as_ref() },
+                        query_words: unsafe { q_words.as_ptr().cast::<u8>().as_ref() },
+                        url: unsafe { url.as_ptr().cast::<u8>().as_ref() },
+                        domain: unsafe { domain.as_ptr().cast::<u8>().as_ref() },
+                    },
+                )
+                .collect::<Vec<_>>(),
             );
             let documents = CDocuments {
                 data: unsafe { document.as_ptr().as_ref() },

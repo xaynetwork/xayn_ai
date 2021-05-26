@@ -33,24 +33,67 @@ impl TryFrom<&str> for DocumentId {
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
 pub struct SessionId(pub Uuid);
+// FIXME duplication with DocumentId
+impl SessionId {
+    /// New identifier from a 128bit value in big-endian order.
+    pub fn from_u128(id: u128) -> Self {
+        Self(Uuid::from_u128(id))
+    }
+}
+
+impl TryFrom<&str> for SessionId {
+    type Error = Error;
+
+    fn try_from(id: &str) -> Result<Self, Self::Error> {
+        Ok(Self(Uuid::parse_str(id)?))
+    }
+}
 
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
 pub struct QueryId(pub Uuid);
+// FIXME duplication with DocumentId
+impl QueryId {
+    /// New identifier from a 128bit value in big-endian order.
+    pub fn from_u128(id: u128) -> Self {
+        Self(Uuid::from_u128(id))
+    }
+}
+
+impl TryFrom<&str> for QueryId {
+    type Error = Error;
+
+    fn try_from(id: &str) -> Result<Self, Self::Error> {
+        Ok(Self(Uuid::parse_str(id)?))
+    }
+}
 
 /// This represents a result from the query.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Document {
-    /// unique identifier of this document
+    /// Unique identifier of the document
     pub id: DocumentId,
     /// position of the document from the source
     pub rank: usize,
+    /// Text snippet of the document
     pub snippet: String,
+    /// Session of the document
+    pub session: SessionId,
+    /// Query count within session
+    pub query_count: usize,
+    /// Query identifier of the document
+    pub query_id: QueryId,
+    /// Query of the document
+    pub query_words: String,
+    /// URL of the document
+    pub url: String,
+    /// Domain of the document
+    pub domain: String,
 }
-// TODO extend Document with LTR2 fields
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DocumentHistory {
-    /// unique identifier of this document
+    /// Unique identifier of the document
     pub id: DocumentId,
     /// Relevance level of the document
     pub relevance: Relevance,
@@ -59,12 +102,12 @@ pub struct DocumentHistory {
     /// Session of the document
     pub session: SessionId,
     /// Query count within session
-    pub query_count: u8,
+    pub query_count: usize,
     /// Query identifier of the document
     pub query_id: QueryId,
     /// Query of the document
     pub query_words: String,
-    /// Day of week query was performed.
+    /// Day of week query was performed
     pub day: DayOfWeek,
     /// URL of the document
     pub url: String,

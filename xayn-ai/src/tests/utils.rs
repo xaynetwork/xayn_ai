@@ -36,6 +36,7 @@ pub(crate) fn documents_from_ids(ids: Range<u128>) -> Vec<Document> {
             id: DocumentId::from_u128(id),
             rank,
             snippet: id.to_string(),
+            ..Default::default()
         })
         .collect()
 }
@@ -47,6 +48,7 @@ pub(crate) fn documents_from_words(
         id: DocumentId::from_u128(id as u128),
         rank: id,
         snippet: snippet.to_string(),
+        ..Default::default()
     })
     .collect()
 }
