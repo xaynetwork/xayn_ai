@@ -5,6 +5,10 @@ name: Rust-CI
 
 on:
   push:
+    branches-ignore:
+      # we push on release only from staging and release represent
+      # a snapshot of staging in a given point in time
+      - 'release'
 
 env:
   RUST_STABLE: 1.51
@@ -733,3 +737,42 @@ jobs:
         if: matrix.os == 'macos-10.15'
         working-directory: ${{ env.DART_WORKSPACE }}/example
         run: xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner archive -configuration release -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED="NO"
+
+  # this is an helper that needs all the real leafs of the workflow.
+  # It makes easier notify_staging_failure because we only need to check
+  # for this job
+  one-leaf:
+    name: ignore-me
+    needs: [flutter-analyze, flutter-test, flutter-build-example]
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        run: echo "Helper job"
+
+  notify-staging-failure:
+    name: notify-staging-failure
+    needs: [one-leaf]
+    # always() allows to run even if one-leaf is not successful
+    # we only want this to run on the staging branch
+    if: always() && github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Notify failure
+        if: needs.one_leaf.result!='success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          fields: workflow,job,repo
+          custom_payload: |
+            {
+              username: 'GitHub Actions',
+              icon_emoji: ':octocat:',
+              attachments: [{
+                title: 'Staging CI failed :warning:',
+                color: 'danger',
+                text: `CI: ${process.env.AS_WORKFLOW}\nRepository: ${process.env.AS_REPO}`,
+              }]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
