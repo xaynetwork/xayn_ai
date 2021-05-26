@@ -54,7 +54,7 @@ impl ContextCalc {
         }
     }
 
-    /// Calculates context value from given LTR score, positive distance, negative distance.
+    /// Calculates context value from given LTR score, positive distance, negative distance and similarity.
     fn calculate(&self, ltr_score: f32, pos: f32, neg: f32, similarity: f32) -> f32 {
         let frac_pos = (1. + pos / self.pos_avg).recip();
         let frac_neg = (1. + (self.neg_max - neg)).recip();
