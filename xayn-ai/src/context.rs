@@ -60,7 +60,6 @@ impl ContextCalc {
         let frac_neg = (1. + (self.neg_max - neg)).recip();
         let frac_similarity = (1. + similarity / self.similarity_avg).recip();
 
-        dbg!(frac_pos, frac_neg, frac_similarity, ltr_score);
         (frac_pos + frac_neg + frac_similarity + ltr_score) / 4.
     }
 }
@@ -134,7 +133,6 @@ mod tests {
         assert!(approx_eq!(f32, cxt, 1.)); // 1/4 * 4
 
         let cxt = calc.calculate(0., calc.pos_avg, calc.neg_max, calc.similarity_avg);
-        dbg!(cxt);
         assert!(approx_eq!(f32, cxt, 0.5)); // 2/8 + 1/4
 
         let cxt = calc.calculate(0., 8., 7., 4.);
