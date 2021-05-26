@@ -31,20 +31,25 @@ pub enum CCode {
     HistoriesPointer = 6,
     /// A document history id null pointer error.
     HistoryIdPointer = 7,
+    HistorySessionPointer = 8,
+    HistoryQueryIdPointer = 9,
+    HistoryQueryWordsPointer = 10,
+    HistoryUrlPointer = 11,
+    HistoryDomainPointer = 12,
     /// A documents null pointer error.
-    DocumentsPointer = 8,
+    DocumentsPointer = 13,
     /// A document id null pointer error.
-    DocumentIdPointer = 9,
+    DocumentIdPointer = 14,
     /// A document snippet null pointer error.
-    DocumentSnippetPointer = 10,
+    DocumentSnippetPointer = 15,
     /// A document session id null pointer error.
-    DocumentSessionPointer = 11,
-    DocumentQueryIdPointer = 12,
-    DocumentQueryWordsPointer = 13,
-    DocumentUrlPointer = 14,
-    DocumentDomainPointer = 15,
+    DocumentSessionPointer = 16,
+    DocumentQueryIdPointer = 17,
+    DocumentQueryWordsPointer = 18,
+    DocumentUrlPointer = 19,
+    DocumentDomainPointer = 20,
     /// Deserialization of reranker database error.
-    RerankerDeserialization = 16,
+    RerankerDeserialization = 21,
     /// Serialization of reranker database error.
     RerankerSerialization = 12,
     /// A qambert vocab null pointer error.

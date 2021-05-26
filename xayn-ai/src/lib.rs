@@ -16,6 +16,7 @@ pub use crate::{
     analytics::Analytics,
     data::{
         document::{
+            DayOfWeek,
             Document,
             DocumentHistory,
             DocumentId,
@@ -23,6 +24,7 @@ pub use crate::{
             Relevance,
             RerankingOutcomes,
             SessionId,
+            UserAction,
             UserFeedback,
         },
         CoiId,
