@@ -14,8 +14,17 @@ class Document {
   final String domain;
 
   /// Creates the document.
-  Document(this.id, this.snippet, this.rank, this.session, this.queryCount,
-      this.queryId, this.queryWords, this.url, this.domain) {
+  Document(
+    this.id,
+    this.snippet,
+    this.rank,
+    this.session,
+    this.queryCount,
+    this.queryId,
+    this.queryWords,
+    this.url,
+    this.domain,
+  ) {
     if (id.isEmpty) {
       throw ArgumentError('empty document id');
     }
