@@ -762,7 +762,7 @@ jobs:
         uses: 8398a7/action-slack@v3
         with:
           status: custom
-          fields: workflow,job,repo
+          fields: workflow, job, repo
           custom_payload: |
             {
               username: 'GitHub Actions',
