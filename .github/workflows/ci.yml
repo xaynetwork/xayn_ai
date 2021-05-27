@@ -758,7 +758,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Notify failure
-        if: needs.one_leaf.result!='success'
+        if: needs.one_leaf.result != 'success'
         uses: 8398a7/action-slack@v3
         with:
           status: custom
