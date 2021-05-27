@@ -8,8 +8,8 @@ import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 @JS()
 @anonymous
 class JsDocument {
-  external factory JsDocument({
-      String id,
+  external factory JsDocument(
+      {String id,
       int rank,
       String snippet,
       String session,
@@ -17,8 +17,7 @@ class JsDocument {
       String queryId,
       String queryWords,
       String url,
-      String domain
-  });
+      String domain});
 }
 
 extension ToJsDocuments on List<Document> {

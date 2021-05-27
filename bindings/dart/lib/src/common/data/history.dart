@@ -49,8 +49,18 @@ class History {
   final UserAction userAction;
 
   /// Creates the document history.
-  History(this.id, this.relevance, this.feedback, this.session, this.queryCount,
-      this.queryId, this.queryWords, this.day, this.url, this.domain, this.rank,
+  History(
+      this.id,
+      this.relevance,
+      this.feedback,
+      this.session,
+      this.queryCount,
+      this.queryId,
+      this.queryWords,
+      this.day,
+      this.url,
+      this.domain,
+      this.rank,
       this.userAction) {
     if (id.isEmpty) {
       throw ArgumentError('empty document history id');

@@ -81,8 +81,8 @@ extension UserActionToInt on UserAction {
 @JS()
 @anonymous
 class JsHistory {
-  external factory JsHistory({
-      String id,
+  external factory JsHistory(
+      {String id,
       int relevance,
       int feedback,
       String session,
@@ -93,8 +93,7 @@ class JsHistory {
       String url,
       String domain,
       int rank,
-      int userAction
-  });
+      int userAction});
 }
 
 extension ToJsHistories on List<History> {
