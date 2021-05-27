@@ -167,9 +167,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.67"
+version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
+checksum = "4a72c244c1ff497a746a7e1fb3d14bd08420ecda70c8f25c7112f2781652d787"
 
 [[package]]
 name = "cfg-if"
@@ -243,9 +243,9 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
-version = "0.99.13"
+version = "0.99.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f82b1b72f1263f214c0f823371768776c4f5841b942c9883aa8e5ec584fd0ba6"
+checksum = "5cc7b9cef1e351660e5443924e4f43ab25fbbed3e9a5f052df3677deb4d6b320"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -304,9 +304,9 @@ checksum = "ee2626afccd7561a06cf1367e2950c4718ea04565e20fb5029b6c7d8ad09abcf"
 
 [[package]]
 name = "educe"
-version = "0.4.11"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f104961650ba18d0ac1b12cdd63dc13c16a0d3605359d6a0e427a4957cee802"
+checksum = "2b6f648515c65974bcb893b286a5c4a35adfdcfbfd03c1bbf1108f40feec65d7"
 dependencies = [
  "enum-ordinalize",
  "proc-macro2",
@@ -401,9 +401,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9495705279e7140bf035dde1f6e750c162df8b625267cd52cc44e0b156732c8"
+checksum = "7fcd999463524c52659517fe2cea98493cfe485d10565e7b0fb07dbba7ad2753"
 dependencies = [
  "cfg-if 1.0.0",
  "js-sys",
@@ -515,9 +515,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.94"
+version = "0.2.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18794a8ad5b29321f790b55d93dfba91e125cb1a9edbd4f8e3150acc771c1a5e"
+checksum = "789da6d93f1b866ffe175afc5322a4d76c038605a1c3319bb57b06967ca98a36"
 
 [[package]]
 name = "libm"
@@ -859,9 +859,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.26"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a152013215dca273577e18d2bf00fa862b89b24169fb78c4c95aeb07992c9cec"
+checksum = "f0d8caf72986c1a598726adc988bb5984792ef84f5ee5aa50209145ee8077038"
 dependencies = [
  "unicode-xid",
 ]
@@ -1098,18 +1098,18 @@ checksum = "ea6a9290e3c9cf0f18145ef7ffa62d68ee0bf5fcd651017e586dc7fd5da448c2"
 
 [[package]]
 name = "serde"
-version = "1.0.125"
+version = "1.0.126"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "558dc50e1a5a5fa7112ca2ce4effcb321b0300c0d4ccf0776a9f60cd89031171"
+checksum = "ec7505abeacaec74ae4778d9d9328fe5a5d04253220a85c4ee022239fc996d03"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.125"
+version = "1.0.126"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b093b7a2bb58203b5da3056c05b4ec1fed827dcfdb37347a8841695263b3d06d"
+checksum = "963a7dbc9895aeac7ac90e74f34a5d5261828f79df35cbed41e10189d3804d43"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1129,9 +1129,9 @@ dependencies = [
 
 [[package]]
 name = "serde_repr"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dc6b7951b17b051f3210b063f12cc17320e2fe30ae05b0fe2a3abb068551c76"
+checksum = "98d0516900518c29efa217c298fa1f4e6c6ffc85ae29fd7f4ee48f176e1a9ed5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1230,18 +1230,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.24"
+version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0f4a65597094d4483ddaed134f409b2cb7c1beccf25201a9f73c719254fa98e"
+checksum = "fa6f76457f59514c7eeb4e59d891395fab0b2fd1d40723ae737d64153392e9c6"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.24"
+version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7765189610d8241a44529806d6fd1f2e0a08734313a35d5b3a556f92b381f3c0"
+checksum = "8a36768c0fbf1bb15eca10defa29526bda730a2376c2ab4393ccfa16fb1a318d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1284,8 +1284,9 @@ dependencies = [
 
 [[package]]
 name = "tract-core"
-version = "0.14.2-pre"
-source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#3bf6ad126dfaef5ff473660d7cdfb20e964a0a65"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1903c8293b6ffcb60ba3e2e7cedf8c1b727833baa80e0979a48fd85acbeffd4"
 dependencies = [
  "anyhow",
  "bit-set",
@@ -1307,8 +1308,9 @@ dependencies = [
 
 [[package]]
 name = "tract-data"
-version = "0.14.2-pre"
-source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#3bf6ad126dfaef5ff473660d7cdfb20e964a0a65"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68e5c329e46997aa9090357980a9161139acb55f8e615db9184310ea2efe8ad5"
 dependencies = [
  "anyhow",
  "educe",
@@ -1324,8 +1326,9 @@ dependencies = [
 
 [[package]]
 name = "tract-hir"
-version = "0.14.2-pre"
-source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#3bf6ad126dfaef5ff473660d7cdfb20e964a0a65"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32755eca90aff90abb7eaad28280b505afbadeb82057cd3dd3a59173b90cca1f"
 dependencies = [
  "derive-new",
  "educe",
@@ -1335,8 +1338,9 @@ dependencies = [
 
 [[package]]
 name = "tract-linalg"
-version = "0.14.2-pre"
-source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#3bf6ad126dfaef5ff473660d7cdfb20e964a0a65"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6321ff1dbb8ae414c73b3a1f0a522992a69e444f19a77cdffeb31554216a6d59"
 dependencies = [
  "cc",
  "derive-new",
@@ -1358,8 +1362,9 @@ dependencies = [
 
 [[package]]
 name = "tract-nnef"
-version = "0.14.2-pre"
-source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#3bf6ad126dfaef5ff473660d7cdfb20e964a0a65"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a36b3655e76fbb8db5fc376efea401f3f2f95ae806176d4ba8119ec5807ab0d"
 dependencies = [
  "byteorder",
  "flate2",
@@ -1372,8 +1377,8 @@ dependencies = [
 
 [[package]]
 name = "tract-onnx"
-version = "0.14.2-pre"
-source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#3bf6ad126dfaef5ff473660d7cdfb20e964a0a65"
+version = "0.14.2"
+source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#e7bdd8c6b4415d9a55ee440567a760f167fd2e54"
 dependencies = [
  "bytes",
  "derive-new",
@@ -1391,8 +1396,9 @@ dependencies = [
 
 [[package]]
 name = "tract-onnx-opl"
-version = "0.14.2-pre"
-source = "git+https://github.com/xaynetwork/tract?branch=TY-1807-update_tract_fork#3bf6ad126dfaef5ff473660d7cdfb20e964a0a65"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "019b1d6d0b0c50d776ff7cf47140ca5e48ae3a9eeb1414f185ac5dff96106ffc"
 dependencies = [
  "educe",
  "tract-nnef",

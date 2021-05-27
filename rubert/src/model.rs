@@ -147,9 +147,11 @@ mod tests {
     use crate::tests::SMBERT_MODEL;
 
     #[test]
-    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
     fn test_model_empty() {
-        let _ = Model::<kinds::SMBert>::new(Vec::new().as_slice(), 10);
+        assert!(matches!(
+            Model::<kinds::SMBert>::new(Vec::new().as_slice(), 10).unwrap_err(),
+            ModelError::Tract(_),
+        ));
     }
 
     #[test]

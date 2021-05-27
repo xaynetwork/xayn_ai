@@ -29,20 +29,6 @@ impl WXaynAi {
     ) -> Result<WXaynAi, JsValue> {
         console_error_panic_hook::set_once();
 
-        if smbert_model.is_empty() {
-            return Err(CCode::InitAi.with_context(
-                "Failed to initialize the ai: Missing any value in the smbert onnx model",
-            ))
-            .into_js_result();
-        }
-
-        if qambert_model.is_empty() {
-            return Err(CCode::InitAi.with_context(
-                "Failed to initialize the ai: Missing any value in the qambert onnx model",
-            ))
-            .into_js_result();
-        }
-
         Builder::default()
             .with_serialized_database(&serialized.unwrap_or_default())
             .map_err(|cause| {
@@ -370,7 +356,7 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message,
-            "Failed to initialize the ai: Missing any value in the smbert onnx model",
+            "Failed to initialize the ai: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
         );
     }
 
@@ -384,7 +370,7 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message,
-            "Failed to initialize the ai: Missing any value in the qambert onnx model",
+            "Failed to initialize the ai: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
         );
     }
 
