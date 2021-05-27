@@ -4,6 +4,24 @@
 //! [1]: https://www.academia.edu/9872579/Dataikus_Solution_to_Yandexs_Personalized_Web_Search_Challenge
 //! [2]: https://github.com/xaynetwork/soundgarden
 
+// FIXME[comment/resolve with review]: Terminology
+// - SearchResult: Has a unclear name due to its overlap with `std::result::Result` and the fact
+//   that it's not clear that this is part of the search query result not the full query result.
+//   We also use the term Document for it in other places.
+// - ResultSet: While it happens to be a set it mainly is a list ordered by ranking (ascending).
+// - rank vs. position
+// - ClickSat vs. Relevance
+//
+// FIXME[comment/resolve maybe in other task]: ClickSat::Low
+// - What does ClickSat::Low mean? We treat it like `Miss` in some
+//   places but not like `Miss` in other places. Sometimes we differ
+//   in it's treatment in the same function... (Like not counting it
+//   in the miss_or_skip_count, but also not counting it as clicked.)
+//
+// FIXME[comment/resolve maybe in other task]: ClickSat::Low
+// - Why is there a query_id field and query_counter field?
+//   Does it still matter for us or did it only matter for training?
+// -
 #![allow(dead_code)] // TEMP
 
 use itertools::Itertools;
@@ -84,6 +102,17 @@ pub struct SearchResult {
     pub(crate) query_counter: u8,
 }
 
+impl SearchResult {
+    pub(crate) fn is_clicked(&self) -> bool {
+        //Note: How do we treat `Low`?
+        self.relevance > ClickSat::Low
+    }
+
+    pub(crate) fn is_skipped(&self) -> bool {
+        self.relevance == ClickSat::Skip
+    }
+}
+
 impl AsRef<SearchResult> for SearchResult {
     fn as_ref(&self) -> &SearchResult {
         self
@@ -123,31 +152,22 @@ impl<'a> ResultSet<'a> {
     ///
     /// Assumes `rs[i]` contains the search result `r` with `r.position` `i+1`.
     // TODO may relax this assumption later
+    // FIXME[comment/resolve with review]: (aboves todo)
+    //      We need the list of documents/urls+metadata returned by the search query in
+    //      ascending ranking order. As such the only way to relax this is by manually
+    //      sorting the search query result.
     fn new(rs: Vec<&'a SearchResult>) -> Self {
         Self(rs)
     }
 
-    /// Search result at position `pos` of the result set.
-    ///
-    /// # Panic
-    /// Panics if the length of the underlying vector is less than `pos`.
-    fn get(&self, pos: Rank) -> &SearchResult {
-        self.0[(pos as usize) - 1]
+    /// Iterates over all documents by in ascending ranking order.
+    fn documents(&self) -> impl Iterator<Item = &'a SearchResult> + '_ {
+        self.0.iter().copied()
     }
 
-    /// Number of clicked results from `Rank::First` to `pos`.
-    fn cumulative_clicks(&self, pos: Rank) -> usize {
-        self.0
-            .iter()
-            .filter(|r| r.relevance > ClickSat::Low && r.position <= pos)
-            .count()
-    }
-
-    /// Rank of the result with the matching `url`.
-    fn rank_of(&self, url: i32) -> Option<Rank> {
-        self.0
-            .iter()
-            .find_map(|r| (r.url == url).then(|| r.position))
+    /// Iterates over all documents which have been clicked in ascending ranking order.
+    fn clicked_documents(&self) -> impl Iterator<Item = &'a SearchResult> + '_ {
+        self.0.iter().flat_map(|doc| doc.is_clicked().then(|| *doc))
     }
 }
 
@@ -338,6 +358,11 @@ fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
 }
 
 /// Weekend seasonality of a given domain.
+///
+/// If there are no matching entries for the given domain `0`
+/// is returned, even through normally you would expect 2.5
+/// to be returned. But we need to keep it in sync with the
+/// python code.
 fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
     let (clicks_wknd, clicks_wkday) = history
         .iter()
@@ -354,9 +379,11 @@ fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
             }
         });
 
-    //FIXME if clicks_wknd + clicks_wkday == 0 return 0
-
-    2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
+    if clicks_wknd + clicks_wkday == 0 {
+        0.0
+    } else {
+        2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
+    }
 }
 
 /// Entropy over the rank of the given results that were clicked.
@@ -391,98 +418,60 @@ pub(crate) fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
 /// where the sum ranges over all query results containing a result `r` with URL/Domain matching the URL/Domain of `res`.
 ///
 /// If `|hist({Miss, Skip}, pred)|` is `0` then `0` is returned.
-//FIXME I'm not sure how far FilterPred is applicable here as this will not work correctly
-//      if used with query filter and I have to double check it but I'm not sure the session
-//      condition is respected in the python code.
-pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
-    let pred_filtered = hist.iter().filter(|r| pred.apply(r));
-    let denom = pred_filtered
-        .clone()
-        .filter(|r| r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
+pub(crate) fn snippet_quality(hist: &[SearchResult], pred: FilterPred) -> f32 {
+    let miss_or_skip_count = hist
+        .iter()
+        .filter(|r| {
+            pred.apply(r) && (r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
+        })
         .count() as f32;
 
-    if denom == 0. {
+    if miss_or_skip_count == 0. {
         return 0.;
     }
 
-    // FIXME we need to go through all full queries which have at least one match,
-    // not through that queries filtered by predicate
-    let numer = pred_filtered
-        //FIXME why not r.session_id, r.query_counter
+    let total_score = hist
+        .iter()
         .group_by(|r| (r.session_id, r.query_counter))
         .into_iter()
-        .filter_map(|(_, rs)| {
-            //FIXME its mathematically a ordered set, but using it in the name is IMHO just miss leading,
-            let rs = ResultSet::new(rs.collect());
-            //FIXME this need to depend on weather we filter by url or domain
-            rs.rank_of(res.url).map(|pos| snippet_score(rs, pos))
+        .filter_map(|(_, res)| {
+            let res = ResultSet::new(res.into_iter().collect());
+            let has_match = res.documents().any(|doc| pred.apply(doc));
+            has_match.then(|| snippet_score(&res, pred))
         })
         .sum::<f32>();
 
-    numer / denom
+    total_score / miss_or_skip_count
 }
 
-/// Scores the given query result based on the current documents URL/Domain.
+/// Scores the search query result.
 ///
-/// The scores starts at 0 and can be modified in up to two ways before
-/// it's returned:
+/// The base score of `0` is modified in up to two ways before being returned:
 ///
-/// 1. If the query contains a document which has a "skip" relevance
-///    and matches the current document (by URL/Domain):
-///     - `score += -1/number_of_all_clicked_documents_in_query`
-///     - it's the number of all clicked documents in the query independent of
-///       weather or not they do match the current document
-///     - if there are no clicked documents the score stays unmodified
+/// 1.  `1 / p` is added if there exist a clicked document matching `pred`. `p` is the number of
+///     clicked documents which do not match `pred` and have a better ranking then the found
+///     matching document.
 ///
-/// 2. If the query contains a document which has a "clicked" relevance
-///    and matches the current document (by URL/Domain):
-///     - `score += 1/(nr_of_non_matching_clicked_documents_before_the_first_match+1)`
-///     - So if there are 4 clicked documents and the second is the first which
-///       matches the current document (by URL/Domain) then its `1/(1+1)` (0.5).
-///
-/// FIXME
-/// The 1st is kinda like p_final but we only passed in the matching ones
-/// but need all clicked here.
-///
-/// The 2nd is kinda lik 1/p but it again needs to consider non matching
-/// documents.
-///
-/// Which is a flaw of the calling function.
-///
-/// The flaw in this function is that it's URL specific and that
-/// only one modifier can apply (where in practice both can apply,
-/// if used for domain).
-///
-/// ----old----
-/// Scores the query result ranked at position `pos` in the result set `rs`.
-///
-/// The score(r) of a search result r is defined:
-/// *  0           if r is a `Miss`
-/// *  1 / p       if r is the pth clicked result of the page
-/// * -1 / p_final if r is a `Skip`
-///
-/// As click ordering information is unavailable, assume it follows the ranking order.
-fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
-    match rs.get(pos).relevance {
-        // NOTE unclear how to score Low, treat as a Miss
-        ClickSat::Miss | ClickSat::Low => 0.,
-        ClickSat::Skip => {
-            let total_clicks = rs.cumulative_clicks(Rank::Last) as f32;
-            if total_clicks == 0. {
-                0.
-            } else {
-                -total_clicks.recip()
-            }
-        }
-        _ => {
-            let cum_clicks = rs.cumulative_clicks(pos) as f32;
-            if cum_clicks == 0. {
-                0.
-            } else {
-                cum_clicks.recip()
-            }
+/// 2. `-1 / nr_clicked` is added if there exists a skipped document matching `pred`. `nr_clicked`
+///     is the number of all clicked documents independent of weather or not they match.
+fn snippet_score(res: &ResultSet, pred: FilterPred) -> f32 {
+    let mut score = 0.0;
+
+    if res
+        .documents()
+        .any(|doc| pred.apply(doc) && doc.is_skipped())
+    {
+        let total_clicks = res.clicked_documents().count() as f32;
+        if total_clicks != 0. {
+            score -= total_clicks.recip();
         }
     }
+
+    if let Some(cum_clicks_before_match) = res.clicked_documents().position(|doc| pred.apply(doc)) {
+        score += (cum_clicks_before_match as f32 + 1.).recip();
+    }
+
+    score
 }
 
 /// Probability of an outcome conditioned on some predicate.
@@ -739,7 +728,6 @@ mod tests {
         let current = &HISTORY_FOR_URL[4];
         let quality = snippet_quality(
             &HISTORY_FOR_URL,
-            current,
             FilterPred::new(UrlOrDom::Url(current.url)),
         );
 
@@ -759,7 +747,6 @@ mod tests {
         let current = &HISTORY_FOR_URL[2];
         let quality = snippet_quality(
             &HISTORY_FOR_URL,
-            current,
             FilterPred::new(UrlOrDom::Url(current.url)),
         );
         // 2 query matches
@@ -784,7 +771,6 @@ mod tests {
         let current = &HISTORY_FOR_URL[7];
         let quality = snippet_quality(
             &HISTORY_FOR_URL,
-            current,
             FilterPred::new(UrlOrDom::Url(current.url)),
         );
         // 3 query matches
@@ -850,8 +836,7 @@ mod tests {
         let current = &HISTORY_FOR_DOMAIN[3];
         let quality = snippet_quality(
             &HISTORY_FOR_DOMAIN,
-            current,
-            FilterPred::new(UrlOrDom::Dom(current.url)),
+            FilterPred::new(UrlOrDom::Dom(current.domain)),
         );
         // 2 query matches
         //  first query
@@ -875,11 +860,10 @@ mod tests {
         //  => return 0.2916666666666667 // closest f32 is 0.291_666_66
         assert_approx_eq!(f32, quality, 0.291_666_66);
 
-        let current = &HISTORY_FOR_DOMAIN[33];
+        let current = &HISTORY_FOR_DOMAIN[23];
         let quality = snippet_quality(
             &HISTORY_FOR_DOMAIN,
-            current,
-            FilterPred::new(UrlOrDom::Dom(current.url)),
+            FilterPred::new(UrlOrDom::Dom(current.domain)),
         );
         // 1 query match
         //  first query
@@ -1246,5 +1230,35 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_is_clicked() {
+        let mut result = SearchResult {
+            session_id: 1,
+            user_id: 1,
+            query_id: 1,
+            day: DayOfWeek::Fri,
+            query_words: vec![1],
+            url: 1,
+            domain: 1,
+            relevance: ClickSat::Skip,
+            position: Rank::Eighth,
+            query_counter: 1,
+        };
+        assert!(!result.is_clicked());
+
+        result.relevance = ClickSat::Miss;
+        assert!(!result.is_clicked());
+
+        //FIXME clarify what Low means see comment at the top of the file
+        result.relevance = ClickSat::Low;
+        assert!(!result.is_clicked());
+
+        result.relevance = ClickSat::Medium;
+        assert!(result.is_clicked());
+
+        result.relevance = ClickSat::High;
+        assert!(result.is_clicked());
     }
 }
