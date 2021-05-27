@@ -7,8 +7,8 @@ pub mod io;
 /// Inspired by [autograd's softmax implementation], especially the trick to subtract the max value
 /// to reduce the chance of an overflow.
 ///
-/// [autograd softmax]: https://docs.rs/autograd/1.0.0/src/autograd/ops/activation_ops.rs.html#59
-pub fn softmax<A, S, D>(array: ArrayBase<S, D>, axis: Axis) -> ArrayBase<S, D>
+/// [autograd's softmax implementation]: https://docs.rs/autograd/1.0.0/src/autograd/ops/activation_ops.rs.html#59
+pub fn softmax<A, S, D>(mut array: ArrayBase<S, D>, axis: Axis) -> ArrayBase<S, D>
 where
     A: NdFloat,
     S: DataOwned<Elem = A> + DataMut<Elem = A>,
@@ -19,12 +19,13 @@ where
     let max = array
         .fold_axis(axis, A::min_value(), |state, val| A::max(*state, *val))
         .insert_axis(axis);
-    let mut tmp = array - max;
+    array -= &max;
 
     // Standard 3step softmax, 1) exp(x), 2) sum up, 3) divide through sum
-    tmp.mapv_inplace(|v| v.exp());
-    let sum = tmp.sum_axis(axis).insert_axis(axis);
-    tmp / sum
+    array.mapv_inplace(|v| v.exp());
+    let sum = array.sum_axis(axis).insert_axis(axis);
+    array /= &sum;
+    array
 }
 
 #[cfg(test)]

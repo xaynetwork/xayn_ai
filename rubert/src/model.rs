@@ -87,10 +87,10 @@ pub trait BertModel: Sized {
             .model()
             .output_fact(0)?
             .shape
-            .as_finite()
+            .as_concrete()
             .map(|shape| {
                 // input/output shapes are guaranteed to match when a sound onnx model is loaded
-                debug_assert_eq!([1, token_size], shape.as_slice()[0..2]);
+                debug_assert_eq!([1, token_size], shape[0..2]);
                 shape.get(2).copied()
             })
             .flatten()
