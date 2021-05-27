@@ -14,6 +14,7 @@ use std::collections::HashMap;
 ///
 /// Based on Yandex notion of dwell-time: time elapsed between a click and the next action.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+#[cfg_attr(test, derive(Debug))]
 pub(crate) enum ClickSat {
     /// Snippet examined but URL not clicked.
     Skip,
@@ -48,6 +49,7 @@ impl From<Rank> for f32 {
 }
 
 #[derive(PartialEq)]
+#[cfg_attr(test, derive(Copy, Clone))]
 pub(crate) enum DayOfWeek {
     Mon,
     Tue,
@@ -89,6 +91,7 @@ impl AsRef<SearchResult> for SearchResult {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(Debug))]
 pub(crate) enum MrrOutcome {
     Miss,
     Skip,
@@ -97,6 +100,7 @@ pub(crate) enum MrrOutcome {
 
 /// Atomic features of which an aggregate feature is composed of.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(Debug))]
 pub(crate) enum AtomFeat {
     /// MRR for miss, skip, click.
     MeanRecipRank(MrrOutcome),
@@ -167,6 +171,7 @@ impl DocAddr {
 }
 
 #[derive(Clone, Copy)]
+#[cfg_attr(test, derive(Debug))]
 pub(crate) enum UrlOrDom {
     /// A specific URL.
     Url(i32),
@@ -176,6 +181,7 @@ pub(crate) enum UrlOrDom {
 
 /// Query submission timescale.
 #[derive(Clone, Copy)]
+#[cfg_attr(test, derive(Debug))]
 pub(crate) enum SessionCond {
     /// Before current session.
     Anterior(i32),
@@ -238,7 +244,7 @@ impl FilterPred {
             (Dom(_), Some(_), All) => smallvec![miss, SQ, MRR(Miss)],
             (Dom(_), Some(_), Ant(_)) => smallvec![SQ],
             (Url(_), Some(_), All) => smallvec![mrr, click2, miss, SQ],
-            (Url(_), Some(_), Ant(_)) => smallvec![mrr, MRR(Click), MRR(Miss), MRR(Skip), skip, SQ],
+            (Url(_), Some(_), Ant(_)) => smallvec![mrr, MRR(Click), MRR(Miss), MRR(Skip), miss, SQ],
             (Url(_), Some(_), Current(_)) => smallvec![MRR(Miss)],
             _ => smallvec![],
         }
@@ -348,6 +354,8 @@ fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
             }
         });
 
+    //FIXME if clicks_wknd + clicks_wkday == 0 return 0
+
     2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
 }
 
@@ -375,11 +383,17 @@ pub(crate) fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
 ///
 /// Snippet quality is defined as:
 /// ```text
-///       sum{score(r)}
+///       sum{score(query)}
 /// --------------------------
 /// |hist({Miss, Skip}, pred)|
 /// ```
-/// where the sum ranges over all result sets containing a result `r` with URL matching that of `res`.
+///
+/// where the sum ranges over all query results containing a result `r` with URL/Domain matching the URL/Domain of `res`.
+///
+/// If `|hist({Miss, Skip}, pred)|` is `0` then `0` is returned.
+//FIXME I'm not sure how far FilterPred is applicable here as this will not work correctly
+//      if used with query filter and I have to double check it but I'm not sure the session
+//      condition is respected in the python code.
 pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
     let pred_filtered = hist.iter().filter(|r| pred.apply(r));
     let denom = pred_filtered
@@ -391,11 +405,16 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
         return 0.;
     }
 
+    // FIXME we need to go through all full queries which have at least one match,
+    // not through that queries filtered by predicate
     let numer = pred_filtered
+        //FIXME why not r.session_id, r.query_counter
         .group_by(|r| (r.session_id, r.query_counter))
         .into_iter()
         .filter_map(|(_, rs)| {
+            //FIXME its mathematically a ordered set, but using it in the name is IMHO just miss leading,
             let rs = ResultSet::new(rs.collect());
+            //FIXME this need to depend on weather we filter by url or domain
             rs.rank_of(res.url).map(|pos| snippet_score(rs, pos))
         })
         .sum::<f32>();
@@ -403,7 +422,39 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
     numer / denom
 }
 
-/// Scores the search result ranked at position `pos` in the result set `rs`.
+/// Scores the given query result based on the current documents URL/Domain.
+///
+/// The scores starts at 0 and can be modified in up to two ways before
+/// it's returned:
+///
+/// 1. If the query contains a document which has a "skip" relevance
+///    and matches the current document (by URL/Domain):
+///     - `score += -1/number_of_all_clicked_documents_in_query`
+///     - it's the number of all clicked documents in the query independent of
+///       weather or not they do match the current document
+///     - if there are no clicked documents the score stays unmodified
+///
+/// 2. If the query contains a document which has a "clicked" relevance
+///    and matches the current document (by URL/Domain):
+///     - `score += 1/(nr_of_non_matching_clicked_documents_before_the_first_match+1)`
+///     - So if there are 4 clicked documents and the second is the first which
+///       matches the current document (by URL/Domain) then its `1/(1+1)` (0.5).
+///
+/// FIXME
+/// The 1st is kinda like p_final but we only passed in the matching ones
+/// but need all clicked here.
+///
+/// The 2nd is kinda lik 1/p but it again needs to consider non matching
+/// documents.
+///
+/// Which is a flaw of the calling function.
+///
+/// The flaw in this function is that it's URL specific and that
+/// only one modifier can apply (where in practice both can apply,
+/// if used for domain).
+///
+/// ----old----
+/// Scores the query result ranked at position `pos` in the result set `rs`.
 ///
 /// The score(r) of a search result r is defined:
 /// *  0           if r is a `Miss`
@@ -437,13 +488,39 @@ fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
 /// Probability of an outcome conditioned on some predicate.
 ///
 /// It is defined:
+///
 /// ```text
 /// |hist(outcome, pred)| + prior(outcome)
 /// --------------------------------------
 ///   |hist(pred)| + sum{prior(outcome')}
 /// ```
+///
 /// The formula uses some form of additive smoothing with `prior(Miss)` = `1` and `0` otherwise.
 /// See Dataiku paper. Note then the `sum` term amounts to `1`.
+///
+/// # Implementation Mismatch
+///
+/// The python implementation on which basis the model was trained does not match the
+/// definition.
+///
+/// For every `outcome` except `ClickSat::Miss` following formula is used:
+///
+/// ```text
+/// |hist(outcome, pred)|
+/// ----------------------
+///    |hist(pred)|
+/// ```
+///
+/// If the `outcome` is `ClickSet::Miss` then following formula is used instead:
+///
+/// ```text
+///       |hist(outcome, pred)| + 1
+/// ---------------------------------------
+/// |hist(outcome, pred)| + |hist(outcome)|
+/// ```
+///
+/// In both cases it defaults to 0 if the denominator is 0 (as in this case the
+/// numerator should be 0 too)
 pub(crate) fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPred) -> f32 {
     let hist_pred = hist.iter().filter(|r| pred.apply(r));
     let hist_pred_outcome = hist_pred.clone().filter(|r| r.relevance == outcome).count();
@@ -461,5 +538,713 @@ pub(crate) fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPr
         0.
     } else {
         numer as f32 / denom as f32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use once_cell::sync::Lazy;
+
+    /* Pseudo Code based on the Python Implementation
+
+    FIXME remove before merging but not before review.
+
+    ## Query Quality Pseudo Code
+
+    ```pseudo
+    considered_data['all'] == history
+    action_predicate_map['all'] == considered_data['all'][where matches current url/domain]
+                                == history[where matches current url/domain]
+    action_predicate_map['missed'] == history[where relevance==missed and matches current url/domain]
+    action_predicate_map['skipped'] == history[where relevance==skipped and matches current url/domain]
+
+    matching_queries == all queries which have at least one matching query
+
+    scores = sum(score(query,...) for query in queries)
+
+    scores / len(action_predicate_map['missed'])+len(action_prediacte_map['skipped'])
+
+    ON divide by 0 return 0
+    ```
+
+    ## Query Score Pseudo Code
+
+    ```pseudo
+    query_matched_documents == query[where matches current url/domain]
+                            at least length 1 or we would not have called
+                            this function
+
+    clicked_documents == query[where matches current url/domain and relevance > 0].url/domain
+
+    there_is_a_skip = skipped_results_match.shape[0] > 0 == true iff there is at least one item in query_matched_documents which is also in action_predicate_map['skipped']
+
+    if there_is_a_skip:
+        score += -1/clicked_documents.size
+
+    there_is_a_match = clicked_results_match.shape[0] > 0 == true iff there is at least one item in query_matched_documents which is also in action_predicate_map['clicked']
+
+    if there_is_a_match:
+        // all indices of clicked_documents which match the current url/domain
+        click_position_index = indices where [clicked_documents == current_document] is true
+        score += 1/(click_position_index[0] + 1)
+
+
+    ON /0 in scores += <term> just don't change it
+    */
+
+    use super::*;
+
+    impl Rank {
+        fn from_usize(rank: usize) -> Self {
+            match rank {
+                0 => Rank::First,
+                1 => Rank::Second,
+                2 => Rank::Third,
+                3 => Rank::Fourth,
+                4 => Rank::Fifth,
+                5 => Rank::Sixth,
+                6 => Rank::Seventh,
+                7 => Rank::Eighth,
+                8 => Rank::Nineth,
+                9 => Rank::Last,
+                _ => panic!("Only support rank 0-9."),
+            }
+        }
+    }
+
+    fn history_by_url<'a>(
+        iter: impl IntoIterator<Item = &'a (ClickSat, i32)>,
+    ) -> Vec<SearchResult> {
+        iter.into_iter()
+            .enumerate()
+            .map(|(id, (relevance, url))| {
+                let id = id as i32;
+                let in_query_id = id % 10;
+                let per_query_id = id / 10;
+                SearchResult {
+                    session_id: 1,
+                    user_id: 1,
+                    query_id: per_query_id,
+                    day: DayOfWeek::Tue,
+                    query_words: vec![1, 2, id],
+                    url: *url,
+                    domain: 42,
+                    relevance: *relevance,
+                    position: Rank::from_usize(in_query_id as usize),
+                    query_counter: per_query_id as u8,
+                }
+            })
+            .collect()
+    }
+
+    fn history_by_domain<'a>(
+        iter: impl IntoIterator<Item = &'a (ClickSat, i32)>,
+    ) -> Vec<SearchResult> {
+        iter.into_iter()
+            .enumerate()
+            .map(|(id, (relevance, domain))| {
+                let id = id as i32;
+                let in_query_id = id % 10;
+                let per_query_id = id / 10;
+                SearchResult {
+                    session_id: 1,
+                    user_id: 1,
+                    query_id: per_query_id,
+                    day: DayOfWeek::Tue,
+                    query_words: vec![1, 2, id],
+                    url: id,
+                    domain: *domain,
+                    relevance: *relevance,
+                    position: Rank::from_usize(in_query_id as usize),
+                    query_counter: per_query_id as u8,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_cond_prob() {
+        //FIXME tests where written on basis of the python code, but not on basis of results produced by the python code.
+        let history = history_by_url(&[
+            (ClickSat::Medium, 10),
+            (ClickSat::High, 10),
+            (ClickSat::Medium, 12),
+            (ClickSat::Medium, 8),
+            (ClickSat::Medium, 10),
+            (ClickSat::Miss, 12),
+            (ClickSat::Miss, 12),
+            (ClickSat::Low, 10),
+        ]);
+
+        let res = cond_prob(
+            &history,
+            ClickSat::Medium,
+            FilterPred::new(UrlOrDom::Url(10)),
+        );
+        let expected = 2.0 / 4.0;
+        assert_approx_eq!(f32, res, expected);
+
+        let res = cond_prob(&history, ClickSat::Skip, FilterPred::new(UrlOrDom::Url(10)));
+        let expected = 0. / 4.0;
+        assert_approx_eq!(f32, res, expected);
+
+        let res = cond_prob(
+            &history,
+            ClickSat::Medium,
+            FilterPred::new(UrlOrDom::Url(100)),
+        );
+        assert_approx_eq!(f32, res, 0.0);
+
+        let res = cond_prob(&history, ClickSat::Miss, FilterPred::new(UrlOrDom::Url(12)));
+        let expected = (2. + 1.) / (3. + 2.);
+        assert_approx_eq!(f32, res, expected);
+
+        let res = cond_prob(
+            &history,
+            ClickSat::Miss,
+            FilterPred::new(UrlOrDom::Url(100)),
+        );
+        assert_approx_eq!(f32, res, 0.0);
+    }
+
+    static HISTORY_FOR_URL: Lazy<Vec<SearchResult>> = Lazy::new(|| {
+        history_by_url(&[
+            /* query 0 */
+            (ClickSat::Skip, 1),
+            (ClickSat::Medium, 2),
+            (ClickSat::Skip, 3333),
+            (ClickSat::Skip, 4),
+            (ClickSat::Medium, 55),
+            (ClickSat::Skip, 6),
+            (ClickSat::Miss, 7),
+            (ClickSat::High, 8),
+            (ClickSat::Skip, 9),
+            (ClickSat::Skip, 10),
+            /* query 1 */
+            (ClickSat::Medium, 1),
+            (ClickSat::Medium, 2),
+            (ClickSat::Medium, 4),
+            (ClickSat::Medium, 3333),
+            (ClickSat::Skip, 5),
+            (ClickSat::Miss, 6),
+            (ClickSat::Medium, 7),
+            (ClickSat::Medium, 8),
+            (ClickSat::Medium, 9),
+            (ClickSat::Medium, 10),
+        ])
+    });
+
+    #[test]
+    fn test_snippet_quality_for_url() {
+        let current = &HISTORY_FOR_URL[4];
+        let quality = snippet_quality(
+            &HISTORY_FOR_URL,
+            current,
+            FilterPred::new(UrlOrDom::Url(current.url)),
+        );
+
+        // 1 query matches
+        //  first query
+        //      no matching skip
+        //      matching click
+        //          clicked_documents = [2,55,8], current_document=55
+        //          so index + 1 == 2
+        //          score += 1/2
+        //      score = 0.5
+        //  total_score = 0.5
+        //  nr_missed_or_skipped = 0
+        //  => return 0
+        assert_approx_eq!(f32, quality, 0.0);
+
+        let current = &HISTORY_FOR_URL[2];
+        let quality = snippet_quality(
+            &HISTORY_FOR_URL,
+            current,
+            FilterPred::new(UrlOrDom::Url(current.url)),
+        );
+        // 2 query matches
+        //  first query
+        //      matching skip
+        //          clicked_documents = [2,55,8]
+        //          score += -1/3
+        //      no matching click
+        //      score = -1/3
+        //  second query
+        //      no matching skip
+        //      matching click
+        //          clicked_documents = [1,2,4,3333,7,8,9,10], current_document=3333
+        //          so index + 1 == 4
+        //          score += 1/4
+        //      score = 1/4
+        //  total_score = -0.08333333333333331
+        //  nr_missed_or_skipped = 1
+        //  => return -0.08333333333333331 //closest f32 is -0.083_333_336
+        assert_approx_eq!(f32, quality, -0.083_333_336);
+
+        let current = &HISTORY_FOR_URL[7];
+        let quality = snippet_quality(
+            &HISTORY_FOR_URL,
+            current,
+            FilterPred::new(UrlOrDom::Url(current.url)),
+        );
+        // 3 query matches
+        //  first query
+        //      no matching skip
+        //      matching click
+        //          clicked_documents = [2,55,8]
+        //          score += -1/3
+        //      score = -1/3
+        //  second query
+        //      no matching skip
+        //      matching click
+        //          clicked_documents = [1,2,4,3333,7,8,9,10], current_document=8
+        //          so index + 1 == 6
+        //          score += 1/6
+        //      score = 1/6
+        //  total_score = -0.16666666666666666
+        //  nr_missed_or_skipped = 0
+        //  => return 0
+        assert_approx_eq!(f32, quality, 0.0);
+    }
+
+    static HISTORY_FOR_DOMAIN: Lazy<Vec<SearchResult>> = Lazy::new(|| {
+        history_by_domain(&[
+            /* query 0 */
+            (ClickSat::Skip, 1),
+            (ClickSat::Skip, 444),
+            (ClickSat::Medium, 444),
+            (ClickSat::Skip, 444),
+            (ClickSat::Medium, 444),
+            (ClickSat::Skip, 444),
+            (ClickSat::Miss, 444),
+            (ClickSat::High, 444),
+            (ClickSat::Skip, 444),
+            (ClickSat::Medium, 444),
+            /* query 1 */
+            (ClickSat::Medium, 444),
+            (ClickSat::Medium, 444),
+            (ClickSat::Medium, 444),
+            (ClickSat::Medium, 444),
+            (ClickSat::Skip, 12),
+            (ClickSat::Miss, 444),
+            (ClickSat::Medium, 444),
+            (ClickSat::Medium, 444),
+            (ClickSat::Medium, 9),
+            (ClickSat::Medium, 10),
+            /* query 2 */
+            (ClickSat::Medium, 1),
+            (ClickSat::Medium, 2),
+            (ClickSat::Medium, 3),
+            (ClickSat::Medium, 4),
+            (ClickSat::Skip, 6),
+            (ClickSat::Miss, 4),
+            (ClickSat::Medium, 7),
+            (ClickSat::Medium, 8),
+            (ClickSat::Medium, 9),
+            (ClickSat::Medium, 10),
+        ])
+    });
+
+    #[test]
+    fn test_snippet_quality_for_domain() {
+        let current = &HISTORY_FOR_DOMAIN[3];
+        let quality = snippet_quality(
+            &HISTORY_FOR_DOMAIN,
+            current,
+            FilterPred::new(UrlOrDom::Dom(current.url)),
+        );
+        // 2 query matches
+        //  first query
+        //      matching skip
+        //          clicked_documents = [444,444,444,444]
+        //          score += -1/4
+        //      matching click
+        //          clicked_documents = [444,444,....], current_document=444
+        //          so index + 1 == 1
+        //          score += 1/1
+        //      score = 3/4
+        //  second query
+        //      no matching skip
+        //      matching click
+        //          clicked_documents = [444,444,...,9,10], current_document=444
+        //          so index + 1 == 1
+        //          score += 1/1
+        //      score = 1
+        //  total_score = 1.75
+        //  nr_missed_or_skipped = 6
+        //  => return 0.2916666666666667 // closest f32 is 0.291_666_66
+        assert_approx_eq!(f32, quality, 0.291_666_66);
+
+        let current = &HISTORY_FOR_DOMAIN[33];
+        let quality = snippet_quality(
+            &HISTORY_FOR_DOMAIN,
+            current,
+            FilterPred::new(UrlOrDom::Dom(current.url)),
+        );
+        // 1 query match
+        //  first query
+        //      no matching skip
+        //      matching click
+        //          clicked_documents = [1,2,3,4,7,8,9,10], current_document=4
+        //          so index + 1 == 4
+        //          score += 1/4
+        //      score = 1/4
+        //  total_score = 0.25
+        //  nr_missed_or_skipped = 1
+        //  return 0.25
+        assert_approx_eq!(f32, quality, 0.25);
+    }
+
+    #[test]
+    fn test_click_entropy() {
+        let entropy = click_entropy(&HISTORY_FOR_DOMAIN[..]);
+        assert_approx_eq!(f32, entropy, 3.108695);
+
+        let entropy = click_entropy(&HISTORY_FOR_DOMAIN[20..]);
+        assert_approx_eq!(f32, entropy, 3.0);
+
+        let entropy = click_entropy(&HISTORY_FOR_DOMAIN[..15]);
+        assert_approx_eq!(f32, entropy, 2.75);
+    }
+
+    fn history_by_day<'a>(
+        iter: impl IntoIterator<Item = &'a (ClickSat, DayOfWeek, i32)>,
+    ) -> Vec<SearchResult> {
+        iter.into_iter()
+            .enumerate()
+            .map(|(id, (relevance, day, domain))| {
+                let id = id as i32;
+                let in_query_id = id % 10;
+                let per_query_id = id / 10;
+                SearchResult {
+                    session_id: 1,
+                    user_id: 1,
+                    query_id: per_query_id,
+                    day: *day,
+                    query_words: vec![1, 2, id],
+                    url: id,
+                    domain: *domain,
+                    relevance: *relevance,
+                    position: Rank::from_usize(in_query_id as usize),
+                    query_counter: per_query_id as u8,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_seasonality() {
+        let history = history_by_day(&[
+            (ClickSat::Miss, DayOfWeek::Tue, 1),
+            (ClickSat::Medium, DayOfWeek::Tue, 1),
+            (ClickSat::Miss, DayOfWeek::Wed, 1),
+            (ClickSat::Medium, DayOfWeek::Tue, 1),
+            (ClickSat::Miss, DayOfWeek::Wed, 2),
+            (ClickSat::Medium, DayOfWeek::Sun, 2),
+            (ClickSat::Medium, DayOfWeek::Mon, 2),
+            (ClickSat::Skip, DayOfWeek::Sun, 1),
+            (ClickSat::Medium, DayOfWeek::Thu, 1),
+            (ClickSat::Skip, DayOfWeek::Thu, 2),
+            (ClickSat::Medium, DayOfWeek::Wed, 1),
+            (ClickSat::Medium, DayOfWeek::Tue, 2),
+            (ClickSat::Medium, DayOfWeek::Wed, 2),
+            (ClickSat::Medium, DayOfWeek::Mon, 2),
+            (ClickSat::Medium, DayOfWeek::Sat, 1),
+            (ClickSat::Medium, DayOfWeek::Mon, 1),
+            (ClickSat::Medium, DayOfWeek::Sat, 1),
+            (ClickSat::Medium, DayOfWeek::Mon, 1),
+        ]);
+
+        // seasonality = (5*(1+w_end_day))/(2*(1+working_day))
+        // relevant thu/fr days: 1
+        // relevant other days: 7
+        let value = seasonality(&history, 1);
+        assert_approx_eq!(f32, value, 0.625);
+
+        // relevant thu/fr days: 0
+        // relevant other days: 5
+        let value = seasonality(&history, 2);
+        assert_approx_eq!(f32, value, 0.416_666_66);
+
+        assert_approx_eq!(f32, seasonality(&[], 1), 0.0, ulps = 0);
+    }
+
+    impl DayOfWeek {
+        fn create_test_day(day: u8) -> Self {
+            use DayOfWeek::*;
+            match day % 7 {
+                0 => Mon,
+                1 => Tue,
+                2 => Wed,
+                3 => Thu,
+                4 => Fri,
+                5 => Sat,
+                6 => Sun,
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn query_results_by_words_and_session<'a>(
+        iter: impl IntoIterator<Item = &'a (Vec<i32>, i32)>,
+    ) -> Vec<SearchResult> {
+        iter.into_iter()
+            .enumerate()
+            .map(|(id, (query_words, session))| {
+                let id = id as i32;
+                let in_query_id = id % 10;
+                let per_query_id = id / 10;
+                let query_counter = per_query_id as u8;
+
+                SearchResult {
+                    session_id: *session,
+                    user_id: 1,
+                    query_id: per_query_id,
+                    day: DayOfWeek::create_test_day(query_counter),
+                    query_words: query_words.clone(),
+                    url: id,
+                    domain: id,
+                    relevance: ClickSat::Medium,
+                    position: Rank::from_usize(in_query_id as usize),
+                    query_counter,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_terms_variety() {
+        let query = query_results_by_words_and_session(&[
+            (vec![1, 2], 1),
+            (vec![1, 3], 1),
+            (vec![4, 6], 1),
+            (vec![3, 6], 2),
+            (vec![3, 2], 2),
+            (vec![6, 4], 3),
+            (vec![4, 4], 3),
+        ]);
+
+        assert_eq!(terms_variety(&query, 1), 5);
+        assert_eq!(terms_variety(&query, 2), 3);
+        assert_eq!(terms_variety(&query, 3), 2);
+    }
+
+    fn query_results_by_rank_and_relevance<'a>(
+        iter: impl IntoIterator<Item = &'a (Rank, ClickSat)>,
+    ) -> Vec<SearchResult> {
+        iter.into_iter()
+            .enumerate()
+            .map(|(id, (rank, relevance))| {
+                let id = id as i32;
+                let per_query_id = id / 10;
+                let query_counter = per_query_id as u8;
+
+                SearchResult {
+                    session_id: 1,
+                    user_id: 1,
+                    query_id: per_query_id,
+                    day: DayOfWeek::create_test_day(query_counter),
+                    query_words: vec![id],
+                    url: id,
+                    domain: id % 2,
+                    relevance: *relevance,
+                    position: *rank,
+                    query_counter,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_mean_reciprocal_rank() {
+        let history = query_results_by_rank_and_relevance(&[
+            (Rank::First, ClickSat::Skip),
+            (Rank::Second, ClickSat::Miss),
+            (Rank::Third, ClickSat::Low),
+            (Rank::Fourth, ClickSat::Medium),
+            (Rank::Fifth, ClickSat::High),
+        ]);
+
+        let mrr = mean_recip_rank(&history, None, None);
+        assert_approx_eq!(f32, mrr, 0.427_722_25);
+
+        let mrr = mean_recip_rank(&history, None, Some(FilterPred::new(UrlOrDom::Dom(0))));
+        assert_approx_eq!(f32, mrr, 0.454_083_35);
+
+        let mrr = mean_recip_rank(&history, Some(MrrOutcome::Miss), None);
+        assert_approx_eq!(f32, mrr, 0.391_5);
+
+        let mrr = mean_recip_rank(&history, Some(MrrOutcome::Skip), None);
+        assert_approx_eq!(f32, mrr, 0.6415);
+
+        let mrr = mean_recip_rank(&history, Some(MrrOutcome::Click), None);
+        assert_approx_eq!(f32, mrr, 0.244_333_33);
+
+        let mrr = mean_recip_rank(
+            &history,
+            Some(MrrOutcome::Click),
+            Some(FilterPred::new(UrlOrDom::Dom(0))),
+        );
+        assert_approx_eq!(f32, mrr, 0.241_5);
+    }
+
+    #[test]
+    fn test_filter_predicate() {
+        let filter = FilterPred::new(UrlOrDom::Dom(42));
+        let mut result = SearchResult {
+            session_id: 1,
+            user_id: 2,
+            query_id: 3,
+            day: DayOfWeek::Sun,
+            query_words: vec![1, 2],
+            url: 11,
+            domain: 22,
+            relevance: ClickSat::High,
+            position: Rank::First,
+            query_counter: 1,
+        };
+        assert!(!filter.apply(&result));
+        result.domain = 42;
+        assert!(filter.apply(&result));
+
+        let filter = filter.with_query(25);
+        assert!(!filter.apply(&result));
+        result.query_id = 25;
+        assert!(filter.apply(&result));
+
+        let filter = filter.with_session(SessionCond::Current(100));
+        assert!(!filter.apply(&result));
+        result.session_id = 100;
+        assert!(filter.apply(&result));
+
+        let filter = filter.with_session(SessionCond::Anterior(80));
+        assert!(!filter.apply(&result));
+        result.session_id = 80;
+        assert!(!filter.apply(&result));
+        result.session_id = 79;
+        assert!(filter.apply(&result));
+
+        let filter = filter.with_session(SessionCond::All);
+        result.session_id = 3333;
+        assert!(filter.apply(&result));
+
+        let filter = FilterPred::new(UrlOrDom::Url(42));
+        assert!(!filter.apply(&result));
+        result.url = 42;
+        assert!(filter.apply(&result));
+    }
+
+    #[test]
+    fn the_right_cum_atoms_are_chosen() {
+        use UrlOrDom::*;
+
+        // No rust formatting for readability.
+        // This is formatted as a table, which rustfmt would break.
+        #[rustfmt::skip]
+        let test_cases = vec![
+            /* url.usual */
+            (Url(1),    None,       SessionCond::All,           vec![ClickSat::Skip, ClickSat::Medium, ClickSat::High]),
+            /* url.anterior */
+            (Url(1),    None,       SessionCond::Anterior(10),  vec![]),
+            /* url.session (not used) */
+            (Url(1),    None,       SessionCond::Current(3),    vec![]),
+            /* url.query */
+            (Url(1),    Some(32),   SessionCond::All,           vec![]),
+            /* url.query_anterior */
+            (Url(1),    Some(32),   SessionCond::Anterior(10),  vec![]),
+            /* url.query_session */
+            (Url(1),    Some(32),   SessionCond::Current(3),    vec![]),
+            /* domain.usual */
+            (Dom(1),    None,       SessionCond::All,           vec![]),
+            /* domain.anterior */
+            (Dom(1),    None,       SessionCond::Anterior(10),  vec![]),
+            /* domain.session (not used) */
+            (Dom(1),    None,       SessionCond::Current(3),    vec![]),
+            /* domain.query */
+            (Dom(1),    Some(32),   SessionCond::All,           vec![]),
+            /* domain.anterior */
+            (Dom(1),    Some(32),   SessionCond::Anterior(10),  vec![]),
+            /* domain.query_session (not used) */
+            (Dom(1),    Some(32),   SessionCond::Current(3),    vec![]),
+        ];
+
+        for (url_or_dom, query_filter, session_cond, expected) in test_cases.into_iter() {
+            let mut filter = FilterPred::new(url_or_dom).with_session(session_cond);
+            if let Some(query) = query_filter {
+                filter = filter.with_query(query);
+            }
+
+            let agg_atoms = filter.cum_atoms();
+            if agg_atoms.len() != expected.len()
+                || !expected.iter().all(|atom| agg_atoms.contains(atom))
+            {
+                panic!(
+                    "for ({:?}, {:?}, {:?}) expected {:?} but got {:?}",
+                    url_or_dom, query_filter, session_cond, expected, agg_atoms
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_right_aggregate_atoms_are_chosen() {
+        use UrlOrDom::*;
+
+        //TODO check
+        let click_mrr = AtomFeat::MeanRecipRank(MrrOutcome::Click);
+        let miss_mrr = AtomFeat::MeanRecipRank(MrrOutcome::Miss);
+        let skip_mrr = AtomFeat::MeanRecipRank(MrrOutcome::Skip);
+        let combine_mrr = AtomFeat::MeanRecipRankAll;
+        let click2 = AtomFeat::CondProb(ClickSat::High);
+        let missed = AtomFeat::CondProb(ClickSat::Miss);
+        let skipped = AtomFeat::CondProb(ClickSat::Skip);
+        let snipped_quality = AtomFeat::SnippetQuality;
+
+        // No rust formatting for readability.
+        // This is formatted as a table, which rustfmt would break.
+        #[rustfmt::skip]
+        let test_cases = vec![
+            /* url.usual */
+            (Url(1),    None,       SessionCond::All,           vec![click_mrr, click2, missed, snipped_quality]),
+            /* url.anterior */
+            (Url(1),    None,       SessionCond::Anterior(10),  vec![click2, missed, snipped_quality]),
+            /* url.session (not used) */
+            (Url(1),    None,       SessionCond::Current(3),    vec![]),
+            /* url.query */
+            (Url(1),    Some(32),   SessionCond::All,           vec![combine_mrr, click2, missed, snipped_quality]),
+            /* url.query_anterior */
+            (Url(1),    Some(32),   SessionCond::Anterior(10),  vec![combine_mrr, click_mrr, miss_mrr, skip_mrr, missed, snipped_quality]),
+            /* url.query_session */
+            (Url(1),    Some(32),   SessionCond::Current(3),    vec![miss_mrr]),
+            /* domain.usual */
+            (Dom(1),    None,       SessionCond::All,           vec![skipped, missed, click2, snipped_quality]),
+            /* domain.anterior */
+            (Dom(1),    None,       SessionCond::Anterior(10),  vec![click2, missed, snipped_quality]),
+            /* domain.session (not used) */
+            (Dom(1),    None,       SessionCond::Current(3),    vec![]),
+            /* domain.query */
+            (Dom(1),    Some(32),   SessionCond::All,           vec![missed, snipped_quality, miss_mrr]),
+            /* domain.anterior */
+            (Dom(1),    Some(32),   SessionCond::Anterior(10),  vec![snipped_quality]),
+            /* domain.query_session (not used) */
+            (Dom(1),    Some(32),   SessionCond::Current(3),    vec![]),
+        ];
+
+        for (url_or_dom, query_filter, session_cond, expected) in test_cases.into_iter() {
+            let mut filter = FilterPred::new(url_or_dom).with_session(session_cond);
+            if let Some(query) = query_filter {
+                filter = filter.with_query(query);
+            }
+
+            let agg_atoms = filter.agg_atoms();
+            if agg_atoms.len() != expected.len()
+                || !expected.iter().all(|atom| agg_atoms.contains(atom))
+            {
+                panic!(
+                    "for ({:?}, {:?}, {:?}) expected {:?} but got {:?}",
+                    url_or_dom, query_filter, session_cond, expected, agg_atoms
+                );
+            }
+        }
     }
 }

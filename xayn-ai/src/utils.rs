@@ -108,14 +108,24 @@ macro_rules! assert_approx_eq {
                         "Dimensionality mismatch when iterating in logical order: {:?} != {:?}",
                         lidx, ridx
                     );
-                    assert!(
-                        ::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps),
-                        "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}",
-                        ulps=ulps,
-                        lv=lv,
-                        rv=rv,
-                        idx=lidx,
-                    );
+                    if !::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps) {
+                        if lidx.is_empty() {
+                            panic!(
+                                "approximated equal assertion failed (ulps={ulps:?}): {lv:?} == {rv:?}",
+                                ulps=ulps,
+                                lv=lv,
+                                rv=rv,
+                            );
+                        } else {
+                            panic!(
+                                "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}",
+                                ulps=ulps,
+                                lv=lv,
+                                rv=rv,
+                                idx=lidx,
+                            );
+                        }
+                    }
                 }
                 (Some(pair), None) => {
                     panic!("Left input is longer starting with from index {:?}", pair);
