@@ -8,15 +8,15 @@
 //! use rubert::{FirstPooler, SMBertBuilder};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let rubert = SMBertBuilder::from_files("vocab.txt", "model.onnx")?
+//!     let smbert = SMBertBuilder::from_files("vocab.txt", "model.onnx")?
 //!         .with_accents(false)
 //!         .with_lowercase(true)
 //!         .with_token_size(64)?
 //!         .with_pooling(FirstPooler)
 //!         .build()?;
 //!
-//!     let embedding = rubert.run("This is a sequence.")?;
-//!     assert_eq!(embedding.shape(), [rubert.embedding_size()]);
+//!     let embedding = smbert.run("This is a sequence.")?;
+//!     assert_eq!(embedding.shape(), [smbert.embedding_size()]);
 //!
 //!     Ok(())
 //! }
