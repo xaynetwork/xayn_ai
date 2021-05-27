@@ -160,6 +160,11 @@ pub(crate) mod tests {
     pub struct TestDocuments<'a> {
         _ids: Pin<Vec<CString>>,
         _snippets: Pin<Vec<CString>>,
+        _sessions: Pin<Vec<CString>>,
+        _query_ids: Pin<Vec<CString>>,
+        _query_words: Pin<Vec<CString>>,
+        _urls: Pin<Vec<CString>>,
+        _domains: Pin<Vec<CString>>,
         document: Pin<Vec<CDocument<'a>>>,
         documents: CDocuments<'a>,
     }
@@ -244,6 +249,11 @@ pub(crate) mod tests {
             Self {
                 _ids,
                 _snippets,
+                _sessions,
+                _query_ids,
+                _query_words,
+                _urls,
+                _domains,
                 document,
                 documents,
             }

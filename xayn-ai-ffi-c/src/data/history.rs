@@ -244,6 +244,11 @@ pub(crate) mod tests {
 
     pub struct TestHistories<'a> {
         _ids: Pin<Vec<CString>>,
+        _sessions: Pin<Vec<CString>>,
+        _query_ids: Pin<Vec<CString>>,
+        _query_words: Pin<Vec<CString>>,
+        _urls: Pin<Vec<CString>>,
+        _domains: Pin<Vec<CString>>,
         history: Pin<Vec<CHistory<'a>>>,
         histories: CHistories<'a>,
     }
@@ -355,6 +360,11 @@ pub(crate) mod tests {
 
             Self {
                 _ids,
+                _sessions,
+                _query_ids,
+                _query_words,
+                _urls,
+                _domains,
                 history,
                 histories,
             }
