@@ -322,35 +322,20 @@ pub(crate) mod tests {
                     ranks,
                     user_actions,
                 )
-                .map(
-                    |(
-                        id,
-                        relevance,
-                        feedback,
-                        session,
-                        query_count,
-                        query_id,
-                        query_words,
-                        day,
-                        url,
-                        domain,
-                        rank,
-                        user_action,
-                    )| CHistory {
-                        id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
-                        relevance,
-                        feedback,
-                        session: unsafe { session.as_ptr().cast::<u8>().as_ref() },
-                        query_count,
-                        query_id: unsafe { query_id.as_ptr().cast::<u8>().as_ref() },
-                        query_words: unsafe { query_words.as_ptr().cast::<u8>().as_ref() },
-                        day,
-                        url: unsafe { url.as_ptr().cast::<u8>().as_ref() },
-                        domain: unsafe { domain.as_ptr().cast::<u8>().as_ref() },
-                        rank,
-                        user_action,
-                    },
-                )
+                .map(|chist| CHistory {
+                    id: unsafe { chist.0.as_ptr().cast::<u8>().as_ref() },
+                    relevance: chist.1,
+                    feedback: chist.2,
+                    session: unsafe { chist.3.as_ptr().cast::<u8>().as_ref() },
+                    query_count: chist.4,
+                    query_id: unsafe { chist.5.as_ptr().cast::<u8>().as_ref() },
+                    query_words: unsafe { chist.6.as_ptr().cast::<u8>().as_ref() },
+                    day: chist.7,
+                    url: unsafe { chist.8.as_ptr().cast::<u8>().as_ref() },
+                    domain: unsafe { chist.9.as_ptr().cast::<u8>().as_ref() },
+                    rank: chist.10,
+                    user_action: chist.11,
+                })
                 .collect::<Vec<_>>(),
             );
             let histories = CHistories {

@@ -68,12 +68,13 @@ impl TryFrom<&str> for QueryId {
     }
 }
 
-/// This represents a result from the query.
-#[derive(Debug, Serialize, Deserialize, Default)]
+/// Represents a result from a query.
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Document {
     /// Unique identifier of the document
     pub id: DocumentId,
-    /// position of the document from the source
+    /// Position of the document from the source
     pub rank: usize,
     /// Text snippet of the document
     pub snippet: String,
@@ -91,7 +92,9 @@ pub struct Document {
     pub domain: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+/// Represents a historical result from a query.
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentHistory {
     /// Unique identifier of the document
     pub id: DocumentId,
@@ -243,6 +246,6 @@ pub enum DayOfWeek {
 
 impl Default for DayOfWeek {
     fn default() -> Self {
-        DayOfWeek::Mon // TEMP completely arbitrary
+        DayOfWeek::Mon
     }
 }

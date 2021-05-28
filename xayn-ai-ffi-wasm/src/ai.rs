@@ -150,7 +150,16 @@ mod tests {
 
     use itertools::izip;
     use wasm_bindgen_test::wasm_bindgen_test;
-    use xayn_ai::{DocumentHistory, DocumentId, Relevance, UserFeedback};
+    use xayn_ai::{
+        DayOfWeek,
+        DocumentHistory,
+        DocumentId,
+        QueryId,
+        Relevance,
+        SessionId,
+        UserAction,
+        UserFeedback,
+    };
 
     use crate::{error::ExternError, history::WHistory};
 
@@ -171,49 +180,130 @@ mod tests {
 
     fn test_histories() -> Vec<JsValue> {
         let len = 6;
+
         let ids = (0..len)
             .map(|idx| DocumentId::from_u128(idx as u128))
             .collect::<Vec<_>>();
-
         let relevances = repeat(Relevance::Low.into())
             .take(len / 2)
-            .chain(repeat(Relevance::High.into()).take(len - len / 2));
+            .chain(repeat(Relevance::High.into()).take(len - len / 2)); // TODO no need for 2nd take
         let feedbacks = repeat(UserFeedback::Irrelevant.into())
             .take(len / 2)
             .chain(repeat(UserFeedback::Relevant.into()).take(len - len / 2));
+        let sessions = (0..len)
+            .map(|idx| SessionId::from_u128(idx as u128))
+            .collect::<Vec<_>>();
+        let query_counts = repeat(1);
+        let query_ids = (0..len)
+            .map(|idx| QueryId::from_u128(idx as u128))
+            .collect::<Vec<_>>();
+        let query_words = (0..len)
+            .map(|idx| format!("query {}", idx))
+            .collect::<Vec<_>>();
+        let days = repeat(DayOfWeek::Sun)
+            .take(len / 2)
+            .chain(repeat(DayOfWeek::Mon).take(len - len / 2));
+        let urls = (0..len)
+            .map(|idx| format!("url-{}", idx))
+            .collect::<Vec<_>>();
+        let domains = (0..len)
+            .map(|idx| format!("domain-{}", idx))
+            .collect::<Vec<_>>();
+        let ranks = 0..len;
+        let user_actions = repeat(UserAction::Miss)
+            .take(len / 2)
+            .chain(repeat(UserAction::Click).take(len - len / 2));
 
-        izip!(ids, relevances, feedbacks)
-            .map(|(id, relevance, user_feedback)| {
-                JsValue::from_serde::<WHistory>(
-                    &DocumentHistory {
-                        id,
-                        relevance,
-                        user_feedback,
-                        ..Default::default()
-                    }
-                    .into(),
-                )
-                .unwrap()
-            })
-            .collect()
+        izip!(
+            ids,
+            relevances,
+            feedbacks,
+            sessions,
+            query_counts,
+            query_ids,
+            query_words,
+            days,
+            urls,
+            domains,
+            ranks,
+            user_actions
+        )
+        .map(|hist| {
+            JsValue::from_serde::<WHistory>(
+                &DocumentHistory {
+                    id: hist.0,
+                    relevance: hist.1,
+                    user_feedback: hist.2,
+                    session: hist.3,
+                    query_count: hist.4,
+                    query_id: hist.5,
+                    query_words: hist.6,
+                    day: hist.7,
+                    url: hist.8,
+                    domain: hist.9,
+                    rank: hist.10,
+                    user_action: hist.11,
+                }
+                .into(),
+            )
+            .unwrap()
+        })
+        .collect()
     }
 
     fn test_documents() -> Vec<JsValue> {
         let len = 10;
+
         let ids = (0..len)
             .map(|idx| DocumentId::from_u128(idx as u128))
             .collect::<Vec<_>>();
-
         let snippets = (0..len)
             .map(|idx| format!("snippet {}", idx))
             .collect::<Vec<_>>();
         let ranks = 0..len as usize;
+        let sessions = (0..len)
+            .map(|idx| SessionId::from_u128(idx as u128))
+            .collect::<Vec<_>>();
+        let query_counts = repeat(1);
+        let query_ids = (0..len)
+            .map(|idx| QueryId::from_u128(idx as u128))
+            .collect::<Vec<_>>();
+        let query_words = (0..len)
+            .map(|idx| format!("query {}", idx))
+            .collect::<Vec<_>>();
+        let urls = (0..len)
+            .map(|idx| format!("url-{}", idx))
+            .collect::<Vec<_>>();
+        let domains = (0..len)
+            .map(|idx| format!("domain-{}", idx))
+            .collect::<Vec<_>>();
 
-        izip!(ids, snippets, ranks)
-            .map(|(id, snippet, rank)| {
-                JsValue::from_serde(&Document { id, snippet, rank }).unwrap()
+        izip!(
+            ids,
+            snippets,
+            ranks,
+            sessions,
+            query_counts,
+            query_ids,
+            query_words,
+            urls,
+            domains
+        )
+        .map(|doc| {
+            JsValue::from_serde(&Document {
+                id: doc.0,
+                snippet: doc.1,
+                rank: doc.2,
+                session: doc.3,
+                query_count: doc.4,
+                query_id: doc.5,
+                query_words: doc.6,
+                url: doc.7,
+                domain: doc.8,
             })
-            .collect()
+            .unwrap()
+        })
+        .collect()
     }
 
     #[wasm_bindgen_test]

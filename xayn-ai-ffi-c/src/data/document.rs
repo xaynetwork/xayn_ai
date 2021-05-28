@@ -226,19 +226,17 @@ pub(crate) mod tests {
                     _urls.as_ref().get_ref(),
                     _domains.as_ref().get_ref()
                 )
-                .map(
-                    |(id, snippet, rank, session, q_count, q_id, q_words, url, domain)| CDocument {
-                        id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
-                        snippet: unsafe { snippet.as_ptr().cast::<u8>().as_ref() },
-                        rank,
-                        session: unsafe { session.as_ptr().cast::<u8>().as_ref() },
-                        query_count: q_count,
-                        query_id: unsafe { q_id.as_ptr().cast::<u8>().as_ref() },
-                        query_words: unsafe { q_words.as_ptr().cast::<u8>().as_ref() },
-                        url: unsafe { url.as_ptr().cast::<u8>().as_ref() },
-                        domain: unsafe { domain.as_ptr().cast::<u8>().as_ref() },
-                    },
-                )
+                .map(|cdoc| CDocument {
+                    id: unsafe { cdoc.0.as_ptr().cast::<u8>().as_ref() },
+                    snippet: unsafe { cdoc.1.as_ptr().cast::<u8>().as_ref() },
+                    rank: cdoc.2,
+                    session: unsafe { cdoc.3.as_ptr().cast::<u8>().as_ref() },
+                    query_count: cdoc.4,
+                    query_id: unsafe { cdoc.5.as_ptr().cast::<u8>().as_ref() },
+                    query_words: unsafe { cdoc.6.as_ptr().cast::<u8>().as_ref() },
+                    url: unsafe { cdoc.7.as_ptr().cast::<u8>().as_ref() },
+                    domain: unsafe { cdoc.8.as_ptr().cast::<u8>().as_ref() },
+                })
                 .collect::<Vec<_>>(),
             );
             let documents = CDocuments {
