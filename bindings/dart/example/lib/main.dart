@@ -17,7 +17,7 @@ import 'package:flutter/material.dart'
 import 'package:stats/stats.dart' show Stats;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show Document, Relevance, History, Feedback, XaynAi;
+    show Document, Relevance, History, Feedback, XaynAi, createXaynAi;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
     if (dart.library.io) 'data_provider/io/mobile.dart'
@@ -64,8 +64,9 @@ class _MyAppState extends State<MyApp> {
     // setState to update our non-existent appearance.
     if (!mounted) return;
 
+    final ai = await createXaynAi(data);
     setState(() {
-      _ai = XaynAi(data);
+      _ai = ai;
       _msg = '';
     });
   }

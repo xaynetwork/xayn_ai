@@ -9,16 +9,16 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
 
+/// Creates and initializes the Xayn AI.
+///
+/// Requires the data to setup the AI, e.g. the vocabulary and model of the tokenizer/embedder.
+/// Optionally accepts the serialized reranker database, otherwise creates a new one.
+Future<XaynAi> createXaynAi(SetupData data, [Uint8List? serialized]) async {
+  throw UnsupportedError('Unsupported platform.');
+}
+
 /// The Xayn AI.
 class XaynAi {
-  /// Creates and initializes the Xayn AI.
-  ///
-  /// Requires the data to setup the AI, e.g. the vocabulary and model of the tokenizer/embedder.
-  /// Optionally accepts the serialized reranker database, otherwise creates a new one.
-  XaynAi(SetupData data, [Uint8List? serialized]) {
-    throw UnsupportedError('Unsupported platform.');
-  }
-
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.

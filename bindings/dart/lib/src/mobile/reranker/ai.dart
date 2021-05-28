@@ -26,6 +26,10 @@ import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
 import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/fault.dart' show Faults;
 
+Future<XaynAi> createXaynAi(SetupData data, [Uint8List? serialized]) async {
+  return XaynAi(data.vocab, data.model, serialized);
+}
+
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
   late Pointer<CXaynAi> _ai;
@@ -34,9 +38,9 @@ class XaynAi implements common.XaynAi {
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi(SetupData data, [Uint8List? serialized]) {
-    final vocabPtr = data.vocab.toNativeUtf8().cast<Uint8>();
-    final modelPtr = data.model.toNativeUtf8().cast<Uint8>();
+  XaynAi(String vocab, String model, [Uint8List? serialized]) {
+    final vocabPtr = vocab.toNativeUtf8().cast<Uint8>();
+    final modelPtr = model.toNativeUtf8().cast<Uint8>();
     Bytes? bytes;
     final error = XaynAiError();
 

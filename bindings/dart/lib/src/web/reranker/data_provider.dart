@@ -29,6 +29,7 @@ final assets = [
 class SetupData implements common.SetupData {
   final Uint8List vocab;
   final Uint8List model;
+  final Uint8List wasm;
 
-  SetupData(this.vocab, this.model);
+  SetupData(this.vocab, this.model, this.wasm);
 }
