@@ -3,32 +3,16 @@ import 'dart:typed_data';
 import 'package:xayn_ai_ffi_dart/package.dart' as xayn_ai
     show SetupData, assets;
 
-class SetupData implements xayn_ai.SetupData {
-  final Uint8List vocab;
-  final Uint8List model;
-  final Uint8List wasm;
+class DataProvider {
+  static Future<xayn_ai.SetupData> getInputData() async {
+    final toFetch = <String, Uint8List>{};
+    for (var asset in xayn_ai.assets) {
+      final data = await _fetchAsset(asset['url']!, asset['checksum']!);
+      toFetch.putIfAbsent(asset['name']!, () => data);
+    }
 
-  SetupData(this.vocab, this.model, this.wasm);
-
-  static Future<SetupData> getInputData() async {
-    final vocab =
-        xayn_ai.assets.where((element) => element['name'] == 'vocab.txt').first;
-    final model = xayn_ai.assets
-        .where((element) => element['name'] == 'smbert.onnx')
-        .first;
-    final wasm =
-        xayn_ai.assets.where((element) => element['name'] == 'xayn.wasm').first;
-
-    final vocabData = await _fetchAsset(vocab['url']!, vocab['checksum']!);
-    final modelData = await _fetchAsset(model['url']!, model['checksum']!);
-    final wasmData = await _fetchAsset(wasm['url']!, wasm['checksum']!);
-
-    // wasmbindgen's `init` function takes care of loading the WASM module.
-    // interally it calls `WebAssembly.instantiateStreaming`
-    // it would be nice if we could move the `init` call to XaynAI, however
-    // init is async so we would need somthing on XaynAI to call that.
-    // await init(wasm['url']);
-    return SetupData(vocabData, modelData, wasmData);
+    return xayn_ai.SetupData(
+        toFetch['vocab.txt']!, toFetch['smbert.onnx']!, toFetch['xayn.wasm']!);
   }
 
   static Future<Uint8List> _fetchAsset(String url, String checksum) async {

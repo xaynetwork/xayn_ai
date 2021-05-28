@@ -7,16 +7,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:xayn_ai_ffi_dart/package.dart' as xayn_ai
     show assets, SetupData;
 
-import 'package:xayn_ai_ffi_dart_example/data_provider/io/downloader.dart';
+import 'package:xayn_ai_ffi_dart_example/data_provider/io/downloader.dart'
+    show DownloadedAsset, Downloader;
 
-class SetupData implements xayn_ai.SetupData {
-  final String vocab;
-  final String model;
-
+class DataProvider {
   static const _baseAssetsPath = 'packages/xayn_ai_ffi_dart/assets';
-  static final AsyncMemoizer<SetupData> _pathsCache = AsyncMemoizer();
-
-  SetupData(this.vocab, this.model);
+  static final AsyncMemoizer<xayn_ai.SetupData> _pathsCache = AsyncMemoizer();
 
   /// Prepares and returns the data that is needed to init [`XaynAi`].
   ///
@@ -24,48 +20,23 @@ class SetupData implements xayn_ai.SetupData {
   /// to access the assets from an isolate.
   ///
   /// [`baseDiskPath`] must be a path to a directory where it's possible to store the data.
-  static Future<SetupData> getInputData() async {
+  static Future<xayn_ai.SetupData> getInputData() async {
     final saveDir = await getApplicationDocumentsDirectory();
-    await AssertLoader(saveDir.path).load();
-    return _pathsCache.runOnce(() async => _getInputData(saveDir.path));
+    final rubertDir = 'rubert_v0001';
+    final diskDirPath = _joinPaths([saveDir.path, rubertDir]);
+    await Directory(diskDirPath).create(recursive: true);
+
+    await AssertLoader(diskDirPath).load();
+    return _pathsCache.runOnce(() async => _getInputData(diskDirPath));
   }
 
   // This is to avoid that two calls of this function can run concurrently.
   // Doing that can lead to invalid data on the disk.
+  static Future<xayn_ai.SetupData> _getInputData(String baseDiskPath) async {
+    final vocab = _joinPaths([baseDiskPath, 'vocab.txt']);
+    final model = _joinPaths([baseDiskPath, 'smbert.onnx']);
 
-  static Future<SetupData> _getInputData(String baseDiskPath) async {
-    final rubertDir = 'rubert_v0001';
-    final vocab = await _getData(baseDiskPath, rubertDir, 'vocab.txt');
-    final model = await _getData(baseDiskPath, rubertDir, 'smbert.onnx');
-
-    return SetupData(vocab, model);
-  }
-
-  /// Returns the path to the data, if the data is not on disk yet
-  /// it will be copied from the bundle to the disk.
-  static Future<String> _getData(
-    String baseDiskPath,
-    String assetDirName,
-    String assetName,
-  ) async {
-    final assetPath = _joinPaths([_baseAssetsPath, assetDirName, assetName]);
-    final data = await rootBundle.load(assetPath);
-
-    final diskDirPath = _joinPaths([baseDiskPath, assetDirName]);
-    await Directory(diskDirPath).create(recursive: true);
-    final diskPath = _joinPaths([diskDirPath, assetName]);
-    final file = File(diskPath);
-
-    // Only write the data on disk if the file does not exist or the size does not match.
-    // The last check is useful in case the app is closed before we can finish to write,
-    // and it can be also useful during development to test with different models.
-    if (!file.existsSync() || await file.length() != data.lengthInBytes) {
-      final bytes =
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      await file.writeAsBytes(bytes, flush: true);
-    }
-
-    return diskPath;
+    return xayn_ai.SetupData(vocab, model);
   }
 }
 
