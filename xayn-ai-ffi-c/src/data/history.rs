@@ -151,7 +151,7 @@ impl<'a> CHistories<'a> {
                     }
                     .and_then(|s| {
                         s.try_into().map_err(|e| {
-                            CCode::HistoriesPointer
+                            CCode::HistoryIdPointer
                                 .with_context(format!("Invalid uuid string: {}", e))
                         })
                     })?;
@@ -174,7 +174,7 @@ impl<'a> CHistories<'a> {
                     let query_id = unsafe {
                         as_str(
                             history.query_id,
-                            CCode::DocumentQueryIdPointer,
+                            CCode::HistoryQueryIdPointer,
                             "Failed to rerank the documents",
                         )
                     }
@@ -196,7 +196,7 @@ impl<'a> CHistories<'a> {
                     let url = unsafe {
                         as_str(
                             history.url,
-                            CCode::DocumentUrlPointer,
+                            CCode::HistoryUrlPointer,
                             "Failed to rerank the documents",
                         )
                     }?
@@ -204,7 +204,7 @@ impl<'a> CHistories<'a> {
                     let domain = unsafe {
                         as_str(
                             history.domain,
-                            CCode::DocumentDomainPointer,
+                            CCode::HistoryDomainPointer,
                             "Failed to rerank the documents",
                         )
                     }?

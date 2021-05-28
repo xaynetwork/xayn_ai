@@ -86,14 +86,18 @@ class JsHistory {
       int relevance,
       int feedback,
       String session,
-      int queryCount,
-      String queryId,
-      String queryWords,
+      // ignore: non_constant_identifier_names
+      int query_count,
+      // ignore: non_constant_identifier_names
+      String query_id,
+      // ignore: non_constant_identifier_names
+      String query_words,
       int day,
       String url,
       String domain,
       int rank,
-      int userAction});
+      // ignore: non_constant_identifier_names
+      int user_action});
 }
 
 extension ToJsHistories on List<History> {
@@ -105,14 +109,14 @@ extension ToJsHistories on List<History> {
           relevance: this[i].relevance.toInt(),
           feedback: this[i].feedback.toInt(),
           session: this[i].session,
-          queryCount: this[i].queryCount,
-          queryId: this[i].queryId,
-          queryWords: this[i].queryWords,
+          query_count: this[i].queryCount,
+          query_id: this[i].queryId,
+          query_words: this[i].queryWords,
           day: this[i].day.toInt(),
           url: this[i].url,
           domain: this[i].domain,
           rank: this[i].rank.toInt(),
-          userAction: this[i].userAction.toInt(),
+          user_action: this[i].userAction.toInt(),
         ),
         growable: false,
       );
