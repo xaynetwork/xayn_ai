@@ -13,6 +13,10 @@ dependencies:
     sdk: flutter
   path_provider: '^2.0.1'
   stats: '2.0.0'
+  crypto: ^3.0.1
+  dio: ^4.0.0
+  tuple: ^2.0.0
+  http: ^0.13.3
 
   xayn_ai_ffi_dart:
     # When depending on this package from a real application you should use:

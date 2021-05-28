@@ -14,12 +14,14 @@ import 'package:flutter/material.dart'
         Text,
         TextStyle,
         Widget;
-import 'package:path_provider/path_provider.dart'
-    show getApplicationDocumentsDirectory;
 import 'package:stats/stats.dart' show Stats;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show Document, Relevance, History, Feedback, SetupData, XaynAi;
+    show Document, Relevance, History, Feedback, XaynAi;
+
+import 'package:xayn_ai_ffi_dart/package.dart'
+    if (dart.library.io) 'data_provider/io/mobile.dart'
+    if (dart.library.js) 'data_provider/web/web.dart' show SetupData;
 
 void main() {
   runApp(MyApp());
@@ -47,8 +49,15 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> initAi() async {
-    final data = await getApplicationDocumentsDirectory()
-        .then((dir) => SetupData.getInputData(dir.path));
+    setState(() {
+      _msg = 'loading data';
+    });
+
+    final data = await SetupData.getInputData();
+
+    setState(() {
+      _msg = 'data loaded';
+    });
 
     // If the widget was removed from the tree while the asynchronous platform
     // message was in flight, we want to discard the reply rather than calling
