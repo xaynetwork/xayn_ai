@@ -26,18 +26,18 @@ struct CumFeatures {
 /// where the sum ranges over each search result `r` ranked above `res`. `pred` is the predicate
 /// corresponding to the cumulated feature, and `outcome` one of its specified atoms.
 fn cum_features(hist: &[SearchResult], res: &SearchResult) -> CumFeatures {
-    let url = hist
+    let mut url = hist
         .iter()
-        //FIXME this seems correct, but a very roundabout and also costy way to do so
-        //   it's easy to just pass in the previously calculated sum/run it for
-        //   the whole query not a specific result.
+        //FIXME this seems correct, but a very roundabout and maybe costly way to do so.
+        //   Its easy to just pass in the previously calculated sum/run it for
+        //   the whole query instead of a specific result.
         // if res is ranked n, get the n-1 results ranked above res
         .filter(|r| {
             // this is filtered by session and query but no such filter is done in python I think
             // same is true for < position,  what is used in python is the filter by URL
             r.session_id == res.session_id
                 && r.query_id == res.query_id
-                && r.query_counter == res.query_counter //FIXME: is there any case where if the session id matches the matching of query_id differs from the matching of query_counter??
+                && r.query_counter == res.query_counter
                 && r.position < res.position
         })
         // calculate specified cond probs for each of the above
@@ -55,7 +55,13 @@ fn cum_features(hist: &[SearchResult], res: &SearchResult) -> CumFeatures {
             cp_map
         });
 
-    //FIXME on Rank::First this returns a empty map but should be a map with 0 values!!
+    if url.is_empty() {
+        //FIXME this is not the best solution but I don't want to touch
+        //      aboves code in this commit.
+        for atom in FilterPred::new(UrlOrDom::Url(0)).cum_atoms().into_iter() {
+            url.insert(AtomFeat::CondProb(atom), 0.0);
+        }
+    }
 
     CumFeatures { url }
 }
@@ -143,10 +149,6 @@ mod tests {
         for offset in &[0, 20] {
             for (idx, expected) in expected_results.iter().enumerate() {
                 let map = cum_features(&history, &history[*offset + idx]).url;
-                //FIXME tmp workaround
-                if map.is_empty() {
-                    continue;
-                }
                 let values = [
                     map[&AtomFeat::CondProb(ClickSat::Skip)],
                     map[&AtomFeat::CondProb(ClickSat::Medium)],

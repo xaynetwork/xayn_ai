@@ -74,7 +74,7 @@ fn aggregate_features(hist: &[SearchResult], r: SearchResult) -> AggregateFeatur
     }
 }
 
-//FIXME this isn't calculating a single aggregate feature but a feature group.
+//FIXME this is named as if it calculates a single feature. Gut it calculates a group of features.
 fn aggregate_feature(hist: &[SearchResult], pred: FilterPred) -> FeatMap {
     //FIXME why not implement this on AtomFeat, like atom_feat.evaluate(hist, pred)
     let eval_atom = |atom_feat| match atom_feat {
@@ -112,11 +112,5 @@ mod tests {
         assert_approx_eq!(f32, map[&AtomFeat::CondProb(ClickSat::Miss)], 0.0);
 
         assert_eq!(map.len(), 6);
-    }
-
-    #[ignore = "needs big history blob"]
-    #[test]
-    fn test_aggregate_features() {
-        todo!()
     }
 }

@@ -653,7 +653,6 @@ mod tests {
 
     #[test]
     fn test_cond_prob() {
-        //FIXME tests where written on basis of the python code, but not on basis of results produced by the python code.
         let history = history_by_url(&[
             (ClickSat::Medium, 10),
             (ClickSat::High, 10),

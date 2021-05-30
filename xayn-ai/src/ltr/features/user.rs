@@ -48,6 +48,20 @@ struct UserFeatures {
 
 /// Calculate user features for the given historical search results of a user.
 fn user_features(history: &[SearchResult]) -> UserFeatures {
+    if history.is_empty() {
+        return UserFeatures {
+            click_entropy: 0.0,
+            click_counts: ClickCounts {
+                click12: 0,
+                click345: 0,
+                click6up: 0,
+            },
+            num_queries: 0,
+            mean_words_per_query: 0.0,
+            mean_unique_words_per_session: 0.0,
+        };
+    }
+
     let click_entropy = click_entropy(history);
     let click_counts = click_counts(history);
 
@@ -203,5 +217,32 @@ mod tests {
         assert_eq!(num_queries, 3);
         assert_approx_eq!(f32, mean_words_per_query, 2.333_333_3);
         assert_approx_eq!(f32, mean_unique_words_per_session, 2.5);
+    }
+
+    #[test]
+    fn test_empty_user_history() {
+        let UserFeatures {
+            click_entropy,
+            click_counts,
+            num_queries,
+            mean_words_per_query,
+            mean_unique_words_per_session,
+        } = user_features(&[]);
+
+        let ClickCounts {
+            click12,
+            click345,
+            click6up,
+        } = click_counts;
+
+        assert_eq!(click12, 0);
+        assert_eq!(click345, 0);
+        assert_eq!(click6up, 0);
+
+        assert_approx_eq!(f32, click_entropy, 0.0, ulps = 0);
+
+        assert_eq!(num_queries, 0);
+        assert_approx_eq!(f32, mean_words_per_query, 0.0, ulps = 0);
+        assert_approx_eq!(f32, mean_unique_words_per_session, 0.0, ulps = 0);
     }
 }
