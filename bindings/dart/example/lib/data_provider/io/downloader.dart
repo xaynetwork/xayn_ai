@@ -4,7 +4,7 @@ import 'package:dio/dio.dart' show Dio, Response;
 import 'package:tuple/tuple.dart' show Tuple2;
 import 'package:path_provider/path_provider.dart'
     show getApplicationSupportDirectory;
-import 'package:xayn_ai_ffi_dart_example/data_provider/io/mobile.dart' show Asset;
+import 'package:xayn_ai_ffi_dart/package.dart' show Asset;
 
 class DownloadedAsset {
   final Asset? asset;

@@ -21,7 +21,7 @@ import 'package:xayn_ai_ffi_dart/package.dart'
 
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     if (dart.library.io) 'data_provider/io/mobile.dart'
-    if (dart.library.js) 'data_provider/web/web.dart' show DataProvider;
+    if (dart.library.js) 'data_provider/web/web.dart' show getInputData;
 
 void main() {
   runApp(MyApp());
@@ -53,7 +53,7 @@ class _MyAppState extends State<MyApp> {
       _msg = 'loading data';
     });
 
-    final data = await DataProvider.getInputData();
+    final data = await getInputData();
 
     setState(() {
       _msg = 'data loaded';
