@@ -505,7 +505,7 @@ fn snippet_score(res: &ResultSet, pred: FilterPred) -> f32 {
 /// ```text
 ///       |hist(outcome, pred)| + 1
 /// ---------------------------------------
-/// |hist(outcome, pred)| + |hist(outcome)|
+/// |hist(outcome, pred)| + |hist(pred)|
 /// ```
 ///
 /// In both cases it defaults to 0 if the denominator is 0 (as in this case the
@@ -584,7 +584,7 @@ mod tests {
     use super::*;
 
     impl Rank {
-        fn from_usize(rank: usize) -> Self {
+        pub(crate) fn from_usize(rank: usize) -> Self {
             match rank {
                 0 => Rank::First,
                 1 => Rank::Second,

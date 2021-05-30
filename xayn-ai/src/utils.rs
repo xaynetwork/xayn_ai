@@ -111,27 +111,31 @@ macro_rules! assert_approx_eq {
                     if !::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps) {
                         if lidx.is_empty() {
                             panic!(
-                                "approximated equal assertion failed (ulps={ulps:?}): {lv:?} == {rv:?}",
+                                "approximated equal assertion failed (ulps={ulps:?}): {lv:?} == {rv:?}\nleft = {left:?}\nright = {right:?}",
                                 ulps=ulps,
                                 lv=lv,
                                 rv=rv,
+                                left=left,
+                                right=right,
                             );
                         } else {
                             panic!(
-                                "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}",
+                                "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}\nleft = {left:?}\nright = {right:?}",
                                 ulps=ulps,
                                 lv=lv,
                                 rv=rv,
                                 idx=lidx,
+                                left=left,
+                                right=right,
                             );
                         }
                     }
                 }
                 (Some(pair), None) => {
-                    panic!("Left input is longer starting with from index {:?}", pair);
+                    panic!("Left input is longer starting with from index {:?}\nleft = {left:?}\nright = {right:?}", pair, left=left, right=right);
                 }
                 (None, Some(pair)) => {
-                    panic!("Left input is longer starting with from index {:?}", pair);
+                    panic!("Left input is longer starting with from index {:?}\nleft = {left:?}\nright = {right:?}", pair, left=left, right=right);
                 }
                 (None, None) => break,
             }
