@@ -4,10 +4,7 @@ use xayn_ai::{Builder, Reranker};
 
 use crate::{
     data::{
-        document::CDocuments,
-        history::CHistories,
-        outcomes::RerankingOutcomes,
-        CRerankingOutcomes,
+        document::CDocuments, history::CHistories, outcomes::RerankingOutcomes, CRerankingOutcomes,
     },
     reranker::{
         analytics::{Analytics, CAnalytics},
@@ -51,17 +48,30 @@ where
 impl CXaynAi {
     /// See [`xaynai_new()`] for more.
     unsafe fn new(
-        vocab: Option<&u8>,
-        model: Option<&u8>,
+        smbert_vocab: Option<&u8>,
+        smbert_model: Option<&u8>,
+        qambert_vocab: Option<&u8>,
+        qambert_model: Option<&u8>,
         serialized: Option<&CBytes>,
     ) -> Result<Self, Error> {
-        let vocab = unsafe { as_str(vocab, CCode::VocabPointer, "Failed to initialize the ai") }?;
-        let model = unsafe { as_str(model, CCode::ModelPointer, "Failed to initialize the ai") }?;
+        const FAIL_INIT_AI: &str = "Failed to initialize the ai";
+        let smbert_vocab =
+            unsafe { as_str(smbert_vocab, CCode::SMBertVocabPointer, FAIL_INIT_AI) }?;
+        let smbert_model =
+            unsafe { as_str(smbert_model, CCode::SMBertModelPointer, FAIL_INIT_AI) }?;
+        let qambert_vocab =
+            unsafe { as_str(qambert_vocab, CCode::QAMBertVocabPointer, FAIL_INIT_AI) }?;
+        let qambert_model =
+            unsafe { as_str(qambert_model, CCode::QAMBertModelPointer, FAIL_INIT_AI) }?;
 
         let serialized = serialized.map(CBoxedSlice::as_slice).unwrap_or_default();
 
         Builder::default()
-            .with_smbert_from_file(vocab, model)
+            .with_smbert_from_file(smbert_vocab, smbert_model)
+            .map_err(|cause| {
+                CCode::ReadFile.with_context(format!("Failed to initialize the ai: {}", cause))
+            })?
+            .with_qambert_from_file(qambert_vocab, qambert_model)
             .map_err(|cause| {
                 CCode::ReadFile.with_context(format!("Failed to initialize the ai: {}", cause))
             })?
@@ -157,12 +167,22 @@ impl CXaynAi {
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_new(
-    vocab: Option<&u8>,
-    model: Option<&u8>,
+    smbert_vocab: Option<&u8>,
+    smbert_model: Option<&u8>,
+    qambert_vocab: Option<&u8>,
+    qambert_model: Option<&u8>,
     serialized: Option<&CBytes>,
     error: Option<&mut CError>,
 ) -> Option<Box<CXaynAi>> {
-    let new = || unsafe { CXaynAi::new(vocab, model, serialized) };
+    let new = || unsafe {
+        CXaynAi::new(
+            smbert_vocab,
+            smbert_model,
+            qambert_vocab,
+            qambert_model,
+            serialized,
+        )
+    };
 
     call_with_result(new, error)
 }
@@ -309,13 +329,12 @@ mod tests {
     use super::*;
     use crate::{
         data::{
-            document::tests::TestDocuments,
-            history::tests::TestHistories,
+            document::tests::TestDocuments, history::tests::TestHistories,
             outcomes::reranking_outcomes_drop,
         },
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
-        tests::{SMBERT_MODEL, VOCAB},
+        tests::{SMBERT_MODEL, VOCAB, QAMBERT_MODEL},
         utils::tests::AsPtr,
     };
 
@@ -332,12 +351,20 @@ mod tests {
             Self(Pin::new(CString::new(file).unwrap()))
         }
 
-        fn vocab() -> Self {
+        fn smbert_vocab() -> Self {
             Self::new(VOCAB)
         }
 
-        fn model() -> Self {
+        fn smbert_model() -> Self {
             Self::new(SMBERT_MODEL)
+        }
+
+        fn qambert_vocab() -> Self {
+            Self::new(VOCAB)
+        }
+
+        fn qambert_model() -> Self {
+            Self::new(QAMBERT_MODEL)
         }
     }
 
@@ -381,8 +408,10 @@ mod tests {
 
     #[test]
     fn test_rerank() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
         let db = TestDb::default();
@@ -390,8 +419,10 @@ mod tests {
 
         let mut xaynai = unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -415,15 +446,19 @@ mod tests {
 
     #[test]
     fn test_serialize() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -439,15 +474,19 @@ mod tests {
 
     #[test]
     fn test_faults() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -463,15 +502,19 @@ mod tests {
 
     #[test]
     fn test_analytics() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let xaynai = unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -488,22 +531,31 @@ mod tests {
     }
 
     #[test]
-    fn test_vocab_null() {
-        let model = TestFile::model();
+    fn test_smbert_vocab_null() {
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let invalid = None;
-        assert!(
-            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
-                .is_none()
-        );
-        assert_eq!(error.code, CCode::VocabPointer);
+        assert!(unsafe {
+            xaynai_new(
+                invalid,
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::SMBertVocabPointer);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
                 "Failed to initialize the ai: The {} is null",
-                CCode::VocabPointer,
+                CCode::SMBertVocabPointer,
             ),
         );
 
@@ -511,24 +563,65 @@ mod tests {
     }
 
     #[test]
-    fn test_vocab_empty() {
-        let model = TestFile::model();
+    fn test_qambert_vocab_null() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_model = TestFile::qambert_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = None;
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                invalid,
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::QAMBertVocabPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            format!(
+                "Failed to initialize the ai: The {} is null",
+                CCode::QAMBertVocabPointer,
+            ),
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_smbert_vocab_empty() {
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let invalid = TempBuilder::new()
             .prefix("vocab")
             .suffix(".txt")
-            .rand_bytes(0)
+            .rand_bytes(4)
             .tempfile()
             .unwrap()
             .into_temp_path();
         let invalid = CString::new(invalid.to_str().unwrap()).unwrap();
         let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
-        assert!(
-            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
-                .is_none()
-        );
+        assert!(unsafe {
+            xaynai_new(
+                invalid,
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
@@ -539,17 +632,63 @@ mod tests {
     }
 
     #[test]
-    fn test_vocab_invalid() {
-        let model = TestFile::model();
+    fn test_qambert_vocab_empty() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_model = TestFile::qambert_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = TempBuilder::new()
+            .prefix("vocab")
+            .suffix(".txt")
+            .rand_bytes(4)
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
+        let invalid = CString::new(invalid.to_str().unwrap()).unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                invalid,
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_smbert_vocab_invalid() {
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
-        assert!(
-            unsafe { xaynai_new(invalid, model.as_ptr(), db.as_ptr(), error.as_mut_ptr()) }
-                .is_none()
-        );
+        assert!(unsafe {
+            xaynai_new(
+                invalid,
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
         assert_eq!(error.code, CCode::ReadFile);
         assert!(error
             .message
@@ -562,22 +701,63 @@ mod tests {
     }
 
     #[test]
-    fn test_model_null() {
-        let vocab = TestFile::vocab();
+    fn test_qambert_vocab_invalid() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_model = TestFile::qambert_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = CString::new("").unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                invalid,
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::ReadFile);
+        assert!(error
+            .message
+            .as_ref()
+            .unwrap()
+            .as_str()
+            .contains("Failed to initialize the ai: Failed to load a data file: "));
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_smbert_model_null() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let invalid = None;
-        assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
-                .is_none()
-        );
-        assert_eq!(error.code, CCode::ModelPointer);
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                invalid,
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::SMBertModelPointer);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
                 "Failed to initialize the ai: The {} is null",
-                CCode::ModelPointer,
+                CCode::SMBertModelPointer,
             ),
         );
 
@@ -585,8 +765,42 @@ mod tests {
     }
 
     #[test]
-    fn test_model_empty() {
-        let vocab = TestFile::vocab();
+    fn test_qambert_model_null() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = None;
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                invalid,
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::QAMBertModelPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            format!(
+                "Failed to initialize the ai: The {} is null",
+                CCode::QAMBertModelPointer,
+            ),
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_smbert_model_empty() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -599,10 +813,17 @@ mod tests {
             .into_temp_path();
         let invalid = CString::new(invalid.to_str().unwrap()).unwrap();
         let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
-        assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
-                .is_none()
-        );
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                invalid,
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
         assert_eq!(error.code, CCode::Panic);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
@@ -613,17 +834,95 @@ mod tests {
     }
 
     #[test]
-    fn test_model_invalid() {
-        let vocab = TestFile::vocab();
+    fn test_qambert_model_empty() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = TempBuilder::new()
+            .prefix("qambert")
+            .suffix(".onnx")
+            .rand_bytes(0)
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
+        let invalid = CString::new(invalid.to_str().unwrap()).unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                invalid,
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::Panic);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "called `Option::unwrap()` on a `None` value",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_smbert_model_invalid() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let invalid = CString::new("").unwrap();
         let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
-        assert!(
-            unsafe { xaynai_new(vocab.as_ptr(), invalid, db.as_ptr(), error.as_mut_ptr()) }
-                .is_none()
-        );
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                invalid,
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::ReadFile);
+        assert!(error
+            .message
+            .as_ref()
+            .unwrap()
+            .as_str()
+            .contains("Failed to initialize the ai: Failed to load a data file: "));
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_qambert_model_invalid() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = CString::new("").unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                invalid,
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
         assert_eq!(error.code, CCode::ReadFile);
         assert!(error
             .message
@@ -702,16 +1001,20 @@ mod tests {
 
     #[test]
     fn test_history_null() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::smbert_vocab();
+        let qambert_model = TestFile::smbert_model();
         let docs = TestDocuments::default();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let mut xaynai = unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -741,16 +1044,20 @@ mod tests {
 
     #[test]
     fn test_documents_null() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let hists = TestHistories::default();
         let db = TestDb::default();
         let mut error = CError::default();
 
         let mut xaynai = unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -780,15 +1087,19 @@ mod tests {
 
     #[test]
     fn test_serialized_empty() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let mut error = CError::default();
 
         let empty: CBytes = Vec::new().into_boxed_slice().into();
         let xaynai = unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 empty.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -801,16 +1112,20 @@ mod tests {
 
     #[test]
     fn test_serialized_invalid() {
-        let vocab = TestFile::vocab();
-        let model = TestFile::model();
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
         let mut error = CError::default();
 
         let version = u8::MAX;
         let invalid = Bytes(vec![version]).into_raw().unwrap();
         assert!(unsafe {
             xaynai_new(
-                vocab.as_ptr(),
-                model.as_ptr(),
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
                 invalid.as_ptr(),
                 error.as_mut_ptr(),
             )

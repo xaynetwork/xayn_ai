@@ -15,10 +15,10 @@ pub enum CCode {
     Panic = -1,
     /// No error.
     None = 0,
-    /// A vocab null pointer error.
-    VocabPointer = 1,
-    /// A model null pointer error.
-    ModelPointer = 2,
+    /// A smbert vocab null pointer error.
+    SMBertVocabPointer = 1,
+    /// A smbert model null pointer error.
+    SMBertModelPointer = 2,
     /// A vocab or model file IO error.
     ReadFile = 3,
     /// A Xayn AI initialization error.
@@ -39,6 +39,10 @@ pub enum CCode {
     RerankerDeserialization = 11,
     /// Serialization of reranker database error.
     RerankerSerialization = 12,
+    /// A qambert vocab null pointer error.
+    QAMBertVocabPointer = 13,
+    /// A qambert model null pointer error.
+    QAMBertModelPointer = 14,
 }
 
 impl CCode {

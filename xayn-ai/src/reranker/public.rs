@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use rubert::{AveragePooler, SMBert, SMBertBuilder};
+use rubert::{AveragePooler, SMBert, SMBertBuilder, QAMBert, QAMBertBuilder};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
@@ -12,7 +12,6 @@ use crate::{
     data::document::{Document, DocumentHistory, RerankingOutcomes},
     ltr::ConstLtr,
     mab::{BetaSampler, MabRanking},
-    qambert::DummyQAMBert,
     Error,
 };
 
@@ -33,7 +32,7 @@ use super::{
 pub struct Systems {
     database: Db,
     smbert: SMBert,
-    qambert: DummyQAMBert,
+    qambert: QAMBert,
     coi: CoiSystemImpl,
     ltr: ConstLtr,
     context: Context,
@@ -99,30 +98,33 @@ impl Reranker {
     }
 }
 
-pub struct Builder<V, M> {
+pub struct Builder<SV, SM, QAV, QAM> {
     database: Db,
-    smbert: SMBertBuilder<V, M>,
+    smbert: SMBertBuilder<SV, SM>,
+    qambert: QAMBertBuilder<QAV, QAM>,
 }
 
-impl Default for Builder<(), ()> {
+impl Default for Builder<(), (), (), ()> {
     fn default() -> Self {
         Self {
             database: Db::default(),
             smbert: SMBertBuilder::new((), ()),
+            qambert: QAMBertBuilder::new((), ()),
         }
     }
 }
 
-impl<V, M> Builder<V, M> {
+impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
     pub fn with_serialized_database(mut self, bytes: &[u8]) -> Result<Self, Error> {
         self.database = Db::deserialize(bytes)?;
         Ok(self)
     }
 
-    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N> {
+    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N, QAV, QAM> {
         Builder {
             database: self.database,
             smbert: SMBertBuilder::new(vocab, model),
+            qambert: self.qambert,
         }
     }
 
@@ -130,17 +132,40 @@ impl<V, M> Builder<V, M> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<impl BufRead, impl Read>, Error> {
+    ) -> Result<Builder<impl BufRead, impl Read, QAV, QAM>, Error> {
         Ok(Builder {
             database: self.database,
             smbert: SMBertBuilder::from_files(vocab, model)?,
+            qambert: self.qambert,
+        })
+    }
+
+    pub fn with_qambert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<SV, SM, W, N> {
+        Builder {
+            database: self.database,
+            smbert: self.smbert,
+            qambert: QAMBertBuilder::new(vocab, model),
+        }
+    }
+
+    pub fn with_qambert_from_file(
+        self,
+        vocab: impl AsRef<Path>,
+        model: impl AsRef<Path>,
+    ) -> Result<Builder<SV, SM, impl BufRead, impl Read>, Error> {
+        Ok(Builder {
+            database: self.database,
+            smbert: self.smbert,
+            qambert: QAMBertBuilder::from_files(vocab, model)?,
         })
     }
 
     pub fn build(self) -> Result<Reranker, Error>
     where
-        V: BufRead,
-        M: Read,
+        SV: BufRead,
+        SM: Read,
+        QAV: BufRead,
+        QAM: Read,
     {
         let database = self.database;
         let smbert = self
@@ -150,7 +175,13 @@ impl<V, M> Builder<V, M> {
             .with_lowercase(true)
             .with_pooling(AveragePooler)
             .build()?;
-        let qambert = DummyQAMBert;
+        let qambert = self
+            .qambert
+            .with_token_size(90)?
+            .with_accents(false)
+            .with_lowercase(true)
+            .with_pooling(AveragePooler)
+            .build()?;
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
         let ltr = ConstLtr::new();
         let context = Context;
