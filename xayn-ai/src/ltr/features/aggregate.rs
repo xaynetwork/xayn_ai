@@ -12,33 +12,45 @@ use crate::ltr::features::dataiku::{
     UrlOrDom,
 };
 
+use super::dataiku::CurrentSearchResult;
+
 /// Aggregate features for a given user.
 //FIXME[comment/resolve with or after review]: fields
 //  We know exact which features are run so why is this half a struct with explicit fields and
 //  half a struct using dynamic field mapping?
-struct AggregateFeatures {
+//FIXME I would prefer something like .copy_to_slice([...]) or similar,
+//      but given that the slice creation is test only for now
+//      this doesn't fit this PR.
+pub(super) struct AggregateFeatures {
     /// Aggregate feature for matching domain.
-    dom: FeatMap,
+    pub(super) dom: FeatMap,
     /// Aggregate feature for matching domain over anterior sessions.
-    dom_ant: FeatMap,
+    pub(super) dom_ant: FeatMap,
     /// Aggregate feature for matching URL.
-    url: FeatMap,
+    pub(super) url: FeatMap,
     /// Aggregate feature for matching URL over anterior sessions.
-    url_ant: FeatMap,
+    pub(super) url_ant: FeatMap,
     /// Aggregate feature for matching domain and query.
-    dom_query: FeatMap,
+    pub(super) dom_query: FeatMap,
     /// Aggregate feature for matching domain and query over anterior sessions.
-    dom_query_ant: FeatMap,
+    pub(super) dom_query_ant: FeatMap,
     /// Aggregate feature for matching URL and query.
-    url_query: FeatMap,
+    pub(super) url_query: FeatMap,
     /// Aggregate feature for matching URL and query over anterior sessions.
-    url_query_ant: FeatMap,
+    pub(super) url_query_ant: FeatMap,
     /// Aggregate feature for matching URL and query over current session.
-    url_query_curr: FeatMap,
+    pub(super) url_query_curr: FeatMap,
+}
+
+impl AggregateFeatures {
+    pub(super) fn extract(hist: &[SearchResult], r: &CurrentSearchResult) -> AggregateFeatures {
+        //FIXME temp. to make reviews easier by not showing the whole `aggregate_features` function as changed
+        aggregate_features(hist, r)
+    }
 }
 
 /// Calculate aggregate features for the given search result and history of a user.
-fn aggregate_features(hist: &[SearchResult], r: SearchResult) -> AggregateFeatures {
+fn aggregate_features(hist: &[SearchResult], r: &CurrentSearchResult) -> AggregateFeatures {
     let anterior = SessionCond::Anterior(r.session_id);
     let current = SessionCond::Current(r.session_id);
     let r_url = UrlOrDom::Url(r.url);
@@ -97,7 +109,8 @@ mod tests {
 
     #[test]
     fn test_aggregate_feature() {
-        // this just tests if the mapping from filter => atoms => functionality works
+        // This just tests if the mapping from filter => atoms => functionality works
+        // all other parts are already tested in dataiku.rs.
         let history = &[];
         let filter = FilterPred::new(UrlOrDom::Url(1))
             .with_query(2)

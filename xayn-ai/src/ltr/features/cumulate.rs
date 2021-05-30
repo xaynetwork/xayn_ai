@@ -10,11 +10,20 @@ use crate::ltr::features::dataiku::{
 };
 use std::collections::HashMap;
 
+use super::dataiku::CurrentSearchResult;
+
 /// Cumulated features for a given user.
-struct CumFeatures {
+pub(super) struct CumFeatures {
     /// Cumulated feature for matching URL.
     //FIXME: Why is this using a map when this are literally only 3 values??
-    url: FeatMap,
+    pub(super) url: FeatMap,
+}
+
+impl CumFeatures {
+    pub(super) fn extract(hist: &[SearchResult], res: &CurrentSearchResult) -> CumFeatures {
+        //FIXME temp. to make reviews easier by not showing the whole `cum_features` function as changed
+        cum_features(hist, res)
+    }
 }
 
 /// Determines the cumulated features for a given search result.
@@ -25,12 +34,13 @@ struct CumFeatures {
 /// ```
 /// where the sum ranges over each search result `r` ranked above `res`. `pred` is the predicate
 /// corresponding to the cumulated feature, and `outcome` one of its specified atoms.
-fn cum_features(hist: &[SearchResult], res: &SearchResult) -> CumFeatures {
+fn cum_features(hist: &[SearchResult], res: &CurrentSearchResult) -> CumFeatures {
     let mut url = hist
         .iter()
-        //FIXME this seems correct, but a very roundabout and maybe costly way to do so.
-        //   Its easy to just pass in the previously calculated sum/run it for
-        //   the whole query instead of a specific result.
+        //FIXME The current query is normally not in hist, as such doing this
+        //      with non test data with not work ass the specific combination of
+        //      (res.session_id, res.initial_rank) won't appear in the history
+        //TODO  First make sure this fails a test.
         // if res is ranked n, get the n-1 results ranked above res
         .filter(|r| {
             // this is filtered by session and query but no such filter is done in python I think
@@ -38,7 +48,7 @@ fn cum_features(hist: &[SearchResult], res: &SearchResult) -> CumFeatures {
             r.session_id == res.session_id
                 && r.query_id == res.query_id
                 && r.query_counter == res.query_counter
-                && r.position < res.position
+                && r.position < res.initial_rank
         })
         // calculate specified cond probs for each of the above
         .flat_map(|r| {
@@ -148,7 +158,7 @@ mod tests {
 
         for offset in &[0, 20] {
             for (idx, expected) in expected_results.iter().enumerate() {
-                let map = cum_features(&history, &history[*offset + idx]).url;
+                let map = cum_features(&history, &history[*offset + idx].clone().into()).url;
                 let values = [
                     map[&AtomFeat::CondProb(ClickSat::Skip)],
                     map[&AtomFeat::CondProb(ClickSat::Medium)],

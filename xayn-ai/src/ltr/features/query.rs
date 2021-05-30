@@ -10,27 +10,34 @@ use crate::ltr::features::dataiku::{
 use itertools::Itertools;
 use std::collections::HashSet;
 
-struct QueryFeatures {
+pub(super) struct QueryFeatures {
     /// Entropy over ranks of clicked results.
-    click_entropy: f32,
+    pub(super) click_entropy: f32,
     /// Number of terms.
-    num_terms: usize,
+    pub(super) num_terms: usize,
     /// Average `n` where query is the `n`th of a session.
-    mean_query_counter: f32,
+    pub(super) mean_query_counter: f32,
     /// Average number of occurrences per session.
-    mean_occurs_per_session: f32,
+    pub(super) mean_occurs_per_session: f32,
     /// Total number of occurrences.
-    num_occurs: usize,
+    pub(super) num_occurs: usize,
     /// Mean reciprocal rank of clicked results.
-    click_mrr: f32,
+    pub(super) click_mrr: f32,
     /// Average number of clicks.
-    mean_clicks: f32,
+    pub(super) mean_clicks: f32,
     /// Average number of skips.
-    mean_non_click: f32,
+    pub(super) mean_non_click: f32,
+}
+
+impl QueryFeatures {
+    pub(super) fn exact(history: &[SearchResult], query: &Query) -> QueryFeatures {
+        //FIXME temp. to make reviews easier by not showing the whole `query_features` function as changed
+        query_features(history, query)
+    }
 }
 
 /// Calculate query features for the given query and historical search results of a user.
-fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
+pub(super) fn query_features(history: &[SearchResult], query: &Query) -> QueryFeatures {
     let num_terms = query.words.len();
 
     // history filtered by query
@@ -122,9 +129,9 @@ mod tests {
             click_mrr,
             mean_clicks,
             mean_non_click,
-        } = query_features(
+        } = QueryFeatures::exact(
             &[],
-            Query {
+            &Query {
                 id: 233,
                 words: vec![2, 100, 4],
             },
@@ -229,9 +236,9 @@ mod tests {
             click_mrr,
             mean_clicks,
             mean_non_click,
-        } = query_features(
+        } = QueryFeatures::exact(
             &history,
-            Query {
+            &Query {
                 id: 423,
                 words: vec![2, 100, 4],
             },

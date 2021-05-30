@@ -4,13 +4,13 @@ use crate::ltr::features::dataiku::{click_entropy, ClickSat, Rank, SearchResult}
 use std::collections::{HashMap, HashSet};
 
 /// Click counter.
-struct ClickCounts {
+pub(super) struct ClickCounts {
     /// Click count of results ranked 1-2.
-    click12: u32,
+    pub(super) click12: u32,
     /// Click count of results ranked 3-5.
-    click345: u32,
+    pub(super) click345: u32,
     /// Click count of results ranked 6 upwards.
-    click6up: u32,
+    pub(super) click6up: u32,
 }
 
 impl ClickCounts {
@@ -33,17 +33,24 @@ impl ClickCounts {
     }
 }
 
-struct UserFeatures {
+pub(super) struct UserFeatures {
     /// Entropy over ranks of clicked results.
-    click_entropy: f32,
+    pub(super) click_entropy: f32,
     /// Click counts of results ranked 1-2, 3-6, 6-10 resp.
-    click_counts: ClickCounts,
+    pub(super) click_counts: ClickCounts,
     /// Total number of search queries over all sessions.
-    num_queries: usize,
+    pub(super) num_queries: usize,
     /// Mean number of words per query.
-    mean_words_per_query: f32,
+    pub(super) mean_words_per_query: f32,
     /// Mean number of unique query words per session.
-    mean_unique_words_per_session: f32,
+    pub(super) mean_unique_words_per_session: f32,
+}
+
+impl UserFeatures {
+    pub(super) fn extract(history: &[SearchResult]) -> UserFeatures {
+        //FIXME temp. to make reviews easier by not showing the whole `user_features` function as changed
+        user_features(history)
+    }
 }
 
 /// Calculate user features for the given historical search results of a user.
@@ -200,7 +207,7 @@ mod tests {
             num_queries,
             mean_words_per_query,
             mean_unique_words_per_session,
-        } = user_features(&history);
+        } = UserFeatures::extract(&history);
 
         let ClickCounts {
             click12,
@@ -227,7 +234,7 @@ mod tests {
             num_queries,
             mean_words_per_query,
             mean_unique_words_per_session,
-        } = user_features(&[]);
+        } = UserFeatures::extract(&[]);
 
         let ClickCounts {
             click12,

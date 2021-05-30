@@ -78,7 +78,30 @@ pub(crate) enum DayOfWeek {
     Sun,
 }
 
+/// A single search query result before being reranked
+pub struct CurrentSearchResult {
+    /// Session identifier.
+    pub(crate) session_id: i32,
+    /// User identifier.
+    pub(crate) user_id: i32,
+    /// Query identifier.
+    pub(crate) query_id: i32,
+    /// Day of week search was performed.
+    pub(crate) day: DayOfWeek,
+    /// Words of the query, each masked.
+    pub(crate) query_words: Vec<i32>,
+    /// URL of result, masked.
+    pub(crate) url: i32,
+    /// Domain of result, masked.
+    pub(crate) domain: i32,
+    /// Position among other results.
+    pub(crate) initial_rank: Rank,
+    /// Query count within session.
+    pub(crate) query_counter: u8,
+}
+
 /// Data pertaining to a single result from a search.
+#[cfg_attr(test, derive(Clone))]
 pub struct SearchResult {
     /// Session identifier.
     pub(crate) session_id: i32,
@@ -348,13 +371,22 @@ pub(crate) fn mean_recip_rank(
 }
 
 /// Counts the variety of query terms over a given test session.
-fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
-    query
-        .iter()
-        .filter(|r| r.session_id == session_id)
-        .flat_map(|r| &r.query_words)
-        .unique()
-        .count()
+///
+/// # Implementation Differences
+///
+/// Soundgarden uses the "query_array" instead of the current session
+/// (which beside the current query is in history).
+///
+/// While this is clearly a bug we need to keep it and use the
+/// current results. In turn we don't need to filter for the
+/// session id as all current results are from
+/// the current search query and as such the current session.
+///
+/// Additionally this also causes all inspected results/documents
+/// to have the same query words and in turn this is just number
+/// of unique words in the current query, which is kinda very pointless.
+fn terms_variety(current_query: &Query) -> usize {
+    current_query.words.iter().unique().count()
 }
 
 /// Weekend seasonality of a given domain.
@@ -532,6 +564,7 @@ pub(crate) fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPr
 
 #[cfg(test)]
 mod tests {
+    use itertools::izip;
     use once_cell::sync::Lazy;
 
     /* Pseudo Code based on the Python Implementation
@@ -581,6 +614,13 @@ mod tests {
     ON /0 in scores += <term> just don't change it
     */
 
+    use crate::ltr::features::{
+        aggregate::AggregateFeatures,
+        cumulate::CumFeatures,
+        query::QueryFeatures,
+        user::UserFeatures,
+    };
+
     use super::*;
 
     impl Rank {
@@ -597,6 +637,35 @@ mod tests {
                 8 => Rank::Nineth,
                 9 => Rank::Last,
                 _ => panic!("Only support rank 0-9."),
+            }
+        }
+    }
+
+    // helper to reduce some repetition in tests
+    impl From<SearchResult> for CurrentSearchResult {
+        fn from(res: SearchResult) -> Self {
+            let SearchResult {
+                session_id,
+                user_id,
+                query_id,
+                day,
+                query_words,
+                url,
+                domain,
+                relevance: _,
+                position,
+                query_counter,
+            } = res;
+            CurrentSearchResult {
+                session_id,
+                user_id,
+                query_id,
+                day,
+                query_words,
+                url,
+                domain,
+                initial_rank: position,
+                query_counter,
             }
         }
     }
@@ -997,19 +1066,11 @@ mod tests {
 
     #[test]
     fn test_terms_variety() {
-        let query = query_results_by_words_and_session(&[
-            (vec![1, 2], 1),
-            (vec![1, 3], 1),
-            (vec![4, 6], 1),
-            (vec![3, 6], 2),
-            (vec![3, 2], 2),
-            (vec![6, 4], 3),
-            (vec![4, 4], 3),
-        ]);
-
-        assert_eq!(terms_variety(&query, 1), 5);
-        assert_eq!(terms_variety(&query, 2), 3);
-        assert_eq!(terms_variety(&query, 3), 2);
+        let query = Query {
+            id: 0,
+            words: vec![3, 33, 12, 120, 33, 3],
+        };
+        assert_eq!(terms_variety(&query), 4);
     }
 
     fn query_results_by_rank_and_relevance<'a>(
@@ -1173,7 +1234,6 @@ mod tests {
     fn the_right_aggregate_atoms_are_chosen() {
         use UrlOrDom::*;
 
-        //TODO check
         let click_mrr = AtomFeat::MeanRecipRank(MrrOutcome::Click);
         let miss_mrr = AtomFeat::MeanRecipRank(MrrOutcome::Miss);
         let skip_mrr = AtomFeat::MeanRecipRank(MrrOutcome::Skip);
@@ -1259,5 +1319,168 @@ mod tests {
 
         result.relevance = ClickSat::High;
         assert!(result.is_clicked());
+    }
+
+    //TODO turn this into end to end tests where you compare the extracted feature arrays (once we do create them)
+    //rustfmt makes all the assert_approx_eq much less readable in this specific case.
+    #[rustfmt::skip]
+    fn do_test_compute_features(history: &[SearchResult], query: &Query, search_results: &[CurrentSearchResult], features: &[[f32;50]]) {
+        let user_features = UserFeatures::extract(history);
+        let query_features = QueryFeatures::exact(history, query);
+        let terms_variety = terms_variety(query);
+
+        let click_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Click);
+        let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
+        let skip_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Skip);
+        let combine_mrr = &AtomFeat::MeanRecipRankAll;
+        let click1 = &AtomFeat::CondProb(ClickSat::Medium);
+        let click2 = &AtomFeat::CondProb(ClickSat::High);
+        let missed = &AtomFeat::CondProb(ClickSat::Miss);
+        let skipped = &AtomFeat::CondProb(ClickSat::Skip);
+        let snippet_quality = &AtomFeat::SnippetQuality;
+
+        for (search_result, feature_row) in izip!(search_results, features) {
+
+            assert_approx_eq!(f32, feature_row[0], search_result.initial_rank as usize as f32, ulps = 0);
+
+            let document_features = AggregateFeatures::extract(history, search_result);
+            assert_approx_eq!(f32, feature_row[1], document_features.url[click_mrr]);
+            assert_approx_eq!(f32, feature_row[2], document_features.url[click2]);
+            assert_approx_eq!(f32, feature_row[3], document_features.url[missed]);
+            assert_approx_eq!(f32, feature_row[4], document_features.url[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[5], document_features.url_ant[click2]);
+            assert_approx_eq!(f32, feature_row[6], document_features.url_ant[missed]);
+            assert_approx_eq!(f32, feature_row[7], document_features.url_ant[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[8], document_features.url_query[combine_mrr]);
+            assert_approx_eq!(f32, feature_row[9], document_features.url_query[click2]);
+            assert_approx_eq!(f32, feature_row[10], document_features.url_query[missed]);
+            assert_approx_eq!(f32, feature_row[11], document_features.url_query[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[12], document_features.url_query_ant[combine_mrr]);
+            assert_approx_eq!(f32, feature_row[13], document_features.url_query_ant[click_mrr]);
+            assert_approx_eq!(f32, feature_row[14], document_features.url_query_ant[miss_mrr]);
+            assert_approx_eq!(f32, feature_row[15], document_features.url_query_ant[skip_mrr]);
+            assert_approx_eq!(f32, feature_row[16], document_features.url_query_ant[missed]);
+            assert_approx_eq!(f32, feature_row[17], document_features.url_query_ant[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[18], document_features.url_query_curr[miss_mrr]);
+            assert_approx_eq!(f32, feature_row[19], document_features.dom[skipped]);
+            assert_approx_eq!(f32, feature_row[20], document_features.dom[missed]);
+            assert_approx_eq!(f32, feature_row[21], document_features.dom[click2]);
+            assert_approx_eq!(f32, feature_row[22], document_features.dom[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[23], document_features.dom_ant[click2]);
+            assert_approx_eq!(f32, feature_row[24], document_features.dom_ant[missed]);
+            assert_approx_eq!(f32, feature_row[25], document_features.dom_ant[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[26], document_features.dom_query[missed]);
+            assert_approx_eq!(f32, feature_row[27], document_features.dom_query[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[28], document_features.dom_query[miss_mrr]);
+            assert_approx_eq!(f32, feature_row[29], document_features.dom_query_ant[snippet_quality]);
+
+            let QueryFeatures {
+                click_entropy,
+                num_terms,
+                mean_query_counter,
+                mean_occurs_per_session,
+                num_occurs,
+                click_mrr,
+                mean_clicks,
+                mean_non_click,
+            } = query_features;
+            assert_approx_eq!(f32, feature_row[30], click_entropy);
+            assert_approx_eq!(f32, feature_row[31], num_terms as f32, ulps = 0);
+            assert_approx_eq!(f32, feature_row[32], mean_query_counter);
+            assert_approx_eq!(f32, feature_row[33], mean_occurs_per_session);
+            assert_approx_eq!(f32, feature_row[34], num_occurs as f32, ulps = 0);
+            assert_approx_eq!(f32, feature_row[35], click_mrr);
+            assert_approx_eq!(f32, feature_row[36], mean_clicks);
+            assert_approx_eq!(f32, feature_row[37], mean_non_click);
+
+            let UserFeatures {
+                click_entropy,
+                click_counts,
+                num_queries,
+                mean_words_per_query,
+                mean_unique_words_per_session,
+            } = &user_features;
+            assert_approx_eq!(f32, feature_row[38], click_entropy);
+            assert_approx_eq!(f32, feature_row[39], click_counts.click12 as f32, ulps = 0);
+            assert_approx_eq!(f32, feature_row[40], click_counts.click345 as f32, ulps = 0);
+            assert_approx_eq!(f32, feature_row[41], click_counts.click6up as f32, ulps = 0);
+            assert_approx_eq!(f32, feature_row[42], *num_queries as f32, ulps = 0);
+            assert_approx_eq!(f32, feature_row[43], mean_words_per_query);
+            assert_approx_eq!(f32, feature_row[44], mean_unique_words_per_session);
+
+            let cum_features = CumFeatures::extract(history, search_result);
+            assert_approx_eq!(f32, feature_row[45], cum_features.url[skipped]);
+            assert_approx_eq!(f32, feature_row[46], cum_features.url[click1]);
+            assert_approx_eq!(f32, feature_row[47], cum_features.url[click2]);
+
+            assert_approx_eq!(f32, feature_row[48], terms_variety as f32, ulps = 0);
+
+            let seasonality = seasonality(history, search_result.domain);
+            assert_approx_eq!(f32, feature_row[49], seasonality);
+        }
+    }
+
+    #[test]
+    fn test_full_training() {
+        //auto generated
+        #[rustfmt::skip]
+        let history = &[
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 26142648, domain: 2597528, relevance: ClickSat::High, position: Rank::from_usize(0), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 44200215, domain: 3852697, relevance: ClickSat::Miss, position: Rank::from_usize(1), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 40218620, domain: 3602893, relevance: ClickSat::Miss, position: Rank::from_usize(2), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 21854374, domain: 2247911, relevance: ClickSat::Miss, position: Rank::from_usize(3), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 6152223, domain: 787424, relevance: ClickSat::Miss, position: Rank::from_usize(4), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 46396840, domain: 3965502, relevance: ClickSat::Miss, position: Rank::from_usize(5), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 65705884, domain: 4978404, relevance: ClickSat::Miss, position: Rank::from_usize(6), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 4607041, domain: 608358, relevance: ClickSat::Miss, position: Rank::from_usize(7), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 60306140, domain: 4679885, relevance: ClickSat::Miss, position: Rank::from_usize(8), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 1991065, domain: 295576, relevance: ClickSat::Miss, position: Rank::from_usize(9), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 43220173, domain: 3802280, relevance: ClickSat::High, position: Rank::from_usize(0), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 68391867, domain: 5124172, relevance: ClickSat::Miss, position: Rank::from_usize(1), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 48241082, domain: 4077775, relevance: ClickSat::Miss, position: Rank::from_usize(2), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 28461283, domain: 2809381, relevance: ClickSat::Miss, position: Rank::from_usize(3), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 36214392, domain: 3398386, relevance: ClickSat::Miss, position: Rank::from_usize(4), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 26215090, domain: 2597528, relevance: ClickSat::Miss, position: Rank::from_usize(5), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 55157032, domain: 4429726, relevance: ClickSat::Miss, position: Rank::from_usize(6), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 35921251, domain: 3380635, relevance: ClickSat::Miss, position: Rank::from_usize(7), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 37498049, domain: 3463275, relevance: ClickSat::Miss, position: Rank::from_usize(8), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 70173304, domain: 5167485, relevance: ClickSat::Miss, position: Rank::from_usize(9), query_counter: 1, },
+        ];
+
+        //auto generated
+        #[rustfmt::skip]
+        let current_search_results = &[
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 41131641, domain: 3661944, initial_rank: Rank::from_usize(0), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 43630521, domain: 3823198, initial_rank: Rank::from_usize(1), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28819788, domain: 2832997, initial_rank: Rank::from_usize(2), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28630417, domain: 2819308, initial_rank: Rank::from_usize(3), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 49489872, domain: 4155543, initial_rank: Rank::from_usize(4), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 1819187, domain: 269174, initial_rank: Rank::from_usize(5), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 27680026, domain: 2696111, initial_rank: Rank::from_usize(6), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 1317174, domain: 207936, initial_rank: Rank::from_usize(7), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28324834, domain: 2790971, initial_rank: Rank::from_usize(8), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 54208271, domain: 4389621, initial_rank: Rank::from_usize(9), query_counter: 0, },
+        ];
+
+        //auto generated
+        #[rustfmt::skip]
+        let features = &[
+            [1.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [2.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [3.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [4.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [5.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [6.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [7.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [8.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [9.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [10.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0]
+        ];
+
+        let query = Query {
+            id: current_search_results[0].query_id,
+            words: current_search_results[0].query_words.clone(),
+        };
+        do_test_compute_features(history, &query, current_search_results, features);
     }
 }
