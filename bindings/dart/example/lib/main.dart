@@ -50,7 +50,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> initAi() async {
     setState(() {
-      _msg = 'loading data';
+      _msg = 'loading data...';
     });
 
     final data = await getInputData();

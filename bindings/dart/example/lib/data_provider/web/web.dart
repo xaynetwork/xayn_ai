@@ -1,16 +1,17 @@
 import 'dart:html';
 import 'dart:typed_data';
-import 'package:xayn_ai_ffi_dart/package.dart' show SetupData, assets;
+import 'package:xayn_ai_ffi_dart/package.dart'
+    show assets, AssetType, SetupData;
 
 Future<SetupData> getInputData() async {
-  final fetched = <String, Uint8List>{};
-  for (var asset in assets) {
-    final data = await _fetchAsset(asset.url!, asset.checksum!);
-    fetched.putIfAbsent(asset.name!, () => data);
+  final fetched = <AssetType, Uint8List>{};
+  for (var asset in assets.entries) {
+    final data = await _fetchAsset(asset.value.url!, asset.value.checksum!);
+    fetched.putIfAbsent(asset.key, () => data);
   }
 
-  return SetupData(
-      fetched['vocab.txt']!, fetched['smbert.onnx']!, fetched['xayn.wasm']!);
+  return SetupData(fetched[AssetType.vocab]!, fetched[AssetType.smbert]!,
+      fetched[AssetType.wasm]!);
 }
 
 Future<Uint8List> _fetchAsset(String url, String checksum) async {

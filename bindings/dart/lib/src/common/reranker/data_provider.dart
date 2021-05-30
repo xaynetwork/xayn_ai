@@ -1,13 +1,14 @@
 /// Data that can be used to initialize [`XaynAi`].
 
-final assets = <Asset>[];
+final assets = <AssetType, Asset>{};
+
+enum AssetType { vocab, smbert, qabert, ltr, wasm }
 
 class Asset {
-  final String? name;
   final String? url;
   final String? checksum;
 
-  Asset({this.name, this.url, this.checksum});
+  Asset({this.url, this.checksum});
 }
 
 class SetupData {
