@@ -13,7 +13,7 @@ final assets = {
       url: baseUrl + 'smbert.onnx',
       checksum: 'sha256-wHZTo8xWiHYHHeFX8PuMzBowIZfdrZ6tBpqGFA4Z2RM='),
   common.AssetType.qabert: common.Asset(
-      url: baseUrl + 'qabert.onnx',
+      url: baseUrl + 'qambert.onnx',
       checksum: 'sha256-9nzYcZqT4fMkAvxgUdgp1vv1PnDoXHckNKoeAbCxwbM='),
   common.AssetType.ltr: common.Asset(
       url: baseUrl + 'ltr.binparams',
