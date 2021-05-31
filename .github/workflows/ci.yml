@@ -58,7 +58,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ steps.cache-key.outputs.key }}
           restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
 
@@ -89,7 +89,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       # cargo fmt does not create any artifacts, therefore we don't need to cache the target folder
@@ -119,7 +119,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
@@ -160,7 +160,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
@@ -200,7 +200,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Generate build artifacts key
@@ -249,7 +249,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
@@ -321,7 +321,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Install Cross
@@ -374,7 +374,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
@@ -431,7 +431,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Install wasm-pack
@@ -476,7 +476,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
