@@ -64,7 +64,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ steps.cache-key.outputs.key }}
           restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
 
@@ -162,7 +162,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
@@ -219,7 +219,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
@@ -279,7 +279,7 @@ jobs:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
-            ~/.cargo/git
+            ~/.cargo/git/db
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
