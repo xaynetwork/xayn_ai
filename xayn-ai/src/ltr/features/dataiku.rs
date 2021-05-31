@@ -616,7 +616,7 @@ mod tests {
 
     use crate::ltr::features::{
         aggregate::AggregateFeatures,
-        cumulate::CumFeatures,
+        cumulate::CumFeaturesAccumulator,
         query::QueryFeatures,
         user::UserFeatures,
     };
@@ -642,30 +642,18 @@ mod tests {
     }
 
     // helper to reduce some repetition in tests
-    impl From<SearchResult> for CurrentSearchResult {
-        fn from(res: SearchResult) -> Self {
-            let SearchResult {
-                session_id,
-                user_id,
-                query_id,
-                day,
-                query_words,
-                url,
-                domain,
-                relevance: _,
-                position,
-                query_counter,
-            } = res;
+    impl From<&SearchResult> for CurrentSearchResult {
+        fn from(res: &SearchResult) -> Self {
             CurrentSearchResult {
-                session_id,
-                user_id,
-                query_id,
-                day,
-                query_words,
-                url,
-                domain,
-                initial_rank: position,
-                query_counter,
+                session_id: res.session_id,
+                user_id: res.user_id,
+                query_id: res.query_id,
+                day: res.day,
+                query_words: res.query_words.clone(),
+                url: res.url,
+                domain: res.domain,
+                initial_rank: res.position,
+                query_counter: res.query_counter,
             }
         }
     }
@@ -1333,11 +1321,12 @@ mod tests {
         let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
         let skip_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Skip);
         let combine_mrr = &AtomFeat::MeanRecipRankAll;
-        let click1 = &AtomFeat::CondProb(ClickSat::Medium);
         let click2 = &AtomFeat::CondProb(ClickSat::High);
         let missed = &AtomFeat::CondProb(ClickSat::Miss);
         let skipped = &AtomFeat::CondProb(ClickSat::Skip);
         let snippet_quality = &AtomFeat::SnippetQuality;
+
+        let mut cum_feature_acc = CumFeaturesAccumulator::new();
 
         for (search_result, feature_row) in izip!(search_results, features) {
 
@@ -1408,11 +1397,11 @@ mod tests {
             assert_approx_eq!(f32, feature_row[43], mean_words_per_query);
             assert_approx_eq!(f32, feature_row[44], mean_unique_words_per_session);
 
-            let cum_features = CumFeatures::extract(history, search_result);
-            //FIXME that fails (as expected)
-            assert_approx_eq!(f32, feature_row[45], cum_features.url[skipped]);
-            assert_approx_eq!(f32, feature_row[46], cum_features.url[click1]);
-            assert_approx_eq!(f32, feature_row[47], cum_features.url[click2]);
+            let cum_features = cum_feature_acc.extract_next(history, search_result);
+
+            assert_approx_eq!(f32, feature_row[45], cum_features.skip);
+            assert_approx_eq!(f32, feature_row[46], cum_features.medium);
+            assert_approx_eq!(f32, feature_row[47], cum_features.high);
 
             assert_approx_eq!(f32, feature_row[48], terms_variety as f32, ulps = 0);
 

@@ -1,79 +1,61 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{
-    cond_prob,
-    AtomFeat,
-    FeatMap,
-    FilterPred,
-    SearchResult,
-    UrlOrDom,
-};
-use std::collections::HashMap;
+use crate::ltr::features::dataiku::{cond_prob, FilterPred, SearchResult, UrlOrDom};
 
-use super::dataiku::CurrentSearchResult;
+use super::dataiku::{ClickSat, CurrentSearchResult};
 
 /// Cumulated features for a given user.
+#[derive(Clone)]
 pub(super) struct CumFeatures {
-    /// Cumulated feature for matching URL.
-    //FIXME: Why is this using a map when this are literally only 3 values??
-    pub(super) url: FeatMap,
+    // Cumulative "score" for matching skipped results.
+    pub(super) skip: f32,
+    // Cumulative "score" for matching clicked (medium/not last clicked) results.
+    pub(super) medium: f32,
+    // Cumulative "score" for matching clicked (heigh/last clicked) results.
+    pub(super) high: f32,
 }
 
-impl CumFeatures {
-    pub(super) fn extract(hist: &[SearchResult], res: &CurrentSearchResult) -> CumFeatures {
-        //FIXME temp. to make reviews easier by not showing the whole `cum_features` function as changed
-        cum_features(hist, res)
-    }
-}
-
-/// Determines the cumulated features for a given search result.
+/// Accumulator to compute cumulative features.
 ///
-/// These are given by sums of conditional probabilities:
-/// ```text
-/// sum{cond_prob(outcome, pred(r.url))}
-/// ```
-/// where the sum ranges over each search result `r` ranked above `res`. `pred` is the predicate
-/// corresponding to the cumulated feature, and `outcome` one of its specified atoms.
-fn cum_features(hist: &[SearchResult], res: &CurrentSearchResult) -> CumFeatures {
-    let mut url = hist
-        .iter()
-        //FIXME The current query is normally not in hist, as such doing this
-        //      with non test data with not work ass the specific combination of
-        //      (res.session_id, res.initial_rank) won't appear in the history
-        //TODO  First make sure this fails a test.
-        // if res is ranked n, get the n-1 results ranked above res
-        .filter(|r| {
-            // this is filtered by session and query but no such filter is done in python I think
-            // same is true for < position,  what is used in python is the filter by URL
-            r.session_id == res.session_id
-                && r.query_id == res.query_id
-                && r.query_counter == res.query_counter
-                && r.position < res.initial_rank
-        })
-        // calculate specified cond probs for each of the above
-        .flat_map(|r| {
-            //FIXME this is the only place we ever call cum_atoms with only that specific predicate
-            //      we maybe should change how we handle this.
-            let pred = FilterPred::new(UrlOrDom::Url(r.url));
-            pred.cum_atoms()
-                .into_iter()
-                .map(move |outcome| (outcome, cond_prob(hist, outcome, pred)))
-        })
-        // sum cond probs for each outcome
-        .fold(HashMap::new(), |mut cp_map, (outcome, cp)| {
-            *cp_map.entry(AtomFeat::CondProb(outcome)).or_default() += cp;
-            cp_map
-        });
+/// After creating it [`Self.extract_next()`] needs to be called in ascending order of the
+/// initial ranking (starting from `Rank::First`).
+pub(super) struct CumFeaturesAccumulator {
+    //FIXME do we need statistical correct floating point multiplication? (I don't think so tbh.)
+    //      (I.e. keep a list of results for skip,medium,heigh and sort? it
+    //       in asc order before summing to reduce rounding errors)
+    next_features: CumFeatures,
+}
 
-    if url.is_empty() {
-        //FIXME this is not the best solution but I don't want to touch
-        //      aboves code in this commit.
-        for atom in FilterPred::new(UrlOrDom::Url(0)).cum_atoms().into_iter() {
-            url.insert(AtomFeat::CondProb(atom), 0.0);
+impl CumFeaturesAccumulator {
+    /// Creates a new "empty" accumulator for extracting cumulative features.
+    pub(super) fn new() -> Self {
+        Self {
+            next_features: CumFeatures {
+                skip: 0.0,
+                medium: 0.0,
+                high: 0.0,
+            }
         }
     }
 
-    CumFeatures { url }
+    /// Extracts cumulative features for given current search results.
+    ///
+    /// Must be called in ascending ranking order for all current results in the
+    /// list of results for the current search query.
+    pub(super) fn extract_next(
+        &mut self,
+        history: &[SearchResult],
+        current_result: &CurrentSearchResult,
+    ) -> CumFeatures {
+        let features = self.next_features.clone();
+
+        let url_filter = FilterPred::new(UrlOrDom::Url(current_result.url));
+        self.next_features.skip += cond_prob(history, ClickSat::Skip, url_filter);
+        self.next_features.medium += cond_prob(history, ClickSat::Medium, url_filter);
+        self.next_features.high += cond_prob(history, ClickSat::High, url_filter);
+
+        features
+    }
 }
 
 #[cfg(test)]
@@ -143,6 +125,7 @@ mod tests {
             (9, ClickSat::Miss),
         ]);
 
+        // skip - medium - high
         let expected_results = &[
             [0., 0., 0.],
             [1., 0., 0.],
@@ -156,16 +139,19 @@ mod tests {
             [3., 2., 1.],
         ];
 
-        for offset in &[0, 20] {
+        for offset in 0..=2 {
+            let mut acc = CumFeaturesAccumulator::new();
+
             for (idx, expected) in expected_results.iter().enumerate() {
-                let map = cum_features(&history, &history[*offset + idx].clone().into()).url;
-                let values = [
-                    map[&AtomFeat::CondProb(ClickSat::Skip)],
-                    map[&AtomFeat::CondProb(ClickSat::Medium)],
-                    map[&AtomFeat::CondProb(ClickSat::High)],
-                ];
-                assert_approx_eq!(f32, values, expected);
-                assert_eq!(map.len(), 3);
+                let mut current = CurrentSearchResult::from(&history[offset * 10 + idx]);
+                // Test that changes in the session do not affect the outcome.
+                // (It should only filter by URL.)
+                current.session_id += (offset % 2) as i32;
+                let features = acc.extract_next(&history, &current);
+
+                assert_approx_eq!(f32, features.skip, expected[0]);
+                assert_approx_eq!(f32, features.medium, expected[1]);
+                assert_approx_eq!(f32, features.high, expected[2]);
             }
         }
     }
