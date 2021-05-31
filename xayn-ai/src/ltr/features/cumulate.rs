@@ -34,7 +34,7 @@ impl CumFeaturesAccumulator {
                 skip: 0.0,
                 medium: 0.0,
                 high: 0.0,
-            }
+            },
         }
     }
 
