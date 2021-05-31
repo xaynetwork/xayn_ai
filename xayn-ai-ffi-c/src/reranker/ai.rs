@@ -607,7 +607,6 @@ mod tests {
         let invalid = TempBuilder::new()
             .prefix("smbert_vocab")
             .suffix(".txt")
-            .rand_bytes(0)
             .tempfile()
             .unwrap()
             .into_temp_path();
@@ -644,7 +643,6 @@ mod tests {
         let invalid = TempBuilder::new()
             .prefix("qambert_vocab")
             .suffix(".txt")
-            .rand_bytes(0)
             .tempfile()
             .unwrap()
             .into_temp_path();
@@ -809,7 +807,6 @@ mod tests {
         let invalid = TempBuilder::new()
             .prefix("smbert")
             .suffix(".onnx")
-            .rand_bytes(0)
             .tempfile()
             .unwrap()
             .into_temp_path();
@@ -846,7 +843,6 @@ mod tests {
         let invalid = TempBuilder::new()
             .prefix("qambert")
             .suffix(".onnx")
-            .rand_bytes(0)
             .tempfile()
             .unwrap()
             .into_temp_path();
