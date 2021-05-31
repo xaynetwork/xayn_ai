@@ -607,9 +607,9 @@ mod tests {
         let mut error = CError::default();
 
         let invalid = TempBuilder::new()
-            .prefix("vocab")
+            .prefix("smbert_vocab")
             .suffix(".txt")
-            .rand_bytes(4)
+            .rand_bytes(0)
             .tempfile()
             .unwrap()
             .into_temp_path();
@@ -644,9 +644,9 @@ mod tests {
         let mut error = CError::default();
 
         let invalid = TempBuilder::new()
-            .prefix("vocab")
+            .prefix("qambert_vocab")
             .suffix(".txt")
-            .rand_bytes(4)
+            .rand_bytes(0)
             .tempfile()
             .unwrap()
             .into_temp_path();
