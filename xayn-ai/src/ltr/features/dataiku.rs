@@ -626,17 +626,17 @@ mod tests {
     impl Rank {
         pub(crate) fn from_usize(rank: usize) -> Self {
             match rank {
-                0 => Rank::First,
-                1 => Rank::Second,
-                2 => Rank::Third,
-                3 => Rank::Fourth,
-                4 => Rank::Fifth,
-                5 => Rank::Sixth,
-                6 => Rank::Seventh,
-                7 => Rank::Eighth,
-                8 => Rank::Nineth,
-                9 => Rank::Last,
-                _ => panic!("Only support rank 0-9."),
+                1 => Rank::First,
+                2 => Rank::Second,
+                3 => Rank::Third,
+                4 => Rank::Fourth,
+                5 => Rank::Fifth,
+                6 => Rank::Sixth,
+                7 => Rank::Seventh,
+                8 => Rank::Eighth,
+                9 => Rank::Nineth,
+                10 => Rank::Last,
+                _ => panic!("Only support rank 1-10, got {}", rank),
             }
         }
     }
@@ -688,7 +688,7 @@ mod tests {
                     url: *url,
                     domain: 42,
                     relevance: *relevance,
-                    position: Rank::from_usize(in_query_id as usize),
+                    position: Rank::from_usize(1 + in_query_id as usize),
                     query_counter: per_query_id as u8,
                 }
             })
@@ -713,7 +713,7 @@ mod tests {
                     url: id,
                     domain: *domain,
                     relevance: *relevance,
-                    position: Rank::from_usize(in_query_id as usize),
+                    position: Rank::from_usize(1 + in_query_id as usize),
                     query_counter: per_query_id as u8,
                 }
             })
@@ -977,7 +977,7 @@ mod tests {
                     url: id,
                     domain: *domain,
                     relevance: *relevance,
-                    position: Rank::from_usize(in_query_id as usize),
+                    position: Rank::from_usize(1 + in_query_id as usize),
                     query_counter: per_query_id as u8,
                 }
             })
@@ -1057,7 +1057,7 @@ mod tests {
                     url: id,
                     domain: id,
                     relevance: ClickSat::Medium,
-                    position: Rank::from_usize(in_query_id as usize),
+                    position: Rank::from_usize(1 + in_query_id as usize),
                     query_counter,
                 }
             })
@@ -1425,41 +1425,41 @@ mod tests {
         //auto generated
         #[rustfmt::skip]
         let history = &[
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 26142648, domain: 2597528, relevance: ClickSat::High, position: Rank::from_usize(0), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 44200215, domain: 3852697, relevance: ClickSat::Miss, position: Rank::from_usize(1), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 40218620, domain: 3602893, relevance: ClickSat::Miss, position: Rank::from_usize(2), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 21854374, domain: 2247911, relevance: ClickSat::Miss, position: Rank::from_usize(3), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 6152223, domain: 787424, relevance: ClickSat::Miss, position: Rank::from_usize(4), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 46396840, domain: 3965502, relevance: ClickSat::Miss, position: Rank::from_usize(5), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 65705884, domain: 4978404, relevance: ClickSat::Miss, position: Rank::from_usize(6), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 4607041, domain: 608358, relevance: ClickSat::Miss, position: Rank::from_usize(7), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 60306140, domain: 4679885, relevance: ClickSat::Miss, position: Rank::from_usize(8), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 1991065, domain: 295576, relevance: ClickSat::Miss, position: Rank::from_usize(9), query_counter: 0, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 43220173, domain: 3802280, relevance: ClickSat::High, position: Rank::from_usize(0), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 68391867, domain: 5124172, relevance: ClickSat::Miss, position: Rank::from_usize(1), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 48241082, domain: 4077775, relevance: ClickSat::Miss, position: Rank::from_usize(2), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 28461283, domain: 2809381, relevance: ClickSat::Miss, position: Rank::from_usize(3), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 36214392, domain: 3398386, relevance: ClickSat::Miss, position: Rank::from_usize(4), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 26215090, domain: 2597528, relevance: ClickSat::Miss, position: Rank::from_usize(5), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 55157032, domain: 4429726, relevance: ClickSat::Miss, position: Rank::from_usize(6), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 35921251, domain: 3380635, relevance: ClickSat::Miss, position: Rank::from_usize(7), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 37498049, domain: 3463275, relevance: ClickSat::Miss, position: Rank::from_usize(8), query_counter: 1, },
-            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 70173304, domain: 5167485, relevance: ClickSat::Miss, position: Rank::from_usize(9), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 26142648, domain: 2597528, relevance: ClickSat::High, position: Rank::from_usize(1), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 44200215, domain: 3852697, relevance: ClickSat::Miss, position: Rank::from_usize(2), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 40218620, domain: 3602893, relevance: ClickSat::Miss, position: Rank::from_usize(3), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 21854374, domain: 2247911, relevance: ClickSat::Miss, position: Rank::from_usize(4), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 6152223, domain: 787424, relevance: ClickSat::Miss, position: Rank::from_usize(5), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 46396840, domain: 3965502, relevance: ClickSat::Miss, position: Rank::from_usize(6), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 65705884, domain: 4978404, relevance: ClickSat::Miss, position: Rank::from_usize(7), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 4607041, domain: 608358, relevance: ClickSat::Miss, position: Rank::from_usize(8), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 60306140, domain: 4679885, relevance: ClickSat::Miss, position: Rank::from_usize(9), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 12283852, day: DayOfWeek::Fri, query_words: vec![3468976,4614115], url: 1991065, domain: 295576, relevance: ClickSat::Miss, position: Rank::from_usize(10), query_counter: 0, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 43220173, domain: 3802280, relevance: ClickSat::High, position: Rank::from_usize(1), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 68391867, domain: 5124172, relevance: ClickSat::Miss, position: Rank::from_usize(2), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 48241082, domain: 4077775, relevance: ClickSat::Miss, position: Rank::from_usize(3), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 28461283, domain: 2809381, relevance: ClickSat::Miss, position: Rank::from_usize(4), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 36214392, domain: 3398386, relevance: ClickSat::Miss, position: Rank::from_usize(5), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 26215090, domain: 2597528, relevance: ClickSat::Miss, position: Rank::from_usize(6), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 55157032, domain: 4429726, relevance: ClickSat::Miss, position: Rank::from_usize(7), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 35921251, domain: 3380635, relevance: ClickSat::Miss, position: Rank::from_usize(8), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 37498049, domain: 3463275, relevance: ClickSat::Miss, position: Rank::from_usize(9), query_counter: 1, },
+            SearchResult { session_id: 2746324, user_id: 460950, query_id: 7297472, day: DayOfWeek::Fri, query_words: vec![2758230], url: 70173304, domain: 5167485, relevance: ClickSat::Miss, position: Rank::from_usize(10), query_counter: 1, },
         ];
 
         //auto generated
         #[rustfmt::skip]
         let current_search_results = &[
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 41131641, domain: 3661944, initial_rank: Rank::from_usize(0), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 43630521, domain: 3823198, initial_rank: Rank::from_usize(1), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28819788, domain: 2832997, initial_rank: Rank::from_usize(2), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28630417, domain: 2819308, initial_rank: Rank::from_usize(3), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 49489872, domain: 4155543, initial_rank: Rank::from_usize(4), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 1819187, domain: 269174, initial_rank: Rank::from_usize(5), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 27680026, domain: 2696111, initial_rank: Rank::from_usize(6), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 1317174, domain: 207936, initial_rank: Rank::from_usize(7), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28324834, domain: 2790971, initial_rank: Rank::from_usize(8), query_counter: 0, },
-            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 54208271, domain: 4389621, initial_rank: Rank::from_usize(9), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 41131641, domain: 3661944, initial_rank: Rank::from_usize(1), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 43630521, domain: 3823198, initial_rank: Rank::from_usize(2), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28819788, domain: 2832997, initial_rank: Rank::from_usize(3), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28630417, domain: 2819308, initial_rank: Rank::from_usize(4), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 49489872, domain: 4155543, initial_rank: Rank::from_usize(5), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 1819187, domain: 269174, initial_rank: Rank::from_usize(6), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 27680026, domain: 2696111, initial_rank: Rank::from_usize(7), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 1317174, domain: 207936, initial_rank: Rank::from_usize(8), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 28324834, domain: 2790971, initial_rank: Rank::from_usize(9), query_counter: 0, },
+            CurrentSearchResult { session_id: 2746325, user_id: 460950, query_id: 20331734, day: DayOfWeek::Fri, query_words: vec![4631619,2289501], url: 54208271, domain: 4389621, initial_rank: Rank::from_usize(10), query_counter: 0, },
         ];
 
         //auto generated

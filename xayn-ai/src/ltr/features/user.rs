@@ -156,7 +156,7 @@ mod tests {
                     url: in_query_id,
                     domain: in_query_id,
                     relevance: *relevance,
-                    position: Rank::from_usize(in_query_id as usize),
+                    position: Rank::from_usize(1 + in_query_id as usize),
                     query_counter: per_query_id as u8,
                 }
             })
