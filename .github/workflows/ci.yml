@@ -743,7 +743,7 @@ jobs:
   # for this job
   one-leaf:
     name: ignore-me
-    needs: [flutter-format, cargo-tarpaulin, test-wasm-lib, test-android-libs, flutter-analyze, flutter-test, flutter-build-example]
+    needs: [flutter-format, coverage, test-wasm-lib, test-android-libs, flutter-analyze, flutter-test, flutter-build-example]
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
