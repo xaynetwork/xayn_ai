@@ -9,12 +9,13 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 /// Data that can be used to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
   final String vocab;
-  final String model;
+  final String smbertModel;
+  final String qambertModel;
 
   static const _baseAssetsPath = 'packages/xayn_ai_ffi_dart/assets';
   static final AsyncMemoizer<SetupData> _pathsCache = AsyncMemoizer();
 
-  SetupData(this.vocab, this.model);
+  SetupData(this.vocab, this.smbertModel, this.qambertModel);
 
   /// Prepares and returns the data that is needed to init [`XaynAi`].
   ///
@@ -30,9 +31,11 @@ class SetupData implements common.SetupData {
   static Future<SetupData> _getInputData(String baseDiskPath) async {
     final rubertDir = 'rubert_v0001';
     final vocab = await _getData(baseDiskPath, rubertDir, 'vocab.txt');
-    final model = await _getData(baseDiskPath, rubertDir, 'smbert.onnx');
+    final smbertModel = await _getData(baseDiskPath, rubertDir, 'smbert.onnx');
+    final qambertModel =
+        await _getData(baseDiskPath, rubertDir, 'qambert.onnx');
 
-    return SetupData(vocab, model);
+    return SetupData(vocab, smbertModel, qambertModel);
   }
 
   /// Returns the path to the data, if the data is not on disk yet

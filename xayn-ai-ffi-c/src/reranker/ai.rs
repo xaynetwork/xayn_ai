@@ -4,7 +4,10 @@ use xayn_ai::{Builder, Reranker};
 
 use crate::{
     data::{
-        document::CDocuments, history::CHistories, outcomes::RerankingOutcomes, CRerankingOutcomes,
+        document::CDocuments,
+        history::CHistories,
+        outcomes::RerankingOutcomes,
+        CRerankingOutcomes,
     },
     reranker::{
         analytics::{Analytics, CAnalytics},
@@ -329,12 +332,13 @@ mod tests {
     use super::*;
     use crate::{
         data::{
-            document::tests::TestDocuments, history::tests::TestHistories,
+            document::tests::TestDocuments,
+            history::tests::TestHistories,
             outcomes::reranking_outcomes_drop,
         },
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
-        tests::{SMBERT_MODEL, VOCAB, QAMBERT_MODEL},
+        tests::{QAMBERT_MODEL, SMBERT_MODEL, VOCAB},
         utils::tests::AsPtr,
     };
 

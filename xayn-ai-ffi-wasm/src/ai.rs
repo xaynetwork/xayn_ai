@@ -217,8 +217,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_rerank() {
-        let mut xaynai =
-            WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         xaynai.rerank(test_histories(), test_documents()).unwrap();
     }
 
@@ -368,15 +367,28 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_serialized_empty() {
-        WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, Some(Box::new([]))).unwrap();
+        WXaynAi::new(
+            VOCAB,
+            SMBERT_MODEL,
+            VOCAB,
+            QAMBERT_MODEL,
+            Some(Box::new([])),
+        )
+        .unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_serialized_invalid() {
-        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, Some(Box::new([1, 2, 3])))
-            .unwrap_err()
-            .into_serde::<ExternError>()
-            .unwrap();
+        let error = WXaynAi::new(
+            VOCAB,
+            SMBERT_MODEL,
+            VOCAB,
+            QAMBERT_MODEL,
+            Some(Box::new([1, 2, 3])),
+        )
+        .unwrap_err()
+        .into_serde::<ExternError>()
+        .unwrap();
 
         assert_eq!(error.code, CCode::RerankerDeserialization);
         assert!(error.message.contains(

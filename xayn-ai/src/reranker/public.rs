@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use rubert::{AveragePooler, SMBert, SMBertBuilder, QAMBert, QAMBertBuilder};
+use rubert::{AveragePooler, QAMBert, QAMBertBuilder, SMBert, SMBertBuilder};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
