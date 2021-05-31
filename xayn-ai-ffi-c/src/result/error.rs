@@ -16,8 +16,10 @@ pub enum CCode {
     /// No error.
     None = 0,
     /// A smbert vocab null pointer error.
+    #[allow(clippy::upper_case_acronyms)]
     SMBertVocabPointer = 1,
     /// A smbert model null pointer error.
+    #[allow(clippy::upper_case_acronyms)]
     SMBertModelPointer = 2,
     /// A vocab or model file IO error.
     ReadFile = 3,
@@ -40,8 +42,10 @@ pub enum CCode {
     /// Serialization of reranker database error.
     RerankerSerialization = 12,
     /// A qambert vocab null pointer error.
+    #[allow(clippy::upper_case_acronyms)]
     QAMBertVocabPointer = 13,
     /// A qambert model null pointer error.
+    #[allow(clippy::upper_case_acronyms)]
     QAMBertModelPointer = 14,
 }
 
