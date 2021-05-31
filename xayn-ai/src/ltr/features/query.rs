@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{
+use super::dataiku::{
     click_entropy,
     mean_recip_rank,
     ClickSat,
@@ -114,7 +114,7 @@ fn mean_query_count<'a>(history_q: impl Iterator<Item = &'a &'a SearchResult>) -
 
 #[cfg(test)]
 mod tests {
-    use crate::ltr::features::dataiku::{DayOfWeek, Rank};
+    use super::super::dataiku::{DayOfWeek, Rank};
 
     use super::*;
 

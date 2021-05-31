@@ -13,10 +13,11 @@
 // - ClickSat vs. Relevance
 //
 // FIXME[comment/resolve maybe in other task]: ClickSat::Low
-// - What does ClickSat::Low mean? We treat it like `Miss` in some
-//   places but not like `Miss` in other places. Sometimes we differ
-//   in it's treatment in the same function... (Like not counting it
-//   in the miss_or_skip_count, but also not counting it as clicked.)
+// - What does ClickSat::Low mean? It has relevance 0 (like
+//   Miss and Skip) and the user clearly didn't `Miss` a
+//   entry they clicked on (but then paddled back). So we
+//   probably should treat it like Skip, maybe remove it
+//   even?
 //
 // FIXME[comment/resolve maybe in other task]: ClickSat::Low
 // - Why is there a query_id field and query_counter field?
@@ -614,54 +615,7 @@ mod tests {
     use itertools::izip;
     use once_cell::sync::Lazy;
 
-    /* Pseudo Code based on the Python Implementation
-
-    FIXME remove before merging but not before review.
-
-    ## Query Quality Pseudo Code
-
-    ```pseudo
-    considered_data['all'] == history
-    action_predicate_map['all'] == considered_data['all'][where matches current url/domain]
-                                == history[where matches current url/domain]
-    action_predicate_map['missed'] == history[where relevance==missed and matches current url/domain]
-    action_predicate_map['skipped'] == history[where relevance==skipped and matches current url/domain]
-
-    matching_queries == all queries which have at least one matching query
-
-    scores = sum(score(query,...) for query in queries)
-
-    scores / len(action_predicate_map['missed'])+len(action_prediacte_map['skipped'])
-
-    ON divide by 0 return 0
-    ```
-
-    ## Query Score Pseudo Code
-
-    ```pseudo
-    query_matched_documents == query[where matches current url/domain]
-                            at least length 1 or we would not have called
-                            this function
-
-    clicked_documents == query[where matches current url/domain and relevance > 0].url/domain
-
-    there_is_a_skip = skipped_results_match.shape[0] > 0 == true iff there is at least one item in query_matched_documents which is also in action_predicate_map['skipped']
-
-    if there_is_a_skip:
-        score += -1/clicked_documents.size
-
-    there_is_a_match = clicked_results_match.shape[0] > 0 == true iff there is at least one item in query_matched_documents which is also in action_predicate_map['clicked']
-
-    if there_is_a_match:
-        // all indices of clicked_documents which match the current url/domain
-        click_position_index = indices where [clicked_documents == current_document] is true
-        score += 1/(click_position_index[0] + 1)
-
-
-    ON /0 in scores += <term> just don't change it
-    */
-
-    use crate::ltr::features::{
+    use super::super::{
         aggregate::AggregateFeatures,
         cumulate::CumFeaturesAccumulator,
         query::QueryFeatures,
@@ -1345,7 +1299,6 @@ mod tests {
         result.relevance = ClickSat::Miss;
         assert!(!result.is_clicked());
 
-        //FIXME clarify what Low means see comment at the top of the file
         result.relevance = ClickSat::Low;
         assert!(!result.is_clicked());
 

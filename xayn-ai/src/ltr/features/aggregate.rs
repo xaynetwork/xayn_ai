@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{
+use super::dataiku::{
     cond_prob,
     mean_recip_rank,
     snippet_quality,
@@ -18,9 +18,7 @@ use super::dataiku::CurrentSearchResult;
 //FIXME[comment/resolve with or after review]: fields
 //  We know exact which features are run so why is this half a struct with explicit fields and
 //  half a struct using dynamic field mapping?
-//FIXME I would prefer something like .copy_to_slice([...]) or similar,
-//      but given that the slice creation is test only for now
-//      this doesn't fit this PR.
+//FIXME I would prefer not that have FeatMap's in the way we have them here
 pub(super) struct AggregateFeatures {
     /// Aggregate feature for matching domain.
     pub(super) dom: FeatMap,
@@ -103,7 +101,7 @@ fn aggregate_feature(hist: &[SearchResult], pred: FilterPred) -> FeatMap {
 
 #[cfg(test)]
 mod tests {
-    use crate::ltr::features::dataiku::{ClickSat, MrrOutcome};
+    use super::super::dataiku::{ClickSat, MrrOutcome};
 
     use super::*;
 

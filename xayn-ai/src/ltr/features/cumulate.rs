@@ -1,8 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{cond_prob, FilterPred, SearchResult, UrlOrDom};
-
-use super::dataiku::{ClickSat, CurrentSearchResult};
+use super::dataiku::{ClickSat, CurrentSearchResult, cond_prob, FilterPred, SearchResult, UrlOrDom};
 
 /// Cumulated features for a given user.
 #[derive(Clone)]
@@ -60,7 +58,7 @@ impl CumFeaturesAccumulator {
 
 #[cfg(test)]
 mod tests {
-    use crate::ltr::features::dataiku::{ClickSat, DayOfWeek, Rank};
+    use super::super::dataiku::{ClickSat, DayOfWeek, Rank};
 
     use super::*;
 

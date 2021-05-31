@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{click_entropy, ClickSat, Rank, SearchResult};
+use super::dataiku::{click_entropy, ClickSat, Rank, SearchResult};
 use std::collections::{HashMap, HashSet};
 
 /// Click counter.
@@ -72,13 +72,6 @@ fn user_features(history: &[SearchResult]) -> UserFeatures {
     let click_entropy = click_entropy(history);
     let click_counts = click_counts(history);
 
-    // FIXME soundgarden (and this code) takes the unique of `(session_id, query_id, words, query_counter)` tuples,
-    //   but as far as I know there never should be:
-    //   - same query_id different words
-    //   - multiple equal (session_id, query_counter)
-    //   So we should not need it?
-    //   And on long histories it might be costly? Maybe?
-    //
     // all search query results over all sessions
     let search_results = history
         .iter()
@@ -134,7 +127,7 @@ fn mean_unique_words_per_session<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::ltr::features::dataiku::DayOfWeek;
+    use super::super::dataiku::DayOfWeek;
 
     use super::*;
 
