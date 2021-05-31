@@ -72,7 +72,7 @@ impl CXaynAi {
         Builder::default()
             .with_smbert_from_file(smbert_vocab, smbert_model)
             .map_err(|cause| {
-                CCode::ReadFile.with_context(format!("Failed to initialize the ai: {}", cause))
+                CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause))
             })?
             .with_qambert_from_file(qambert_vocab, qambert_model)
             .map_err(|cause| {
