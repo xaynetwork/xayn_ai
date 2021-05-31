@@ -11,7 +11,7 @@ final assets = {
       url: baseUrl + 'smbert.onnx',
       checksum:
           'c07653a3cc568876071de157f0fb8ccc1a302197ddad9ead069a86140e19d913'),
-  common.AssetType.qabert: common.Asset(
+  common.AssetType.qambert: common.Asset(
       url: baseUrl + 'qambert.onnx',
       checksum:
           'f67cd8719a93e1f32402fc6051d829d6fbf53e70e85c772434aa1e01b0b1c1b3'),

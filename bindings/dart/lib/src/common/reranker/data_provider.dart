@@ -2,7 +2,7 @@
 
 final assets = <AssetType, Asset>{};
 
-enum AssetType { vocab, smbert, qabert, ltr, wasm }
+enum AssetType { vocab, smbert, qambert, ltr, wasm }
 
 class Asset {
   final String? url;

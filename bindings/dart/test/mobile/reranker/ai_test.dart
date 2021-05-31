@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart'
     show contains, equals, expect, group, isEmpty, isNot, test;
 
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart' show Code;
-import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show XaynAi;
+import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show createXaynAi;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
     show SetupData;
 import '../utils.dart'
@@ -12,8 +12,8 @@ import '../utils.dart'
 
 void main() {
   group('XaynAi', () {
-    test('rerank full', () {
-      final ai = XaynAi(SetupData(vocab, model));
+    test('rerank full', () async {
+      final ai = await createXaynAi(SetupData(vocab, model));
       final outcome = ai.rerank(histories, documents);
       final faults = ai.faults();
 
@@ -25,8 +25,8 @@ void main() {
       ai.free();
     });
 
-    test('rerank empty', () {
-      final ai = XaynAi(SetupData(vocab, model));
+    test('rerank empty', () async {
+      final ai = await createXaynAi(SetupData(vocab, model));
       final outcome = ai.rerank([], []);
       final faults = ai.faults();
 
@@ -36,8 +36,8 @@ void main() {
       ai.free();
     });
 
-    test('rerank empty hists', () {
-      final ai = XaynAi(SetupData(vocab, model));
+    test('rerank empty hists', () async {
+      final ai = await createXaynAi(SetupData(vocab, model));
       final outcome = ai.rerank([], documents);
       final faults = ai.faults();
 
@@ -49,8 +49,8 @@ void main() {
       ai.free();
     });
 
-    test('rerank empty docs', () {
-      final ai = XaynAi(SetupData(vocab, model));
+    test('rerank empty docs', () async {
+      final ai = await createXaynAi(SetupData(vocab, model));
       final outcome = ai.rerank(histories, []);
       final faults = ai.faults();
 
@@ -62,24 +62,25 @@ void main() {
 
     test('invalid paths', () {
       expect(
-        () => XaynAi(SetupData('', model)),
+        () async => await createXaynAi(SetupData('', model)),
         throwsXaynAiException(Code.readFile),
       );
       expect(
-        () => XaynAi(SetupData(vocab, '')),
+        () async => await createXaynAi(SetupData(vocab, '')),
         throwsXaynAiException(Code.readFile),
       );
     });
 
-    test('empty serialized', () {
+    test('empty serialized', () async {
       final serialized = Uint8List(0);
-      final ai = XaynAi(SetupData(vocab, model), serialized);
+      final ai = await createXaynAi(SetupData(vocab, model), serialized);
       ai.free();
     });
 
     test('invalid serialized', () {
       expect(
-        () => XaynAi(SetupData(vocab, model), Uint8List.fromList([255])),
+        () async => await createXaynAi(
+            SetupData(vocab, model), Uint8List.fromList([255])),
         throwsXaynAiException(Code.rerankerDeserialization),
       );
     });
