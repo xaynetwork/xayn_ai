@@ -2,6 +2,10 @@ name: Release-CI
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - "release"
+      - "staging"
 
 env:
   RUST_STABLE: 1.51
@@ -16,6 +20,19 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
+  cancel:
+    name: cancel-previous-runs
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    steps:
+      # When you git push, this GitHub Action will capture the current Branch and SHA.
+      # It will query GitHub's API to find previous workflow runs that match the Branch
+      # but do not match the SHA. These in-progress runs will be canceled leaving only the latest run.
+      - uses: styfle/cancel-workflow-action@0.9.0
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
   registry-cache:
     # we use the latest stable rustc + cargo version that is already installed on the image
     # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
