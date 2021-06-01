@@ -1,0 +1,11 @@
+name: 'XaynAiFfi'
+description: 'Bindings to the xayn-ai-ffi library.'
+output: 'lib/src/common/ffi/genesis.dart'
+headers:
+  entry-points:
+    - '../../xayn-ai-ffi/ffi.h'
+  include-directives:
+    - '../../xayn-ai-ffi/ffi.h'
+compiler-opts-automatic:
+  macos:
+    include-c-standard-library: false

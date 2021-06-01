@@ -35,8 +35,13 @@ workspace = false
 dependencies = ["build-local"]
 script = ["""
   cd bindings/dart
-  flutter pub get
-  flutter pub run ffigen
+  flutter pub run ffigen --config ffigen_common.yaml
+  flutter pub run ffigen --config ffigen_mobile.yaml
+
+  # remove unused mobile-only dependency from common
+  cd lib/src/common/ffi
+  grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" genesis.dart > genesis
+  mv genesis genesis.dart
 """]
 
 [tasks.build-android]

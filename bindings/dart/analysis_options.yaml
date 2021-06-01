@@ -5,6 +5,7 @@ analyzer:
     implicit-casts: false
     implicit-dynamic: false
   exclude:
+    - lib/src/common/ffi/genesis.dart
     - lib/src/mobile/ffi/genesis.dart
 
 linter:
