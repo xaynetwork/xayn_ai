@@ -16,7 +16,7 @@ default_to_workspace = false
 dependencies = ["build"]
 
 [tasks.build]
-dependencies = ["build-dart-bindgen"]
+dependencies = ["build-bindgen"]
 
 [tasks.build-mobile.linux]
 dependencies = ["build-android"]
@@ -30,7 +30,7 @@ script = ["""
   cargo build
 """]
 
-[tasks.build-dart-bindgen]
+[tasks.build-bindgen-dart]
 workspace = false
 dependencies = ["build-local"]
 script = ["""
@@ -43,6 +43,14 @@ script = ["""
   grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" genesis.dart > genesis
   mv genesis genesis.dart
 """]
+
+[tasks.build-bindgen-wasm]
+script = ["""
+  wasm-pack build xayn-ai-ffi-wasm --out-dir ../bindings/dart/lib/src/web/ffi --out-name genesis --target web
+"""]
+
+[tasks.build-bindgen]
+dependencies = ["build-bindgen-dart", "build-bindgen-wasm"]
 
 [tasks.build-android]
 dependencies = ["build-dart-bindgen"]
