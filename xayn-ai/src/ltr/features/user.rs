@@ -46,32 +46,35 @@ pub(crate) struct UserFeatures {
     words_per_session: f32,
 }
 
-/// Calculate user features for the given historical search results of a user.
-pub(crate) fn user_features(history: &[SearchResult]) -> UserFeatures {
-    let click_entropy = click_entropy(history);
-    let click_counts = click_counts(history);
+impl UserFeatures {
+    /// Build user features for the given historical search results of a user.
+    pub(crate) fn build(history: &[SearchResult]) -> Self {
+        let click_entropy = click_entropy(history);
+        let click_counts = click_counts(history);
 
-    // all queries over all sessions
-    let all_queries = history
-        .iter()
-        .map(|r| (r.session_id, r.query_id, &r.query_words, r.query_counter))
-        .collect::<HashSet<_>>();
+        // all queries over all sessions
+        let all_queries = history
+            .iter()
+            .map(|r| (r.session_id, r.query_id, &r.query_words, r.query_counter))
+            .collect::<HashSet<_>>();
 
-    let num_queries = all_queries.len();
-    let words_per_query = all_queries
-        .iter()
-        .map(|(_, _, words, _)| words.len())
-        .sum::<usize>() as f32
-        / num_queries as f32;
+        let num_queries = all_queries.len();
+        let words_per_query = all_queries
+            .iter()
+            .map(|(_, _, words, _)| words.len())
+            .sum::<usize>() as f32
+            / num_queries as f32;
 
-    let words_per_session = words_per_session(all_queries.into_iter().map(|tpl| (tpl.0, tpl.2)));
+        let words_per_session =
+            words_per_session(all_queries.into_iter().map(|tpl| (tpl.0, tpl.2)));
 
-    UserFeatures {
-        click_entropy,
-        click_counts,
-        num_queries,
-        words_per_query,
-        words_per_session,
+        UserFeatures {
+            click_entropy,
+            click_counts,
+            num_queries,
+            words_per_query,
+            words_per_session,
+        }
     }
 }
 

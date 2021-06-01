@@ -2,7 +2,7 @@ use derive_more::Display;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, default::Default};
+use std::convert::TryFrom;
 use uuid::Uuid;
 
 use crate::Error;
@@ -12,7 +12,8 @@ use crate::reranker::systems::CoiSystemData;
 use super::document_data::DocumentDataWithMab;
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
 pub struct DocumentId(pub Uuid);
 
 impl DocumentId {
@@ -31,9 +32,10 @@ impl TryFrom<&str> for DocumentId {
 }
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
 pub struct SessionId(pub Uuid);
-// FIXME duplication with DocumentId
+
 impl SessionId {
     /// New identifier from a 128bit value in big-endian order.
     pub fn from_u128(id: u128) -> Self {
@@ -50,9 +52,10 @@ impl TryFrom<&str> for SessionId {
 }
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display, Default)]
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
 pub struct QueryId(pub Uuid);
-// FIXME duplication with DocumentId
+
 impl QueryId {
     /// New identifier from a 128bit value in big-endian order.
     pub fn from_u128(id: u128) -> Self {
@@ -214,23 +217,11 @@ impl RerankingOutcomes {
     }
 }
 
-impl Default for Relevance {
-    fn default() -> Self {
-        Self::Low
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum UserAction {
     Click,
     Skip,
     Miss,
-}
-
-impl Default for UserAction {
-    fn default() -> Self {
-        Self::Miss
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -244,8 +235,25 @@ pub enum DayOfWeek {
     Sun,
 }
 
-impl Default for DayOfWeek {
-    fn default() -> Self {
-        DayOfWeek::Mon
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl Default for Relevance {
+        fn default() -> Self {
+            Self::Low
+        }
+    }
+
+    impl Default for UserAction {
+        fn default() -> Self {
+            Self::Miss
+        }
+    }
+
+    impl Default for DayOfWeek {
+        fn default() -> Self {
+            DayOfWeek::Mon
+        }
     }
 }

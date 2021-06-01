@@ -186,14 +186,14 @@ mod tests {
             .collect::<Vec<_>>();
         let relevances = repeat(Relevance::Low.into())
             .take(len / 2)
-            .chain(repeat(Relevance::High.into()).take(len - len / 2)); // TODO no need for 2nd take
+            .chain(repeat(Relevance::High.into()).take(len - len / 2));
         let feedbacks = repeat(UserFeedback::Irrelevant.into())
             .take(len / 2)
             .chain(repeat(UserFeedback::Relevant.into()).take(len - len / 2));
         let sessions = (0..len)
             .map(|idx| SessionId::from_u128(idx as u128))
             .collect::<Vec<_>>();
-        let query_counts = repeat(1);
+        let query_counts = repeat(1).take(len);
         let query_ids = (0..len)
             .map(|idx| QueryId::from_u128(idx as u128))
             .collect::<Vec<_>>();
@@ -264,7 +264,7 @@ mod tests {
         let sessions = (0..len)
             .map(|idx| SessionId::from_u128(idx as u128))
             .collect::<Vec<_>>();
-        let query_counts = repeat(1);
+        let query_counts = repeat(1).take(len);
         let query_ids = (0..len)
             .map(|idx| QueryId::from_u128(idx as u128))
             .collect::<Vec<_>>();

@@ -75,7 +75,7 @@ void main() {
         );
         expect(
           hists.ptr.ref.data[i].user_action,
-          history.userAction.toInt(),
+          equals(history.userAction.toInt()),
         );
       });
       expect(hists.ptr.ref.len, equals(histories.length));

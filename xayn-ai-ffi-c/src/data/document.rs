@@ -192,7 +192,7 @@ pub(crate) mod tests {
                     .map(|idx| CString::new(SessionId::from_u128(idx).to_string()).unwrap())
                     .collect::<Vec<_>>(),
             );
-            let query_counts = iter::repeat(1u32);
+            let query_counts = iter::repeat(1).take(len as usize);
             let _query_ids = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(QueryId::from_u128(idx).to_string()).unwrap())

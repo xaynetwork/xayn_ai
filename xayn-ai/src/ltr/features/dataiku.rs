@@ -10,16 +10,7 @@ use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
-use super::{
-    aggreg_features,
-    cum_features,
-    query_features,
-    user_features,
-    AggregFeatures,
-    CumFeatures,
-    QueryFeatures,
-    UserFeatures,
-};
+use super::{AggregFeatures, CumFeatures, QueryFeatures, UserFeatures};
 
 /// Click satisfaction score.
 ///
@@ -304,29 +295,31 @@ struct Features {
     seasonality: f32,
 }
 
-/// Build features for a user's search `res`ult given her past search `hist`ory.
-fn build_features(hist: &[SearchResult], res: SearchResult) -> Features {
-    let rank = res.position;
-    let aggreg = aggreg_features(hist, &res);
-    let user = user_features(hist);
-    let query = query_features(hist, &res);
-    let cum = cum_features(hist, &res);
-    let terms_variety = terms_variety(hist, res.session_id);
-    // NOTE according to Dataiku spec, this should be the weekend seasonality
-    // factor when `res.day` is a weekend, otherwise the inverse (weekday
-    // seasonality) factor. a bug in soundgarden sets this to always be weekend
-    // seasonality but since the model is trained on it, we match that
-    // behaviour here.
-    let seasonality = seasonality(hist, res.domain);
+impl Features {
+    /// Build features for a user's search `res`ult given her past search `hist`ory.
+    fn build(hist: &[SearchResult], res: SearchResult) -> Self {
+        let rank = res.position;
+        let aggreg = AggregFeatures::build(hist, &res);
+        let user = UserFeatures::build(hist);
+        let query = QueryFeatures::build(hist, &res);
+        let cum = CumFeatures::build(hist, &res);
+        let terms_variety = terms_variety(hist, res.session_id);
+        // NOTE according to Dataiku spec, this should be the weekend seasonality
+        // factor when `res.day` is a weekend, otherwise the inverse (weekday
+        // seasonality) factor. a bug in soundgarden sets this to always be weekend
+        // seasonality but since the model is trained on it, we match that
+        // behaviour here.
+        let seasonality = seasonality(hist, &res.domain);
 
-    Features {
-        rank,
-        aggreg,
-        user,
-        query,
-        cum,
-        terms_variety,
-        seasonality,
+        Features {
+            rank,
+            aggreg,
+            user,
+            query,
+            cum,
+            terms_variety,
+            seasonality,
+        }
     }
 }
 
@@ -382,7 +375,7 @@ fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
 }
 
 /// Weekend seasonality of a given domain.
-fn seasonality(history: &[SearchResult], domain: String) -> f32 {
+fn seasonality(history: &[SearchResult], domain: &str) -> f32 {
     let (clicks_wknd, clicks_wkday) = history
         .iter()
         .filter(|r| r.domain == domain && r.relevance > ClickSat::Low)

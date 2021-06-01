@@ -31,10 +31,15 @@ pub enum CCode {
     HistoriesPointer = 6,
     /// A document history id null pointer error.
     HistoryIdPointer = 7,
+    /// A document history session id null pointer error.
     HistorySessionPointer = 8,
+    /// A document history query id null pointer error.
     HistoryQueryIdPointer = 9,
+    /// A document history query words null pointer error.
     HistoryQueryWordsPointer = 10,
+    /// A document history url null pointer error.
     HistoryUrlPointer = 11,
+    /// A document history domain null pointer error.
     HistoryDomainPointer = 12,
     /// A documents null pointer error.
     DocumentsPointer = 13,
@@ -44,9 +49,13 @@ pub enum CCode {
     DocumentSnippetPointer = 15,
     /// A document session id null pointer error.
     DocumentSessionPointer = 16,
+    /// A document query id null pointer error.
     DocumentQueryIdPointer = 17,
+    /// A document query words null pointer error.
     DocumentQueryWordsPointer = 18,
+    /// A document url null pointer error.
     DocumentUrlPointer = 19,
+    /// A document domain null pointer error.
     DocumentDomainPointer = 20,
     /// Deserialization of reranker database error.
     RerankerDeserialization = 21,
