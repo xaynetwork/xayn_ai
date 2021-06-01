@@ -11,3 +11,6 @@ derive_more = { version = "0.99.14", default-features = false, features = ["disp
 serde = { version = "1.0.126", features = ["derive"] }
 serde_repr = "0.1.7"
 xayn-ai = { path = "../xayn-ai" }
+
+[build-dependencies]
+cbindgen = "=0.19.0"

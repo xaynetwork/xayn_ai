@@ -1689,6 +1689,7 @@ dependencies = [
 name = "xayn-ai-ffi"
 version = "0.1.0"
 dependencies = [
+ "cbindgen",
  "derive_more",
  "serde",
  "serde_repr",
