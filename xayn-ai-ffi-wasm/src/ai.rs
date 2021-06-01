@@ -374,7 +374,7 @@ mod tests {
 
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
-            error.message,
+            error.message(),
             "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
         );
     }
@@ -383,12 +383,12 @@ mod tests {
     fn test_smbert_model_empty() {
         let error = WXaynAi::new(SMBERT_VOCAB, &[], QAMBERT_VOCAB, QAMBERT_MODEL, None)
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
-            error.message,
+            error.message(),
             "Failed to initialize the ai: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
         );
     }
@@ -397,12 +397,12 @@ mod tests {
     fn test_qambert_model_empty() {
         let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, QAMBERT_VOCAB, &[], None)
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
-            error.message,
+            error.message(),
             "Failed to initialize the ai: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
         );
     }
@@ -411,12 +411,12 @@ mod tests {
     fn test_smbert_model_invalid() {
         let error = WXaynAi::new(SMBERT_VOCAB, &[0], QAMBERT_VOCAB, QAMBERT_MODEL, None)
             .unwrap_err()
-            .into_serde::<ExternError>()
+            .into_serde::<Error>()
             .unwrap();
 
-        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(error.code(), CCode::InitAi);
         assert!(error
-            .message
+            .message()
             .contains("Failed to initialize the ai: Failed to build the model: "));
     }
 
