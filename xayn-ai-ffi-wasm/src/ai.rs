@@ -21,15 +21,25 @@ impl WXaynAi {
     /// - The the data of the `serialized` database is invalid.
     #[wasm_bindgen(constructor)]
     pub fn new(
-        vocab: &[u8],
-        model: &[u8],
+        smbert_vocab: &[u8],
+        smbert_model: &[u8],
+        qambert_vocab: &[u8],
+        qambert_model: &[u8],
         serialized: Option<Box<[u8]>>,
     ) -> Result<WXaynAi, JsValue> {
         console_error_panic_hook::set_once();
 
-        if model.is_empty() {
-            return Err(CCode::InitAi
-                .with_context("Failed to initialize the ai: Missing any value in the onnx model"))
+        if smbert_model.is_empty() {
+            return Err(CCode::InitAi.with_context(
+                "Failed to initialize the ai: Missing any value in the smbert onnx model",
+            ))
+            .into_js_result();
+        }
+
+        if qambert_model.is_empty() {
+            return Err(CCode::InitAi.with_context(
+                "Failed to initialize the ai: Missing any value in the qambert onnx model",
+            ))
             .into_js_result();
         }
 
@@ -42,7 +52,8 @@ impl WXaynAi {
                 ))
             })
             .into_js_result()?
-            .with_smbert_from_reader(vocab, model)
+            .with_smbert_from_reader(smbert_vocab, smbert_model)
+            .with_qambert_from_reader(qambert_vocab, qambert_model)
             .build()
             .map(WXaynAi)
             .map_err(|cause| {
@@ -146,8 +157,11 @@ mod tests {
     /// Path to the current vocabulary file.
     const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0001/vocab.txt");
 
-    /// Path to the current onnx model file.
+    /// Path to the current smbert onnx model file.
     const SMBERT_MODEL: &[u8] = include_bytes!("../../data/rubert_v0001/smbert.onnx");
+
+    /// Path to the current qambert onnx model file.
+    const QAMBERT_MODEL: &[u8] = include_bytes!("../../data/rubert_v0001/qambert.onnx");
 
     impl std::fmt::Debug for WXaynAi {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -203,33 +217,33 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_rerank() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         xaynai.rerank(test_histories(), test_documents()).unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_serialize() {
-        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         xaynai.serialize().unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_faults() {
-        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         let faults = xaynai.faults();
         assert!(faults.is_empty());
     }
 
     #[wasm_bindgen_test]
     fn test_analytics() {
-        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         let analytics = xaynai.analytics();
         assert!(analytics.is_null());
     }
 
     #[wasm_bindgen_test]
-    fn test_vocab_empty() {
-        let error = WXaynAi::new(&[], SMBERT_MODEL, None)
+    fn test_smbert_vocab_empty() {
+        let error = WXaynAi::new(&[], SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -242,8 +256,8 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_model_empty() {
-        let error = WXaynAi::new(VOCAB, &[], None)
+    fn test_qambert_vocab_empty() {
+        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, &[], QAMBERT_MODEL, None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -251,13 +265,54 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message,
-            "Failed to initialize the ai: Missing any value in the onnx model",
+            "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
         );
     }
 
     #[wasm_bindgen_test]
-    fn test_model_invalid() {
-        let error = WXaynAi::new(VOCAB, &[0], None)
+    fn test_smbert_model_empty() {
+        let error = WXaynAi::new(VOCAB, &[], VOCAB, QAMBERT_MODEL, None)
+            .unwrap_err()
+            .into_serde::<ExternError>()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(
+            error.message,
+            "Failed to initialize the ai: Missing any value in the smbert onnx model",
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_qambert_model_empty() {
+        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, &[], None)
+            .unwrap_err()
+            .into_serde::<ExternError>()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(
+            error.message,
+            "Failed to initialize the ai: Missing any value in the qambert onnx model",
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_smbert_model_invalid() {
+        let error = WXaynAi::new(VOCAB, &[0], VOCAB, QAMBERT_MODEL, None)
+            .unwrap_err()
+            .into_serde::<ExternError>()
+            .unwrap();
+
+        assert_eq!(error.code, CCode::InitAi);
+        assert!(error
+            .message
+            .contains("Failed to initialize the ai: Failed to build the model: "));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_qambert_model_invalid() {
+        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, &[0], None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -270,7 +325,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_history_invalid() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         let error = xaynai
             .rerank(vec![JsValue::from("invalid")], test_documents())
             .unwrap_err()
@@ -285,13 +340,13 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_history_empty() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         xaynai.rerank(vec![], test_documents()).unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_documents_invalid() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         let error = xaynai
             .rerank(test_histories(), vec![JsValue::from("invalid")])
             .unwrap_err()
@@ -306,21 +361,34 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_documents_empty() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
         xaynai.rerank(test_histories(), vec![]).unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_serialized_empty() {
-        WXaynAi::new(VOCAB, SMBERT_MODEL, Some(Box::new([]))).unwrap();
+        WXaynAi::new(
+            VOCAB,
+            SMBERT_MODEL,
+            VOCAB,
+            QAMBERT_MODEL,
+            Some(Box::new([])),
+        )
+        .unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_serialized_invalid() {
-        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, Some(Box::new([1, 2, 3])))
-            .unwrap_err()
-            .into_serde::<ExternError>()
-            .unwrap();
+        let error = WXaynAi::new(
+            VOCAB,
+            SMBERT_MODEL,
+            VOCAB,
+            QAMBERT_MODEL,
+            Some(Box::new([1, 2, 3])),
+        )
+        .unwrap_err()
+        .into_serde::<ExternError>()
+        .unwrap();
 
         assert_eq!(error.code, CCode::RerankerDeserialization);
         assert!(error.message.contains(

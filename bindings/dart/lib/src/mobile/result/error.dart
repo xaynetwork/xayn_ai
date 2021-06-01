@@ -19,10 +19,14 @@ extension CodeToInt on Code {
         return CCode.Panic;
       case Code.none:
         return CCode.None;
-      case Code.vocabPointer:
-        return CCode.VocabPointer;
-      case Code.modelPointer:
-        return CCode.ModelPointer;
+      case Code.smbertVocabPointer:
+        return CCode.SMBertVocabPointer;
+      case Code.smbertModelPointer:
+        return CCode.SMBertModelPointer;
+      case Code.qambertVocabPointer:
+        return CCode.QAMBertVocabPointer;
+      case Code.qambertModelPointer:
+        return CCode.QAMBertModelPointer;
       case Code.readFile:
         return CCode.ReadFile;
       case Code.initAi:
@@ -59,10 +63,14 @@ extension IntToCode on int {
         return Code.panic;
       case CCode.None:
         return Code.none;
-      case CCode.VocabPointer:
-        return Code.vocabPointer;
-      case CCode.ModelPointer:
-        return Code.modelPointer;
+      case CCode.SMBertVocabPointer:
+        return Code.smbertVocabPointer;
+      case CCode.SMBertModelPointer:
+        return Code.smbertModelPointer;
+      case CCode.QAMBertVocabPointer:
+        return Code.qambertVocabPointer;
+      case CCode.QAMBertModelPointer:
+        return Code.qambertModelPointer;
       case CCode.ReadFile:
         return Code.readFile;
       case CCode.InitAi:
