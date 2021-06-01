@@ -611,6 +611,11 @@ jobs:
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
 
+      - name: Other Dart code generation
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: |
+          flutter pub run build_runner build
+
       - name: Analyze flutter code
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter analyze
@@ -677,6 +682,14 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
+
+      - name: Other Dart code generation
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: |
+          flutter pub run build_runner build
+
+      - name: Download data
+        run: sh download_data.sh
 
       - name: Run flutter tests
         working-directory: ${{ env.DART_WORKSPACE }}
@@ -768,6 +781,14 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
+
+      - name: Other Dart code generation
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: |
+          flutter pub run build_runner build
+
+      - name: Download data
+        run: sh download_data.sh
 
       - name: Build flutter example
         working-directory: ${{ env.DART_WORKSPACE }}/example

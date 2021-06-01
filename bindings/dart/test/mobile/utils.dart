@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart'
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
-    show Feedback, History, Relevance, DayOfWeek, UserAction;
+    show UserFeedback, History, Relevance, DayOfWeek, UserAction;
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
@@ -27,43 +27,43 @@ SetupData mkSetupData(String smbertVocab, String smbertModel,
 }
 
 Document mkTestDoc(String id, String snippet, int rank) => Document(
-      id,
-      snippet,
-      rank,
-      '00000000-0000-0000-0000-000000000000',
-      1,
-      '00000000-0000-0000-0000-000000000000',
-      'query words',
-      'url',
-      'domain',
+      id: id,
+      snippet: snippet,
+      rank: rank,
+      session: 'fcb6a685-eb92-4d36-8686-000000000000',
+      queryCount: 1,
+      queryId: 'fcb6a685-eb92-4d36-8686-000000000000',
+      queryWords: 'query words',
+      url: 'url',
+      domain: 'domain',
     );
 
-History mkTestHist(String id, Relevance relevance, Feedback feedback) =>
+History mkTestHist(String id, Relevance relevance, UserFeedback feedback) =>
     History(
-      id,
-      relevance,
-      feedback,
-      '00000000-0000-0000-0000-000000000000',
-      1,
-      '00000000-0000-0000-0000-000000000000',
-      'query words',
-      DayOfWeek.mon,
-      'url',
-      'domain',
-      0,
-      UserAction.miss,
+      id: id,
+      relevance: relevance,
+      userFeedback: feedback,
+      session: 'fcb6a685-eb92-4d36-8686-000000000000',
+      queryCount: 1,
+      queryId: 'fcb6a685-eb92-4d36-8686-000000000000',
+      queryWords: 'query words',
+      day: DayOfWeek.mon,
+      url: 'url',
+      domain: 'domain',
+      rank: 0,
+      userAction: UserAction.miss,
     );
 
 final histories = [
-  mkTestHist('00000000-0000-0000-0000-000000000000', Relevance.low,
-      Feedback.irrelevant),
-  mkTestHist('00000000-0000-0000-0000-000000000001', Relevance.high,
-      Feedback.relevant),
+  mkTestHist('fcb6a685-eb92-4d36-8686-000000000000', Relevance.low,
+      UserFeedback.irrelevant),
+  mkTestHist('fcb6a685-eb92-4d36-8686-000000000001', Relevance.high,
+      UserFeedback.relevant),
 ];
 final documents = [
-  mkTestDoc('00000000-0000-0000-0000-000000000000', 'abc', 0),
-  mkTestDoc('00000000-0000-0000-0000-000000000001', 'def', 1),
-  mkTestDoc('00000000-0000-0000-0000-000000000002', 'ghi', 2),
+  mkTestDoc('fcb6a685-eb92-4d36-8686-000000000000', 'abc', 0),
+  mkTestDoc('fcb6a685-eb92-4d36-8686-000000000001', 'def', 1),
+  mkTestDoc('fcb6a685-eb92-4d36-8686-000000000002', 'ghi', 2),
 ];
 
 Matcher throwsXaynAiException(Code code) => throwsA(

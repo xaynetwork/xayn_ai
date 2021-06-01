@@ -41,7 +41,7 @@ extension ToJsHistories on List<History> {
         (i) => JsHistory(
           id: this[i].id,
           relevance: this[i].relevance.toInt(),
-          feedback: this[i].feedback.toInt(),
+          feedback: this[i].userFeedback.toInt(),
           session: this[i].session,
           query_count: this[i].queryCount,
           query_id: this[i].queryId,

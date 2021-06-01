@@ -44,8 +44,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your plugin package, add an assets section, like this:
   assets:
-    - assets/smbert_v0000/
-    - assets/qambert_v0001/
+    - assets/data/smbert_v0000/
+    - assets/data/qambert_v0001/
+    - assets/call_data/
     - wasm_bindings/
+
