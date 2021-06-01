@@ -10,16 +10,18 @@
         await init();
 
         console.time("load_data");
-        let vocab = await get_data("data/rubert_v0001/vocab.txt");
-        let model = await get_data("data/rubert_v0001/smbert.onnx");
-        let vocab_buffer = new Uint8Array(vocab);
-        let model_buffer = new Uint8Array(model);
+        let vocab = await window.fetch("data/smbert_v0000/vocab.txt");
+        let smbert = await window.fetch("data/smbert_v0000/smbert.onnx");
+        let qambert = await window.fetch("data/qambert_v0000/qambert.onnx");
+        let vocab_buffer = new Uint8Array(await vocab.arrayBuffer());
+        let smbert_buffer = new Uint8Array(await smbert.arrayBuffer());
+        let qambert_buffer = new Uint8Array(await qambert.arrayBuffer());
         console.timeEnd("load_data");
 
         console.time("init_ai");
-        var ai = undefined;
+        let ai;
         try {
-          ai = new WXaynAi(vocab_buffer, model_buffer, undefined);
+          ai = new WXaynAi(vocab_buffer, smbert_buffer, qambert_buffer, undefined);
         } catch (e) {
           if (e instanceof WebAssembly.RuntimeError) {
             // Panic
@@ -310,32 +312,7 @@
           },
         ];
       }
-
-      async function get_data(url) {
-        return new Promise(function (resolve, reject) {
-          let xhr = new XMLHttpRequest();
-          xhr.open("GET", url, true);
-          xhr.responseType = "arraybuffer";
-          xhr.onload = function () {
-            if (this.status >= 200 && this.status < 300) {
-              resolve(xhr.response);
-            } else {
-              reject({
-                status: this.status,
-                statusText: xhr.statusText,
-              });
-            }
-          };
-          xhr.onerror = function () {
-            reject({
-              status: this.status,
-              statusText: xhr.statusText,
-            });
-          };
-          xhr.send();
-        });
-      }
-
+      
       run();
     </script>
   </body>

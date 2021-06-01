@@ -29,11 +29,13 @@ class SetupData implements common.SetupData {
       _pathsCache.runOnce(() async => _getInputData(baseDiskPath));
 
   static Future<SetupData> _getInputData(String baseDiskPath) async {
-    final rubertDir = 'rubert_v0001';
-    final vocab = await _getData(baseDiskPath, rubertDir, 'vocab.txt');
-    final smbertModel = await _getData(baseDiskPath, rubertDir, 'smbert.onnx');
+    final smbertDir = 'smbert_v0000';
+    final qambertDir = 'qambert_v0000';
+
+    final vocab = await _getData(baseDiskPath, smbertDir, 'vocab.txt');
+    final smbertModel = await _getData(baseDiskPath, smbertDir, 'smbert.onnx');
     final qambertModel =
-        await _getData(baseDiskPath, rubertDir, 'qambert.onnx');
+        await _getData(baseDiskPath, qambertDir, 'qambert.onnx');
 
     return SetupData(vocab, smbertModel, qambertModel);
   }

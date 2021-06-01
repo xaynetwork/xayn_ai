@@ -150,13 +150,13 @@ mod tests {
     use crate::{error::ExternError, history::WHistory};
 
     /// Path to the current vocabulary file.
-    const VOCAB: &[u8] = include_bytes!("../../data/rubert_v0001/vocab.txt");
+    const VOCAB: &[u8] = include_bytes!("../../data/smbert_v0000/vocab.txt");
 
     /// Path to the current smbert onnx model file.
-    const SMBERT_MODEL: &[u8] = include_bytes!("../../data/rubert_v0001/smbert.onnx");
+    const SMBERT_MODEL: &[u8] = include_bytes!("../../data/smbert_v0000/smbert.onnx");
 
     /// Path to the current qambert onnx model file.
-    const QAMBERT_MODEL: &[u8] = include_bytes!("../../data/rubert_v0001/qambert.onnx");
+    const QAMBERT_MODEL: &[u8] = include_bytes!("../../data/qambert_v0000/qambert.onnx");
 
     impl std::fmt::Debug for WXaynAi {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
