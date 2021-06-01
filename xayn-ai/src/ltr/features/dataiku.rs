@@ -311,7 +311,7 @@ impl Features {
         // behaviour here.
         let seasonality = seasonality(hist, &res.domain);
 
-        Features {
+        Self {
             rank,
             aggreg,
             user,

@@ -11,7 +11,8 @@ void main() {
   group('Document', () {
     test('empty', () {
       expect(() => mkTestDoc('', 'abc', 0), throwsArgumentError);
-      expect(() => mkTestDoc('0', 'abc', -1), throwsArgumentError);
+      expect(() => mkTestDoc('00000000-0000-0000-0000-000000000000', 'abc', -1),
+          throwsArgumentError);
     });
   });
 
@@ -19,40 +20,41 @@ void main() {
     test('new', () {
       final docs = Documents(documents);
       documents.asMap().forEach((i, document) {
+        var doc = docs.ptr.ref.data[i];
         expect(
-          docs.ptr.ref.data[i].id.cast<Utf8>().toDartString(),
+          doc.id.cast<Utf8>().toDartString(),
           equals(document.id),
         );
         expect(
-          docs.ptr.ref.data[i].snippet.cast<Utf8>().toDartString(),
+          doc.snippet.cast<Utf8>().toDartString(),
           equals(document.snippet),
         );
         expect(
-          docs.ptr.ref.data[i].rank,
+          doc.rank,
           equals(document.rank),
         );
         expect(
-          docs.ptr.ref.data[i].session.cast<Utf8>().toDartString(),
+          doc.session.cast<Utf8>().toDartString(),
           equals(document.session),
         );
         expect(
-          docs.ptr.ref.data[i].query_count,
+          doc.query_count,
           equals(document.queryCount),
         );
         expect(
-          docs.ptr.ref.data[i].query_id.cast<Utf8>().toDartString(),
+          doc.query_id.cast<Utf8>().toDartString(),
           equals(document.queryId),
         );
         expect(
-          docs.ptr.ref.data[i].query_words.cast<Utf8>().toDartString(),
+          doc.query_words.cast<Utf8>().toDartString(),
           equals(document.queryWords),
         );
         expect(
-          docs.ptr.ref.data[i].url.cast<Utf8>().toDartString(),
+          doc.url.cast<Utf8>().toDartString(),
           equals(document.url),
         );
         expect(
-          docs.ptr.ref.data[i].domain.cast<Utf8>().toDartString(),
+          doc.domain.cast<Utf8>().toDartString(),
           equals(document.domain),
         );
       });

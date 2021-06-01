@@ -90,21 +90,19 @@ class Histories {
     } else {
       _hists.ref.data = malloc.call<CHistory>(_hists.ref.len);
       histories.asMap().forEach((i, history) {
-        _hists.ref.data[i].id = history.id.toNativeUtf8().cast<Uint8>();
-        _hists.ref.data[i].relevance = history.relevance.toInt();
-        _hists.ref.data[i].feedback = history.feedback.toInt();
-        _hists.ref.data[i].session =
-            history.session.toNativeUtf8().cast<Uint8>();
-        _hists.ref.data[i].query_count = history.queryCount;
-        _hists.ref.data[i].query_id =
-            history.queryId.toNativeUtf8().cast<Uint8>();
-        _hists.ref.data[i].query_words =
-            history.queryWords.toNativeUtf8().cast<Uint8>();
-        _hists.ref.data[i].day = history.day.toInt();
-        _hists.ref.data[i].url = history.url.toNativeUtf8().cast<Uint8>();
-        _hists.ref.data[i].domain = history.domain.toNativeUtf8().cast<Uint8>();
-        _hists.ref.data[i].rank = history.rank;
-        _hists.ref.data[i].user_action = history.userAction.toInt();
+        var chist = _hists.ref.data[i];
+        chist.id = history.id.toNativeUtf8().cast<Uint8>();
+        chist.relevance = history.relevance.toInt();
+        chist.feedback = history.feedback.toInt();
+        chist.session = history.session.toNativeUtf8().cast<Uint8>();
+        chist.query_count = history.queryCount;
+        chist.query_id = history.queryId.toNativeUtf8().cast<Uint8>();
+        chist.query_words = history.queryWords.toNativeUtf8().cast<Uint8>();
+        chist.day = history.day.toInt();
+        chist.url = history.url.toNativeUtf8().cast<Uint8>();
+        chist.domain = history.domain.toNativeUtf8().cast<Uint8>();
+        chist.rank = history.rank;
+        chist.user_action = history.userAction.toInt();
       });
     }
   }
@@ -117,12 +115,13 @@ class Histories {
     if (_hists != nullptr) {
       if (_hists.ref.data != nullptr) {
         for (var i = 0; i < _hists.ref.len; i++) {
-          malloc.free(_hists.ref.data[i].id);
-          malloc.free(_hists.ref.data[i].session);
-          malloc.free(_hists.ref.data[i].query_id);
-          malloc.free(_hists.ref.data[i].query_words);
-          malloc.free(_hists.ref.data[i].url);
-          malloc.free(_hists.ref.data[i].domain);
+          var chist = _hists.ref.data[i];
+          malloc.free(chist.id);
+          malloc.free(chist.session);
+          malloc.free(chist.query_id);
+          malloc.free(chist.query_words);
+          malloc.free(chist.url);
+          malloc.free(chist.domain);
         }
         malloc.free(_hists.ref.data);
       }

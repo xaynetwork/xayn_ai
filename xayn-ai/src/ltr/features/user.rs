@@ -68,7 +68,7 @@ impl UserFeatures {
         let words_per_session =
             words_per_session(all_queries.into_iter().map(|tpl| (tpl.0, tpl.2)));
 
-        UserFeatures {
+        Self {
             click_entropy,
             click_counts,
             num_queries,

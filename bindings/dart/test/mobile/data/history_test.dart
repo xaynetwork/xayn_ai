@@ -29,52 +29,53 @@ void main() {
     test('new', () {
       final hists = Histories(histories);
       histories.asMap().forEach((i, history) {
+        var hist = hists.ptr.ref.data[i];
         expect(
-          hists.ptr.ref.data[i].id.cast<Utf8>().toDartString(),
+          hist.id.cast<Utf8>().toDartString(),
           equals(history.id),
         );
         expect(
-          hists.ptr.ref.data[i].relevance,
+          hist.relevance,
           equals(history.relevance.toInt()),
         );
         expect(
-          hists.ptr.ref.data[i].feedback,
+          hist.feedback,
           equals(history.feedback.toInt()),
         );
         expect(
-          hists.ptr.ref.data[i].session.cast<Utf8>().toDartString(),
+          hist.session.cast<Utf8>().toDartString(),
           equals(history.session),
         );
         expect(
-          hists.ptr.ref.data[i].query_count,
+          hist.query_count,
           equals(history.queryCount),
         );
         expect(
-          hists.ptr.ref.data[i].query_id.cast<Utf8>().toDartString(),
+          hist.query_id.cast<Utf8>().toDartString(),
           equals(history.queryId),
         );
         expect(
-          hists.ptr.ref.data[i].query_words.cast<Utf8>().toDartString(),
+          hist.query_words.cast<Utf8>().toDartString(),
           equals(history.queryWords),
         );
         expect(
-          hists.ptr.ref.data[i].day,
+          hist.day,
           equals(history.day.toInt()),
         );
         expect(
-          hists.ptr.ref.data[i].url.cast<Utf8>().toDartString(),
+          hist.url.cast<Utf8>().toDartString(),
           equals(history.url),
         );
         expect(
-          hists.ptr.ref.data[i].domain.cast<Utf8>().toDartString(),
+          hist.domain.cast<Utf8>().toDartString(),
           equals(history.domain),
         );
         expect(
-          hists.ptr.ref.data[i].rank,
+          hist.rank,
           equals(history.rank),
         );
         expect(
-          hists.ptr.ref.data[i].user_action,
+          hist.user_action,
           equals(history.userAction.toInt()),
         );
       });

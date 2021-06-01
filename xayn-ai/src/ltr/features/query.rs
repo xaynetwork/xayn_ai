@@ -53,7 +53,7 @@ impl QueryFeatures {
             .count() as f32
             / num_occurs as f32;
 
-        QueryFeatures {
+        Self {
             click_entropy,
             num_terms: res.query_words.len(),
             rank_per_session,

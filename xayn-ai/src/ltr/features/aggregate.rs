@@ -61,7 +61,7 @@ impl AggregFeatures {
         let url_query_ant = aggreg_feat(hist, &r, pred_url_query.with_session(anterior));
         let url_query_curr = aggreg_feat(hist, &r, pred_url_query.with_session(current));
 
-        AggregFeatures {
+        Self {
             dom,
             dom_ant,
             url,

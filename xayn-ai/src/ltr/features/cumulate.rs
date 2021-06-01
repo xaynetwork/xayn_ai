@@ -49,6 +49,6 @@ impl CumFeatures {
                 cp_map
             });
 
-        CumFeatures { url }
+        Self { url }
     }
 }

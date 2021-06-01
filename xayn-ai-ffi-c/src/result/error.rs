@@ -60,13 +60,13 @@ pub enum CCode {
     /// Deserialization of reranker database error.
     RerankerDeserialization = 21,
     /// Serialization of reranker database error.
-    RerankerSerialization = 12,
+    RerankerSerialization = 22,
     /// A qambert vocab null pointer error.
     #[allow(clippy::upper_case_acronyms)]
-    QAMBertVocabPointer = 13,
+    QAMBertVocabPointer = 23,
     /// A qambert model null pointer error.
     #[allow(clippy::upper_case_acronyms)]
-    QAMBertModelPointer = 14,
+    QAMBertModelPointer = 24,
 }
 
 impl CCode {
