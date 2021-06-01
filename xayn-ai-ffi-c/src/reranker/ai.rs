@@ -48,6 +48,8 @@ where
     }
 }
 
+const FAIL_INIT_AI: &str = "Failed to initialize the ai";
+
 impl CXaynAi {
     /// See [`xaynai_new()`] for more.
     unsafe fn new(
@@ -57,7 +59,6 @@ impl CXaynAi {
         qambert_model: Option<&u8>,
         serialized: Option<&CBytes>,
     ) -> Result<Self, Error> {
-        const FAIL_INIT_AI: &str = "Failed to initialize the ai";
         let smbert_vocab =
             unsafe { as_str(smbert_vocab, CCode::SMBertVocabPointer, FAIL_INIT_AI) }?;
         let smbert_model =
@@ -73,9 +74,7 @@ impl CXaynAi {
             .with_smbert_from_file(smbert_vocab, smbert_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_qambert_from_file(qambert_vocab, qambert_model)
-            .map_err(|cause| {
-                CCode::ReadFile.with_context(format!("Failed to initialize the ai: {}", cause))
-            })?
+            .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_serialized_database(serialized)
             .map_err(|cause| {
                 CCode::RerankerDeserialization.with_context(format!(
@@ -85,9 +84,7 @@ impl CXaynAi {
             })?
             .build()
             .map(Self)
-            .map_err(|cause| {
-                CCode::InitAi.with_context(format!("Failed to initialize the ai: {}", cause))
-            })
+            .map_err(|cause| CCode::InitAi.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))
     }
 
     /// See [`xaynai_rerank()`] for more.
@@ -556,7 +553,8 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to initialize the ai: The {} is null",
+                "{}: The {} is null",
+                FAIL_INIT_AI,
                 CCode::SMBertVocabPointer,
             ),
         );
@@ -588,7 +586,8 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to initialize the ai: The {} is null",
+                "{}: The {} is null",
+                FAIL_INIT_AI,
                 CCode::QAMBertVocabPointer,
             ),
         );
@@ -626,7 +625,8 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
+            format!(
+            "{}: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary", FAIL_INIT_AI),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -662,7 +662,8 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            "Failed to initialize the ai: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary",
+            format!(
+            "{}: Failed to build the tokenizer: Failed to build the tokenizer: Failed to build the model: Missing any entry in the vocabulary", FAIL_INIT_AI)
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -695,7 +696,7 @@ mod tests {
             .as_ref()
             .unwrap()
             .as_str()
-            .contains("Failed to initialize the ai: Failed to load a data file: "));
+            .contains(&format!("{}: Failed to load a data file: ", FAIL_INIT_AI)));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -727,7 +728,7 @@ mod tests {
             .as_ref()
             .unwrap()
             .as_str()
-            .contains("Failed to initialize the ai: Failed to load a data file: "));
+            .contains(&format!("{}: Failed to load a data file: ", FAIL_INIT_AI)));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -756,7 +757,8 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to initialize the ai: The {} is null",
+                "{}: The {} is null",
+                FAIL_INIT_AI,
                 CCode::SMBertModelPointer,
             ),
         );
@@ -788,7 +790,8 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to initialize the ai: The {} is null",
+                "{}: The {} is null",
+                FAIL_INIT_AI,
                 CCode::QAMBertModelPointer,
             ),
         );
@@ -895,7 +898,7 @@ mod tests {
             .as_ref()
             .unwrap()
             .as_str()
-            .contains("Failed to initialize the ai: Failed to load a data file: "));
+            .contains(&format!("{}: Failed to load a data file: ", FAIL_INIT_AI)));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -927,7 +930,7 @@ mod tests {
             .as_ref()
             .unwrap()
             .as_str()
-            .contains("Failed to initialize the ai: Failed to load a data file: "));
+            .contains(&format!("{}: Failed to load a data file: ", FAIL_INIT_AI)));
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
