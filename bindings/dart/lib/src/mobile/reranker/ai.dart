@@ -36,20 +36,24 @@ class XaynAi implements common.XaynAi {
   /// reranker database, otherwise creates a new one.
   XaynAi(SetupData data, [Uint8List? serialized]) {
     final vocabPtr = data.vocab.toNativeUtf8().cast<Uint8>();
-    final modelPtr = data.model.toNativeUtf8().cast<Uint8>();
+    final smbertModelPtr = data.smbertModel.toNativeUtf8().cast<Uint8>();
+    final qambertModelPtr = data.qambertModel.toNativeUtf8().cast<Uint8>();
     Bytes? bytes;
     final error = XaynAiError();
 
     try {
       bytes = Bytes.fromList(serialized ?? Uint8List(0));
-      _ai = ffi.xaynai_new(vocabPtr, modelPtr, bytes.ptr, error.ptr);
+      // vocabPtr is read-only and never freed in xaynai_new
+      _ai = ffi.xaynai_new(vocabPtr, smbertModelPtr, vocabPtr, qambertModelPtr,
+          bytes.ptr, error.ptr);
       if (error.isError()) {
         throw error.toException();
       }
       assertNeq(_ai, nullptr);
     } finally {
       malloc.free(vocabPtr);
-      malloc.free(modelPtr);
+      malloc.free(smbertModelPtr);
+      malloc.free(qambertModelPtr);
       bytes?.free();
       error.free();
     }

@@ -8,7 +8,8 @@ import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
 
 const vocab = '../../data/rubert_v0001/vocab.txt';
-const model = '../../data/rubert_v0001/smbert.onnx';
+const smbertModel = '../../data/rubert_v0001/smbert.onnx';
+const qambertModel = '../../data/rubert_v0001/qambert.onnx';
 
 final histories = [
   History('00000000-0000-0000-0000-000000000000', Relevance.low,

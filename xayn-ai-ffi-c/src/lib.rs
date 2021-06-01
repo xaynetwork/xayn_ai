@@ -13,6 +13,9 @@ pub(crate) mod tests {
     /// Path to the current vocabulary file.
     pub const VOCAB: &str = "../data/rubert_v0001/vocab.txt";
 
-    /// Path to the current onnx model file.
+    /// Path to the current smbert onnx model file.
     pub const SMBERT_MODEL: &str = "../data/rubert_v0001/smbert.onnx";
+
+    /// Path to the current qambert onnx model file.
+    pub const QAMBERT_MODEL: &str = "../data/rubert_v0001/qambert.onnx";
 }

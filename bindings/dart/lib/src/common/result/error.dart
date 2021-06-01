@@ -11,11 +11,17 @@ enum Code {
   /// No error.
   none,
 
-  /// A vocab null pointer error.
-  vocabPointer,
+  /// A smbert vocab null pointer error.
+  smbertVocabPointer,
 
-  /// A model null pointer error.
-  modelPointer,
+  /// A smbert model null pointer error.
+  smbertModelPointer,
+
+  /// A qambert vocab null pointer error.
+  qambertVocabPointer,
+
+  /// A qambert model null pointer error.
+  qambertModelPointer,
 
   /// A vocab or model file IO error.
   readFile,

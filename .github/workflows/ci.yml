@@ -270,7 +270,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
-          args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70 --workspace --exclude xayn-ai-ffi-wasm'
+          args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70 --workspace --exclude xayn-ai-ffi-wasm --timeout 300'
 
   install-cargo-lipo:
     # we use the latest stable rustc + cargo version that is already installed on the image

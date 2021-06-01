@@ -34,7 +34,9 @@ import 'package:xayn_ai_ffi_dart/src/web/result/outcomes.dart'
 
 @JS('xayn_ai_ffi_wasm.WXaynAi')
 class _XaynAi {
-  external _XaynAi(Uint8List vocab, Uint8List model, [Uint8List? serialized]);
+  external _XaynAi(
+      Uint8List vocab, Uint8List smbertModel, Uint8List qambertModel,
+      [Uint8List? serialized]);
 
   external JsRerankingOutcomes rerank(
     List<JsHistory> histories,
@@ -60,7 +62,8 @@ class XaynAi implements common.XaynAi {
   /// reranker database, otherwise creates a new one.
   XaynAi(SetupData data, [Uint8List? serialized]) {
     try {
-      _ai = _XaynAi(data.vocab, data.model, serialized);
+      _ai =
+          _XaynAi(data.vocab, data.smbertModel, data.qambertModel, serialized);
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
