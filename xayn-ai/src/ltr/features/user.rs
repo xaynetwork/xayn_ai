@@ -33,7 +33,7 @@ impl ClickCounts {
     }
 }
 
-struct UserFeatures {
+pub(crate) struct UserFeatures {
     /// Entropy over ranks of clicked results.
     click_entropy: f32,
     /// Click counts of results ranked 1-2, 3-6, 6-10 resp.
@@ -46,32 +46,35 @@ struct UserFeatures {
     words_per_session: f32,
 }
 
-/// Calculate user features for the given historical search results of a user.
-fn user_features(history: &[SearchResult]) -> UserFeatures {
-    let click_entropy = click_entropy(history);
-    let click_counts = click_counts(history);
+impl UserFeatures {
+    /// Build user features for the given historical search results of a user.
+    pub(crate) fn build(history: &[SearchResult]) -> Self {
+        let click_entropy = click_entropy(history);
+        let click_counts = click_counts(history);
 
-    // all queries over all sessions
-    let all_queries = history
-        .iter()
-        .map(|r| (r.session_id, r.query_id, &r.query_words, r.query_counter))
-        .collect::<HashSet<_>>();
+        // all queries over all sessions
+        let all_queries = history
+            .iter()
+            .map(|r| (r.session_id, r.query_id, &r.query_words, r.query_counter))
+            .collect::<HashSet<_>>();
 
-    let num_queries = all_queries.len();
-    let words_per_query = all_queries
-        .iter()
-        .map(|(_, _, words, _)| words.len())
-        .sum::<usize>() as f32
-        / num_queries as f32;
+        let num_queries = all_queries.len();
+        let words_per_query = all_queries
+            .iter()
+            .map(|(_, _, words, _)| words.len())
+            .sum::<usize>() as f32
+            / num_queries as f32;
 
-    let words_per_session = words_per_session(all_queries.into_iter());
+        let words_per_session =
+            words_per_session(all_queries.into_iter().map(|tpl| (tpl.0, tpl.2)));
 
-    UserFeatures {
-        click_entropy,
-        click_counts,
-        num_queries,
-        words_per_query,
-        words_per_session,
+        Self {
+            click_entropy,
+            click_counts,
+            num_queries,
+            words_per_query,
+            words_per_session,
+        }
     }
 }
 
@@ -84,15 +87,14 @@ fn click_counts(results: &[SearchResult]) -> ClickCounts {
 }
 
 /// Calculate mean number of unique query words per session.
-fn words_per_session<'a>(all_queries: impl Iterator<Item = (i32, i32, &'a Vec<i32>, u8)>) -> f32 {
-    let words_by_session =
-        all_queries.fold(HashMap::new(), |mut words_by_session, (s, _, ws, _)| {
-            let words = words_by_session
-                .entry(s)
-                .or_insert_with(HashSet::<i32>::new);
-            words.extend(ws);
-            words_by_session
-        });
+///
+/// `queries` is an iterator of unique `(session_id, query_words)` tuples over the search history.
+fn words_per_session<'a>(queries: impl Iterator<Item = (i32, &'a Vec<String>)>) -> f32 {
+    let words_by_session = queries.fold(HashMap::new(), |mut words_by_session, (s, ws)| {
+        let words = words_by_session.entry(s).or_insert_with(HashSet::new);
+        words.extend(ws);
+        words_by_session
+    });
 
     let num_sessions = words_by_session.len();
     words_by_session

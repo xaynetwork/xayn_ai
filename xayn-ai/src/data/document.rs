@@ -2,9 +2,8 @@ use derive_more::Display;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use std::convert::TryFrom;
+use uuid::Uuid;
 
 use crate::Error;
 
@@ -13,6 +12,7 @@ use crate::reranker::systems::CoiSystemData;
 use super::document_data::DocumentDataWithMab;
 
 #[repr(transparent)]
+#[cfg_attr(test, derive(Default))]
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
 pub struct DocumentId(pub Uuid);
 
@@ -31,24 +31,98 @@ impl TryFrom<&str> for DocumentId {
     }
 }
 
-/// This represents a result from the query.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Document {
-    /// unique identifier of this document
-    pub id: DocumentId,
-    /// position of the document from the source
-    pub rank: usize,
-    pub snippet: String,
+#[repr(transparent)]
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+pub struct SessionId(pub Uuid);
+
+impl SessionId {
+    /// New identifier from a 128bit value in big-endian order.
+    pub fn from_u128(id: u128) -> Self {
+        Self(Uuid::from_u128(id))
+    }
 }
 
+impl TryFrom<&str> for SessionId {
+    type Error = Error;
+
+    fn try_from(id: &str) -> Result<Self, Self::Error> {
+        Ok(Self(Uuid::parse_str(id)?))
+    }
+}
+
+#[repr(transparent)]
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+pub struct QueryId(pub Uuid);
+
+impl QueryId {
+    /// New identifier from a 128bit value in big-endian order.
+    pub fn from_u128(id: u128) -> Self {
+        Self(Uuid::from_u128(id))
+    }
+}
+
+impl TryFrom<&str> for QueryId {
+    type Error = Error;
+
+    fn try_from(id: &str) -> Result<Self, Self::Error> {
+        Ok(Self(Uuid::parse_str(id)?))
+    }
+}
+
+/// Represents a result from a query.
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Document {
+    /// Unique identifier of the document
+    pub id: DocumentId,
+    /// Position of the document from the source
+    pub rank: usize,
+    /// Text snippet of the document
+    pub snippet: String,
+    /// Session of the document
+    pub session: SessionId,
+    /// Query count within session
+    pub query_count: usize,
+    /// Query identifier of the document
+    pub query_id: QueryId,
+    /// Query of the document
+    pub query_words: String,
+    /// URL of the document
+    pub url: String,
+    /// Domain of the document
+    pub domain: String,
+}
+
+/// Represents a historical result from a query.
+#[cfg_attr(test, derive(Default))]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentHistory {
-    /// unique identifier of this document
+    /// Unique identifier of the document
     pub id: DocumentId,
     /// Relevance level of the document
     pub relevance: Relevance,
     /// A flag that indicates whether the user liked the document
     pub user_feedback: UserFeedback,
+    /// Session of the document
+    pub session: SessionId,
+    /// Query count within session
+    pub query_count: usize,
+    /// Query identifier of the document
+    pub query_id: QueryId,
+    /// Query of the document
+    pub query_words: String,
+    /// Day of week query was performed
+    pub day: DayOfWeek,
+    /// URL of the document
+    pub url: String,
+    /// Domain of the document
+    pub domain: String,
+    /// Reranked position of the document
+    pub rank: usize,
+    /// User interaction for the document
+    pub user_action: UserAction,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -56,6 +130,12 @@ pub enum UserFeedback {
     Relevant,
     Irrelevant,
     None,
+}
+
+impl Default for UserFeedback {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -133,6 +213,47 @@ impl RerankingOutcomes {
             final_ranking: docs.iter().map(|doc| doc.rank as u16).collect(),
             qa_mbert_similarities: None,
             context_scores: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum UserAction {
+    Click,
+    Skip,
+    Miss,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum DayOfWeek {
+    Mon,
+    Tue,
+    Wed,
+    Thu,
+    Fri,
+    Sat,
+    Sun,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl Default for Relevance {
+        fn default() -> Self {
+            Self::Low
+        }
+    }
+
+    impl Default for UserAction {
+        fn default() -> Self {
+            Self::Miss
+        }
+    }
+
+    impl Default for DayOfWeek {
+        fn default() -> Self {
+            DayOfWeek::Mon
         }
     }
 }
