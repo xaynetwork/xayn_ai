@@ -64,6 +64,7 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -
             },
             document_content: DocumentContentComponent {
                 snippet: snippet.to_string(),
+                query_words: "query".to_string(),
             },
         })
         .collect();
@@ -139,13 +140,15 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
             },
             document_content: DocumentContentComponent {
                 snippet: "snippet".to_string(),
+                query_words: "query".to_string(),
             },
             smbert: SMBertComponent { embedding },
         })
         .collect()
 }
 
-pub(crate) fn documents_with_embeddings_from_snippet(
+pub(crate) fn documents_with_embeddings_from_snippet_and_query(
+    query: &str,
     snippets: &[&str],
 ) -> Vec<DocumentDataWithSMBert> {
     from_ids(0..snippets.len() as u32)
@@ -156,6 +159,7 @@ pub(crate) fn documents_with_embeddings_from_snippet(
             },
             document_content: DocumentContentComponent {
                 snippet: snippets[initial_ranking].to_string(),
+                query_words: query.to_string(),
             },
             smbert: SMBertComponent { embedding },
         })

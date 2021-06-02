@@ -36,7 +36,6 @@ pub(crate) trait SMBertSystem {
 pub(crate) trait QAMBertSystem {
     fn compute_similarity(
         &self,
-        query: &str,
         documents: Vec<DocumentDataWithSMBert>,
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error>;
 }

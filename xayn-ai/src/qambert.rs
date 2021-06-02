@@ -10,24 +10,28 @@ use crate::{
 impl QAMBertSystem for QAMBert {
     fn compute_similarity(
         &self,
-        query: &str,
         documents: Vec<DocumentDataWithSMBert>,
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error> {
-        let query = self.run(query)?;
-        documents
-            .into_iter()
-            .map(|document| {
-                self.run(&document.document_content.snippet)
-                    .map(|embedding| {
-                        let similarity = l2_norm_distance(&query, &embedding);
-                        DocumentDataWithQAMBert::from_document(
-                            document,
-                            QAMBertComponent { similarity },
-                        )
-                    })
-                    .map_err(Into::into)
-            })
-            .collect()
+        if let Some(document) = documents.first() {
+            let query = &document.document_content.query_words;
+            let query = self.run(query)?;
+            documents
+                .into_iter()
+                .map(|document| {
+                    self.run(&document.document_content.snippet)
+                        .map(|embedding| {
+                            let similarity = l2_norm_distance(&query, &embedding);
+                            DocumentDataWithQAMBert::from_document(
+                                document,
+                                QAMBertComponent { similarity },
+                            )
+                        })
+                        .map_err(Into::into)
+                })
+                .collect()
+        } else {
+            Ok(Vec::new())
+        }
     }
 }
 
@@ -38,7 +42,6 @@ pub struct DummyQAMBert;
 impl QAMBertSystem for DummyQAMBert {
     fn compute_similarity(
         &self,
-        _query: &str,
         documents: Vec<DocumentDataWithSMBert>,
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error> {
         Ok(documents
@@ -57,7 +60,7 @@ impl QAMBertSystem for DummyQAMBert {
 mod tests {
     use rubert::{AveragePooler, QAMBertBuilder};
 
-    use crate::tests::documents_with_embeddings_from_snippet;
+    use crate::tests::documents_with_embeddings_from_snippet_and_query;
 
     use super::*;
 
@@ -77,15 +80,13 @@ mod tests {
     }
 
     fn check_similarity<Q: QAMBertSystem>(system: Q, values: &[f32]) {
-        let documents = documents_with_embeddings_from_snippet(&[
-            "Football",
-            "Continent",
-            "Tourist guide",
-            "Ice cream",
-        ]);
+        let documents = documents_with_embeddings_from_snippet_and_query(
+            "Europe",
+            &["Football", "Continent", "Tourist guide", "Ice cream"],
+        );
 
         let similarities: Vec<f32> = system
-            .compute_similarity("Europe", documents)
+            .compute_similarity(documents)
             .unwrap()
             .iter()
             .map(|document| document.qambert.similarity)
@@ -105,7 +106,7 @@ mod tests {
     }
 
     fn check_empty_documents<Q: QAMBertSystem>(system: Q) {
-        let similarities = system.compute_similarity("Europe", Vec::new()).unwrap();
+        let similarities = system.compute_similarity(Vec::new()).unwrap();
 
         assert!(similarities.is_empty());
     }
