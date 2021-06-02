@@ -246,6 +246,7 @@ pub(super) mod tests {
                 id: DocumentId::from_u128(id as u128),
                 relevance,
                 user_feedback,
+                ..Default::default()
             })
             .collect()
     }
@@ -304,6 +305,7 @@ pub(super) mod tests {
             id: DocumentId::from_u128(1),
             relevance: Relevance::Low,
             user_feedback: UserFeedback::Irrelevant,
+            ..Default::default()
         };
         assert!(matches!(
             document_relevance(&history),

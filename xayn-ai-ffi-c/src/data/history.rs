@@ -1,6 +1,6 @@
 use std::{convert::TryInto, slice};
 
-use xayn_ai::{DocumentHistory, Relevance, UserFeedback};
+use xayn_ai::{DayOfWeek, DocumentHistory, Relevance, UserAction, UserFeedback};
 
 use crate::{
     result::error::{CCode, Error},
@@ -49,6 +49,54 @@ impl From<CFeedback> for UserFeedback {
     }
 }
 
+/// Day of the week.
+#[repr(u8)]
+#[derive(Clone, Copy)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub enum CDayOfWeek {
+    Mon = 0,
+    Tue = 1,
+    Wed = 2,
+    Thu = 3,
+    Fri = 4,
+    Sat = 5,
+    Sun = 6,
+}
+
+impl From<CDayOfWeek> for DayOfWeek {
+    fn from(day: CDayOfWeek) -> Self {
+        match day {
+            CDayOfWeek::Mon => Self::Mon,
+            CDayOfWeek::Tue => Self::Tue,
+            CDayOfWeek::Wed => Self::Wed,
+            CDayOfWeek::Thu => Self::Thu,
+            CDayOfWeek::Fri => Self::Fri,
+            CDayOfWeek::Sat => Self::Sat,
+            CDayOfWeek::Sun => Self::Sun,
+        }
+    }
+}
+
+/// Interaction from the user.
+#[repr(u8)]
+#[derive(Clone, Copy)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub enum CUserAction {
+    Miss = 0,
+    Skip = 1,
+    Click = 2,
+}
+
+impl From<CUserAction> for UserAction {
+    fn from(user_action: CUserAction) -> Self {
+        match user_action {
+            CUserAction::Miss => Self::Miss,
+            CUserAction::Skip => Self::Skip,
+            CUserAction::Click => Self::Click,
+        }
+    }
+}
+
 /// A raw document history.
 #[repr(C)]
 pub struct CHistory<'a> {
@@ -58,6 +106,15 @@ pub struct CHistory<'a> {
     pub relevance: CRelevance,
     /// The user feedback level of the document.
     pub feedback: CFeedback,
+    pub session: Option<&'a u8>,
+    pub query_count: u32,
+    pub query_id: Option<&'a u8>,
+    pub query_words: Option<&'a u8>,
+    pub day: CDayOfWeek,
+    pub url: Option<&'a u8>,
+    pub domain: Option<&'a u8>,
+    pub rank: u32,
+    pub user_action: CUserAction,
 }
 
 /// A raw slice of document histories.
@@ -94,18 +151,80 @@ impl<'a> CHistories<'a> {
                     }
                     .and_then(|s| {
                         s.try_into().map_err(|e| {
-                            CCode::HistoriesPointer
+                            CCode::HistoryIdPointer
                                 .with_context(format!("Invalid uuid string: {}", e))
                         })
                     })?;
-
                     let relevance = history.relevance.into();
                     let user_feedback = history.feedback.into();
+                    let session = unsafe {
+                        as_str(
+                            history.session,
+                            CCode::HistorySessionPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }
+                    .and_then(|s| {
+                        s.try_into().map_err(|e| {
+                            CCode::HistorySessionPointer
+                                .with_context(format!("Invalid uuid string: {}", e))
+                        })
+                    })?;
+                    let query_count = history.query_count as usize;
+                    let query_id = unsafe {
+                        as_str(
+                            history.query_id,
+                            CCode::HistoryQueryIdPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }
+                    .and_then(|s| {
+                        s.try_into().map_err(|e| {
+                            CCode::HistoryQueryIdPointer
+                                .with_context(format!("Invalid uuid string: {}", e))
+                        })
+                    })?;
+                    let query_words = unsafe {
+                        as_str(
+                            history.query_words,
+                            CCode::HistoryQueryWordsPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
+                    let day = history.day.into();
+                    let url = unsafe {
+                        as_str(
+                            history.url,
+                            CCode::HistoryUrlPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
+                    let domain = unsafe {
+                        as_str(
+                            history.domain,
+                            CCode::HistoryDomainPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
+                    let rank = history.rank as usize;
+                    let user_action = history.user_action.into();
 
                     Ok(DocumentHistory {
                         id,
                         relevance,
                         user_feedback,
+                        session,
+                        query_count,
+                        query_id,
+                        query_words,
+                        day,
+                        url,
+                        domain,
+                        rank,
+                        user_action,
                     })
                 })
                 .collect(),
@@ -121,10 +240,15 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::utils::tests::as_str_unchecked;
-    use xayn_ai::DocumentId;
+    use xayn_ai::{DocumentId, QueryId, SessionId};
 
     pub struct TestHistories<'a> {
         _ids: Pin<Vec<CString>>,
+        _sessions: Pin<Vec<CString>>,
+        _query_ids: Pin<Vec<CString>>,
+        _query_words: Pin<Vec<CString>>,
+        _urls: Pin<Vec<CString>>,
+        _domains: Pin<Vec<CString>>,
         history: Pin<Vec<CHistory<'a>>>,
         histories: CHistories<'a>,
     }
@@ -149,15 +273,70 @@ pub(crate) mod tests {
             let feedbacks = repeat(CFeedback::Irrelevant)
                 .take(len / 2)
                 .chain(repeat(CFeedback::Relevant).take(len - len / 2));
+            let _sessions = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(SessionId::from_u128(idx as u128).to_string()).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let query_counts = repeat(1).take(len);
+            let _query_ids = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(QueryId::from_u128(idx as u128).to_string()).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let _query_words = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("query {}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let days = repeat(CDayOfWeek::Sun)
+                .take(len / 2)
+                .chain(repeat(CDayOfWeek::Mon).take(len - len / 2));
+            let _urls = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("url-{}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let _domains = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("domain-{}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let ranks = 0..len as u32;
+            let user_actions = repeat(CUserAction::Miss)
+                .take(len / 2)
+                .chain(repeat(CUserAction::Click).take(len - len / 2));
 
             let history = Pin::new(
-                izip!(_ids.as_ref().get_ref(), relevances, feedbacks)
-                    .map(|(id, relevance, feedback)| CHistory {
-                        id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
-                        relevance,
-                        feedback,
-                    })
-                    .collect::<Vec<_>>(),
+                izip!(
+                    _ids.as_ref().get_ref(),
+                    relevances,
+                    feedbacks,
+                    _sessions.as_ref().get_ref(),
+                    query_counts,
+                    _query_ids.as_ref().get_ref(),
+                    _query_words.as_ref().get_ref(),
+                    days,
+                    _urls.as_ref().get_ref(),
+                    _domains.as_ref().get_ref(),
+                    ranks,
+                    user_actions,
+                )
+                .map(|chist| CHistory {
+                    id: unsafe { chist.0.as_ptr().cast::<u8>().as_ref() },
+                    relevance: chist.1,
+                    feedback: chist.2,
+                    session: unsafe { chist.3.as_ptr().cast::<u8>().as_ref() },
+                    query_count: chist.4,
+                    query_id: unsafe { chist.5.as_ptr().cast::<u8>().as_ref() },
+                    query_words: unsafe { chist.6.as_ptr().cast::<u8>().as_ref() },
+                    day: chist.7,
+                    url: unsafe { chist.8.as_ptr().cast::<u8>().as_ref() },
+                    domain: unsafe { chist.9.as_ptr().cast::<u8>().as_ref() },
+                    rank: chist.10,
+                    user_action: chist.11,
+                })
+                .collect::<Vec<_>>(),
             );
             let histories = CHistories {
                 data: unsafe { history.as_ptr().as_ref() },
@@ -166,6 +345,11 @@ pub(crate) mod tests {
 
             Self {
                 _ids,
+                _sessions,
+                _query_ids,
+                _query_words,
+                _urls,
+                _domains,
                 history,
                 histories,
             }

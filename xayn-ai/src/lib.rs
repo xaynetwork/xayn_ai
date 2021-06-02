@@ -16,11 +16,15 @@ pub use crate::{
     analytics::Analytics,
     data::{
         document::{
+            DayOfWeek,
             Document,
             DocumentHistory,
             DocumentId,
+            QueryId,
             Relevance,
             RerankingOutcomes,
+            SessionId,
+            UserAction,
             UserFeedback,
         },
         CoiId,

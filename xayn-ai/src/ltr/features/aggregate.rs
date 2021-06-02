@@ -13,7 +13,7 @@ use crate::ltr::features::dataiku::{
 };
 
 /// Aggregate features for a given user.
-struct AggregFeatures {
+pub(crate) struct AggregFeatures {
     /// Aggregate feature for matching domain.
     dom: FeatMap,
     /// Aggregate feature for matching domain over anterior sessions.
@@ -34,40 +34,44 @@ struct AggregFeatures {
     url_query_curr: FeatMap,
 }
 
-/// Calculate aggregate features for the given search result and history of a user.
-fn aggreg_features(hist: &[SearchResult], r: SearchResult) -> AggregFeatures {
-    let anterior = SessionCond::Anterior(r.session_id);
-    let current = SessionCond::Current(r.session_id);
-    let r_url = UrlOrDom::Url(r.url);
-    let r_dom = UrlOrDom::Dom(r.domain);
+impl AggregFeatures {
+    /// Build aggregate features for the given search result and history of a user.
+    pub(crate) fn build(hist: &[SearchResult], res: impl AsRef<SearchResult>) -> Self {
+        let r = res.as_ref();
 
-    let pred_dom = FilterPred::new(r_dom);
-    let dom = aggreg_feat(hist, &r, pred_dom);
-    let dom_ant = aggreg_feat(hist, &r, pred_dom.with_session(anterior));
+        let anterior = SessionCond::Anterior(r.session_id);
+        let current = SessionCond::Current(r.session_id);
+        let r_url = UrlOrDom::Url(&r.url);
+        let r_dom = UrlOrDom::Dom(&r.domain);
 
-    let pred_url = FilterPred::new(r_url);
-    let url = aggreg_feat(hist, &r, pred_url);
-    let url_ant = aggreg_feat(hist, &r, pred_url.with_session(anterior));
+        let pred_dom = FilterPred::new(r_dom);
+        let dom = aggreg_feat(hist, &r, pred_dom);
+        let dom_ant = aggreg_feat(hist, &r, pred_dom.with_session(anterior));
 
-    let pred_dom_query = pred_dom.with_query(r.query_id);
-    let dom_query = aggreg_feat(hist, &r, pred_dom_query);
-    let dom_query_ant = aggreg_feat(hist, &r, pred_dom_query.with_session(anterior));
+        let pred_url = FilterPred::new(r_url);
+        let url = aggreg_feat(hist, &r, pred_url);
+        let url_ant = aggreg_feat(hist, &r, pred_url.with_session(anterior));
 
-    let pred_url_query = pred_url.with_query(r.query_id);
-    let url_query = aggreg_feat(hist, &r, pred_url_query);
-    let url_query_ant = aggreg_feat(hist, &r, pred_url_query.with_session(anterior));
-    let url_query_curr = aggreg_feat(hist, &r, pred_url_query.with_session(current));
+        let pred_dom_query = pred_dom.with_query(r.query_id);
+        let dom_query = aggreg_feat(hist, &r, pred_dom_query);
+        let dom_query_ant = aggreg_feat(hist, &r, pred_dom_query.with_session(anterior));
 
-    AggregFeatures {
-        dom,
-        dom_ant,
-        url,
-        url_ant,
-        dom_query,
-        dom_query_ant,
-        url_query,
-        url_query_ant,
-        url_query_curr,
+        let pred_url_query = pred_url.with_query(r.query_id);
+        let url_query = aggreg_feat(hist, &r, pred_url_query);
+        let url_query_ant = aggreg_feat(hist, &r, pred_url_query.with_session(anterior));
+        let url_query_curr = aggreg_feat(hist, &r, pred_url_query.with_session(current));
+
+        Self {
+            dom,
+            dom_ant,
+            url,
+            url_ant,
+            dom_query,
+            dom_query_ant,
+            url_query,
+            url_query_ant,
+            url_query_curr,
+        }
     }
 }
 

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart'
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
-    show Feedback, History, Relevance;
+    show Feedback, History, Relevance, DayOfWeek, UserAction;
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
 
@@ -11,16 +11,44 @@ const vocab = '../../data/rubert_v0001/vocab.txt';
 const smbertModel = '../../data/rubert_v0001/smbert.onnx';
 const qambertModel = '../../data/rubert_v0001/qambert.onnx';
 
+Document mkTestDoc(String id, String snippet, int rank) => Document(
+      id,
+      snippet,
+      rank,
+      '00000000-0000-0000-0000-000000000000',
+      1,
+      '00000000-0000-0000-0000-000000000000',
+      'query words',
+      'url',
+      'domain',
+    );
+
+History mkTestHist(String id, Relevance relevance, Feedback feedback) =>
+    History(
+      id,
+      relevance,
+      feedback,
+      '00000000-0000-0000-0000-000000000000',
+      1,
+      '00000000-0000-0000-0000-000000000000',
+      'query words',
+      DayOfWeek.mon,
+      'url',
+      'domain',
+      0,
+      UserAction.miss,
+    );
+
 final histories = [
-  History('00000000-0000-0000-0000-000000000000', Relevance.low,
+  mkTestHist('00000000-0000-0000-0000-000000000000', Relevance.low,
       Feedback.irrelevant),
-  History('00000000-0000-0000-0000-000000000001', Relevance.high,
+  mkTestHist('00000000-0000-0000-0000-000000000001', Relevance.high,
       Feedback.relevant),
 ];
 final documents = [
-  Document('00000000-0000-0000-0000-000000000000', 'abc', 0),
-  Document('00000000-0000-0000-0000-000000000001', 'def', 1),
-  Document('00000000-0000-0000-0000-000000000002', 'ghi', 2),
+  mkTestDoc('00000000-0000-0000-0000-000000000000', 'abc', 0),
+  mkTestDoc('00000000-0000-0000-0000-000000000001', 'def', 1),
+  mkTestDoc('00000000-0000-0000-0000-000000000002', 'ghi', 2),
 ];
 
 Matcher throwsXaynAiException(Code code) => throwsA(

@@ -10,6 +10,8 @@ use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
+use super::{AggregFeatures, CumFeatures, QueryFeatures, UserFeatures};
+
 /// Click satisfaction score.
 ///
 /// Based on Yandex notion of dwell-time: time elapsed between a click and the next action.
@@ -68,12 +70,12 @@ pub struct SearchResult {
     pub(crate) query_id: i32,
     /// Day of week search was performed.
     pub(crate) day: DayOfWeek,
-    /// Words of the query, each masked.
-    pub(crate) query_words: Vec<i32>,
-    /// URL of result, masked.
-    pub(crate) url: i32,
-    /// Domain of result, masked.
-    pub(crate) domain: i32,
+    /// Words of the query.
+    pub(crate) query_words: Vec<String>,
+    /// URL of result.
+    pub(crate) url: String,
+    /// Domain of result.
+    pub(crate) domain: String,
     /// Relevance level of the result.
     pub(crate) relevance: ClickSat,
     /// Position among other results.
@@ -140,25 +142,20 @@ impl<'a> ResultSet<'a> {
     }
 
     /// Rank of the result with the matching `url`.
-    fn rank_of(&self, url: i32) -> Option<Rank> {
+    fn rank_of(&self, url: &str) -> Option<Rank> {
         self.0
             .iter()
             .find_map(|r| (r.url == url).then(|| r.position))
     }
 }
 
-pub(crate) struct Query {
-    pub(crate) id: i32,
-    pub(crate) words: Vec<i32>,
+struct DocAddr<'a> {
+    url: UrlOrDom<'a>,
+    dom: UrlOrDom<'a>,
 }
 
-struct DocAddr {
-    url: UrlOrDom,
-    dom: UrlOrDom,
-}
-
-impl DocAddr {
-    fn new(url: i32, dom: i32) -> Self {
+impl<'a> DocAddr<'a> {
+    fn new(url: &'a str, dom: &'a str) -> Self {
         Self {
             url: UrlOrDom::Url(url),
             dom: UrlOrDom::Dom(dom),
@@ -167,11 +164,11 @@ impl DocAddr {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum UrlOrDom {
+pub(crate) enum UrlOrDom<'a> {
     /// A specific URL.
-    Url(i32),
+    Url(&'a str),
     /// Any URL belonging to the given domain.
-    Dom(i32),
+    Dom(&'a str),
 }
 
 /// Query submission timescale.
@@ -187,14 +184,14 @@ pub(crate) enum SessionCond {
 
 /// Filter predicate representing a boolean condition on a search result.
 #[derive(Clone, Copy)]
-pub(crate) struct FilterPred {
-    doc: UrlOrDom,
+pub(crate) struct FilterPred<'a> {
+    doc: UrlOrDom<'a>,
     query: Option<i32>,
     session: SessionCond,
 }
 
-impl FilterPred {
-    pub(crate) fn new(doc: UrlOrDom) -> Self {
+impl<'a> FilterPred<'a> {
+    pub(crate) fn new(doc: UrlOrDom<'a>) -> Self {
         Self {
             doc,
             query: None,
@@ -280,6 +277,52 @@ impl FilterPred {
     }
 }
 
+/// Families of features for a non-personalised search result, based on Dataiku's specification.
+struct Features {
+    /// Unpersonalised rank.
+    rank: Rank,
+    /// Aggregate features.
+    aggreg: AggregFeatures,
+    /// User features.
+    user: UserFeatures,
+    /// Query features.
+    query: QueryFeatures,
+    /// Cumulated features.
+    cum: CumFeatures,
+    /// Terms variety count.
+    terms_variety: usize,
+    /// Weekend domain seasonality.
+    seasonality: f32,
+}
+
+impl Features {
+    /// Build features for a user's search `res`ult given her past search `hist`ory.
+    fn build(hist: &[SearchResult], res: SearchResult) -> Self {
+        let rank = res.position;
+        let aggreg = AggregFeatures::build(hist, &res);
+        let user = UserFeatures::build(hist);
+        let query = QueryFeatures::build(hist, &res);
+        let cum = CumFeatures::build(hist, &res);
+        let terms_variety = terms_variety(hist, res.session_id);
+        // NOTE according to Dataiku spec, this should be the weekend seasonality
+        // factor when `res.day` is a weekend, otherwise the inverse (weekday
+        // seasonality) factor. a bug in soundgarden sets this to always be weekend
+        // seasonality but since the model is trained on it, we match that
+        // behaviour here.
+        let seasonality = seasonality(hist, &res.domain);
+
+        Self {
+            rank,
+            aggreg,
+            user,
+            query,
+            cum,
+            terms_variety,
+            seasonality,
+        }
+    }
+}
+
 /// Mean reciprocal rank of results filtered by outcome and a predicate.
 ///
 /// It is defined as the ratio:
@@ -332,7 +375,7 @@ fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
 }
 
 /// Weekend seasonality of a given domain.
-fn seasonality(history: &[SearchResult], domain: i32) -> f32 {
+fn seasonality(history: &[SearchResult], domain: &str) -> f32 {
     let (clicks_wknd, clicks_wkday) = history
         .iter()
         .filter(|r| r.domain == domain && r.relevance > ClickSat::Low)
@@ -396,7 +439,7 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
         .into_iter()
         .filter_map(|(_, rs)| {
             let rs = ResultSet::new(rs.collect());
-            rs.rank_of(res.url).map(|pos| snippet_score(rs, pos))
+            rs.rank_of(&res.url).map(|pos| snippet_score(rs, pos))
         })
         .sum::<f32>();
 

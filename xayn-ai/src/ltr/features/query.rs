@@ -1,16 +1,10 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{
-    click_entropy,
-    mean_recip_rank,
-    ClickSat,
-    Query,
-    SearchResult,
-};
+use crate::ltr::features::dataiku::{click_entropy, mean_recip_rank, ClickSat, SearchResult};
 use itertools::Itertools;
 use std::collections::HashSet;
 
-struct QueryFeatures {
+pub(crate) struct QueryFeatures {
     /// Entropy over ranks of clicked results.
     click_entropy: f32,
     /// Number of terms.
@@ -29,44 +23,46 @@ struct QueryFeatures {
     avg_skips: f32,
 }
 
-/// Calculate query features for the given query and historical search results of a user.
-fn query_features(history: &[SearchResult], query: Query) -> QueryFeatures {
-    // history filtered by query
-    let history_q = history
-        .iter()
-        .filter(|r| r.query_id == query.id)
-        .collect_vec();
+impl QueryFeatures {
+    /// Build query features for the given search result and history of a user.
+    pub(crate) fn build(history: &[SearchResult], res: &SearchResult) -> Self {
+        // history filtered by query
+        let history_q = history
+            .iter()
+            .filter(|r| r.query_id == res.query_id)
+            .collect_vec();
 
-    let click_entropy = click_entropy(&history_q);
+        let click_entropy = click_entropy(&history_q);
 
-    let (rank_per_session, num_occurs) = avg_query_count(history_q.iter());
+        let (rank_per_session, num_occurs) = avg_query_count(history_q.iter());
 
-    let num_sessions = history_q.iter().unique_by(|r| r.session_id).count() as f32;
-    let occurs_per_session = num_occurs as f32 / num_sessions;
+        let num_sessions = history_q.iter().unique_by(|r| r.session_id).count() as f32;
+        let occurs_per_session = num_occurs as f32 / num_sessions;
 
-    let clicked = history_q
-        .iter()
-        .filter(|r| r.relevance > ClickSat::Low)
-        .collect_vec();
-    let click_mrr = mean_recip_rank(&clicked, None, None);
+        let clicked = history_q
+            .iter()
+            .filter(|r| r.relevance > ClickSat::Low)
+            .collect_vec();
+        let click_mrr = mean_recip_rank(&clicked, None, None);
 
-    let avg_clicks = clicked.len() as f32 / num_occurs as f32;
+        let avg_clicks = clicked.len() as f32 / num_occurs as f32;
 
-    let avg_skips = history_q
-        .into_iter()
-        .filter(|r| r.relevance == ClickSat::Skip)
-        .count() as f32
-        / num_occurs as f32;
+        let avg_skips = history_q
+            .into_iter()
+            .filter(|r| r.relevance == ClickSat::Skip)
+            .count() as f32
+            / num_occurs as f32;
 
-    QueryFeatures {
-        click_entropy,
-        num_terms: query.words.len(),
-        rank_per_session,
-        occurs_per_session,
-        num_occurs,
-        click_mrr,
-        avg_clicks,
-        avg_skips,
+        Self {
+            click_entropy,
+            num_terms: res.query_words.len(),
+            rank_per_session,
+            occurs_per_session,
+            num_occurs,
+            click_mrr,
+            avg_clicks,
+            avg_skips,
+        }
     }
 }
 
