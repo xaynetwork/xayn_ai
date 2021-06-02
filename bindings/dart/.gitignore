@@ -7,6 +7,9 @@ pubspec.lock
 # we need to upload also the following files.
 # DELETE_AFTER_THIS_IN_RELEASE
 android/src/main/jniLibs/
+android/src/main/XaynAiFfiCommon.h
+android/src/main/XaynAiFfiDartPlugin.h
+ios/Classes/XaynAiFfiCommon.h
 ios/Classes/XaynAiFfiDartPlugin.h
 ios/libxayn_ai_ffi_c.a
 lib/src/common/ffi/genesis.dart

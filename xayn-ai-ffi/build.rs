@@ -23,15 +23,25 @@ fn main() {
     let crate_dir = PathBuf::from(
         env::var("CARGO_MANIFEST_DIR").expect("Failed to read CARGO_MANIFEST_DIR env."),
     );
-    let bind_config = crate_dir.join("cbindgen.toml");
-    let bind_file = crate_dir.join("ffi.h");
+    let dart_dir = crate_dir.parent().unwrap().join("bindings").join("dart");
+
+    let config_file = crate_dir.join("cbindgen.toml");
+    let android_file = dart_dir
+        .join("android")
+        .join("src")
+        .join("main")
+        .join("XaynAiFfiCommon.h");
+    let ios_file = dart_dir
+        .join("ios")
+        .join("Classes")
+        .join("XaynAiFfiCommon.h");
 
     cargo_rerun_if_changed(crate_dir.join("src"));
     cargo_rerun_if_changed(crate_dir.join("Cargo.toml"));
-    cargo_rerun_if_changed(bind_config.as_path());
+    cargo_rerun_if_changed(config_file.as_path());
 
-    let config = Config::from_file(bind_config).expect("Failed to read config.");
-    generate_with_config(crate_dir, config)
-        .expect("Failed to generate bindings.")
-        .write_to_file(bind_file);
+    let config = Config::from_file(config_file).expect("Failed to read config.");
+    let bindings = generate_with_config(crate_dir, config).expect("Failed to generate bindings.");
+    bindings.write_to_file(android_file);
+    bindings.write_to_file(ios_file);
 }

@@ -3,9 +3,9 @@ description: 'Bindings to the xayn-ai-ffi-c library.'
 output: 'lib/src/mobile/ffi/genesis.dart'
 headers:
   entry-points:
-    - '../../xayn-ai-ffi-c/ffi.h'
+    - 'android/src/main/XaynAiFfiDartPlugin.h'
   include-directives:
-    - '../../xayn-ai-ffi-c/ffi.h'
+    - 'android/src/main/XaynAiFfiDartPlugin.h'
 compiler-opts-automatic:
   macos:
     include-c-standard-library: false
