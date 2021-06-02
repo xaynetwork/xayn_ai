@@ -145,6 +145,23 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
         .collect()
 }
 
+pub(crate) fn documents_with_embeddings_from_snippet(
+    snippets: &[&str],
+) -> Vec<DocumentDataWithSMBert> {
+    from_ids(0..snippets.len() as u32)
+        .map(|(id, initial_ranking, embedding)| DocumentDataWithSMBert {
+            document_base: DocumentBaseComponent {
+                id,
+                initial_ranking,
+            },
+            document_content: DocumentContentComponent {
+                snippet: snippets[initial_ranking].to_string(),
+            },
+            smbert: SMBertComponent { embedding },
+        })
+        .collect()
+}
+
 pub(crate) fn expected_rerank_unchanged(docs: &[Document]) -> Vec<u16> {
     docs.iter().map(|doc| doc.rank as u16).collect()
 }

@@ -5,6 +5,7 @@ mod analytics;
 mod coi;
 mod context;
 mod data;
+mod embedding_utils;
 mod error;
 mod ltr;
 mod mab;
