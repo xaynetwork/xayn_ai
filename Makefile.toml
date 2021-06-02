@@ -47,6 +47,8 @@ script = ["""
 [tasks.build-bindgen-wasm]
 script = ["""
   wasm-pack build xayn-ai-ffi-wasm --out-dir ../bindings/dart/lib/src/web/ffi --out-name genesis --target web
+  # remove glob gitignore: https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0
+  rm bindings/dart/lib/src/web/ffi/.gitignore
 """]
 
 [tasks.build-bindgen]

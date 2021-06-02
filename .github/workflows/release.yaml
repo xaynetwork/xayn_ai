@@ -181,7 +181,10 @@ jobs:
 
       - name: Generate flutter ffi
         working-directory: ${{ env.DART_WORKSPACE }}
-        run: flutter pub run ffigen
+        run: |
+          flutter pub run ffigen --config ffigen_common.yaml
+          flutter pub run ffigen --config ffigen_mobile.yaml
+          grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
@@ -189,7 +192,11 @@ jobs:
           name: headers-${{ github.sha }}
           retention-days: 1
           path: |
+            ${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiCommon.h
+            ${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiDartPlugin.h
+            ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h
+            ${{ env.DART_WORKSPACE }}/lib/src/common/ffi/genesis.dart
             ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi/genesis.dart
 
   build-android-libs:
@@ -306,7 +313,7 @@ jobs:
 
       - name: Rename lib
         run: |
-          dir=target/${{ matrix.target}}/release
+          dir=target/${{ matrix.target }}/release
           mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
       - name: Upload artifact
@@ -364,8 +371,12 @@ jobs:
       - name: Copy headers
         run: |
           cd /tmp/artifacts/headers-${{ github.sha }}
-          cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi
+          cp android/src/main/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/android/src/main
+          cp android/src/main/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/android/src/main
+          cp ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes
           cp ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/Classes
+          cp lib/src/common/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/common/ffi
+          cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi
 
       - name: Get current branch
         shell: bash
