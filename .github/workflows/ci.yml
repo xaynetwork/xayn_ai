@@ -500,7 +500,7 @@ jobs:
       - name: Generate lib artifacts key
         id: cache-key
         shell: bash
-        run: echo "::set-output name=key::$(echo build-x86_64-unknown-linux-gnu-${{ hashFiles('target/debug/libxayn_ai_ffi_c.so', '${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiCommon.h', '${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiDartPlugin.h'), '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h', '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h') }})"
+        run: echo "::set-output name=key::$(echo build-x86_64-unknown-linux-gnu-${{ hashFiles('target/debug/libxayn_ai_ffi_c.so', '${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiCommon.h', '${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiDartPlugin.h', '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h', '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h') }})"
 
       - name: Upload library artifacts
         uses: actions/upload-artifact@v2
