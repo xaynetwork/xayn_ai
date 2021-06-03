@@ -15,7 +15,7 @@ ndarray = { version = "=0.15.2", features = ["serde"] }
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 serde = { version = "1.0.125", features = ["derive"] }
 thiserror = "1.0.24"
-tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "TY-1807-update_tract_fork" }
+tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
 
 [[example]]
 name = "smbert"
