@@ -829,7 +829,10 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            "Failed to initialize the ai: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
+            format!(
+                "{}: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
+                FAIL_INIT_AI,
+            ),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -865,7 +868,10 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            "Failed to initialize the ai: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
+            format!(
+                "{}: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
+                FAIL_INIT_AI,
+            ),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
