@@ -10,6 +10,24 @@ use crate::{
     reranker::systems::LtrSystem,
 };
 
+#[allow(unused)] // TEMP
+/// Domain reranker consisting of a ListNet model trained on engineered features.
+pub(crate) struct DomainReranker;
+
+impl LtrSystem for DomainReranker {
+    fn compute_ltr(
+        &self,
+        _history: &[DocumentHistory],
+        _documents: Vec<DocumentDataWithCoi>,
+    ) -> Result<Vec<DocumentDataWithLtr>, Error> {
+        unimplemented!() // TODO
+    }
+}
+
+// ***
+// ignore everything below here
+// ***
+
 /// LTR with constant value.
 pub(crate) struct ConstLtr;
 
@@ -48,7 +66,13 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{CoiComponent, DocumentBaseComponent, QAMBertComponent, SMBertComponent},
+        document_data::{
+            CoiComponent,
+            DocumentBaseComponent,
+            DocumentContentComponent,
+            QAMBertComponent,
+            SMBertComponent,
+        },
         CoiId,
     };
 
@@ -66,6 +90,9 @@ mod tests {
                 id,
                 initial_ranking: 24,
             },
+            document_content: DocumentContentComponent {
+                ..Default::default()
+            },
             smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi,
@@ -82,6 +109,9 @@ mod tests {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking: 42,
+            },
+            document_content: DocumentContentComponent {
+                ..Default::default()
             },
             smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },

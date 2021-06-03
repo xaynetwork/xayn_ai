@@ -135,6 +135,7 @@ pub(super) mod tests {
             document_data::{
                 CoiComponent,
                 DocumentBaseComponent,
+                DocumentContentComponent,
                 DocumentDataWithQAMBert,
                 QAMBertComponent,
                 SMBertComponent,
@@ -223,6 +224,9 @@ pub(super) mod tests {
             document_base: DocumentBaseComponent {
                 id: DocumentId::from_u128(id),
                 initial_ranking,
+            },
+            document_content: DocumentContentComponent {
+                ..Default::default()
             },
             smbert: SMBertComponent {
                 embedding: arr1(embedding).into(),
