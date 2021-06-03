@@ -1,5 +1,5 @@
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use xayn_ai::{Relevance, UserFeedback};
+use xayn_ai::{DayOfWeek, Relevance, UserAction, UserFeedback};
 
 /// A document relevance level.
 #[repr(u8)]
@@ -56,6 +56,76 @@ impl From<UserFeedback> for CFeedback {
             UserFeedback::Relevant => Self::Relevant,
             UserFeedback::Irrelevant => Self::Irrelevant,
             UserFeedback::None => Self::NotGiven,
+        }
+    }
+}
+
+/// Day of the week.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Deserialize_repr, PartialEq, Serialize_repr)]
+pub enum CDayOfWeek {
+    Mon = 0,
+    Tue = 1,
+    Wed = 2,
+    Thu = 3,
+    Fri = 4,
+    Sat = 5,
+    Sun = 6,
+}
+
+impl From<CDayOfWeek> for DayOfWeek {
+    fn from(day: CDayOfWeek) -> Self {
+        match day {
+            CDayOfWeek::Mon => Self::Mon,
+            CDayOfWeek::Tue => Self::Tue,
+            CDayOfWeek::Wed => Self::Wed,
+            CDayOfWeek::Thu => Self::Thu,
+            CDayOfWeek::Fri => Self::Fri,
+            CDayOfWeek::Sat => Self::Sat,
+            CDayOfWeek::Sun => Self::Sun,
+        }
+    }
+}
+
+impl From<DayOfWeek> for CDayOfWeek {
+    fn from(day: DayOfWeek) -> Self {
+        match day {
+            DayOfWeek::Mon => Self::Mon,
+            DayOfWeek::Tue => Self::Tue,
+            DayOfWeek::Wed => Self::Wed,
+            DayOfWeek::Thu => Self::Thu,
+            DayOfWeek::Fri => Self::Fri,
+            DayOfWeek::Sat => Self::Sat,
+            DayOfWeek::Sun => Self::Sun,
+        }
+    }
+}
+
+/// Interaction from the user.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Deserialize_repr, PartialEq, Serialize_repr)]
+pub enum CUserAction {
+    Miss = 0,
+    Skip = 1,
+    Click = 2,
+}
+
+impl From<CUserAction> for UserAction {
+    fn from(user_action: CUserAction) -> Self {
+        match user_action {
+            CUserAction::Miss => Self::Miss,
+            CUserAction::Skip => Self::Skip,
+            CUserAction::Click => Self::Click,
+        }
+    }
+}
+
+impl From<UserAction> for CUserAction {
+    fn from(user_action: UserAction) -> Self {
+        match user_action {
+            UserAction::Miss => Self::Miss,
+            UserAction::Skip => Self::Skip,
+            UserAction::Click => Self::Click,
         }
     }
 }

@@ -7,4 +7,4 @@ sys_includes = ["stdint.h"]
 no_includes = true
 
 [export]
-include = ["CCode", "CFeedback", "CRelevance"]
+include = ["CCode", "CDayOfWeek", "CFeedback", "CRelevance", "CUserAction"]

@@ -1,57 +1,9 @@
 use std::{convert::TryInto, slice};
 
-use xayn_ai::{DayOfWeek, DocumentHistory, UserAction};
-use xayn_ai_ffi::{CCode, CFeedback, CRelevance, Error};
+use xayn_ai::DocumentHistory;
+use xayn_ai_ffi::{CCode, CDayOfWeek, CFeedback, CRelevance, CUserAction, Error};
 
 use crate::utils::as_str;
-
-/// Day of the week.
-#[repr(u8)]
-#[derive(Clone, Copy)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub enum CDayOfWeek {
-    Mon = 0,
-    Tue = 1,
-    Wed = 2,
-    Thu = 3,
-    Fri = 4,
-    Sat = 5,
-    Sun = 6,
-}
-
-impl From<CDayOfWeek> for DayOfWeek {
-    fn from(day: CDayOfWeek) -> Self {
-        match day {
-            CDayOfWeek::Mon => Self::Mon,
-            CDayOfWeek::Tue => Self::Tue,
-            CDayOfWeek::Wed => Self::Wed,
-            CDayOfWeek::Thu => Self::Thu,
-            CDayOfWeek::Fri => Self::Fri,
-            CDayOfWeek::Sat => Self::Sat,
-            CDayOfWeek::Sun => Self::Sun,
-        }
-    }
-}
-
-/// Interaction from the user.
-#[repr(u8)]
-#[derive(Clone, Copy)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub enum CUserAction {
-    Miss = 0,
-    Skip = 1,
-    Click = 2,
-}
-
-impl From<CUserAction> for UserAction {
-    fn from(user_action: CUserAction) -> Self {
-        match user_action {
-            CUserAction::Miss => Self::Miss,
-            CUserAction::Skip => Self::Skip,
-            CUserAction::Click => Self::Click,
-        }
-    }
-}
 
 /// A raw document history.
 #[repr(C)]
@@ -62,14 +14,23 @@ pub struct CHistory<'a> {
     pub relevance: CRelevance,
     /// The user feedback level of the document.
     pub feedback: CFeedback,
+    /// The raw pointer to the session id of the document.
     pub session: Option<&'a u8>,
+    /// The query count within the session.
     pub query_count: u32,
+    /// The raw pointer to the query id of the document.
     pub query_id: Option<&'a u8>,
+    /// The raw pointer to the query words.
     pub query_words: Option<&'a u8>,
+    /// The day of the week the query was performed.
     pub day: CDayOfWeek,
+    /// The raw pointer to the url of the document.
     pub url: Option<&'a u8>,
+    /// The raw pointer to the domain of the document.
     pub domain: Option<&'a u8>,
+    /// The rank of the document.
     pub rank: u32,
+    /// The user interaction for the document.
     pub user_action: CUserAction,
 }
 

@@ -66,6 +66,10 @@ pub enum CCode {
     /// A qambert model null pointer error.
     #[allow(clippy::upper_case_acronyms)]
     QAMBertModelPointer = 24,
+    /// Deserialization of history collection error.
+    HistoriesDeserialization = 25,
+    /// Deserialization of document collection error.
+    DocumentsDeserialization = 26,
 }
 
 impl CCode {

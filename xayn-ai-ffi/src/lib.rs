@@ -5,6 +5,6 @@ mod data;
 mod error;
 
 pub use crate::{
-    data::{CFeedback, CRelevance},
+    data::{CDayOfWeek, CFeedback, CRelevance, CUserAction},
     error::{CCode, Error},
 };
