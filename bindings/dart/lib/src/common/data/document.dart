@@ -3,14 +3,31 @@ import 'package:meta/meta.dart' show immutable;
 /// The document.
 @immutable
 class Document {
+  /// Unique identifier of the document.
   final String id;
+
+  /// Text snippet of the document.
   final String snippet;
+
+  /// Position of the document from the source.
   final int rank;
+
+  /// Session of the document.
   final String session;
+
+  /// Query count within session.
   final int queryCount;
+
+  /// Query identifier of the document.
   final String queryId;
+
+  /// Query of the document.
   final String queryWords;
+
+  /// URL of the document.
   final String url;
+
+  /// Domain of the document
   final String domain;
 
   /// Creates the document.

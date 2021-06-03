@@ -40,6 +40,21 @@ enum Code {
   /// A document history id null pointer error.
   historyIdPointer,
 
+  /// A document history session id null pointer error.
+  historySessionPointer,
+
+  /// A document history query id null pointer error.
+  historyQueryIdPointer,
+
+  /// A document history query words null pointer error.
+  historyQueryWordsPointer,
+
+  /// A document history url null pointer error.
+  historyUrlPointer,
+
+  /// A document history domain null pointer error.
+  historyDomainPointer,
+
   /// A documents null pointer error.
   documentsPointer,
 
@@ -48,6 +63,21 @@ enum Code {
 
   /// A document snippet null pointer error.
   documentSnippetPointer,
+
+  /// A document session id null pointer error.
+  documentSessionPointer,
+
+  /// A document query id null pointer error.
+  documentQueryIdPointer,
+
+  /// A document query words null pointer error.
+  documentQueryWordsPointer,
+
+  /// A document url null pointer error.
+  documentUrlPointer,
+
+  /// A document domain null pointer error.
+  documentDomainPointer,
 
   /// Deserialization of reranker database error.
   rerankerDeserialization,
@@ -90,12 +120,32 @@ extension CodeToInt on Code {
         return CCode.HistoriesPointer;
       case Code.historyIdPointer:
         return CCode.HistoryIdPointer;
+      case Code.historySessionPointer:
+        return CCode.HistorySessionPointer;
+      case Code.historyQueryIdPointer:
+        return CCode.HistoryQueryIdPointer;
+      case Code.historyQueryWordsPointer:
+        return CCode.HistoryQueryWordsPointer;
+      case Code.historyUrlPointer:
+        return CCode.HistoryUrlPointer;
+      case Code.historyDomainPointer:
+        return CCode.HistoryDomainPointer;
       case Code.documentsPointer:
         return CCode.DocumentsPointer;
       case Code.documentIdPointer:
         return CCode.DocumentIdPointer;
       case Code.documentSnippetPointer:
         return CCode.DocumentSnippetPointer;
+      case Code.documentSessionPointer:
+        return CCode.DocumentSessionPointer;
+      case Code.documentQueryIdPointer:
+        return CCode.DocumentQueryIdPointer;
+      case Code.documentQueryWordsPointer:
+        return CCode.DocumentQueryWordsPointer;
+      case Code.documentUrlPointer:
+        return CCode.DocumentUrlPointer;
+      case Code.documentDomainPointer:
+        return CCode.DocumentDomainPointer;
       case Code.rerankerDeserialization:
         return CCode.RerankerDeserialization;
       case Code.rerankerSerialization:
@@ -138,12 +188,32 @@ extension IntToCode on int {
         return Code.historiesPointer;
       case CCode.HistoryIdPointer:
         return Code.historyIdPointer;
+      case CCode.HistorySessionPointer:
+        return Code.historySessionPointer;
+      case CCode.HistoryQueryIdPointer:
+        return Code.historyQueryIdPointer;
+      case CCode.HistoryQueryWordsPointer:
+        return Code.historyQueryWordsPointer;
+      case CCode.HistoryUrlPointer:
+        return Code.historyUrlPointer;
+      case CCode.HistoryDomainPointer:
+        return Code.historyDomainPointer;
       case CCode.DocumentsPointer:
         return Code.documentsPointer;
       case CCode.DocumentIdPointer:
         return Code.documentIdPointer;
       case CCode.DocumentSnippetPointer:
         return Code.documentSnippetPointer;
+      case CCode.DocumentSessionPointer:
+        return Code.documentSessionPointer;
+      case CCode.DocumentQueryIdPointer:
+        return Code.documentQueryIdPointer;
+      case CCode.DocumentQueryWordsPointer:
+        return Code.documentQueryWordsPointer;
+      case CCode.DocumentUrlPointer:
+        return Code.documentUrlPointer;
+      case CCode.DocumentDomainPointer:
+        return Code.documentDomainPointer;
       case CCode.RerankerDeserialization:
         return Code.rerankerDeserialization;
       case CCode.RerankerSerialization:

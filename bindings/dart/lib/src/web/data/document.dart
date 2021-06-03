@@ -8,19 +8,20 @@ import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 @JS()
 @anonymous
 class JsDocument {
-  external factory JsDocument(
-      {String id,
-      int rank,
-      String snippet,
-      String session,
-      // ignore: non_constant_identifier_names
-      int query_count,
-      // ignore: non_constant_identifier_names
-      String query_id,
-      // ignore: non_constant_identifier_names
-      String query_words,
-      String url,
-      String domain});
+  external factory JsDocument({
+    String id,
+    int rank,
+    String snippet,
+    String session,
+    // ignore: non_constant_identifier_names
+    int query_count,
+    // ignore: non_constant_identifier_names
+    String query_id,
+    // ignore: non_constant_identifier_names
+    String query_words,
+    String url,
+    String domain,
+  });
 }
 
 extension ToJsDocuments on List<Document> {
