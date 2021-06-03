@@ -333,7 +333,7 @@ mod tests {
         },
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
-        tests::{QAMBERT_MODEL, SMBERT_MODEL, VOCAB},
+        tests::{QAMBERT_MODEL, QAMBERT_VOCAB, SMBERT_MODEL, SMBERT_VOCAB},
         utils::tests::AsPtr,
     };
 
@@ -351,7 +351,7 @@ mod tests {
         }
 
         fn smbert_vocab() -> Self {
-            Self::new(VOCAB)
+            Self::new(SMBERT_VOCAB)
         }
 
         fn smbert_model() -> Self {
@@ -359,7 +359,7 @@ mod tests {
         }
 
         fn qambert_vocab() -> Self {
-            Self::new(VOCAB)
+            Self::new(QAMBERT_VOCAB)
         }
 
         fn qambert_model() -> Self {

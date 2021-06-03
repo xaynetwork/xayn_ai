@@ -12,14 +12,16 @@ import '../utils.dart'
         documents,
         histories,
         smbertModel,
+        smbertVocab,
         qambertModel,
-        throwsXaynAiException,
-        vocab;
+        qambertVocab,
+        throwsXaynAiException;
 
 void main() {
   group('XaynAi', () {
     test('rerank full', () {
-      final ai = XaynAi(SetupData(vocab, smbertModel, qambertModel));
+      final ai = XaynAi(
+          SetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank(histories, documents);
       final faults = ai.faults();
 
@@ -32,7 +34,8 @@ void main() {
     });
 
     test('rerank empty', () {
-      final ai = XaynAi(SetupData(vocab, smbertModel, qambertModel));
+      final ai = XaynAi(
+          SetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank([], []);
       final faults = ai.faults();
 
@@ -43,7 +46,8 @@ void main() {
     });
 
     test('rerank empty hists', () {
-      final ai = XaynAi(SetupData(vocab, smbertModel, qambertModel));
+      final ai = XaynAi(
+          SetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank([], documents);
       final faults = ai.faults();
 
@@ -56,7 +60,8 @@ void main() {
     });
 
     test('rerank empty docs', () {
-      final ai = XaynAi(SetupData(vocab, smbertModel, qambertModel));
+      final ai = XaynAi(
+          SetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank(histories, []);
       final faults = ai.faults();
 
@@ -68,29 +73,35 @@ void main() {
 
     test('invalid paths', () {
       expect(
-        () => XaynAi(SetupData('', smbertModel, qambertModel)),
+        () => XaynAi(SetupData('', smbertModel, qambertVocab, qambertModel)),
         throwsXaynAiException(Code.readFile),
       );
       expect(
-        () => XaynAi(SetupData(vocab, '', qambertModel)),
+        () => XaynAi(SetupData(smbertVocab, '', qambertVocab, qambertModel)),
         throwsXaynAiException(Code.readFile),
       );
       expect(
-        () => XaynAi(SetupData(vocab, smbertModel, '')),
+        () => XaynAi(SetupData(smbertVocab, smbertModel, '', qambertModel)),
+        throwsXaynAiException(Code.readFile),
+      );
+      expect(
+        () => XaynAi(SetupData(smbertVocab, smbertModel, qambertVocab, '')),
         throwsXaynAiException(Code.readFile),
       );
     });
 
     test('empty serialized', () {
       final serialized = Uint8List(0);
-      final ai =
-          XaynAi(SetupData(vocab, smbertModel, qambertModel), serialized);
+      final ai = XaynAi(
+          SetupData(smbertVocab, smbertModel, qambertVocab, qambertModel),
+          serialized);
       ai.free();
     });
 
     test('invalid serialized', () {
       expect(
-        () => XaynAi(SetupData(vocab, smbertModel, qambertModel),
+        () => XaynAi(
+            SetupData(smbertVocab, smbertModel, qambertVocab, qambertModel),
             Uint8List.fromList([255])),
         throwsXaynAiException(Code.rerankerDeserialization),
       );

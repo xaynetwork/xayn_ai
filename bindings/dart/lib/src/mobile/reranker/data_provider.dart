@@ -8,14 +8,16 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 
 /// Data that can be used to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
-  final String vocab;
+  final String smbertVocab;
   final String smbertModel;
+  final String qambertVocab;
   final String qambertModel;
 
   static const _baseAssetsPath = 'packages/xayn_ai_ffi_dart/assets';
   static final AsyncMemoizer<SetupData> _pathsCache = AsyncMemoizer();
 
-  SetupData(this.vocab, this.smbertModel, this.qambertModel);
+  SetupData(
+      this.smbertVocab, this.smbertModel, this.qambertVocab, this.qambertModel);
 
   /// Prepares and returns the data that is needed to init [`XaynAi`].
   ///
@@ -32,12 +34,13 @@ class SetupData implements common.SetupData {
     final smbertDir = 'smbert_v0000';
     final qambertDir = 'qambert_v0000';
 
-    final vocab = await _getData(baseDiskPath, smbertDir, 'vocab.txt');
+    final smbertVocab = await _getData(baseDiskPath, smbertDir, 'vocab.txt');
     final smbertModel = await _getData(baseDiskPath, smbertDir, 'smbert.onnx');
+    final qambertVocab = await _getData(baseDiskPath, qambertDir, 'vocab.txt');
     final qambertModel =
         await _getData(baseDiskPath, qambertDir, 'qambert.onnx');
 
-    return SetupData(vocab, smbertModel, qambertModel);
+    return SetupData(smbertVocab, smbertModel, qambertVocab, qambertModel);
   }
 
   /// Returns the path to the data, if the data is not on disk yet

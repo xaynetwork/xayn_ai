@@ -149,11 +149,14 @@ mod tests {
 
     use crate::{error::ExternError, history::WHistory};
 
-    /// Path to the current vocabulary file.
-    const VOCAB: &[u8] = include_bytes!("../../data/smbert_v0000/vocab.txt");
+    /// Path to the current smbert vocabulary file.
+    const SMBERT_VOCAB: &[u8] = include_bytes!("../../data/smbert_v0000/vocab.txt");
 
     /// Path to the current smbert onnx model file.
     const SMBERT_MODEL: &[u8] = include_bytes!("../../data/smbert_v0000/smbert.onnx");
+
+    /// Path to the current qambert vocabulary file.
+    const QAMBERT_VOCAB: &[u8] = include_bytes!("../../data/qambert_v0000/vocab.txt");
 
     /// Path to the current qambert onnx model file.
     const QAMBERT_MODEL: &[u8] = include_bytes!("../../data/qambert_v0000/qambert.onnx");
@@ -294,33 +297,61 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_rerank() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         xaynai.rerank(test_histories(), test_documents()).unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_serialize() {
-        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         xaynai.serialize().unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_faults() {
-        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         let faults = xaynai.faults();
         assert!(faults.is_empty());
     }
 
     #[wasm_bindgen_test]
     fn test_analytics() {
-        let xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         let analytics = xaynai.analytics();
         assert!(analytics.is_null());
     }
 
     #[wasm_bindgen_test]
     fn test_smbert_vocab_empty() {
-        let error = WXaynAi::new(&[], SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None)
+        let error = WXaynAi::new(&[], SMBERT_MODEL, QAMBERT_VOCAB, QAMBERT_MODEL, None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -334,7 +365,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_qambert_vocab_empty() {
-        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, &[], QAMBERT_MODEL, None)
+        let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, &[], QAMBERT_MODEL, None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -348,7 +379,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_smbert_model_empty() {
-        let error = WXaynAi::new(VOCAB, &[], VOCAB, QAMBERT_MODEL, None)
+        let error = WXaynAi::new(SMBERT_VOCAB, &[], QAMBERT_VOCAB, QAMBERT_MODEL, None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -362,7 +393,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_qambert_model_empty() {
-        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, &[], None)
+        let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, QAMBERT_VOCAB, &[], None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -376,7 +407,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_smbert_model_invalid() {
-        let error = WXaynAi::new(VOCAB, &[0], VOCAB, QAMBERT_MODEL, None)
+        let error = WXaynAi::new(SMBERT_VOCAB, &[0], QAMBERT_VOCAB, QAMBERT_MODEL, None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -389,7 +420,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_qambert_model_invalid() {
-        let error = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, &[0], None)
+        let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, QAMBERT_VOCAB, &[0], None)
             .unwrap_err()
             .into_serde::<ExternError>()
             .unwrap();
@@ -402,7 +433,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_history_invalid() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         let error = xaynai
             .rerank(vec![JsValue::from("invalid")], test_documents())
             .unwrap_err()
@@ -417,13 +455,27 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_history_empty() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         xaynai.rerank(vec![], test_documents()).unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_documents_invalid() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         let error = xaynai
             .rerank(test_histories(), vec![JsValue::from("invalid")])
             .unwrap_err()
@@ -438,16 +490,23 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_documents_empty() {
-        let mut xaynai = WXaynAi::new(VOCAB, SMBERT_MODEL, VOCAB, QAMBERT_MODEL, None).unwrap();
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            None,
+        )
+        .unwrap();
         xaynai.rerank(test_histories(), vec![]).unwrap();
     }
 
     #[wasm_bindgen_test]
     fn test_serialized_empty() {
         WXaynAi::new(
-            VOCAB,
+            SMBERT_VOCAB,
             SMBERT_MODEL,
-            VOCAB,
+            QAMBERT_VOCAB,
             QAMBERT_MODEL,
             Some(Box::new([])),
         )
@@ -457,9 +516,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_serialized_invalid() {
         let error = WXaynAi::new(
-            VOCAB,
+            SMBERT_VOCAB,
             SMBERT_MODEL,
-            VOCAB,
+            QAMBERT_VOCAB,
             QAMBERT_MODEL,
             Some(Box::new([1, 2, 3])),
         )
