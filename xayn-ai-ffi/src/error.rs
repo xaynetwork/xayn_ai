@@ -16,60 +16,60 @@ pub enum CCode {
     None = 0,
     /// A smbert vocab null pointer error.
     #[allow(clippy::upper_case_acronyms)]
-    SMBertVocabPointer = 1,
+    SMBertVocabPointer,
     /// A smbert model null pointer error.
     #[allow(clippy::upper_case_acronyms)]
-    SMBertModelPointer = 2,
-    /// A vocab or model file IO error.
-    ReadFile = 3,
-    /// A Xayn AI initialization error.
-    InitAi = 4,
-    /// A Xayn AI null pointer error.
-    AiPointer = 5,
-    /// A document histories null pointer error.
-    HistoriesPointer = 6,
-    /// A document history id null pointer error.
-    HistoryIdPointer = 7,
-    /// A document history session id null pointer error.
-    HistorySessionPointer = 8,
-    /// A document history query id null pointer error.
-    HistoryQueryIdPointer = 9,
-    /// A document history query words null pointer error.
-    HistoryQueryWordsPointer = 10,
-    /// A document history url null pointer error.
-    HistoryUrlPointer = 11,
-    /// A document history domain null pointer error.
-    HistoryDomainPointer = 12,
-    /// A documents null pointer error.
-    DocumentsPointer = 13,
-    /// A document id null pointer error.
-    DocumentIdPointer = 14,
-    /// A document snippet null pointer error.
-    DocumentSnippetPointer = 15,
-    /// A document session id null pointer error.
-    DocumentSessionPointer = 16,
-    /// A document query id null pointer error.
-    DocumentQueryIdPointer = 17,
-    /// A document query words null pointer error.
-    DocumentQueryWordsPointer = 18,
-    /// A document url null pointer error.
-    DocumentUrlPointer = 19,
-    /// A document domain null pointer error.
-    DocumentDomainPointer = 20,
-    /// Deserialization of reranker database error.
-    RerankerDeserialization = 21,
-    /// Serialization of reranker database error.
-    RerankerSerialization = 22,
+    SMBertModelPointer,
     /// A qambert vocab null pointer error.
     #[allow(clippy::upper_case_acronyms)]
-    QAMBertVocabPointer = 23,
+    QAMBertVocabPointer,
     /// A qambert model null pointer error.
     #[allow(clippy::upper_case_acronyms)]
-    QAMBertModelPointer = 24,
+    QAMBertModelPointer,
+    /// A vocab or model file IO error.
+    ReadFile,
+    /// A Xayn AI initialization error.
+    InitAi,
+    /// A Xayn AI null pointer error.
+    AiPointer,
+    /// A document histories null pointer error.
+    HistoriesPointer,
+    /// A document history id null pointer error.
+    HistoryIdPointer,
+    /// A document history session id null pointer error.
+    HistorySessionPointer,
+    /// A document history query id null pointer error.
+    HistoryQueryIdPointer,
+    /// A document history query words null pointer error.
+    HistoryQueryWordsPointer,
+    /// A document history url null pointer error.
+    HistoryUrlPointer,
+    /// A document history domain null pointer error.
+    HistoryDomainPointer,
+    /// A documents null pointer error.
+    DocumentsPointer,
+    /// A document id null pointer error.
+    DocumentIdPointer,
+    /// A document snippet null pointer error.
+    DocumentSnippetPointer,
+    /// A document session id null pointer error.
+    DocumentSessionPointer,
+    /// A document query id null pointer error.
+    DocumentQueryIdPointer,
+    /// A document query words null pointer error.
+    DocumentQueryWordsPointer,
+    /// A document url null pointer error.
+    DocumentUrlPointer,
+    /// A document domain null pointer error.
+    DocumentDomainPointer,
+    /// Deserialization of reranker database error.
+    RerankerDeserialization,
+    /// Serialization of reranker database error.
+    RerankerSerialization,
     /// Deserialization of history collection error.
-    HistoriesDeserialization = 25,
+    HistoriesDeserialization,
     /// Deserialization of document collection error.
-    DocumentsDeserialization = 26,
+    DocumentsDeserialization,
 }
 
 impl CCode {
