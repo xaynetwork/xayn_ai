@@ -1718,7 +1718,6 @@ dependencies = [
  "itertools 0.10.0",
  "js-sys",
  "serde",
- "serde_repr",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "xayn-ai",
