@@ -21,24 +21,20 @@ Future<SetupData> getInputData() async {
 
   final paths = <AssetType, String>{};
   for (var asset in getAssets().entries) {
-    final file = await _getData(baseDiskPath.path, asset.value.suffix);
-    final checksum = asset.value.getChecksumAsHex();
-    if (await _verifyChecksum(file, checksum)) {
-      paths.putIfAbsent(asset.key, () => file.path);
-    } else {
-      throw 'checksum of ${file.path} does not match $checksum';
-    }
+    final path = await _getData(
+        baseDiskPath.path, asset.value.suffix, asset.value.getChecksumAsHex());
+    paths.putIfAbsent(asset.key, () => path);
   }
 
-  return SetupData(paths[AssetType.smbertModel]!, paths[AssetType.smbertVocab]!,
-      paths[AssetType.qambertVocab]!, paths[AssetType.qambertModel]!);
+  return SetupData(paths);
 }
 
 /// Returns the path to the data, if the data is not on disk yet
 /// it will be copied from the bundle to the disk.
-Future<File> _getData(
+Future<String> _getData(
   String baseDiskPath,
   String assetSuffixPath,
+  String checksum,
 ) async {
   final assetPath = joinPaths([_baseAssetsPath, assetSuffixPath]);
   final data = await rootBundle.load(assetPath);
@@ -57,9 +53,13 @@ Future<File> _getData(
     final bytes =
         data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
     await file.writeAsBytes(bytes, flush: true);
+    if (await _verifyChecksum(file, checksum) == false) {
+      await file.delete();
+      throw 'checksum of ${file.path} does not match $checksum';
+    }
   }
 
-  return file;
+  return file.path;
 }
 
 String _getFilename(String path) {

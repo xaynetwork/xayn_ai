@@ -10,12 +10,17 @@ Map<common.AssetType, common.Asset> getAssets() {
 
 /// Data that can be used to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
-  final Uint8List smbertVocab;
-  final Uint8List smbertModel;
-  final Uint8List qambertVocab;
-  final Uint8List qambertModel;
-  final Uint8List wasm;
+  late Uint8List smbertVocab;
+  late Uint8List smbertModel;
+  late Uint8List qambertVocab;
+  late Uint8List qambertModel;
+  late Uint8List wasmModule;
 
-  SetupData(this.smbertVocab, this.smbertModel, this.qambertVocab,
-      this.qambertModel, this.wasm);
+  SetupData(Map<common.AssetType, Uint8List> assets) {
+    smbertVocab = assets[common.AssetType.smbertVocab]!;
+    smbertModel = assets[common.AssetType.smbertModel]!;
+    qambertVocab = assets[common.AssetType.qambertVocab]!;
+    qambertModel = assets[common.AssetType.qambertVocab]!;
+    wasmModule = assets[common.AssetType.wasmModule]!;
+  }
 }

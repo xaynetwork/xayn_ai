@@ -43,6 +43,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late XaynAi _ai;
   String _msg = '';
+  Function()? _onBechReady;
 
   @override
   void initState() {
@@ -68,6 +69,7 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _ai = ai;
       _msg = '';
+      _onBechReady = benchRerank;
     });
   }
 
@@ -82,7 +84,7 @@ class _MyAppState extends State<MyApp> {
             child: Column(
           children: [
             ElevatedButton(
-              onPressed: benchRerank,
+              onPressed: _onBechReady,
               child: Text('Benchmark Rerank',
                   style: TextStyle(color: Colors.white)),
             ),
