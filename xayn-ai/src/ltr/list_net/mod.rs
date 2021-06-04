@@ -5,7 +5,7 @@ use std::{io::Read, path::Path};
 use ndutils::io::{BinParams, LoadingBinParamsFailed};
 use thiserror::Error;
 
-use ndarray::{s, Array1, Array2, ArrayView2, Axis, Dimension, IntoDimension, Ix};
+use ndarray::{concatenate, s, Array1, Array2, ArrayView2, Axis, Dimension, IntoDimension, Ix};
 use ndlayers::{
     activation::{Linear, Relu, Softmax},
     Dense,
@@ -163,7 +163,7 @@ impl ListNet {
             stack.push(padding);
         }
 
-        let inputs = ndarray::stack(Axis(0), &*stack).unwrap();
+        let inputs = concatenate(Axis(0), stack.as_slice()).unwrap();
 
         let mut outputs = self.run_for_10(inputs);
         outputs.truncate(nr_documents);

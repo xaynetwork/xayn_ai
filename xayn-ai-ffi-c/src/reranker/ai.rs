@@ -826,10 +826,13 @@ mod tests {
             )
         }
         .is_none());
-        assert_eq!(error.code, CCode::Panic);
+        assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            "called `Option::unwrap()` on a `None` value",
+            format!(
+                "{}: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
+                FAIL_INIT_AI,
+            ),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -862,10 +865,13 @@ mod tests {
             )
         }
         .is_none());
-        assert_eq!(error.code, CCode::Panic);
+        assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            "called `Option::unwrap()` on a `None` value",
+            format!(
+                "{}: Failed to build the model: Failed to run a tract operation: model proto does not contain a graph",
+                FAIL_INIT_AI,
+            ),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
