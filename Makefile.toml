@@ -67,4 +67,16 @@ script = ["""
   cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
 """]
 
-
+[tasks.clean-bindgen]
+script = ["""
+  cd bindings/dart
+  rm -f ios/Classes/XaynAiFFiCommon.h
+  rm -f ios/Classes/XaynAiFFiDart.h
+  rm -f lib/src/common/ffi/genesis.dart
+  rm -f lib/src/mobile/ffi/genesis.dart
+  rm -f lib/src/web/ffi/genesis_bg.wasm
+  rm -f lib/src/web/ffi/genesis_bg.wasm.d.ts
+  rm -f lib/src/web/ffi/genesis.d.ts
+  rm -f lib/src/web/ffi/genesis.js
+  rm -f lib/src/web/ffi/package.json
+"""]

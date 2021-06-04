@@ -23,15 +23,13 @@ fn main() {
     let crate_dir = PathBuf::from(
         env::var("CARGO_MANIFEST_DIR").expect("Failed to read CARGO_MANIFEST_DIR env."),
     );
-    let dart_dir = crate_dir.parent().unwrap().join("bindings").join("dart");
 
     let config_file = crate_dir.join("cbindgen.toml");
-    let android_header_file = dart_dir
-        .join("android")
-        .join("src")
-        .join("main")
-        .join("XaynAiFfiCommon.h");
-    let ios_header_file = dart_dir
+    let header_file = crate_dir
+        .parent()
+        .unwrap()
+        .join("bindings")
+        .join("dart")
         .join("ios")
         .join("Classes")
         .join("XaynAiFfiCommon.h");
@@ -41,7 +39,7 @@ fn main() {
     cargo_rerun_if_changed(config_file.as_path());
 
     let config = Config::from_file(config_file).expect("Failed to read config.");
-    let bindings = generate_with_config(crate_dir, config).expect("Failed to generate bindings.");
-    bindings.write_to_file(android_header_file);
-    bindings.write_to_file(ios_header_file);
+    generate_with_config(crate_dir, config)
+        .expect("Failed to generate bindings.")
+        .write_to_file(header_file);
 }

@@ -192,10 +192,8 @@ jobs:
           name: headers-${{ github.sha }}
           retention-days: 1
           path: |
-            ${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiCommon.h
-            ${{ env.DART_WORKSPACE }}/android/src/main/XaynAiFfiDartPlugin.h
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
-            ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDartPlugin.h
+            ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
             ${{ env.DART_WORKSPACE }}/lib/src/common/ffi/genesis.dart
             ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi/genesis.dart
 
@@ -371,10 +369,8 @@ jobs:
       - name: Copy headers
         run: |
           cd /tmp/artifacts/headers-${{ github.sha }}
-          cp android/src/main/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/android/src/main
-          cp android/src/main/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/android/src/main
           cp ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes
-          cp ios/Classes/XaynAiFfiDartPlugin.h ${{ env.DART_WORKSPACE }}/ios/Classes
+          cp ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes
           cp lib/src/common/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/common/ffi
           cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi
 
