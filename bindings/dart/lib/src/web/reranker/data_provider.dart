@@ -16,6 +16,6 @@ class SetupData implements common.SetupData {
   final Uint8List qambertModel;
   final Uint8List wasm;
 
-  SetupData(
-      this.smbertVocab, this.smbertModel, this.qambertVocab, this.qambertModel, this.wasm);
+  SetupData(this.smbertVocab, this.smbertModel, this.qambertVocab,
+      this.qambertModel, this.wasm);
 }

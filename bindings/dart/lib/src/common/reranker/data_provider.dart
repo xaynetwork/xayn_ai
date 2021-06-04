@@ -6,17 +6,23 @@ import 'package:hex/hex.dart' show HEX;
 /// The checksum is the SRI hash of the asset.
 /// https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity#tools_for_generating_sri_hashes
 final baseAssets = <AssetType, Asset>{
-  AssetType.vocab: Asset('rubert_v0001/vocab.txt',
-      'sha256-/7I5iBD6l37jnooBA7B/nCYU8fmCXfU6LJnnFWnjRRw='),
-  AssetType.smbert: Asset('rubert_v0001/smbert.onnx',
-      'sha256-wHZTo8xWiHYHHeFX8PuMzBowIZfdrZ6tBpqGFA4Z2RM='),
-  AssetType.qambert: Asset('rubert_v0001/qambert.onnx',
-      'sha256-9nzYcZqT4fMkAvxgUdgp1vv1PnDoXHckNKoeAbCxwbM='),
-  AssetType.ltr: Asset('ltr_v0000/ltr.binparams',
-      'sha256-82qHS6JuoVSgIHAYDPyrrxkfZU7P9buUqEctKIHUwGI='),
+  AssetType.smbertVocab: Asset('smbert_v0000/vocab.txt',
+      'ffb2398810fa977ee39e8a0103b07f9c2614f1f9825df53a2c99e71569e3451c'),
+  AssetType.smbertModel: Asset('smbert_v0000/smbert.onnx',
+      'c07653a3cc568876071de157f0fb8ccc1a302197ddad9ead069a86140e19d913'),
+  AssetType.qambertVocab: Asset('qambert_v0000/vocab.txt',
+      'ffb2398810fa977ee39e8a0103b07f9c2614f1f9825df53a2c99e71569e3451c'),
+  AssetType.qambertModel: Asset('qambert_v0000/qambert.onnx',
+      'f67cd8719a93e1f32402fc6051d829d6fbf53e70e85c772434aa1e01b0b1c1b3'),
 };
 
-enum AssetType { vocab, smbert, qambert, ltr, wasm }
+enum AssetType {
+  smbertVocab,
+  smbertModel,
+  qambertVocab,
+  qambertModel,
+  wasmModule
+}
 
 class Asset {
   late String suffix;
@@ -45,6 +51,7 @@ Map<AssetType, Asset> getAssets() {
 
 /// Data that can be used to initialize [`XaynAi`].
 class SetupData {
-  SetupData(dynamic vocab, dynamic smbertModel, dynamic qambertModel,
+  SetupData(dynamic smbertVocab, dynamic smbertModel, dynamic qambertVocab,
+      dynamic qambertModel,
       [dynamic wasm]);
 }

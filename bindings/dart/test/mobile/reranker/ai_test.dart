@@ -86,14 +86,15 @@ void main() {
 
     test('empty serialized', () {
       final serialized = Uint8List(0);
-      final ai = XaynAi(smbertVocab, smbertModel, qambertVocab, qambertModel, serialized);
+      final ai = XaynAi(
+          smbertVocab, smbertModel, qambertVocab, qambertModel, serialized);
       ai.free();
     });
 
     test('invalid serialized', () {
       expect(
-        () =>
-            XaynAi(smbertVocab, smbertModel, qambertVocab, qambertModel, Uint8List.fromList([255])),
+        () => XaynAi(smbertVocab, smbertModel, qambertVocab, qambertModel,
+            Uint8List.fromList([255])),
         throwsXaynAiException(Code.rerankerDeserialization),
       );
     });

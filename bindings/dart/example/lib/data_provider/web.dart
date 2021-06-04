@@ -19,8 +19,12 @@ Future<SetupData> getInputData() async {
     fetched.putIfAbsent(asset.key, () => data);
   }
 
-  return SetupData(fetched[AssetType.vocab]!, fetched[AssetType.smbert]!,
-      fetched[AssetType.qambert]!, fetched[AssetType.wasm]!);
+  return SetupData(
+      fetched[AssetType.smbertVocab]!,
+      fetched[AssetType.smbertModel]!,
+      fetched[AssetType.qambertVocab]!,
+      fetched[AssetType.qambertModel]!,
+      fetched[AssetType.wasmModule]!);
 }
 
 Future<Uint8List> _fetchAsset(String url, String checksum) async {

@@ -13,5 +13,6 @@ class SetupData implements common.SetupData {
   final String qambertVocab;
   final String qambertModel;
 
-  SetupData(this.smbertVocab, this.smbertModel, this.qambertVocab, this.qambertModel);
+  SetupData(
+      this.smbertVocab, this.smbertModel, this.qambertVocab, this.qambertModel);
 }

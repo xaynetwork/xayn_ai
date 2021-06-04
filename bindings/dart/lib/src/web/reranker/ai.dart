@@ -60,7 +60,8 @@ class _XaynAi {
 /// creates a new one.
 Future<XaynAi> createXaynAi(SetupData data, [Uint8List? serialized]) async {
   await init(data.wasm);
-  return XaynAi(data.smbertVocab, data.smbertModel, data.qambertVocab, data.qambertModel, serialized);
+  return XaynAi(data.smbertVocab, data.smbertModel, data.qambertVocab,
+      data.qambertModel, serialized);
 }
 
 /// The Xayn AI.
@@ -71,10 +72,12 @@ class XaynAi implements common.XaynAi {
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi(Uint8List smbertVocab, Uint8List smbertModel, Uint8List qambertVocab, Uint8List qambertModel,
+  XaynAi(Uint8List smbertVocab, Uint8List smbertModel, Uint8List qambertVocab,
+      Uint8List qambertModel,
       [Uint8List? serialized]) {
     try {
-      _ai = _XaynAi(smbertVocab, smbertModel, qambertVocab, qambertModel, serialized);
+      _ai = _XaynAi(
+          smbertVocab, smbertModel, qambertVocab, qambertModel, serialized);
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {

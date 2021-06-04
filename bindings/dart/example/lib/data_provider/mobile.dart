@@ -30,8 +30,8 @@ Future<SetupData> getInputData() async {
     }
   }
 
-  return SetupData(paths[AssetType.vocab]!, paths[AssetType.smbert]!,
-      paths[AssetType.qambert]!);
+  return SetupData(paths[AssetType.smbertModel]!, paths[AssetType.smbertVocab]!,
+      paths[AssetType.qambertVocab]!, paths[AssetType.qambertModel]!);
 }
 
 /// Returns the path to the data, if the data is not on disk yet
