@@ -5,9 +5,11 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 
 /// Data that can be used to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
-  final Uint8List vocab;
+  final Uint8List smbertVocab;
   final Uint8List smbertModel;
+  final Uint8List qambertVocab;
   final Uint8List qambertModel;
 
-  SetupData(this.vocab, this.smbertModel, this.qambertModel);
+  SetupData(
+      this.smbertVocab, this.smbertModel, this.qambertVocab, this.qambertModel);
 }

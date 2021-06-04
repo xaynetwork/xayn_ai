@@ -81,11 +81,11 @@ mod tests {
         builder::Builder,
         model::kinds::SMBert,
         pooler::{AveragePooler, FirstPooler, NonePooler},
-        tests::{SMBERT_MODEL, VOCAB},
+        tests::{SMBERT_MODEL, SMBERT_VOCAB},
     };
 
     fn pipeline<P>(pooler: P) -> Pipeline<SMBert, P> {
-        Builder::from_files(VOCAB, SMBERT_MODEL)
+        Builder::from_files(SMBERT_VOCAB, SMBERT_MODEL)
             .unwrap()
             .with_accents(false)
             .with_lowercase(true)

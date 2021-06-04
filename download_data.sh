@@ -34,6 +34,6 @@ download()
   shasum -c "$CHECKSUM_FILE"
 }
 
-download rubert v0001
+download smbert v0000
+download qambert v0000
 download ltr v0000
-
