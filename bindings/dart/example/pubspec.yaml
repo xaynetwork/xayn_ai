@@ -14,6 +14,7 @@ dependencies:
     sdk: flutter
   path_provider: '^2.0.2'
   stats: '2.0.0'
+  crypto: ^3.0.1
 
   xayn_ai_ffi_dart:
     # When depending on this package from a real application you should use:
@@ -43,3 +44,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # To add assets to your plugin package, add an assets section, like this:
+  assets:
+    - assets/rubert_v0001/
+    - assets/ltr_v0000/

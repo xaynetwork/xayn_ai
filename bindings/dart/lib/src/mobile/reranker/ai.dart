@@ -26,19 +26,30 @@ import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
 import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/fault.dart' show Faults;
 
+/// Creates and initializes the Xayn AI.
+///
+/// Requires the vocabulary and model of the tokenizer/embedder.
+/// Optionally accepts the serialized reranker database, otherwise creates a
+/// new one.
+Future<XaynAi> createXaynAi(SetupData data, [Uint8List? serialized]) async {
+  return XaynAi(data.smbertVocab, data.smbertModel, data.qambertVocab, data.qambertModel, serialized);
+}
+
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
   late Pointer<CXaynAi> _ai;
 
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
-  /// reranker database, otherwise creates a new one.
-  XaynAi(SetupData data, [Uint8List? serialized]) {
-    final smbertVocabPtr = data.smbertVocab.toNativeUtf8().cast<Uint8>();
-    final smbertModelPtr = data.smbertModel.toNativeUtf8().cast<Uint8>();
-    final qambertVocabPtr = data.qambertVocab.toNativeUtf8().cast<Uint8>();
-    final qambertModelPtr = data.qambertModel.toNativeUtf8().cast<Uint8>();
+  /// Requires the path to the vocabulary and model of the tokenizer/embedder.
+  /// Optionally accepts the serialized reranker database, otherwise creates a
+  /// new one.
+  XaynAi(String smbertVocab, String smbertModel, String qambertVocab, String qambertModel,
+      [Uint8List? serialized]) {
+    final smbertVocabPtr = smbertVocab.toNativeUtf8().cast<Uint8>();
+    final smbertModelPtr = smbertModel.toNativeUtf8().cast<Uint8>();
+    final qambertVocabPtr = qambertVocab.toNativeUtf8().cast<Uint8>();
+    final qambertModelPtr = qambertModel.toNativeUtf8().cast<Uint8>();
     Bytes? bytes;
     final error = XaynAiError();
 

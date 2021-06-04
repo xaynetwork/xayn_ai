@@ -13,6 +13,7 @@ dependencies:
     sdk: 'flutter'
   js: '^0.6.3'
   meta: '^1.3.0'
+  hex: ^0.2.0
 
 dev_dependencies:
   ffigen: '^3.0.0'
@@ -33,8 +34,3 @@ flutter:
         pluginClass: XaynAiFfiDartPlugin
       ios:
         pluginClass: XaynAiFfiDartPlugin
-
-  # To add assets to your plugin package, add an assets section, like this:
-  assets:
-    - assets/smbert_v0000/
-    - assets/qambert_v0000/
