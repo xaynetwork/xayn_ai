@@ -7,9 +7,10 @@ import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
 
-const vocab = '../../data/rubert_v0001/vocab.txt';
-const smbertModel = '../../data/rubert_v0001/smbert.onnx';
-const qambertModel = '../../data/rubert_v0001/qambert.onnx';
+const smbertVocab = '../../data/smbert_v0000/vocab.txt';
+const smbertModel = '../../data/smbert_v0000/smbert.onnx';
+const qambertVocab = '../../data/qambert_v0000/vocab.txt';
+const qambertModel = '../../data/qambert_v0000/qambert.onnx';
 
 Document mkTestDoc(String id, String snippet, int rank) => Document(
       id,

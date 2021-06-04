@@ -35,24 +35,25 @@ class XaynAi implements common.XaynAi {
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
   XaynAi(SetupData data, [Uint8List? serialized]) {
-    final vocabPtr = data.vocab.toNativeUtf8().cast<Uint8>();
+    final smbertVocabPtr = data.smbertVocab.toNativeUtf8().cast<Uint8>();
     final smbertModelPtr = data.smbertModel.toNativeUtf8().cast<Uint8>();
+    final qambertVocabPtr = data.qambertVocab.toNativeUtf8().cast<Uint8>();
     final qambertModelPtr = data.qambertModel.toNativeUtf8().cast<Uint8>();
     Bytes? bytes;
     final error = XaynAiError();
 
     try {
       bytes = Bytes.fromList(serialized ?? Uint8List(0));
-      // vocabPtr is read-only and never freed in xaynai_new
-      _ai = ffi.xaynai_new(vocabPtr, smbertModelPtr, vocabPtr, qambertModelPtr,
-          bytes.ptr, error.ptr);
+      _ai = ffi.xaynai_new(smbertVocabPtr, smbertModelPtr, qambertVocabPtr,
+          qambertModelPtr, bytes.ptr, error.ptr);
       if (error.isError()) {
         throw error.toException();
       }
       assertNeq(_ai, nullptr);
     } finally {
-      malloc.free(vocabPtr);
+      malloc.free(smbertVocabPtr);
       malloc.free(smbertModelPtr);
+      malloc.free(qambertVocabPtr);
       malloc.free(qambertModelPtr);
       bytes?.free();
       error.free();

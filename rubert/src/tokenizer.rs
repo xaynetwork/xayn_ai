@@ -94,7 +94,7 @@ mod tests {
     use rubert_tokenizer::{ModelError, PaddingError, PostTokenizerError};
 
     use super::*;
-    use crate::tests::VOCAB;
+    use crate::tests::SMBERT_VOCAB;
 
     #[test]
     fn test_vocab_empty() {
@@ -150,7 +150,7 @@ mod tests {
     }
 
     fn tokenizer(token_size: usize) -> Tokenizer {
-        let vocab = BufReader::new(File::open(VOCAB).unwrap());
+        let vocab = BufReader::new(File::open(SMBERT_VOCAB).unwrap());
         let accents = false;
         let lowercase = true;
         Tokenizer::new(vocab, accents, lowercase, token_size).unwrap()
