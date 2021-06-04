@@ -107,9 +107,7 @@ impl AveragePooler {
         prediction: Prediction,
         attention_mask: AttentionMask,
     ) -> Result<Embedding1, PoolerError> {
-        let attention_mask = attention_mask
-            .slice::<Ix1>(s![0, ..])
-            .mapv(|mask| mask as f32);
+        let attention_mask: Array1<f32> = attention_mask.slice(s![0, ..]).mapv(|mask| mask as f32);
         let count = attention_mask.sum();
 
         let average = if count > 0. {

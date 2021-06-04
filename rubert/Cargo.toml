@@ -11,8 +11,11 @@ derive_more = { version = "0.99.13", default-features = false, features = ["dere
 displaydoc = "0.2.1"
 float-cmp = "0.8.0"
 # to be kept in sync with tract-core
-ndarray = { version = "=0.13.0", features = ["serde"] }
+ndarray = { version = "=0.15.2", features = ["serde"] }
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 serde = { version = "1.0.125", features = ["derive"] }
 thiserror = "1.0.24"
 tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
+
+[[example]]
+name = "smbert"

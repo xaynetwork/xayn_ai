@@ -116,7 +116,8 @@ where
         D: Dimension + RemoveAxis,
         ArrayBase<S, D>: Dot<Array2<f32>, Output = Array<f32, D>>,
     {
-        let h_out = input.dot(&self.weights) + &self.bias;
+        let mut h_out = input.dot(&self.weights);
+        h_out += &self.bias;
         self.activation_function.apply_to(h_out)
     }
 }
