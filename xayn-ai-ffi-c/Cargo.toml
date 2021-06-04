@@ -12,8 +12,8 @@ xayn-ai = { path = "../xayn-ai" }
 xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 
 [dev-dependencies]
-itertools = "0.10.0"
 float-cmp = "0.8.0"
+itertools = "0.10.0"
 tempfile = "3.2.0"
 
 [build-dependencies]

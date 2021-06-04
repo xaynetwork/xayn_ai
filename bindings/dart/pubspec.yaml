@@ -8,7 +8,7 @@ environment:
 
 dependencies:
   async: '^2.6.1'
-  ffi: '^1.1.1'
+  ffi: '^1.1.2'
   flutter:
     sdk: 'flutter'
   js: '^0.6.3'
