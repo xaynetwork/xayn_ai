@@ -1,13 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{
-    cond_prob,
-    AtomFeat,
-    FeatMap,
-    FilterPred,
-    SearchResult,
-    UrlOrDom,
-};
+use super::{cond_prob, AtomFeat, FeatMap, FilterPred, SearchResult, UrlOrDom};
 use std::collections::HashMap;
 
 /// Cumulated features for a given user.

@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{click_entropy, ClickSat, Rank, SearchResult};
+use super::{click_entropy, ClickSat, Rank, SearchResult};
 use std::collections::{HashMap, HashSet};
 
 /// Click counter.

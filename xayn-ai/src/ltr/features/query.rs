@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{click_entropy, mean_recip_rank, ClickSat, SearchResult};
+use super::{click_entropy, mean_recip_rank, ClickSat, SearchResult};
 use itertools::Itertools;
 use std::collections::HashSet;
 

@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use crate::ltr::features::dataiku::{
+use super::{
     cond_prob,
     mean_recip_rank,
     snippet_quality,
