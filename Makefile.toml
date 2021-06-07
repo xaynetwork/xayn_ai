@@ -35,10 +35,11 @@ workspace = false
 dependencies = ["build-local"]
 script = ["""
   cd bindings/dart
+  flutter pub get
   flutter pub run ffigen --config ffigen_common.yaml
   flutter pub run ffigen --config ffigen_mobile.yaml
 
-  # remove unused mobile-only dependency from common
+  # remove unused mobile-only dependency from common (can't be configured in dart ffigen)
   cd lib/src/common/ffi
   grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" genesis.dart > genesis
   mv genesis genesis.dart
@@ -47,7 +48,7 @@ script = ["""
 [tasks.build-bindgen-wasm]
 script = ["""
   wasm-pack build xayn-ai-ffi-wasm --out-dir ../bindings/dart/lib/src/web/ffi --out-name genesis --target web
-  # remove glob gitignore: https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0
+  # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
   rm bindings/dart/lib/src/web/ffi/.gitignore
 """]
 
