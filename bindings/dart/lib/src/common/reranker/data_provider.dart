@@ -31,9 +31,7 @@ class Asset {
   Asset(this.suffix, this._checksum);
 
   /// Returns the sha256 hash (hex-encoded) of the asset.
-  String getChecksumAsHex() {
-    return _checksum;
-  }
+  String get checksumAsHex => _checksum;
 
   /// Returns the SRI hash of the asset.
   /// https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity#tools_for_generating_sri_hashes
