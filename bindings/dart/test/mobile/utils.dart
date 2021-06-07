@@ -1,5 +1,3 @@
-import 'dart:typed_data' show Uint8List;
-
 import 'package:flutter_test/flutter_test.dart'
     show Matcher, predicate, throwsA;
 
