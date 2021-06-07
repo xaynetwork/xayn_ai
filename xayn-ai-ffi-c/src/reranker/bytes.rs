@@ -67,8 +67,10 @@ pub unsafe extern "C" fn bytes_drop(_bytes: Option<Box<CBytes>>) {}
 
 #[cfg(test)]
 mod tests {
+    use xayn_ai_ffi::CCode;
+
     use super::*;
-    use crate::{result::error::CCode, utils::tests::AsPtr};
+    use crate::utils::tests::AsPtr;
 
     const fn test_bytes<const N: usize>() -> [u8; N] {
         [0; N]

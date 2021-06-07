@@ -4,6 +4,7 @@ pub(crate) mod ai;
 pub(crate) mod analytics;
 pub(crate) mod bytes;
 
+#[cfg(doc)]
 pub use self::{
     ai::{
         xaynai_analytics,

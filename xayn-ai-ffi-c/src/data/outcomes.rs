@@ -1,37 +1,45 @@
 use crate::{slice::CBoxedSlice, utils::IntoRaw};
 
-/// C-FFI accessible version of [`xayn_ai::RerankingOutcomes`].
+/// C-FFI accessible version of [`RerankingOutcomes`].
+///
+/// [`RerankingOutcomes`]: xayn_ai::RerankingOutcomes
 #[repr(C)]
 pub struct CRerankingOutcomes {
     /// The final ranking.
     ///
-    /// See [`xayn_ai::RerankingOutcomes.final_ranking`].
+    /// See [`RerankingOutcomes.final_ranking`].
     ///
     /// Should only be empty if the input document list was empty.
+    ///
+    /// [`RerankingOutcomes.final_ranking`]: xayn_ai::RerankingOutcomes::final_ranking
     pub final_ranking: CBoxedSlice<u16>,
 
-    /// See [`xayn_ai::RerankingOutcomes.qa_mbert_similarities`].
+    /// See [`RerankingOutcomes.qa_mbert_similarities`].
     ///
     /// If it was `None` the `CBoxedSlice` instance will have a
     /// null-pointer and a length of 0.
     ///
     /// If it was `Some` but still empty it will have a dangling
     /// pointer and a length of 0.
+    ///
+    /// [`RerankingOutcomes.qa_mbert_similarities`]: xayn_ai::RerankingOutcomes::qa_mbert_similarities
     pub qa_mbert_similarities: CBoxedSlice<f32>,
 
-    /// See [`xayn_ai::RerankingOutcomes.context_scores`].
+    /// See [`RerankingOutcomes.context_scores`].
     ///
     /// If it was `None` the `CBoxedSlice` instance will have a
     /// null-pointer and a length of 0.
     ///
     /// If it was `Some` but still empty it will have a dangling
     /// pointer and a length of 0.
+    ///
+    /// [`RerankingOutcomes.context_scores`]: xayn_ai::RerankingOutcomes::context_scores
     pub context_scores: CBoxedSlice<f32>,
 }
 
 /// Wrapper to implement `IntoRaw` for [`RerankingOutcomes`].
 ///
-/// [`RerankingOutcomes`]: ::xayn_ai::RerankingOutcomes
+/// [`RerankingOutcomes`]: xayn_ai::RerankingOutcomes
 pub struct RerankingOutcomes(xayn_ai::RerankingOutcomes);
 
 unsafe impl IntoRaw for RerankingOutcomes
@@ -39,8 +47,9 @@ where
     CRerankingOutcomes: Sized,
 {
     // Safety:
-    // CRerankingOutcomes is sized, hence Box<CRerankingOutcomes> is representable as a *mut CRerankingOutcomes and Option<Box<CRerankingOutcomes>>
-    // is eligible for the nullable pointer optimization.
+    // CRerankingOutcomes is sized, hence Box<CRerankingOutcomes> is representable as a
+    // *mut CRerankingOutcomes and Option<Box<CRerankingOutcomes>> is eligible for the nullable
+    // pointer optimization.
     type Value = Option<Box<CRerankingOutcomes>>;
 
     #[inline]
@@ -91,7 +100,10 @@ impl From<xayn_ai::RerankingOutcomes> for RerankingOutcomes {
 /// - and the data-structure behind the pointer must not have been changed in
 ///   any way which would break rust invariants (just don't change it at all!).
 #[no_mangle]
-pub unsafe extern "C" fn reranking_outcomes_drop(_input: Option<Box<CRerankingOutcomes>>) {}
+pub unsafe extern "C" fn reranking_outcomes_drop(
+    _reranking_outcomes: Option<Box<CRerankingOutcomes>>,
+) {
+}
 
 #[cfg(test)]
 mod tests {

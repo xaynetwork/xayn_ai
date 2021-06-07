@@ -1,10 +1,7 @@
 use xayn_ai::Error;
+use xayn_ai_ffi::CCode;
 
-use crate::{
-    result::error::{CCode, CError},
-    slice::CBoxedSlice,
-    utils::IntoRaw,
-};
+use crate::{result::error::CError, slice::CBoxedSlice, utils::IntoRaw};
 
 /// The Xayn Ai faults.
 pub struct Faults(Vec<String>);
