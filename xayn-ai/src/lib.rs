@@ -2,16 +2,14 @@
 mod utils;
 
 mod analytics;
+mod embedding;
 mod coi;
 mod context;
 mod data;
-mod embedding_utils;
 mod error;
 mod ltr;
 mod mab;
-mod qambert;
 mod reranker;
-mod smbert;
 
 pub use crate::{
     analytics::Analytics,

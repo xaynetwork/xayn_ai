@@ -18,9 +18,9 @@ use crate::{
         CoiPoint,
         UserInterests,
     },
-    embedding_utils::l2_norm_distance,
+    embedding::utils::l2_norm_distance,
     reranker::systems::{self, CoiSystemData},
-    smbert::Embedding,
+    embedding::smbert::Embedding,
     DocumentHistory,
     Error,
 };

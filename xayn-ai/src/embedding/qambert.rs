@@ -2,7 +2,7 @@ use rubert::QAMBert;
 
 use crate::{
     data::document_data::{DocumentDataWithQAMBert, DocumentDataWithSMBert, QAMBertComponent},
-    embedding_utils::l2_norm_distance,
+    embedding::utils::l2_norm_distance,
     error::Error,
     reranker::systems::QAMBertSystem,
 };

@@ -24,7 +24,7 @@ use crate::{
         PositiveCoi,
     },
     reranker::systems::{CoiSystemData, SMBertSystem},
-    smbert::Embedding,
+    embedding::smbert::Embedding,
     Document,
     DocumentHistory,
     DocumentId,

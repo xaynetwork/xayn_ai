@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     data::{document::DocumentId, CoiId},
     reranker::systems::CoiSystemData,
-    smbert::Embedding,
+    embedding::smbert::Embedding,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
