@@ -32,7 +32,7 @@ fn main() {
         .join("dart")
         .join("ios")
         .join("Classes")
-        .join("XaynAiFfiDart.h");
+        .join("XaynAiFfiCommon.h");
 
     cargo_rerun_if_changed(crate_dir.join("src"));
     cargo_rerun_if_changed(crate_dir.join("Cargo.toml"));

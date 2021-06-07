@@ -1,11 +1,9 @@
 use std::{convert::TryInto, slice};
 
 use xayn_ai::Document;
+use xayn_ai_ffi::{CCode, Error};
 
-use crate::{
-    result::error::{CCode, Error},
-    utils::as_str,
-};
+use crate::utils::as_str;
 
 /// A raw document.
 #[repr(C)]
@@ -300,9 +298,9 @@ pub(crate) mod tests {
         docs.document[0].id = None;
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
-        assert_eq!(error.code, CCode::DocumentIdPointer);
+        assert_eq!(error.code(), CCode::DocumentIdPointer);
         assert_eq!(
-            error.message,
+            error.message(),
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentIdPointer,
@@ -316,9 +314,9 @@ pub(crate) mod tests {
         docs.document[0].snippet = None;
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
-        assert_eq!(error.code, CCode::DocumentSnippetPointer);
+        assert_eq!(error.code(), CCode::DocumentSnippetPointer);
         assert_eq!(
-            error.message,
+            error.message(),
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentSnippetPointer,

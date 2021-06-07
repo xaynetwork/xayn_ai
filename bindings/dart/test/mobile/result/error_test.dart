@@ -5,11 +5,10 @@ import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test;
 
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
-    show Code, XaynAiException;
+    show Code, CodeToInt, XaynAiException;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
     show CBoxedSlice_u8;
-import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart'
-    show CodeToInt, XaynAiError;
+import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart' show XaynAiError;
 import '../utils.dart' show throwsXaynAiException;
 
 void main() {

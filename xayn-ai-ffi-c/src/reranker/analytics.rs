@@ -3,19 +3,19 @@ use crate::utils::IntoRaw;
 /// The analytics of the reranker.
 pub(super) struct Analytics(pub(crate) Option<xayn_ai::Analytics>);
 
+/// The raw analytics of the reranker.
 #[repr(C)]
 pub struct CAnalytics {
-    /// The nDCG@k score between the LTR ranking and the relevance based ranking
+    /// The nDCG@k score between the LTR ranking and the relevance based ranking.
     pub ndcg_ltr: f32,
-    /// The nDCG@k score between the Context ranking and the relevance based ranking
+    /// The nDCG@k score between the Context ranking and the relevance based ranking.
     pub ndcg_context: f32,
-    /// The nDCG@k score between the initial ranking and the relevance based ranking
+    /// The nDCG@k score between the initial ranking and the relevance based ranking.
     pub ndcg_initial_ranking: f32,
-    /// The nDCG@k score between the final ranking and the relevance based ranking
+    /// The nDCG@k score between the final ranking and the relevance based ranking.
     pub ndcg_final_ranking: f32,
 }
 
-// this is more like a dummy impl for now until we have fleshed out the analytics
 unsafe impl IntoRaw for Analytics
 where
     CAnalytics: Sized,

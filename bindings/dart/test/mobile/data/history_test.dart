@@ -5,14 +5,14 @@ import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test, throwsArgumentError;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
-    show Feedback, Relevance;
-import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart'
     show
-        FeedbackToInt,
-        Histories,
-        RelevanceToInt,
         DayOfWeekToInt,
+        Feedback,
+        FeedbackToInt,
+        Relevance,
+        RelevanceToInt,
         UserActionToInt;
+import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart' show Histories;
 import '../utils.dart' show histories, mkTestHist;
 
 void main() {

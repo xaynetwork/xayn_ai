@@ -11,8 +11,10 @@ void main() {
   group('Document', () {
     test('empty', () {
       expect(() => mkTestDoc('', 'abc', 0), throwsArgumentError);
-      expect(() => mkTestDoc('00000000-0000-0000-0000-000000000000', 'abc', -1),
-          throwsArgumentError);
+      expect(
+        () => mkTestDoc('00000000-0000-0000-0000-000000000000', 'abc', -1),
+        throwsArgumentError,
+      );
     });
   });
 

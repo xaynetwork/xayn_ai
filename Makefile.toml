@@ -16,7 +16,7 @@ default_to_workspace = false
 dependencies = ["build"]
 
 [tasks.build]
-dependencies = ["build-dart-bindgen"]
+dependencies = ["build-bindgen"]
 
 [tasks.build-mobile.linux]
 dependencies = ["build-android"]
@@ -30,26 +30,54 @@ script = ["""
   cargo build
 """]
 
-[tasks.build-dart-bindgen]
+[tasks.build-bindgen-dart]
 workspace = false
 dependencies = ["build-local"]
 script = ["""
   cd bindings/dart
   flutter pub get
-  flutter pub run ffigen
+  flutter pub run ffigen --config ffigen_common.yaml
+  flutter pub run ffigen --config ffigen_mobile.yaml
+
+  # remove unused mobile-only dependency from common (can't be configured in dart ffigen)
+  cd lib/src/common/ffi
+  grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" genesis.dart > genesis
+  mv genesis genesis.dart
 """]
 
+[tasks.build-bindgen-wasm]
+script = ["""
+  wasm-pack build xayn-ai-ffi-wasm --out-dir ../bindings/dart/lib/src/web/ffi --out-name genesis --target web
+  # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
+  rm bindings/dart/lib/src/web/ffi/.gitignore
+"""]
+
+[tasks.build-bindgen]
+dependencies = ["build-bindgen-dart", "build-bindgen-wasm"]
+
 [tasks.build-android]
-dependencies = ["build-dart-bindgen"]
+dependencies = ["build-bindgen-dart"]
 script = ["""
   cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release
 """]
 
 [tasks.build-ios]
-dependencies = ["build-dart-bindgen"]
+dependencies = ["build-bindgen-dart"]
 script = ["""
   cargo lipo --targets $IOS_TARGETS --release
   cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
 """]
 
-
+[tasks.clean-bindgen]
+script = ["""
+  cd bindings/dart
+  rm -f ios/Classes/XaynAiFFiCommon.h
+  rm -f ios/Classes/XaynAiFFiDart.h
+  rm -f lib/src/common/ffi/genesis.dart
+  rm -f lib/src/mobile/ffi/genesis.dart
+  rm -f lib/src/web/ffi/genesis_bg.wasm
+  rm -f lib/src/web/ffi/genesis_bg.wasm.d.ts
+  rm -f lib/src/web/ffi/genesis.d.ts
+  rm -f lib/src/web/ffi/genesis.js
+  rm -f lib/src/web/ffi/package.json
+"""]

@@ -1,123 +1,36 @@
-//! placeholder / later we can have a crate that contains common code for c-ffi and wasm
-
 use serde::{Deserialize, Serialize};
-use serde_repr::{Deserialize_repr, Serialize_repr};
+use xayn_ai::{DocumentHistory, DocumentId, QueryId, SessionId};
+use xayn_ai_ffi::{CDayOfWeek, CFeedback, CRelevance, CUserAction};
 
-use xayn_ai::{
-    DayOfWeek,
-    DocumentHistory,
-    DocumentId,
-    QueryId,
-    Relevance,
-    SessionId,
-    UserAction,
-    UserFeedback,
-};
-
-/// A document relevance level.
-#[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr)]
-#[cfg_attr(test, derive(Clone))]
-pub enum WRelevance {
-    Low = 0,
-    Medium = 1,
-    High = 2,
-}
-
-impl From<WRelevance> for Relevance {
-    fn from(relevance: WRelevance) -> Self {
-        match relevance {
-            WRelevance::Low => Self::Low,
-            WRelevance::Medium => Self::Medium,
-            WRelevance::High => Self::High,
-        }
-    }
-}
-
-/// A user feedback level.
-#[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr)]
-#[cfg_attr(test, derive(Clone))]
-pub enum WFeedback {
-    Relevant = 0,
-    Irrelevant = 1,
-    // We cannot use None nor Nil because they are reserved
-    // keyword in dart or objective-C
-    NotGiven = 2,
-}
-
-impl From<WFeedback> for UserFeedback {
-    fn from(feedback: WFeedback) -> Self {
-        match feedback {
-            WFeedback::Relevant => Self::Relevant,
-            WFeedback::Irrelevant => Self::Irrelevant,
-            WFeedback::NotGiven => Self::None,
-        }
-    }
-}
-
-/// Day of the week.
-#[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr)]
-#[cfg_attr(test, derive(Clone))]
-pub enum WDayOfWeek {
-    Mon = 0,
-    Tue = 1,
-    Wed = 2,
-    Thu = 3,
-    Fri = 4,
-    Sat = 5,
-    Sun = 6,
-}
-
-impl From<WDayOfWeek> for DayOfWeek {
-    fn from(day: WDayOfWeek) -> Self {
-        match day {
-            WDayOfWeek::Mon => Self::Mon,
-            WDayOfWeek::Tue => Self::Tue,
-            WDayOfWeek::Wed => Self::Wed,
-            WDayOfWeek::Thu => Self::Thu,
-            WDayOfWeek::Fri => Self::Fri,
-            WDayOfWeek::Sat => Self::Sat,
-            WDayOfWeek::Sun => Self::Sun,
-        }
-    }
-}
-
-/// A user interaction.
-#[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr)]
-#[cfg_attr(test, derive(Clone))]
-pub enum WUserAction {
-    Miss = 0,
-    Skip = 1,
-    Click = 2,
-}
-
-impl From<WUserAction> for UserAction {
-    fn from(user_action: WUserAction) -> Self {
-        match user_action {
-            WUserAction::Miss => Self::Miss,
-            WUserAction::Skip => Self::Skip,
-            WUserAction::Click => Self::Click,
-        }
-    }
-}
-
+/// A document history.
+///
+/// The enum fields are serializable as integers instead of strings.
 #[derive(Deserialize, Serialize)]
 pub struct WHistory {
+    /// Unique identifier of the document.
     id: DocumentId,
-    relevance: WRelevance,
-    feedback: WFeedback,
+    /// Relevance level of the document.
+    relevance: CRelevance,
+    /// A flag that indicates whether the user liked the document.
+    feedback: CFeedback,
+    /// Session of the document.
     session: SessionId,
+    /// Query count within session.
     query_count: usize,
+    /// Query identifier of the document.
     query_id: QueryId,
+    /// Query of the document.
     query_words: String,
-    day: WDayOfWeek,
+    /// Day of week query was performed.
+    day: CDayOfWeek,
+    /// URL of the document.
     url: String,
+    /// Domain of the document.
     domain: String,
+    /// Reranked position of the document.
     rank: usize,
-    user_action: WUserAction,
+    /// User interaction for the document.
+    user_action: CUserAction,
 }
 
 impl From<WHistory> for DocumentHistory {
@@ -142,50 +55,6 @@ impl From<WHistory> for DocumentHistory {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    impl From<Relevance> for WRelevance {
-        fn from(relevance: Relevance) -> Self {
-            match relevance {
-                Relevance::Low => Self::Low,
-                Relevance::Medium => Self::Medium,
-                Relevance::High => Self::High,
-            }
-        }
-    }
-
-    impl From<UserFeedback> for WFeedback {
-        fn from(feedback: UserFeedback) -> Self {
-            match feedback {
-                UserFeedback::Relevant => Self::Relevant,
-                UserFeedback::Irrelevant => Self::Irrelevant,
-                UserFeedback::None => Self::NotGiven,
-            }
-        }
-    }
-
-    impl From<DayOfWeek> for WDayOfWeek {
-        fn from(day: DayOfWeek) -> Self {
-            match day {
-                DayOfWeek::Mon => Self::Mon,
-                DayOfWeek::Tue => Self::Tue,
-                DayOfWeek::Wed => Self::Wed,
-                DayOfWeek::Thu => Self::Thu,
-                DayOfWeek::Fri => Self::Fri,
-                DayOfWeek::Sat => Self::Sat,
-                DayOfWeek::Sun => Self::Sun,
-            }
-        }
-    }
-
-    impl From<UserAction> for WUserAction {
-        fn from(user_action: UserAction) -> Self {
-            match user_action {
-                UserAction::Miss => Self::Miss,
-                UserAction::Skip => Self::Skip,
-                UserAction::Click => Self::Click,
-            }
-        }
-    }
 
     impl From<DocumentHistory> for WHistory {
         fn from(history: DocumentHistory) -> Self {

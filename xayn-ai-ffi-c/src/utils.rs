@@ -2,7 +2,9 @@
 
 use std::{ffi::CStr, fmt::Display};
 
-use crate::result::error::{CCode, Error};
+use xayn_ai_ffi::{CCode, Error};
+
+#[cfg(doc)]
 pub use crate::slice::CBoxedSlice;
 
 /// This function does nothing.
