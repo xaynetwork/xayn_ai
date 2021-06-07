@@ -40,9 +40,7 @@ class Asset {
 
   /// Returns the SRI hash of the asset.
   /// https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity#tools_for_generating_sri_hashes
-  String getChecksumSri() {
-    return 'sha256-' + base64.encode(HEX.decode(_checksum));
-  }
+  String get checksumSri => 'sha256-' + base64.encode(HEX.decode(_checksum));
 }
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
