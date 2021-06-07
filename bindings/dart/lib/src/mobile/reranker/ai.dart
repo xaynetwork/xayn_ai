@@ -31,7 +31,8 @@ import 'package:xayn_ai_ffi_dart/src/mobile/result/fault.dart' show Faults;
 /// Requires the vocabulary and model of the tokenizer/embedder.
 /// Optionally accepts the serialized reranker database, otherwise creates a
 /// new one.
-Future<XaynAi> createXaynAi(SetupData data, [Uint8List? serialized]) async {
+class XaynAi implements common.XaynAi {
+  static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
   return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
       data.qambertModel, serialized);
 }
