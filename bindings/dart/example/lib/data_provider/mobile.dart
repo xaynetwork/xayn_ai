@@ -39,11 +39,9 @@ Future<String> _getData(
   final assetPath = joinPaths([_baseAssetsPath, assetSuffixPath]);
   final data = await rootBundle.load(assetPath);
 
-  final diskDirPath =
-      joinPaths([baseDiskPath, File(assetSuffixPath).parent.path]);
+  final diskPath = joinPaths([baseDiskPath, File(assetSuffixPath)]);
+  final diskDirPath = diskPath.parent.path;
   await Directory(diskDirPath).create(recursive: true);
-
-  final diskPath = joinPaths([diskDirPath, _getFilename(assetSuffixPath)]);
   final file = File(diskPath);
 
   // Only write the data on disk if the file does not exist or the size does not match.
