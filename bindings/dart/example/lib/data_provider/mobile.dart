@@ -22,7 +22,7 @@ Future<SetupData> getInputData() async {
   final paths = <AssetType, String>{};
   for (var asset in getAssets().entries) {
     final path = await _getData(
-        baseDiskPath.path, asset.value.suffix, asset.value.getChecksumAsHex());
+        baseDiskPath.path, asset.value.suffix, asset.value.checksumAsHex);
     paths.putIfAbsent(asset.key, () => path);
   }
 
@@ -39,10 +39,10 @@ Future<String> _getData(
   final assetPath = joinPaths([_baseAssetsPath, assetSuffixPath]);
   final data = await rootBundle.load(assetPath);
 
-  final diskPath = joinPaths([baseDiskPath, File(assetSuffixPath)]);
+  final diskPath = File(joinPaths([baseDiskPath, assetSuffixPath]));
   final diskDirPath = diskPath.parent.path;
   await Directory(diskDirPath).create(recursive: true);
-  final file = File(diskPath);
+  final file = File(diskPath.path);
 
   // Only write the data on disk if the file does not exist or the size does not match.
   // The last check is useful in case the app is closed before we can finish to write,
@@ -58,10 +58,6 @@ Future<String> _getData(
   }
 
   return file.path;
-}
-
-String _getFilename(String path) {
-  return path.split('/').last;
 }
 
 Future<bool> _verifyChecksum(File file, String checksum) async {

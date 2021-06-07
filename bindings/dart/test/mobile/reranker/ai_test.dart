@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart'
     show contains, equals, expect, group, isEmpty, isNot, test;
 
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart' show Code;
-import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show createXaynAi;
+import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show XaynAi;
 import '../utils.dart'
     show
         documents,
@@ -19,7 +19,7 @@ import '../utils.dart'
 void main() {
   group('XaynAi', () {
     test('rerank full', () async {
-      final ai = await createXaynAi(
+      final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank(histories, documents);
       final faults = ai.faults();
@@ -33,7 +33,7 @@ void main() {
     });
 
     test('rerank empty', () async {
-      final ai = await createXaynAi(
+      final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank([], []);
       final faults = ai.faults();
@@ -45,7 +45,7 @@ void main() {
     });
 
     test('rerank empty hists', () async {
-      final ai = await createXaynAi(
+      final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank([], documents);
       final faults = ai.faults();
@@ -59,7 +59,7 @@ void main() {
     });
 
     test('rerank empty docs', () async {
-      final ai = await createXaynAi(
+      final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
       final outcome = ai.rerank(histories, []);
       final faults = ai.faults();
@@ -72,22 +72,22 @@ void main() {
 
     test('invalid paths', () {
       expect(
-        () async => await createXaynAi(
+        () async => await XaynAi.create(
             mkSetupData('', smbertModel, qambertVocab, qambertModel)),
         throwsXaynAiException(Code.readFile),
       );
       expect(
-        () async => await createXaynAi(
+        () async => await XaynAi.create(
             mkSetupData(smbertVocab, '', qambertVocab, qambertModel)),
         throwsXaynAiException(Code.readFile),
       );
       expect(
-        () async => await createXaynAi(
+        () async => await XaynAi.create(
             mkSetupData(smbertVocab, smbertModel, '', qambertModel)),
         throwsXaynAiException(Code.readFile),
       );
       expect(
-        () async => await createXaynAi(
+        () async => await XaynAi.create(
             mkSetupData(smbertVocab, smbertModel, qambertVocab, '')),
         throwsXaynAiException(Code.readFile),
       );
@@ -95,7 +95,7 @@ void main() {
 
     test('empty serialized', () async {
       final serialized = Uint8List(0);
-      final ai = await createXaynAi(
+      final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel),
           serialized);
       ai.free();
@@ -103,7 +103,7 @@ void main() {
 
     test('invalid serialized', () {
       expect(
-        () async => await createXaynAi(
+        () async => await XaynAi.create(
             mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel),
             Uint8List.fromList([255])),
         throwsXaynAiException(Code.rerankerDeserialization),

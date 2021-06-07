@@ -7,15 +7,15 @@ import 'package:xayn_ai_ffi_dart/package.dart'
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     show joinPaths;
 
-const baseUrl = 'assets/assets';
+const _baseAssetUrl = 'assets/assets';
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 Future<SetupData> getInputData() async {
   final fetched = <AssetType, Uint8List>{};
 
   for (var asset in getAssets().entries) {
-    final path = joinPaths([baseUrl, asset.value.suffix]);
-    final data = await _fetchAsset(path, asset.value.getChecksumSri());
+    final path = joinPaths([_baseAssetUrl, asset.value.suffix]);
+    final data = await _fetchAsset(path, asset.value.checksumSri);
     fetched.putIfAbsent(asset.key, () => data);
   }
 
