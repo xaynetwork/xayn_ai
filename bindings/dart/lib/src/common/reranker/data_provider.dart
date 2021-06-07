@@ -25,13 +25,10 @@ enum AssetType {
 }
 
 class Asset {
-  late String suffix;
-  late String _checksum;
+  final String suffix;
+  final String _checksum;
 
-  Asset(String suffix, String checksum) {
-    this.suffix = suffix;
-    _checksum = checksum;
-  }
+  Asset(this.suffix, this._checksum);
 
   /// Returns the sha256 hash (hex-encoded) of the asset.
   String getChecksumAsHex() {
