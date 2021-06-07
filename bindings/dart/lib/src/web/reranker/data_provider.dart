@@ -20,7 +20,7 @@ class SetupData implements common.SetupData {
     smbertVocab = assets[common.AssetType.smbertVocab]!;
     smbertModel = assets[common.AssetType.smbertModel]!;
     qambertVocab = assets[common.AssetType.qambertVocab]!;
-    qambertModel = assets[common.AssetType.qambertVocab]!;
+    qambertModel = assets[common.AssetType.qambertModel]!;
     wasmModule = assets[common.AssetType.wasmModule]!;
   }
 }
