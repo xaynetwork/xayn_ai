@@ -64,8 +64,8 @@ mod tests {
 
     use super::*;
 
-    const VOCAB: &str = "../data/rubert_v0001/vocab.txt";
-    const QAMBERT_MODEL: &str = "../data/rubert_v0001/qambert.onnx";
+    const VOCAB: &str = "../data/qambert_v0000/vocab.txt";
+    const QAMBERT_MODEL: &str = "../data/qambert_v0000/qambert.onnx";
 
     fn qambert() -> QAMBert {
         QAMBertBuilder::from_files(VOCAB, QAMBERT_MODEL)
