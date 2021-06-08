@@ -5,13 +5,13 @@ use crate::SessionId;
 use std::collections::{HashMap, HashSet};
 
 /// Click counter.
-struct ClickCounts {
+pub(crate) struct ClickCounts {
     /// Click count of results ranked 1-2.
-    click12: u32,
+    pub(crate) click12: u32,
     /// Click count of results ranked 3-5.
-    click345: u32,
+    pub(crate) click345: u32,
     /// Click count of results ranked 6 upwards.
-    click6up: u32,
+    pub(crate) click6up: u32,
 }
 
 impl ClickCounts {
@@ -37,15 +37,15 @@ impl ClickCounts {
 /// Click habits and other features specific to the user.
 pub(crate) struct UserFeatures {
     /// Entropy over ranks of clicked results.
-    click_entropy: f32,
+    pub(crate) click_entropy: f32,
     /// Click counts of results ranked 1-2, 3-6, 6-10 resp.
-    click_counts: ClickCounts,
+    pub(crate) click_counts: ClickCounts,
     /// Total number of search queries over all sessions.
-    num_queries: usize,
+    pub(crate) num_queries: usize,
     /// Mean number of words per query.
-    words_per_query: f32,
+    pub(crate) words_per_query: f32,
     /// Mean number of unique query words per session.
-    words_per_session: f32,
+    pub(crate) words_per_session: f32,
 }
 
 impl UserFeatures {

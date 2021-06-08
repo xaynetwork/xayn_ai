@@ -7,21 +7,21 @@ use std::collections::HashSet;
 /// Features specific to a given query.
 pub(crate) struct QueryFeatures {
     /// Entropy over ranks of clicked results.
-    click_entropy: f32,
+    pub(crate) click_entropy: f32,
     /// Number of terms.
-    num_terms: usize,
+    pub(crate) num_terms: usize,
     /// Average `n` where query is the `n`th of a session.
-    mean_query_count: f32,
+    pub(crate) mean_query_count: f32,
     /// Average number of occurrences per session.
-    occurs_per_session: f32,
+    pub(crate) occurs_per_session: f32,
     /// Total number of occurrences.
-    num_occurs: usize,
+    pub(crate) num_occurs: usize,
     /// Mean reciprocal rank of clicked results.
-    click_mrr: f32,
+    pub(crate) click_mrr: f32,
     /// Average number of clicks.
-    mean_clicks: f32,
+    pub(crate) mean_clicks: f32,
     /// Average number of skips.
-    mean_skips: f32,
+    pub(crate) mean_skips: f32,
 }
 
 impl QueryFeatures {

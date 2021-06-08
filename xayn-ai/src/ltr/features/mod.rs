@@ -317,14 +317,14 @@ struct Features {
 }
 
 impl Features {
-    /// Build features for a user's search `res`ult given her past search `hist`ory.
+    /// Build features for a search `res`ult from the user given her past search `hist`ory.
     fn build(hist: &[HistSearchResult], res: NewSearchResult) -> Self {
         let init_rank = res.init_rank;
         let aggreg = AggregFeatures::build(hist, &res);
         let user = UserFeatures::build(hist);
         let query = QueryFeatures::build(hist, &res);
         let cum = CumFeatures::build(hist, &res);
-        let terms_variety = terms_variety(hist, res.query.session_id);
+        let terms_variety = terms_variety(&res);
         // NOTE according to Dataiku spec, this should be the weekend seasonality
         // factor when `res.day` is a weekend, otherwise the inverse (weekday
         // seasonality) factor. a bug in soundgarden sets this to always be weekend
@@ -341,6 +341,83 @@ impl Features {
             terms_variety,
             seasonality,
         }
+    }
+}
+
+impl From<Features> for [f32; 50] {
+    fn from(feats: Features) -> Self {
+        let click_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Click);
+        let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
+        let skip_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Skip);
+        let combine_mrr = &AtomFeat::MeanRecipRankAll;
+        let click1 = &AtomFeat::CondProb(Action::Click1);
+        let click2 = &AtomFeat::CondProb(Action::Click2);
+        let missed = &AtomFeat::CondProb(Action::Miss);
+        let skipped = &AtomFeat::CondProb(Action::Skip);
+        let snippet_quality = &AtomFeat::SnippetQuality;
+
+        let Features {
+            init_rank,
+            aggreg,
+            user,
+            query,
+            cum,
+            terms_variety,
+            seasonality,
+        } = feats;
+
+        [
+            init_rank.into(),
+            aggreg.url[click_mrr],
+            aggreg.url[click2],
+            aggreg.url[missed],
+            aggreg.url[snippet_quality],
+            aggreg.url_ant[click2],
+            aggreg.url_ant[missed],
+            aggreg.url_ant[snippet_quality],
+            aggreg.url_query[combine_mrr],
+            aggreg.url_query[click2],
+            aggreg.url_query[missed],
+            aggreg.url_query[snippet_quality],
+            aggreg.url_query_ant[combine_mrr],
+            aggreg.url_query_ant[click_mrr],
+            aggreg.url_query_ant[miss_mrr],
+            aggreg.url_query_ant[skip_mrr],
+            aggreg.url_query_ant[missed],
+            aggreg.url_query_ant[snippet_quality],
+            aggreg.url_query_curr[miss_mrr],
+            aggreg.dom[skipped],
+            aggreg.dom[missed],
+            aggreg.dom[click2],
+            aggreg.dom[snippet_quality],
+            aggreg.dom_ant[click2],
+            aggreg.dom_ant[missed],
+            aggreg.dom_ant[snippet_quality],
+            aggreg.dom_query[missed],
+            aggreg.dom_query[snippet_quality],
+            aggreg.dom_query[miss_mrr],
+            aggreg.dom_query_ant[snippet_quality],
+            query.click_entropy,
+            query.num_terms as f32,
+            query.mean_query_count,
+            query.occurs_per_session,
+            query.num_occurs as f32,
+            query.click_mrr,
+            query.mean_clicks,
+            query.mean_skips,
+            user.click_entropy,
+            user.click_counts.click12 as f32,
+            user.click_counts.click345 as f32,
+            user.click_counts.click6up as f32,
+            user.num_queries as f32,
+            user.words_per_query,
+            user.words_per_session,
+            cum.url[skipped],
+            cum.url[click1],
+            cum.url[click2],
+            terms_variety as f32,
+            seasonality,
+        ]
     }
 }
 
@@ -386,13 +463,8 @@ pub(crate) fn mean_recip_rank(
 }
 
 /// Counts the variety of terms over a given test session.
-fn terms_variety(query: &[HistSearchResult], session_id: SessionId) -> usize {
-    query
-        .iter()
-        .filter(|r| r.query.session_id == session_id)
-        .flat_map(|r| &r.query.query_words)
-        .unique()
-        .count()
+fn terms_variety(res: &NewSearchResult) -> usize {
+    res.query.query_words.iter().unique().count()
 }
 
 /// Weekend seasonality of a given domain.

@@ -16,23 +16,23 @@ use super::{
 /// Aggregate features for a given user.
 pub(crate) struct AggregFeatures {
     /// Aggregate feature for matching domain.
-    dom: FeatMap,
+    pub(crate) dom: FeatMap,
     /// Aggregate feature for matching domain over anterior sessions.
-    dom_ant: FeatMap,
+    pub(crate) dom_ant: FeatMap,
     /// Aggregate feature for matching URL.
-    url: FeatMap,
+    pub(crate) url: FeatMap,
     /// Aggregate feature for matching URL over anterior sessions.
-    url_ant: FeatMap,
+    pub(crate) url_ant: FeatMap,
     /// Aggregate feature for matching domain and query.
-    dom_query: FeatMap,
+    pub(crate) dom_query: FeatMap,
     /// Aggregate feature for matching domain and query over anterior sessions.
-    dom_query_ant: FeatMap,
+    pub(crate) dom_query_ant: FeatMap,
     /// Aggregate feature for matching URL and query.
-    url_query: FeatMap,
+    pub(crate) url_query: FeatMap,
     /// Aggregate feature for matching URL and query over anterior sessions.
-    url_query_ant: FeatMap,
+    pub(crate) url_query_ant: FeatMap,
     /// Aggregate feature for matching URL and query over current session.
-    url_query_curr: FeatMap,
+    pub(crate) url_query_curr: FeatMap,
 }
 
 impl AggregFeatures {

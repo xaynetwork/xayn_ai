@@ -14,7 +14,7 @@ use std::collections::HashMap;
 /// Cumulated features for a given user.
 pub(crate) struct CumFeatures {
     /// Cumulated feature for matching URL.
-    url: FeatMap,
+    pub(crate) url: FeatMap,
 }
 
 impl CumFeatures {

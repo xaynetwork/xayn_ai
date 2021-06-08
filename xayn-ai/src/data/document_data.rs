@@ -154,6 +154,7 @@ impl_coi_system_data_no_coi! {DocumentDataWithQAMBert}
 
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_base: DocumentBaseComponent,
+    #[allow(unused)] // TEMP
     pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
