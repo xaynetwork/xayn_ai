@@ -2,10 +2,10 @@
 mod utils;
 
 mod analytics;
-mod embedding;
 mod coi;
 mod context;
 mod data;
+mod embedding;
 mod error;
 mod ltr;
 mod mab;

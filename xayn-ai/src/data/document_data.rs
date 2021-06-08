@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     data::{document::DocumentId, CoiId},
-    reranker::systems::CoiSystemData,
     embedding::smbert::Embedding,
+    reranker::systems::CoiSystemData,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
