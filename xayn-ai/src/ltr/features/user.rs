@@ -1,6 +1,7 @@
 #![allow(dead_code)] // TEMP
 
-use super::{click_entropy, ClickSat, Rank, SearchResult};
+use super::{click_entropy, Action, HistSearchResult, Rank};
+use crate::SessionId;
 use std::collections::{HashMap, HashSet};
 
 /// Click counter.
@@ -49,7 +50,7 @@ pub(crate) struct UserFeatures {
 
 impl UserFeatures {
     /// Build user features for the given historical search results of the user.
-    pub(crate) fn build(history: &[SearchResult]) -> Self {
+    pub(crate) fn build(history: &[HistSearchResult]) -> Self {
         if history.is_empty() {
             return Self {
                 click_entropy: 0.,
@@ -60,25 +61,22 @@ impl UserFeatures {
             };
         }
 
-        // session & query data for all search results over all sessions
-        let all_results = history
-            .iter()
-            .map(|r| (r.session_id, r.query_id, &r.query_words, r.query_counter))
-            .collect::<HashSet<_>>();
+        // query data for all search results over all sessions
+        let all_results = history.iter().map(|r| &r.query).collect::<HashSet<_>>();
 
         let click_entropy = click_entropy(history);
         let click_counts = click_counts(history);
         let num_queries = all_results.len();
         let words_per_query = all_results
             .iter()
-            .map(|(_, _, words, _)| words.len())
+            .map(|q| q.query_words.len())
             .sum::<usize>() as f32
             / num_queries as f32;
 
         let words_per_session = words_per_session(
             all_results
                 .into_iter()
-                .map(|(session, _, words, _)| (session, words)),
+                .map(|q| (q.session_id, &q.query_words)),
         );
 
         Self {
@@ -92,17 +90,17 @@ impl UserFeatures {
 }
 
 /// Calculate click counts of results ranked 1-2, 3-6, 6-10 resp.
-fn click_counts(results: &[SearchResult]) -> ClickCounts {
+fn click_counts(results: &[HistSearchResult]) -> ClickCounts {
     results
         .iter()
-        .filter(|r| r.relevance > ClickSat::Low)
-        .fold(ClickCounts::new(), |counter, r| counter.incr(r.position))
+        .filter(|r| r.action > Action::Click0)
+        .fold(ClickCounts::new(), |counter, r| counter.incr(r.rerank))
 }
 
 /// Calculate mean number of unique query words per session.
 ///
 /// `results` is an iterator of `(session_id, query_words)` tuples over all results of the search history.
-fn words_per_session<'a>(results: impl Iterator<Item = (i32, &'a Vec<String>)>) -> f32 {
+fn words_per_session<'a>(results: impl Iterator<Item = (SessionId, &'a Vec<String>)>) -> f32 {
     let words_by_session = results.fold(HashMap::new(), |mut words_by_session, (s, ws)| {
         let words = words_by_session.entry(s).or_insert_with(HashSet::new);
         words.extend(ws);

@@ -1,6 +1,14 @@
 #![allow(dead_code)] // TEMP
 
-use super::{cond_prob, AtomFeat, FeatMap, FilterPred, SearchResult, UrlOrDom};
+use super::{
+    cond_prob,
+    AtomFeat,
+    FeatMap,
+    FilterPred,
+    HistSearchResult,
+    NewSearchResult,
+    UrlOrDom,
+};
 use std::collections::HashMap;
 
 /// Cumulated features for a given user.
@@ -18,17 +26,12 @@ impl CumFeatures {
     /// ```
     /// where the sum ranges over each search result `r` ranked above `res`. `pred` is the predicate
     /// corresponding to the cumulated feature, and `outcome` one of its specified atoms.
-    pub(crate) fn build(hist: &[SearchResult], res: impl AsRef<SearchResult>) -> Self {
+    pub(crate) fn build(hist: &[HistSearchResult], res: impl AsRef<NewSearchResult>) -> Self {
         let res = res.as_ref();
         let url = hist
             .iter()
             // if res is ranked n, get the n-1 results ranked above res
-            .filter(|r| {
-                r.session_id == res.session_id
-                    && r.query_id == res.query_id
-                    && r.query_counter == res.query_counter
-                    && r.position < res.position
-            })
+            .filter(|r| r.query == res.query && r.rerank < res.init_rank)
             // calculate specified cond probs for each of the above
             .flat_map(|r| {
                 let pred = FilterPred::new(UrlOrDom::Url(&r.url));

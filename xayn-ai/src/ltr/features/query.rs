@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use super::{click_entropy, mean_recip_rank, ClickSat, SearchResult};
+use super::{click_entropy, mean_recip_rank, Action, HistSearchResult, NewSearchResult};
 use itertools::Itertools;
 use std::collections::HashSet;
 
@@ -26,14 +26,14 @@ pub(crate) struct QueryFeatures {
 
 impl QueryFeatures {
     /// Build query features for the given search result and history of a user.
-    pub(crate) fn build(history: &[SearchResult], res: &SearchResult) -> Self {
+    pub(crate) fn build(history: &[HistSearchResult], res: &NewSearchResult) -> Self {
         // history filtered by query
         let history_q = history
             .iter()
-            .filter(|r| r.query_id == res.query_id)
+            .filter(|r| r.query.query_id == res.query.query_id)
             .collect_vec();
 
-        let num_terms = res.query_words.len();
+        let num_terms = res.query.query_words.len();
 
         if history_q.is_empty() {
             return Self {
@@ -52,12 +52,12 @@ impl QueryFeatures {
 
         let (mean_query_count, num_occurs) = mean_query_count(history_q.iter());
 
-        let num_sessions = history_q.iter().unique_by(|r| r.session_id).count() as f32;
+        let num_sessions = history_q.iter().unique_by(|r| r.query.session_id).count() as f32;
         let occurs_per_session = num_occurs as f32 / num_sessions;
 
         let clicked = history_q
             .iter()
-            .filter(|r| r.relevance > ClickSat::Low)
+            .filter(|r| r.action > Action::Click0)
             .collect_vec();
         let click_mrr = mean_recip_rank(&clicked, None, None);
 
@@ -65,7 +65,7 @@ impl QueryFeatures {
 
         let mean_skips = history_q
             .into_iter()
-            .filter(|r| r.relevance == ClickSat::Skip)
+            .filter(|r| r.action == Action::Skip)
             .count() as f32
             / num_occurs as f32;
 
@@ -84,9 +84,9 @@ impl QueryFeatures {
 
 /// Calculate average `n` where query is the `n`th of a session.
 /// Also returns the total number of searches the average is taken over.
-fn mean_query_count<'a>(history_q: impl Iterator<Item = &'a &'a SearchResult>) -> (f32, usize) {
+fn mean_query_count<'a>(history_q: impl Iterator<Item = &'a &'a HistSearchResult>) -> (f32, usize) {
     let occurs = history_q
-        .map(|r| (r.session_id, r.query_counter))
+        .map(|r| (r.query.session_id, r.query.query_count))
         .collect::<HashSet<_>>();
 
     let num_occurs = occurs.len();

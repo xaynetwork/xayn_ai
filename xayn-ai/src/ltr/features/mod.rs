@@ -15,26 +15,28 @@ use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
+use crate::{DayOfWeek, QueryId, SessionId};
+
 use aggregate::AggregFeatures;
 use cumulate::CumFeatures;
 use query::QueryFeatures;
 use user::UserFeatures;
 
-/// Click satisfaction score.
+/// Action from the user on a particular search result.
 ///
 /// Based on Yandex notion of dwell-time: time elapsed between a click and the next action.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
-pub(crate) enum ClickSat {
-    /// Snippet examined but URL not clicked.
+pub(crate) enum Action {
+    /// No click after examining snippet.
     Skip,
-    /// Snippet not examined.
+    /// No click without examining snippet.
     Miss,
-    /// Less than 50 units of time or no click.
-    Low,
-    /// From 50 to 300 units of time.
-    Medium,
-    /// More than 300 units of time or last click of the session.
-    High,
+    /// Less than 50 units of dwell-time or no click.
+    Click0, // TODO consider removing later
+    /// From 50 to 300 units of dwell-time.
+    Click1,
+    /// More than 300 units of dwell-time or last click of the session.
+    Click2,
 }
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -47,7 +49,7 @@ pub(crate) enum Rank {
     Sixth,
     Seventh,
     Eighth,
-    Nineth,
+    Ninth,
     Last,
 }
 
@@ -57,43 +59,55 @@ impl From<Rank> for f32 {
     }
 }
 
-#[derive(PartialEq)]
-pub(crate) enum DayOfWeek {
-    Mon,
-    Tue,
-    Wed,
-    Thu,
-    Fri,
-    Sat,
-    Sun,
-}
-
-/// Data pertaining to a single result from a search.
-pub struct SearchResult {
+#[derive(PartialEq, Eq, Hash)]
+/// Search query.
+pub(crate) struct Query {
     /// Session identifier.
-    pub(crate) session_id: i32,
-    /// User identifier.
-    pub(crate) user_id: i32,
+    pub(crate) session_id: SessionId,
+    /// Query count within session.
+    pub(crate) query_count: usize,
     /// Query identifier.
-    pub(crate) query_id: i32,
-    /// Day of week search was performed.
-    pub(crate) day: DayOfWeek,
+    pub(crate) query_id: QueryId,
     /// Words of the query.
     pub(crate) query_words: Vec<String>,
+}
+
+/// Single result from a new search, yet to be reranked.
+pub struct NewSearchResult {
+    /// Search query.
+    pub(crate) query: Query,
     /// URL of result.
     pub(crate) url: String,
     /// Domain of result.
     pub(crate) domain: String,
-    /// Relevance level of the result.
-    pub(crate) relevance: ClickSat,
-    /// Position among other results.
-    pub(crate) position: Rank,
-    /// Query count within session.
-    pub(crate) query_counter: u8,
+    /// Initial unpersonalised rank among other results of the search.
+    pub(crate) init_rank: Rank,
 }
 
-impl AsRef<SearchResult> for SearchResult {
-    fn as_ref(&self) -> &SearchResult {
+impl AsRef<NewSearchResult> for NewSearchResult {
+    fn as_ref(&self) -> &NewSearchResult {
+        self
+    }
+}
+
+/// Single reranked result from a search performed at some point in the user's history.
+pub struct HistSearchResult {
+    /// Search query.
+    pub(crate) query: Query,
+    /// URL of result.
+    pub(crate) url: String,
+    /// Domain of result.
+    pub(crate) domain: String,
+    /// Reranked position among other results of the search.
+    pub(crate) rerank: Rank,
+    /// Day of week search was performed.
+    pub(crate) day: DayOfWeek,
+    /// User action on this result.
+    pub(crate) action: Action,
+}
+
+impl AsRef<HistSearchResult> for HistSearchResult {
+    fn as_ref(&self) -> &HistSearchResult {
         self
     }
 }
@@ -113,7 +127,7 @@ pub(crate) enum AtomFeat {
     /// MRR for all outcomes.
     MeanRecipRankAll,
     /// Conditional probabilities for miss, skip, click0, click1, click2.
-    CondProb(ClickSat),
+    CondProb(Action),
     /// Snippet quality.
     SnippetQuality,
 }
@@ -122,14 +136,14 @@ pub(crate) type FeatMap = HashMap<AtomFeat, f32>;
 
 #[derive(Clone)]
 /// Search results from some query.
-struct ResultSet<'a>(Vec<&'a SearchResult>);
+struct ResultSet<'a>(Vec<&'a HistSearchResult>);
 
 impl<'a> ResultSet<'a> {
     /// New result set.
     ///
     /// Assumes `rs[i]` contains the search result `r` with `r.position` `i+1`.
     // TODO may relax this assumption later
-    fn new(rs: Vec<&'a SearchResult>) -> Self {
+    fn new(rs: Vec<&'a HistSearchResult>) -> Self {
         Self(rs)
     }
 
@@ -137,7 +151,7 @@ impl<'a> ResultSet<'a> {
     ///
     /// # Panic
     /// Panics if the length of the underlying vector is less than `pos`.
-    fn get(&self, pos: Rank) -> &SearchResult {
+    fn get(&self, pos: Rank) -> &HistSearchResult {
         self.0[(pos as usize) - 1]
     }
 
@@ -145,15 +159,13 @@ impl<'a> ResultSet<'a> {
     fn cumulative_clicks(&self, pos: Rank) -> usize {
         self.0
             .iter()
-            .filter(|r| r.relevance > ClickSat::Low && r.position <= pos)
+            .filter(|r| r.action > Action::Click0 && r.rerank <= pos)
             .count()
     }
 
     /// Rank of the result with the matching `url`.
     fn rank_of(&self, url: &str) -> Option<Rank> {
-        self.0
-            .iter()
-            .find_map(|r| (r.url == url).then(|| r.position))
+        self.0.iter().find_map(|r| (r.url == url).then(|| r.rerank))
     }
 }
 
@@ -183,9 +195,9 @@ pub(crate) enum UrlOrDom<'a> {
 #[derive(Clone, Copy)]
 pub(crate) enum SessionCond {
     /// Before current session.
-    Anterior(i32),
+    Anterior(SessionId),
     /// Current session.
-    Current(i32),
+    Current(SessionId),
     /// All historic.
     All,
 }
@@ -194,7 +206,7 @@ pub(crate) enum SessionCond {
 #[derive(Clone, Copy)]
 pub(crate) struct FilterPred<'a> {
     doc: UrlOrDom<'a>,
-    query: Option<i32>,
+    query: Option<QueryId>,
     session: SessionCond,
 }
 
@@ -207,7 +219,7 @@ impl<'a> FilterPred<'a> {
         }
     }
 
-    pub(crate) fn with_query(mut self, query_id: i32) -> Self {
+    pub(crate) fn with_query(mut self, query_id: QueryId) -> Self {
         self.query = Some(query_id);
         self
     }
@@ -231,9 +243,9 @@ impl<'a> FilterPred<'a> {
         use SessionCond::{All, Anterior as Ant, Current};
         use UrlOrDom::{Dom, Url};
 
-        let skip = CondProb(ClickSat::Skip);
-        let miss = CondProb(ClickSat::Miss);
-        let click2 = CondProb(ClickSat::High);
+        let skip = CondProb(Action::Skip);
+        let miss = CondProb(Action::Miss);
+        let click2 = CondProb(Action::Click2);
 
         match (self.doc, self.query, self.session) {
             (Dom(_), None, All) => smallvec![skip, miss, click2, SQ],
@@ -243,7 +255,7 @@ impl<'a> FilterPred<'a> {
             (Dom(_), Some(_), All) => smallvec![miss, SQ, MRR(Miss)],
             (Dom(_), Some(_), Ant(_)) => smallvec![SQ],
             (Url(_), Some(_), All) => smallvec![mrr, click2, miss, SQ],
-            (Url(_), Some(_), Ant(_)) => smallvec![mrr, MRR(Click), MRR(Miss), MRR(Skip), skip, SQ],
+            (Url(_), Some(_), Ant(_)) => smallvec![mrr, MRR(Click), MRR(Miss), MRR(Skip), miss, SQ],
             (Url(_), Some(_), Current(_)) => smallvec![MRR(Miss)],
             _ => smallvec![],
         }
@@ -253,8 +265,8 @@ impl<'a> FilterPred<'a> {
     ///
     /// Mapping of (predicate => atomic features) based on Dataiku's winning model (see paper).
     /// Note that for cumulated features, the atoms are always conditional probabilities.
-    pub(crate) fn cum_atoms(&self) -> SmallVec<[ClickSat; 3]> {
-        use ClickSat::{High as click2, Medium as click1, Skip as skip};
+    pub(crate) fn cum_atoms(&self) -> SmallVec<[Action; 3]> {
+        use Action::{Click1 as click1, Click2 as click2, Skip as skip};
         use SessionCond::All;
         use UrlOrDom::*;
 
@@ -265,19 +277,20 @@ impl<'a> FilterPred<'a> {
     }
 
     /// Applies the predicate to the given search result.
-    pub(crate) fn apply(&self, r: impl AsRef<SearchResult>) -> bool {
+    pub(crate) fn apply(&self, r: impl AsRef<HistSearchResult>) -> bool {
         let r = r.as_ref();
         let doc_cond = match self.doc {
             UrlOrDom::Url(url) => r.url == url,
             UrlOrDom::Dom(dom) => r.domain == dom,
         };
         let query_cond = match self.query {
-            Some(id) => r.query_id == id,
+            Some(id) => r.query.query_id == id,
             None => true,
         };
-        let session_id = r.session_id;
+        let session_id = r.query.session_id;
         let session_cond = match self.session {
-            SessionCond::Anterior(id) => session_id < id,
+            // `id` is of the *current* session hence any other must be *older*
+            SessionCond::Anterior(id) => session_id != id,
             SessionCond::Current(id) => session_id == id,
             SessionCond::All => true,
         };
@@ -288,7 +301,7 @@ impl<'a> FilterPred<'a> {
 /// Families of features for a non-personalised search result, based on Dataiku's specification.
 struct Features {
     /// Unpersonalised rank.
-    rank: Rank,
+    init_rank: Rank,
     /// Aggregate features.
     aggreg: AggregFeatures,
     /// User features.
@@ -305,13 +318,13 @@ struct Features {
 
 impl Features {
     /// Build features for a user's search `res`ult given her past search `hist`ory.
-    fn build(hist: &[SearchResult], res: SearchResult) -> Self {
-        let rank = res.position;
+    fn build(hist: &[HistSearchResult], res: NewSearchResult) -> Self {
+        let init_rank = res.init_rank;
         let aggreg = AggregFeatures::build(hist, &res);
         let user = UserFeatures::build(hist);
         let query = QueryFeatures::build(hist, &res);
         let cum = CumFeatures::build(hist, &res);
-        let terms_variety = terms_variety(hist, res.session_id);
+        let terms_variety = terms_variety(hist, res.query.session_id);
         // NOTE according to Dataiku spec, this should be the weekend seasonality
         // factor when `res.day` is a weekend, otherwise the inverse (weekday
         // seasonality) factor. a bug in soundgarden sets this to always be weekend
@@ -320,7 +333,7 @@ impl Features {
         let seasonality = seasonality(hist, &res.domain);
 
         Self {
-            rank,
+            init_rank,
             aggreg,
             user,
             query,
@@ -344,18 +357,18 @@ impl Features {
 ///
 /// The formula uses some form of additive smoothing with a prior 0.283 (see Dataiku paper).
 pub(crate) fn mean_recip_rank(
-    rs: &[impl AsRef<SearchResult>],
+    rs: &[impl AsRef<HistSearchResult>],
     outcome: Option<MrrOutcome>,
     pred: Option<FilterPred>,
 ) -> f32 {
     let filtered = rs
         .iter()
         .filter(|r| {
-            let relevance = r.as_ref().relevance;
+            let relevance = r.as_ref().action;
             match outcome {
-                Some(MrrOutcome::Miss) => relevance == ClickSat::Miss,
-                Some(MrrOutcome::Skip) => relevance == ClickSat::Skip,
-                Some(MrrOutcome::Click) => relevance > ClickSat::Low,
+                Some(MrrOutcome::Miss) => relevance == Action::Miss,
+                Some(MrrOutcome::Skip) => relevance == Action::Skip,
+                Some(MrrOutcome::Click) => relevance > Action::Click0,
                 None => true,
             }
         })
@@ -366,27 +379,27 @@ pub(crate) fn mean_recip_rank(
     let numer = 0.283 // prior recip rank assuming uniform distributed ranks
         + filtered
             .into_iter()
-            .map(|r| f32::from(r.as_ref().position).recip())
+            .map(|r| f32::from(r.as_ref().rerank).recip())
             .sum::<f32>();
 
     numer / denom
 }
 
-/// Counts the variety of query terms over a given test session.
-fn terms_variety(query: &[SearchResult], session_id: i32) -> usize {
+/// Counts the variety of terms over a given test session.
+fn terms_variety(query: &[HistSearchResult], session_id: SessionId) -> usize {
     query
         .iter()
-        .filter(|r| r.session_id == session_id)
-        .flat_map(|r| &r.query_words)
+        .filter(|r| r.query.session_id == session_id)
+        .flat_map(|r| &r.query.query_words)
         .unique()
         .count()
 }
 
 /// Weekend seasonality of a given domain.
-fn seasonality(history: &[SearchResult], domain: &str) -> f32 {
+fn seasonality(history: &[HistSearchResult], domain: &str) -> f32 {
     let (clicks_wknd, clicks_wkday) = history
         .iter()
-        .filter(|r| r.domain == domain && r.relevance > ClickSat::Low)
+        .filter(|r| r.domain == domain && r.action > Action::Click0)
         .fold((0, 0), |(wknd, wkday), r| {
             // NOTE weekend days should obviously be Sat/Sun but there is a bug
             // in soundgarden that effectively treats Thu/Fri as weekends
@@ -403,12 +416,12 @@ fn seasonality(history: &[SearchResult], domain: &str) -> f32 {
 }
 
 /// Entropy over the rank of the given results that were clicked.
-pub(crate) fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
+pub(crate) fn click_entropy(results: &[impl AsRef<HistSearchResult>]) -> f32 {
     let rank_freqs = results
         .iter()
         .filter_map(|r| {
             let r = r.as_ref();
-            (r.relevance > ClickSat::Low).then(|| r.position)
+            (r.action > Action::Click0).then(|| r.rerank)
         })
         .counts();
 
@@ -431,11 +444,15 @@ pub(crate) fn click_entropy(results: &[impl AsRef<SearchResult>]) -> f32 {
 /// |hist({Miss, Skip}, pred)|
 /// ```
 /// where the sum ranges over all result sets containing a result `r` with URL matching that of `res`.
-pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: FilterPred) -> f32 {
+pub(crate) fn snippet_quality(
+    hist: &[HistSearchResult],
+    res: &NewSearchResult,
+    pred: FilterPred,
+) -> f32 {
     let pred_filtered = hist.iter().filter(|r| pred.apply(r));
     let denom = pred_filtered
         .clone()
-        .filter(|r| r.relevance == ClickSat::Miss || r.relevance == ClickSat::Skip)
+        .filter(|r| r.action == Action::Miss || r.action == Action::Skip)
         .count() as f32;
 
     if denom == 0. {
@@ -443,7 +460,7 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
     }
 
     let numer = pred_filtered
-        .group_by(|r| (r.session_id, r.query_counter))
+        .group_by(|r| (r.query.session_id, r.query.query_count))
         .into_iter()
         .filter_map(|(_, rs)| {
             let rs = ResultSet::new(rs.collect());
@@ -463,10 +480,10 @@ pub(crate) fn snippet_quality(hist: &[SearchResult], res: &SearchResult, pred: F
 ///
 /// As click ordering information is unavailable, assume it follows the ranking order.
 fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
-    match rs.get(pos).relevance {
+    match rs.get(pos).action {
         // NOTE unclear how to score Low, treat as a Miss
-        ClickSat::Miss | ClickSat::Low => 0.,
-        ClickSat::Skip => {
+        Action::Miss | Action::Click0 => 0.,
+        Action::Skip => {
             let total_clicks = rs.cumulative_clicks(Rank::Last) as f32;
             if total_clicks == 0. {
                 0.
@@ -495,14 +512,14 @@ fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
 /// ```
 /// The formula uses some form of additive smoothing with `prior(Miss)` = `1` and `0` otherwise.
 /// See Dataiku paper. Note then the `sum` term amounts to `1`.
-pub(crate) fn cond_prob(hist: &[SearchResult], outcome: ClickSat, pred: FilterPred) -> f32 {
+pub(crate) fn cond_prob(hist: &[HistSearchResult], outcome: Action, pred: FilterPred) -> f32 {
     let hist_pred = hist.iter().filter(|r| pred.apply(r));
-    let hist_pred_outcome = hist_pred.clone().filter(|r| r.relevance == outcome).count();
+    let hist_pred_outcome = hist_pred.clone().filter(|r| r.action == outcome).count();
 
     // NOTE soundgarden implements conditional probabilities differently to
     // Dataiku's spec. nevertheless, since the model has been trained as such on
     // the soundgarden implementation, we match its behaviour here.
-    let (numer, denom) = if let ClickSat::Miss = outcome {
+    let (numer, denom) = if let Action::Miss = outcome {
         (hist_pred_outcome + 1, hist_pred.count() + hist_pred_outcome)
     } else {
         (hist_pred_outcome, hist_pred.count())

@@ -7,7 +7,8 @@ use super::{
     AtomFeat,
     FeatMap,
     FilterPred,
-    SearchResult,
+    HistSearchResult,
+    NewSearchResult,
     SessionCond,
     UrlOrDom,
 };
@@ -36,11 +37,11 @@ pub(crate) struct AggregFeatures {
 
 impl AggregFeatures {
     /// Build aggregate features for the given search result and history of a user.
-    pub(crate) fn build(hist: &[SearchResult], res: impl AsRef<SearchResult>) -> Self {
+    pub(crate) fn build(hist: &[HistSearchResult], res: impl AsRef<NewSearchResult>) -> Self {
         let r = res.as_ref();
 
-        let anterior = SessionCond::Anterior(r.session_id);
-        let current = SessionCond::Current(r.session_id);
+        let anterior = SessionCond::Anterior(r.query.session_id);
+        let current = SessionCond::Current(r.query.session_id);
         let r_url = UrlOrDom::Url(&r.url);
         let r_dom = UrlOrDom::Dom(&r.domain);
 
@@ -52,11 +53,11 @@ impl AggregFeatures {
         let url = aggreg_feat(hist, &r, pred_url);
         let url_ant = aggreg_feat(hist, &r, pred_url.with_session(anterior));
 
-        let pred_dom_query = pred_dom.with_query(r.query_id);
+        let pred_dom_query = pred_dom.with_query(r.query.query_id);
         let dom_query = aggreg_feat(hist, &r, pred_dom_query);
         let dom_query_ant = aggreg_feat(hist, &r, pred_dom_query.with_session(anterior));
 
-        let pred_url_query = pred_url.with_query(r.query_id);
+        let pred_url_query = pred_url.with_query(r.query.query_id);
         let url_query = aggreg_feat(hist, &r, pred_url_query);
         let url_query_ant = aggreg_feat(hist, &r, pred_url_query.with_session(anterior));
         let url_query_curr = aggreg_feat(hist, &r, pred_url_query.with_session(current));
@@ -75,7 +76,7 @@ impl AggregFeatures {
     }
 }
 
-fn aggreg_feat(hist: &[SearchResult], r: &SearchResult, pred: FilterPred) -> FeatMap {
+fn aggreg_feat(hist: &[HistSearchResult], r: &NewSearchResult, pred: FilterPred) -> FeatMap {
     let eval_atom = |atom_feat| match atom_feat {
         AtomFeat::MeanRecipRank(outcome) => mean_recip_rank(hist, Some(outcome), Some(pred)),
         AtomFeat::MeanRecipRankAll => mean_recip_rank(hist, None, Some(pred)),
