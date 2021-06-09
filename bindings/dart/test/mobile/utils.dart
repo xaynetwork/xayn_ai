@@ -6,11 +6,25 @@ import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show Feedback, History, Relevance, DayOfWeek, UserAction;
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
+    show AssetType;
+import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
+    show SetupData;
 
 const smbertVocab = '../../data/smbert_v0000/vocab.txt';
 const smbertModel = '../../data/smbert_v0000/smbert.onnx';
 const qambertVocab = '../../data/qambert_v0000/vocab.txt';
 const qambertModel = '../../data/qambert_v0000/qambert.onnx';
+
+SetupData mkSetupData(String smbertVocab, String smbertModel,
+    String qambertVocab, String qambertModel) {
+  return SetupData(<AssetType, String>{
+    AssetType.smbertVocab: smbertVocab,
+    AssetType.smbertModel: smbertModel,
+    AssetType.qambertVocab: qambertVocab,
+    AssetType.qambertModel: qambertModel,
+  });
+}
 
 Document mkTestDoc(String id, String snippet, int rank) => Document(
       id,

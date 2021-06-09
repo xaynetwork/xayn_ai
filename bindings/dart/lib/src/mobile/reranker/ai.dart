@@ -32,13 +32,26 @@ class XaynAi implements common.XaynAi {
 
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
-  /// reranker database, otherwise creates a new one.
-  XaynAi(SetupData data, [Uint8List? serialized]) {
-    final smbertVocabPtr = data.smbertVocab.toNativeUtf8().cast<Uint8>();
-    final smbertModelPtr = data.smbertModel.toNativeUtf8().cast<Uint8>();
-    final qambertVocabPtr = data.qambertVocab.toNativeUtf8().cast<Uint8>();
-    final qambertModelPtr = data.qambertModel.toNativeUtf8().cast<Uint8>();
+  /// Requires the vocabulary and model of the tokenizer/embedder.
+  /// Optionally accepts the serialized reranker database, otherwise creates a
+  /// new one.
+  static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
+    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
+        data.qambertModel, serialized);
+  }
+
+  /// Creates and initializes the Xayn AI.
+  ///
+  /// Requires the path to the vocabulary and model of the tokenizer/embedder.
+  /// Optionally accepts the serialized reranker database, otherwise creates a
+  /// new one.
+  XaynAi._(String smbertVocab, String smbertModel, String qambertVocab,
+      String qambertModel,
+      [Uint8List? serialized]) {
+    final smbertVocabPtr = smbertVocab.toNativeUtf8().cast<Uint8>();
+    final smbertModelPtr = smbertModel.toNativeUtf8().cast<Uint8>();
+    final qambertVocabPtr = qambertVocab.toNativeUtf8().cast<Uint8>();
+    final qambertModelPtr = qambertModel.toNativeUtf8().cast<Uint8>();
     Bytes? bytes;
     final error = XaynAiError();
 

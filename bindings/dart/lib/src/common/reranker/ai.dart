@@ -15,7 +15,7 @@ class XaynAi {
   ///
   /// Requires the data to setup the AI, e.g. the vocabulary and model of the tokenizer/embedder.
   /// Optionally accepts the serialized reranker database, otherwise creates a new one.
-  XaynAi(SetupData data, [Uint8List? serialized]) {
+  static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
     throw UnsupportedError('Unsupported platform.');
   }
 
