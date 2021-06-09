@@ -9,7 +9,6 @@ use crate::{
         utils::{
             classify_documents_based_on_user_feedback,
             collect_matching_documents,
-            l2_norm,
             update_alpha,
             update_beta,
         },
@@ -19,8 +18,8 @@ use crate::{
         CoiPoint,
         UserInterests,
     },
+    embedding::{smbert::Embedding, utils::l2_norm_distance},
     reranker::systems::{self, CoiSystemData},
-    smbert::Embedding,
     DocumentHistory,
     Error,
 };
@@ -61,7 +60,7 @@ impl CoiSystem {
         let index_and_distance = cois
             .iter()
             .enumerate()
-            .map(|(i, coi)| (i, l2_norm(embedding.deref() - coi.point().deref())))
+            .map(|(i, coi)| (i, l2_norm_distance(embedding, coi.point())))
             .fold(
                 (None, f32::MAX),
                 |acc, (i, b)| match PartialOrd::partial_cmp(&acc.1, &b) {

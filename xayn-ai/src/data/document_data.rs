@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     data::{document::DocumentId, CoiId},
+    embedding::smbert::Embedding,
     reranker::systems::CoiSystemData,
-    smbert::Embedding,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -17,6 +17,7 @@ pub(crate) struct DocumentBaseComponent {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentContentComponent {
     pub(crate) snippet: String,
+    pub(crate) query_words: String,
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
@@ -253,6 +254,7 @@ mod tests {
         };
         let document_content = DocumentContentComponent {
             snippet: "snippet".to_string(),
+            query_words: "query".to_string(),
         };
         let document_data = DocumentDataWithDocument {
             document_base: document_id.clone(),

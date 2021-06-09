@@ -3,7 +3,7 @@ pub(crate) mod document_data;
 
 use serde::{Deserialize, Serialize};
 
-use crate::smbert::Embedding;
+use crate::embedding::smbert::Embedding;
 
 // Hint: We use this id new-type in FFI so repr(transparent) needs to be kept
 #[repr(transparent)]
