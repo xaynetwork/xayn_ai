@@ -1,5 +1,3 @@
-#![allow(dead_code)] // TEMP
-
 use super::{
     cond_prob,
     AtomFeat,

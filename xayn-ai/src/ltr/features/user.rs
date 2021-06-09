@@ -1,6 +1,4 @@
-#![allow(dead_code)] // TEMP
-
-use super::{click_entropy, Action, HistSearchResult, Rank};
+use super::{click_entropy, HistSearchResult, Rank};
 use crate::SessionId;
 use std::collections::{HashMap, HashSet};
 
@@ -50,8 +48,8 @@ pub(crate) struct UserFeatures {
 
 impl UserFeatures {
     /// Build user features for the given historical search results of the user.
-    pub(crate) fn build(history: &[HistSearchResult]) -> Self {
-        if history.is_empty() {
+    pub(crate) fn build(hists: &[HistSearchResult]) -> Self {
+        if hists.is_empty() {
             return Self {
                 click_entropy: 0.,
                 click_counts: ClickCounts::new(),
@@ -62,10 +60,10 @@ impl UserFeatures {
         }
 
         // query data for all search results over all sessions
-        let all_results = history.iter().map(|r| &r.query).collect::<HashSet<_>>();
+        let all_results = hists.iter().map(|hist| &hist.query).collect::<HashSet<_>>();
 
-        let click_entropy = click_entropy(history);
-        let click_counts = click_counts(history);
+        let click_entropy = click_entropy(hists);
+        let click_counts = click_counts(hists);
         let num_queries = all_results.len();
         let words_per_query = all_results
             .iter()
@@ -93,8 +91,8 @@ impl UserFeatures {
 fn click_counts(results: &[HistSearchResult]) -> ClickCounts {
     results
         .iter()
-        .filter(|r| r.action > Action::Click0)
-        .fold(ClickCounts::new(), |counter, r| counter.incr(r.rerank))
+        .filter(|hist| hist.is_clicked())
+        .fold(ClickCounts::new(), |count, hist| count.incr(hist.rerank))
 }
 
 /// Calculate mean number of unique query words per session.

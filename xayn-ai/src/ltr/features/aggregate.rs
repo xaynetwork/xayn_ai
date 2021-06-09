@@ -1,5 +1,3 @@
-#![allow(dead_code)] // TEMP
-
 use super::{
     cond_prob,
     mean_recip_rank,
@@ -37,30 +35,30 @@ pub(crate) struct AggregFeatures {
 
 impl AggregFeatures {
     /// Build aggregate features for the given search result and history of a user.
-    pub(crate) fn build(hist: &[HistSearchResult], res: impl AsRef<DocSearchResult>) -> Self {
-        let r = res.as_ref();
+    pub(crate) fn build(hist: &[HistSearchResult], doc: impl AsRef<DocSearchResult>) -> Self {
+        let doc = doc.as_ref();
 
-        let anterior = SessionCond::Anterior(r.query.session_id);
-        let current = SessionCond::Current(r.query.session_id);
-        let r_url = UrlOrDom::Url(&r.url);
-        let r_dom = UrlOrDom::Dom(&r.domain);
+        let anterior = SessionCond::Anterior(doc.query.session_id);
+        let current = SessionCond::Current(doc.query.session_id);
+        let doc_url = UrlOrDom::Url(&doc.url);
+        let doc_dom = UrlOrDom::Dom(&doc.domain);
 
-        let pred_dom = FilterPred::new(r_dom);
-        let dom = aggreg_feat(hist, &r, pred_dom);
-        let dom_ant = aggreg_feat(hist, &r, pred_dom.with_session(anterior));
+        let pred_dom = FilterPred::new(doc_dom);
+        let dom = aggreg_feat(hist, pred_dom);
+        let dom_ant = aggreg_feat(hist, pred_dom.with_session(anterior));
 
-        let pred_url = FilterPred::new(r_url);
-        let url = aggreg_feat(hist, &r, pred_url);
-        let url_ant = aggreg_feat(hist, &r, pred_url.with_session(anterior));
+        let pred_url = FilterPred::new(doc_url);
+        let url = aggreg_feat(hist, pred_url);
+        let url_ant = aggreg_feat(hist, pred_url.with_session(anterior));
 
-        let pred_dom_query = pred_dom.with_query(r.query.query_id);
-        let dom_query = aggreg_feat(hist, &r, pred_dom_query);
-        let dom_query_ant = aggreg_feat(hist, &r, pred_dom_query.with_session(anterior));
+        let pred_dom_query = pred_dom.with_query(doc.query.query_id);
+        let dom_query = aggreg_feat(hist, pred_dom_query);
+        let dom_query_ant = aggreg_feat(hist, pred_dom_query.with_session(anterior));
 
-        let pred_url_query = pred_url.with_query(r.query.query_id);
-        let url_query = aggreg_feat(hist, &r, pred_url_query);
-        let url_query_ant = aggreg_feat(hist, &r, pred_url_query.with_session(anterior));
-        let url_query_curr = aggreg_feat(hist, &r, pred_url_query.with_session(current));
+        let pred_url_query = pred_url.with_query(doc.query.query_id);
+        let url_query = aggreg_feat(hist, pred_url_query);
+        let url_query_ant = aggreg_feat(hist, pred_url_query.with_session(anterior));
+        let url_query_curr = aggreg_feat(hist, pred_url_query.with_session(current));
 
         Self {
             dom,
@@ -76,11 +74,11 @@ impl AggregFeatures {
     }
 }
 
-fn aggreg_feat(hist: &[HistSearchResult], r: &DocSearchResult, pred: FilterPred) -> FeatMap {
+fn aggreg_feat(hist: &[HistSearchResult], pred: FilterPred) -> FeatMap {
     let eval_atom = |atom_feat| match atom_feat {
         AtomFeat::MeanRecipRank(outcome) => mean_recip_rank(hist, Some(outcome), Some(pred)),
         AtomFeat::MeanRecipRankAll => mean_recip_rank(hist, None, Some(pred)),
-        AtomFeat::SnippetQuality => snippet_quality(hist, r, pred),
+        AtomFeat::SnippetQuality => snippet_quality(hist, pred),
         AtomFeat::CondProb(outcome) => cond_prob(hist, outcome, pred),
     };
     pred.agg_atoms()

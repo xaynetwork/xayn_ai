@@ -113,6 +113,16 @@ impl AsRef<HistSearchResult> for HistSearchResult {
     }
 }
 
+impl HistSearchResult {
+    pub(crate) fn is_clicked(&self) -> bool {
+        self.action >= Action::Click1
+    }
+
+    pub(crate) fn is_skipped(&self) -> bool {
+        self.action == Action::Skip
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum MrrOutcome {
     Miss,
@@ -143,9 +153,18 @@ impl<'a> ResultSet<'a> {
     /// New result set.
     ///
     /// Assumes `rs[i]` contains the search result `r` with `r.position` `i+1`.
-    // TODO may relax this assumption later
     fn new(rs: Vec<&'a HistSearchResult>) -> Self {
         Self(rs)
+    }
+
+    /// Iterates over all documents by in ascending ranking order.
+    fn documents(&self) -> impl Iterator<Item = &'a HistSearchResult> + '_ {
+        self.0.iter().copied()
+    }
+
+    /// Iterates over all documents which have been clicked in ascending ranking order.
+    fn clicked_documents(&self) -> impl Iterator<Item = &'a HistSearchResult> + '_ {
+        self.0.iter().flat_map(|doc| doc.is_clicked().then(|| *doc))
     }
 
     /// Search result at position `pos` of the result set.
@@ -612,67 +631,68 @@ pub(crate) fn click_entropy(results: &[impl AsRef<HistSearchResult>]) -> f32 {
 ///
 /// Snippet quality is defined as:
 /// ```text
-///       sum{score(r)}
+///       sum{score(query)}
 /// --------------------------
 /// |hist({Miss, Skip}, pred)|
 /// ```
-/// where the sum ranges over all result sets containing a result `r` with URL matching that of `res`.
-pub(crate) fn snippet_quality(
-    hist: &[HistSearchResult],
-    res: &DocSearchResult,
-    pred: FilterPred,
-) -> f32 {
-    let pred_filtered = hist.iter().filter(|r| pred.apply(r));
-    let denom = pred_filtered
-        .clone()
-        .filter(|r| r.action == Action::Miss || r.action == Action::Skip)
+///
+/// where the sum ranges over all query results containing a result `r` with URL/domain matching the URL/domain of `res`.
+///
+/// If `|hist({Miss, Skip}, pred)|` is `0` then `0` is returned.
+pub(crate) fn snippet_quality(hists: &[HistSearchResult], pred: FilterPred) -> f32 {
+    let miss_skip_count = hists
+        .iter()
+        .filter(|hist| {
+            pred.apply(hist) && (hist.action == Action::Miss || hist.action == Action::Skip)
+        })
         .count() as f32;
 
-    if denom == 0. {
+    if miss_skip_count == 0. {
         return 0.;
     }
 
-    let numer = pred_filtered
-        .group_by(|r| (r.query.session_id, r.query.query_count))
+    let total_score = hists
+        .iter()
+        .group_by(|hist| (hist.query.session_id, hist.query.query_count))
         .into_iter()
-        .filter_map(|(_, rs)| {
-            let rs = ResultSet::new(rs.collect());
-            rs.rank_of(&res.url).map(|pos| snippet_score(rs, pos))
+        .filter_map(|(_, hs)| {
+            let rs = ResultSet::new(hs.into_iter().collect());
+            let has_match = rs.documents().any(|doc| pred.apply(doc));
+            has_match.then(|| snippet_score(&rs, pred))
         })
         .sum::<f32>();
 
-    numer / denom
+    total_score / miss_skip_count
 }
 
-/// Scores the search result ranked at position `pos` in the result set `rs`.
+/// Scores the search query result.
 ///
-/// The score(r) of a search result r is defined:
-/// *  0           if r is a `Miss`
-/// *  1 / p       if r is the pth clicked result of the page
-/// * -1 / p_final if r is a `Skip`
+/// The base score of `0` is modified in up to two ways before being returned:
 ///
-/// As click ordering information is unavailable, assume it follows the ranking order.
-fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
-    match rs.get(pos).action {
-        // NOTE unclear how to score Low, treat as a Miss
-        Action::Miss | Action::Click0 => 0.,
-        Action::Skip => {
-            let total_clicks = rs.cumulative_clicks(Rank::Last) as f32;
-            if total_clicks == 0. {
-                0.
-            } else {
-                -total_clicks.recip()
-            }
-        }
-        _ => {
-            let cum_clicks = rs.cumulative_clicks(pos) as f32;
-            if cum_clicks == 0. {
-                0.
-            } else {
-                cum_clicks.recip()
-            }
+/// 1.  `1 / p` is added if there exist a clicked document matching `pred`. `p` is the number of
+///     clicked documents which do not match `pred` and have a better ranking then the found
+///     matching document.
+///
+/// 2. `-1 / nr_clicked` is added if there exists a skipped document matching `pred`. `nr_clicked`
+///     is the number of all clicked documents independent of weather or not they match.
+fn snippet_score(res: &ResultSet, pred: FilterPred) -> f32 {
+    let mut score = 0.0;
+
+    if res
+        .documents()
+        .any(|doc| pred.apply(doc) && doc.is_skipped())
+    {
+        let total_clicks = res.clicked_documents().count() as f32;
+        if total_clicks != 0. {
+            score -= total_clicks.recip();
         }
     }
+
+    if let Some(cum_clicks_before_match) = res.clicked_documents().position(|doc| pred.apply(doc)) {
+        score += (cum_clicks_before_match as f32 + 1.).recip();
+    }
+
+    score
 }
 
 /// Probability of an outcome conditioned on some predicate.
