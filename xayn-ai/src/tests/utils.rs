@@ -23,8 +23,8 @@ use crate::{
         NegativeCoi,
         PositiveCoi,
     },
+    embedding::smbert::Embedding,
     reranker::systems::{CoiSystemData, SMBertSystem},
-    smbert::Embedding,
     Document,
     DocumentHistory,
     DocumentId,
@@ -64,6 +64,7 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -
             },
             document_content: DocumentContentComponent {
                 snippet: snippet.to_string(),
+                query_words: "query".to_string(),
             },
         })
         .collect();
@@ -139,6 +140,26 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
             },
             document_content: DocumentContentComponent {
                 snippet: "snippet".to_string(),
+                query_words: "query".to_string(),
+            },
+            smbert: SMBertComponent { embedding },
+        })
+        .collect()
+}
+
+pub(crate) fn documents_with_embeddings_from_snippet_and_query(
+    query: &str,
+    snippets: &[&str],
+) -> Vec<DocumentDataWithSMBert> {
+    from_ids(0..snippets.len() as u32)
+        .map(|(id, initial_ranking, embedding)| DocumentDataWithSMBert {
+            document_base: DocumentBaseComponent {
+                id,
+                initial_ranking,
+            },
+            document_content: DocumentContentComponent {
+                snippet: snippets[initial_ranking].to_string(),
+                query_words: query.to_string(),
             },
             smbert: SMBertComponent { embedding },
         })

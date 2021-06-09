@@ -1,4 +1,3 @@
-use ndarray::Array1;
 use std::collections::HashMap;
 
 use crate::{
@@ -10,10 +9,6 @@ use crate::{
     DocumentHistory,
     DocumentId,
 };
-
-pub(super) fn l2_norm(array: Array1<f32>) -> f32 {
-    array.dot(&array).sqrt()
-}
 
 enum DocumentRelevance {
     Positive,

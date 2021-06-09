@@ -59,18 +59,16 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
 
 pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
     let mut mock_qambert = MockQAMBertSystem::new();
-    mock_qambert
-        .expect_compute_similarity()
-        .returning(|_query, docs| {
-            Ok(docs
-                .into_iter()
-                .map(|doc| DocumentDataWithQAMBert {
-                    document_base: doc.document_base,
-                    smbert: doc.smbert,
-                    qambert: QAMBertComponent { similarity: 0.5 },
-                })
-                .collect())
-        });
+    mock_qambert.expect_compute_similarity().returning(|docs| {
+        Ok(docs
+            .into_iter()
+            .map(|doc| DocumentDataWithQAMBert {
+                document_base: doc.document_base,
+                smbert: doc.smbert,
+                qambert: QAMBertComponent { similarity: 0.5 },
+            })
+            .collect())
+    });
 
     mock_qambert
 }
