@@ -299,6 +299,7 @@ impl<'a> FilterPred<'a> {
     }
 }
 
+// TODO mention diffs
 /// Families of features for a non-personalised search result, based on Dataiku's specification.
 struct Features {
     /// Unpersonalised rank.
@@ -345,6 +346,7 @@ impl Features {
     }
 }
 
+/// Converts a collection of `Feature`s into a 2-dimensional ndarray.
 fn features_to_array(feats_list: &[Features]) -> Array2<f32> {
     let mut arr = Array2::zeros((feats_list.len(), 50));
 
@@ -542,11 +544,27 @@ pub(crate) fn mean_recip_rank(
 }
 
 /// Counts the variety of terms over a given test session.
+///
+/// # Implementation Differences
+///
+/// Soundgarden uses the "query_array" instead of the current session
+///
+/// While this is clearly a bug, we need to be consistent with it. In turn we
+/// don't need to filter for the session id as all current results are from the
+/// current search query and as such the current session.
+///
+/// Additionally this also causes all inspected results/documents to have the
+/// same query words and in turn this is just the number of unique words in the
+/// current query, which is kinda very pointless.
 fn terms_variety(res: &DocSearchResult) -> usize {
     res.query.query_words.iter().unique().count()
 }
 
 /// Weekend seasonality of a given domain.
+///
+/// If there are no matching entries for the given domain then `0` is returned, even
+/// though normally you would expect 2.5 to be returned. But we need to keep it
+/// in sync with soundgarden.
 fn seasonality(history: &[HistSearchResult], domain: &str) -> f32 {
     let (clicks_wknd, clicks_wkday) = history
         .iter()
@@ -563,7 +581,11 @@ fn seasonality(history: &[HistSearchResult], domain: &str) -> f32 {
             }
         });
 
-    2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
+    if clicks_wknd + clicks_wkday == 0 {
+        0.0
+    } else {
+        2.5 * (1. + clicks_wknd as f32) / (1. + clicks_wkday as f32)
+    }
 }
 
 /// Entropy over the rank of the given results that were clicked.
@@ -656,20 +678,43 @@ fn snippet_score(rs: ResultSet, pos: Rank) -> f32 {
 /// Probability of an outcome conditioned on some predicate.
 ///
 /// It is defined:
+///
 /// ```text
 /// |hist(outcome, pred)| + prior(outcome)
 /// --------------------------------------
 ///   |hist(pred)| + sum{prior(outcome')}
 /// ```
+///
 /// The formula uses some form of additive smoothing with `prior(Miss)` = `1` and `0` otherwise.
 /// See Dataiku paper. Note then the `sum` term amounts to `1`.
+///
+/// # Implementation Mismatch
+///
+/// The python implementation (soundgarden) on which the model was trained does not match dataiku's
+/// definition above. Instead:
+///
+/// For every `outcome` except `ClickSat::Miss` the following formula is used:
+///
+/// ```text
+/// |hist(outcome, pred)|
+/// ----------------------
+///    |hist(pred)|
+/// ```
+///
+/// If the `outcome` is `ClickSet::Miss` then the following formula is used:
+///
+/// ```text
+///       |hist(outcome, pred)| + 1
+/// ---------------------------------------
+/// |hist(outcome, pred)| + |hist(pred)|
+/// ```
+///
+/// In both cases it defaults to 0 if the denominator is 0 (as in this case the
+/// numerator should be 0 too).
 pub(crate) fn cond_prob(hist: &[HistSearchResult], outcome: Action, pred: FilterPred) -> f32 {
     let hist_pred = hist.iter().filter(|r| pred.apply(r));
     let hist_pred_outcome = hist_pred.clone().filter(|r| r.action == outcome).count();
 
-    // NOTE soundgarden implements conditional probabilities differently to
-    // Dataiku's spec. nevertheless, since the model has been trained as such on
-    // the soundgarden implementation, we match its behaviour here.
     let (numer, denom) = if let Action::Miss = outcome {
         (hist_pred_outcome + 1, hist_pred.count() + hist_pred_outcome)
     } else {
