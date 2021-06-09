@@ -7,5 +7,7 @@ export 'src/common/reranker/ai.dart'
 export 'src/common/reranker/analytics.dart' show Analytics;
 export 'src/common/reranker/data_provider.dart'
     if (dart.library.io) 'src/mobile/reranker/data_provider.dart'
-    if (dart.library.js) 'src/web/reranker/data_provider.dart' show SetupData;
+    if (dart.library.js) 'src/web/reranker/data_provider.dart'
+    show getAssets, SetupData;
+export 'src/common/reranker/data_provider.dart' show Asset, AssetType;
 export 'src/common/result/outcomes.dart' show RerankingOutcomes;

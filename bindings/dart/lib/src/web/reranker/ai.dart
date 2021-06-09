@@ -17,6 +17,7 @@ import 'package:xayn_ai_ffi_dart/src/web/data/document.dart'
     show JsDocument, ToJsDocuments;
 import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
     show JsHistory, ToJsHistories;
+import 'package:xayn_ai_ffi_dart/src/web/ffi/library.dart' show init;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
     show JsAnalytics, ToAnalytics;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/data_provider.dart'
@@ -56,14 +57,27 @@ class _XaynAi {
 class XaynAi implements common.XaynAi {
   late _XaynAi? _ai;
 
+  /// Creates and initializes the Xayn AI and initializes the WASM module.
+  ///
+  /// Requires the vocabulary and model of the tokenizer/embedder and the WASM
+  /// module. Optionally accepts the serialized reranker database, otherwise
+  /// creates a new one.
+  static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
+    await init(data.wasmModule);
+    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
+        data.qambertModel, serialized);
+  }
+
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi(SetupData data, [Uint8List? serialized]) {
+  XaynAi._(Uint8List smbertVocab, Uint8List smbertModel, Uint8List qambertVocab,
+      Uint8List qambertModel,
+      [Uint8List? serialized]) {
     try {
-      _ai = _XaynAi(data.smbertVocab, data.smbertModel, data.qambertVocab,
-          data.qambertModel, serialized);
+      _ai = _XaynAi(
+          smbertVocab, smbertModel, qambertVocab, qambertModel, serialized);
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {

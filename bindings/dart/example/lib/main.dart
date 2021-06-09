@@ -14,20 +14,14 @@ import 'package:flutter/material.dart'
         Text,
         TextStyle,
         Widget;
-import 'package:path_provider/path_provider.dart'
-    show getApplicationDocumentsDirectory;
 import 'package:stats/stats.dart' show Stats;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show
-        Document,
-        Relevance,
-        History,
-        Feedback,
-        SetupData,
-        XaynAi,
-        DayOfWeek,
-        UserAction;
+    show DayOfWeek, Document, Feedback, History, Relevance, UserAction, XaynAi;
+
+import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
+    if (dart.library.io) 'data_provider/mobile.dart'
+    if (dart.library.js) 'data_provider/web.dart' show getInputData;
 
 void main() {
   runApp(MyApp());
@@ -41,6 +35,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late XaynAi _ai;
   String _msg = '';
+  Function()? _onBenchReady;
 
   @override
   void initState() {
@@ -55,17 +50,18 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> initAi() async {
-    final data = await getApplicationDocumentsDirectory()
-        .then((dir) => SetupData.getInputData(dir.path));
+    final data = await getInputData();
 
     // If the widget was removed from the tree while the asynchronous platform
     // message was in flight, we want to discard the reply rather than calling
     // setState to update our non-existent appearance.
     if (!mounted) return;
 
+    final ai = await XaynAi.create(data);
     setState(() {
-      _ai = XaynAi(data);
+      _ai = ai;
       _msg = '';
+      _onBenchReady = benchRerank;
     });
   }
 
@@ -80,7 +76,7 @@ class _MyAppState extends State<MyApp> {
             child: Column(
           children: [
             ElevatedButton(
-              onPressed: benchRerank,
+              onPressed: _onBenchReady,
               child: Text('Benchmark Rerank',
                   style: TextStyle(color: Colors.white)),
             ),

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<head>
+  <title>xayn_search_web</title>
+  <meta charset="utf-8">
+  <script defer src="main.dart.js"></script>
+</head>
+<html>
+  <body>
+    <script type="module">
+      // Exposes the xayn_ffi js wrapper for wasm to the global scope for Dart interop
+      import * as xayn_ai_ffi_wasm from './xayn_ai.js';
+      window.xayn_ai_ffi_wasm = xayn_ai_ffi_wasm;
+    </script>
+  </body>
+</html>
