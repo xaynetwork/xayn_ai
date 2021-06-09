@@ -5,7 +5,7 @@ use std::{io::Read, path::Path};
 use ndutils::io::{BinParams, LoadingBinParamsFailed};
 use thiserror::Error;
 
-use ndarray::{concatenate, s, Array1, Array2, ArrayView2, Axis, Dimension, IntoDimension, Ix};
+use ndarray::{Array1, Array2, Axis, Dimension, IntoDimension, Ix};
 use ndlayers::{
     activation::{Linear, Relu, Softmax},
     Dense,
@@ -101,119 +101,115 @@ impl ListNet {
         }
     }
 
-    /// The input is a 2-dimensional array with shape `(number_of_documents, number_of_features_per_document)`.
+    /// Calculates the intermediate scores.
     ///
-    /// # Panics
+    /// The input is a 2-dimensional array with the shape `(number_of_documents, Self::INPUT_NR_FEATURES)`.
     ///
-    /// Panics if the total number of documents is not 10, or if the number of features is not 50.
-    fn run_for_10(&self, inputs: Array2<f32>) -> Vec<f32> {
-        assert_eq!(
-            inputs.shape(),
-            Self::INPUT_SHAPE,
-            "only exactly {} documents with exactly {} features are supported, got: {:?}",
-            Self::INPUT_NR_DOCUMENTS,
-            Self::INPUT_NR_FEATURES,
-            inputs.shape()
-        );
+    /// Any number of documents is supported.
+    fn calculate_intermediate_scores(&self, inputs: Array2<f32>) -> Vec<f32> {
+        debug_assert_eq!(inputs.shape()[1], Self::INPUT_NR_FEATURES);
         let dense1_out = self.dense_1.run(inputs);
         let dense2_out = self.dense_2.run(dense1_out);
         let scores = self.scores.run(dense2_out);
         debug_assert_eq!(scores.shape()[1], 1);
         // flattens the array by removing axis 1
-        let scores: Array1<f32> = scores.index_axis_move(Axis(1), 0);
+        let scores = scores.index_axis_move(Axis(1), 0);
+        debug_assert!(scores.is_standard_layout());
+        scores.into_raw_vec()
+    }
+
+    /// Calculates the final ListNet probabilities based on the intermediate scores.
+    ///
+    /// The input must be based on the output of [`ListNet.calculate_intermediate_scores()`],
+    /// but only supports a size of exactly [`Self::INPUT_NR_DOCUMENT`].
+    ///
+    /// If the output of [`ListNet.calculate_intermediate_scores()`] has more or less then
+    /// [`Self::INPUT_NR_DOCUMENT`] scores, then some form of padding and chunking needs to
+    /// be used, so that this method is only called with exactly [`Self::INPUT_NR_DOCUMENT`] scores.
+    fn calculate_final_probabilities(&self, scores: Array1<f32>) -> Vec<f32> {
+        debug_assert_eq!(scores.shape()[0], Self::INPUT_NR_DOCUMENTS);
         let outputs = self.scores_prob_dist.run(scores);
         debug_assert!(outputs.is_standard_layout());
         outputs.into_raw_vec()
     }
 
-    /// Runs ListNet for up to [`ListNet::INPUT_NR_DOCUMENTS`] documents by using padding.
+    /// Calculates the final probabilities/scores for up to [`ListNet::INPUT_NR_DOCUMENTS`] intermediate scores.
     ///
-    /// The input can be passed in as a single array or two chunks which need to be
-    /// concatenated.
+    /// The input intermediate scores are provided in up to two chunks (`first`,`second`) which
+    /// will be concatenated and then, the last element get repeated to fill up the input to
+    /// have exactly [`ListNet::INPUT_NR_DOCUMENTS`] elements.
     ///
-    /// This will pad the input by repeating the last document,
-    /// so that it can call [`run_for_10()`] with exactly
-    /// 10 documents.
     ///
     /// # Panics
     ///
-    /// - If the number of features is not equals to [`ListNet::INPUT_NR_FEATURES`].
-    /// - If more then [`ListNet::INPUT_NR_DOCUMENTS`] documents where passed into it.
-    ///
-    /// [`run_for_10()`]: self::ListNet::run_for_10
-    fn run_padded<'a>(
-        &self,
-        first: ArrayView2<'a, f32>,
-        second: Option<ArrayView2<'a, f32>>,
-    ) -> Vec<f32> {
-        let mut nr_documents = first.shape()[0];
-
-        let last_row;
-        let mut stack = vec![first.clone().reborrow()];
-
+    /// If called with `0` or more then [`Self::INPUT_NR_DOCUMENTS`] elements.
+    fn calculate_final_scores_padded(&self, first: &[f32], second: Option<&[f32]>) -> Vec<f32> {
+        let mut inputs = Vec::with_capacity(Self::INPUT_NR_DOCUMENTS);
+        inputs.extend_from_slice(first);
         if let Some(second) = second {
-            nr_documents += second.shape()[0];
-            stack.push(second.clone().reborrow());
+            inputs.extend_from_slice(second);
         }
 
-        if nr_documents < Self::INPUT_NR_DOCUMENTS {
-            let nr_missing = Self::INPUT_NR_DOCUMENTS - nr_documents;
-            last_row = stack.last().unwrap().clone().slice_move(s![-1.., ..]);
-            let padding = last_row
-                .broadcast((nr_missing, Self::INPUT_NR_FEATURES))
-                .unwrap();
-            stack.push(padding);
-        }
+        let nr_documents = inputs.len();
+        assert!(nr_documents > 0 && nr_documents <= Self::INPUT_NR_DOCUMENTS);
 
-        let inputs = concatenate(Axis(0), stack.as_slice()).unwrap();
+        inputs.resize(
+            Self::INPUT_NR_DOCUMENTS,
+            inputs.last().copied().unwrap_or_default(),
+        );
 
-        let mut outputs = self.run_for_10(inputs);
+        let mut outputs = self.calculate_final_probabilities(Array1::from(inputs));
         outputs.truncate(nr_documents);
+
         outputs
     }
 
     /// Runs ListNet on the input.
     ///
-    /// Only exactly 50 features are supported.
+    /// Only exactly [`Self::INPUT_NR_FEATURES`] features are supported.
     ///
-    /// The internal implementation only supports exactly 10 documents.
+    /// # Panics
     ///
-    /// If there are less then 10 documents, the last document gets
-    /// repeated to pad the input to exactly 10 documents. If there
-    /// are more then 10 documents the evaluation will be done in
-    /// chunks.
-    ///
-    /// Any results calculated for paddings are removed before returning the
-    /// output.
-    #[allow(unused)] //TEMP
+    /// If inputs have not exactly [`Self::INPUT_NR_FEATURES`] features.
+    #[allow(unused)] //FIXME temp
     pub(crate) fn run(&self, inputs: Array2<f32>) -> Vec<f32> {
         let nr_documents = inputs.shape()[0];
+
+        assert_eq!(
+            inputs.shape()[1],
+            Self::INPUT_NR_FEATURES,
+            "ListNet expects exactly {} features per document got {}",
+            Self::INPUT_NR_FEATURES,
+            inputs.shape()[1]
+        );
 
         if nr_documents == 0 {
             return Vec::new();
         }
 
-        // with given algorithm this can only be this size
+        let intermediate_scores = self.calculate_intermediate_scores(inputs);
+
         let chunk_size = Self::INPUT_NR_DOCUMENTS / 2;
         debug_assert_eq!(Self::INPUT_NR_DOCUMENTS % 2, 0);
 
         let mut scores = Vec::with_capacity(nr_documents);
-        let mut chunks = inputs.axis_chunks_iter(Axis(0), chunk_size);
+        let mut chunks = intermediate_scores.chunks(chunk_size);
 
         let first_chunk = chunks.next().unwrap();
         let second_chunk = chunks.next();
 
-        scores.append(&mut self.run_padded(first_chunk, second_chunk));
+        // While we calculate probabilities we then mix probabilities from different
+        // distributions and as such have no longer probabilities.
+        scores.append(&mut self.calculate_final_scores_padded(first_chunk, second_chunk));
 
         if nr_documents <= Self::INPUT_NR_DOCUMENTS {
             return scores;
         }
 
-        // We could optimize this by:
-        // - first running all doc count independent ListNet steps and only then run this partitioned algorithm.
-        // We only reach this code if there are chunks left over.
         for chunk in chunks {
-            scores.extend_from_slice(&self.run_padded(first_chunk, Some(chunk))[chunk_size..]);
+            scores.extend_from_slice(
+                &self.calculate_final_scores_padded(first_chunk, Some(chunk))[chunk_size..],
+            );
         }
 
         scores
@@ -372,14 +368,15 @@ mod tests {
     ];
 
     #[test]
-    fn test_list_net_end_to_end_with_run_for_10() {
+    fn test_list_net_end_to_end_without_chunking_and_padding() {
         let list_net = &*LIST_NET;
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
             .unwrap();
 
-        let outcome = list_net.run_for_10(inputs);
+        let scores = list_net.calculate_intermediate_scores(inputs);
+        let outcome = list_net.calculate_final_scores_padded(&scores, None);
 
         assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps = 4);
     }
