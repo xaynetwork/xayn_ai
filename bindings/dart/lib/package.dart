@@ -1,6 +1,7 @@
 export 'src/common/data/document.dart' show Document;
 export 'src/common/data/history.dart'
     show Feedback, History, Relevance, DayOfWeek, UserAction;
+export 'src/common/reranker/ai.dart' show RerankMode;
 export 'src/common/reranker/ai.dart'
     if (dart.library.io) 'src/mobile/reranker/ai.dart'
     if (dart.library.js) 'src/web/reranker/ai.dart' show XaynAi;

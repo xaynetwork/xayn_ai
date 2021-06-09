@@ -17,7 +17,15 @@ import 'package:flutter/material.dart'
 import 'package:stats/stats.dart' show Stats;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show DayOfWeek, Document, Feedback, History, Relevance, UserAction, XaynAi;
+    show
+        DayOfWeek,
+        Document,
+        Feedback,
+        History,
+        Relevance,
+        UserAction,
+        XaynAi,
+        RerankMode;
 
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     if (dart.library.io) 'data_provider/mobile.dart'
@@ -92,18 +100,18 @@ class _MyAppState extends State<MyApp> {
     const benchNum = 100;
 
     // Init state with feedback loop
-    _ai.rerank(histories, documents);
-    _ai.rerank(histories, documents);
+    _ai.rerank(RerankMode.search, histories, documents);
+    _ai.rerank(RerankMode.search, histories, documents);
 
     // ensure that code and data is in cache as much as possiible.
     for (var i = 0; i < preBenchNum; i++) {
-      _ai.rerank(histories, documents);
+      _ai.rerank(RerankMode.search, histories, documents);
     }
 
     final times = List<num>.empty(growable: true);
     for (var i = 0; i < benchNum; i++) {
       final start = DateTime.now().millisecondsSinceEpoch;
-      _ai.rerank(histories, documents);
+      _ai.rerank(RerankMode.search, histories, documents);
       final end = DateTime.now().millisecondsSinceEpoch;
 
       times.add(end - start);

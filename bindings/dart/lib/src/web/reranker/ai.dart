@@ -9,6 +9,8 @@ import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
+    show RerankMode, RerankModeToInt;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
     show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
@@ -93,7 +95,8 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  RerankingOutcomes rerank(List<History> histories, List<Document> documents) {
+  RerankingOutcomes rerank(
+      RerankMode mode, List<History> histories, List<Document> documents) {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
