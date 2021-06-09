@@ -73,9 +73,9 @@ where
             },
             document_content: DocumentContentComponent {
                 snippet: document.snippet.clone(),
-                session: document.session.clone(),
+                session: document.session,
                 query_count: document.query_count,
-                query_id: document.query_id.clone(),
+                query_id: document.query_id,
                 query_words: document.query_words.clone(),
                 url: document.url.clone(),
                 domain: document.domain.clone(),

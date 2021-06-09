@@ -5,10 +5,10 @@ use super::{
     mean_recip_rank,
     snippet_quality,
     AtomFeat,
+    DocSearchResult,
     FeatMap,
     FilterPred,
     HistSearchResult,
-    NewSearchResult,
     SessionCond,
     UrlOrDom,
 };
@@ -37,7 +37,7 @@ pub(crate) struct AggregFeatures {
 
 impl AggregFeatures {
     /// Build aggregate features for the given search result and history of a user.
-    pub(crate) fn build(hist: &[HistSearchResult], res: impl AsRef<NewSearchResult>) -> Self {
+    pub(crate) fn build(hist: &[HistSearchResult], res: impl AsRef<DocSearchResult>) -> Self {
         let r = res.as_ref();
 
         let anterior = SessionCond::Anterior(r.query.session_id);
@@ -76,7 +76,7 @@ impl AggregFeatures {
     }
 }
 
-fn aggreg_feat(hist: &[HistSearchResult], r: &NewSearchResult, pred: FilterPred) -> FeatMap {
+fn aggreg_feat(hist: &[HistSearchResult], r: &DocSearchResult, pred: FilterPred) -> FeatMap {
     let eval_atom = |atom_feat| match atom_feat {
         AtomFeat::MeanRecipRank(outcome) => mean_recip_rank(hist, Some(outcome), Some(pred)),
         AtomFeat::MeanRecipRankAll => mean_recip_rank(hist, None, Some(pred)),

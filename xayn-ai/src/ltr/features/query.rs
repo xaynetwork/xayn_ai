@@ -1,6 +1,6 @@
 #![allow(dead_code)] // TEMP
 
-use super::{click_entropy, mean_recip_rank, Action, HistSearchResult, NewSearchResult};
+use super::{click_entropy, mean_recip_rank, Action, DocSearchResult, HistSearchResult};
 use itertools::Itertools;
 use std::collections::HashSet;
 
@@ -26,7 +26,7 @@ pub(crate) struct QueryFeatures {
 
 impl QueryFeatures {
     /// Build query features for the given search result and history of a user.
-    pub(crate) fn build(history: &[HistSearchResult], res: &NewSearchResult) -> Self {
+    pub(crate) fn build(history: &[HistSearchResult], res: &DocSearchResult) -> Self {
         // history filtered by query
         let history_q = history
             .iter()

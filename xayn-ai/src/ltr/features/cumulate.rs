@@ -3,10 +3,10 @@
 use super::{
     cond_prob,
     AtomFeat,
+    DocSearchResult,
     FeatMap,
     FilterPred,
     HistSearchResult,
-    NewSearchResult,
     UrlOrDom,
 };
 use std::collections::HashMap;
@@ -26,7 +26,7 @@ impl CumFeatures {
     /// ```
     /// where the sum ranges over each search result `r` ranked above `res`. `pred` is the predicate
     /// corresponding to the cumulated feature, and `outcome` one of its specified atoms.
-    pub(crate) fn build(hist: &[HistSearchResult], res: impl AsRef<NewSearchResult>) -> Self {
+    pub(crate) fn build(hist: &[HistSearchResult], res: impl AsRef<DocSearchResult>) -> Self {
         let res = res.as_ref();
         let url = hist
             .iter()

@@ -11,7 +11,8 @@ mod cumulate;
 mod query;
 mod user;
 
-use itertools::Itertools;
+use itertools::{izip, Itertools};
+use ndarray::{Array2, Axis};
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
@@ -72,8 +73,8 @@ pub(crate) struct Query {
     pub(crate) query_words: Vec<String>,
 }
 
-/// Single result from a new search, yet to be reranked.
-pub struct NewSearchResult {
+/// A result from a new search performed by the user.
+pub struct DocSearchResult {
     /// Search query.
     pub(crate) query: Query,
     /// URL of result.
@@ -84,13 +85,13 @@ pub struct NewSearchResult {
     pub(crate) init_rank: Rank,
 }
 
-impl AsRef<NewSearchResult> for NewSearchResult {
-    fn as_ref(&self) -> &NewSearchResult {
+impl AsRef<DocSearchResult> for DocSearchResult {
+    fn as_ref(&self) -> &DocSearchResult {
         self
     }
 }
 
-/// Single reranked result from a search performed at some point in the user's history.
+/// A reranked result from a search performed at some point in the user's history.
 pub struct HistSearchResult {
     /// Search query.
     pub(crate) query: Query,
@@ -318,7 +319,7 @@ struct Features {
 
 impl Features {
     /// Build features for a search `res`ult from the user given her past search `hist`ory.
-    fn build(hist: &[HistSearchResult], res: NewSearchResult) -> Self {
+    fn build(hist: &[HistSearchResult], res: DocSearchResult) -> Self {
         let init_rank = res.init_rank;
         let aggreg = AggregFeatures::build(hist, &res);
         let user = UserFeatures::build(hist);
@@ -342,6 +343,84 @@ impl Features {
             seasonality,
         }
     }
+}
+
+fn features_to_array(feats_list: &[Features]) -> Array2<f32> {
+    let mut arr = Array2::zeros((feats_list.len(), 50));
+
+    let click_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Click);
+    let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
+    let skip_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Skip);
+    let combine_mrr = &AtomFeat::MeanRecipRankAll;
+    let click1 = &AtomFeat::CondProb(Action::Click1);
+    let click2 = &AtomFeat::CondProb(Action::Click2);
+    let missed = &AtomFeat::CondProb(Action::Miss);
+    let skipped = &AtomFeat::CondProb(Action::Skip);
+    let snippet_quality = &AtomFeat::SnippetQuality;
+
+    for (feats, mut row) in izip!(feats_list, arr.axis_iter_mut(Axis(0))) {
+        let Features {
+            init_rank,
+            aggreg,
+            user,
+            query,
+            cum,
+            terms_variety,
+            seasonality,
+        } = feats;
+
+        row[0] = init_rank.to_owned().into();
+        row[1] = aggreg.url[click_mrr];
+        row[2] = aggreg.url[click2];
+        row[3] = aggreg.url[missed];
+        row[4] = aggreg.url[snippet_quality];
+        row[5] = aggreg.url_ant[click2];
+        row[6] = aggreg.url_ant[missed];
+        row[7] = aggreg.url_ant[snippet_quality];
+        row[8] = aggreg.url_query[combine_mrr];
+        row[9] = aggreg.url_query[click2];
+        row[10] = aggreg.url_query[missed];
+        row[11] = aggreg.url_query[snippet_quality];
+        row[12] = aggreg.url_query_ant[combine_mrr];
+        row[13] = aggreg.url_query_ant[click_mrr];
+        row[14] = aggreg.url_query_ant[miss_mrr];
+        row[15] = aggreg.url_query_ant[skip_mrr];
+        row[16] = aggreg.url_query_ant[missed];
+        row[17] = aggreg.url_query_ant[snippet_quality];
+        row[18] = aggreg.url_query_curr[miss_mrr];
+        row[19] = aggreg.dom[skipped];
+        row[20] = aggreg.dom[missed];
+        row[21] = aggreg.dom[click2];
+        row[22] = aggreg.dom[snippet_quality];
+        row[23] = aggreg.dom_ant[click2];
+        row[24] = aggreg.dom_ant[missed];
+        row[25] = aggreg.dom_ant[snippet_quality];
+        row[26] = aggreg.dom_query[missed];
+        row[27] = aggreg.dom_query[snippet_quality];
+        row[28] = aggreg.dom_query[miss_mrr];
+        row[29] = aggreg.dom_query_ant[snippet_quality];
+        row[30] = query.click_entropy;
+        row[31] = query.num_terms as f32;
+        row[32] = query.mean_query_count;
+        row[33] = query.occurs_per_session;
+        row[34] = query.num_occurs as f32;
+        row[35] = query.click_mrr;
+        row[36] = query.mean_clicks;
+        row[37] = query.mean_skips;
+        row[38] = user.click_entropy;
+        row[39] = user.click_counts.click12 as f32;
+        row[40] = user.click_counts.click345 as f32;
+        row[41] = user.click_counts.click6up as f32;
+        row[42] = user.num_queries as f32;
+        row[43] = user.words_per_query;
+        row[44] = user.words_per_session;
+        row[45] = cum.url[skipped];
+        row[46] = cum.url[click1];
+        row[47] = cum.url[click2];
+        row[48] = *terms_variety as f32;
+        row[49] = *seasonality;
+    }
+    arr
 }
 
 impl From<Features> for [f32; 50] {
@@ -463,7 +542,7 @@ pub(crate) fn mean_recip_rank(
 }
 
 /// Counts the variety of terms over a given test session.
-fn terms_variety(res: &NewSearchResult) -> usize {
+fn terms_variety(res: &DocSearchResult) -> usize {
     res.query.query_words.iter().unique().count()
 }
 
@@ -518,7 +597,7 @@ pub(crate) fn click_entropy(results: &[impl AsRef<HistSearchResult>]) -> f32 {
 /// where the sum ranges over all result sets containing a result `r` with URL matching that of `res`.
 pub(crate) fn snippet_quality(
     hist: &[HistSearchResult],
-    res: &NewSearchResult,
+    res: &DocSearchResult,
     pred: FilterPred,
 ) -> f32 {
     let pred_filtered = hist.iter().filter(|r| pred.apply(r));
