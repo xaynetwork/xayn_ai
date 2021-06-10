@@ -64,8 +64,8 @@ mod tests {
 
     use super::*;
 
-    const VOCAB: &str = "../data/qambert_v0000/vocab.txt";
-    const QAMBERT_MODEL: &str = "../data/qambert_v0000/qambert.onnx";
+    const VOCAB: &str = "../data/qambert_v0001/vocab.txt";
+    const QAMBERT_MODEL: &str = "../data/qambert_v0001/qambert.onnx";
 
     fn qambert() -> QAMBert {
         QAMBertBuilder::from_files(VOCAB, QAMBERT_MODEL)
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_similarity() {
-        check_similarity(qambert(), &[15.445126, 10.795474, 17.740929, 15.862612]);
+        check_similarity(qambert(), &[14.395557, 11.348355, 16.711432, 14.539247]);
     }
 
     #[test]
