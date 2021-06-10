@@ -195,11 +195,11 @@ mod tests {
     #[test]
     fn test_full_analytics_system() {
         let history = tests::document_history(vec![
-            (2, Relevance::Low, UserFeedback::None),
-            (3, Relevance::Medium, UserFeedback::None),
-            (1, Relevance::High, UserFeedback::None),
-            (0, Relevance::Medium, UserFeedback::None),
-            (10, Relevance::Low, UserFeedback::None),
+            (2, Relevance::Low, UserFeedback::NotGiven),
+            (3, Relevance::Medium, UserFeedback::NotGiven),
+            (1, Relevance::High, UserFeedback::NotGiven),
+            (0, Relevance::Medium, UserFeedback::NotGiven),
+            (10, Relevance::Low, UserFeedback::NotGiven),
         ]);
 
         let mut documents = tests::data_with_mab(tests::from_ids(0..3));

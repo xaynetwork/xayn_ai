@@ -18,7 +18,6 @@ use crate::{
         error::CError,
         fault::{CFaults, Faults},
     },
-    slice::CBoxedSlice,
     utils::{as_str, IntoRaw},
 };
 
@@ -68,8 +67,6 @@ impl CXaynAi {
             unsafe { as_str(qambert_vocab, CCode::QAMBertVocabPointer, FAIL_INIT_AI) }?;
         let qambert_model =
             unsafe { as_str(qambert_model, CCode::QAMBertModelPointer, FAIL_INIT_AI) }?;
-
-        let serialized = serialized.map(CBoxedSlice::as_slice).unwrap_or_default();
 
         Builder::default()
             .with_smbert_from_file(smbert_vocab, smbert_model)

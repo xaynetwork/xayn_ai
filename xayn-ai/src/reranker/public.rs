@@ -117,8 +117,18 @@ impl Default for Builder<(), (), (), ()> {
 }
 
 impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
-    pub fn with_serialized_database(mut self, bytes: &[u8]) -> Result<Self, Error> {
-        self.database = Db::deserialize(bytes)?;
+    /// Sets the serialized database to use.
+    ///
+    /// This accepts an option as this makes the builder pattern easier to use
+    /// as all consumers (we currently have) want to only optionally set serialized
+    /// database.
+    pub fn with_serialized_database(
+        mut self,
+        bytes: Option<impl AsRef<[u8]>>,
+    ) -> Result<Self, Error> {
+        if let Some(bytes) = bytes {
+            self.database = Db::deserialize(bytes.as_ref())?;
+        }
         Ok(self)
     }
 

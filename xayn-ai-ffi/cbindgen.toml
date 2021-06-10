@@ -6,5 +6,9 @@ include_version = true
 sys_includes = ["stdint.h"]
 no_includes = true
 
+[parse]
+parse_deps = true
+include = ["xayn-ai"]
+
 [export]
-include = ["CCode", "CDayOfWeek", "CFeedback", "CRelevance", "CRerankMode", "CUserAction"]
+include = ["CCode", "CRerankMode", "DayOfWeek", "UserFeedback", "Relevance", "UserAction"]

@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
 use xayn_ai_ffi::{CCode, CRerankMode};
 
-use crate::{error::IntoJsResult, history::WHistory};
+use crate::error::IntoJsResult;
 
 /// The Xayn AI.
 #[wasm_bindgen]
@@ -31,7 +31,7 @@ impl WXaynAi {
         console_error_panic_hook::set_once();
 
         Builder::default()
-            .with_serialized_database(&serialized.unwrap_or_default())
+            .with_serialized_database(serialized)
             .map_err(|cause| {
                 CCode::RerankerDeserialization.with_context(format!(
                     "Failed to deserialize the reranker database: {}",
@@ -71,7 +71,7 @@ impl WXaynAi {
             .into_js_result()?;
         let histories = histories
             .iter()
-            .map(|js_value| js_value.into_serde::<WHistory>().map(Into::into))
+            .map(|js_value| js_value.into_serde::<DocumentHistory>().map(Into::into))
             .collect::<Result<Vec<DocumentHistory>, _>>()
             .map_err(|cause| {
                 CCode::HistoriesDeserialization.with_context(format!(
@@ -158,8 +158,6 @@ mod tests {
     };
     use xayn_ai_ffi::{CRerankMode, Error};
 
-    use crate::history::WHistory;
-
     /// Path to the current smbert vocabulary file.
     const SMBERT_VOCAB: &[u8] = include_bytes!("../../data/smbert_v0000/vocab.txt");
 
@@ -229,23 +227,20 @@ mod tests {
             user_actions
         )
         .map(|hist| {
-            JsValue::from_serde::<WHistory>(
-                &DocumentHistory {
-                    id: hist.0,
-                    relevance: hist.1,
-                    user_feedback: hist.2,
-                    session: hist.3,
-                    query_count: hist.4,
-                    query_id: hist.5,
-                    query_words: hist.6,
-                    day: hist.7,
-                    url: hist.8,
-                    domain: hist.9,
-                    rank: hist.10,
-                    user_action: hist.11,
-                }
-                .into(),
-            )
+            JsValue::from_serde(&DocumentHistory {
+                id: hist.0,
+                relevance: hist.1,
+                user_feedback: hist.2,
+                session: hist.3,
+                query_count: hist.4,
+                query_id: hist.5,
+                query_words: hist.6,
+                day: hist.7,
+                url: hist.8,
+                domain: hist.9,
+                rank: hist.10,
+                user_action: hist.11,
+            })
             .unwrap()
         })
         .collect()

@@ -202,7 +202,6 @@ where
     }
 }
 
-#[cfg(test)]
 impl<T> AsRef<[T]> for CBoxedSlice<T> {
     fn as_ref(&self) -> &[T] {
         self.as_slice()

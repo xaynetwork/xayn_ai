@@ -39,7 +39,7 @@ void main() {
           equals(history.relevance.toInt()),
         );
         expect(
-          hist.feedback,
+          hist.user_feedback,
           equals(history.feedback.toInt()),
         );
         expect(

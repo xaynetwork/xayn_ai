@@ -4,7 +4,7 @@
 mod data;
 mod error;
 
-pub use crate::{
-    data::{CDayOfWeek, CFeedback, CRelevance, CRerankMode, CUserAction},
-    error::{CCode, Error},
-};
+pub use data::CRerankMode;
+pub use crate::error::{CCode, Error};
+
+pub use xayn_ai::{DayOfWeek, Relevance, UserAction, UserFeedback};
