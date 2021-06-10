@@ -17,7 +17,6 @@ use list_net::ListNet;
 
 const BINPARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
 
-#[allow(unused)] // TEMP
 /// Domain reranker consisting of a ListNet model trained on engineered features.
 pub(crate) struct DomainReranker;
 
@@ -49,6 +48,7 @@ pub(crate) struct ConstLtr;
 impl ConstLtr {
     const SCORE: f32 = 0.5;
 
+    #[allow(unused)] // TODO move ConstLtr into tests / remove later
     pub(crate) fn new() -> Self {
         // 0.5 is the only valid value.
         // It must be between 0 and 1. Since this is used to compute the context value

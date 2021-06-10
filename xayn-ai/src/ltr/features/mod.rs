@@ -4,15 +4,13 @@
 //! [1]: https://www.academia.edu/9872579/Dataikus_Solution_to_Yandexs_Personalized_Web_Search_Challenge
 //! [2]: https://github.com/xaynetwork/soundgarden
 
-#![allow(dead_code)] // TEMP
-
 mod aggregate;
 mod cumulate;
 mod query;
 mod user;
 
 use itertools::{izip, Itertools};
-use ndarray::{Array2, Axis};
+use ndarray::{array, Array2, Axis};
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
@@ -238,42 +236,9 @@ impl<'a> ResultSet<'a> {
 
     /// Iterates over all documents which have been clicked in ascending ranking order.
     fn clicked_documents(&self) -> impl Iterator<Item = &'a HistSearchResult> + '_ {
-        self.0.iter().flat_map(|doc| doc.is_clicked().then(|| *doc))
-    }
-
-    /// Search result at position `pos` of the result set.
-    ///
-    /// # Panic
-    /// Panics if the length of the underlying vector is less than `pos`.
-    fn get(&self, pos: Rank) -> &HistSearchResult {
-        self.0[(pos as usize) - 1]
-    }
-
-    /// Number of clicked results from `Rank::First` to `pos`.
-    fn cumulative_clicks(&self, pos: Rank) -> usize {
         self.0
             .iter()
-            .filter(|r| r.action > Action::Click0 && r.rerank <= pos)
-            .count()
-    }
-
-    /// Rank of the result with the matching `url`.
-    fn rank_of(&self, url: &str) -> Option<Rank> {
-        self.0.iter().find_map(|r| (r.url == url).then(|| r.rerank))
-    }
-}
-
-struct DocAddr<'a> {
-    url: UrlOrDom<'a>,
-    dom: UrlOrDom<'a>,
-}
-
-impl<'a> DocAddr<'a> {
-    fn new(url: &'a str, dom: &'a str) -> Self {
-        Self {
-            url: UrlOrDom::Url(url),
-            dom: UrlOrDom::Dom(dom),
-        }
+            .flat_map(|hist| hist.is_clicked().then(|| *hist))
     }
 }
 
@@ -355,33 +320,18 @@ impl<'a> FilterPred<'a> {
         }
     }
 
-    /// Lookup the atoms making up the cumulated feature for this filter predicate.
-    ///
-    /// Mapping of (predicate => atomic features) based on Dataiku's winning model (see paper).
-    /// Note that for cumulated features, the atoms are always conditional probabilities.
-    pub(crate) fn cum_atoms(&self) -> SmallVec<[Action; 3]> {
-        use Action::{Click1 as click1, Click2 as click2, Skip as skip};
-        use SessionCond::All;
-        use UrlOrDom::*;
-
-        match (self.doc, self.query, self.session) {
-            (Url(_), None, All) => smallvec![skip, click1, click2],
-            _ => smallvec![],
-        }
-    }
-
     /// Applies the predicate to the given search result.
-    pub(crate) fn apply(&self, r: impl AsRef<HistSearchResult>) -> bool {
-        let r = r.as_ref();
+    pub(crate) fn apply(&self, hist: impl AsRef<HistSearchResult>) -> bool {
+        let hist = hist.as_ref();
         let doc_cond = match self.doc {
-            UrlOrDom::Url(url) => r.url == url,
-            UrlOrDom::Dom(dom) => r.domain == dom,
+            UrlOrDom::Url(url) => hist.url == url,
+            UrlOrDom::Dom(dom) => hist.domain == dom,
         };
         let query_cond = match self.query {
-            Some(id) => r.query.query_id == id,
+            Some(id) => hist.query.query_id == id,
             None => true,
         };
-        let session_id = r.query.session_id;
+        let session_id = hist.query.session_id;
         let session_cond = match self.session {
             // `id` is of the *current* session hence any other must be *older*
             SessionCond::Anterior(id) => session_id != id,
@@ -466,7 +416,7 @@ pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
     let skipped = &AtomFeat::CondProb(Action::Skip);
     let snippet_quality = &AtomFeat::SnippetQuality;
 
-    for (feats, mut row) in izip!(feats_list, arr.axis_iter_mut(Axis(0))) {
+    for (feats, row) in izip!(feats_list, arr.axis_iter_mut(Axis(0))) {
         let Features {
             init_rank,
             aggreg,
@@ -477,83 +427,8 @@ pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
             seasonality,
         } = feats;
 
-        row[0] = init_rank.to_owned().into();
-        row[1] = aggreg.url[click_mrr];
-        row[2] = aggreg.url[click2];
-        row[3] = aggreg.url[missed];
-        row[4] = aggreg.url[snippet_quality];
-        row[5] = aggreg.url_ant[click2];
-        row[6] = aggreg.url_ant[missed];
-        row[7] = aggreg.url_ant[snippet_quality];
-        row[8] = aggreg.url_query[combine_mrr];
-        row[9] = aggreg.url_query[click2];
-        row[10] = aggreg.url_query[missed];
-        row[11] = aggreg.url_query[snippet_quality];
-        row[12] = aggreg.url_query_ant[combine_mrr];
-        row[13] = aggreg.url_query_ant[click_mrr];
-        row[14] = aggreg.url_query_ant[miss_mrr];
-        row[15] = aggreg.url_query_ant[skip_mrr];
-        row[16] = aggreg.url_query_ant[missed];
-        row[17] = aggreg.url_query_ant[snippet_quality];
-        row[18] = aggreg.url_query_curr[miss_mrr];
-        row[19] = aggreg.dom[skipped];
-        row[20] = aggreg.dom[missed];
-        row[21] = aggreg.dom[click2];
-        row[22] = aggreg.dom[snippet_quality];
-        row[23] = aggreg.dom_ant[click2];
-        row[24] = aggreg.dom_ant[missed];
-        row[25] = aggreg.dom_ant[snippet_quality];
-        row[26] = aggreg.dom_query[missed];
-        row[27] = aggreg.dom_query[snippet_quality];
-        row[28] = aggreg.dom_query[miss_mrr];
-        row[29] = aggreg.dom_query_ant[snippet_quality];
-        row[30] = query.click_entropy;
-        row[31] = query.num_terms as f32;
-        row[32] = query.mean_query_count;
-        row[33] = query.occurs_per_session;
-        row[34] = query.num_occurs as f32;
-        row[35] = query.click_mrr;
-        row[36] = query.mean_clicks;
-        row[37] = query.mean_skips;
-        row[38] = user.click_entropy;
-        row[39] = user.click_counts.click12 as f32;
-        row[40] = user.click_counts.click345 as f32;
-        row[41] = user.click_counts.click6up as f32;
-        row[42] = user.num_queries as f32;
-        row[43] = user.words_per_query;
-        row[44] = user.words_per_session;
-        row[45] = cum.url_skip;
-        row[46] = cum.url_click1;
-        row[47] = cum.url_click2;
-        row[48] = *terms_variety as f32;
-        row[49] = *seasonality;
-    }
-    arr
-}
-
-impl From<Features> for [f32; 50] {
-    fn from(feats: Features) -> Self {
-        let click_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Click);
-        let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
-        let skip_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Skip);
-        let combine_mrr = &AtomFeat::MeanRecipRankAll;
-        let click2 = &AtomFeat::CondProb(Action::Click2);
-        let missed = &AtomFeat::CondProb(Action::Miss);
-        let skipped = &AtomFeat::CondProb(Action::Skip);
-        let snippet_quality = &AtomFeat::SnippetQuality;
-
-        let Features {
-            init_rank,
-            aggreg,
-            user,
-            query,
-            cum,
-            terms_variety,
-            seasonality,
-        } = feats;
-
-        [
-            init_rank.into(),
+        array![
+            init_rank.to_owned().into(),
             aggreg.url[click_mrr],
             aggreg.url[click2],
             aggreg.url[missed],
@@ -601,10 +476,12 @@ impl From<Features> for [f32; 50] {
             cum.url_skip,
             cum.url_click1,
             cum.url_click2,
-            terms_variety as f32,
-            seasonality,
+            *terms_variety as f32,
+            *seasonality,
         ]
+        .move_into(row);
     }
+    arr
 }
 
 /// Mean reciprocal rank of results filtered by outcome and a predicate.
