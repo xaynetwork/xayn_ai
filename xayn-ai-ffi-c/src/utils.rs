@@ -7,12 +7,6 @@ use xayn_ai_ffi::{CCode, Error};
 #[cfg(doc)]
 pub use crate::slice::CBoxedSlice;
 
-/// This function does nothing.
-///
-/// Calling this prevents Swift to drop the library.
-#[no_mangle]
-pub extern "C" fn dummy_function() {}
-
 /// Reads a string slice from the borrowed bytes pointer.
 ///
 /// # Errors

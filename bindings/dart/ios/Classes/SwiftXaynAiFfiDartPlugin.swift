@@ -14,8 +14,10 @@ public class SwiftXaynAiFfiDartPlugin: NSObject, FlutterPlugin {
 
   // The Xcode toolchain won't include the shared library in the build
   // process unless a method from the library is invoked. So, this
-  // call is just done to ensure that the library is included.
+  // call to a component directly related to the ai is just done to ensure
+  // that the library is included, independent of the actual return value
+  // or failure.
   public func enforceBinding(){
-    dummy_function()
+    xaynai_new(nil, nil, nil, nil, nil, nil)
   }
 }
