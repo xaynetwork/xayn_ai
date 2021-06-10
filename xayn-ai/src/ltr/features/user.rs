@@ -3,13 +3,13 @@ use crate::SessionId;
 use std::collections::{HashMap, HashSet};
 
 /// Click counter.
-pub(crate) struct ClickCounts {
+pub(super) struct ClickCounts {
     /// Click count of results ranked 1-2.
-    pub(crate) click12: u32,
+    pub(super) click12: u32,
     /// Click count of results ranked 3-5.
-    pub(crate) click345: u32,
+    pub(super) click345: u32,
     /// Click count of results ranked 6 upwards.
-    pub(crate) click6up: u32,
+    pub(super) click6up: u32,
 }
 
 impl ClickCounts {
@@ -33,22 +33,22 @@ impl ClickCounts {
 }
 
 /// Click habits and other features specific to the user.
-pub(crate) struct UserFeatures {
+pub(super) struct UserFeatures {
     /// Entropy over ranks of clicked results.
-    pub(crate) click_entropy: f32,
+    pub(super) click_entropy: f32,
     /// Click counts of results ranked 1-2, 3-6, 6-10 resp.
-    pub(crate) click_counts: ClickCounts,
+    pub(super) click_counts: ClickCounts,
     /// Total number of search queries over all sessions.
-    pub(crate) num_queries: usize,
+    pub(super) num_queries: usize,
     /// Mean number of words per query.
-    pub(crate) words_per_query: f32,
+    pub(super) words_per_query: f32,
     /// Mean number of unique query words per session.
-    pub(crate) words_per_session: f32,
+    pub(super) words_per_session: f32,
 }
 
 impl UserFeatures {
     /// Build user features for the given historical search results of the user.
-    pub(crate) fn build(hists: &[HistSearchResult]) -> Self {
+    pub(super) fn build(hists: &[HistSearchResult]) -> Self {
         if hists.is_empty() {
             return Self {
                 click_entropy: 0.,

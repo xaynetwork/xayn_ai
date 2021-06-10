@@ -3,28 +3,28 @@ use itertools::Itertools;
 use std::collections::HashSet;
 
 /// Features specific to a given query.
-pub(crate) struct QueryFeatures {
+pub(super) struct QueryFeatures {
     /// Entropy over ranks of clicked results.
-    pub(crate) click_entropy: f32,
+    pub(super) click_entropy: f32,
     /// Number of terms.
-    pub(crate) num_terms: usize,
+    pub(super) num_terms: usize,
     /// Average `n` where query is the `n`th of a session.
-    pub(crate) mean_query_count: f32,
+    pub(super) mean_query_count: f32,
     /// Average number of occurrences per session.
-    pub(crate) occurs_per_session: f32,
+    pub(super) occurs_per_session: f32,
     /// Total number of occurrences.
-    pub(crate) num_occurs: usize,
+    pub(super) num_occurs: usize,
     /// Mean reciprocal rank of clicked results.
-    pub(crate) click_mrr: f32,
+    pub(super) click_mrr: f32,
     /// Average number of clicks.
-    pub(crate) mean_clicks: f32,
+    pub(super) mean_clicks: f32,
     /// Average number of skips.
-    pub(crate) mean_skips: f32,
+    pub(super) mean_skips: f32,
 }
 
 impl QueryFeatures {
     /// Build query features for the given search result and history of a user.
-    pub(crate) fn build(hists: &[HistSearchResult], doc: &DocSearchResult) -> Self {
+    pub(super) fn build(hists: &[HistSearchResult], doc: &DocSearchResult) -> Self {
         // history filtered by query
         let hists_q = hists
             .iter()

@@ -12,30 +12,30 @@ use super::{
 };
 
 /// Aggregate features for a given user.
-pub(crate) struct AggregFeatures {
+pub(super) struct AggregFeatures {
     /// Aggregate feature for matching domain.
-    pub(crate) dom: FeatMap,
+    pub(super) dom: FeatMap,
     /// Aggregate feature for matching domain over anterior sessions.
-    pub(crate) dom_ant: FeatMap,
+    pub(super) dom_ant: FeatMap,
     /// Aggregate feature for matching URL.
-    pub(crate) url: FeatMap,
+    pub(super) url: FeatMap,
     /// Aggregate feature for matching URL over anterior sessions.
-    pub(crate) url_ant: FeatMap,
+    pub(super) url_ant: FeatMap,
     /// Aggregate feature for matching domain and query.
-    pub(crate) dom_query: FeatMap,
+    pub(super) dom_query: FeatMap,
     /// Aggregate feature for matching domain and query over anterior sessions.
-    pub(crate) dom_query_ant: FeatMap,
+    pub(super) dom_query_ant: FeatMap,
     /// Aggregate feature for matching URL and query.
-    pub(crate) url_query: FeatMap,
+    pub(super) url_query: FeatMap,
     /// Aggregate feature for matching URL and query over anterior sessions.
-    pub(crate) url_query_ant: FeatMap,
+    pub(super) url_query_ant: FeatMap,
     /// Aggregate feature for matching URL and query over current session.
-    pub(crate) url_query_curr: FeatMap,
+    pub(super) url_query_curr: FeatMap,
 }
 
 impl AggregFeatures {
     /// Build aggregate features for the given search result and history of a user.
-    pub(crate) fn build(hist: &[HistSearchResult], doc: impl AsRef<DocSearchResult>) -> Self {
+    pub(super) fn build(hist: &[HistSearchResult], doc: impl AsRef<DocSearchResult>) -> Self {
         let doc = doc.as_ref();
 
         let anterior = SessionCond::Anterior(doc.query.session_id);
