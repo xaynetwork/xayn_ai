@@ -620,29 +620,29 @@ impl From<Features> for [f32; 50] {
 ///
 /// The formula uses some form of additive smoothing with a prior 0.283 (see Dataiku paper).
 pub(crate) fn mean_recip_rank(
-    rs: &[impl AsRef<HistSearchResult>],
+    hists: &[impl AsRef<HistSearchResult>],
     outcome: Option<MrrOutcome>,
     pred: Option<FilterPred>,
 ) -> f32 {
-    let filtered = rs
+    let filtered = hists
         .iter()
-        .filter(|r| {
-            let relevance = r.as_ref().action;
+        .filter(|hist| {
+            let action = hist.as_ref().action;
             match outcome {
-                Some(MrrOutcome::Miss) => relevance == Action::Miss,
-                Some(MrrOutcome::Skip) => relevance == Action::Skip,
-                Some(MrrOutcome::Click) => relevance > Action::Click0,
+                Some(MrrOutcome::Miss) => action == Action::Miss,
+                Some(MrrOutcome::Skip) => action == Action::Skip,
+                Some(MrrOutcome::Click) => action >= Action::Click1,
                 None => true,
             }
         })
-        .filter(|r| pred.map_or(true, |p| p.apply(r)))
+        .filter(|hist| pred.map_or(true, |p| p.apply(hist)))
         .collect_vec();
 
     let denom = 1. + filtered.len() as f32;
     let numer = 0.283 // prior recip rank assuming uniform distributed ranks
         + filtered
             .into_iter()
-            .map(|r| f32::from(r.as_ref().rerank).recip())
+            .map(|hist| f32::from(hist.as_ref().rerank).recip())
             .sum::<f32>();
 
     numer / denom
@@ -675,8 +675,8 @@ fn terms_variety(doc: &DocSearchResult) -> usize {
 ///
 /// If there are no matching entries for the given domain then `0` is returned instead of the
 /// expected 2.5. Again, we do this here to be in sync with soundgarden.
-fn seasonality(history: &[HistSearchResult], doc: &DocSearchResult) -> f32 {
-    let (clicks_wknd, clicks_wkday) = history
+fn seasonality(hists: &[HistSearchResult], doc: &DocSearchResult) -> f32 {
+    let (clicks_wknd, clicks_wkday) = hists
         .iter()
         .filter(|hist| hist.domain == doc.domain && hist.is_clicked())
         .fold((0, 0), |(wknd, wkday), hist| {
@@ -699,12 +699,12 @@ fn seasonality(history: &[HistSearchResult], doc: &DocSearchResult) -> f32 {
 }
 
 /// Entropy over the rank of the given results that were clicked.
-pub(crate) fn click_entropy(results: &[impl AsRef<HistSearchResult>]) -> f32 {
-    let rank_freqs = results
+pub(crate) fn click_entropy(hists: &[impl AsRef<HistSearchResult>]) -> f32 {
+    let rank_freqs = hists
         .iter()
-        .filter_map(|r| {
-            let r = r.as_ref();
-            (r.action > Action::Click0).then(|| r.rerank)
+        .filter_map(|hist| {
+            let hist = hist.as_ref();
+            hist.is_clicked().then(|| hist.rerank)
         })
         .counts();
 
@@ -766,20 +766,20 @@ pub(crate) fn snippet_quality(hists: &[HistSearchResult], pred: FilterPred) -> f
 ///
 /// 2. `-1 / nr_clicked` is added if there exists a skipped document matching `pred`. `nr_clicked`
 ///     is the number of all clicked documents independent of weather or not they match.
-fn snippet_score(res: &ResultSet, pred: FilterPred) -> f32 {
+fn snippet_score(rs: &ResultSet, pred: FilterPred) -> f32 {
     let mut score = 0.0;
 
-    if res
+    if rs
         .documents()
-        .any(|doc| pred.apply(doc) && doc.is_skipped())
+        .any(|hist| pred.apply(hist) && hist.is_skipped())
     {
-        let total_clicks = res.clicked_documents().count() as f32;
+        let total_clicks = rs.clicked_documents().count() as f32;
         if total_clicks != 0. {
             score -= total_clicks.recip();
         }
     }
 
-    if let Some(cum_clicks_before_match) = res.clicked_documents().position(|doc| pred.apply(doc)) {
+    if let Some(cum_clicks_before_match) = rs.clicked_documents().position(|doc| pred.apply(doc)) {
         score += (cum_clicks_before_match as f32 + 1.).recip();
     }
 
@@ -822,9 +822,12 @@ fn snippet_score(res: &ResultSet, pred: FilterPred) -> f32 {
 ///
 /// In both cases it defaults to 0 if the denominator is 0 (as in this case the
 /// numerator should be 0 too).
-pub(crate) fn cond_prob(hist: &[HistSearchResult], outcome: Action, pred: FilterPred) -> f32 {
-    let hist_pred = hist.iter().filter(|r| pred.apply(r));
-    let hist_pred_outcome = hist_pred.clone().filter(|r| r.action == outcome).count();
+pub(crate) fn cond_prob(hists: &[HistSearchResult], outcome: Action, pred: FilterPred) -> f32 {
+    let hist_pred = hists.iter().filter(|hist| pred.apply(hist));
+    let hist_pred_outcome = hist_pred
+        .clone()
+        .filter(|hist| hist.action == outcome)
+        .count();
 
     let (numer, denom) = if let Action::Miss = outcome {
         (hist_pred_outcome + 1, hist_pred.count() + hist_pred_outcome)

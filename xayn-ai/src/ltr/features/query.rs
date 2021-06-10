@@ -28,7 +28,7 @@ impl QueryFeatures {
         // history filtered by query
         let hists_q = hists
             .iter()
-            .filter(|r| r.query.query_id == doc.query.query_id)
+            .filter(|hist| hist.query.query_id == doc.query.query_id)
             .collect_vec();
 
         let num_terms = doc.query.query_words.len();
@@ -56,7 +56,10 @@ impl QueryFeatures {
             .count() as f32;
         let occurs_per_session = num_occurs as f32 / num_sessions;
 
-        let clicked = hists_q.iter().filter(|r| r.is_clicked()).collect_vec();
+        let clicked = hists_q
+            .iter()
+            .filter(|hist| hist.is_clicked())
+            .collect_vec();
         let click_mrr = mean_recip_rank(&clicked, None, None);
 
         let mean_clicks = clicked.len() as f32 / num_occurs as f32;
