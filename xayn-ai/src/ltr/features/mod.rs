@@ -63,17 +63,17 @@ pub(crate) enum Rank {
 impl Rank {
     pub(crate) fn from_usize(rank: usize) -> Self {
         match rank {
-            1 => Rank::First,
-            2 => Rank::Second,
-            3 => Rank::Third,
-            4 => Rank::Fourth,
-            5 => Rank::Fifth,
-            6 => Rank::Sixth,
-            7 => Rank::Seventh,
-            8 => Rank::Eighth,
-            9 => Rank::Ninth,
-            10 => Rank::Last,
-            _ => panic!("Only ranks 1-10 supported, got {}", rank),
+            0 => Rank::First,
+            1 => Rank::Second,
+            2 => Rank::Third,
+            3 => Rank::Fourth,
+            4 => Rank::Fifth,
+            5 => Rank::Sixth,
+            6 => Rank::Seventh,
+            7 => Rank::Eighth,
+            8 => Rank::Ninth,
+            9 => Rank::Last,
+            _ => panic!("Only ranks 0-9 supported, got {}", rank),
         }
     }
 }
