@@ -16,10 +16,18 @@ use ndarray::{Array2, Axis};
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 
-use crate::{DayOfWeek, QueryId, SessionId};
+use crate::{
+    data::document_data::DocumentDataWithCoi,
+    DayOfWeek,
+    DocumentHistory,
+    QueryId,
+    Relevance,
+    SessionId,
+    UserAction,
+};
 
 use aggregate::AggregFeatures;
-use cumulate::CumFeatures;
+use cumulate::{CumFeatures, CumFeaturesAccumulator};
 use query::QueryFeatures;
 use user::UserFeatures;
 
@@ -320,7 +328,7 @@ impl<'a> FilterPred<'a> {
 
 // TODO mention diffs
 /// Families of features for a non-personalised search result, based on Dataiku's specification.
-struct Features {
+pub(crate) struct Features {
     /// Unpersonalised rank.
     init_rank: Rank,
     /// Aggregate features.
@@ -338,20 +346,21 @@ struct Features {
 }
 
 impl Features {
-    /// Build features for a search `res`ult from the user given her past search `hist`ory.
-    fn build(hist: &[HistSearchResult], res: DocSearchResult) -> Self {
-        let init_rank = res.init_rank;
-        let aggreg = AggregFeatures::build(hist, &res);
-        let user = UserFeatures::build(hist);
-        let query = QueryFeatures::build(hist, &res);
-        let cum = CumFeatures::build(hist, &res);
-        let terms_variety = terms_variety(&res);
-        // NOTE according to Dataiku spec, this should be the weekend seasonality
-        // factor when `res.day` is a weekend, otherwise the inverse (weekday
-        // seasonality) factor. a bug in soundgarden sets this to always be weekend
-        // seasonality but since the model is trained on it, we match that
-        // behaviour here.
-        let seasonality = seasonality(hist, &res.domain);
+    /// Builds features for a new search result `doc` from the user given her past search history `hists`.
+    ///
+    /// `cum_acc` contains the cumulative features of other results in the search ranked above `doc`.
+    fn build(
+        hists: &[HistSearchResult],
+        doc: &DocSearchResult,
+        cum_acc: &mut CumFeaturesAccumulator,
+    ) -> Self {
+        let init_rank = doc.init_rank;
+        let aggreg = AggregFeatures::build(hists, doc);
+        let user = UserFeatures::build(hists);
+        let query = QueryFeatures::build(hists, doc);
+        let cum = cum_acc.build_next(hists, doc);
+        let terms_variety = terms_variety(doc);
+        let seasonality = seasonality(hists, doc);
 
         Self {
             init_rank,
@@ -365,15 +374,27 @@ impl Features {
     }
 }
 
-/// Converts a collection of `Feature`s into a 2-dimensional ndarray.
-fn features_to_array(feats_list: &[Features]) -> Array2<f32> {
+/// Builds features for each new search result in `docs`.
+///
+/// `docs` must be in order of rank, starting from `Rank::First`.
+pub(crate) fn build_features(
+    hists: &[HistSearchResult],
+    docs: &[DocSearchResult],
+) -> Vec<Features> {
+    let mut cum_acc = CumFeaturesAccumulator::new();
+    docs.iter()
+        .map(|doc| Features::build(hists, doc, &mut cum_acc))
+        .collect()
+}
+
+/// Converts a sequence of `Feature`s into a 2-dimensional ndarray.
+pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
     let mut arr = Array2::zeros((feats_list.len(), 50));
 
     let click_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Click);
     let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
     let skip_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Skip);
     let combine_mrr = &AtomFeat::MeanRecipRankAll;
-    let click1 = &AtomFeat::CondProb(Action::Click1);
     let click2 = &AtomFeat::CondProb(Action::Click2);
     let missed = &AtomFeat::CondProb(Action::Miss);
     let skipped = &AtomFeat::CondProb(Action::Skip);
@@ -435,9 +456,9 @@ fn features_to_array(feats_list: &[Features]) -> Array2<f32> {
         row[42] = user.num_queries as f32;
         row[43] = user.words_per_query;
         row[44] = user.words_per_session;
-        row[45] = cum.url[skipped];
-        row[46] = cum.url[click1];
-        row[47] = cum.url[click2];
+        row[45] = cum.url_skip;
+        row[46] = cum.url_click1;
+        row[47] = cum.url_click2;
         row[48] = *terms_variety as f32;
         row[49] = *seasonality;
     }
@@ -450,7 +471,6 @@ impl From<Features> for [f32; 50] {
         let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
         let skip_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Skip);
         let combine_mrr = &AtomFeat::MeanRecipRankAll;
-        let click1 = &AtomFeat::CondProb(Action::Click1);
         let click2 = &AtomFeat::CondProb(Action::Click2);
         let missed = &AtomFeat::CondProb(Action::Miss);
         let skipped = &AtomFeat::CondProb(Action::Skip);
@@ -512,9 +532,9 @@ impl From<Features> for [f32; 50] {
             user.num_queries as f32,
             user.words_per_query,
             user.words_per_session,
-            cum.url[skipped],
-            cum.url[click1],
-            cum.url[click2],
+            cum.url_skip,
+            cum.url_click1,
+            cum.url_click2,
             terms_variety as f32,
             seasonality,
         ]
@@ -575,25 +595,30 @@ pub(crate) fn mean_recip_rank(
 /// Additionally this also causes all inspected results/documents to have the
 /// same query words and in turn this is just the number of unique words in the
 /// current query, which is kinda very pointless.
-fn terms_variety(res: &DocSearchResult) -> usize {
-    res.query.query_words.iter().unique().count()
+fn terms_variety(doc: &DocSearchResult) -> usize {
+    doc.query.query_words.iter().unique().count()
 }
 
-/// Weekend seasonality of a given domain.
+/// Weekend seasonality factor of a given domain.
 ///
-/// If there are no matching entries for the given domain then `0` is returned, even
-/// though normally you would expect 2.5 to be returned. But we need to keep it
-/// in sync with soundgarden.
-fn seasonality(history: &[HistSearchResult], domain: &str) -> f32 {
+/// # Implementation Differences
+///
+/// According to Dataiku spec, this should be the *weekend* seasonality when `doc.day` is a weekend
+/// otherwise the inverse (*weekday* seasonality). A bug in soundgarden sets this to always be
+/// weekend seasonality but since the model is trained on it, we match that behaviour here.
+///
+/// If there are no matching entries for the given domain then `0` is returned instead of the
+/// expected 2.5. Again, we do this here to be in sync with soundgarden.
+fn seasonality(history: &[HistSearchResult], doc: &DocSearchResult) -> f32 {
     let (clicks_wknd, clicks_wkday) = history
         .iter()
-        .filter(|r| r.domain == domain && r.action > Action::Click0)
-        .fold((0, 0), |(wknd, wkday), r| {
+        .filter(|hist| hist.domain == doc.domain && hist.is_clicked())
+        .fold((0, 0), |(wknd, wkday), hist| {
             // NOTE weekend days should obviously be Sat/Sun but there is a bug
             // in soundgarden that effectively treats Thu/Fri as weekends
             // instead. since the model has been trained as such with the
             // soundgarden implementation, we match that behaviour here.
-            if r.day == DayOfWeek::Thu || r.day == DayOfWeek::Fri {
+            if hist.day == DayOfWeek::Thu || hist.day == DayOfWeek::Fri {
                 (wknd + 1, wkday)
             } else {
                 (wknd, wkday + 1)
