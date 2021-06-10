@@ -42,6 +42,7 @@ class _XaynAi {
       [Uint8List? serialized]);
 
   external JsRerankingOutcomes rerank(
+    int mode,
     List<JsHistory> histories,
     List<JsDocument> documents,
   );
@@ -103,7 +104,8 @@ class XaynAi implements common.XaynAi {
 
     try {
       return _ai!
-          .rerank(histories.toJsHistories(), documents.toJsDocuments())
+          .rerank(mode.toInt(), histories.toJsHistories(),
+              documents.toJsDocuments())
           .toRerankingOutcomes();
     } on XaynAiError catch (error) {
       throw error.toException();
