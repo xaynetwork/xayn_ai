@@ -3,6 +3,7 @@ pub mod public;
 pub(crate) mod systems;
 
 use serde::{Deserialize, Serialize};
+use systems::QAMBertSystem;
 
 use crate::{
     analytics::Analytics,
@@ -17,6 +18,7 @@ use crate::{
         },
         UserInterests,
     },
+    embedding::qambert::NeutralQAMBert,
     error::Error,
     reranker::systems::{CoiSystemData, CommonSystems},
     to_vec_of_ref_of,
@@ -80,6 +82,7 @@ where
 
 fn rerank<CS>(
     common_systems: &CS,
+    mode: RerankMode,
     history: &[DocumentHistory],
     documents: &[Document],
     user_interests: UserInterests,
@@ -88,7 +91,10 @@ where
     CS: CommonSystems,
 {
     let documents = make_documents_with_embedding(common_systems, documents)?;
-    let documents = common_systems.qambert().compute_similarity(documents)?;
+    let documents = match mode {
+        RerankMode::Search => common_systems.qambert().compute_similarity(documents),
+        RerankMode::News => NeutralQAMBert {}.compute_similarity(documents),
+    }?;
     let documents = common_systems
         .coi()
         .compute_coi(documents, &user_interests)?;
@@ -205,7 +211,7 @@ where
 
     pub(crate) fn rerank(
         &mut self,
-        _mode: RerankMode,
+        mode: RerankMode,
         history: &[DocumentHistory],
         documents: &[Document],
     ) -> RerankingOutcomes {
@@ -237,24 +243,30 @@ where
 
         let user_interests = self.data.user_interests.clone();
 
-        rerank(&self.common_systems, history, documents, user_interests)
-            .map(|(documents_with_mab, user_interests)| {
-                let outcome = RerankingOutcomes::from_mab(documents, &documents_with_mab);
+        rerank(
+            &self.common_systems,
+            mode,
+            history,
+            documents,
+            user_interests,
+        )
+        .map(|(documents_with_mab, user_interests)| {
+            let outcome = RerankingOutcomes::from_mab(documents, &documents_with_mab);
 
-                self.data.prev_documents = PreviousDocuments::Mab(documents_with_mab);
-                self.data.user_interests = user_interests;
+            self.data.prev_documents = PreviousDocuments::Mab(documents_with_mab);
+            self.data.user_interests = user_interests;
 
-                outcome
-            })
-            .unwrap_or_else(|e| {
-                self.errors.push(e);
+            outcome
+        })
+        .unwrap_or_else(|e| {
+            self.errors.push(e);
 
-                let prev_documents = make_documents_with_embedding(&self.common_systems, documents)
-                    .unwrap_or_default();
-                self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
+            let prev_documents =
+                make_documents_with_embedding(&self.common_systems, documents).unwrap_or_default();
+            self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
 
-                RerankingOutcomes::from_initial_ranking(documents)
-            })
+            RerankingOutcomes::from_initial_ranking(documents)
+        })
     }
 }
 

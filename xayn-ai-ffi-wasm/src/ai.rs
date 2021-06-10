@@ -156,7 +156,7 @@ mod tests {
         UserAction,
         UserFeedback,
     };
-    use xayn_ai_ffi::{Error, CRerankMode};
+    use xayn_ai_ffi::{CRerankMode, Error};
 
     use crate::history::WHistory;
 
@@ -320,7 +320,9 @@ mod tests {
             None,
         )
         .unwrap();
-        xaynai.rerank(rerank_mode_search(), test_histories(), test_documents()).unwrap();
+        xaynai
+            .rerank(rerank_mode_search(), test_histories(), test_documents())
+            .unwrap();
     }
 
     #[wasm_bindgen_test]
@@ -457,7 +459,11 @@ mod tests {
         )
         .unwrap();
         let error = xaynai
-            .rerank(rerank_mode_search(), vec![JsValue::from("invalid")], test_documents())
+            .rerank(
+                rerank_mode_search(),
+                vec![JsValue::from("invalid")],
+                test_documents(),
+            )
             .unwrap_err()
             .into_serde::<Error>()
             .unwrap();
@@ -478,7 +484,9 @@ mod tests {
             None,
         )
         .unwrap();
-        xaynai.rerank(rerank_mode_search(), vec![], test_documents()).unwrap();
+        xaynai
+            .rerank(rerank_mode_search(), vec![], test_documents())
+            .unwrap();
     }
 
     #[wasm_bindgen_test]
@@ -492,7 +500,11 @@ mod tests {
         )
         .unwrap();
         let error = xaynai
-            .rerank(rerank_mode_search(), test_histories(), vec![JsValue::from("invalid")])
+            .rerank(
+                rerank_mode_search(),
+                test_histories(),
+                vec![JsValue::from("invalid")],
+            )
             .unwrap_err()
             .into_serde::<Error>()
             .unwrap();
@@ -513,7 +525,9 @@ mod tests {
             None,
         )
         .unwrap();
-        xaynai.rerank(rerank_mode_search(), test_histories(), vec![]).unwrap();
+        xaynai
+            .rerank(rerank_mode_search(), test_histories(), vec![])
+            .unwrap();
     }
 
     #[wasm_bindgen_test]

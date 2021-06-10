@@ -10,4 +10,3 @@ mod history;
 
 #[cfg(all(not(tarpaulin), doc))]
 pub use crate::ai::WXaynAi;
-
