@@ -118,31 +118,26 @@ impl ListNet {
         scores.into_raw_vec()
     }
 
-    /// Calculates the final ListNet probabilities based on the intermediate scores.
+    /// Calculates the final ListNet scores based on the intermediate scores.
     ///
     /// The input must be based on the output of [`ListNet.calculate_intermediate_scores()`],
     /// but only supports a size of exactly [`Self::INPUT_NR_DOCUMENT`].
-    ///
-    /// If the output of [`ListNet.calculate_intermediate_scores()`] has more or less then
-    /// [`Self::INPUT_NR_DOCUMENT`] scores, then some form of padding and chunking needs to
-    /// be used, so that this method is only called with exactly [`Self::INPUT_NR_DOCUMENT`] scores.
-    fn calculate_final_probabilities(&self, scores: Array1<f32>) -> Vec<f32> {
+    fn calculate_final_scores(&self, scores: Array1<f32>) -> Vec<f32> {
         debug_assert_eq!(scores.shape()[0], Self::INPUT_NR_DOCUMENTS);
         let outputs = self.scores_prob_dist.run(scores);
         debug_assert!(outputs.is_standard_layout());
         outputs.into_raw_vec()
     }
 
-    /// Calculates the final probabilities/scores for up to [`ListNet::INPUT_NR_DOCUMENTS`] intermediate scores.
+    /// Calculates the final scores for up to [`ListNet::INPUT_NR_DOCUMENTS`] intermediate scores.
     ///
-    /// The input intermediate scores are provided in up to two chunks (`first`,`second`) which
+    /// The intermediate scores are provided in one or two chunks (`first`,`second`) which
     /// will be concatenated and then, the last element get repeated to fill up the input to
     /// have exactly [`ListNet::INPUT_NR_DOCUMENTS`] elements.
     ///
-    ///
     /// # Panics
     ///
-    /// If called with `0` or more then [`Self::INPUT_NR_DOCUMENTS`] elements.
+    /// Will panic if called with `0` or more then [`Self::INPUT_NR_DOCUMENTS`] elements.
     fn calculate_final_scores_padded(&self, first: &[f32], second: Option<&[f32]>) -> Vec<f32> {
         let mut inputs = Vec::with_capacity(Self::INPUT_NR_DOCUMENTS);
         inputs.extend_from_slice(first);
@@ -158,7 +153,7 @@ impl ListNet {
             inputs.last().copied().unwrap_or_default(),
         );
 
-        let mut outputs = self.calculate_final_probabilities(Array1::from(inputs));
+        let mut outputs = self.calculate_final_scores(Array1::from(inputs));
         outputs.truncate(nr_documents);
 
         outputs
