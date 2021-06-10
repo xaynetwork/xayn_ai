@@ -64,11 +64,8 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -
             },
             document_content: DocumentContentComponent {
                 snippet: snippet.to_string(),
-<<<<<<< HEAD
                 query_words: "query".to_string(),
-=======
                 ..Default::default()
->>>>>>> extend & prolong document content
             },
         })
         .collect();
