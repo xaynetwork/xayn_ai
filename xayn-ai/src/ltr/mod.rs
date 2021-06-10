@@ -1,6 +1,8 @@
 mod features;
 mod list_net;
 
+use itertools::{izip, Itertools};
+
 use crate::{
     data::{
         document::DocumentHistory,
@@ -10,6 +12,11 @@ use crate::{
     reranker::systems::LtrSystem,
 };
 
+use features::{build_features, features_to_ndarray};
+use list_net::ListNet;
+
+const BINPARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
+
 #[allow(unused)] // TEMP
 /// Domain reranker consisting of a ListNet model trained on engineered features.
 pub(crate) struct DomainReranker;
@@ -17,16 +24,24 @@ pub(crate) struct DomainReranker;
 impl LtrSystem for DomainReranker {
     fn compute_ltr(
         &self,
-        _history: &[DocumentHistory],
-        _documents: Vec<DocumentDataWithCoi>,
+        history: &[DocumentHistory],
+        documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
-        unimplemented!() // TODO
+        let hists = history.iter().map_into().collect_vec();
+        let docs = documents.iter().map_into().collect_vec();
+
+        let feats = build_features(&hists, &docs);
+        let feats_arr = features_to_ndarray(&feats);
+        let listnet = ListNet::load_from_file(BINPARAMS_PATH)?;
+        let ltr_scores = listnet.run(feats_arr);
+
+        Ok(izip!(documents, ltr_scores)
+            .map(|(document, ltr_score)| {
+                DocumentDataWithLtr::from_document(document, LtrComponent { ltr_score })
+            })
+            .collect())
     }
 }
-
-// ***
-// ignore everything below here
-// ***
 
 /// LTR with constant value.
 pub(crate) struct ConstLtr;

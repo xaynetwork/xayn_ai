@@ -62,6 +62,24 @@ pub(crate) enum Rank {
     Last,
 }
 
+impl Rank {
+    pub(crate) fn from_usize(rank: usize) -> Self {
+        match rank {
+            1 => Rank::First,
+            2 => Rank::Second,
+            3 => Rank::Third,
+            4 => Rank::Fourth,
+            5 => Rank::Fifth,
+            6 => Rank::Sixth,
+            7 => Rank::Seventh,
+            8 => Rank::Eighth,
+            9 => Rank::Ninth,
+            10 => Rank::Last,
+            _ => panic!("Only ranks 1-10 supported, got {}", rank),
+        }
+    }
+}
+
 impl From<Rank> for f32 {
     fn from(rank: Rank) -> Self {
         rank as u8 as f32
@@ -93,6 +111,26 @@ pub struct DocSearchResult {
     pub(crate) init_rank: Rank,
 }
 
+impl From<&DocumentDataWithCoi> for DocSearchResult {
+    fn from(doc_data: &DocumentDataWithCoi) -> Self {
+        let init_rank = Rank::from_usize(doc_data.document_base.initial_ranking);
+        let content = &doc_data.document_content;
+        let query_words = content.query_words.split_whitespace().map_into().collect();
+
+        DocSearchResult {
+            query: Query {
+                session_id: content.session,
+                query_count: content.query_count,
+                query_id: content.query_id,
+                query_words,
+            },
+            url: content.url.clone(),
+            domain: content.domain.clone(),
+            init_rank,
+        }
+    }
+}
+
 impl AsRef<DocSearchResult> for DocSearchResult {
     fn as_ref(&self) -> &DocSearchResult {
         self
@@ -118,6 +156,34 @@ pub struct HistSearchResult {
 impl AsRef<HistSearchResult> for HistSearchResult {
     fn as_ref(&self) -> &HistSearchResult {
         self
+    }
+}
+
+impl From<&DocumentHistory> for HistSearchResult {
+    fn from(doc_hist: &DocumentHistory) -> Self {
+        let rerank = Rank::from_usize(doc_hist.rank);
+        let query_words = doc_hist.query_words.split_whitespace().map_into().collect();
+        let action = match (doc_hist.user_action, doc_hist.relevance) {
+            (UserAction::Miss, _) => Action::Miss,
+            (UserAction::Skip, _) => Action::Skip,
+            (UserAction::Click, Relevance::Low) => Action::Click0,
+            (UserAction::Click, Relevance::Medium) => Action::Click1,
+            (UserAction::Click, Relevance::High) => Action::Click2,
+        };
+
+        HistSearchResult {
+            query: Query {
+                session_id: doc_hist.session,
+                query_count: doc_hist.query_count,
+                query_id: doc_hist.query_id,
+                query_words,
+            },
+            url: doc_hist.url.clone(),
+            domain: doc_hist.domain.clone(),
+            rerank,
+            day: doc_hist.day,
+            action,
+        }
     }
 }
 
