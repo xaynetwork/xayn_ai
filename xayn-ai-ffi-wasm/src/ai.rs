@@ -158,10 +158,10 @@ mod tests {
     const SMBERT_MODEL: &[u8] = include_bytes!("../../data/smbert_v0000/smbert.onnx");
 
     /// Path to the current qambert vocabulary file.
-    const QAMBERT_VOCAB: &[u8] = include_bytes!("../../data/qambert_v0000/vocab.txt");
+    const QAMBERT_VOCAB: &[u8] = include_bytes!("../../data/qambert_v0001/vocab.txt");
 
     /// Path to the current qambert onnx model file.
-    const QAMBERT_MODEL: &[u8] = include_bytes!("../../data/qambert_v0000/qambert.onnx");
+    const QAMBERT_MODEL: &[u8] = include_bytes!("../../data/qambert_v0001/qambert.onnx");
 
     impl std::fmt::Debug for WXaynAi {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {

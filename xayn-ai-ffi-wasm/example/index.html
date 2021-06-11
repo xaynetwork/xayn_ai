@@ -12,9 +12,9 @@
         console.time("load_data");
         let smbert_vocab = await window.fetch("data/smbert_v0000/vocab.txt");
         let smbert_model = await window.fetch("data/smbert_v0000/smbert.onnx");
-        let qambert_vocab = await window.fetch("data/qambert_v0000/vocab.txt");
+        let qambert_vocab = await window.fetch("data/qambert_v0001/vocab.txt");
         let qambert_model = await window.fetch(
-          "data/qambert_v0000/qambert.onnx"
+          "data/qambert_v0001/qambert.onnx"
         );
         let smbert_vocab_buf = new Uint8Array(await smbert_vocab.arrayBuffer());
         let smbert_model_buf = new Uint8Array(await smbert_model.arrayBuffer());
