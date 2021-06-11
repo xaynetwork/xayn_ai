@@ -210,7 +210,7 @@ pub unsafe extern "C" fn xaynai_new(
 /// - A non-null documents `data` doesn't point to an aligned, contiguous area of memory with
 /// at least documents `len` many [`CDocument`]s.
 /// - A documents `len` is too large to address the memory of a non-null [`CDocument`] array.
-/// - A non-null `id` or `snippet` doesn't point to an aligned, contiguous area of memory with a
+/// - A non-null `id` or `title` doesn't point to an aligned, contiguous area of memory with a
 /// terminating null byte.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 /// - A non-null `xaynai` is accessed after a panic.

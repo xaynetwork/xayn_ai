@@ -28,8 +28,8 @@ void main() {
           equals(document.id),
         );
         expect(
-          doc.snippet.cast<Utf8>().toDartString(),
-          equals(document.snippet),
+          doc.title.cast<Utf8>().toDartString(),
+          equals(document.title),
         );
         expect(
           doc.rank,

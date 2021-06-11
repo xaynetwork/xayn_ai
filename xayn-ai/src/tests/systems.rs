@@ -37,7 +37,7 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
                 let mut embedding: Vec<f32> = doc
                     .document_content
                     .clone()
-                    .snippet
+                    .title
                     .into_bytes()
                     .into_iter()
                     .map(|c| c as f32)

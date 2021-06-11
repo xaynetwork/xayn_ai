@@ -18,7 +18,7 @@ impl QAMBertSystem for QAMBert {
             documents
                 .into_iter()
                 .map(|document| {
-                    self.run(&document.document_content.snippet)
+                    self.run(&document.document_content.title)
                         .map(|embedding| {
                             let similarity = l2_norm_distance(&query, &embedding);
                             DocumentDataWithQAMBert::from_document(
@@ -60,7 +60,7 @@ impl QAMBertSystem for NeutralQAMBert {
 mod tests {
     use rubert::{AveragePooler, QAMBertBuilder};
 
-    use crate::tests::documents_with_embeddings_from_snippet_and_query;
+    use crate::tests::documents_with_embeddings_from_titles_and_query;
 
     use super::*;
 
@@ -80,7 +80,7 @@ mod tests {
     }
 
     fn check_similarity<Q: QAMBertSystem>(system: Q, values: &[f32]) {
-        let documents = documents_with_embeddings_from_snippet_and_query(
+        let documents = documents_with_embeddings_from_titles_and_query(
             "Europe",
             &["Football", "Continent", "Tourist guide", "Ice cream"],
         );

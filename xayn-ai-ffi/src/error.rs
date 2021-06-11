@@ -50,8 +50,8 @@ pub enum CCode {
     DocumentsPointer,
     /// A document id null pointer error.
     DocumentIdPointer,
-    /// A document snippet null pointer error.
-    DocumentSnippetPointer,
+    /// A document title null pointer error.
+    DocumentTitlePointer,
     /// A document session id null pointer error.
     DocumentSessionPointer,
     /// A document query id null pointer error.

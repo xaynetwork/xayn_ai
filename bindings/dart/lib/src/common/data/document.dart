@@ -10,8 +10,8 @@ class Document {
   /// Unique identifier of the document.
   final String id;
 
-  /// Text snippet of the document.
-  final String snippet;
+  /// Text title of the document.
+  final String title;
 
   /// Position of the document from the source.
   final int rank;
@@ -37,7 +37,7 @@ class Document {
   /// Creates the document.
   Document({
     required this.id,
-    required this.snippet,
+    required this.title,
     required this.rank,
     required this.session,
     required this.queryCount,

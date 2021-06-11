@@ -72,7 +72,7 @@ where
                 initial_ranking: document.rank,
             },
             document_content: DocumentContentComponent {
-                snippet: document.snippet.clone(),
+                title: document.title.clone(),
                 session: document.session,
                 query_count: document.query_count,
                 query_id: document.query_id,

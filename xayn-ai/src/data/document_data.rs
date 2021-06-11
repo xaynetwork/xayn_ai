@@ -19,7 +19,7 @@ pub(crate) struct DocumentBaseComponent {
 #[cfg_attr(test, derive(Debug, PartialEq, Clone, Default))]
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentContentComponent {
-    pub(crate) snippet: String,
+    pub(crate) title: String,
     pub(crate) session: SessionId,
     pub(crate) query_count: usize,
     pub(crate) query_id: QueryId,
@@ -268,7 +268,7 @@ mod tests {
             initial_ranking: 23,
         };
         let document_content = DocumentContentComponent {
-            snippet: "snippet".to_string(),
+            title: "title".to_string(),
             query_words: "query".to_string(),
             ..Default::default()
         };

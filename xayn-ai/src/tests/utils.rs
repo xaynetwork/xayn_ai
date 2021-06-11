@@ -35,7 +35,7 @@ pub(crate) fn documents_from_ids(ids: Range<u128>) -> Vec<Document> {
         .map(|(rank, id)| Document {
             id: DocumentId::from_u128(id),
             rank,
-            snippet: id.to_string(),
+            title: id.to_string(),
             ..Default::default()
         })
         .collect()
@@ -44,26 +44,26 @@ pub(crate) fn documents_from_ids(ids: Range<u128>) -> Vec<Document> {
 pub(crate) fn documents_from_words(
     ctx: impl Iterator<Item = (usize, impl ToString)>,
 ) -> Vec<Document> {
-    ctx.map(|(id, snippet)| Document {
+    ctx.map(|(id, title)| Document {
         id: DocumentId::from_u128(id as u128),
         rank: id,
-        snippet: snippet.to_string(),
+        title: title.to_string(),
         ..Default::default()
     })
     .collect()
 }
 
-fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -> Vec<CP> {
-    let documents = snippets
+fn cois_from_words<CP: CoiPoint>(titles: &[&str], smbert: impl SMBertSystem) -> Vec<CP> {
+    let documents = titles
         .iter()
         .enumerate()
-        .map(|(id, snippet)| DocumentDataWithDocument {
+        .map(|(id, titles)| DocumentDataWithDocument {
             document_base: DocumentBaseComponent {
                 id: DocumentId::from_u128(id as u128),
                 initial_ranking: id,
             },
             document_content: DocumentContentComponent {
-                snippet: snippet.to_string(),
+                title: titles.to_string(),
                 query_words: "query".to_string(),
                 ..Default::default()
             },
@@ -79,18 +79,12 @@ fn cois_from_words<CP: CoiPoint>(snippets: &[&str], smbert: impl SMBertSystem) -
         .collect()
 }
 
-pub(crate) fn pos_cois_from_words(
-    snippets: &[&str],
-    smbert: impl SMBertSystem,
-) -> Vec<PositiveCoi> {
-    cois_from_words(snippets, smbert)
+pub(crate) fn pos_cois_from_words(titles: &[&str], smbert: impl SMBertSystem) -> Vec<PositiveCoi> {
+    cois_from_words(titles, smbert)
 }
 
-pub(crate) fn neg_cois_from_words(
-    snippets: &[&str],
-    smbert: impl SMBertSystem,
-) -> Vec<NegativeCoi> {
-    cois_from_words(snippets, smbert)
+pub(crate) fn neg_cois_from_words(titles: &[&str], smbert: impl SMBertSystem) -> Vec<NegativeCoi> {
+    cois_from_words(titles, smbert)
 }
 
 pub(crate) fn history_for_prev_docs(
@@ -140,7 +134,7 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
                 initial_ranking,
             },
             document_content: DocumentContentComponent {
-                snippet: "snippet".to_string(),
+                title: "title".to_string(),
                 query_words: "query".to_string(),
                 ..Default::default()
             },
@@ -149,18 +143,18 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
         .collect()
 }
 
-pub(crate) fn documents_with_embeddings_from_snippet_and_query(
+pub(crate) fn documents_with_embeddings_from_titles_and_query(
     query: &str,
-    snippets: &[&str],
+    titles: &[&str],
 ) -> Vec<DocumentDataWithSMBert> {
-    from_ids(0..snippets.len() as u32)
+    from_ids(0..titles.len() as u32)
         .map(|(id, initial_ranking, embedding)| DocumentDataWithSMBert {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking,
             },
             document_content: DocumentContentComponent {
-                snippet: snippets[initial_ranking].to_string(),
+                title: titles[initial_ranking].to_string(),
                 query_words: query.to_string(),
                 ..Default::default()
             },
