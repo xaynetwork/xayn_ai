@@ -10,10 +10,10 @@ final baseAssets = <AssetType, Asset>{
       'ffb2398810fa977ee39e8a0103b07f9c2614f1f9825df53a2c99e71569e3451c'),
   AssetType.smbertModel: Asset('smbert_v0000/smbert.onnx',
       'c07653a3cc568876071de157f0fb8ccc1a302197ddad9ead069a86140e19d913'),
-  AssetType.qambertVocab: Asset('qambert_v0000/vocab.txt',
+  AssetType.qambertVocab: Asset('qambert_v0001/vocab.txt',
       'ffb2398810fa977ee39e8a0103b07f9c2614f1f9825df53a2c99e71569e3451c'),
-  AssetType.qambertModel: Asset('qambert_v0000/qambert.onnx',
-      'f67cd8719a93e1f32402fc6051d829d6fbf53e70e85c772434aa1e01b0b1c1b3'),
+  AssetType.qambertModel: Asset('qambert_v0001/qambert.onnx',
+      '030e7d68cc82f59640c6b989f145d6eaa7609c8615bd6ae9e7890e1a68be5b71'),
 };
 
 enum AssetType {

@@ -13,8 +13,8 @@ import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
 
 const smbertVocab = '../../data/smbert_v0000/vocab.txt';
 const smbertModel = '../../data/smbert_v0000/smbert.onnx';
-const qambertVocab = '../../data/qambert_v0000/vocab.txt';
-const qambertModel = '../../data/qambert_v0000/qambert.onnx';
+const qambertVocab = '../../data/qambert_v0001/vocab.txt';
+const qambertModel = '../../data/qambert_v0001/qambert.onnx';
 
 SetupData mkSetupData(String smbertVocab, String smbertModel,
     String qambertVocab, String qambertModel) {

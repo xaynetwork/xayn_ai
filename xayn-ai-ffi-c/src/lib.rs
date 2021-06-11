@@ -17,8 +17,8 @@ pub(crate) mod tests {
     pub const SMBERT_MODEL: &str = "../data/smbert_v0000/smbert.onnx";
 
     /// Path to the current qambert vocabulary file.
-    pub const QAMBERT_VOCAB: &str = "../data/qambert_v0000/vocab.txt";
+    pub const QAMBERT_VOCAB: &str = "../data/qambert_v0001/vocab.txt";
 
     /// Path to the current qambert onnx model file.
-    pub const QAMBERT_MODEL: &str = "../data/qambert_v0000/qambert.onnx";
+    pub const QAMBERT_MODEL: &str = "../data/qambert_v0001/qambert.onnx";
 }
