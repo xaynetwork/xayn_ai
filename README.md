@@ -93,7 +93,7 @@ via `safaridriver --enable`, before you can run tests.
 **nodejs**
 
 ```
-wasm-pack test node -- --no-default-features --features=node
+wasm-pack test --node -- --no-default-features --features=node
 ```
 
 #### Running the example

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart'
 
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart' show Code;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show XaynAi;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
 import '../utils.dart'
     show
         documents,
@@ -21,7 +22,7 @@ void main() {
     test('rerank full', () async {
       final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
-      final outcome = ai.rerank(histories, documents);
+      final outcome = ai.rerank(RerankMode.search, histories, documents);
       final faults = ai.faults();
 
       expect(outcome.finalRanks.length, equals(documents.length));
@@ -35,7 +36,7 @@ void main() {
     test('rerank empty', () async {
       final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
-      final outcome = ai.rerank([], []);
+      final outcome = ai.rerank(RerankMode.search, [], []);
       final faults = ai.faults();
 
       expect(outcome.finalRanks, isEmpty);
@@ -47,7 +48,7 @@ void main() {
     test('rerank empty hists', () async {
       final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
-      final outcome = ai.rerank([], documents);
+      final outcome = ai.rerank(RerankMode.search, [], documents);
       final faults = ai.faults();
 
       expect(outcome.finalRanks.length, equals(documents.length));
@@ -61,7 +62,7 @@ void main() {
     test('rerank empty docs', () async {
       final ai = await XaynAi.create(
           mkSetupData(smbertVocab, smbertModel, qambertVocab, qambertModel));
-      final outcome = ai.rerank(histories, []);
+      final outcome = ai.rerank(RerankMode.search, histories, []);
       final faults = ai.faults();
 
       expect(outcome.finalRanks, isEmpty);

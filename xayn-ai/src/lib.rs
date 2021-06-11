@@ -29,7 +29,10 @@ pub use crate::{
         CoiId,
     },
     error::Error,
-    reranker::public::{Builder, Reranker},
+    reranker::{
+        public::{Builder, Reranker},
+        RerankMode,
+    },
 };
 
 #[cfg(test)]

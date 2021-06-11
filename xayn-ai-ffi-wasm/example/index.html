@@ -47,7 +47,7 @@
         console.timeEnd("init_ai");
 
         console.time("rerank");
-        let ranks = ai.rerank([], documents());
+        let ranks = ai.rerank(1, [], documents());
         console.timeEnd("rerank");
         console.log(ranks);
 
@@ -57,8 +57,8 @@
         let data = ai.serialize();
         console.log(data);
 
-        ai.rerank(history(), documents());
-        console.log(ai.rerank(history(), documents()));
+        ai.rerank(1, history(), documents());
+        console.log(ai.rerank(1, history(), documents()));
 
         let analytics = ai.analytics();
         console.log(analytics);

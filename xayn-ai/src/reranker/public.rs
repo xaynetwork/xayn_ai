@@ -27,6 +27,7 @@ use super::{
         QAMBertSystem,
         SMBertSystem,
     },
+    RerankMode,
 };
 
 pub struct Systems {
@@ -87,10 +88,11 @@ impl Reranker {
 
     pub fn rerank(
         &mut self,
+        mode: RerankMode,
         history: &[DocumentHistory],
         documents: &[Document],
     ) -> RerankingOutcomes {
-        self.0.rerank(history, documents)
+        self.0.rerank(mode, history, documents)
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {

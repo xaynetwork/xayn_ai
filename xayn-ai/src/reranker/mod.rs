@@ -3,6 +3,7 @@ pub mod public;
 pub(crate) mod systems;
 
 use serde::{Deserialize, Serialize};
+use systems::QAMBertSystem;
 
 use crate::{
     analytics::Analytics,
@@ -17,6 +18,7 @@ use crate::{
         },
         UserInterests,
     },
+    embedding::qambert::NeutralQAMBert,
     error::Error,
     reranker::systems::{CoiSystemData, CommonSystems},
     to_vec_of_ref_of,
@@ -80,6 +82,7 @@ where
 
 fn rerank<CS>(
     common_systems: &CS,
+    mode: RerankMode,
     history: &[DocumentHistory],
     documents: &[Document],
     user_interests: UserInterests,
@@ -88,7 +91,10 @@ where
     CS: CommonSystems,
 {
     let documents = make_documents_with_embedding(common_systems, documents)?;
-    let documents = common_systems.qambert().compute_similarity(documents)?;
+    let documents = match mode {
+        RerankMode::Search => common_systems.qambert().compute_similarity(documents),
+        RerankMode::News => NeutralQAMBert.compute_similarity(documents),
+    }?;
     let documents = common_systems
         .coi()
         .compute_coi(documents, &user_interests)?;
@@ -156,6 +162,12 @@ impl RerankerData {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum RerankMode {
+    News,
+    Search,
+}
+
 pub(crate) struct Reranker<CS> {
     common_systems: CS,
     data: RerankerData,
@@ -199,6 +211,7 @@ where
 
     pub(crate) fn rerank(
         &mut self,
+        mode: RerankMode,
         history: &[DocumentHistory],
         documents: &[Document],
     ) -> RerankingOutcomes {
@@ -230,24 +243,30 @@ where
 
         let user_interests = self.data.user_interests.clone();
 
-        rerank(&self.common_systems, history, documents, user_interests)
-            .map(|(documents_with_mab, user_interests)| {
-                let outcome = RerankingOutcomes::from_mab(documents, &documents_with_mab);
+        rerank(
+            &self.common_systems,
+            mode,
+            history,
+            documents,
+            user_interests,
+        )
+        .map(|(documents_with_mab, user_interests)| {
+            let outcome = RerankingOutcomes::from_mab(mode, documents, &documents_with_mab);
 
-                self.data.prev_documents = PreviousDocuments::Mab(documents_with_mab);
-                self.data.user_interests = user_interests;
+            self.data.prev_documents = PreviousDocuments::Mab(documents_with_mab);
+            self.data.user_interests = user_interests;
 
-                outcome
-            })
-            .unwrap_or_else(|e| {
-                self.errors.push(e);
+            outcome
+        })
+        .unwrap_or_else(|e| {
+            self.errors.push(e);
 
-                let prev_documents = make_documents_with_embedding(&self.common_systems, documents)
-                    .unwrap_or_default();
-                self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
+            let prev_documents =
+                make_documents_with_embedding(&self.common_systems, documents).unwrap_or_default();
+            self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
 
-                RerankingOutcomes::from_initial_ranking(documents)
-            })
+            RerankingOutcomes::from_initial_ranking(documents)
+        })
     }
 }
 
@@ -347,8 +366,7 @@ mod tests {
         let cs = MockCommonSystems::default();
         let mut reranker = Reranker::new(cs).unwrap();
 
-        let outcome = reranker.rerank(&[], &[]);
-
+        let outcome = reranker.rerank(RerankMode::Search, &[], &[]);
         assert_eq!(outcome.final_ranking, []);
     }
 
@@ -365,7 +383,7 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = documents_from_ids(0..10);
 
-        let outcome = reranker.rerank(&[], &documents);
+        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
@@ -386,7 +404,7 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = car_interest_example::documents();
 
-        let _rank = reranker.rerank(&[], &documents);
+        let _rank = reranker.rerank(RerankMode::Search, &[], &documents);
 
         let history = history_for_prev_docs(
             &reranker.data.prev_documents.to_coi_system_data(),
@@ -402,7 +420,7 @@ mod tests {
 
         let documents = documents_from_ids(10..20);
 
-        let _rank = reranker.rerank(&history, &documents);
+        let _rank = reranker.rerank(RerankMode::Search, &history, &documents);
         assert!(reranker.errors().is_empty());
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
 
@@ -423,7 +441,7 @@ mod tests {
         });
         let mut reranker = Reranker::new(cs).unwrap();
 
-        let outcome = reranker.rerank(&[], &car_interest_example::documents());
+        let outcome = reranker.rerank(RerankMode::Search, &[], &car_interest_example::documents());
 
         assert_eq!(
             outcome.final_ranking,
@@ -452,7 +470,7 @@ mod tests {
         // creates a history with one document with the id 11
         let history = document_history(vec![(11, Relevance::Low, UserFeedback::Relevant)]);
         let documents = car_interest_example::documents();
-        let outcome = reranker.rerank(&history, &documents);
+        let outcome = reranker.rerank(RerankMode::Search, &history, &documents);
 
         assert_eq!(
             outcome.final_ranking,
@@ -484,7 +502,7 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = documents_from_ids(0..10);
 
-        let outcome = reranker.rerank(&[], &documents);
+        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
@@ -511,7 +529,7 @@ mod tests {
 
         // creates a history with one document with the id 11
         let history = document_history(vec![(11, Relevance::Low, UserFeedback::Relevant)]);
-        let outcome = reranker.rerank(&history, &documents);
+        let outcome = reranker.rerank(RerankMode::Search, &history, &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
@@ -558,7 +576,7 @@ mod tests {
         let documents = documents_from_ids(0..10);
 
         // We use an empty history in order to skip the learning step.
-        let outcome = reranker.rerank(&[], &documents);
+        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
@@ -613,7 +631,7 @@ mod tests {
             vec![(Relevance::Low, UserFeedback::Relevant)],
         );
 
-        let outcome = reranker.rerank(&history, &documents);
+        let outcome = reranker.rerank(RerankMode::Search, &history, &documents);
 
         assert_eq!(
             outcome.final_ranking,
@@ -662,7 +680,7 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = car_interest_example::documents();
 
-        let outcome = reranker.rerank(&[], &documents);
+        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
