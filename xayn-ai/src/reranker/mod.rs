@@ -3,6 +3,7 @@ pub mod public;
 pub(crate) mod systems;
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use systems::QAMBertSystem;
 
 use crate::{
@@ -162,10 +163,19 @@ impl RerankerData {
     }
 }
 
-#[derive(Copy, Clone)]
+/// The mode used to run reranking with.
+///
+/// This will influence how exactly the reranking
+/// is done. E.g. using `News` will disable the
+/// QA-mBert pipeline.
+#[derive(Copy, Clone, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
 pub enum RerankMode {
-    News,
-    Search,
+    /// Run reranking for news.
+    News = 0,
+
+    /// Run reranking for search.
+    Search = 1,
 }
 
 pub(crate) struct Reranker<CS> {

@@ -1,7 +1,7 @@
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
-use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
-use xayn_ai_ffi::{CCode, CRerankMode};
+use xayn_ai::{Builder, Document, DocumentHistory, RerankMode, Reranker};
+use xayn_ai_ffi::CCode;
 
 use crate::error::IntoJsResult;
 
@@ -62,8 +62,7 @@ impl WXaynAi {
         documents: Vec<JsValue>,
     ) -> Result<JsValue, JsValue> {
         let mode = mode
-            .into_serde::<CRerankMode>()
-            .map(Into::into)
+            .into_serde::<RerankMode>()
             .map_err(|cause| {
                 CCode::RerankModeDeserialization
                     .with_context(format!("Failed to deserialize the rerank mode: {}", cause))
@@ -152,11 +151,12 @@ mod tests {
         DocumentId,
         QueryId,
         Relevance,
+        RerankMode,
         SessionId,
         UserAction,
         UserFeedback,
     };
-    use xayn_ai_ffi::{CRerankMode, Error};
+    use xayn_ai_ffi::Error;
 
     /// Path to the current smbert vocabulary file.
     const SMBERT_VOCAB: &[u8] = include_bytes!("../../data/smbert_v0000/vocab.txt");
@@ -302,7 +302,7 @@ mod tests {
     }
 
     fn rerank_mode_search() -> JsValue {
-        JsValue::from_serde(&CRerankMode::Search).expect("rerank mode search")
+        JsValue::from_serde(&RerankMode::Search).expect("rerank mode search")
     }
 
     #[wasm_bindgen_test]

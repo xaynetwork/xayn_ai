@@ -1,7 +1,7 @@
 use std::panic::AssertUnwindSafe;
 
-use xayn_ai::{Builder, Reranker};
-use xayn_ai_ffi::{CCode, CRerankMode, Error};
+use xayn_ai::{Builder, RerankMode, Reranker};
+use xayn_ai_ffi::{CCode, Error};
 
 use crate::{
     data::{
@@ -88,7 +88,7 @@ impl CXaynAi {
     /// See [`xaynai_rerank()`] for more.
     unsafe fn rerank(
         xaynai: Option<&mut Self>,
-        mode: CRerankMode,
+        mode: RerankMode,
         histories: Option<&CHistories>,
         documents: Option<&CDocuments>,
     ) -> Result<RerankingOutcomes, Error> {
@@ -108,7 +108,7 @@ impl CXaynAi {
         })?;
         let documents = unsafe { documents.to_documents() }?;
 
-        Ok(xaynai.0.rerank(mode.into(), &histories, &documents).into())
+        Ok(xaynai.0.rerank(mode, &histories, &documents).into())
     }
 
     /// See [`xaynai_serialize()`] for more.
@@ -220,7 +220,7 @@ pub unsafe extern "C" fn xaynai_new(
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_rerank(
     xaynai: Option<&mut CXaynAi>,
-    mode: CRerankMode,
+    mode: RerankMode,
     histories: Option<&CHistories>,
     documents: Option<&CDocuments>,
     error: Option<&mut CError>,
@@ -431,7 +431,7 @@ mod tests {
         let outcomes = unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
-                CRerankMode::Search,
+                RerankMode::Search,
                 hists.as_ptr(),
                 docs.as_ptr(),
                 error.as_mut_ptr(),
@@ -952,7 +952,7 @@ mod tests {
         assert!(unsafe {
             xaynai_rerank(
                 invalid,
-                CRerankMode::Search,
+                RerankMode::Search,
                 hists.as_ptr(),
                 docs.as_ptr(),
                 error.as_mut_ptr(),
@@ -1040,7 +1040,7 @@ mod tests {
         assert!(unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
-                CRerankMode::Search,
+                RerankMode::Search,
                 invalid,
                 docs.as_ptr(),
                 error.as_mut_ptr(),
@@ -1084,7 +1084,7 @@ mod tests {
         assert!(unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
-                CRerankMode::Search,
+                RerankMode::Search,
                 hists.as_ptr(),
                 invalid,
                 error.as_mut_ptr(),

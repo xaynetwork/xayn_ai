@@ -11,4 +11,4 @@ parse_deps = true
 include = ["xayn-ai"]
 
 [export]
-include = ["CCode", "CRerankMode", "DayOfWeek", "UserFeedback", "Relevance", "UserAction"]
+include = ["CCode", "DayOfWeek", "Relevance", "RerankMode", "UserAction", "UserFeedback",]
