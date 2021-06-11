@@ -251,7 +251,7 @@ where
             user_interests,
         )
         .map(|(documents_with_mab, user_interests)| {
-            let outcome = RerankingOutcomes::from_mab(documents, &documents_with_mab);
+            let outcome = RerankingOutcomes::from_mab(mode, documents, &documents_with_mab);
 
             self.data.prev_documents = PreviousDocuments::Mab(documents_with_mab);
             self.data.user_interests = user_interests;

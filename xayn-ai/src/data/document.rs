@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use uuid::Uuid;
 
-use crate::Error;
-
-use crate::reranker::systems::CoiSystemData;
+use crate::{
+    reranker::{systems::CoiSystemData, RerankMode},
+    Error,
+};
 
 use super::document_data::DocumentDataWithMab;
 
@@ -182,7 +183,11 @@ pub struct RerankingOutcomes {
 
 impl RerankingOutcomes {
     /// Creates a `RerankingOutcome` which contains all information.
-    pub(crate) fn from_mab(docs: &[Document], docs_with_mab: &[DocumentDataWithMab]) -> Self {
+    pub(crate) fn from_mab(
+        mode: RerankMode,
+        docs: &[Document],
+        docs_with_mab: &[DocumentDataWithMab],
+    ) -> Self {
         let docs_with_mab = docs_with_mab
             .iter()
             .map(|doc| (doc.id(), doc))
@@ -191,17 +196,22 @@ impl RerankingOutcomes {
         let docs_len = docs.len();
         let mut final_ranking = Vec::with_capacity(docs_len);
         let mut context_scores = Vec::with_capacity(docs_len);
+        let mut qa_mbert_similarities =
+            matches!(mode, RerankMode::Search).then(|| Vec::with_capacity(docs_len));
 
         for doc in docs {
             let data = docs_with_mab[&doc.id];
             final_ranking.push(data.mab.rank as u16);
             context_scores.push(data.context.context_value);
+            if let Some(vs) = qa_mbert_similarities.as_mut() {
+                vs.push(data.qambert.similarity)
+            }
         }
 
         Self {
             final_ranking,
             context_scores: Some(context_scores),
-            qa_mbert_similarities: None,
+            qa_mbert_similarities,
         }
     }
 
