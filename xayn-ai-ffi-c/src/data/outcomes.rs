@@ -22,7 +22,7 @@ pub struct CRerankingOutcomes {
     /// If it was `Some` but still empty it will have a dangling
     /// pointer and a length of 0.
     ///
-    /// [`RerankingOutcomes.qambert_similarities`]: xayn_ai::RerankingOutcomes::qa_mbert_similarities
+    /// [`RerankingOutcomes.qambert_similarities`]: xayn_ai::RerankingOutcomes::qambert_similarities
     pub qambert_similarities: CBoxedSlice<f32>,
 
     /// See [`RerankingOutcomes.context_scores`].
