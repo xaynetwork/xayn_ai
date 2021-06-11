@@ -6,5 +6,3 @@ mod error;
 
 pub use data::CRerankMode;
 pub use crate::error::{CCode, Error};
-
-pub use xayn_ai::{DayOfWeek, Relevance, UserAction, UserFeedback};
