@@ -5,6 +5,8 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
+    show RerankMode, RerankModeToInt;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
     show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
@@ -81,13 +83,14 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  RerankingOutcomes rerank(List<History> histories, List<Document> documents) {
+  RerankingOutcomes rerank(
+      RerankMode mode, List<History> histories, List<Document> documents) {
     final hists = Histories(histories);
     final docs = Documents(documents);
     final error = XaynAiError();
 
     final outcomeBuilder = RerankingOutcomesBuilder(
-        ffi.xaynai_rerank(_ai, hists.ptr, docs.ptr, error.ptr));
+        ffi.xaynai_rerank(_ai, mode.toInt(), hists.ptr, docs.ptr, error.ptr));
 
     try {
       if (error.isError()) {

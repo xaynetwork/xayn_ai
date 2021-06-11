@@ -2,12 +2,33 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
+import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' show CRerankMode;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
     show SetupData;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
+
+/// Rerank mode
+enum RerankMode {
+  news,
+  search,
+}
+
+extension RerankModeToInt on RerankMode {
+  /// Gets the discriminant.
+  int toInt() {
+    switch (this) {
+      case RerankMode.news:
+        return CRerankMode.News;
+      case RerankMode.search:
+        return CRerankMode.Search;
+      default:
+        throw UnsupportedError('Undefined enum variant.');
+    }
+  }
+}
 
 /// The Xayn AI.
 class XaynAi {
@@ -22,7 +43,8 @@ class XaynAi {
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
-  RerankingOutcomes rerank(List<History> histories, List<Document> documents) =>
+  RerankingOutcomes rerank(
+          RerankMode mode, List<History> histories, List<Document> documents) =>
       throw UnsupportedError('Unsupported platform.');
 
   /// Serializes the current state of the reranker.

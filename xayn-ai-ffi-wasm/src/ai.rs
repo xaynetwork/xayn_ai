@@ -1,7 +1,7 @@
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use xayn_ai::{Builder, Document, DocumentHistory, Reranker};
-use xayn_ai_ffi::CCode;
+use xayn_ai_ffi::{CCode, CRerankMode};
 
 use crate::{error::IntoJsResult, history::WHistory};
 
@@ -57,9 +57,18 @@ impl WXaynAi {
     /// - The deserialization of a `document` fails.
     pub fn rerank(
         &mut self,
+        mode: JsValue,
         histories: Vec<JsValue>,
         documents: Vec<JsValue>,
     ) -> Result<JsValue, JsValue> {
+        let mode = mode
+            .into_serde::<CRerankMode>()
+            .map(Into::into)
+            .map_err(|cause| {
+                CCode::RerankModeDeserialization
+                    .with_context(format!("Failed to deserialize the rerank mode: {}", cause))
+            })
+            .into_js_result()?;
         let histories = histories
             .iter()
             .map(|js_value| js_value.into_serde::<WHistory>().map(Into::into))
@@ -83,7 +92,7 @@ impl WXaynAi {
             })
             .into_js_result()?;
 
-        let outcomes = self.0.rerank(&histories, &documents);
+        let outcomes = self.0.rerank(mode, &histories, &documents);
 
         Ok(JsValue::from_serde(&outcomes).expect("Failed to serialize the analytics"))
     }
@@ -147,7 +156,7 @@ mod tests {
         UserAction,
         UserFeedback,
     };
-    use xayn_ai_ffi::Error;
+    use xayn_ai_ffi::{CRerankMode, Error};
 
     use crate::history::WHistory;
 
@@ -297,6 +306,10 @@ mod tests {
         .collect()
     }
 
+    fn rerank_mode_search() -> JsValue {
+        JsValue::from_serde(&CRerankMode::Search).expect("rerank mode search")
+    }
+
     #[wasm_bindgen_test]
     fn test_rerank() {
         let mut xaynai = WXaynAi::new(
@@ -307,7 +320,9 @@ mod tests {
             None,
         )
         .unwrap();
-        xaynai.rerank(test_histories(), test_documents()).unwrap();
+        xaynai
+            .rerank(rerank_mode_search(), test_histories(), test_documents())
+            .unwrap();
     }
 
     #[wasm_bindgen_test]
@@ -444,7 +459,11 @@ mod tests {
         )
         .unwrap();
         let error = xaynai
-            .rerank(vec![JsValue::from("invalid")], test_documents())
+            .rerank(
+                rerank_mode_search(),
+                vec![JsValue::from("invalid")],
+                test_documents(),
+            )
             .unwrap_err()
             .into_serde::<Error>()
             .unwrap();
@@ -465,7 +484,9 @@ mod tests {
             None,
         )
         .unwrap();
-        xaynai.rerank(vec![], test_documents()).unwrap();
+        xaynai
+            .rerank(rerank_mode_search(), vec![], test_documents())
+            .unwrap();
     }
 
     #[wasm_bindgen_test]
@@ -479,7 +500,11 @@ mod tests {
         )
         .unwrap();
         let error = xaynai
-            .rerank(test_histories(), vec![JsValue::from("invalid")])
+            .rerank(
+                rerank_mode_search(),
+                test_histories(),
+                vec![JsValue::from("invalid")],
+            )
             .unwrap_err()
             .into_serde::<Error>()
             .unwrap();
@@ -500,7 +525,9 @@ mod tests {
             None,
         )
         .unwrap();
-        xaynai.rerank(test_histories(), vec![]).unwrap();
+        xaynai
+            .rerank(rerank_mode_search(), test_histories(), vec![])
+            .unwrap();
     }
 
     #[wasm_bindgen_test]

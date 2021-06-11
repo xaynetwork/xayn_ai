@@ -70,6 +70,8 @@ pub enum CCode {
     HistoriesDeserialization,
     /// Deserialization of document collection error.
     DocumentsDeserialization,
+    /// Deserialization of rerank mode error.
+    RerankModeDeserialization,
 }
 
 impl CCode {

@@ -37,9 +37,9 @@ impl QAMBertSystem for QAMBert {
 
 /// QAMBert system to run when QAMBert is disabled
 #[allow(clippy::upper_case_acronyms)]
-pub struct DummyQAMBert;
+pub struct NeutralQAMBert;
 
-impl QAMBertSystem for DummyQAMBert {
+impl QAMBertSystem for NeutralQAMBert {
     fn compute_similarity(
         &self,
         documents: Vec<DocumentDataWithSMBert>,
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_similarity_dummy() {
-        check_similarity(DummyQAMBert, &[0.5, 0.5, 0.5, 0.5]);
+        check_similarity(NeutralQAMBert, &[0.5, 0.5, 0.5, 0.5]);
     }
 
     fn check_empty_documents<Q: QAMBertSystem>(system: Q) {
@@ -118,6 +118,6 @@ mod tests {
 
     #[test]
     fn test_empty_documents_dummy() {
-        check_empty_documents(DummyQAMBert);
+        check_empty_documents(NeutralQAMBert);
     }
 }
