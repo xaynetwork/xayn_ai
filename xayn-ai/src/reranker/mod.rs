@@ -93,7 +93,7 @@ where
     let documents = make_documents_with_embedding(common_systems, documents)?;
     let documents = match mode {
         RerankMode::Search => common_systems.qambert().compute_similarity(documents),
-        RerankMode::News => NeutralQAMBert {}.compute_similarity(documents),
+        RerankMode::News => NeutralQAMBert.compute_similarity(documents),
     }?;
     let documents = common_systems
         .coi()
