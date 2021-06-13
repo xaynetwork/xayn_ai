@@ -1,6 +1,7 @@
 /data/*
 !/data/.gitkeep
 /target/
+/out/*
 /.vscode/
 __pycache__
 

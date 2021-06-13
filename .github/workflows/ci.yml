@@ -21,6 +21,8 @@ env:
   # cmd: `shasum -a 256 wasm-pack`
   # macOS: `f6e7edb69e233df774f5b92c1002e73db775bb9e71a55528c00e0fe275a7c617`
   WASM_PACK_CHECKSUM: 28cbb8598bf85d52a667169c6187255fef0a085b174ac020790ef2d208fa75be
+  GOMPLATE_LINUX_CHECKSUM: 7dbabe30095f822ec38f5f70711ff121c26e588227da4cc05208417cfaf929cd
+  GOMPLATE_MACOS_CHECKSUM: 23983ca48bf7035840a76dc63fcb161a67bc4522e6066bd872d4024fcb366187
   # On targets like `*-linux-android*` and `wasm32-unknown-unknown`, reading the model
   # takes a considerable amount of time if it is compiled with the default opt-level
   # for tests. Therefore, we compile them with a higher opt-level to run them faster.
@@ -556,6 +558,16 @@ jobs:
         # required by ffigen
         run: sudo apt-get install libclang-10-dev
 
+      - name: Install gomplate
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          wget -q -O gomplate https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_linux-amd64
+          echo "${{ env.GOMPLATE_LINUX_CHECKSUM }} *gomplate" | shasum -c -
+          chmod u+x gomplate
+          mkdir -p $HOME/.local/bin
+          mv gomplate $HOME/.local/bin
+
       - name: Setup java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v1
         with:
@@ -599,6 +611,14 @@ jobs:
           flutter pub run ffigen --config ffigen_mobile.yaml
           grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
 
+      - name: Generate assets code
+        env:
+          CARGO_MAKE_PROFILE: development
+        run: |
+          gomplate -f bin/assets.json.tmpl -o bin/assets.json
+          gomplate -d assets=bin/assets.json -f bin/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
+          flutter format bindings/dart/lib/src/common/reranker/assets.dart
+
       - name: Analyze flutter code
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter analyze
@@ -614,6 +634,16 @@ jobs:
 
       - name: Install libclang-10-dev
         run: sudo apt-get install libclang-10-dev
+
+      - name: Install gomplate
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          wget -q -O gomplate https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_linux-amd64
+          echo "${{ env.GOMPLATE_LINUX_CHECKSUM }} *gomplate" | shasum -c -
+          chmod u+x gomplate
+          mkdir -p $HOME/.local/bin
+          mv gomplate $HOME/.local/bin
 
       - name: Setup java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v1
@@ -654,6 +684,14 @@ jobs:
           flutter pub run ffigen --config ffigen_common.yaml
           flutter pub run ffigen --config ffigen_mobile.yaml
           grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
+
+      - name: Generate assets code
+        env:
+          CARGO_MAKE_PROFILE: development
+        run: |
+          gomplate -f bin/assets.json.tmpl -o bin/assets.json
+          gomplate -d assets=bin/assets.json -f bin/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
+          flutter format bindings/dart/lib/src/common/reranker/assets.dart
 
       - name: Download data
         run: sh download_data.sh
@@ -688,6 +726,28 @@ jobs:
       - name: Install libclang-10-dev
         if: matrix.os == 'ubuntu-20.04'
         run: sudo apt-get install libclang-10-dev
+
+      - name: Install gomplate linux
+        if: matrix.os == 'ubuntu-20.04'
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          wget -q -O gomplate https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_linux-amd64
+          echo "${{ env.GOMPLATE_LINUX_CHECKSUM }} *gomplate" | shasum -c -
+          chmod u+x gomplate
+          mkdir -p $HOME/.local/bin
+          mv gomplate $HOME/.local/bin
+
+      - name: Install gomplate macOS
+        if: matrix.os == 'macos-10.15'
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          wget -q -O gomplate https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_darwin-amd64
+          echo "${{ env.GOMPLATE_MACOS_CHECKSUM }} *gomplate" | shasum -c -
+          chmod u+x gomplate
+          mkdir -p $HOME/bin
+          mv gomplate $HOME/bin
 
       - name: Download ${{ needs.build-linux-lib.outputs.cache-key }} artifacts
         uses: actions/download-artifact@v2
@@ -737,6 +797,14 @@ jobs:
           flutter pub run ffigen --config ffigen_common.yaml
           flutter pub run ffigen --config ffigen_mobile.yaml
           grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
+
+      - name: Generate assets code
+        env:
+          CARGO_MAKE_PROFILE: development
+        run: |
+          gomplate -f bin/assets.json.tmpl -o bin/assets.json
+          gomplate -d assets=bin/assets.json -f bin/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
+          flutter format bindings/dart/lib/src/common/reranker/assets.dart
 
       - name: Download data
         run: sh download_data.sh

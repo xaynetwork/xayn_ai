@@ -10,7 +10,7 @@ import 'package:xayn_ai_ffi_dart/package.dart'
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     show joinPaths;
 
-const _baseAssetsPath = 'assets';
+const _baseAssetsPath = '.';
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 ///

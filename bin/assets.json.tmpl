@@ -1,0 +1,71 @@
+{{- $wasm_module_suffix := env.ExpandEnv "$WASM_DIR/genesis_bg.wasm" }}
+{{- $js_binding_suffix := env.ExpandEnv "$WASM_DIR/genesis.js" }}
+{{- $wasm_module_path := env.ExpandEnv "$WASM_DATA_DIR/genesis_bg.wasm" }}
+{{- $js_binding_path := env.ExpandEnv "$WASM_DATA_DIR/genesis.js" -}}
+{{- $is_development := eq (getenv "CARGO_MAKE_PROFILE" "") "development" -}}
+{{- $assets_dev_prefix := "assets" -}}
+
+{
+  "assets": [
+    {
+      "name": "smbertVocab",
+      {{- $smbert_vocab := "smbert_v0000/vocab.txt" }}
+      {{ if ($is_development) -}}
+      "suffix": "{{ $assets_dev_prefix }}/{{ $smbert_vocab }}",
+      {{ else -}}
+      "suffix": "{{ $smbert_vocab }}",
+      {{ end -}}
+      "checksum": "ffb2398810fa977ee39e8a0103b07f9c2614f1f9825df53a2c99e71569e3451c"
+    },
+    {
+      "name": "smbertModel",
+      {{- $smbert_model := "smbert_v0000/smbert.onnx" }}
+      {{ if ($is_development) -}}
+      "suffix": "{{ $assets_dev_prefix }}/{{ $smbert_model }}",
+      {{ else -}}
+      "suffix": "{{ $smbert_model }}",
+      {{ end -}}
+      "checksum": "c07653a3cc568876071de157f0fb8ccc1a302197ddad9ead069a86140e19d913"
+    },
+    {
+      "name": "qambertVocab",
+      {{- $qambert_vocab := "qambert_v0001/vocab.txt" }}
+      {{ if ($is_development) -}}
+      "suffix": "{{ $assets_dev_prefix }}/{{ $qambert_vocab }}",
+      {{ else -}}
+      "suffix": "{{ $qambert_vocab }}",
+      {{ end -}}
+      "checksum": "ffb2398810fa977ee39e8a0103b07f9c2614f1f9825df53a2c99e71569e3451c"
+    },
+    {
+      "name": "qambertModel",
+      {{- $qambert_model := "qambert_v0001/qambert.onnx" }}
+      {{ if ($is_development) -}}
+      "suffix": "{{ $assets_dev_prefix }}/{{ $qambert_model }}",
+      {{ else -}}
+      "suffix": "{{ $qambert_model }}",
+      {{ end -}}
+      "checksum": "030e7d68cc82f59640c6b989f145d6eaa7609c8615bd6ae9e7890e1a68be5b71"
+    },
+    {
+      "name": "wasmModule",
+      {{ if ( $wasm_module_path | file.Exists ) -}}
+      "suffix": "{{ $wasm_module_suffix }}",
+      "checksum": "{{ $wasm_module_path | file.Read | crypto.SHA256 }}"
+      {{ else -}}
+      "suffix": "",
+      "checksum": ""
+      {{ end -}}
+    },
+    {
+      "name": "wasmScript",
+      {{ if ( $js_binding_path | file.Exists ) -}}
+      "suffix": "{{ $js_binding_suffix }}",
+      "checksum": "{{ $js_binding_path | file.Read | crypto.SHA256 }}"
+      {{ else -}}
+      "suffix": "",
+      "checksum": ""
+      {{ end -}}
+    }
+  ]
+}

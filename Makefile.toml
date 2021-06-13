@@ -24,6 +24,14 @@ dependencies = ["build-android"]
 [tasks.build-mobile.mac]
 dependencies = ["build-android", "build-ios"]
 
+[tasks.gen-assets]
+script = ["""
+  mkdir -p out
+  gomplate -f bin/assets.json.tmpl -o out/assets.json
+  gomplate -d assets=out/assets.json -f bin/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
+  flutter format bindings/dart/lib/src/common/reranker/assets.dart
+"""]
+
 # builds xayn-ai library that can be used to run flutter tests locally
 [tasks.build-local]
 script = ["""
@@ -45,27 +53,59 @@ script = ["""
   mv genesis genesis.dart
 """]
 
-[tasks.build-bindgen-wasm]
-script = ["""
-  wasm-pack build xayn-ai-ffi-wasm --out-dir ../bindings/dart/lib/src/web/ffi --out-name genesis --target web
-  # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
-  rm bindings/dart/lib/src/web/ffi/.gitignore
-"""]
-
-[tasks.build-bindgen]
-dependencies = ["build-bindgen-dart", "build-bindgen-wasm"]
-
 [tasks.build-android]
-dependencies = ["build-bindgen-dart"]
+dependencies = ["build-bindgen-dart", "gen-assets"]
 script = ["""
   cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release
 """]
 
 [tasks.build-ios]
-dependencies = ["build-bindgen-dart"]
+dependencies = ["build-bindgen-dart", "gen-assets"]
 script = ["""
   cargo lipo --targets $IOS_TARGETS --release
   cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
+"""]
+
+[tasks.build-web]
+run_task = [
+    { name = ["build-bindgen-dart", "build-web-dev"], condition = { profiles = [ "development" ] } },
+    { name = ["build-bindgen-dart", "build-web-prod"], condition = { profiles = [ "production" ] } },
+]
+
+[tasks.build-web-dev]
+script_runner = "@duckscript"
+env = { WASM_DIR="wasm_bindings" }
+script = ["""
+  wasm_data_dir = set "bindings/dart/example/${WASM_DIR}"
+  set_env WASM_DATA_DIR "${wasm_data_dir}"
+  cm_run_task build-web-helper
+"""]
+
+[tasks.build-web-prod]
+script_runner = "@duckscript"
+script = ["""
+  git_hash = exec git rev-parse HEAD
+  git_hash = set ${git_hash.stdout}
+  git_hash = trim_end ${git_hash}
+  wasm_dir = set "wasm_${git_hash}"
+  set_env WASM_DIR "${wasm_dir}"
+  wasm_data_dir = set "out/${wasm_dir}"
+  set_env WASM_DATA_DIR "${wasm_data_dir}"
+  cm_run_task build-web-helper
+"""]
+
+[tasks.build-web-helper]
+script_runner = "@duckscript"
+script = ["""
+  cm_run_task build-wasm
+  cm_run_task gen-assets
+"""]
+
+[tasks.build-wasm]
+script = ["""
+  wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../$WASM_DATA_DIR --out-name genesis --target web --release
+  # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
+  rm $WASM_DATA_DIR/.gitignore
 """]
 
 [tasks.clean-bindgen]
@@ -75,9 +115,7 @@ script = ["""
   rm -f ios/Classes/XaynAiFFiDart.h
   rm -f lib/src/common/ffi/genesis.dart
   rm -f lib/src/mobile/ffi/genesis.dart
-  rm -f lib/src/web/ffi/genesis_bg.wasm
-  rm -f lib/src/web/ffi/genesis_bg.wasm.d.ts
-  rm -f lib/src/web/ffi/genesis.d.ts
-  rm -f lib/src/web/ffi/genesis.js
-  rm -f lib/src/web/ffi/package.json
+  rm -f example/wasm_bindings/genesis_bg.wasm
+  rm -f example/wasm_bindings/genesis.js
+  rm -f example/wasm_bindings/package.json
 """]

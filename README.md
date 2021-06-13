@@ -1,9 +1,16 @@
 # Xayn-AI
 
 ## Models
+
 To download the models use the `download_data.sh` script.
 
+## Tools
+
+In order to generate the code that contains the metadata of the assets,
+you will need to install [`gomplate`](https://github.com/hairyhenderson/gomplate).
+
 ## Build
+
 To build the library you just need to run `cargo build` in the root of the project.
 
 To generate the dart ffi you need to run `flutter pub get` and `flutter pub run ffigen` in
@@ -26,6 +33,12 @@ cargo make build-mobile
 
 On Linux this will only build Android libraries, while on Mac it will build
 for both Android and iOS.
+
+To build the library for web you can use:
+
+```
+cargo make build-web
+```
 
 ### Android
 
@@ -103,6 +116,35 @@ cd xayn-ai-ffi-wasm
 wasm-pack build --target web --release --no-typescript --out-dir example/pkg
 cd example
 python3 -m http.server
+```
+
+### Flutter example
+
+#### Running on a mobile device/emulator
+
+```
+cargo make build-mobile
+cd bindings/dart/example
+flutter run
+```
+
+#### Running in Chrome
+
+```
+cargo make build-web
+cd bindings/dart/example
+flutter run -d chrome
+```
+
+#### Running in a web browser other than Chrome
+
+```
+cargo make build-web
+cd bindings/dart/example
+flutter build web
+cd build/web/
+python3 -m http.server
+# open the url http://localhost:8000/ in our browser
 ```
 
 ## License
