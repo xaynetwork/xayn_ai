@@ -1,17 +1,20 @@
-{{- $wasm_module_suffix := env.ExpandEnv "$WASM_DIR/genesis_bg.wasm" }}
-{{- $js_binding_suffix := env.ExpandEnv "$WASM_DIR/genesis.js" }}
-{{- $wasm_module_path := env.ExpandEnv "$WASM_DATA_DIR/genesis_bg.wasm" }}
-{{- $js_binding_path := env.ExpandEnv "$WASM_DATA_DIR/genesis.js" -}}
-{{- $is_development := eq (getenv "CARGO_MAKE_PROFILE" "") "development" -}}
-{{- $assets_dev_prefix := "assets" -}}
+{{- $wasm_module_suffix := env.ExpandEnv "$WASM_SUFFIX/genesis_bg.wasm" }}
+{{- $js_binding_suffix := env.ExpandEnv "$WASM_SUFFIX/genesis.js" }}
+{{- $wasm_module_path := env.ExpandEnv "$WASM_REL_PATH/genesis_bg.wasm" }}
+{{- $js_binding_path := env.ExpandEnv "$WASM_REL_PATH/genesis.js" -}}
+{{- $build_example := eq (getenv "CARGO_MAKE_PROFILE" "") "development" -}}
+{{- $assets_example_prefix := "assets" -}}
+{{- $smbert_vocab := "smbert_v0000/vocab.txt" -}}
+{{- $smbert_model := "smbert_v0000/smbert.onnx" -}}
+{{- $qambert_vocab := "qambert_v0001/vocab.txt" -}}
+{{- $qambert_model := "qambert_v0001/qambert.onnx" -}}
 
 {
   "assets": [
     {
       "name": "smbertVocab",
-      {{- $smbert_vocab := "smbert_v0000/vocab.txt" }}
-      {{ if ($is_development) -}}
-      "suffix": "{{ $assets_dev_prefix }}/{{ $smbert_vocab }}",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $smbert_vocab }}",
       {{ else -}}
       "suffix": "{{ $smbert_vocab }}",
       {{ end -}}
@@ -19,9 +22,8 @@
     },
     {
       "name": "smbertModel",
-      {{- $smbert_model := "smbert_v0000/smbert.onnx" }}
-      {{ if ($is_development) -}}
-      "suffix": "{{ $assets_dev_prefix }}/{{ $smbert_model }}",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $smbert_model }}",
       {{ else -}}
       "suffix": "{{ $smbert_model }}",
       {{ end -}}
@@ -29,9 +31,8 @@
     },
     {
       "name": "qambertVocab",
-      {{- $qambert_vocab := "qambert_v0001/vocab.txt" }}
-      {{ if ($is_development) -}}
-      "suffix": "{{ $assets_dev_prefix }}/{{ $qambert_vocab }}",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $qambert_vocab }}",
       {{ else -}}
       "suffix": "{{ $qambert_vocab }}",
       {{ end -}}
@@ -39,9 +40,8 @@
     },
     {
       "name": "qambertModel",
-      {{- $qambert_model := "qambert_v0001/qambert.onnx" }}
-      {{ if ($is_development) -}}
-      "suffix": "{{ $assets_dev_prefix }}/{{ $qambert_model }}",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $qambert_model }}",
       {{ else -}}
       "suffix": "{{ $qambert_model }}",
       {{ end -}}

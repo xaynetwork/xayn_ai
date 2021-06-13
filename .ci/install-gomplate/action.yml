@@ -1,0 +1,31 @@
+name: 'gomplate'
+description: 'Installs Gomplate'
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        LINUX_URL: https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_linux-amd64
+        LINUX_CHECKSUM: 7dbabe30095f822ec38f5f70711ff121c26e588227da4cc05208417cfaf929cd
+        MACOS_URL: https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_darwin-amd64
+        MACOS_CHECKSUM: 23983ca48bf7035840a76dc63fcb161a67bc4522e6066bd872d4024fcb366187
+      run: |
+        if [ ${{ runner.os }} == "Linux" ]; then
+          URL=${{ env.LINUX_URL }}
+          CHECKSUM=${{ env.LINUX_CHECKSUM }}
+          INSTALL_PATH=$HOME/.local/bin
+        elif [ ${{ runner.os }} == "macOS" ]; then
+          URL=${{ env.MACOS_URL }}
+          CHECKSUM=${{ env.MACOS_CHECKSUM }}
+          INSTALL_PATH=$HOME/bin
+        else
+          echo "::error gomplate for ${{ runner.os }} is not supported"
+          exit 1
+        fi
+
+        wget -q -O gomplate $URL
+        echo "$CHECKSUM *gomplate" | shasum -c -
+        chmod u+x gomplate
+        mkdir -p $INSTALL_PATH
+        mv gomplate $INSTALL_PATH

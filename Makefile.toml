@@ -67,45 +67,20 @@ script = ["""
 """]
 
 [tasks.build-web]
-run_task = [
-    { name = ["build-bindgen-dart", "build-web-dev"], condition = { profiles = [ "development" ] } },
-    { name = ["build-bindgen-dart", "build-web-prod"], condition = { profiles = [ "production" ] } },
-]
-
-[tasks.build-web-dev]
 script_runner = "@duckscript"
-env = { WASM_DIR="wasm_bindings" }
+env = { WASM_SUFFIX="wasm_bindings" }
 script = ["""
-  wasm_data_dir = set "bindings/dart/example/${WASM_DIR}"
-  set_env WASM_DATA_DIR "${wasm_data_dir}"
-  cm_run_task build-web-helper
-"""]
-
-[tasks.build-web-prod]
-script_runner = "@duckscript"
-script = ["""
-  git_hash = exec git rev-parse HEAD
-  git_hash = set ${git_hash.stdout}
-  git_hash = trim_end ${git_hash}
-  wasm_dir = set "wasm_${git_hash}"
-  set_env WASM_DIR "${wasm_dir}"
-  wasm_data_dir = set "out/${wasm_dir}"
-  set_env WASM_DATA_DIR "${wasm_data_dir}"
-  cm_run_task build-web-helper
-"""]
-
-[tasks.build-web-helper]
-script_runner = "@duckscript"
-script = ["""
+  wasm_rel_path = set "bindings/dart/example/${WASM_SUFFIX}"
+  set_env WASM_REL_PATH "${wasm_rel_path}"
   cm_run_task build-wasm
   cm_run_task gen-assets
 """]
 
 [tasks.build-wasm]
 script = ["""
-  wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../$WASM_DATA_DIR --out-name genesis --target web --release
+  wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../$WASM_REL_PATH --out-name genesis --target web --release
   # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
-  rm $WASM_DATA_DIR/.gitignore
+  rm $WASM_REL_PATH/.gitignore
 """]
 
 [tasks.clean-bindgen]
