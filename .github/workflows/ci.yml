@@ -682,7 +682,7 @@ jobs:
     name: flutter-build-example
     needs: [build-linux-lib, build-ios-libs]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
