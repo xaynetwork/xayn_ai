@@ -3,7 +3,9 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
 Map<common.AssetType, common.Asset> getAssets() {
-  return common.baseAssets;
+  final wasmAssets = [common.AssetType.wasmModule, common.AssetType.wasmScript];
+  return Map.fromEntries(common.baseAssets.entries
+      .where((asset) => wasmAssets.contains(asset.key) == false));
 }
 
 /// Data that can be used to initialize [`XaynAi`].
