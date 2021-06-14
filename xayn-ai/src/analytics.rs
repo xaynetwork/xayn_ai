@@ -436,10 +436,8 @@ mod tests {
 
     #[test]
     fn test_pick_k_highest_does_not_pick_nans_if_possible() {
-        #![allow(clippy::float_cmp)]
-
         let res = pick_k_highest_sorted_desc([3., 2., f32::NAN].iter().copied(), 2);
-        assert_eq!(&*res, &[3., 2.]);
+        assert_approx_eq!(f32, res, [3., 2.], ulps = 0);
 
         let res = pick_k_highest_sorted_desc(
             [f32::NAN, 3., f32::NAN, f32::NAN, 2., 4., f32::NAN]
@@ -447,10 +445,10 @@ mod tests {
                 .copied(),
             2,
         );
-        assert_eq!(&*res, &[4., 3.]);
+        assert_approx_eq!(f32, res, [4., 3.], ulps = 0);
 
         let res = pick_k_highest_sorted_desc([f32::NAN, 3., 2., f32::NAN].iter().copied(), 3);
-        assert_eq!(&res[..2], &[3., 2.]);
+        assert_approx_eq!(f32, &res[..2], [3., 2.], ulps = 0);
         assert!(res[2].is_nan());
 
         let res = pick_k_highest_sorted_desc([f32::NAN].iter().copied(), 1);

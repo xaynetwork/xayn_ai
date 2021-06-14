@@ -277,28 +277,26 @@ mod tests {
 
     #[test]
     fn test_nan_safe_f32_cmp_sorts_in_the_right_order() {
-        #![allow(clippy::float_cmp)]
-
         let data = &mut [f32::NAN, 1., 5., f32::NAN, 4.];
         data.sort_by(nan_safe_f32_cmp);
 
-        assert_eq!(&data[2..], &[1., 4., 5.]);
+        assert_approx_eq!(f32, &data[2..], [1., 4., 5.], ulps = 0);
         assert!(data[0].is_nan());
         assert!(data[1].is_nan());
 
         data.sort_by(nan_safe_f32_cmp_desc);
 
-        assert_eq!(&data[..3], &[5., 4., 1.]);
+        assert_approx_eq!(f32, &data[..3], [5., 4., 1.], ulps = 0);
         assert!(data[3].is_nan());
         assert!(data[4].is_nan());
 
         let data = &mut [1., 5., 3., 4.];
 
         data.sort_by(nan_safe_f32_cmp);
-        assert_eq!(&data[..], &[1., 3., 4., 5.]);
+        assert_approx_eq!(f32, &data[..], [1., 3., 4., 5.], ulps = 0);
 
         data.sort_by(nan_safe_f32_cmp_desc);
-        assert_eq!(&data[..], &[5., 4., 3., 1.]);
+        assert_approx_eq!(f32, &data[..], [5., 4., 3., 1.], ulps = 0);
     }
 
     #[test]
