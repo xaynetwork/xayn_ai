@@ -12,6 +12,8 @@ pub struct CDocument<'a> {
     pub id: Option<&'a u8>,
     /// The raw pointer to the document title.
     pub title: Option<&'a u8>,
+    /// The raw pointer to the document snippet.
+    pub snippet: Option<&'a u8>,
     /// The rank of the document.
     pub rank: u32,
     /// The raw pointer to the document session id.
@@ -74,6 +76,14 @@ impl<'a> CDocuments<'a> {
                         )
                     }?
                     .into();
+                    let snippet = unsafe {
+                        as_str(
+                            document.snippet,
+                            CCode::DocumentSnippetPointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
                     let rank = document.rank as usize;
                     let session = unsafe {
                         as_str(
@@ -131,6 +141,7 @@ impl<'a> CDocuments<'a> {
                         id,
                         rank,
                         title,
+                        snippet,
                         session,
                         query_count,
                         query_id,
@@ -155,9 +166,15 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::as_str_unchecked;
 
+    //FIXME[philipp] code around this is unsound, has user-after free and leaks memory
+    // 1. This is a self referential struct, but there are soundness issues around self
+    //    referential structs. Currently the only way to work around this is to guarantee
+    //    the self referential sturct is `!Unpin`. We still need to track https://github.com/rust-lang/rust/issues/63818.
+    // 2. The drop implementation looks suss. At lest document it more.
     pub struct TestDocuments<'a> {
         _ids: Pin<Vec<CString>>,
         _titles: Pin<Vec<CString>>,
+        _snippets: Pin<Vec<CString>>,
         _sessions: Pin<Vec<CString>>,
         _query_ids: Pin<Vec<CString>>,
         _query_words: Pin<Vec<CString>>,
@@ -182,6 +199,11 @@ pub(crate) mod tests {
             let _titles = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(format!("title {}", idx)).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let _snippets = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("snippet {}", idx)).unwrap())
                     .collect::<Vec<_>>(),
             );
             let ranks = 0..len as u32;
@@ -216,6 +238,7 @@ pub(crate) mod tests {
                 izip!(
                     _ids.as_ref().get_ref(),
                     _titles.as_ref().get_ref(),
+                    _snippets.as_ref().get_ref(),
                     ranks,
                     _sessions.as_ref().get_ref(),
                     query_counts,
@@ -227,16 +250,18 @@ pub(crate) mod tests {
                 .map(|cdoc| CDocument {
                     id: unsafe { cdoc.0.as_ptr().cast::<u8>().as_ref() },
                     title: unsafe { cdoc.1.as_ptr().cast::<u8>().as_ref() },
-                    rank: cdoc.2,
-                    session: unsafe { cdoc.3.as_ptr().cast::<u8>().as_ref() },
-                    query_count: cdoc.4,
-                    query_id: unsafe { cdoc.5.as_ptr().cast::<u8>().as_ref() },
-                    query_words: unsafe { cdoc.6.as_ptr().cast::<u8>().as_ref() },
-                    url: unsafe { cdoc.7.as_ptr().cast::<u8>().as_ref() },
-                    domain: unsafe { cdoc.8.as_ptr().cast::<u8>().as_ref() },
+                    snippet: unsafe { cdoc.2.as_ptr().cast::<u8>().as_ref() },
+                    rank: cdoc.3,
+                    session: unsafe { cdoc.4.as_ptr().cast::<u8>().as_ref() },
+                    query_count: cdoc.5,
+                    query_id: unsafe { cdoc.6.as_ptr().cast::<u8>().as_ref() },
+                    query_words: unsafe { cdoc.7.as_ptr().cast::<u8>().as_ref() },
+                    url: unsafe { cdoc.8.as_ptr().cast::<u8>().as_ref() },
+                    domain: unsafe { cdoc.9.as_ptr().cast::<u8>().as_ref() },
                 })
                 .collect::<Vec<_>>(),
             );
+
             let documents = CDocuments {
                 data: unsafe { document.as_ptr().as_ref() },
                 len: document.len() as u32,
@@ -245,6 +270,7 @@ pub(crate) mod tests {
             Self {
                 _ids,
                 _titles,
+                _snippets,
                 _sessions,
                 _query_ids,
                 _query_words,

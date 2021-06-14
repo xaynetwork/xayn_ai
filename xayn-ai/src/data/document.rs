@@ -86,6 +86,8 @@ pub struct Document {
     pub rank: usize,
     /// Text title of the document
     pub title: String,
+    /// Text snippet of the document
+    pub snippet: String,
     /// Session of the document
     pub session: SessionId,
     /// Query count within session

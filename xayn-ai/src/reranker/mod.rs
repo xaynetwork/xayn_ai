@@ -73,6 +73,7 @@ where
             },
             document_content: DocumentContentComponent {
                 title: document.title.clone(),
+                snippet: document.snippet.clone(),
                 session: document.session,
                 query_count: document.query_count,
                 query_id: document.query_id,

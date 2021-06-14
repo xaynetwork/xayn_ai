@@ -13,6 +13,9 @@ class Document {
   /// Text title of the document.
   final String title;
 
+  /// Text snippet of the document.
+  final String snippet;
+
   /// Position of the document from the source.
   final int rank;
 
@@ -38,6 +41,7 @@ class Document {
   Document({
     required this.id,
     required this.title,
+    required this.snippet,
     required this.rank,
     required this.session,
     required this.queryCount,

@@ -57,13 +57,14 @@ fn cois_from_words<CP: CoiPoint>(titles: &[&str], smbert: impl SMBertSystem) -> 
     let documents = titles
         .iter()
         .enumerate()
-        .map(|(id, titles)| DocumentDataWithDocument {
+        .map(|(id, title)| DocumentDataWithDocument {
             document_base: DocumentBaseComponent {
                 id: DocumentId::from_u128(id as u128),
                 initial_ranking: id,
             },
             document_content: DocumentContentComponent {
-                title: titles.to_string(),
+                title: title.to_string(),
+                snippet: format!("snippet of {}", title),
                 query_words: "query".to_string(),
                 ..Default::default()
             },
@@ -135,6 +136,7 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
             },
             document_content: DocumentContentComponent {
                 title: "title".to_string(),
+                snippet: "snippet".to_string(),
                 query_words: "query".to_string(),
                 ..Default::default()
             },
@@ -143,18 +145,19 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
         .collect()
 }
 
-pub(crate) fn documents_with_embeddings_from_titles_and_query(
+pub(crate) fn documents_with_embeddings_from_snippet_and_query(
     query: &str,
-    titles: &[&str],
+    snippets: &[&str],
 ) -> Vec<DocumentDataWithSMBert> {
-    from_ids(0..titles.len() as u32)
+    from_ids(0..snippets.len() as u32)
         .map(|(id, initial_ranking, embedding)| DocumentDataWithSMBert {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking,
             },
             document_content: DocumentContentComponent {
-                title: titles[initial_ranking].to_string(),
+                title: format!("title for {}", snippets[initial_ranking]),
+                snippet: snippets[initial_ranking].to_string(),
                 query_words: query.to_string(),
                 ..Default::default()
             },

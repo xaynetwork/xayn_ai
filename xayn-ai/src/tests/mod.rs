@@ -11,7 +11,7 @@ pub(crate) use self::{
         documents_from_ids,
         documents_from_words,
         documents_with_embeddings_from_ids,
-        documents_with_embeddings_from_titles_and_query,
+        documents_with_embeddings_from_snippet_and_query,
         expected_rerank_unchanged,
         from_ids,
         history_for_prev_docs,
