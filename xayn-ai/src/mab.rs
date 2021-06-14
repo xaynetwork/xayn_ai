@@ -286,7 +286,6 @@ mod tests {
     };
     use ndarray::arr1;
 
-    use float_cmp::approx_eq;
     use maplit::hashmap;
     use std::collections::HashSet;
 
@@ -500,12 +499,12 @@ mod tests {
         // beta is updated with `beta += (1. - context_value)`
 
         let coi = cois.get(&CoiId(0)).expect("coi");
-        assert!(approx_eq!(f32, coi.alpha, 1.86));
-        assert!(approx_eq!(f32, coi.beta, 1.96));
+        assert_approx_eq!(f32, coi.alpha, 1.86);
+        assert_approx_eq!(f32, coi.beta, 1.96);
 
         let coi = cois.get(&CoiId(1)).expect("coi");
-        assert!(approx_eq!(f32, coi.alpha, 1.47));
-        assert!(approx_eq!(f32, coi.beta, 1.07));
+        assert_approx_eq!(f32, coi.alpha, 1.47);
+        assert_approx_eq!(f32, coi.beta, 1.07);
     }
 
     #[test]
@@ -945,15 +944,15 @@ mod tests {
             .collect::<HashMap<_, _>>();
 
         let coi = cois.get(&CoiId(0)).expect("coi");
-        assert!(approx_eq!(f32, coi.alpha, 1.06));
-        assert!(approx_eq!(f32, coi.beta, 3.94));
+        assert_approx_eq!(f32, coi.alpha, 1.06);
+        assert_approx_eq!(f32, coi.beta, 3.94);
 
         let coi = cois.get(&CoiId(4)).expect("coi");
-        assert!(approx_eq!(f32, coi.alpha, 10.03));
-        assert!(approx_eq!(f32, coi.beta, 11.97));
+        assert_approx_eq!(f32, coi.alpha, 10.03);
+        assert_approx_eq!(f32, coi.beta, 11.97);
 
         let coi = cois.get(&CoiId(7)).expect("coi");
-        assert!(approx_eq!(f32, coi.alpha, 100.01));
-        assert!(approx_eq!(f32, coi.beta, 100.99));
+        assert_approx_eq!(f32, coi.alpha, 100.01);
+        assert_approx_eq!(f32, coi.beta, 100.99);
     }
 }
