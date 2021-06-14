@@ -55,7 +55,7 @@ pub(super) fn classify_documents_based_on_user_feedback<D>(
 /// and the relevance of the result.
 fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
     match (history.relevance, history.user_feedback) {
-        (Relevance::Low, UserFeedback::Irrelevant) | (Relevance::Low, UserFeedback::None) => {
+        (Relevance::Low, UserFeedback::Irrelevant) | (Relevance::Low, UserFeedback::NotGiven) => {
             DocumentRelevance::Negative
         }
         _ => DocumentRelevance::Positive,
@@ -359,7 +359,7 @@ pub(super) mod tests {
 
         history = DocumentHistory {
             relevance: Relevance::High,
-            user_feedback: UserFeedback::None,
+            user_feedback: UserFeedback::NotGiven,
             ..history
         };
         assert!(matches!(
@@ -369,7 +369,7 @@ pub(super) mod tests {
 
         history = DocumentHistory {
             relevance: Relevance::Medium,
-            user_feedback: UserFeedback::None,
+            user_feedback: UserFeedback::NotGiven,
             ..history
         };
         assert!(matches!(
@@ -379,7 +379,7 @@ pub(super) mod tests {
 
         history = DocumentHistory {
             relevance: Relevance::Low,
-            user_feedback: UserFeedback::None,
+            user_feedback: UserFeedback::NotGiven,
             ..history
         };
         assert!(matches!(

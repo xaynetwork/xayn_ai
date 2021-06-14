@@ -1,7 +1,7 @@
 use std::{convert::TryInto, slice};
 
-use xayn_ai::DocumentHistory;
-use xayn_ai_ffi::{CCode, CDayOfWeek, CFeedback, CRelevance, CUserAction, Error};
+use xayn_ai::{DayOfWeek, DocumentHistory, Relevance, UserAction, UserFeedback};
+use xayn_ai_ffi::{CCode, Error};
 
 use crate::utils::as_str;
 
@@ -11,9 +11,9 @@ pub struct CHistory<'a> {
     /// The raw pointer to the document id.
     pub id: Option<&'a u8>,
     /// The relevance level of the document.
-    pub relevance: CRelevance,
+    pub relevance: Relevance,
     /// The user feedback level of the document.
-    pub feedback: CFeedback,
+    pub user_feedback: UserFeedback,
     /// The raw pointer to the session id of the document.
     pub session: Option<&'a u8>,
     /// The query count within the session.
@@ -23,7 +23,7 @@ pub struct CHistory<'a> {
     /// The raw pointer to the query words.
     pub query_words: Option<&'a u8>,
     /// The day of the week the query was performed.
-    pub day: CDayOfWeek,
+    pub day: DayOfWeek,
     /// The raw pointer to the url of the document.
     pub url: Option<&'a u8>,
     /// The raw pointer to the domain of the document.
@@ -31,7 +31,7 @@ pub struct CHistory<'a> {
     /// The rank of the document.
     pub rank: u32,
     /// The user interaction for the document.
-    pub user_action: CUserAction,
+    pub user_action: UserAction,
 }
 
 /// A raw slice of document histories.
@@ -72,8 +72,8 @@ impl<'a> CHistories<'a> {
                                 .with_context(format!("Invalid uuid string: {}", e))
                         })
                     })?;
-                    let relevance = history.relevance.into();
-                    let user_feedback = history.feedback.into();
+                    let relevance = history.relevance;
+                    let user_feedback = history.user_feedback;
                     let session = unsafe {
                         as_str(
                             history.session,
@@ -109,7 +109,7 @@ impl<'a> CHistories<'a> {
                         )
                     }?
                     .into();
-                    let day = history.day.into();
+                    let day = history.day;
                     let url = unsafe {
                         as_str(
                             history.url,
@@ -127,7 +127,7 @@ impl<'a> CHistories<'a> {
                     }?
                     .into();
                     let rank = history.rank as usize;
-                    let user_action = history.user_action.into();
+                    let user_action = history.user_action;
 
                     Ok(DocumentHistory {
                         id,
@@ -184,12 +184,12 @@ pub(crate) mod tests {
                     })
                     .collect::<Vec<_>>(),
             );
-            let relevances = repeat(CRelevance::Low)
+            let relevances = repeat(Relevance::Low)
                 .take(len / 2)
-                .chain(repeat(CRelevance::High).take(len - len / 2));
-            let feedbacks = repeat(CFeedback::Irrelevant)
+                .chain(repeat(Relevance::High).take(len - len / 2));
+            let feedbacks = repeat(UserFeedback::Irrelevant)
                 .take(len / 2)
-                .chain(repeat(CFeedback::Relevant).take(len - len / 2));
+                .chain(repeat(UserFeedback::Relevant).take(len - len / 2));
             let _sessions = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(SessionId::from_u128(idx as u128).to_string()).unwrap())
@@ -206,9 +206,9 @@ pub(crate) mod tests {
                     .map(|idx| CString::new(format!("query {}", idx)).unwrap())
                     .collect::<Vec<_>>(),
             );
-            let days = repeat(CDayOfWeek::Sun)
+            let days = repeat(DayOfWeek::Sun)
                 .take(len / 2)
-                .chain(repeat(CDayOfWeek::Mon).take(len - len / 2));
+                .chain(repeat(DayOfWeek::Mon).take(len - len / 2));
             let _urls = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(format!("url-{}", idx)).unwrap())
@@ -220,9 +220,9 @@ pub(crate) mod tests {
                     .collect::<Vec<_>>(),
             );
             let ranks = 0..len as u32;
-            let user_actions = repeat(CUserAction::Miss)
+            let user_actions = repeat(UserAction::Miss)
                 .take(len / 2)
-                .chain(repeat(CUserAction::Click).take(len - len / 2));
+                .chain(repeat(UserAction::Click).take(len - len / 2));
 
             let history = Pin::new(
                 izip!(
@@ -242,7 +242,7 @@ pub(crate) mod tests {
                 .map(|chist| CHistory {
                     id: unsafe { chist.0.as_ptr().cast::<u8>().as_ref() },
                     relevance: chist.1,
-                    feedback: chist.2,
+                    user_feedback: chist.2,
                     session: unsafe { chist.3.as_ptr().cast::<u8>().as_ref() },
                     query_count: chist.4,
                     query_id: unsafe { chist.5.as_ptr().cast::<u8>().as_ref() },
@@ -290,8 +290,8 @@ pub(crate) mod tests {
         assert_eq!(histories.len(), hists.len());
         for (dh, ch) in izip!(histories, hists.history.as_ref().get_ref()) {
             assert_eq!(dh.id.0.to_string(), unsafe { as_str_unchecked(ch.id) });
-            assert_eq!(dh.relevance, ch.relevance.into());
-            assert_eq!(dh.user_feedback, ch.feedback.into());
+            assert_eq!(dh.relevance, ch.relevance);
+            assert_eq!(dh.user_feedback, ch.user_feedback);
         }
     }
 

@@ -1680,6 +1680,7 @@ dependencies = [
  "rand_distr",
  "rubert",
  "serde",
+ "serde_repr",
  "smallvec",
  "thiserror",
  "uuid",

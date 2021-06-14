@@ -2,6 +2,7 @@ use derive_more::Display;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::convert::TryFrom;
 use uuid::Uuid;
 
@@ -15,6 +16,7 @@ use super::document_data::DocumentDataWithMab;
 #[repr(transparent)]
 #[cfg_attr(test, derive(Default))]
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+#[serde(transparent)]
 pub struct DocumentId(pub Uuid);
 
 impl DocumentId {
@@ -35,6 +37,7 @@ impl TryFrom<&str> for DocumentId {
 #[repr(transparent)]
 #[cfg_attr(test, derive(Default))]
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+#[serde(transparent)]
 pub struct SessionId(pub Uuid);
 
 impl SessionId {
@@ -55,6 +58,7 @@ impl TryFrom<&str> for SessionId {
 #[repr(transparent)]
 #[cfg_attr(test, derive(Default))]
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+#[serde(transparent)]
 pub struct QueryId(pub Uuid);
 
 impl QueryId {
@@ -126,24 +130,26 @@ pub struct DocumentHistory {
     pub user_action: UserAction,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum UserFeedback {
-    Relevant,
-    Irrelevant,
-    None,
+    Relevant = 0,
+    Irrelevant = 1,
+    NotGiven = 2,
 }
 
 impl Default for UserFeedback {
     fn default() -> Self {
-        Self::None
+        Self::NotGiven
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum Relevance {
-    Low,
-    Medium,
-    High,
+    Low = 0,
+    Medium = 1,
+    High = 2,
 }
 
 /// The outcome of running the reranker.
@@ -227,22 +233,24 @@ impl RerankingOutcomes {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum UserAction {
-    Click,
-    Skip,
-    Miss,
+    Miss = 0,
+    Skip = 1,
+    Click = 2,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum DayOfWeek {
-    Mon,
-    Tue,
-    Wed,
-    Thu,
-    Fri,
-    Sat,
-    Sun,
+    Mon = 0,
+    Tue = 1,
+    Wed = 2,
+    Thu = 3,
+    Fri = 4,
+    Sat = 5,
+    Sun = 6,
 }
 
 #[cfg(test)]
