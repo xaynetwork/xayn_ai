@@ -137,7 +137,7 @@ impl ListNet {
     ///
     /// # Panics
     ///
-    /// Will panic if called with `0` or more then [`Self::INPUT_NR_DOCUMENTS`] elements.
+    /// Will panic if called with `0` or more than [`Self::INPUT_NR_DOCUMENTS`] elements.
     fn calculate_final_scores_padded(&self, first: &[f32], second: Option<&[f32]>) -> Vec<f32> {
         let mut inputs = Vec::with_capacity(Self::INPUT_NR_DOCUMENTS);
         inputs.extend_from_slice(first);
@@ -193,8 +193,6 @@ impl ListNet {
         let first_chunk = chunks.next().unwrap();
         let second_chunk = chunks.next();
 
-        // While we calculate probabilities we then mix probabilities from different
-        // distributions and as such have no longer probabilities.
         scores.append(&mut self.calculate_final_scores_padded(first_chunk, second_chunk));
 
         if nr_documents <= Self::INPUT_NR_DOCUMENTS {
