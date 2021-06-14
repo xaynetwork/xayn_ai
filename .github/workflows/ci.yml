@@ -556,6 +556,9 @@ jobs:
         # required by ffigen
         run: sudo apt-get install libclang-10-dev
 
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
+
       - name: Setup java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v1
         with:
@@ -598,6 +601,11 @@ jobs:
           flutter pub run ffigen --config ffigen_common.yaml
           flutter pub run ffigen --config ffigen_mobile.yaml
           grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
+
+      - name: Build asset artifacts
+        uses: ./.ci/build-asset-artifacts
+        with:
+          dart-ws: ${{ env.DART_WORKSPACE }}
 
       - name: Analyze flutter code
         working-directory: ${{ env.DART_WORKSPACE }}
@@ -615,6 +623,9 @@ jobs:
       - name: Install libclang-10-dev
         run: sudo apt-get install libclang-10-dev
 
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
+
       - name: Setup java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v1
         with:
@@ -644,6 +655,9 @@ jobs:
           mv bindings/dart/ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
           cp -R target ${{ github.workspace }}
 
+      - name: Download data
+        run: sh download_data.sh
+
       - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub get
@@ -655,8 +669,10 @@ jobs:
           flutter pub run ffigen --config ffigen_mobile.yaml
           grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
 
-      - name: Download data
-        run: sh download_data.sh
+      - name: Build asset artifacts
+        uses: ./.ci/build-asset-artifacts
+        with:
+          dart-ws: ${{ env.DART_WORKSPACE }}
 
       - name: Run flutter tests
         working-directory: ${{ env.DART_WORKSPACE }}
@@ -666,7 +682,7 @@ jobs:
     name: flutter-build-example
     needs: [build-linux-lib, build-ios-libs]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -688,6 +704,9 @@ jobs:
       - name: Install libclang-10-dev
         if: matrix.os == 'ubuntu-20.04'
         run: sudo apt-get install libclang-10-dev
+
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
 
       - name: Download ${{ needs.build-linux-lib.outputs.cache-key }} artifacts
         uses: actions/download-artifact@v2
@@ -727,6 +746,9 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
+      - name: Download data
+        run: sh download_data.sh
+
       - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub get
@@ -738,8 +760,10 @@ jobs:
           flutter pub run ffigen --config ffigen_mobile.yaml
           grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
 
-      - name: Download data
-        run: sh download_data.sh
+      - name: Build asset artifacts
+        uses: ./.ci/build-asset-artifacts
+        with:
+          dart-ws: ${{ env.DART_WORKSPACE }}
 
       - name: Build flutter example
         working-directory: ${{ env.DART_WORKSPACE }}/example

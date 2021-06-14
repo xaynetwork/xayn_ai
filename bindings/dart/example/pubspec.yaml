@@ -48,3 +48,4 @@ flutter:
   assets:
     - assets/smbert_v0000/
     - assets/qambert_v0001/
+    - wasm_bindings/

@@ -1,0 +1,72 @@
+{{- $wasm_module_suffix := env.ExpandEnv "$WASM_SUFFIX/genesis_bg.wasm" }}
+{{- $js_binding_suffix := env.ExpandEnv "$WASM_SUFFIX/genesis.js" }}
+{{- $wasm_module_path := env.ExpandEnv "$WASM_REL_PATH/genesis_bg.wasm" }}
+{{- $js_binding_path := env.ExpandEnv "$WASM_REL_PATH/genesis.js" -}}
+{{- $build_example := eq (getenv "CARGO_MAKE_PROFILE" "") "development" -}}
+{{- $assets_example_prefix := "assets" -}}
+{{- $smbert_vocab := "smbert_v0000/vocab.txt" -}}
+{{- $smbert_model := "smbert_v0000/smbert.onnx" -}}
+{{- $qambert_vocab := "qambert_v0001/vocab.txt" -}}
+{{- $qambert_model := "qambert_v0001/qambert.onnx" -}}
+{{- $data_dir := "data" -}}
+
+{
+  "assets": [
+    {
+      "name": "smbertVocab",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $smbert_vocab }}",
+      {{ else -}}
+      "suffix": "{{ $smbert_vocab }}",
+      {{ end -}}
+      "checksum": "{{ print $data_dir "/" $smbert_vocab | file.Read | crypto.SHA256 }}"
+    },
+    {
+      "name": "smbertModel",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $smbert_model }}",
+      {{ else -}}
+      "suffix": "{{ $smbert_model }}",
+      {{ end -}}
+      "checksum": "{{ print $data_dir "/" $smbert_model | file.Read | crypto.SHA256 }}"
+    },
+    {
+      "name": "qambertVocab",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $qambert_vocab }}",
+      {{ else -}}
+      "suffix": "{{ $qambert_vocab }}",
+      {{ end -}}
+      "checksum": "{{ print $data_dir "/" $qambert_vocab | file.Read | crypto.SHA256 }}"
+    },
+    {
+      "name": "qambertModel",
+      {{ if ($build_example) -}}
+      "suffix": "{{ $assets_example_prefix }}/{{ $qambert_model }}",
+      {{ else -}}
+      "suffix": "{{ $qambert_model }}",
+      {{ end -}}
+      "checksum": "{{ print $data_dir "/" $qambert_model | file.Read | crypto.SHA256 }}"
+    },
+    {
+      "name": "wasmModule",
+      {{ if ( $wasm_module_path | file.Exists ) -}}
+      "suffix": "{{ $wasm_module_suffix }}",
+      "checksum": "{{ $wasm_module_path | file.Read | crypto.SHA256 }}"
+      {{ else -}}
+      "suffix": "",
+      "checksum": ""
+      {{ end -}}
+    },
+    {
+      "name": "wasmScript",
+      {{ if ( $js_binding_path | file.Exists ) -}}
+      "suffix": "{{ $js_binding_suffix }}",
+      "checksum": "{{ $js_binding_path | file.Read | crypto.SHA256 }}"
+      {{ else -}}
+      "suffix": "",
+      "checksum": ""
+      {{ end -}}
+    }
+  ]
+}
