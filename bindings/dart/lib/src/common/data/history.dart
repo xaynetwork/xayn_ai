@@ -1,7 +1,6 @@
 import 'package:meta/meta.dart' show immutable;
 
-import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart'
-    show CDayOfWeek, CFeedback, CRelevance, CUserAction;
+import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' as ffi;
 
 /// A document relevance level.
 enum Relevance {
@@ -15,11 +14,11 @@ extension RelevanceToInt on Relevance {
   int toInt() {
     switch (this) {
       case Relevance.low:
-        return CRelevance.Low;
+        return ffi.Relevance.Low;
       case Relevance.medium:
-        return CRelevance.Medium;
+        return ffi.Relevance.Medium;
       case Relevance.high:
-        return CRelevance.High;
+        return ffi.Relevance.High;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -38,11 +37,11 @@ extension FeedbackToInt on Feedback {
   int toInt() {
     switch (this) {
       case Feedback.relevant:
-        return CFeedback.Relevant;
+        return ffi.UserFeedback.Relevant;
       case Feedback.irrelevant:
-        return CFeedback.Irrelevant;
+        return ffi.UserFeedback.Irrelevant;
       case Feedback.notGiven:
-        return CFeedback.NotGiven;
+        return ffi.UserFeedback.NotGiven;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -65,19 +64,19 @@ extension DayOfWeekToInt on DayOfWeek {
   int toInt() {
     switch (this) {
       case DayOfWeek.mon:
-        return CDayOfWeek.Mon;
+        return ffi.DayOfWeek.Mon;
       case DayOfWeek.tue:
-        return CDayOfWeek.Tue;
+        return ffi.DayOfWeek.Tue;
       case DayOfWeek.wed:
-        return CDayOfWeek.Wed;
+        return ffi.DayOfWeek.Wed;
       case DayOfWeek.thu:
-        return CDayOfWeek.Thu;
+        return ffi.DayOfWeek.Thu;
       case DayOfWeek.fri:
-        return CDayOfWeek.Fri;
+        return ffi.DayOfWeek.Fri;
       case DayOfWeek.sat:
-        return CDayOfWeek.Sat;
+        return ffi.DayOfWeek.Sat;
       case DayOfWeek.sun:
-        return CDayOfWeek.Sun;
+        return ffi.DayOfWeek.Sun;
     }
   }
 }
@@ -94,11 +93,11 @@ extension UserActionToInt on UserAction {
   int toInt() {
     switch (this) {
       case UserAction.miss:
-        return CUserAction.Miss;
+        return ffi.UserAction.Miss;
       case UserAction.skip:
-        return CUserAction.Skip;
+        return ffi.UserAction.Skip;
       case UserAction.click:
-        return CUserAction.Click;
+        return ffi.UserAction.Click;
     }
   }
 }

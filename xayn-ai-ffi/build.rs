@@ -36,6 +36,14 @@ fn main() {
 
     cargo_rerun_if_changed(crate_dir.join("src"));
     cargo_rerun_if_changed(crate_dir.join("Cargo.toml"));
+    cargo_rerun_if_changed(
+        crate_dir
+            .parent()
+            .unwrap()
+            .join("xayn-ai")
+            .join("src")
+            .join("data"),
+    );
     cargo_rerun_if_changed(config_file.as_path());
 
     let config = Config::from_file(config_file).expect("Failed to read config.");

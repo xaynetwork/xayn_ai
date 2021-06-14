@@ -2,7 +2,7 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
-import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' show CRerankMode;
+import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' as ffi;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
@@ -21,9 +21,9 @@ extension RerankModeToInt on RerankMode {
   int toInt() {
     switch (this) {
       case RerankMode.news:
-        return CRerankMode.News;
+        return ffi.RerankMode.News;
       case RerankMode.search:
-        return CRerankMode.Search;
+        return ffi.RerankMode.Search;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
