@@ -343,7 +343,7 @@ mod tests {
             // the (id, rank) mapping is [5, 3, 4, 0, 2, 1].zip(0..6)
             RerankingOutcomes {
                 final_ranking: vec![3, 5, 4, 1, 2, 0],
-                qa_mbert_similarities: None,
+                qambert_similarities: None,
                 context_scores: None,
             }
         }

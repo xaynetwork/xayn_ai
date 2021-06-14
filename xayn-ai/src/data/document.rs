@@ -172,7 +172,7 @@ pub struct RerankingOutcomes {
     pub final_ranking: Vec<u16>,
 
     /// The QA-mBERT outcomes (similarities)
-    pub qa_mbert_similarities: Option<Vec<f32>>,
+    pub qambert_similarities: Option<Vec<f32>>,
 
     /// The context score(s) which where feet into `MAB`.
     ///
@@ -196,14 +196,14 @@ impl RerankingOutcomes {
         let docs_len = docs.len();
         let mut final_ranking = Vec::with_capacity(docs_len);
         let mut context_scores = Vec::with_capacity(docs_len);
-        let mut qa_mbert_similarities =
+        let mut qambert_similarities =
             matches!(mode, RerankMode::Search).then(|| Vec::with_capacity(docs_len));
 
         for doc in docs {
             let data = docs_with_mab[&doc.id];
             final_ranking.push(data.mab.rank as u16);
             context_scores.push(data.context.context_value);
-            if let Some(vs) = qa_mbert_similarities.as_mut() {
+            if let Some(vs) = qambert_similarities.as_mut() {
                 vs.push(data.qambert.similarity)
             }
         }
@@ -211,7 +211,7 @@ impl RerankingOutcomes {
         Self {
             final_ranking,
             context_scores: Some(context_scores),
-            qa_mbert_similarities,
+            qambert_similarities,
         }
     }
 
@@ -221,7 +221,7 @@ impl RerankingOutcomes {
     pub(crate) fn from_initial_ranking(docs: &[Document]) -> Self {
         Self {
             final_ranking: docs.iter().map(|doc| doc.rank as u16).collect(),
-            qa_mbert_similarities: None,
+            qambert_similarities: None,
             context_scores: None,
         }
     }

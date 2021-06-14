@@ -14,7 +14,7 @@ pub struct CRerankingOutcomes {
     /// [`RerankingOutcomes.final_ranking`]: xayn_ai::RerankingOutcomes::final_ranking
     pub final_ranking: CBoxedSlice<u16>,
 
-    /// See [`RerankingOutcomes.qa_mbert_similarities`].
+    /// See [`RerankingOutcomes.qambert_similarities`].
     ///
     /// If it was `None` the `CBoxedSlice` instance will have a
     /// null-pointer and a length of 0.
@@ -22,8 +22,8 @@ pub struct CRerankingOutcomes {
     /// If it was `Some` but still empty it will have a dangling
     /// pointer and a length of 0.
     ///
-    /// [`RerankingOutcomes.qa_mbert_similarities`]: xayn_ai::RerankingOutcomes::qa_mbert_similarities
-    pub qa_mbert_similarities: CBoxedSlice<f32>,
+    /// [`RerankingOutcomes.qambert_similarities`]: xayn_ai::RerankingOutcomes::qambert_similarities
+    pub qambert_similarities: CBoxedSlice<f32>,
 
     /// See [`RerankingOutcomes.context_scores`].
     ///
@@ -56,13 +56,13 @@ where
     fn into_raw(self) -> Self::Value {
         let RerankingOutcomes(xayn_ai::RerankingOutcomes {
             final_ranking,
-            qa_mbert_similarities,
+            qambert_similarities,
             context_scores,
         }) = self;
 
         Some(Box::new(CRerankingOutcomes {
             final_ranking: final_ranking.into(),
-            qa_mbert_similarities: qa_mbert_similarities.into(),
+            qambert_similarities: qambert_similarities.into(),
             context_scores: context_scores.into(),
         }))
     }
@@ -117,13 +117,13 @@ mod tests {
         #![allow(clippy::float_cmp)]
         let value = xayn_ai::RerankingOutcomes {
             final_ranking: vec![0, 2, 3, 1],
-            qa_mbert_similarities: Some(vec![3.0, 2.125, 4.5, 21.25]),
+            qambert_similarities: Some(vec![3.0, 2.125, 4.5, 21.25]),
             context_scores: Some(vec![2.0, 1.0, 0.2, 0.8]),
         };
         let raw = RerankingOutcomes(value).into_raw().unwrap();
 
         assert_eq!(raw.final_ranking, [0, 2, 3, 1]);
-        assert_eq!(raw.qa_mbert_similarities, [3.0, 2.125, 4.5, 21.25]);
+        assert_eq!(raw.qambert_similarities, [3.0, 2.125, 4.5, 21.25]);
         assert_eq!(raw.context_scores, [2.0, 1.0, 0.2, 0.8]);
     }
 
@@ -131,12 +131,12 @@ mod tests {
     fn test_into_raw_no_data() {
         let value = xayn_ai::RerankingOutcomes {
             final_ranking: vec![0, 2, 3, 1],
-            qa_mbert_similarities: None,
+            qambert_similarities: None,
             context_scores: None,
         };
         let raw = RerankingOutcomes(value).into_raw().unwrap();
 
-        assert!(raw.qa_mbert_similarities.is_empty());
+        assert!(raw.qambert_similarities.is_empty());
         assert!(raw.context_scores.is_empty());
     }
 

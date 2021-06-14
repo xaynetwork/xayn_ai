@@ -35,7 +35,7 @@ class RerankingOutcomesBuilder {
         throw ArgumentError('Final rankings outcome was null.');
       }
       final contextScores = _cOutcomes.ref.context_scores.toList();
-      final qaMBertSimilarities = _cOutcomes.ref.qa_mbert_similarities.toList();
+      final qaMBertSimilarities = _cOutcomes.ref.qambert_similarities.toList();
 
       return RerankingOutcomes.fromParts(
         finalRanking,
