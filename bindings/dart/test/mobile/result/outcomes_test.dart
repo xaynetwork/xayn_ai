@@ -98,8 +98,8 @@ void main() {
         outcomes.ref.context_scores.data[2] = 0.75;
 
         // setup QA-mBERT (as not run)
-        outcomes.ref.qa_mbert_similarities.data = nullptr;
-        outcomes.ref.qa_mbert_similarities.len = 0;
+        outcomes.ref.qambert_similarities.data = nullptr;
+        outcomes.ref.qambert_similarities.len = 0;
 
         final builder = RerankingOutcomesBuilder(outcomes);
         dartOutcomes = builder.build();
@@ -126,8 +126,8 @@ void main() {
         outcomes.ref.final_ranking.len = 0;
         outcomes.ref.context_scores.data = nullptr;
         outcomes.ref.context_scores.len = 0;
-        outcomes.ref.qa_mbert_similarities.data = nullptr;
-        outcomes.ref.qa_mbert_similarities.len = 0;
+        outcomes.ref.qambert_similarities.data = nullptr;
+        outcomes.ref.qambert_similarities.len = 0;
 
         final builder = RerankingOutcomesBuilder(outcomes);
         expect(() {
@@ -154,8 +154,8 @@ void main() {
 
         outcomes.ref.context_scores.data = nullptr;
         outcomes.ref.context_scores.len = 0;
-        outcomes.ref.qa_mbert_similarities.data = nullptr;
-        outcomes.ref.qa_mbert_similarities.len = 0;
+        outcomes.ref.qambert_similarities.data = nullptr;
+        outcomes.ref.qambert_similarities.len = 0;
 
         final builder = RerankingOutcomesBuilder(outcomes);
         dartOutcomes = builder.build();
