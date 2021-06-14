@@ -1,5 +1,5 @@
-name: 'generate asset artifacts'
-description: 'Generates asset artifacts'
+name: 'build asset artifacts'
+description: 'Builds asset artifacts'
 inputs:
   dart-ws:
     description: 'Dart workspace'
@@ -12,8 +12,8 @@ runs:
           CARGO_MAKE_PROFILE: development
       run: |
         mkdir -p out
-        gomplate -f bin/assets.json.tmpl -o out/assets.json
-        gomplate -d assets=out/assets.json -f bin/assets.dart.tmpl -o ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart
+        gomplate -f data/asset_templates/assets.json.tmpl -o out/assets.json
+        gomplate -d assets=out/assets.json -f data/asset_templates/assets.dart.tmpl -o ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart
         flutter format ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart
         echo "::group::asset.dart"
         cat ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart

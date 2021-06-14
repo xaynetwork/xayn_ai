@@ -27,8 +27,8 @@ dependencies = ["build-android", "build-ios"]
 [tasks.gen-assets]
 script = ["""
   mkdir -p out
-  gomplate -f bin/assets.json.tmpl -o out/assets.json
-  gomplate -d assets=out/assets.json -f bin/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
+  gomplate -f data/asset_templates/assets.json.tmpl -o out/assets.json
+  gomplate -d assets=out/assets.json -f data/asset_templates/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
   flutter format bindings/dart/lib/src/common/reranker/assets.dart
 """]
 

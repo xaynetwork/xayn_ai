@@ -655,6 +655,9 @@ jobs:
           mv bindings/dart/ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
           cp -R target ${{ github.workspace }}
 
+      - name: Download data
+        run: sh download_data.sh
+
       - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub get
@@ -670,9 +673,6 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-
-      - name: Download data
-        run: sh download_data.sh
 
       - name: Run flutter tests
         working-directory: ${{ env.DART_WORKSPACE }}
@@ -746,6 +746,9 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
+      - name: Download data
+        run: sh download_data.sh
+
       - name: Install flutter dependencies
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter pub get
@@ -761,9 +764,6 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-
-      - name: Download data
-        run: sh download_data.sh
 
       - name: Build flutter example
         working-directory: ${{ env.DART_WORKSPACE }}/example
