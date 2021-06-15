@@ -459,8 +459,8 @@ jobs:
             ${{ steps.asset-paths.outputs.dart-manifest }}
             ${{ steps.asset-paths.outputs.json-manifest }}
 
-  upload-asset-artifacts-to-s3:
-    name: upload-asset-artifacts-to-s3
+  upload-asset-artifacts:
+    name: upload-asset-artifacts
     runs-on: ubuntu-20.04
     needs: [build-wasm-lib-release, build-asset-artifacts]
     timeout-minutes: 20
@@ -505,7 +505,7 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-20.04
-    needs: [build-headers, build-android-libs, build-ios-libs, build-asset-artifacts, upload-asset-artifacts-to-s3]
+    needs: [build-headers, build-android-libs, build-ios-libs, build-asset-artifacts, upload-asset-artifacts]
     timeout-minutes: 60
     steps:
       - name: Install SSH key
@@ -548,9 +548,6 @@ jobs:
         with:
           name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
           path: ${{ github.workspace }}
-
-      - name: Remove JSON manifest
-        run: rm ${{ needs.build-asset-artifacts.outputs.json-manifest }}
 
       - name: Get current branch
         shell: bash
