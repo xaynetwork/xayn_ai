@@ -71,10 +71,13 @@ impl CoiSystem {
         });
         let index = index_and_distance[0].0;
 
-        let scaled_total = index_and_distance
+        let mut scaled_total = index_and_distance
             .iter()
             .map(|(_, distance)| self.config.distance_scale * distance)
             .sum::<f32>();
+        if scaled_total == 0.0 {
+            scaled_total = 1.0;
+        }
         let distance = index_and_distance
             .iter()
             .take(self.config.neighbors.get())
@@ -85,7 +88,7 @@ impl CoiSystem {
                     .rev(),
             )
             .map(|((_, distance), (_, reversed_distance))| {
-                distance * reversed_distance / scaled_total
+                distance * (reversed_distance / scaled_total)
             })
             .sum::<f32>();
 
@@ -280,6 +283,19 @@ mod tests {
 
         assert_eq!(index, 1);
         assert!(approx_eq!(f32, distance, 5.7716017));
+    }
+
+    #[test]
+    fn test_find_closest_coi_index_equal() {
+        let cois = create_pos_cois(&[[1., 2., 3.]]);
+        let embedding = arr1(&[1., 2., 3.]).into();
+
+        let (index, distance) = CoiSystem::default()
+            .find_closest_coi_index(&embedding, &cois)
+            .unwrap();
+
+        assert_eq!(index, 0);
+        assert!(approx_eq!(f32, distance, 0.0));
     }
 
     #[test]

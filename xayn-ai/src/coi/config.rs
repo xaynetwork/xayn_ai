@@ -4,9 +4,9 @@ pub(crate) struct Configuration {
     /// The shift factor by how much a Coi is shifted towards a new point.
     pub shift_factor: f32,
     pub threshold: f32,
-    /// The number of neighbors for the k-nearest-neighbors distance.
+    /// The positive number of neighbors for the k-nearest-neighbors distance.
     pub neighbors: NonZeroUsize,
-    /// A multiplier for the distances of the k-nearest-neighbors.
+    /// A positive multiplier for the distances of the k-nearest-neighbors.
     pub distance_scale: f32,
 }
 
