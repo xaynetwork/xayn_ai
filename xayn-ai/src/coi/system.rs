@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Deref};
+use std::ops::Deref;
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -49,55 +49,76 @@ impl CoiSystem {
     }
 
     /// Finds the closest centre of interest (CoI) for the given embedding.
-    /// Returns the index of the CoI along with the distance between
-    /// the given embedding and the CoI. If no CoI was found, `None`
-    /// will be returned.
+    ///
+    /// Returns the index of the CoI along with the weighted distance between the given embedding
+    /// and the k nearest CoIs. If no CoIs were given, `None` will be returned.
+    ///
+    /// # Panics
+    /// Panics if any distance is NaN (i.e. the embedding or a CoI contained NaNs).
     fn find_closest_coi_index(
         &self,
         embedding: &Embedding,
         cois: &[impl CoiPoint],
     ) -> Option<(usize, f32)> {
-        let index_and_distance = cois
-            .iter()
-            .enumerate()
-            .map(|(i, coi)| (i, l2_norm_distance(embedding, coi.point())))
-            .fold(
-                (None, f32::MAX),
-                |acc, (i, b)| match PartialOrd::partial_cmp(&acc.1, &b) {
-                    Some(Ordering::Greater) => (Some(i), b),
-                    _ => acc,
-                },
-            );
-        match index_and_distance {
-            (Some(index), distance) => Some((index, distance)),
-            _ => None,
+        if cois.is_empty() {
+            return None;
         }
+
+        let mut index_and_distance = cois
+            .iter()
+            .map(|coi| l2_norm_distance(embedding, coi.point()))
+            .enumerate()
+            .collect::<Vec<(usize, f32)>>();
+        index_and_distance.sort_unstable_by(|(_, this_distance), (_, other_distance)| {
+            this_distance.partial_cmp(other_distance).unwrap()
+        });
+        let index = index_and_distance[0].0;
+
+        let scaled_total = index_and_distance
+            .iter()
+            .map(|(_, distance)| self.config.distance_scale * distance)
+            .sum::<f32>();
+        let distance = index_and_distance
+            .iter()
+            .take(self.config.neighbors.get())
+            .zip(
+                index_and_distance
+                    .iter()
+                    .take(self.config.neighbors.get())
+                    .rev(),
+            )
+            .map(|((_, distance), (_, reversed_distance))| {
+                distance * reversed_distance / scaled_total
+            })
+            .sum::<f32>();
+
+        Some((index, distance))
     }
 
     /// Finds the closest CoI for the given embedding.
-    /// Returns an immutable reference to the CoI along with the distance between
-    /// the given embedding and the CoI. If no CoI was found, `None`
-    /// will be returned.
+    ///
+    /// Returns an immutable reference to the CoI along with the weighted distance between the given
+    /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
     fn find_closest_coi<'coi, CP: CoiPoint>(
         &self,
         embedding: &Embedding,
         cois: &'coi [CP],
     ) -> Option<(&'coi CP, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
-        Some((cois.get(index).unwrap(), distance))
+        Some((&cois[index], distance))
     }
 
     /// Finds the closest CoI for the given embedding.
-    /// Returns a mutable reference to the CoI along with the distance between
-    /// the given embedding and the CoI. If no CoI was found, `None`
-    /// will be returned.
+    ///
+    /// Returns a mutable reference to the CoI along with the weighted distance between the given
+    /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
     fn find_closest_coi_mut<'coi, CP: CoiPoint>(
         &self,
         embedding: &Embedding,
         cois: &'coi mut [CP],
     ) -> Option<(&'coi mut CP, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
-        Some((cois.get_mut(index).unwrap(), distance))
+        Some((&mut cois[index], distance))
     }
 
     /// Creates a new CoI that is shifted towards the position of `embedding`.
