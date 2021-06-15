@@ -32,6 +32,11 @@ download()
   # check content
   cd "$ARCHIVE_BASENAME"
   shasum -c "$CHECKSUM_FILE"
+
+  # update symlinks (the `|| :` makes the shell ignore failure of rm even if `set -eu` is used)
+  cd "$CALLING_BASE_DIR"
+  rm "${SELF_DIR_PATH}/bindings/dart/example/assets/${NAME}"_v* || :
+  ln -s "../../../../data/${ARCHIVE_BASENAME}" "${SELF_DIR_PATH}/bindings/dart/example/assets/${ARCHIVE_BASENAME}"
 }
 
 download smbert v0000

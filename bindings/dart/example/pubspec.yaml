@@ -45,8 +45,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/data/smbert_v0000/
-    - assets/data/qambert_v0001/
+    - assets/smbert_v0000/
+    - assets/qambert_v0001/
     - assets/call_data/
     - wasm_bindings/
 

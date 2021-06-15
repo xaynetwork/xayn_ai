@@ -104,11 +104,10 @@ script = ["""
 
 [tasks.test-wasm]
 script = ["""
-  cd xayn-ai-ffi-wasm
   # This is (way) faster, if rust would allow it we would love to have target specific profile optimization levels
   CARGO_PROFILE_DEV_OPT_LEVEL="2" \
     CARGO_PROFILE_TEST_OPT_LEVEL="2" \
-    wasm-pack test --firefox --headless
+    wasm-pack test xayn-ai-ffi-wasm --firefox --headless
 """]
 
 [tasks.clean-bindgen]
