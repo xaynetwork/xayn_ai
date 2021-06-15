@@ -2,7 +2,7 @@ use super::{cond_prob, Action, DocSearchResult, FilterPred, HistSearchResult, Ur
 
 #[derive(Clone)]
 /// Cumulative features.
-pub(super) struct CumFeatures {
+pub(super) struct CumulatedFeatures {
     /// Cumulative skip score for matching URLs.
     pub(super) url_skip: f32,
     /// Cumulative click1 score for matching URLs.
@@ -16,14 +16,14 @@ pub(super) struct CumFeatures {
 /// After creating it [`Self.build_next()`] needs to be called in ascending order of the
 /// initial ranking (starting from `Rank::First`).
 pub(super) struct CumFeaturesAccumulator {
-    next_features: CumFeatures,
+    next_features: CumulatedFeatures,
 }
 
 impl CumFeaturesAccumulator {
     /// Creates a new "empty" accumulator for building cumulative features.
     pub(super) fn new() -> Self {
         Self {
-            next_features: CumFeatures {
+            next_features: CumulatedFeatures {
                 url_skip: 0.,
                 url_click1: 0.,
                 url_click2: 0.,
@@ -39,7 +39,7 @@ impl CumFeaturesAccumulator {
         &mut self,
         hists: &[HistSearchResult],
         doc: &DocSearchResult,
-    ) -> CumFeatures {
+    ) -> CumulatedFeatures {
         let features = self.next_features.clone();
 
         let url_pred = FilterPred::new(UrlOrDom::Url(&doc.url));

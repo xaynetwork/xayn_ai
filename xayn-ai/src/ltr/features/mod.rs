@@ -9,10 +9,12 @@ mod cumulate;
 mod query;
 mod user;
 
+use derive_more::From;
 use itertools::{izip, Itertools};
 use ndarray::{array, Array2, Axis};
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
+use thiserror::Error;
 
 use crate::{
     data::document_data::DocumentDataWithCoi,
@@ -24,8 +26,8 @@ use crate::{
     UserAction,
 };
 
-use aggregate::AggregFeatures;
-use cumulate::{CumFeatures, CumFeaturesAccumulator};
+use aggregate::AggregateFeatures;
+use cumulate::{CumFeaturesAccumulator, CumulatedFeatures};
 use query::QueryFeatures;
 use user::UserFeatures;
 
@@ -46,45 +48,17 @@ pub(crate) enum Action {
     Click2,
 }
 
-#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub(crate) enum Rank {
-    First = 1,
-    Second,
-    Third,
-    Fourth,
-    Fifth,
-    Sixth,
-    Seventh,
-    Eighth,
-    Ninth,
-    Last,
-}
-
-impl Rank {
-    pub(crate) fn from_usize(rank: usize) -> Self {
-        match rank {
-            0 => Rank::First,
-            1 => Rank::Second,
-            2 => Rank::Third,
-            3 => Rank::Fourth,
-            4 => Rank::Fifth,
-            5 => Rank::Sixth,
-            6 => Rank::Seventh,
-            7 => Rank::Eighth,
-            8 => Rank::Ninth,
-            9 => Rank::Last,
-            _ => panic!("Only ranks 0-9 supported, got {}", rank),
-        }
-    }
-}
+/// `Rank` n represents a ranking of n + 1.
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, From)]
+pub(crate) struct Rank(usize);
 
 impl From<Rank> for f32 {
     fn from(rank: Rank) -> Self {
-        rank as u8 as f32
+        (rank.0 + 1) as f32
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 /// Search query.
 pub(crate) struct Query {
     /// Session identifier.
@@ -97,6 +71,7 @@ pub(crate) struct Query {
     pub(crate) query_words: Vec<String>,
 }
 
+#[derive(Debug)]
 /// A result from a new search performed by the user.
 pub struct DocSearchResult {
     /// Search query.
@@ -106,12 +81,12 @@ pub struct DocSearchResult {
     /// Domain of result.
     pub(crate) domain: String,
     /// Initial unpersonalised rank among other results of the search.
-    pub(crate) init_rank: Rank,
+    pub(crate) initial_rank: Rank,
 }
 
 impl From<&DocumentDataWithCoi> for DocSearchResult {
     fn from(doc_data: &DocumentDataWithCoi) -> Self {
-        let init_rank = Rank::from_usize(doc_data.document_base.initial_ranking);
+        let initial_rank = doc_data.document_base.initial_ranking.into();
         let content = &doc_data.document_content;
         let query_words = content.query_words.split_whitespace().map_into().collect();
 
@@ -124,7 +99,7 @@ impl From<&DocumentDataWithCoi> for DocSearchResult {
             },
             url: content.url.clone(),
             domain: content.domain.clone(),
-            init_rank,
+            initial_rank,
         }
     }
 }
@@ -143,8 +118,8 @@ pub struct HistSearchResult {
     pub(crate) url: String,
     /// Domain of result.
     pub(crate) domain: String,
-    /// Reranked position among other results of the search.
-    pub(crate) rerank: Rank,
+    /// Final reranked position among other results of the search.
+    pub(crate) final_rank: Rank,
     /// Day of week search was performed.
     pub(crate) day: DayOfWeek,
     /// User action on this result.
@@ -159,7 +134,7 @@ impl AsRef<HistSearchResult> for HistSearchResult {
 
 impl From<&DocumentHistory> for HistSearchResult {
     fn from(doc_hist: &DocumentHistory) -> Self {
-        let rerank = Rank::from_usize(doc_hist.rank);
+        let final_rank = doc_hist.rank.into();
         let query_words = doc_hist.query_words.split_whitespace().map_into().collect();
         let action = match (doc_hist.user_action, doc_hist.relevance) {
             (UserAction::Miss, _) => Action::Miss,
@@ -178,7 +153,7 @@ impl From<&DocumentHistory> for HistSearchResult {
             },
             url: doc_hist.url.clone(),
             domain: doc_hist.domain.clone(),
-            rerank,
+            final_rank,
             day: doc_hist.day,
             action,
         }
@@ -224,7 +199,7 @@ struct ResultSet<'a>(Vec<&'a HistSearchResult>);
 impl<'a> ResultSet<'a> {
     /// New result set.
     ///
-    /// Assumes `rs[i]` contains the search result `r` with `r.position` `i+1`.
+    /// Assumes `rs` is ordered by rank starting from Rank(0).
     fn new(rs: Vec<&'a HistSearchResult>) -> Self {
         Self(rs)
     }
@@ -342,19 +317,38 @@ impl<'a> FilterPred<'a> {
     }
 }
 
-// TODO mention diffs
+#[derive(Debug, Error)]
+/// Features building error.
+pub(crate) enum FeaturesErr {
+    #[error("Duplicate ranks in search results: {0:?}")]
+    /// Search results contain duplicate ranks.
+    DuplicateRanks(Vec<DocSearchResult>),
+    #[error("Missing ranks in search results: {0:?}")]
+    /// Search results contain missing ranks.
+    MissingRanks(Vec<DocSearchResult>),
+    #[error("Not all search results share the same query: {0:?}")]
+    /// Search results contain a query mismatch.
+    QueryMismatch(Vec<DocSearchResult>),
+}
+
 /// Families of features for a non-personalised search result, based on Dataiku's specification.
+///
+/// Note for our purposes, we adopt only a subset of Dataiku's features. In particular we omit:
+/// * No. times the user performed the query (redundant)
+/// * All 3 of the "any user" aggregate features (not supported by search app)
+/// * 2 cumulated features: same domain & query and same url & query (not supported by search app)
+/// * Collaborative filtering SVD (marginal benefit)
 pub(crate) struct Features {
-    /// Unpersonalised rank.
-    init_rank: Rank,
+    /// Initial unpersonalised rank.
+    initial_rank: Rank,
     /// Aggregate features.
-    aggreg: AggregFeatures,
+    aggregate: AggregateFeatures,
     /// User features.
     user: UserFeatures,
     /// Query features.
     query: QueryFeatures,
     /// Cumulated features.
-    cum: CumFeatures,
+    cumulated: CumulatedFeatures,
     /// Terms variety count.
     terms_variety: usize,
     /// Weekend domain seasonality.
@@ -364,26 +358,26 @@ pub(crate) struct Features {
 impl Features {
     /// Builds features for a new search result `doc` from the user given her past search history `hists`.
     ///
-    /// `cum_acc` contains the cumulative features of other results in the search ranked above `doc`.
+    /// `cum_acc` contains the cumulative features of other results ranked above `doc` in the search.
     fn build(
         hists: &[HistSearchResult],
         doc: &DocSearchResult,
+        user: UserFeatures,
+        query: QueryFeatures,
         cum_acc: &mut CumFeaturesAccumulator,
+        terms_variety: usize,
     ) -> Self {
-        let init_rank = doc.init_rank;
-        let aggreg = AggregFeatures::build(hists, doc);
-        let user = UserFeatures::build(hists);
-        let query = QueryFeatures::build(hists, doc);
-        let cum = cum_acc.build_next(hists, doc);
-        let terms_variety = terms_variety(doc);
+        let initial_rank = doc.initial_rank;
+        let aggregate = AggregateFeatures::build(hists, doc);
+        let cumulated = cum_acc.build_next(hists, doc);
         let seasonality = seasonality(hists, doc);
 
         Self {
-            init_rank,
-            aggreg,
+            initial_rank,
+            aggregate,
             user,
             query,
-            cum,
+            cumulated,
             terms_variety,
             seasonality,
         }
@@ -392,18 +386,54 @@ impl Features {
 
 /// Builds features for each new search result in `docs`.
 ///
-/// `docs` must be in order of rank, starting from `Rank::First`.
+/// If `docs` is not already in consecutive order of rank, i.e. 0, 1, 2, ...,
+/// an attempt is made to sort `docs` so that it is.
+///
+/// # Error
+/// If `docs` contains duplicate ranks, missing ranks, or a mismatched query.
 pub(crate) fn build_features(
-    hists: &[HistSearchResult],
-    docs: &[DocSearchResult],
-) -> Vec<Features> {
+    hists: Vec<HistSearchResult>,
+    docs: Vec<DocSearchResult>,
+) -> Result<Vec<Features>, FeaturesErr> {
+    let len = docs.len();
+    if len == 0 {
+        return Ok(vec![]);
+    };
+
+    let docs_sorted = docs
+        .iter()
+        .sorted_by_key(|doc| doc.initial_rank)
+        .dedup_by(|doc1, doc2| doc1.initial_rank == doc2.initial_rank)
+        .collect_vec();
+
+    if docs_sorted.len() != len {
+        return Err(FeaturesErr::DuplicateRanks(docs));
+    };
+    if docs_sorted[len - 1].initial_rank.0 != len - 1 {
+        return Err(FeaturesErr::MissingRanks(docs));
+    };
+
+    let q = &docs_sorted[0].query;
+    let same_query = docs_sorted.iter().all(|doc| doc.query == *q);
+    if !same_query {
+        return Err(FeaturesErr::QueryMismatch(docs));
+    }
+
+    let query = QueryFeatures::build(&hists, q);
+    let user = UserFeatures::build(&hists);
     let mut cum_acc = CumFeaturesAccumulator::new();
-    docs.iter()
-        .map(|doc| Features::build(hists, doc, &mut cum_acc))
-        .collect()
+    let tv = terms_variety(q);
+
+    Ok(docs_sorted
+        .into_iter()
+        .map(|doc| Features::build(&hists, doc, user.clone(), query.clone(), &mut cum_acc, tv))
+        .collect())
 }
 
 /// Converts a sequence of `Feature`s into a 2-dimensional ndarray.
+///
+/// Note that we follow the ordering of features as implemented in soundgarden,
+/// since the ListNet model has been trained on that.
 pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
     let mut arr = Array2::zeros((feats_list.len(), 50));
 
@@ -418,46 +448,46 @@ pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
 
     for (feats, row) in izip!(feats_list, arr.axis_iter_mut(Axis(0))) {
         let Features {
-            init_rank,
-            aggreg,
+            initial_rank,
+            aggregate,
             user,
             query,
-            cum,
+            cumulated,
             terms_variety,
             seasonality,
         } = feats;
 
         array![
-            init_rank.to_owned().into(),
-            aggreg.url[click_mrr],
-            aggreg.url[click2],
-            aggreg.url[missed],
-            aggreg.url[snippet_quality],
-            aggreg.url_ant[click2],
-            aggreg.url_ant[missed],
-            aggreg.url_ant[snippet_quality],
-            aggreg.url_query[combine_mrr],
-            aggreg.url_query[click2],
-            aggreg.url_query[missed],
-            aggreg.url_query[snippet_quality],
-            aggreg.url_query_ant[combine_mrr],
-            aggreg.url_query_ant[click_mrr],
-            aggreg.url_query_ant[miss_mrr],
-            aggreg.url_query_ant[skip_mrr],
-            aggreg.url_query_ant[missed],
-            aggreg.url_query_ant[snippet_quality],
-            aggreg.url_query_curr[miss_mrr],
-            aggreg.dom[skipped],
-            aggreg.dom[missed],
-            aggreg.dom[click2],
-            aggreg.dom[snippet_quality],
-            aggreg.dom_ant[click2],
-            aggreg.dom_ant[missed],
-            aggreg.dom_ant[snippet_quality],
-            aggreg.dom_query[missed],
-            aggreg.dom_query[snippet_quality],
-            aggreg.dom_query[miss_mrr],
-            aggreg.dom_query_ant[snippet_quality],
+            initial_rank.to_owned().into(),
+            aggregate.url[click_mrr],
+            aggregate.url[click2],
+            aggregate.url[missed],
+            aggregate.url[snippet_quality],
+            aggregate.url_ant[click2],
+            aggregate.url_ant[missed],
+            aggregate.url_ant[snippet_quality],
+            aggregate.url_query[combine_mrr],
+            aggregate.url_query[click2],
+            aggregate.url_query[missed],
+            aggregate.url_query[snippet_quality],
+            aggregate.url_query_ant[combine_mrr],
+            aggregate.url_query_ant[click_mrr],
+            aggregate.url_query_ant[miss_mrr],
+            aggregate.url_query_ant[skip_mrr],
+            aggregate.url_query_ant[missed],
+            aggregate.url_query_ant[snippet_quality],
+            aggregate.url_query_curr[miss_mrr],
+            aggregate.dom[skipped],
+            aggregate.dom[missed],
+            aggregate.dom[click2],
+            aggregate.dom[snippet_quality],
+            aggregate.dom_ant[click2],
+            aggregate.dom_ant[missed],
+            aggregate.dom_ant[snippet_quality],
+            aggregate.dom_query[missed],
+            aggregate.dom_query[snippet_quality],
+            aggregate.dom_query[miss_mrr],
+            aggregate.dom_query_ant[snippet_quality],
             query.click_entropy,
             query.num_terms as f32,
             query.mean_query_count,
@@ -473,9 +503,9 @@ pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
             user.num_queries as f32,
             user.words_per_query,
             user.words_per_session,
-            cum.url_skip,
-            cum.url_click1,
-            cum.url_click2,
+            cumulated.url_skip,
+            cumulated.url_click1,
+            cumulated.url_click2,
             *terms_variety as f32,
             *seasonality,
         ]
@@ -519,7 +549,7 @@ pub(crate) fn mean_recip_rank(
     let numer = 0.283 // prior recip rank assuming uniform distributed ranks
         + filtered
             .into_iter()
-            .map(|hist| f32::from(hist.as_ref().rerank).recip())
+            .map(|hist| f32::from(hist.as_ref().final_rank).recip())
             .sum::<f32>();
 
     numer / denom
@@ -538,8 +568,8 @@ pub(crate) fn mean_recip_rank(
 /// Additionally this also causes all inspected results/documents to have the
 /// same query words and in turn this is just the number of unique words in the
 /// current query, which is kinda very pointless.
-fn terms_variety(doc: &DocSearchResult) -> usize {
-    doc.query.query_words.iter().unique().count()
+fn terms_variety(query: &Query) -> usize {
+    query.query_words.iter().unique().count()
 }
 
 /// Weekend seasonality factor of a given domain.
@@ -581,7 +611,7 @@ pub(crate) fn click_entropy(hists: &[impl AsRef<HistSearchResult>]) -> f32 {
         .iter()
         .filter_map(|hist| {
             let hist = hist.as_ref();
-            hist.is_clicked().then(|| hist.rerank)
+            hist.is_clicked().then(|| hist.final_rank)
         })
         .counts();
 

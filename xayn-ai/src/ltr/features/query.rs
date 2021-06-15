@@ -1,7 +1,8 @@
-use super::{click_entropy, mean_recip_rank, DocSearchResult, HistSearchResult};
+use super::{click_entropy, mean_recip_rank, HistSearchResult, Query};
 use itertools::Itertools;
 use std::collections::HashSet;
 
+#[derive(Clone)]
 /// Features specific to a given query.
 pub(super) struct QueryFeatures {
     /// Entropy over ranks of clicked results.
@@ -24,14 +25,14 @@ pub(super) struct QueryFeatures {
 
 impl QueryFeatures {
     /// Build query features for the given search result and history of a user.
-    pub(super) fn build(hists: &[HistSearchResult], doc: &DocSearchResult) -> Self {
+    pub(super) fn build(hists: &[HistSearchResult], query: &Query) -> Self {
         // history filtered by query
         let hists_q = hists
             .iter()
-            .filter(|hist| hist.query.query_id == doc.query.query_id)
+            .filter(|hist| hist.query.query_id == query.query_id)
             .collect_vec();
 
-        let num_terms = doc.query.query_words.len();
+        let num_terms = query.query_words.len();
 
         if hists_q.is_empty() {
             return Self {

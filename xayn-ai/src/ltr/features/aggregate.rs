@@ -12,7 +12,7 @@ use super::{
 };
 
 /// Aggregate features for a given user.
-pub(super) struct AggregFeatures {
+pub(super) struct AggregateFeatures {
     /// Aggregate feature for matching domain.
     pub(super) dom: FeatMap,
     /// Aggregate feature for matching domain over anterior sessions.
@@ -33,7 +33,7 @@ pub(super) struct AggregFeatures {
     pub(super) url_query_curr: FeatMap,
 }
 
-impl AggregFeatures {
+impl AggregateFeatures {
     /// Build aggregate features for the given search result and history of a user.
     pub(super) fn build(hists: &[HistSearchResult], doc: impl AsRef<DocSearchResult>) -> Self {
         let doc = doc.as_ref();

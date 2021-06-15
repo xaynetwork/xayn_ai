@@ -195,7 +195,7 @@ impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
             .with_pooling(AveragePooler)
             .build()?;
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
-        let ltr = DomainReranker;
+        let ltr = DomainReranker::new()?;
         let context = Context;
         let mab = MabRanking::new(BetaSampler);
         let analytics = AnalyticsSystemImpl;

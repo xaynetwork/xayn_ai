@@ -2,6 +2,7 @@ mod features;
 mod list_net;
 
 use itertools::{izip, Itertools};
+use ndarray::Array2;
 
 use crate::{
     data::{
@@ -18,7 +19,9 @@ use list_net::ListNet;
 const BINPARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
 
 /// Domain reranker consisting of a ListNet model trained on engineered features.
-pub(crate) struct DomainReranker;
+pub(crate) struct DomainReranker {
+    model: ListNet,
+}
 
 impl LtrSystem for DomainReranker {
     fn compute_ltr(
@@ -29,16 +32,26 @@ impl LtrSystem for DomainReranker {
         let hists = history.iter().map_into().collect_vec();
         let docs = documents.iter().map_into().collect_vec();
 
-        let feats = build_features(&hists, &docs);
+        let feats = build_features(hists, docs)?;
         let feats_arr = features_to_ndarray(&feats);
-        let listnet = ListNet::load_from_file(BINPARAMS_PATH)?;
-        let ltr_scores = listnet.run(feats_arr);
+        let ltr_scores = self.predict(feats_arr);
 
         Ok(izip!(documents, ltr_scores)
             .map(|(document, ltr_score)| {
                 DocumentDataWithLtr::from_document(document, LtrComponent { ltr_score })
             })
             .collect())
+    }
+}
+
+impl DomainReranker {
+    pub(crate) fn new() -> Result<Self, Error> {
+        let model = ListNet::load_from_file(BINPARAMS_PATH)?;
+        Ok(Self { model })
+    }
+
+    fn predict(&self, feats_arr: Array2<f32>) -> Vec<f32> {
+        self.model.run(feats_arr)
     }
 }
 

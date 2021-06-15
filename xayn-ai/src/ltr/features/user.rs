@@ -2,6 +2,7 @@ use super::{click_entropy, HistSearchResult, Rank};
 use crate::SessionId;
 use std::collections::{HashMap, HashSet};
 
+#[derive(Clone)]
 /// Click counter.
 pub(super) struct ClickCounts {
     /// Click count of results ranked 1-2.
@@ -22,16 +23,16 @@ impl ClickCounts {
     }
 
     fn incr(mut self, rank: Rank) -> Self {
-        use Rank::*;
-        match rank {
-            First | Second => self.click12 += 1,
-            Third | Fourth | Fifth => self.click345 += 1,
+        match rank.0 {
+            0 | 1 => self.click12 += 1,
+            2 | 3 | 4 => self.click345 += 1,
             _ => self.click6up += 1,
         };
         self
     }
 }
 
+#[derive(Clone)]
 /// Click habits and other features specific to the user.
 pub(super) struct UserFeatures {
     /// Entropy over ranks of clicked results.
@@ -92,7 +93,9 @@ fn click_counts(results: &[HistSearchResult]) -> ClickCounts {
     results
         .iter()
         .filter(|hist| hist.is_clicked())
-        .fold(ClickCounts::new(), |count, hist| count.incr(hist.rerank))
+        .fold(ClickCounts::new(), |clicks, hist| {
+            clicks.incr(hist.final_rank)
+        })
 }
 
 /// Calculate mean number of unique query words per session.
