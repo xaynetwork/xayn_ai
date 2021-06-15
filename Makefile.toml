@@ -86,6 +86,7 @@ script = ["""
 """]
 
 [tasks.build-web]
+dependencies = ["build-local"]
 script_runner = "@duckscript"
 env = { WASM_SUFFIX="wasm_bindings" }
 script = ["""
