@@ -319,7 +319,7 @@ impl<'a> FilterPred<'a> {
 
 #[derive(Debug, Error)]
 /// Features building error.
-pub(crate) enum FeaturesErr {
+pub(crate) enum FeaturesError {
     #[error("Duplicate ranks in search results: {0:?}")]
     /// Search results contain duplicate ranks.
     DuplicateRanks(Vec<DocSearchResult>),
@@ -389,12 +389,12 @@ impl Features {
 /// If `docs` is not already in consecutive order of rank, i.e. 0, 1, 2, ...,
 /// an attempt is made to sort `docs` so that it is.
 ///
-/// # Error
-/// If `docs` contains duplicate ranks, missing ranks, or a mismatched query.
+/// # Errors
+/// Fails if `docs` contains duplicate ranks, missing ranks, or a mismatched query.
 pub(crate) fn build_features(
     hists: Vec<HistSearchResult>,
     docs: Vec<DocSearchResult>,
-) -> Result<Vec<Features>, FeaturesErr> {
+) -> Result<Vec<Features>, FeaturesError> {
     let len = docs.len();
     if len == 0 {
         return Ok(vec![]);
@@ -407,16 +407,16 @@ pub(crate) fn build_features(
         .collect_vec();
 
     if docs_sorted.len() != len {
-        return Err(FeaturesErr::DuplicateRanks(docs));
+        return Err(FeaturesError::DuplicateRanks(docs));
     };
     if docs_sorted[len - 1].initial_rank.0 != len - 1 {
-        return Err(FeaturesErr::MissingRanks(docs));
+        return Err(FeaturesError::MissingRanks(docs));
     };
 
     let q = &docs_sorted[0].query;
     let same_query = docs_sorted.iter().all(|doc| doc.query == *q);
     if !same_query {
-        return Err(FeaturesErr::QueryMismatch(docs));
+        return Err(FeaturesError::QueryMismatch(docs));
     }
 
     let query = QueryFeatures::build(&hists, q);
