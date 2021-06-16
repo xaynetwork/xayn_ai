@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin))]
 use std::process::exit;
 
 use anyhow::Error;

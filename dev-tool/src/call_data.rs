@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin))]
 use std::{
     env::current_dir,
     fs::File,
