@@ -1,6 +1,8 @@
 mod features;
 mod list_net;
 
+use itertools::{izip, Itertools};
+
 use crate::{
     data::{
         document::DocumentHistory,
@@ -10,12 +12,43 @@ use crate::{
     reranker::systems::LtrSystem,
 };
 
+use features::{build_features, features_to_ndarray};
+use list_net::ListNet;
+
+const BINPARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
+
+/// Domain reranker consisting of a ListNet model trained on engineered features.
+pub(crate) struct DomainReranker;
+
+impl LtrSystem for DomainReranker {
+    fn compute_ltr(
+        &self,
+        history: &[DocumentHistory],
+        documents: Vec<DocumentDataWithCoi>,
+    ) -> Result<Vec<DocumentDataWithLtr>, Error> {
+        let hists = history.iter().map_into().collect_vec();
+        let docs = documents.iter().map_into().collect_vec();
+
+        let feats = build_features(hists, docs)?;
+        let feats_arr = features_to_ndarray(&feats);
+        let model = ListNet::load_from_file(BINPARAMS_PATH)?;
+        let ltr_scores = model.run(feats_arr);
+
+        Ok(izip!(documents, ltr_scores)
+            .map(|(document, ltr_score)| {
+                DocumentDataWithLtr::from_document(document, LtrComponent { ltr_score })
+            })
+            .collect())
+    }
+}
+
 /// LTR with constant value.
 pub(crate) struct ConstLtr;
 
 impl ConstLtr {
     const SCORE: f32 = 0.5;
 
+    #[allow(unused)] // TODO move ConstLtr into tests / remove later
     pub(crate) fn new() -> Self {
         // 0.5 is the only valid value.
         // It must be between 0 and 1. Since this is used to compute the context value
@@ -48,7 +81,13 @@ mod tests {
     use super::*;
     use crate::data::{
         document::DocumentId,
-        document_data::{CoiComponent, DocumentBaseComponent, QAMBertComponent, SMBertComponent},
+        document_data::{
+            CoiComponent,
+            DocumentBaseComponent,
+            DocumentContentComponent,
+            QAMBertComponent,
+            SMBertComponent,
+        },
         CoiId,
     };
 
@@ -66,6 +105,9 @@ mod tests {
                 id,
                 initial_ranking: 24,
             },
+            document_content: DocumentContentComponent {
+                ..Default::default()
+            },
             smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi,
@@ -82,6 +124,9 @@ mod tests {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking: 42,
+            },
+            document_content: DocumentContentComponent {
+                ..Default::default()
             },
             smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },

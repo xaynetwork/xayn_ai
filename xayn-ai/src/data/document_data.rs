@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::{document::DocumentId, CoiId},
+    data::{
+        document::{DocumentId, QueryId, SessionId},
+        CoiId,
+    },
     embedding::smbert::Embedding,
     reranker::systems::CoiSystemData,
 };
@@ -13,11 +16,16 @@ pub(crate) struct DocumentBaseComponent {
     pub(crate) initial_ranking: usize,
 }
 
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone, Default))]
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentContentComponent {
     pub(crate) snippet: String,
+    pub(crate) session: SessionId,
+    pub(crate) query_count: usize,
+    pub(crate) query_id: QueryId,
     pub(crate) query_words: String,
+    pub(crate) url: String,
+    pub(crate) domain: String,
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
@@ -82,10 +90,13 @@ macro_rules! impl_coi_system_data_no_coi {
     };
 }
 
-/// Document usage order:
-/// [`DocumentDataWithDocument`] -> [`DocumentDataWithSMBert`] -> [`DocumentDataWithCoi`] ->
-/// [`DocumentDataWithLtr`] -> [`DocumentDataWithContext`] -> [`DocumentDataWithMab`]
-
+/// Document usage order: [`DocumentDataWithDocument`]
+/// -> [`DocumentDataWithSMBert`]
+/// -> [`DocumentDataWithQAMBert`]
+/// -> [`DocumentDataWithCoi`]
+/// -> [`DocumentDataWithLtr`]
+/// -> [`DocumentDataWithContext`]
+/// -> [`DocumentDataWithMab`]
 pub(crate) struct DocumentDataWithDocument {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) document_content: DocumentContentComponent,
@@ -120,6 +131,7 @@ impl_coi_system_data_no_coi! {DocumentDataWithSMBert}
 #[allow(clippy::upper_case_acronyms)]
 pub(crate) struct DocumentDataWithQAMBert {
     pub(crate) document_base: DocumentBaseComponent,
+    pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
 }
@@ -131,6 +143,7 @@ impl DocumentDataWithQAMBert {
     ) -> Self {
         Self {
             document_base: document.document_base,
+            document_content: document.document_content,
             smbert: document.smbert,
             qambert,
         }
@@ -141,6 +154,7 @@ impl_coi_system_data_no_coi! {DocumentDataWithQAMBert}
 
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_base: DocumentBaseComponent,
+    pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
@@ -150,6 +164,7 @@ impl DocumentDataWithCoi {
     pub(crate) fn from_document(document: DocumentDataWithQAMBert, coi: CoiComponent) -> Self {
         Self {
             document_base: document.document_base,
+            document_content: document.document_content,
             smbert: document.smbert,
             qambert: document.qambert,
             coi,
@@ -255,6 +270,7 @@ mod tests {
         let document_content = DocumentContentComponent {
             snippet: "snippet".to_string(),
             query_words: "query".to_string(),
+            ..Default::default()
         };
         let document_data = DocumentDataWithDocument {
             document_base: document_id.clone(),

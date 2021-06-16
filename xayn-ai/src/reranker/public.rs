@@ -10,7 +10,7 @@ use crate::{
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
-    ltr::ConstLtr,
+    ltr::DomainReranker,
     mab::{BetaSampler, MabRanking},
     Error,
 };
@@ -35,7 +35,7 @@ pub struct Systems {
     smbert: SMBert,
     qambert: QAMBert,
     coi: CoiSystemImpl,
-    ltr: ConstLtr,
+    ltr: DomainReranker,
     context: Context,
     mab: MabRanking<BetaSampler>,
     analytics: AnalyticsSystemImpl,
@@ -195,7 +195,7 @@ impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
             .with_pooling(AveragePooler)
             .build()?;
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
-        let ltr = ConstLtr::new();
+        let ltr = DomainReranker;
         let context = Context;
         let mab = MabRanking::new(BetaSampler);
         let analytics = AnalyticsSystemImpl;
