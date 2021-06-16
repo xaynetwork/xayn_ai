@@ -7,7 +7,7 @@ inputs:
   wasm-suffix:
     description: 'The WASM suffix.'
   wasm-rel-path:
-    description: 'The relative path (repository root) of the WASM artifacts.'
+    description: 'The relative path (wrt the repository root) of the WASM artifacts.'
   release:
     description: 'Flag that controls if the asset artifacts are generated for release.'
     required: true
