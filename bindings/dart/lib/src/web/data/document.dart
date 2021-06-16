@@ -12,6 +12,7 @@ class JsDocument {
     String id,
     int rank,
     String title,
+    String snippet,
     String session,
     // ignore: non_constant_identifier_names
     int query_count,
@@ -32,6 +33,7 @@ extension ToJsDocuments on List<Document> {
           id: this[i].id,
           rank: this[i].rank,
           title: this[i].title,
+          snippet: this[i].snippet,
           session: this[i].session,
           query_count: this[i].queryCount,
           query_id: this[i].queryId,
