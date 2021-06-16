@@ -14,10 +14,10 @@ inputs:
     default: 'false'
 outputs:
   dart-manifest:
-    description: "The relative path (repository root) of the Dart manifest."
+    description: "The relative path (wrt the repository root) of the Dart manifest."
     value: ${{ steps.artifact-paths.outputs.dart-manifest }}
   json-manifest:
-    description: "The relative path (repository root) of the JSON manifest."
+    description: "The relative path (wrt the repository root) of the JSON manifest."
     value: ${{ steps.artifact-paths.outputs.json-manifest }}
 runs:
   using: "composite"
@@ -26,7 +26,7 @@ runs:
       shell: bash
       run: |
         echo "::set-output name=dart-manifest::$(echo ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart)"
-        echo "::set-output name=json-manifest::$(echo out/assets.json)"
+        echo "::set-output name=json-manifest::out/assets.json"
 
     - shell: bash
       env:
