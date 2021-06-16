@@ -459,7 +459,7 @@ jobs:
             ${{ steps.asset-paths.outputs.dart-manifest }}
             ${{ steps.asset-paths.outputs.json-manifest }}
 
-  upload-asset-artifacts:
+  upload-asset-artifacts-to-s3:
     name: upload-asset-artifacts
     runs-on: ubuntu-20.04
     needs: [build-wasm-lib-release, build-asset-artifacts]
