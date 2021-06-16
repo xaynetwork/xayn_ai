@@ -191,6 +191,12 @@ jobs:
         run: |
           flutter pub run build_runner build
 
+      - name: Find .g.dart Dart Artifacts
+        id: find_g_dart_artifacts
+        run: |
+          artifacts="$(find ${{ env.DART_WORKSPACE }}/lib -type f -regex ".*\.g\.dart" -exec echo -n {}%0A \; )"
+          echo "::set-output name=artifacts::$artifacts"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -201,6 +207,7 @@ jobs:
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
             ${{ env.DART_WORKSPACE }}/lib/src/common/ffi/genesis.dart
             ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi/genesis.dart
+            ${{ steps.find_g_dart_artifacts.outputs.artifacts }}
 
   build-android-libs:
     name: build-android-libs
