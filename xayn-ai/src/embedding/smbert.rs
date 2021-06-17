@@ -1,12 +1,10 @@
-use rubert::{Embedding1, SMBert};
+use rubert::SMBert;
 
 use crate::{
     data::document_data::{DocumentDataWithDocument, DocumentDataWithSMBert, SMBertComponent},
     error::Error,
     reranker::systems::SMBertSystem,
 };
-
-pub(crate) type Embedding = Embedding1;
 
 impl SMBertSystem for SMBert {
     fn compute_embedding(

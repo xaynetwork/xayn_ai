@@ -23,7 +23,7 @@ use crate::{
         NegativeCoi,
         PositiveCoi,
     },
-    embedding::smbert::Embedding,
+    embedding::utils::Embedding,
     reranker::systems::{CoiSystemData, SMBertSystem},
     Document,
     DocumentHistory,

@@ -1,6 +1,9 @@
 use std::ops::Deref;
 
 use ndarray::{ArrayBase, Data, Ix1};
+use rubert::Embedding1;
+
+pub(crate) type Embedding = Embedding1;
 
 /// Computes the l2 norm (euclidean metric) of the difference of two vectors.
 ///
@@ -31,7 +34,6 @@ mod tests {
     use ndarray::arr1;
 
     use super::*;
-    use crate::{assert_approx_eq, embedding::smbert::Embedding};
 
     #[test]
     fn test_l2_distance() {
