@@ -87,7 +87,8 @@ void main() {
       final documents = [
         Document(
           id: 'fcb6a685-eb92-4d36-8686-8a70a3a33003',
-          snippet: 'a b c',
+          title: 'a b c',
+          snippet: 'snippet of a b c',
           rank: 1,
           session: 'fcb6a685-eb92-4d36-8686-000000000000',
           queryCount: 21,
@@ -98,7 +99,8 @@ void main() {
         ),
         Document(
           id: 'fcb6a685-eb92-4d36-8686-8a70a3a33004',
-          snippet: 'ab de',
+          title: 'ab de',
+          snippet: 'snippet of ab de',
           rank: 2,
           session: 'fcb6a685-eb92-4d36-8686-000000000100',
           queryCount: 21,
@@ -139,7 +141,8 @@ void main() {
 
       expect(jsonMap['documents'][1]['id'],
           equals('fcb6a685-eb92-4d36-8686-8a70a3a33004'));
-      expect(jsonMap['documents'][1]['snippet'], equals('ab de'));
+      expect(jsonMap['documents'][1]['title'], equals('ab de'));
+      expect(jsonMap['documents'][1]['snippet'], equals('snippet of ab de'));
       expect(jsonMap['documents'][1]['rank'], equals(2));
       expect(jsonMap['documents'][1]['session'],
           equals('fcb6a685-eb92-4d36-8686-000000000100'));
@@ -209,7 +212,8 @@ void main() {
 
       expect(callData.documents[0].id,
           equals('fcb6a685-eb92-4d36-8686-8a70a3a33003'));
-      expect(callData.documents[0].snippet, equals('a b c'));
+      expect(callData.documents[0].title, equals('a b c'));
+      expect(callData.documents[0].snippet, equals('snippet of a b c'));
       expect(callData.documents[0].rank, equals(1));
       expect(callData.documents[0].session,
           equals('fcb6a685-eb92-4d36-8686-000000000000'));
@@ -222,7 +226,8 @@ void main() {
 
       expect(callData.documents[1].id,
           equals('fcb6a685-eb92-4d36-8686-8a70a3a33004'));
-      expect(callData.documents[1].snippet, equals('ab de'));
+      expect(callData.documents[1].title, equals('ab de'));
+      expect(callData.documents[1].snippet, equals('snippet of ab de'));
       expect(callData.documents[1].rank, equals(2));
       expect(callData.documents[1].session,
           equals('fcb6a685-eb92-4d36-8686-000000000100'));
