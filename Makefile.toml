@@ -15,22 +15,9 @@ default_to_workspace = false
 [tasks.default]
 dependencies = ["build"]
 
+# Builds rust libs and dart bindings to them.
 [tasks.build]
-dependencies = ["build-bindgen"]
-
-[tasks.build-mobile.linux]
-dependencies = ["build-android"]
-
-[tasks.build-mobile.mac]
-dependencies = ["build-android", "build-ios"]
-
-[tasks.gen-assets]
-script = ["""
-  mkdir -p out
-  gomplate -f data/asset_templates/assets.json.tmpl -o out/assets.json
-  gomplate -d assets=out/assets.json -f data/asset_templates/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
-  flutter format bindings/dart/lib/src/common/reranker/assets.dart
-"""]
+dependencies = ["build-dart"]
 
 # builds xayn-ai library that can be used to run flutter tests locally
 [tasks.build-local]
@@ -38,12 +25,33 @@ script = ["""
   cargo build
 """]
 
+[tasks.build-mobile.linux]
+dependencies = ["build-android"]
+
+[tasks.build-mobile.mac]
+dependencies = ["build-android", "build-ios"]
+
+[tasks.build-android]
+dependencies = ["build-dart"]
+script = ["""
+  cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release
+"""]
+
+[tasks.build-ios]
+dependencies = ["build-dart"]
+script = ["""
+  cargo lipo --targets $IOS_TARGETS --release
+  cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
+"""]
+
+[tasks.build-dart]
+dependencies = ["build-bindgen-dart", "build-codegen-dart", "gen-assets"]
+
 [tasks.build-bindgen-dart]
 workspace = false
-dependencies = ["build-local"]
+dependencies = ["build-local", "flutter-pub-get"]
 script = ["""
   cd bindings/dart
-  flutter pub get
   flutter pub run ffigen --config ffigen_common.yaml
   flutter pub run ffigen --config ffigen_mobile.yaml
 
@@ -53,20 +61,35 @@ script = ["""
   mv genesis genesis.dart
 """]
 
-[tasks.build-android]
-dependencies = ["build-bindgen-dart", "gen-assets"]
+# Non bindgen codegen for dart (mainly run `build_runner build`)
+[tasks.build-codegen-dart]
+workspace = false
+dependencies = ["flutter-pub-get"]
 script = ["""
-  cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release
+  cd bindings/dart
+  flutter pub run build_runner build
 """]
 
-[tasks.build-ios]
-dependencies = ["build-bindgen-dart", "gen-assets"]
+[tasks.flutter-pub-get]
+workspace = false
 script = ["""
-  cargo lipo --targets $IOS_TARGETS --release
-  cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
+  cd bindings/dart
+  flutter pub get
+"""]
+
+[tasks.gen-assets]
+script = ["""
+  mkdir -p out
+  gomplate -f data/asset_templates/assets.json.tmpl -o out/assets.json
+  gomplate -d assets=out/assets.json -f data/asset_templates/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
+  flutter format bindings/dart/lib/src/common/reranker/assets.dart
 """]
 
 [tasks.build-web]
+# This will run build-local "unnecessarily" it also
+# will run gen-assets for non-was before then later
+# overwriting it. This will be fixed in a later PR.
+dependencies = [ "build-dart" ]
 script_runner = "@duckscript"
 env = { WASM_SUFFIX="wasm_bindings" }
 script = ["""
@@ -83,6 +106,14 @@ script = ["""
   rm $WASM_REL_PATH/.gitignore
 """]
 
+[tasks.test-wasm]
+script = ["""
+  # This is (way) faster, if rust would allow it we would love to have target specific profile optimization levels
+  CARGO_PROFILE_DEV_OPT_LEVEL="2" \
+    CARGO_PROFILE_TEST_OPT_LEVEL="2" \
+    wasm-pack test xayn-ai-ffi-wasm --firefox --headless
+"""]
+
 [tasks.clean-bindgen]
 script = ["""
   cd bindings/dart
@@ -93,4 +124,9 @@ script = ["""
   rm -f example/wasm_bindings/genesis_bg.wasm
   rm -f example/wasm_bindings/genesis.js
   rm -f example/wasm_bindings/package.json
+"""]
+
+[tasks.clean-codegen]
+script = ["""
+  find ./bindings/dart -type f -regex '.*\\.g\\.dart' -exec rm {} \\;
 """]

@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart'
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show
         DayOfWeekToInt,
-        Feedback,
+        UserFeedback,
         FeedbackToInt,
         Relevance,
         RelevanceToInt,
@@ -19,7 +19,7 @@ void main() {
   group('History', () {
     test('empty', () {
       expect(
-        () => mkTestHist('', Relevance.low, Feedback.irrelevant),
+        () => mkTestHist('', Relevance.low, UserFeedback.irrelevant),
         throwsArgumentError,
       );
     });
@@ -40,7 +40,7 @@ void main() {
         );
         expect(
           hist.user_feedback,
-          equals(history.feedback.toInt()),
+          equals(history.userFeedback.toInt()),
         );
         expect(
           hist.session.cast<Utf8>().toDartString(),

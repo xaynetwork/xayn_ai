@@ -1,8 +1,10 @@
 import 'dart:typed_data' show Uint8List;
 
+import 'package:json_annotation/json_annotation.dart' show JsonValue;
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
-import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' as ffi;
+import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' as ffi
+    show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
@@ -12,20 +14,25 @@ import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
 
 /// Rerank mode
 enum RerankMode {
+  @JsonValue(ffi.RerankMode.News)
   news,
+  @JsonValue(ffi.RerankMode.Search)
   search,
 }
 
 extension RerankModeToInt on RerankMode {
   /// Gets the discriminant.
   int toInt() {
+    // We can't use `_$RerankModeEnumMap` as it only gets generated for
+    // files which have a `@JsonSerializable` type containing the enum.
+    // You can't make enums `@JsonSerializable`. Given that `RerankMode`
+    // has only few variants and rarely changes we just write this switch
+    // statement by hand.
     switch (this) {
       case RerankMode.news:
         return ffi.RerankMode.News;
       case RerankMode.search:
         return ffi.RerankMode.Search;
-      default:
-        throw UnsupportedError('Undefined enum variant.');
     }
   }
 }

@@ -1,0 +1,33 @@
+{
+    "rerank_mode": 1,
+    "histories": [
+        {
+            "id": "fcb6a685-eb92-4d36-8686-000000000000",
+            "relevance":  2,
+            "user_feedback": 1,
+            "rank": 0,
+            "user_action": 2,
+            "session": "fcb6a685-eb92-4d36-8686-a00000000010",
+            "query_count": 1,
+            "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
+            "query_words": "transport",
+            "day": 0,
+            "url": "url",
+            "domain": "dom"
+        }
+    ],
+    "documents": [
+        {
+            "id": "fcb6a685-eb92-4d36-8686-000000000000",
+            "snippet": "apple",
+            "rank": 0,
+            "session": "fcb6a685-eb92-4d36-8686-a00000000010",
+            "query_count": 2,
+            "query_id": "fcb6a685-eb92-4d36-8686-b00000000012",
+            "query_words": "bunny",
+            "url": "url",
+            "domain": "dom"
+        }
+    ],
+    "serialized_state": null
+}

@@ -1,6 +1,10 @@
+import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 import 'package:meta/meta.dart' show immutable;
 
+part 'document.g.dart';
+
 /// The document.
+@JsonSerializable()
 @immutable
 class Document {
   /// Unique identifier of the document.
@@ -31,17 +35,17 @@ class Document {
   final String domain;
 
   /// Creates the document.
-  Document(
-    this.id,
-    this.snippet,
-    this.rank,
-    this.session,
-    this.queryCount,
-    this.queryId,
-    this.queryWords,
-    this.url,
-    this.domain,
-  ) {
+  Document({
+    required this.id,
+    required this.snippet,
+    required this.rank,
+    required this.session,
+    required this.queryCount,
+    required this.queryId,
+    required this.queryWords,
+    required this.url,
+    required this.domain,
+  }) {
     if (id.isEmpty) {
       throw ArgumentError('empty document id');
     }
@@ -67,4 +71,9 @@ class Document {
       throw ArgumentError('empty document domain');
     }
   }
+
+  factory Document.fromJson(Map<String, dynamic> json) =>
+      _$DocumentFromJson(json);
+
+  Map<String, dynamic> toJson() => _$DocumentToJson(this);
 }

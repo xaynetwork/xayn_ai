@@ -8,8 +8,6 @@ runs:
   using: "composite"
   steps:
     - shell: bash
-      env:
-          CARGO_MAKE_PROFILE: development
       run: |
         mkdir -p out
         gomplate -f data/asset_templates/assets.json.tmpl -o out/assets.json

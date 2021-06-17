@@ -5,34 +5,36 @@ import 'package:flutter/material.dart'
         Center,
         Colors,
         Column,
+        Container,
+        Divider,
+        EdgeInsets,
         ElevatedButton,
+        Expanded,
+        ListView,
         MaterialApp,
-        runApp,
+        MaterialPageRoute,
+        Navigator,
+        Padding,
+        Row,
         Scaffold,
+        Spacer,
         State,
         StatefulWidget,
+        StatelessWidget,
         Text,
+        TextButton,
         TextStyle,
-        Widget;
+        Widget,
+        debugPrint,
+        runApp;
+
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:stats/stats.dart' show Stats;
 
-import 'package:xayn_ai_ffi_dart/package.dart'
-    show
-        DayOfWeek,
-        Document,
-        Feedback,
-        History,
-        Relevance,
-        UserAction,
-        XaynAi,
-        RerankMode;
-
-import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
-    if (dart.library.io) 'data_provider/mobile.dart'
-    if (dart.library.js) 'data_provider/web.dart' show getInputData;
+import 'package:xayn_ai_ffi_dart_example/logic.dart' show Logic, Outcome;
 
 void main() {
-  runApp(MyApp());
+  runApp(MaterialApp(title: 'XaynAi Test/Example App', home: MyApp()));
 }
 
 class MyApp extends StatefulWidget {
@@ -41,257 +43,260 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late XaynAi _ai;
-  String _msg = '';
-  Function()? _onBenchReady;
+  // We cannot use `late`. If we would do so and loading it takes long enough
+  // for the application to be rendered then this can cause an exception.
+  Logic? _logic;
+  Stats<num>? _lastBenchmarkStats;
+  List<Outcome>? _lastResults;
 
   @override
   void initState() {
     super.initState();
-    initAi();
+
+    debugPrint('start loading assets');
+    Logic.load(rootBundle).then((logic) {
+      debugPrint('loaded assets');
+      // Calling `setState` after it was disposed is considered an error.
+      if (mounted) {
+        setState(() {
+          _logic = logic;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     super.dispose();
-    _ai.free();
+    _logic?.free();
   }
 
-  Future<void> initAi() async {
-    final data = await getInputData();
+  Widget currentCallDataView(BuildContext context) {
+    final name = _logic!.currentCallDataKey.split('/').last;
+    return Padding(
+        padding: EdgeInsets.all(10),
+        child: Row(
+          children: [
+            Text(name),
+            Spacer(),
+            ElevatedButton(
+              onPressed: () {
+                selectCallData(context);
+              },
+              child: Text('Change Call Data',
+                  style: TextStyle(color: Colors.white)),
+            )
+          ],
+        ));
+  }
 
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
+  Widget benchmarkView() {
+    final stats = _lastBenchmarkStats;
 
-    final ai = await XaynAi.create(data);
-    setState(() {
-      _ai = ai;
-      _msg = '';
-      _onBenchReady = benchRerank;
-    });
+    if (stats == null) {
+      return Center(
+        child: Text('-- no benchmark stats --'),
+      );
+    }
+
+    final min = stats.min;
+    final median = stats.median;
+    final max = stats.max;
+    final avg = stats.average;
+    final std = stats.standardDeviation;
+
+    return Text('Min: $min Median: $median Max: $max Avg: $avg Std: $std');
+  }
+
+  Widget resultsView() {
+    final results = _lastResults;
+
+    if (results == null || results.isEmpty) {
+      return Center(
+        child: Text('-- no results --'),
+      );
+    }
+
+    return ListView.separated(
+        padding: const EdgeInsets.all(8),
+        itemCount: results.length,
+        itemBuilder: (BuildContext context, int listIdx) {
+          final outcome = results[listIdx];
+          final rank = outcome.finalRank;
+          final initialRank = outcome.document.rank;
+          final contextValue = outcome.contextValue?.toStringAsFixed(3);
+          final qaMBertSimilarity =
+              outcome.qaMBertSimilarity?.toStringAsFixed(3);
+
+          return Container(
+              height: 50,
+              child: Center(
+                  child: Row(children: [
+                Text(
+                  '$rank',
+                  style: TextStyle(fontSize: 40),
+                ),
+                const Spacer(),
+                Text(
+                    'Initial Rank: $initialRank\nContext Score: $contextValue\nQA-mBert Similarity: $qaMBertSimilarity'),
+                const Spacer(),
+              ])));
+        },
+        separatorBuilder: (BuildContext context, int index) => const Divider());
+  }
+
+  Widget appView(BuildContext context) {
+    if (_logic == null) {
+      return Center(
+        child: Text('Loading XaynAi and assets.'),
+      );
+    }
+
+    return Column(
+      children: [
+        currentCallDataView(context),
+        ElevatedButton(
+          onPressed: resetAi,
+          child: Text('Reset AI', style: TextStyle(color: Colors.white)),
+        ),
+        ElevatedButton(
+          onPressed: printCallDataWithCurrentState,
+          child: Text('Print updated Call Data',
+              style: TextStyle(color: Colors.white)),
+        ),
+        ElevatedButton(
+          onPressed: benchRerank,
+          child:
+              Text('Benchmark Rerank', style: TextStyle(color: Colors.white)),
+        ),
+        benchmarkView(),
+        ElevatedButton(
+          onPressed: singleRerank,
+          child:
+              Text('Run Single Rerank', style: TextStyle(color: Colors.white)),
+        ),
+        Expanded(child: resultsView()),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('XainAi Test Bench'),
-        ),
-        body: Center(
-            child: Column(
-          children: [
-            ElevatedButton(
-              onPressed: _onBenchReady,
-              child: Text('Benchmark Rerank',
-                  style: TextStyle(color: Colors.white)),
-            ),
-            Text(_msg),
-          ],
-        )),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('XainAi Test/Example App'),
       ),
+      body: appView(context),
     );
   }
 
+  void singleRerank() {
+    final results = _logic!.run();
+    setState(() {
+      _lastResults = results;
+    });
+  }
+
   void benchRerank() {
-    const preBenchNum = 10;
-    const benchNum = 100;
-
-    // Init state with feedback loop
-    _ai.rerank(RerankMode.search, histories, documents);
-    _ai.rerank(RerankMode.search, histories, documents);
-
-    // ensure that code and data is in cache as much as possiible.
-    for (var i = 0; i < preBenchNum; i++) {
-      _ai.rerank(RerankMode.search, histories, documents);
-    }
-
-    final times = List<num>.empty(growable: true);
-    for (var i = 0; i < benchNum; i++) {
-      final start = DateTime.now().millisecondsSinceEpoch;
-      _ai.rerank(RerankMode.search, histories, documents);
-      final end = DateTime.now().millisecondsSinceEpoch;
-
-      times.add(end - start);
-
-      print(i);
-    }
+    final stats = _logic!.benchmark();
 
     setState(() {
-      _msg = stats(times);
+      _lastBenchmarkStats = stats;
     });
+  }
+
+  void resetAi() {
+    _logic!.resetXaynAiState();
+    setState(() {
+      _lastBenchmarkStats = null;
+      _lastResults = null;
+    });
+  }
+
+  void printCallDataWithCurrentState() {
+    final jsonString = _logic!.createUpdatedCallData().toJsonString();
+    printChunked(jsonString);
+  }
+
+  Future<void> selectCallData(BuildContext context) async {
+    print('start navigation');
+    final newCallDataKey = await Navigator.push(
+        context,
+        MaterialPageRoute<String>(
+          builder: (BuildContext context) =>
+              SelectCallData(_logic!.availableCallDataKeys().toList()),
+        ));
+
+    if (newCallDataKey != null) {
+      await _logic!.selectCallData(newCallDataKey);
+      setState(() {
+        _lastResults = null;
+      });
+    }
   }
 }
 
-final sesh = '00000000-0000-0000-0000-000000000010';
-final query = '00000000-0000-0000-0000-000000000011';
+class SelectCallData extends StatelessWidget {
+  final List<String> availableData;
 
-final histories = [
-  History(
-      '00000000-0000-0000-0000-000000000000',
-      Relevance.low,
-      Feedback.irrelevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      8,
-      UserAction.miss),
-  History(
-      '00000000-0000-0000-0000-000000000001',
-      Relevance.medium,
-      Feedback.irrelevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      7,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000002',
-      Relevance.high,
-      Feedback.irrelevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      6,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000003',
-      Relevance.low,
-      Feedback.irrelevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      5,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000004',
-      Relevance.medium,
-      Feedback.irrelevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      4,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000005',
-      Relevance.high,
-      Feedback.irrelevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      3,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000006',
-      Relevance.low,
-      Feedback.relevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      2,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000007',
-      Relevance.medium,
-      Feedback.relevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      1,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000008',
-      Relevance.high,
-      Feedback.relevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      0,
-      UserAction.skip),
-  History(
-      '00000000-0000-0000-0000-000000000009',
-      Relevance.high,
-      Feedback.relevant,
-      sesh,
-      1,
-      query,
-      'transport',
-      DayOfWeek.mon,
-      'url',
-      'dom',
-      9,
-      UserAction.skip),
-];
+  SelectCallData(this.availableData);
 
-final documents = [
-  Document('00000000-0000-0000-0000-000000000000', 'ship', 0, sesh, 1, query,
-      'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000001', 'car', 1, sesh, 1, query,
-      'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000002', 'auto', 2, sesh, 1, query,
-      'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000003', 'flugzeug', 3, sesh, 1,
-      query, 'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000004', 'plane', 4, sesh, 1, query,
-      'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000005', 'vehicle', 5, sesh, 1, query,
-      'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000006', 'truck', 6, sesh, 1, query,
-      'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000007', 'trunk', 7, sesh, 1, query,
-      'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000008', 'motorbike', 8, sesh, 1,
-      query, 'transport', 'url', 'dom'),
-  Document('00000000-0000-0000-0000-000000000009', 'bicycle', 9, sesh, 1, query,
-      'transport', 'url', 'dom'),
-];
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(title: Text('Select Call Data')),
+        body: ListView.separated(
+            padding: const EdgeInsets.all(8),
+            itemCount: availableData.length,
+            itemBuilder: (BuildContext context, int listIdx) {
+              final name = availableData[listIdx];
+              return Container(
+                  height: 50,
+                  child: Center(
+                    child: TextButton(
+                        onPressed: () {
+                          Navigator.pop(context, name);
+                        },
+                        child: Text(name)),
+                  ));
+            },
+            separatorBuilder: (BuildContext context, int index) =>
+                const Divider()));
+  }
+}
 
-String stats(Iterable<num> times) {
-  final stats = Stats.fromData(times).withPrecision(3);
+final _printChunkedRegex = RegExp(r'(.{0,80})');
 
-  final avg = stats.average;
-  final median = stats.median;
-  final min = stats.min;
-  final max = stats.max;
-  final std = stats.standardDeviation;
-
-  return 'Min: $min, Max: $max, Avg: $avg, Median: $median, Std: $std';
+/// Workaround for problems with string concatenation.
+///
+/// When using `print` or `debugPrint` longer messages might
+/// get truncated, at least when running it on a android
+/// phone over adb using `flutter run`.
+///
+/// Using `debugPrint(test, wrapWidth: 1024)` is a workaround
+/// which often works, but not always as:
+///
+/// - It uses full word line wrapping, and as such won't work
+///   if there are any larger "words" (like base64 blobs).
+///
+/// - It seems (unclear) that the limit of `1024` might not
+///   always be small enough.
+///
+/// So this is a "ad-hoc" workaround:
+///
+/// - We split the string into chunks of 80 characters, the
+///   simplest way to do so is using the given regex.
+///
+/// - If this wouldn't be some ad-hoc debug helper we probably
+///   would implement splitting by at most 80 bytes at character
+///   boundary.
+///
+/// - 80 is a arbitrary chosen value which is not to large even
+///   with unicode and works well with "small" terminals.
+void printChunked(String text) {
+  print('--- START Chunks ----');
+  _printChunkedRegex
+      .allMatches(text)
+      .forEach((match) => print(match.group(0)!));
+  print('--- END Chunks ----');
 }
