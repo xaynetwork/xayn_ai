@@ -186,6 +186,17 @@ jobs:
           flutter pub run ffigen --config ffigen_mobile.yaml
           grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
 
+      - name: Other Dart code generation
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: |
+          flutter pub run build_runner build
+
+      - name: Find .g.dart Artifacts
+        id: find_g_dart_artifacts
+        run: |
+          artifacts="$(find ${{ env.DART_WORKSPACE }}/lib -type f -regex ".*\.g\.dart" -exec echo -n {}%0A \; )"
+          echo "::set-output name=artifacts::$artifacts"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -196,6 +207,7 @@ jobs:
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
             ${{ env.DART_WORKSPACE }}/lib/src/common/ffi/genesis.dart
             ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi/genesis.dart
+            ${{ steps.find_g_dart_artifacts.outputs.artifacts }}
 
   build-android-libs:
     name: build-android-libs
@@ -353,12 +365,14 @@ jobs:
           cp -r ios-*/* ${{ env.DART_WORKSPACE }}/ios
 
       - name: Copy headers
+        shell: bash
         run: |
           cd /tmp/artifacts/headers-${{ github.sha }}
           cp ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes
           cp ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes
           cp lib/src/common/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/common/ffi
           cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi
+          find lib/ -type f -regex ".*\.g\.dart" -exec cp --parents '{}' ${{ env.DART_WORKSPACE }}/ \;
 
       - name: Get current branch
         shell: bash

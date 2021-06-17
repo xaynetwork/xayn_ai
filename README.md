@@ -16,6 +16,9 @@ To build the library you just need to run `cargo build` in the root of the proje
 To generate the dart ffi you need to run `flutter pub get` and `flutter pub run ffigen` in
 the directory `bindings/dart`.
 
+To update the non-ffi auto generated dart code after changes to dart code you need
+to run `flutter pub run build_runner build`.
+
 The project provides a `Makefile.toml` that can be run with `cargo make`.
 You can install cargo make with:
 
@@ -57,6 +60,11 @@ Also `cargo-ndk` is needed:
 ```
 cargo install --version 2.3.0 cargo-ndk
 ```
+
+You also need to install android ndk and might need to set the `ANDROID_NDK_HOME` variable.
+If you install the android ndk through AndroidStudio you would need to set `ANDROID_NDK_HOME`
+to something like `~/Android/Sdk/ndk/<ndk-version>` which for example could be
+`/home/user/Android/Sdk/ndk/22.1.7171670/`.
 
 ### iOS
 

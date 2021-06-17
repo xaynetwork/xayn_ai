@@ -30,7 +30,7 @@ class Histories {
         var chist = _hists.ref.data[i];
         chist.id = history.id.toNativeUtf8().cast<Uint8>();
         chist.relevance = history.relevance.toInt();
-        chist.user_feedback = history.feedback.toInt();
+        chist.user_feedback = history.userFeedback.toInt();
         chist.session = history.session.toNativeUtf8().cast<Uint8>();
         chist.query_count = history.queryCount;
         chist.query_id = history.queryId.toNativeUtf8().cast<Uint8>();

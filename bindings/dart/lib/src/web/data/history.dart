@@ -17,7 +17,8 @@ class JsHistory {
   external factory JsHistory({
     String id,
     int relevance,
-    int feedback,
+    // ignore: non_constant_identifier_names
+    int user_feedback,
     String session,
     // ignore: non_constant_identifier_names
     int query_count,
@@ -41,7 +42,7 @@ extension ToJsHistories on List<History> {
         (i) => JsHistory(
           id: this[i].id,
           relevance: this[i].relevance.toInt(),
-          feedback: this[i].feedback.toInt(),
+          user_feedback: this[i].userFeedback.toInt(),
           session: this[i].session,
           query_count: this[i].queryCount,
           query_id: this[i].queryId,
