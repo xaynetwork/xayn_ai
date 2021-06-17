@@ -128,8 +128,5 @@ script = ["""
 
 [tasks.clean-codegen]
 script = ["""
-  cd bindings/dart
-  rm -f lib/src/common/data/history.g.dart
-  rm -f lib/src/common/data/document.g.dart
-  rm -f lib/src/common/reranker/debug.g.dart
+  find ./bindings/dart -type f -regex '.*\\.g\\.dart' -exec rm {} \\;
 """]
