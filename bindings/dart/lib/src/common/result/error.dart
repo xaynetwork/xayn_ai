@@ -64,6 +64,9 @@ enum Code {
   /// A document title null pointer error.
   documentTitlePointer,
 
+  /// A document snippet null pointer error.
+  documentSnippetPointer,
+
   /// A document session id null pointer error.
   documentSessionPointer,
 
@@ -136,6 +139,8 @@ extension CodeToInt on Code {
         return CCode.DocumentIdPointer;
       case Code.documentTitlePointer:
         return CCode.DocumentTitlePointer;
+      case Code.documentSnippetPointer:
+        return CCode.DocumentSnippetPointer;
       case Code.documentSessionPointer:
         return CCode.DocumentSessionPointer;
       case Code.documentQueryIdPointer:
@@ -204,6 +209,8 @@ extension IntToCode on int {
         return Code.documentIdPointer;
       case CCode.DocumentTitlePointer:
         return Code.documentTitlePointer;
+      case CCode.DocumentSnippetPointer:
+        return Code.documentSnippetPointer;
       case CCode.DocumentSessionPointer:
         return Code.documentSessionPointer;
       case CCode.DocumentQueryIdPointer:
