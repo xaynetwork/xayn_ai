@@ -51,8 +51,8 @@ impl<'a> CHistories<'a> {
     /// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least
     /// `len` many [`CHistory`]s.
     /// - A `len` is too large to address the memory of a non-null [`CHistory`] array.
-    /// - A non-null `id` doesn't point to an aligned, contiguous area of memory with a terminating
-    /// null byte.
+    /// - A non-null pointer of a "text" field in in any [`CHistory`] does not point to an aligned,
+    ///   contiguous area of memory with a terminating null bytes (`id` is a "text" field).
     pub unsafe fn to_histories(&self) -> Result<Vec<DocumentHistory>, Error> {
         match (self.data, self.len) {
             (None, _) | (_, 0) => Ok(Vec::new()),

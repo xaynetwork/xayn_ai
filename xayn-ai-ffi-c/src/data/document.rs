@@ -47,8 +47,8 @@ impl<'a> CDocuments<'a> {
     /// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least
     /// `len` many [`CDocument`]s.
     /// - A `len` is too large to address the memory of a non-null [`CDocument`] array.
-    /// - A non-null `id` or `title` doesn't point to an aligned, contiguous area of memory with a
-    /// terminating null byte.
+    /// - A non-null pointer of a "text" field in in any [`CDocument`] does not point to an aligned,
+    ///   contiguous area of memory with a terminating null bytes (`id` is a "text" field).
     pub unsafe fn to_documents(&self) -> Result<Vec<Document>, Error> {
         match (self.data, self.len) {
             (None, _) | (_, 0) => Ok(Vec::new()),
@@ -166,11 +166,6 @@ pub(crate) mod tests {
     use super::*;
     use crate::utils::tests::as_str_unchecked;
 
-    //FIXME[philipp] code around this is unsound, has user-after free and leaks memory
-    // 1. This is a self referential struct, but there are soundness issues around self
-    //    referential structs. Currently the only way to work around this is to guarantee
-    //    the self referential sturct is `!Unpin`. We still need to track https://github.com/rust-lang/rust/issues/63818.
-    // 2. The drop implementation looks suss. At lest document it more.
     pub struct TestDocuments<'a> {
         _ids: Pin<Vec<CString>>,
         _titles: Pin<Vec<CString>>,

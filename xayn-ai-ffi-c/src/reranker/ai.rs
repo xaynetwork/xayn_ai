@@ -201,17 +201,9 @@ pub unsafe extern "C" fn xaynai_new(
 /// The behavior is undefined if:
 /// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
 /// - A non-null `histories` doesn't point to an aligned, contiguous are of memory with a
-/// [`CHistories`].
-/// - A non-null histories `data` doesn't point to an aligned, contiguous area of memory with
-/// at least histories `len` many [`CHistory`]s.
-/// - A histories `len` is too large to address the memory of a non-null [`CHistory`] array.
-/// - A non-null `documents` doesn't point to an aligned, contiguous area of memory with a
-/// [`CDocuments`].
-/// - A non-null documents `data` doesn't point to an aligned, contiguous area of memory with
-/// at least documents `len` many [`CDocument`]s.
-/// - A documents `len` is too large to address the memory of a non-null [`CDocument`] array.
-/// - A non-null `id` or `title` doesn't point to an aligned, contiguous area of memory with a
-/// terminating null byte.
+///   [`CHistories`] instance and all safety invariants of [`CHistories`] are uphold.
+/// - A non-null `documents` doesn't point to an aligned, contiguous are of memory with a
+///   [`CDocuments`] instance and all safety invariants of [`CDocuments`] are uphold.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 /// - A non-null `xaynai` is accessed after a panic.
 ///
