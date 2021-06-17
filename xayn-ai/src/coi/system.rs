@@ -18,7 +18,7 @@ use crate::{
         CoiPoint,
         UserInterests,
     },
-    embedding::{smbert::Embedding, utils::l2_norm_distance},
+    embedding::{smbert::Embedding, utils::l2_distance},
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
@@ -63,7 +63,7 @@ impl CoiSystem {
 
         let mut distances = cois
             .iter()
-            .map(|coi| l2_norm_distance(embedding, coi.point()))
+            .map(|coi| l2_distance(embedding, coi.point()))
             .enumerate()
             .collect::<Vec<_>>();
         distances.sort_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap());

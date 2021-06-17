@@ -2,7 +2,7 @@ use rubert::QAMBert;
 
 use crate::{
     data::document_data::{DocumentDataWithQAMBert, DocumentDataWithSMBert, QAMBertComponent},
-    embedding::utils::l2_norm_distance,
+    embedding::utils::l2_distance,
     error::Error,
     reranker::systems::QAMBertSystem,
 };
@@ -20,7 +20,7 @@ impl QAMBertSystem for QAMBert {
                 .map(|document| {
                     self.run(&document.document_content.snippet)
                         .map(|embedding| {
-                            let similarity = l2_norm_distance(&query, &embedding);
+                            let similarity = l2_distance(&query, &embedding);
                             DocumentDataWithQAMBert::from_document(
                                 document,
                                 QAMBertComponent { similarity },
