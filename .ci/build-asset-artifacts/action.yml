@@ -2,20 +2,44 @@ name: 'build asset artifacts'
 description: 'Builds asset artifacts'
 inputs:
   dart-ws:
-    description: 'Dart workspace'
+    description: 'The Dart workspace'
     required: true
+  wasm-suffix:
+    description: 'The WASM suffix.'
+  wasm-rel-path:
+    description: 'The relative path (repository root) of the WASM artifacts.'
+  release:
+    description: 'Flag that controls if the asset artifacts are generated for release.'
+    required: true
+    default: 'false'
+outputs:
+  dart-manifest:
+    description: "The relative path (repository root) of the Dart manifest."
+    value: ${{ steps.artifact-paths.outputs.dart-manifest }}
+  json-manifest:
+    description: "The relative path (repository root) of the JSON manifest."
+    value: ${{ steps.artifact-paths.outputs.json-manifest }}
 runs:
   using: "composite"
   steps:
+    - id: artifact-paths
+      shell: bash
+      run: |
+        echo "::set-output name=dart-manifest::$(echo ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart)"
+        echo "::set-output name=json-manifest::$(echo out/assets.json)"
+
     - shell: bash
+      env:
+        WASM_SUFFIX: ${{ inputs.wasm-suffix }}
+        WASM_REL_PATH: ${{ inputs.wasm-rel-path }}
       run: |
         mkdir -p out
-        gomplate -f data/asset_templates/assets.json.tmpl -o out/assets.json
-        gomplate -d assets=out/assets.json -f data/asset_templates/assets.dart.tmpl -o ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart
-        flutter format ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart
-        echo "::group::asset.dart"
-        cat ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart
+        gomplate -f data/asset_templates/assets.json.tmpl -o ${{ steps.artifact-paths.outputs.json-manifest }}
+        gomplate -d assets=${{ steps.artifact-paths.outputs.json-manifest }} -f data/asset_templates/assets.dart.tmpl -o ${{ steps.artifact-paths.outputs.dart-manifest }}
+        flutter format ${{ steps.artifact-paths.outputs.dart-manifest }}
+        echo "::group::Dart manifest"
+        cat ${{ steps.artifact-paths.outputs.dart-manifest }}
         echo "::endgroup::"
-        echo "::group::asset.json"
-        cat out/assets.json
+        echo "::group::JSON manifest"
+        cat ${{ steps.artifact-paths.outputs.json-manifest }}
         echo "::endgroup::"

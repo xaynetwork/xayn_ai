@@ -86,7 +86,12 @@ cargo install --version 3.1.1 cargo-lipo
 
 #### Prerequisites
 
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
+- wasm-pack
+
+```
+cargo install --version 0.9.1 wasm-pack
+```
+
 - `rustup target add wasm32-unknown-unknown`
 - [nodejs](https://nodejs.org/en/) (only if you want to run the tests on nodejs)
 

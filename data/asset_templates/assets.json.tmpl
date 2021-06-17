@@ -13,28 +13,33 @@
     {
       "name": "smbertVocab",
       "suffix": "{{ $smbert_vocab }}",
-      "checksum": "{{ print $data_dir "/" $smbert_vocab | file.Read | crypto.SHA256 }}"
+      "checksum": "{{ print $data_dir "/" $smbert_vocab | file.Read | crypto.SHA256 }}",
+      "path": "{{ $data_dir }}/{{ $smbert_vocab }}"
     },
     {
       "name": "smbertModel",
       "suffix": "{{ $smbert_model }}",
-      "checksum": "{{ print $data_dir "/" $smbert_model | file.Read | crypto.SHA256 }}"
+      "checksum": "{{ print $data_dir "/" $smbert_model | file.Read | crypto.SHA256 }}",
+      "path": "{{ $data_dir }}/{{ $smbert_model }}"
     },
     {
       "name": "qambertVocab",
       "suffix": "{{ $qambert_vocab }}",
-      "checksum": "{{ print $data_dir "/" $qambert_vocab | file.Read | crypto.SHA256 }}"
+      "checksum": "{{ print $data_dir "/" $qambert_vocab | file.Read | crypto.SHA256 }}",
+      "path": "{{ $data_dir }}/{{ $qambert_vocab }}"
     },
     {
       "name": "qambertModel",
       "suffix": "{{ $qambert_model }}",
-      "checksum": "{{ print $data_dir "/" $qambert_model | file.Read | crypto.SHA256 }}"
+      "checksum": "{{ print $data_dir "/" $qambert_model | file.Read | crypto.SHA256 }}",
+      "path": "{{ $data_dir }}/{{ $qambert_model }}"
     },
     {
       "name": "wasmModule",
       {{ if ( $wasm_module_path | file.Exists ) -}}
       "suffix": "{{ $wasm_module_suffix }}",
-      "checksum": "{{ $wasm_module_path | file.Read | crypto.SHA256 }}"
+      "checksum": "{{ $wasm_module_path | file.Read | crypto.SHA256 }}",
+      "path": "{{ $wasm_module_path }}"
       {{ else -}}
       "suffix": "",
       "checksum": ""
@@ -44,7 +49,8 @@
       "name": "wasmScript",
       {{ if ( $js_binding_path | file.Exists ) -}}
       "suffix": "{{ $js_binding_suffix }}",
-      "checksum": "{{ $js_binding_path | file.Read | crypto.SHA256 }}"
+      "checksum": "{{ $js_binding_path | file.Read | crypto.SHA256 }}",
+      "path": "{{ $js_binding_path }}"
       {{ else -}}
       "suffix": "",
       "checksum": ""

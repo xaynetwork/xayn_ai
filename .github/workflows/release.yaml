@@ -333,10 +333,179 @@ jobs:
           retention-days: 1
           path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
+  build-wasm-lib-release:
+    name: build-wasm-lib-release
+    needs: registry-cache
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    outputs:
+      dir-name: ${{ steps.wasm-lib.outputs.dir-name }}
+      upload-name: ${{ steps.wasm-lib.outputs.upload-name }}
+      upload-path: ${{ steps.wasm-lib.outputs.upload-path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: wasm32-unknown-unknown
+          default: true
+
+      - name: Install wasm-pack
+        uses: ./.ci/install-wasm-pack
+
+      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Restore build artifacts
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: Build WASM library
+        run: |
+          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../out/wasm --out-name genesis --target web --release
+          rm out/wasm/.gitignore out/wasm/package.json
+
+      - name: Generate WASM library version key
+        id: wasm-lib
+        run: |
+          WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
+          echo "::set-output name=dir-name::$(echo wasm_$WASM_ARTIFACTS_VERSION)"
+          echo "::set-output name=upload-name::$(echo build-wasm-release-$WASM_ARTIFACTS_VERSION)"
+          echo "::set-output name=upload-path::$(echo out/wasm_$WASM_ARTIFACTS_VERSION)"
+      - run: mv out/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
+
+      - name: Upload WASM library
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ steps.wasm-lib.outputs.upload-name }}
+          retention-days: 1
+          if-no-files-found: error
+          path: ${{ steps.wasm-lib.outputs.upload-path }}
+
+  build-asset-artifacts:
+    name: build-asset-artifacts
+    runs-on: ubuntu-20.04
+    needs: build-wasm-lib-release
+    timeout-minutes: 20
+    outputs:
+      upload-name: ${{ steps.asset-artifacts.outputs.upload-name }}
+      json-manifest: ${{ steps.asset-paths.outputs.json-manifest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
+
+      - name: Set path or install flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
+          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Build asset artifacts
+        id: asset-paths
+        uses: ./.ci/build-asset-artifacts
+        with:
+          dart-ws: ${{ env.DART_WORKSPACE }}
+          wasm-suffix: ${{ needs.build-wasm-lib-release.outputs.dir-name }}
+          wasm-rel-path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          release: "true"
+
+      - name: Generate asset artifacts name
+        id: asset-artifacts
+        run: echo "::set-output name=upload-name::$(echo build-asset-artifacts-${{ github.sha }})"
+
+      - name: Upload asset artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ steps.asset-artifacts.outputs.upload-name }}
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            ${{ steps.asset-paths.outputs.dart-manifest }}
+            ${{ steps.asset-paths.outputs.json-manifest }}
+
+  upload-asset-artifacts-to-s3:
+    name: upload-asset-artifacts-to-s3
+    runs-on: ubuntu-20.04
+    needs: [build-wasm-lib-release, build-asset-artifacts]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install s3cmd
+        env:
+          S3CMD_VERSION: 2.1.0
+        run: pip install s3cmd==${{ env.S3CMD_VERSION }}
+
+      - name: Download asset artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
+          path: ${{ github.workspace }}
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
+          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Upload assets to S3
+        shell: bash
+        env:
+          BUCKET_URL: s3://xayn_ai_staging_assets
+        run: |
+          set -e
+          echo -e ${{ secrets.STAGING_ASSETS_S3CFG }} | base64 -d > $HOME/.s3cfg
+
+          for asset in $(cat ${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
+            ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
+            ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
+            s3cmd sync --acl-public --guess-mime-type $ASSET_REL_PATH $ASSET_REL_PATH ${{ env.BUCKET_URL }}/$ASSET_SUFFIX
+          done
+
   release:
     name: release
     runs-on: ubuntu-20.04
-    needs: [build-headers, build-android-libs, build-ios-libs]
+    needs: [build-headers, build-android-libs, build-ios-libs, build-asset-artifacts, upload-asset-artifacts-to-s3]
     timeout-minutes: 60
     steps:
       - name: Install SSH key
@@ -373,6 +542,15 @@ jobs:
           cp lib/src/common/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/common/ffi
           cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi
           find lib/ -type f -regex ".*\.g\.dart" -exec cp --parents '{}' ${{ env.DART_WORKSPACE }}/ \;
+
+      - name: Download asset artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
+          path: ${{ github.workspace }}
+
+      - name: Remove JSON manifest
+        run: rm ${{ needs.build-asset-artifacts.outputs.json-manifest }}
 
       - name: Get current branch
         shell: bash
