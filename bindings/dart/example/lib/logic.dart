@@ -11,7 +11,7 @@ import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
 
 /// Class containing the "business" Logic of the the example app.
 ///
-/// If this would be a "production" app this likely would be something like a
+/// If this were a "production" app, this likely would be something like a
 /// Provider/Reducer/Bloc potentially combined with some isolate indirections.
 ///
 /// But for this example app this sync implementation is good enough.
