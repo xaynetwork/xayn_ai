@@ -31,6 +31,10 @@ import 'package:flutter/material.dart'
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:stats/stats.dart' show Stats;
 
+import 'package:xayn_ai_ffi_dart_example/debug/print.dart'
+    if (dart.library.io) 'package:xayn_ai_ffi_dart_example/debug/mobile/print.dart'
+    show debugPrintLargeText;
+
 import 'package:xayn_ai_ffi_dart_example/logic.dart' show Logic, Outcome;
 
 void main() {
@@ -43,7 +47,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // We cannot use `late`. If we would do so and loading it takes long enough
+  // We cannot use `late`. If we did and loading it takes long enough
   // for the application to be rendered then this can cause an exception.
   Logic? _logic;
   Stats<num>? _lastBenchmarkStats;
@@ -215,7 +219,7 @@ class _MyAppState extends State<MyApp> {
 
   void printCallDataWithCurrentState() {
     final jsonString = _logic!.createUpdatedCallData().toJsonString();
-    printChunked(jsonString);
+    debugPrintLargeText(jsonString);
   }
 
   Future<void> selectCallData(BuildContext context) async {
@@ -263,40 +267,4 @@ class SelectCallData extends StatelessWidget {
             separatorBuilder: (BuildContext context, int index) =>
                 const Divider()));
   }
-}
-
-final _printChunkedRegex = RegExp(r'(.{0,80})');
-
-/// Workaround for problems with string concatenation.
-///
-/// When using `print` or `debugPrint` longer messages might
-/// get truncated, at least when running it on a android
-/// phone over adb using `flutter run`.
-///
-/// Using `debugPrint(test, wrapWidth: 1024)` is a workaround
-/// which often works, but not always as:
-///
-/// - It uses full word line wrapping, and as such won't work
-///   if there are any larger "words" (like base64 blobs).
-///
-/// - It seems (unclear) that the limit of `1024` might not
-///   always be small enough.
-///
-/// So this is a "ad-hoc" workaround:
-///
-/// - We split the string into chunks of 80 characters, the
-///   simplest way to do so is using the given regex.
-///
-/// - If this wouldn't be some ad-hoc debug helper we probably
-///   would implement splitting by at most 80 bytes at character
-///   boundary.
-///
-/// - 80 is a arbitrary chosen value which is not to large even
-///   with unicode and works well with "small" terminals.
-void printChunked(String text) {
-  print('--- START Chunks ----');
-  _printChunkedRegex
-      .allMatches(text)
-      .forEach((match) => print(match.group(0)!));
-  print('--- END Chunks ----');
 }
