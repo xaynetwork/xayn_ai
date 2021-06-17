@@ -61,36 +61,25 @@ impl CoiSystem {
             return None;
         }
 
-        let mut index_and_distance = cois
+        let mut distances = cois
             .iter()
             .map(|coi| l2_norm_distance(embedding, coi.point()))
             .enumerate()
-            .collect::<Vec<(usize, f32)>>();
-        index_and_distance.sort_by(|(_, this_distance), (_, other_distance)| {
-            this_distance.partial_cmp(other_distance).unwrap()
-        });
-        let index = index_and_distance[0].0;
+            .collect::<Vec<_>>();
+        distances.sort_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap());
+        let index = distances[0].0;
 
-        let mut scaled_total = index_and_distance
-            .iter()
-            .map(|(_, distance)| self.config.distance_scale * distance)
-            .sum::<f32>();
-        if scaled_total == 0.0 {
-            scaled_total = 1.0;
-        }
-        let distance = index_and_distance
-            .iter()
-            .take(self.config.neighbors.get())
-            .zip(
-                index_and_distance
-                    .iter()
-                    .take(self.config.neighbors.get())
-                    .rev(),
-            )
-            .map(|((_, distance), (_, reversed_distance))| {
-                distance * (reversed_distance / scaled_total)
-            })
-            .sum::<f32>();
+        let total = distances.iter().map(|(_, distance)| *distance).sum::<f32>();
+        let distance = if total > 0.0 {
+            distances
+                .iter()
+                .take(self.config.neighbors.get())
+                .zip(distances.iter().take(self.config.neighbors.get()).rev())
+                .map(|((_, distance), (_, reversed))| distance * (reversed / total))
+                .sum()
+        } else {
+            0.0
+        };
 
         Some((index, distance))
     }
