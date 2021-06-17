@@ -31,13 +31,13 @@ mod tests {
     use ndarray::arr1;
 
     use super::*;
-    use crate::embedding::smbert::Embedding;
+    use crate::{assert_approx_eq, embedding::smbert::Embedding};
 
     #[test]
     fn test_l2_distance() {
         let a: Embedding = arr1(&[1., 2., 3.]).into();
         let b: Embedding = arr1(&[4., 5., 6.]).into();
-        assert_eq!(l2_distance(&a, &b), 5.196152422706632);
+        assert_approx_eq!(f32, l2_distance(&a, &b), 5.196152);
     }
 
     #[test]
