@@ -415,7 +415,7 @@ mod tests {
         let qambert_model = TestFile::qambert_model();
         let ltr_model = TestFile::ltr_model();
         let hists = TestHistories::default();
-        let docs = TestDocuments::default();
+        let docs = TestDocuments::initialized();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -1080,7 +1080,7 @@ mod tests {
     #[test]
     fn test_ai_null_rerank() {
         let hists = TestHistories::default();
-        let docs = TestDocuments::default();
+        let docs = TestDocuments::initialized();
         let mut error = CError::default();
 
         let invalid = None;
@@ -1155,7 +1155,7 @@ mod tests {
         let qambert_vocab = TestFile::smbert_vocab();
         let qambert_model = TestFile::smbert_model();
         let ltr_model = TestFile::ltr_model();
-        let docs = TestDocuments::default();
+        let docs = TestDocuments::initialized();
         let db = TestDb::default();
         let mut error = CError::default();
 
