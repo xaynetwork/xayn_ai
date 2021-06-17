@@ -3,9 +3,6 @@ build/
 .packages
 pubspec.lock
 
-# Ignore generated files.
-*.g.dart
-
 # When we push to the release repository
 # we need to upload also the following files.
 # DELETE_AFTER_THIS_IN_RELEASE
@@ -16,3 +13,5 @@ ios/libxayn_ai_ffi_c.a
 lib/src/common/ffi/genesis.dart
 lib/src/common/reranker/assets.dart
 lib/src/mobile/ffi/genesis.dart
+# Ignore generated dart files.
+*.g.dart
