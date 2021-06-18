@@ -38,7 +38,7 @@ import 'package:xayn_ai_ffi_dart/src/web/result/outcomes.dart'
 @JS('xayn_ai_ffi_wasm.WXaynAi')
 class _XaynAi {
   external _XaynAi(Uint8List smbertVocab, Uint8List smbertModel,
-      Uint8List qambertVocab, Uint8List qambertModel,
+      Uint8List qambertVocab, Uint8List qambertModel, Uint8List ltrModel,
       [Uint8List? serialized]);
 
   external JsRerankingOutcomes rerank(
@@ -68,7 +68,7 @@ class XaynAi implements common.XaynAi {
   static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
     await init(data.wasmModule);
     return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-        data.qambertModel, serialized);
+        data.qambertModel, data.ltrModel, serialized);
   }
 
   /// Creates and initializes the Xayn AI.
@@ -76,11 +76,11 @@ class XaynAi implements common.XaynAi {
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
   XaynAi._(Uint8List smbertVocab, Uint8List smbertModel, Uint8List qambertVocab,
-      Uint8List qambertModel,
+      Uint8List qambertModel, Uint8List ltrModel,
       [Uint8List? serialized]) {
     try {
       _ai = _XaynAi(
-          smbertVocab, smbertModel, qambertVocab, qambertModel, serialized);
+          smbertVocab, smbertModel, qambertVocab, qambertModel, ltrModel, serialized);
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {

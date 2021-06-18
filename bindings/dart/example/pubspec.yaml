@@ -47,6 +47,7 @@ flutter:
   assets:
     - 'assets/smbert_v0000/'
     - 'assets/qambert_v0001/'
+    - 'assets/ltr_v000/'
     - 'assets/call_data/'
     - 'wasm_bindings/'
 
