@@ -318,7 +318,7 @@ pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::CString, mem, pin::Pin};
+    use std::{ffi::CString, marker::PhantomPinned, mem, pin::Pin};
 
     use tempfile::Builder as TempBuilder;
 
@@ -337,41 +337,42 @@ mod tests {
 
     impl AsPtr for CXaynAi {}
 
-    struct TestFile(Pin<CString>);
-
-    impl Drop for TestFile {
-        fn drop(&mut self) {}
+    struct TestFile {
+        file: CString,
+        _pinned: PhantomPinned,
     }
 
     impl TestFile {
-        fn new(file: &str) -> Self {
-            Self(Pin::new(CString::new(file).unwrap()))
+        fn initialized(file: &str) -> Pin<Box<Self>> {
+            Box::pin(Self {
+                file: CString::new(file).unwrap(),
+                _pinned: PhantomPinned,
+            })
         }
 
-        fn smbert_vocab() -> Self {
-            Self::new(SMBERT_VOCAB)
+        fn smbert_vocab() -> Pin<Box<Self>> {
+            Self::initialized(SMBERT_VOCAB)
         }
 
-        fn smbert_model() -> Self {
-            Self::new(SMBERT_MODEL)
+        fn smbert_model() -> Pin<Box<Self>> {
+            Self::initialized(SMBERT_MODEL)
         }
 
-        fn qambert_vocab() -> Self {
-            Self::new(QAMBERT_VOCAB)
+        fn qambert_vocab() -> Pin<Box<Self>> {
+            Self::initialized(QAMBERT_VOCAB)
         }
 
-        fn qambert_model() -> Self {
-            Self::new(QAMBERT_MODEL)
+        fn qambert_model() -> Pin<Box<Self>> {
+            Self::initialized(QAMBERT_MODEL)
         }
 
-        fn ltr_model() -> Self {
-            Self::new(LTR_MODEL)
+        fn ltr_model() -> Pin<Box<Self>> {
+            Self::initialized(LTR_MODEL)
         }
-    }
 
-    impl TestFile {
-        fn as_ptr(&self) -> Option<&u8> {
-            unsafe { self.0.as_ref().get_ref().as_ptr().cast::<u8>().as_ref() }
+        #[allow(clippy::wrong_self_convention)] // false positive
+        fn as_ptr<'a>(self: &'a Pin<Box<Self>>) -> Option<&'a u8> {
+            unsafe { self.file.as_ptr().cast::<u8>().as_ref() }
         }
     }
 
