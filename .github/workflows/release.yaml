@@ -466,29 +466,35 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
+        if: github.ref != 'refs/heads/release'
         uses: actions/checkout@v2
 
       - name: Install s3cmd
+        if: github.ref != 'refs/heads/release'
         env:
           S3CMD_VERSION: 2.1.0
         run: pip install s3cmd==${{ env.S3CMD_VERSION }}
 
       - name: Download asset artifacts
+        if: github.ref != 'refs/heads/release'
         uses: actions/download-artifact@v2
         with:
           name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
           path: ${{ github.workspace }}
 
       - name: Download WASM artifacts
+        if: github.ref != 'refs/heads/release'
         uses: actions/download-artifact@v2
         with:
           name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
           path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
 
       - name: Download data
+        if: github.ref != 'refs/heads/release'
         run: sh download_data.sh
 
       - name: Upload assets to S3
+        if: github.ref != 'refs/heads/release'
         shell: bash
         env:
           BUCKET_URL: s3://xayn_ai_staging_assets
