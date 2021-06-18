@@ -19,7 +19,8 @@
     "documents": [
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000000",
-            "snippet": "apple",
+            "title": "apple",
+            "snippet": "snippet of apple",
             "rank": 0,
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,

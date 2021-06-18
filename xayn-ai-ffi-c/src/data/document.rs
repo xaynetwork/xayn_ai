@@ -10,6 +10,8 @@ use crate::utils::as_str;
 pub struct CDocument<'a> {
     /// The raw pointer to the document id.
     pub id: Option<&'a u8>,
+    /// The raw pointer to the document title.
+    pub title: Option<&'a u8>,
     /// The raw pointer to the document snippet.
     pub snippet: Option<&'a u8>,
     /// The rank of the document.
@@ -45,8 +47,8 @@ impl<'a> CDocuments<'a> {
     /// - A non-null `data` doesn't point to an aligned, contiguous area of memory with at least
     /// `len` many [`CDocument`]s.
     /// - A `len` is too large to address the memory of a non-null [`CDocument`] array.
-    /// - A non-null `id` or `snippet` doesn't point to an aligned, contiguous area of memory with a
-    /// terminating null byte.
+    /// - A non-null pointer of a "text" field in in any [`CDocument`] does not point to an aligned,
+    ///   contiguous area of memory with a terminating null bytes (`id` is a "text" field).
     pub unsafe fn to_documents(&self) -> Result<Vec<Document>, Error> {
         match (self.data, self.len) {
             (None, _) | (_, 0) => Ok(Vec::new()),
@@ -66,6 +68,14 @@ impl<'a> CDocuments<'a> {
                                 .with_context(format!("Invalid uuid string: {}", e))
                         })
                     })?;
+                    let title = unsafe {
+                        as_str(
+                            document.title,
+                            CCode::DocumentTitlePointer,
+                            "Failed to rerank the documents",
+                        )
+                    }?
+                    .into();
                     let snippet = unsafe {
                         as_str(
                             document.snippet,
@@ -130,6 +140,7 @@ impl<'a> CDocuments<'a> {
                     Ok(Document {
                         id,
                         rank,
+                        title,
                         snippet,
                         session,
                         query_count,
@@ -157,6 +168,7 @@ pub(crate) mod tests {
 
     pub struct TestDocuments<'a> {
         _ids: Pin<Vec<CString>>,
+        _titles: Pin<Vec<CString>>,
         _snippets: Pin<Vec<CString>>,
         _sessions: Pin<Vec<CString>>,
         _query_ids: Pin<Vec<CString>>,
@@ -177,6 +189,11 @@ pub(crate) mod tests {
             let _ids = Pin::new(
                 (0..len)
                     .map(|idx| CString::new(DocumentId::from_u128(idx).to_string()).unwrap())
+                    .collect::<Vec<_>>(),
+            );
+            let _titles = Pin::new(
+                (0..len)
+                    .map(|idx| CString::new(format!("title {}", idx)).unwrap())
                     .collect::<Vec<_>>(),
             );
             let _snippets = Pin::new(
@@ -215,6 +232,7 @@ pub(crate) mod tests {
             let document = Pin::new(
                 izip!(
                     _ids.as_ref().get_ref(),
+                    _titles.as_ref().get_ref(),
                     _snippets.as_ref().get_ref(),
                     ranks,
                     _sessions.as_ref().get_ref(),
@@ -226,17 +244,19 @@ pub(crate) mod tests {
                 )
                 .map(|cdoc| CDocument {
                     id: unsafe { cdoc.0.as_ptr().cast::<u8>().as_ref() },
-                    snippet: unsafe { cdoc.1.as_ptr().cast::<u8>().as_ref() },
-                    rank: cdoc.2,
-                    session: unsafe { cdoc.3.as_ptr().cast::<u8>().as_ref() },
-                    query_count: cdoc.4,
-                    query_id: unsafe { cdoc.5.as_ptr().cast::<u8>().as_ref() },
-                    query_words: unsafe { cdoc.6.as_ptr().cast::<u8>().as_ref() },
-                    url: unsafe { cdoc.7.as_ptr().cast::<u8>().as_ref() },
-                    domain: unsafe { cdoc.8.as_ptr().cast::<u8>().as_ref() },
+                    title: unsafe { cdoc.1.as_ptr().cast::<u8>().as_ref() },
+                    snippet: unsafe { cdoc.2.as_ptr().cast::<u8>().as_ref() },
+                    rank: cdoc.3,
+                    session: unsafe { cdoc.4.as_ptr().cast::<u8>().as_ref() },
+                    query_count: cdoc.5,
+                    query_id: unsafe { cdoc.6.as_ptr().cast::<u8>().as_ref() },
+                    query_words: unsafe { cdoc.7.as_ptr().cast::<u8>().as_ref() },
+                    url: unsafe { cdoc.8.as_ptr().cast::<u8>().as_ref() },
+                    domain: unsafe { cdoc.9.as_ptr().cast::<u8>().as_ref() },
                 })
                 .collect::<Vec<_>>(),
             );
+
             let documents = CDocuments {
                 data: unsafe { document.as_ptr().as_ref() },
                 len: document.len() as u32,
@@ -244,6 +264,7 @@ pub(crate) mod tests {
 
             Self {
                 _ids,
+                _titles,
                 _snippets,
                 _sessions,
                 _query_ids,
@@ -273,7 +294,7 @@ pub(crate) mod tests {
         assert_eq!(documents.len(), docs.len());
         for (d, cd) in izip!(documents, docs.document.as_ref().get_ref()) {
             assert_eq!(d.id.0.to_string(), unsafe { as_str_unchecked(cd.id) });
-            assert_eq!(d.snippet, unsafe { as_str_unchecked(cd.snippet) });
+            assert_eq!(d.title, unsafe { as_str_unchecked(cd.title) });
             assert_eq!(d.rank, cd.rank as usize);
         }
     }
@@ -309,17 +330,17 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_document_snippet_null() {
+    fn test_document_title_null() {
         let mut docs = TestDocuments::default();
-        docs.document[0].snippet = None;
+        docs.document[0].title = None;
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
-        assert_eq!(error.code(), CCode::DocumentSnippetPointer);
+        assert_eq!(error.code(), CCode::DocumentTitlePointer);
         assert_eq!(
             error.message(),
             format!(
                 "Failed to rerank the documents: The {} is null",
-                CCode::DocumentSnippetPointer,
+                CCode::DocumentTitlePointer,
             ),
         );
     }

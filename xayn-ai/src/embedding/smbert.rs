@@ -17,7 +17,7 @@ impl SMBertSystem for SMBert {
         documents
             .into_iter()
             .map(|document| {
-                let embedding = self.run(document.document_content.snippet.as_str());
+                let embedding = self.run(document.document_content.title.as_str());
                 embedding
                     .map(|embedding| {
                         DocumentDataWithSMBert::from_document(
