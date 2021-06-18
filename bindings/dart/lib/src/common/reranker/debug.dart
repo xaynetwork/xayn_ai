@@ -16,7 +16,7 @@ part 'debug.g.dart';
 ///
 /// It provides a to/from json serialization and is meant for Team Blue
 /// so that they can store JSON blobs of the Reranking call data for
-/// debugging purposes.
+/// debugging purpose.
 ///
 /// Furthermore both the dart example/benchmark app and the dev-tool
 /// provide ways to run reranking based on the serialized call data
@@ -40,8 +40,8 @@ class RerankDebugCallData {
 
   /// Serialized state which should be used to run a reranking call.
   ///
-  /// This is normally the state of *before* histories/documents
-  /// where used for a reranking call.
+  /// This is normally the state *before* histories/documents
+  /// were used for a reranking call.
   ///
   /// This field is JSON encoded as base64 encoded string.
   @JsonKey(toJson: _optBytesToBase64, fromJson: _optBase64ToBytes)
@@ -55,11 +55,11 @@ class RerankDebugCallData {
     this.serializedState,
   });
 
-  /// Creates a instance from a JSON map.
+  /// Creates an instance from a JSON map.
   factory RerankDebugCallData.fromJson(Map<String, dynamic> json) =>
       _$RerankDebugCallDataFromJson(json);
 
-  /// Creates a instance from a JSON String.
+  /// Creates an instance from a JSON String.
   factory RerankDebugCallData.fromJsonString(String json) =>
       RerankDebugCallData.fromJson(jsonDecode(json) as Map<String, dynamic>);
 
