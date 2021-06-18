@@ -86,8 +86,8 @@ script = ["""
 """]
 
 [tasks.build-web]
-# This will run build-local "unnecessarily" it also
-# will run gen-assets for non-was before then later
+# This will run build-local "unnecessarily" it will
+# also run gen-assets for non-wasm before then later
 # overwriting it. This will be fixed in a later PR.
 dependencies = [ "build-dart" ]
 script_runner = "@duckscript"

@@ -9,9 +9,9 @@ import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     if (dart.library.io) 'data_provider/mobile.dart'
     if (dart.library.js) 'data_provider/web.dart' show getInputData;
 
-/// Class containing the "business" Logic of the the example app.
+/// Class containing the business Logic of the the example app.
 ///
-/// If this were a "production" app, this likely would be something like a
+/// If this were a production app, this likely would be something like a
 /// Provider/Reducer/Bloc potentially combined with some isolate indirections.
 ///
 /// But for this example app this sync implementation is good enough.
@@ -30,7 +30,7 @@ class Logic {
   String get currentCallDataKey => _currentCallDataKey;
 
   /// Creates a call data instance with the histories and documents of the current
-  /// call data and a updated serialized state.
+  /// call data and an updated serialized state.
   RerankDebugCallData createUpdatedCallData() {
     final serializedState = _currentAi.serialize();
     return RerankDebugCallData(
@@ -113,8 +113,8 @@ class Logic {
 
     print('Warming Up');
     // Make sure we run "hot" code to have less benchmark variety.
-    // Through given the complexity of the computations we do and
-    // given that it doesn't really involves JIT the main benefit
+    // Though given the complexity of the computations and
+    // given that it doesn't really involve JIT the main benefit
     // of this might be how it affects CPU frequencies.
     for (var i = 0; i < preBenchNum; i++) {
       _currentAi.rerank(mode, histories, documents);
