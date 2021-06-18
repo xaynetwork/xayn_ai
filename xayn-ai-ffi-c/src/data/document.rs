@@ -160,7 +160,6 @@ pub(crate) mod tests {
     use std::{ffi::CString, iter, marker::PhantomPinned, pin::Pin};
 
     use itertools::izip;
-
     use xayn_ai::{DocumentId, QueryId, SessionId};
 
     use super::*;
