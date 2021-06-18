@@ -33,7 +33,7 @@ import 'package:stats/stats.dart' show Stats;
 
 import 'package:xayn_ai_ffi_dart_example/debug/print.dart'
     if (dart.library.io) 'package:xayn_ai_ffi_dart_example/debug/mobile/print.dart'
-    show debugPrintLargeText;
+    show debugPrintLongText;
 
 import 'package:xayn_ai_ffi_dart_example/logic.dart' show Logic, Outcome;
 
@@ -219,7 +219,7 @@ class _MyAppState extends State<MyApp> {
 
   void printCallDataWithCurrentState() {
     final jsonString = _logic!.createUpdatedCallData().toJsonString();
-    debugPrintLargeText(jsonString);
+    debugPrintLongText(jsonString);
   }
 
   Future<void> selectCallData(BuildContext context) async {

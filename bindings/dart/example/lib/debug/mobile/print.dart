@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart' show debugPrint;
+
 final _printChunkedRegex = RegExp(r'(.{0,80})');
 
-/// Debug prints large text.
+/// `debugPrint` for long text.
 ///
 /// Workaround for problems with string concatenation.
 ///
@@ -12,7 +14,7 @@ final _printChunkedRegex = RegExp(r'(.{0,80})');
 /// which often works, but not always because:
 ///
 /// - It uses full word line wrapping, and as such won't work
-///   if there are any larger "words" (like base64 blobs).
+///   if there are any longer "words" (like base64 blobs).
 ///
 /// - It seems (unclear) that the limit of `1024` might not
 ///   always be small enough.
@@ -26,12 +28,12 @@ final _printChunkedRegex = RegExp(r'(.{0,80})');
 ///   would implement splitting by at most 80 bytes at character
 ///   boundary.
 ///
-/// - 80 is a arbitrarily chosen value which is not too large even
+/// - 80 is an arbitrarily chosen value which is not too large even
 ///   with unicode and works well with "small" terminals.
-void debugPrintLargeText(String text) {
-  print('--- START Chunks ----');
+void debugPrintLongText(String text) {
+  debugPrint('--- START Chunks ----');
   _printChunkedRegex
       .allMatches(text)
-      .forEach((match) => print(match.group(0)!));
-  print('--- END Chunks ----');
+      .forEach((match) => debugPrint(match.group(0)!));
+  debugPrint('--- END Chunks ----');
 }
