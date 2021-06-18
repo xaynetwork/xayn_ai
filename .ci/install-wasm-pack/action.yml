@@ -1,0 +1,23 @@
+name: 'wasm-pack'
+description: 'Installs wasm-pack'
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        LINUX_URL: https://github.com/rustwasm/wasm-pack/releases/download/v0.9.1/wasm-pack-v0.9.1-x86_64-unknown-linux-musl.tar.gz
+        # `shasum -a 256 wasm-pack`
+        LINUX_CHECKSUM: 28cbb8598bf85d52a667169c6187255fef0a085b174ac020790ef2d208fa75be
+      run: |
+        if [ ${{ runner.os }} == "Linux" ]; then
+          URL=${{ env.LINUX_URL }}
+          CHECKSUM=${{ env.LINUX_CHECKSUM }}
+        else
+          echo "::error wasm-pack for ${{ runner.os }} is not supported"
+          exit 1
+        fi
+
+        wget -q -O - $URL | tar xvzf - --strip-components 1
+        echo "$CHECKSUM *wasm-pack" | shasum -c -
+        mv wasm-pack $HOME/.cargo/bin/

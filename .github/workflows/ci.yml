@@ -22,9 +22,6 @@ env:
   CARGO_LIPO: 3.1.1
   # cmd: `shasum -a 256 cross`
   CROSS_CHECKSUM: 18a3599273773a7d1e333b413751f0adc1a83ec8045d060fee4f0639bd6baaf0
-  # cmd: `shasum -a 256 wasm-pack`
-  # macOS: `f6e7edb69e233df774f5b92c1002e73db775bb9e71a55528c00e0fe275a7c617`
-  WASM_PACK_CHECKSUM: 28cbb8598bf85d52a667169c6187255fef0a085b174ac020790ef2d208fa75be
   # On targets like `*-linux-android*` and `wasm32-unknown-unknown`, reading the model
   # takes a considerable amount of time if it is compiled with the default opt-level
   # for tests. Therefore, we compile them with a higher opt-level to run them faster.
@@ -443,12 +440,7 @@ jobs:
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Install wasm-pack
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          wget -q -O - https://github.com/rustwasm/wasm-pack/releases/download/v0.9.1/wasm-pack-v0.9.1-x86_64-unknown-linux-musl.tar.gz | tar xvzf - --strip-components 1
-          echo "${{ env.WASM_PACK_CHECKSUM }} *wasm-pack" | shasum -c -
-          mv wasm-pack ~/.cargo/bin/
+        uses: ./.ci/install-wasm-pack
 
       - name: Download data
         run: sh download_data.sh
