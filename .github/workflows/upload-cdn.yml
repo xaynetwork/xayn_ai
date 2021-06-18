@@ -1,0 +1,244 @@
+name: Test-CI
+
+on:
+  push:
+    branches-ignore:
+      # we push on release only from staging and release represent
+      # a snapshot of staging in a given point in time
+      - 'release'
+
+env:
+  RUST_STABLE: 1.51
+  CARGO_NDK: 2.3.0
+  ANDROID_PLATFORM_VERSION: 21
+  CARGO_LIPO: 3.1.1
+  FLUTTER_VERSION: '2.2.1'
+  JAVA_VERSION: '12.x'
+  DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
+  ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
+  PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
+  CARGO_INCREMENTAL: 0
+
+
+
+jobs:
+  registry-cache:
+    # we use the latest stable rustc + cargo version that is already installed on the image
+    # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
+    name: cargo-fetch
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      cache-date: ${{ steps.get-date.outputs.date }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # We want to create a new cache after a week. Otherwise, the cache will
+      # take up too much space by caching old dependencies
+      - name: Generate Year + ISO week number key
+        id: get-date
+        shell: bash
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y-%V")"
+
+      - name: Generate cargo registry cache key
+        id: cache-key
+        shell: bash
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
+
+      - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
+
+      - name: Fetch dependencies
+        run: cargo fetch
+
+  build-wasm-lib-release:
+    name: build-wasm-lib-release
+    needs: registry-cache
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    outputs:
+      dir-name: ${{ steps.wasm-lib.outputs.dir-name }}
+      upload-name: ${{ steps.wasm-lib.outputs.upload-name }}
+      upload-path: ${{ steps.wasm-lib.outputs.upload-path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: wasm32-unknown-unknown
+          default: true
+
+      - name: Install wasm-pack
+        uses: ./.ci/install-wasm-pack
+
+      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ needs.registry-cache.outputs.cache-key }}
+
+      - name: Restore build artifacts
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-
+
+      - name: Build WASM library
+        run: |
+          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../out/wasm --out-name genesis --target web --release
+          rm out/wasm/.gitignore out/wasm/package.json
+
+      - name: Generate WASM library version key
+        id: wasm-lib
+        run: |
+          WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
+          echo "::set-output name=dir-name::$(echo wasm_$WASM_ARTIFACTS_VERSION)"
+          echo "::set-output name=upload-name::$(echo build-wasm-release-$WASM_ARTIFACTS_VERSION)"
+          echo "::set-output name=upload-path::$(echo out/wasm_$WASM_ARTIFACTS_VERSION)"
+      - run: mv out/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
+
+      - name: Upload WASM library
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ steps.wasm-lib.outputs.upload-name }}
+          retention-days: 1
+          if-no-files-found: error
+          path: ${{ steps.wasm-lib.outputs.upload-path }}
+
+  build-asset-artifacts:
+    name: build-asset-artifacts
+    runs-on: ubuntu-20.04
+    needs: build-wasm-lib-release
+    timeout-minutes: 20
+    outputs:
+      upload-name: ${{ steps.asset-artifacts.outputs.upload-name }}
+      json-manifest: ${{ steps.asset-paths.outputs.json-manifest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
+
+      - name: Set path or install flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
+          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Build asset artifacts
+        id: asset-paths
+        uses: ./.ci/build-asset-artifacts
+        with:
+          dart-ws: ${{ env.DART_WORKSPACE }}
+          wasm-suffix: ${{ needs.build-wasm-lib-release.outputs.dir-name }}
+          wasm-rel-path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          release: "true"
+
+      - name: Generate asset artifacts name
+        id: asset-artifacts
+        run: echo "::set-output name=upload-name::$(echo build-asset-artifacts-${{ github.sha }})"
+
+      - name: Upload asset artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ steps.asset-artifacts.outputs.upload-name }}
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            ${{ steps.asset-paths.outputs.dart-manifest }}
+            ${{ steps.asset-paths.outputs.json-manifest }}
+
+  upload-asset-artifacts-to-cdn:
+    name: upload-asset-artifacts-to-cdn
+    runs-on: ubuntu-20.04
+    needs: [build-wasm-lib-release, build-asset-artifacts]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download asset artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
+          path: ${{ github.workspace }}
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
+          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Install KeyCDN SSH privkey
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.KEYCDN_RSYNC_PRIVKEY }}
+          name: keycdn-publisher
+          known_hosts: 'placeholder'
+          config: |
+            Host keycdn
+              HostName rsync.keycdn.com
+              User ${{ secrets.KEYCDN_RSYNC_USERNAME }}
+              IdentityFile ~/.ssh/keycdn-publisher
+
+      - name: Dynamically add KeyCDN to known_hosts
+        run: ssh-keyscan -H rsync.keycdn.com | tee -a ~/.ssh/known_hosts
+
+      - name: Upload assets (KeyCDN)
+        env:
+          PREPARE_ASSETS_DIR: ${{ runner.temp }}/prepare_assets
+        run: |
+          set -e
+          mkdir -p $PREPARE_ASSETS_DIR
+          cd $PREPARE_ASSETS_DIR
+
+          for asset in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
+            ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
+            ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
+            ASSET_SUFFIX_DIR=$(dirname $ASSET_SUFFIX)
+            mkdir -p $ASSET_SUFFIX_DIR
+            cp -r ${{ github.workspace }}/$ASSET_REL_PATH $ASSET_SUFFIX
+          done
+
+          rsync -rtzv -n --chmod=D2755,F644 . keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/
