@@ -84,6 +84,8 @@ pub struct Document {
     pub id: DocumentId,
     /// Position of the document from the source
     pub rank: usize,
+    /// Text title of the document
+    pub title: String,
     /// Text snippet of the document
     pub snippet: String,
     /// Session of the document

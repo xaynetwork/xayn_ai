@@ -11,6 +11,7 @@ class JsDocument {
   external factory JsDocument({
     String id,
     int rank,
+    String title,
     String snippet,
     String session,
     // ignore: non_constant_identifier_names
@@ -31,6 +32,7 @@ extension ToJsDocuments on List<Document> {
         (i) => JsDocument(
           id: this[i].id,
           rank: this[i].rank,
+          title: this[i].title,
           snippet: this[i].snippet,
           session: this[i].session,
           query_count: this[i].queryCount,

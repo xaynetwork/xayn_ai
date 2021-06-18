@@ -145,7 +145,8 @@
     "documents": [
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000000",
-            "snippet": "ship",
+            "title": "ship",
+            "snippet": "snippet of ship",
             "rank": 0,
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
@@ -157,7 +158,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000001",
             "rank": 1,
-            "snippet": "car",
+            "title": "car",
+            "snippet": "snippet of car",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -168,7 +170,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000002",
             "rank": 2,
-            "snippet": "auto",
+            "title": "auto",
+            "snippet": "snippet of auto",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -179,7 +182,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000003",
             "rank": 3,
-            "snippet": "flugzeug",
+            "title": "flugzeug",
+            "snippet": "snippet of flugzeug",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -190,7 +194,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000004",
             "rank": 4,
-            "snippet": "plane",
+            "title": "plane",
+            "snippet": "snippet of plane",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -201,7 +206,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000005",
             "rank": 5,
-            "snippet": "vehicle",
+            "title": "vehicle",
+            "snippet": "snippet of vehicle",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -212,7 +218,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000006",
             "rank": 6,
-            "snippet": "truck",
+            "title": "truck",
+            "snippet": "snippet of truck",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -223,7 +230,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000007",
             "rank": 7,
-            "snippet": "trunk",
+            "title": "trunk",
+            "snippet": "snippet of trunk",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -234,7 +242,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000008",
             "rank": 8,
-            "snippet": "motorbike",
+            "title": "motorbike",
+            "snippet": "snippet of motorbike",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",
@@ -245,7 +254,8 @@
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000009",
             "rank": 9,
-            "snippet": "bicycle",
+            "title": "bicycle",
+            "snippet": "snippet of bicycle",
             "session": "fcb6a685-eb92-4d36-8686-a00000000010",
             "query_count": 2,
             "query_id": "fcb6a685-eb92-4d36-8686-b00000000011",

@@ -26,9 +26,10 @@ SetupData mkSetupData(String smbertVocab, String smbertModel,
   });
 }
 
-Document mkTestDoc(String id, String snippet, int rank) => Document(
+Document mkTestDoc(String id, String title, int rank) => Document(
       id: id,
-      snippet: snippet,
+      title: title,
+      snippet: 'snippet of $title',
       rank: rank,
       session: 'fcb6a685-eb92-4d36-8686-000000000000',
       queryCount: 1,

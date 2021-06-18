@@ -252,6 +252,9 @@ mod tests {
         let ids = (0..len)
             .map(|idx| DocumentId::from_u128(idx as u128))
             .collect::<Vec<_>>();
+        let titles = (0..len)
+            .map(|idx| format!("title {}", idx))
+            .collect::<Vec<_>>();
         let snippets = (0..len)
             .map(|idx| format!("snippet {}", idx))
             .collect::<Vec<_>>();
@@ -275,6 +278,7 @@ mod tests {
 
         izip!(
             ids,
+            titles,
             snippets,
             ranks,
             sessions,
@@ -287,14 +291,15 @@ mod tests {
         .map(|doc| {
             JsValue::from_serde(&Document {
                 id: doc.0,
-                snippet: doc.1,
-                rank: doc.2,
-                session: doc.3,
-                query_count: doc.4,
-                query_id: doc.5,
-                query_words: doc.6,
-                url: doc.7,
-                domain: doc.8,
+                title: doc.1,
+                snippet: doc.2,
+                rank: doc.3,
+                session: doc.4,
+                query_count: doc.5,
+                query_id: doc.6,
+                query_words: doc.7,
+                url: doc.8,
+                domain: doc.9,
             })
             .unwrap()
         })

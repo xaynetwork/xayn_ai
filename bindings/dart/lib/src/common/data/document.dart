@@ -10,6 +10,9 @@ class Document {
   /// Unique identifier of the document.
   final String id;
 
+  /// Text title of the document.
+  final String title;
+
   /// Text snippet of the document.
   final String snippet;
 
@@ -37,6 +40,7 @@ class Document {
   /// Creates the document.
   Document({
     required this.id,
+    required this.title,
     required this.snippet,
     required this.rank,
     required this.session,

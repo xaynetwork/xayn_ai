@@ -23,6 +23,7 @@ class Documents {
       documents.asMap().forEach((i, document) {
         var cdoc = _docs.ref.data[i];
         cdoc.id = document.id.toNativeUtf8().cast<Uint8>();
+        cdoc.title = document.title.toNativeUtf8().cast<Uint8>();
         cdoc.snippet = document.snippet.toNativeUtf8().cast<Uint8>();
         cdoc.rank = document.rank;
         cdoc.session = document.session.toNativeUtf8().cast<Uint8>();
@@ -45,6 +46,7 @@ class Documents {
         for (var i = 0; i < _docs.ref.len; i++) {
           var cdoc = _docs.ref.data[i];
           malloc.free(cdoc.id);
+          malloc.free(cdoc.title);
           malloc.free(cdoc.snippet);
           malloc.free(cdoc.session);
           malloc.free(cdoc.query_id);
