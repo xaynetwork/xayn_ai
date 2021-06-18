@@ -10,7 +10,7 @@ use crate::{
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
-    ltr::DomainReranker,
+    ltr::{DomainReranker, LtrBuilder},
     mab::{BetaSampler, MabRanking},
     Error,
 };
@@ -100,23 +100,25 @@ impl Reranker {
     }
 }
 
-pub struct Builder<SV, SM, QAV, QAM> {
+pub struct Builder<SV, SM, QAV, QAM, LM> {
     database: Db,
     smbert: SMBertBuilder<SV, SM>,
     qambert: QAMBertBuilder<QAV, QAM>,
+    ltr: LtrBuilder<LM>,
 }
 
-impl Default for Builder<(), (), (), ()> {
+impl Default for Builder<(), (), (), (), ()> {
     fn default() -> Self {
         Self {
             database: Db::default(),
             smbert: SMBertBuilder::new((), ()),
             qambert: QAMBertBuilder::new((), ()),
+            ltr: LtrBuilder::new(()),
         }
     }
 }
 
-impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
+impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
     /// Sets the serialized database to use.
     ///
     /// This accepts an option as this makes the builder pattern easier to use
@@ -132,11 +134,12 @@ impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
         Ok(self)
     }
 
-    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N, QAV, QAM> {
+    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N, QAV, QAM, LM> {
         Builder {
             database: self.database,
             smbert: SMBertBuilder::new(vocab, model),
             qambert: self.qambert,
+            ltr: self.ltr,
         }
     }
 
@@ -144,19 +147,21 @@ impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<impl BufRead, impl Read, QAV, QAM>, Error> {
+    ) -> Result<Builder<impl BufRead, impl Read, QAV, QAM, LM>, Error> {
         Ok(Builder {
             database: self.database,
             smbert: SMBertBuilder::from_files(vocab, model)?,
             qambert: self.qambert,
+            ltr: self.ltr,
         })
     }
 
-    pub fn with_qambert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<SV, SM, W, N> {
+    pub fn with_qambert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<SV, SM, W, N, LM> {
         Builder {
             database: self.database,
             smbert: self.smbert,
             qambert: QAMBertBuilder::new(vocab, model),
+            ltr: self.ltr,
         }
     }
 
@@ -164,11 +169,33 @@ impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<SV, SM, impl BufRead, impl Read>, Error> {
+    ) -> Result<Builder<SV, SM, impl BufRead, impl Read, LM>, Error> {
         Ok(Builder {
             database: self.database,
             smbert: self.smbert,
             qambert: QAMBertBuilder::from_files(vocab, model)?,
+            ltr: self.ltr,
+        })
+    }
+
+    pub fn with_ltr_from_reader<N>(self, model: N) -> Builder<SV, SM, QAV, QAM, N> {
+        Builder {
+            database: self.database,
+            smbert: self.smbert,
+            qambert: self.qambert,
+            ltr: LtrBuilder::new(model),
+        }
+    }
+
+    pub fn with_ltr_from_file(
+        self,
+        model: impl AsRef<Path>,
+    ) -> Result<Builder<SV, SM, QAV, QAM, impl Read>, Error> {
+        Ok(Builder {
+            database: self.database,
+            smbert: self.smbert,
+            qambert: self.qambert,
+            ltr: LtrBuilder::from_file(model)?,
         })
     }
 
@@ -178,6 +205,7 @@ impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
         SM: Read,
         QAV: BufRead,
         QAM: Read,
+        LM: Read,
     {
         let database = self.database;
         let smbert = self
@@ -195,7 +223,7 @@ impl<SV, SM, QAV, QAM> Builder<SV, SM, QAV, QAM> {
             .with_pooling(AveragePooler)
             .build()?;
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
-        let ltr = DomainReranker::new()?;
+        let ltr = self.ltr.build()?;
         let context = Context;
         let mab = MabRanking::new(BetaSampler);
         let analytics = AnalyticsSystemImpl;

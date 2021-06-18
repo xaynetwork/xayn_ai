@@ -26,6 +26,7 @@ impl WXaynAi {
         smbert_model: &[u8],
         qambert_vocab: &[u8],
         qambert_model: &[u8],
+        ltr_model: &[u8],
         serialized: Option<Box<[u8]>>,
     ) -> Result<WXaynAi, JsValue> {
         console_error_panic_hook::set_once();
@@ -41,6 +42,7 @@ impl WXaynAi {
             .into_js_result()?
             .with_smbert_from_reader(smbert_vocab, smbert_model)
             .with_qambert_from_reader(qambert_vocab, qambert_model)
+            .with_ltr_from_reader(ltr_model)
             .build()
             .map(WXaynAi)
             .map_err(|cause| {

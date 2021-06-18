@@ -26,6 +26,8 @@ pub enum CCode {
     /// A qambert model null pointer error.
     #[allow(clippy::upper_case_acronyms)]
     QAMBertModelPointer,
+    /// A LTR model null pointer error.
+    LtrModelPointer,
     /// A vocab or model file IO error.
     ReadFile,
     /// A Xayn AI initialization error.

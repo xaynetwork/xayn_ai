@@ -57,6 +57,7 @@ impl CXaynAi {
         smbert_model: Option<&u8>,
         qambert_vocab: Option<&u8>,
         qambert_model: Option<&u8>,
+        ltr_model: Option<&u8>,
         serialized: Option<&CBytes>,
     ) -> Result<Self, Error> {
         let smbert_vocab =
@@ -67,11 +68,14 @@ impl CXaynAi {
             unsafe { as_str(qambert_vocab, CCode::QAMBertVocabPointer, FAIL_INIT_AI) }?;
         let qambert_model =
             unsafe { as_str(qambert_model, CCode::QAMBertModelPointer, FAIL_INIT_AI) }?;
+        let ltr_model = unsafe { as_str(ltr_model, CCode::LtrModelPointer, FAIL_INIT_AI) }?;
 
         Builder::default()
             .with_smbert_from_file(smbert_vocab, smbert_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_qambert_from_file(qambert_vocab, qambert_model)
+            .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
+            .with_ltr_from_file(ltr_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_serialized_database(serialized)
             .map_err(|cause| {
@@ -168,6 +172,7 @@ pub unsafe extern "C" fn xaynai_new(
     smbert_model: Option<&u8>,
     qambert_vocab: Option<&u8>,
     qambert_model: Option<&u8>,
+    ltr_model: Option<&u8>,
     serialized: Option<&CBytes>,
     error: Option<&mut CError>,
 ) -> Option<Box<CXaynAi>> {
@@ -177,6 +182,7 @@ pub unsafe extern "C" fn xaynai_new(
             smbert_model,
             qambert_vocab,
             qambert_model,
+            ltr_model,
             serialized,
         )
     };

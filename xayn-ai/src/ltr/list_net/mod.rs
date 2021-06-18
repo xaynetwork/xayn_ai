@@ -56,7 +56,6 @@ impl ListNet {
     }
 
     /// Load ListNet from byte reader.
-    #[allow(unused)] //TODO tmp
     pub fn load_from_source(params_source: impl Read) -> Result<Self, LoadingListNetFailed> {
         let params = BinParams::load(params_source)?;
         Self::load(params)

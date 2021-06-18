@@ -48,6 +48,7 @@ impl CallDataCmd {
     const QAMBERT_VOCAB_PATH: &'static str = "qambert_v0001/vocab.txt";
     const SMBERT_MODEL_PATH: &'static str = "smbert_v0000/smbert.onnx";
     const SMBERT_VOCAB_PATH: &'static str = "smbert_v0000/vocab.txt";
+    const LTR_MODEL_PATH: &'static str = "ltr_v000/ltr.binparams";
 
     pub fn run(self) -> Result<i32, Error> {
         let CallDataCmd {
@@ -79,6 +80,8 @@ impl CallDataCmd {
                 data_dir.join(Self::SMBERT_MODEL_PATH),
             )
             .context("Loading S-mBert failed.")?
+            .with_ltr_from_file(data_dir.join(Self::LTR_MODEL_PATH))
+            .context("Loading LTR failed.")?
             .build()
             .context("Building XaynAi failed.")?;
 

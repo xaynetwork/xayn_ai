@@ -1,6 +1,12 @@
 mod features;
 mod list_net;
 
+use std::{
+    fs::File,
+    io::{BufReader, Read},
+    path::Path,
+};
+
 use itertools::{izip, Itertools};
 use ndarray::Array2;
 
@@ -15,8 +21,6 @@ use crate::{
 
 use features::{build_features, features_to_ndarray};
 use list_net::ListNet;
-
-const BINPARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
 
 /// Domain reranker consisting of a ListNet model trained on engineered features.
 pub(crate) struct DomainReranker {
@@ -45,13 +49,38 @@ impl LtrSystem for DomainReranker {
 }
 
 impl DomainReranker {
-    pub(crate) fn new() -> Result<Self, Error> {
-        let model = ListNet::load_from_file(BINPARAMS_PATH)?;
-        Ok(Self { model })
-    }
-
+    /// Predicts LTR scores for each row of the given features table.
     fn predict(&self, feats_arr: Array2<f32>) -> Vec<f32> {
         self.model.run(feats_arr)
+    }
+}
+
+/// Builder for `DomainReranker`.
+pub(crate) struct LtrBuilder<LM> {
+    model_params: LM,
+}
+
+impl LtrBuilder<BufReader<File>> {
+    /// Creates a [`LtrBuilder`] from a file.
+    pub(crate) fn from_file(model_params: impl AsRef<Path>) -> Result<Self, Error> {
+        let model_params = BufReader::new(File::open(model_params)?);
+        Ok(Self::new(model_params))
+    }
+}
+
+impl<LM> LtrBuilder<LM> {
+    /// Creates a [`LtrBuilder`] from in-memory model params.
+    pub(crate) fn new(model_params: LM) -> Self {
+        Self { model_params }
+    }
+
+    /// Builds a [`DomainReranker`].
+    pub(crate) fn build(self) -> Result<DomainReranker, Error>
+    where
+        LM: Read,
+    {
+        let model = ListNet::load_from_source(self.model_params)?;
+        Ok(DomainReranker { model })
     }
 }
 
