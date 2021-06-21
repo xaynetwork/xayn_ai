@@ -6,6 +6,7 @@
 {{- $smbert_model := "smbert_v0000/smbert.onnx" -}}
 {{- $qambert_vocab := "qambert_v0001/vocab.txt" -}}
 {{- $qambert_model := "qambert_v0001/qambert.onnx" -}}
+{{- $ltr_model := "ltr_v0000/ltr.binparams" -}}
 {{- $data_dir := "data" -}}
 
 {
@@ -33,6 +34,11 @@
       "suffix": "{{ $qambert_model }}",
       "checksum": "{{ print $data_dir "/" $qambert_model | file.Read | crypto.SHA256 }}",
       "path": "{{ $data_dir }}/{{ $qambert_model }}"
+    },
+    {
+      "name": "ltrModel",
+      "suffix": "{{ $ltr_model }}",
+      "checksum": "{{ print $data_dir "/" $ltr_model | file.Read | crypto.SHA256 }}"
     },
     {
       "name": "wasmModule",

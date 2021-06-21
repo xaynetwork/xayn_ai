@@ -18,6 +18,6 @@ public class SwiftXaynAiFfiDartPlugin: NSObject, FlutterPlugin {
   // that the library is included, independent of the actual return value
   // or failure.
   public func enforceBinding(){
-    xaynai_new(nil, nil, nil, nil, nil, nil)
+    xaynai_new(nil, nil, nil, nil, nil, nil, nil)
   }
 }

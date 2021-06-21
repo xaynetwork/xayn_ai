@@ -21,4 +21,7 @@ pub(crate) mod tests {
 
     /// Path to the current qambert onnx model file.
     pub const QAMBERT_MODEL: &str = "../data/qambert_v0001/qambert.onnx";
+
+    /// Path to the current ltr model binparams file.
+    pub const LTR_MODEL: &str = "../data/ltr_v0000/ltr.binparams";
 }

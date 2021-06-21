@@ -430,7 +430,7 @@ pub(crate) fn build_features(
         .collect())
 }
 
-/// Converts a sequence of `Feature`s into a 2-dimensional ndarray.
+/// Converts a sequence of `Features` into a 2-dimensional ndarray.
 ///
 /// Note that we follow the ordering of features as implemented in soundgarden,
 /// since the ListNet model has been trained on that.

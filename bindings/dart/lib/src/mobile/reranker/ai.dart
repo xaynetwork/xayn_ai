@@ -39,7 +39,7 @@ class XaynAi implements common.XaynAi {
   /// new one.
   static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
     return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-        data.qambertModel, serialized);
+        data.qambertModel, data.ltrModel, serialized);
   }
 
   /// Creates and initializes the Xayn AI.
@@ -48,19 +48,20 @@ class XaynAi implements common.XaynAi {
   /// Optionally accepts the serialized reranker database, otherwise creates a
   /// new one.
   XaynAi._(String smbertVocab, String smbertModel, String qambertVocab,
-      String qambertModel,
+      String qambertModel, String ltrModel,
       [Uint8List? serialized]) {
     final smbertVocabPtr = smbertVocab.toNativeUtf8().cast<Uint8>();
     final smbertModelPtr = smbertModel.toNativeUtf8().cast<Uint8>();
     final qambertVocabPtr = qambertVocab.toNativeUtf8().cast<Uint8>();
     final qambertModelPtr = qambertModel.toNativeUtf8().cast<Uint8>();
+    final ltrModelPtr = ltrModel.toNativeUtf8().cast<Uint8>();
     Bytes? bytes;
     final error = XaynAiError();
 
     try {
       bytes = Bytes.fromList(serialized ?? Uint8List(0));
       _ai = ffi.xaynai_new(smbertVocabPtr, smbertModelPtr, qambertVocabPtr,
-          qambertModelPtr, bytes.ptr, error.ptr);
+          qambertModelPtr, ltrModelPtr, bytes.ptr, error.ptr);
       if (error.isError()) {
         throw error.toException();
       }
@@ -70,6 +71,7 @@ class XaynAi implements common.XaynAi {
       malloc.free(smbertModelPtr);
       malloc.free(qambertVocabPtr);
       malloc.free(qambertModelPtr);
+      malloc.free(ltrModelPtr);
       bytes?.free();
       error.free();
     }
