@@ -67,7 +67,11 @@ pub(crate) struct Query {
     pub(crate) session_id: SessionId,
     /// Query count within session.
     pub(crate) query_count: usize,
-    /// Query identifier.
+    /// Identifier unique to a specific sequence of query words.
+    ///
+    /// Any query with the same query words MUST HAVE the
+    /// same query id for the feature extraction to work
+    /// correctly.
     pub(crate) query_id: QueryId,
     /// Words of the query.
     pub(crate) query_words: Vec<String>,
