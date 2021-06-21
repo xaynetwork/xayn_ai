@@ -337,33 +337,42 @@ mod tests {
 
     impl AsPtr for CXaynAi {}
 
-    struct TestFile {
+    struct TestFile<'a> {
         file: CString,
+        ptr: Option<&'a u8>,
         _pinned: PhantomPinned,
     }
 
-    impl TestFile {
-        fn initialized(file: &str) -> Pin<Box<Self>> {
+    impl<'a> TestFile<'a> {
+        fn dangling(file: &str) -> Pin<Box<Self>> {
             Box::pin(Self {
                 file: CString::new(file).unwrap(),
+                ptr: None,
                 _pinned: PhantomPinned,
             })
         }
 
+        fn init(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+            let ptr = unsafe { self.file.as_ptr().cast::<u8>().as_ref() };
+            unsafe { self.as_mut().get_unchecked_mut() }.ptr = ptr;
+
+            self
+        }
+
         fn smbert_vocab() -> Pin<Box<Self>> {
-            Self::initialized(SMBERT_VOCAB)
+            Self::dangling(SMBERT_VOCAB).init()
         }
 
         fn smbert_model() -> Pin<Box<Self>> {
-            Self::initialized(SMBERT_MODEL)
+            Self::dangling(SMBERT_MODEL).init()
         }
 
         fn qambert_vocab() -> Pin<Box<Self>> {
-            Self::initialized(QAMBERT_VOCAB)
+            Self::dangling(QAMBERT_VOCAB).init()
         }
 
         fn qambert_model() -> Pin<Box<Self>> {
-            Self::initialized(QAMBERT_MODEL)
+            Self::dangling(QAMBERT_MODEL).init()
         }
 
         fn ltr_model() -> Pin<Box<Self>> {
@@ -371,8 +380,8 @@ mod tests {
         }
 
         #[allow(clippy::wrong_self_convention)] // false positive
-        fn as_ptr<'a>(self: &'a Pin<Box<Self>>) -> Option<&'a u8> {
-            unsafe { self.file.as_ptr().cast::<u8>().as_ref() }
+        fn as_ptr(self: &'a Pin<Box<Self>>) -> Option<&'a u8> {
+            self.ptr
         }
     }
 
