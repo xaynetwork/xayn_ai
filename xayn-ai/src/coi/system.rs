@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Deref};
+use std::ops::Deref;
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -18,7 +18,7 @@ use crate::{
         CoiPoint,
         UserInterests,
     },
-    embedding::{smbert::Embedding, utils::l2_norm_distance},
+    embedding::utils::{l2_distance, Embedding},
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
@@ -49,55 +49,65 @@ impl CoiSystem {
     }
 
     /// Finds the closest centre of interest (CoI) for the given embedding.
-    /// Returns the index of the CoI along with the distance between
-    /// the given embedding and the CoI. If no CoI was found, `None`
-    /// will be returned.
+    ///
+    /// Returns the index of the CoI along with the weighted distance between the given embedding
+    /// and the k nearest CoIs. If no CoIs were given, `None` will be returned.
     fn find_closest_coi_index(
         &self,
         embedding: &Embedding,
         cois: &[impl CoiPoint],
     ) -> Option<(usize, f32)> {
-        let index_and_distance = cois
-            .iter()
-            .enumerate()
-            .map(|(i, coi)| (i, l2_norm_distance(embedding, coi.point())))
-            .fold(
-                (None, f32::MAX),
-                |acc, (i, b)| match PartialOrd::partial_cmp(&acc.1, &b) {
-                    Some(Ordering::Greater) => (Some(i), b),
-                    _ => acc,
-                },
-            );
-        match index_and_distance {
-            (Some(index), distance) => Some((index, distance)),
-            _ => None,
+        if cois.is_empty() {
+            return None;
         }
+
+        let mut distances = cois
+            .iter()
+            .map(|coi| l2_distance(embedding, coi.point()))
+            .enumerate()
+            .collect::<Vec<_>>();
+        distances.sort_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap());
+        let index = distances[0].0;
+
+        let total = distances.iter().map(|(_, distance)| *distance).sum::<f32>();
+        let distance = if total > 0.0 {
+            distances
+                .iter()
+                .take(self.config.neighbors.get())
+                .zip(distances.iter().take(self.config.neighbors.get()).rev())
+                .map(|((_, distance), (_, reversed))| distance * (reversed / total))
+                .sum()
+        } else {
+            0.0
+        };
+
+        Some((index, distance))
     }
 
     /// Finds the closest CoI for the given embedding.
-    /// Returns an immutable reference to the CoI along with the distance between
-    /// the given embedding and the CoI. If no CoI was found, `None`
-    /// will be returned.
+    ///
+    /// Returns an immutable reference to the CoI along with the weighted distance between the given
+    /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
     fn find_closest_coi<'coi, CP: CoiPoint>(
         &self,
         embedding: &Embedding,
         cois: &'coi [CP],
     ) -> Option<(&'coi CP, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
-        Some((cois.get(index).unwrap(), distance))
+        Some((&cois[index], distance))
     }
 
     /// Finds the closest CoI for the given embedding.
-    /// Returns a mutable reference to the CoI along with the distance between
-    /// the given embedding and the CoI. If no CoI was found, `None`
-    /// will be returned.
+    ///
+    /// Returns a mutable reference to the CoI along with the weighted distance between the given
+    /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
     fn find_closest_coi_mut<'coi, CP: CoiPoint>(
         &self,
         embedding: &Embedding,
         cois: &'coi mut [CP],
     ) -> Option<(&'coi mut CP, f32)> {
         let (index, distance) = self.find_closest_coi_index(embedding, cois)?;
-        Some((cois.get_mut(index).unwrap(), distance))
+        Some((&mut cois[index], distance))
     }
 
     /// Creates a new CoI that is shifted towards the position of `embedding`.
@@ -261,20 +271,36 @@ mod tests {
             .unwrap();
 
         assert_eq!(index, 1);
-        assert!(approx_eq!(f32, distance, 4.2426405));
+        assert!(approx_eq!(f32, distance, 5.7716017));
     }
 
     #[test]
-    fn test_find_closest_coi_index_nan() {
+    fn test_find_closest_coi_index_equal() {
         let cois = create_pos_cois(&[[1., 2., 3.]]);
+        let embedding = arr1(&[1., 2., 3.]).into();
 
-        let embedding_all_nan = arr1(&[NAN, NAN, NAN]).into();
-        let coi = CoiSystem::default().find_closest_coi_index(&embedding_all_nan, &cois);
-        assert!(coi.is_none());
+        let (index, distance) = CoiSystem::default()
+            .find_closest_coi_index(&embedding, &cois)
+            .unwrap();
 
-        let embedding_single_nan = arr1(&[1., NAN, 2.]).into();
-        let coi = CoiSystem::default().find_closest_coi_index(&embedding_single_nan, &cois);
-        assert!(coi.is_none());
+        assert_eq!(index, 0);
+        assert!(approx_eq!(f32, distance, 0.0));
+    }
+
+    #[test]
+    #[should_panic(expected = "vectors must consist of real values only")]
+    fn test_find_closest_coi_index_all_nan() {
+        let cois = create_pos_cois(&[[1., 2., 3.]]);
+        let embedding = arr1(&[NAN, NAN, NAN]).into();
+        CoiSystem::default().find_closest_coi_index(&embedding, &cois);
+    }
+
+    #[test]
+    #[should_panic(expected = "vectors must consist of real values only")]
+    fn test_find_closest_coi_index_single_nan() {
+        let cois = create_pos_cois(&[[1., 2., 3.]]);
+        let embedding = arr1(&[1., NAN, 2.]).into();
+        CoiSystem::default().find_closest_coi_index(&embedding, &cois);
     }
 
     #[test]
@@ -309,7 +335,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(index, 1);
-        assert!(approx_eq!(f32, distance, 19.052559));
+        assert!(approx_eq!(f32, distance, 26.747852));
         assert!(threshold < distance);
 
         cois = coi_system.update_coi(&embedding, cois);
@@ -383,8 +409,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(coi_comp.id, CoiId(2));
-        assert!(approx_eq!(f32, coi_comp.pos_distance, 4.690416));
-        assert!(approx_eq!(f32, coi_comp.neg_distance, 7.));
+        assert!(approx_eq!(f32, coi_comp.pos_distance, 4.8904557));
+        assert!(approx_eq!(f32, coi_comp.neg_distance, 8.1273575));
     }
 
     #[test]
@@ -402,7 +428,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(coi_comp.id, CoiId(2));
-        assert!(approx_eq!(f32, coi_comp.pos_distance, 4.690416));
+        assert!(approx_eq!(f32, coi_comp.pos_distance, 4.8904557));
         assert!(approx_eq!(f32, coi_comp.neg_distance, f32::MAX));
     }
 
@@ -418,7 +444,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(documents_coi[0].coi.id.0, 1);
-        assert!(approx_eq!(f32, documents_coi[0].coi.pos_distance, 2.236068));
+        assert!(approx_eq!(
+            f32,
+            documents_coi[0].coi.pos_distance,
+            2.8996046
+        ));
         assert!(approx_eq!(
             f32,
             documents_coi[0].coi.neg_distance,
@@ -429,32 +459,29 @@ mod tests {
         assert!(approx_eq!(
             f32,
             documents_coi[1].coi.pos_distance,
-            5.3851647
+            5.8501925
         ));
         assert!(approx_eq!(f32, documents_coi[1].coi.neg_distance, SQRT_2));
     }
 
     #[test]
-    fn test_compute_coi_nan() {
+    #[should_panic(expected = "vectors must consist of real values only")]
+    fn test_compute_coi_all_nan() {
         let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[NAN, NAN, NAN]]);
+        let _ = CoiSystem::default().compute_coi(documents, &user_interests);
+    }
 
-        let error = CoiSystem::default()
-            .compute_coi(documents, &user_interests)
-            .err()
-            .unwrap();
-        let error = error.downcast::<CoiSystemError>().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
-
+    #[test]
+    #[should_panic(expected = "vectors must consist of real values only")]
+    fn test_compute_coi_single_nan() {
+        let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
+        let negative = create_neg_cois(&[[4., 5., 6.]]);
+        let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[1., NAN, 2.]]);
-        let error = CoiSystem::default()
-            .compute_coi(documents, &user_interests)
-            .err()
-            .unwrap();
-        let error = error.downcast::<CoiSystemError>().unwrap();
-        assert!(matches!(error, CoiSystemError::NoCoi));
+        let _ = CoiSystem::default().compute_coi(documents, &user_interests);
     }
 
     #[test]
