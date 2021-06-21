@@ -537,7 +537,7 @@ mod tests {
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
             error.message(),
-            "Failed to initialize the ai: No such file or directory (os error 2)"
+            "Failed to initialize the ai: io error: failed to fill whole buffer"
         );
     }
 

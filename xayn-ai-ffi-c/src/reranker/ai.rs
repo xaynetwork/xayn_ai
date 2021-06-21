@@ -971,7 +971,7 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            format!("{}: io error: failed to fill whole buffer", FAIL_INIT_AI,),
+            format!("{}: io error: failed to fill whole buffer", FAIL_INIT_AI),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -1071,7 +1071,7 @@ mod tests {
         assert_eq!(error.code, CCode::ReadFile);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            format!("{}: No such file or directory (os error 2)", FAIL_INIT_AI)
+            format!("{}: No such file or directory (os error 2)", FAIL_INIT_AI),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
