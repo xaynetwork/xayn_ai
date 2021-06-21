@@ -172,6 +172,9 @@ mod tests {
     /// Path to the current qambert onnx model file.
     const QAMBERT_MODEL: &[u8] = include_bytes!("../../data/qambert_v0001/qambert.onnx");
 
+    /// Path to the current ltr model binparams file.
+    const LTR_MODEL: &[u8] = include_bytes!("../../data/ltr_v0000/ltr.binparams");
+
     impl std::fmt::Debug for WXaynAi {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
             f.debug_struct("WXaynAi").finish()
@@ -319,6 +322,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -334,6 +338,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -347,6 +352,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -361,6 +367,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -370,10 +377,17 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_smbert_vocab_empty() {
-        let error = WXaynAi::new(&[], SMBERT_MODEL, QAMBERT_VOCAB, QAMBERT_MODEL, None)
-            .unwrap_err()
-            .into_serde::<Error>()
-            .unwrap();
+        let error = WXaynAi::new(
+            &[],
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
 
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
@@ -384,10 +398,17 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_qambert_vocab_empty() {
-        let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, &[], QAMBERT_MODEL, None)
-            .unwrap_err()
-            .into_serde::<Error>()
-            .unwrap();
+        let error = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            &[],
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
 
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
@@ -398,10 +419,17 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_smbert_model_empty() {
-        let error = WXaynAi::new(SMBERT_VOCAB, &[], QAMBERT_VOCAB, QAMBERT_MODEL, None)
-            .unwrap_err()
-            .into_serde::<Error>()
-            .unwrap();
+        let error = WXaynAi::new(
+            SMBERT_VOCAB,
+            &[],
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
 
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
@@ -412,10 +440,17 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_qambert_model_empty() {
-        let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, QAMBERT_VOCAB, &[], None)
-            .unwrap_err()
-            .into_serde::<Error>()
-            .unwrap();
+        let error = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            &[],
+            LTR_MODEL,
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
 
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
@@ -425,11 +460,39 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
+    fn test_ltr_model_empty() {
+        let error = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            &[],
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
+
+        assert_eq!(error.code(), CCode::InitAi);
+        assert_eq!(
+            error.message(),
+            "Failed to initialize the ai: io error: failed to fill whole buffer",
+        );
+    }
+
+    #[wasm_bindgen_test]
     fn test_smbert_model_invalid() {
-        let error = WXaynAi::new(SMBERT_VOCAB, &[0], QAMBERT_VOCAB, QAMBERT_MODEL, None)
-            .unwrap_err()
-            .into_serde::<Error>()
-            .unwrap();
+        let error = WXaynAi::new(
+            SMBERT_VOCAB,
+            &[0],
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
 
         assert_eq!(error.code(), CCode::InitAi);
         assert!(error
@@ -439,15 +502,43 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_qambert_model_invalid() {
-        let error = WXaynAi::new(SMBERT_VOCAB, SMBERT_MODEL, QAMBERT_VOCAB, &[0], None)
-            .unwrap_err()
-            .into_serde::<Error>()
-            .unwrap();
+        let error = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            &[0],
+            LTR_MODEL,
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
 
         assert_eq!(error.code(), CCode::InitAi);
         assert!(error
             .message()
             .contains("Failed to initialize the ai: Failed to build the model: "));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_ltr_model_invalid() {
+        let error = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            &[0],
+            None,
+        )
+        .unwrap_err()
+        .into_serde::<Error>()
+        .unwrap();
+
+        assert_eq!(error.code(), CCode::InitAi);
+        assert_eq!(
+            error.message(),
+            "Failed to initialize the ai: No such file or directory (os error 2)"
+        );
     }
 
     #[wasm_bindgen_test]
@@ -457,6 +548,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -483,6 +575,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -498,6 +591,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -524,6 +618,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             None,
         )
         .unwrap();
@@ -539,6 +634,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             Some(Box::new([])),
         )
         .unwrap();
@@ -551,6 +647,7 @@ mod tests {
             SMBERT_MODEL,
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
+            LTR_MODEL,
             Some(Box::new([1, 2, 3])),
         )
         .unwrap_err()
