@@ -75,7 +75,7 @@ impl CXaynAi {
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_qambert_from_file(qambert_vocab, qambert_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
-            .with_ltr_from_file(ltr_model)
+            .with_domain_from_file(ltr_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_serialized_database(serialized)
             .map_err(|cause| {

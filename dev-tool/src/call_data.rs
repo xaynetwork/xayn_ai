@@ -80,7 +80,7 @@ impl CallDataCmd {
                 data_dir.join(Self::SMBERT_MODEL_PATH),
             )
             .context("Loading S-mBert failed.")?
-            .with_ltr_from_file(data_dir.join(Self::LTR_MODEL_PATH))
+            .with_domain_from_file(data_dir.join(Self::LTR_MODEL_PATH))
             .context("Loading LTR failed.")?
             .build()
             .context("Building XaynAi failed.")?;

@@ -57,11 +57,11 @@ impl DomainReranker {
 }
 
 /// Builder for [`DomainReranker`].
-pub(crate) struct LtrBuilder<LM> {
-    model_params: LM,
+pub(crate) struct DomainRerankerBuilder<M> {
+    model_params: M,
 }
 
-impl LtrBuilder<BufReader<File>> {
+impl DomainRerankerBuilder<BufReader<File>> {
     /// Creates a [`LtrBuilder`] from a model params file.
     pub(crate) fn from_file(model_params: impl AsRef<Path>) -> Result<Self, Error> {
         let model_params = BufReader::new(File::open(model_params)?);
@@ -69,16 +69,16 @@ impl LtrBuilder<BufReader<File>> {
     }
 }
 
-impl<LM> LtrBuilder<LM> {
-    /// Creates a [`LtrBuilder`] from in-memory model params.
-    pub(crate) fn new(model_params: LM) -> Self {
+impl<M> DomainRerankerBuilder<M> {
+    /// Creates a [`DomainRerankerBuilder`] from in-memory model params.
+    pub(crate) fn new(model_params: M) -> Self {
         Self { model_params }
     }
 
     /// Builds a [`DomainReranker`].
     pub(crate) fn build(self) -> Result<DomainReranker, Error>
     where
-        LM: Read,
+        M: Read,
     {
         let model = ListNet::load_from_source(self.model_params)?;
         Ok(DomainReranker { model })

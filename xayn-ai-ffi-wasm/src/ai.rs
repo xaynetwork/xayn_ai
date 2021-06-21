@@ -42,7 +42,7 @@ impl WXaynAi {
             .into_js_result()?
             .with_smbert_from_reader(smbert_vocab, smbert_model)
             .with_qambert_from_reader(qambert_vocab, qambert_model)
-            .with_ltr_from_reader(ltr_model)
+            .with_domain_from_reader(ltr_model)
             .build()
             .map(WXaynAi)
             .map_err(|cause| {

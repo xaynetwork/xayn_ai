@@ -10,7 +10,7 @@ use crate::{
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
-    ltr::{DomainReranker, LtrBuilder},
+    ltr::{DomainReranker, DomainRerankerBuilder},
     mab::{BetaSampler, MabRanking},
     Error,
 };
@@ -35,7 +35,7 @@ pub struct Systems {
     smbert: SMBert,
     qambert: QAMBert,
     coi: CoiSystemImpl,
-    ltr: DomainReranker,
+    domain: DomainReranker,
     context: Context,
     mab: MabRanking<BetaSampler>,
     analytics: AnalyticsSystemImpl,
@@ -59,7 +59,7 @@ impl CommonSystems for Systems {
     }
 
     fn ltr(&self) -> &dyn LtrSystem {
-        &self.ltr
+        &self.domain
     }
 
     fn context(&self) -> &dyn ContextSystem {
@@ -100,11 +100,11 @@ impl Reranker {
     }
 }
 
-pub struct Builder<SV, SM, QAV, QAM, LM> {
+pub struct Builder<SV, SM, QAV, QAM, DM> {
     database: Db,
     smbert: SMBertBuilder<SV, SM>,
     qambert: QAMBertBuilder<QAV, QAM>,
-    ltr: LtrBuilder<LM>,
+    domain: DomainRerankerBuilder<DM>,
 }
 
 impl Default for Builder<(), (), (), (), ()> {
@@ -113,12 +113,12 @@ impl Default for Builder<(), (), (), (), ()> {
             database: Db::default(),
             smbert: SMBertBuilder::new((), ()),
             qambert: QAMBertBuilder::new((), ()),
-            ltr: LtrBuilder::new(()),
+            domain: DomainRerankerBuilder::new(()),
         }
     }
 }
 
-impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
+impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
     /// Sets the serialized database to use.
     ///
     /// This accepts an option as this makes the builder pattern easier to use
@@ -134,12 +134,12 @@ impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
         Ok(self)
     }
 
-    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N, QAV, QAM, LM> {
+    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N, QAV, QAM, DM> {
         Builder {
             database: self.database,
             smbert: SMBertBuilder::new(vocab, model),
             qambert: self.qambert,
-            ltr: self.ltr,
+            domain: self.domain,
         }
     }
 
@@ -147,21 +147,21 @@ impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<impl BufRead, impl Read, QAV, QAM, LM>, Error> {
+    ) -> Result<Builder<impl BufRead, impl Read, QAV, QAM, DM>, Error> {
         Ok(Builder {
             database: self.database,
             smbert: SMBertBuilder::from_files(vocab, model)?,
             qambert: self.qambert,
-            ltr: self.ltr,
+            domain: self.domain,
         })
     }
 
-    pub fn with_qambert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<SV, SM, W, N, LM> {
+    pub fn with_qambert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<SV, SM, W, N, DM> {
         Builder {
             database: self.database,
             smbert: self.smbert,
             qambert: QAMBertBuilder::new(vocab, model),
-            ltr: self.ltr,
+            domain: self.domain,
         }
     }
 
@@ -169,25 +169,25 @@ impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
         self,
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<SV, SM, impl BufRead, impl Read, LM>, Error> {
+    ) -> Result<Builder<SV, SM, impl BufRead, impl Read, DM>, Error> {
         Ok(Builder {
             database: self.database,
             smbert: self.smbert,
             qambert: QAMBertBuilder::from_files(vocab, model)?,
-            ltr: self.ltr,
+            domain: self.domain,
         })
     }
 
-    pub fn with_ltr_from_reader<N>(self, model: N) -> Builder<SV, SM, QAV, QAM, N> {
+    pub fn with_domain_from_reader<N>(self, model: N) -> Builder<SV, SM, QAV, QAM, N> {
         Builder {
             database: self.database,
             smbert: self.smbert,
             qambert: self.qambert,
-            ltr: LtrBuilder::new(model),
+            domain: DomainRerankerBuilder::new(model),
         }
     }
 
-    pub fn with_ltr_from_file(
+    pub fn with_domain_from_file(
         self,
         model: impl AsRef<Path>,
     ) -> Result<Builder<SV, SM, QAV, QAM, impl Read>, Error> {
@@ -195,7 +195,7 @@ impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
             database: self.database,
             smbert: self.smbert,
             qambert: self.qambert,
-            ltr: LtrBuilder::from_file(model)?,
+            domain: DomainRerankerBuilder::from_file(model)?,
         })
     }
 
@@ -205,7 +205,7 @@ impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
         SM: Read,
         QAV: BufRead,
         QAM: Read,
-        LM: Read,
+        DM: Read,
     {
         let database = self.database;
         let smbert = self
@@ -223,7 +223,7 @@ impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
             .with_pooling(AveragePooler)
             .build()?;
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
-        let ltr = self.ltr.build()?;
+        let domain = self.domain.build()?;
         let context = Context;
         let mab = MabRanking::new(BetaSampler);
         let analytics = AnalyticsSystemImpl;
@@ -233,7 +233,7 @@ impl<SV, SM, QAV, QAM, LM> Builder<SV, SM, QAV, QAM, LM> {
             smbert,
             qambert,
             coi,
-            ltr,
+            domain,
             context,
             mab,
             analytics,
