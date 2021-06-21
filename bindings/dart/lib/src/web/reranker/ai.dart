@@ -79,8 +79,8 @@ class XaynAi implements common.XaynAi {
       Uint8List qambertModel, Uint8List ltrModel,
       [Uint8List? serialized]) {
     try {
-      _ai = _XaynAi(
-          smbertVocab, smbertModel, qambertVocab, qambertModel, ltrModel, serialized);
+      _ai = _XaynAi(smbertVocab, smbertModel, qambertVocab, qambertModel,
+          ltrModel, serialized);
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
