@@ -48,7 +48,7 @@ impl CallDataCmd {
     const QAMBERT_VOCAB_PATH: &'static str = "qambert_v0001/vocab.txt";
     const SMBERT_MODEL_PATH: &'static str = "smbert_v0000/smbert.onnx";
     const SMBERT_VOCAB_PATH: &'static str = "smbert_v0000/vocab.txt";
-    const LTR_MODEL_PATH: &'static str = "ltr_v000/ltr.binparams";
+    const LTR_MODEL_PATH: &'static str = "ltr_v0000/ltr.binparams";
 
     pub fn run(self) -> Result<i32, Error> {
         let CallDataCmd {

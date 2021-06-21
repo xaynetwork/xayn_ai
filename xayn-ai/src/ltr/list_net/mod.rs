@@ -30,7 +30,6 @@ mod ndutils;
 /// 3. Dense layer with 1 unit, bias and linear activation function (out shape: `(10, 1)`)
 /// 4. Flattening to the number of input documents. (out shape `(10,)`)
 /// 5. Dense with `nr_of_input_documents` (10) units, bias and softmax activation function (out shape `(10,)`)
-#[allow(unused)] //TODO tmp
 pub struct ListNet {
     dense_1: Dense<Relu>,
     dense_2: Dense<Relu>,
@@ -165,7 +164,6 @@ impl ListNet {
     /// # Panics
     ///
     /// If inputs have not exactly [`Self::INPUT_NR_FEATURES`] features.
-    #[allow(unused)] //FIXME temp
     pub(crate) fn run(&self, inputs: Array2<f32>) -> Vec<f32> {
         let nr_documents = inputs.shape()[0];
 

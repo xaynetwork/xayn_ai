@@ -16,6 +16,7 @@
         let qambert_model = await window.fetch(
           "data/qambert_v0001/qambert.onnx"
         );
+        let ltr_model = await window.fetch("data/ltr_v0000/ltr.binparams");
         let smbert_vocab_buf = new Uint8Array(await smbert_vocab.arrayBuffer());
         let smbert_model_buf = new Uint8Array(await smbert_model.arrayBuffer());
         let qambert_vocab_buf = new Uint8Array(
@@ -24,6 +25,7 @@
         let qambert_model_buf = new Uint8Array(
           await qambert_model.arrayBuffer()
         );
+        let ltr_model_buf = new Uint8Array(await ltr_model.arrayBuffer());
         console.timeEnd("load_data");
 
         console.time("init_ai");
@@ -34,6 +36,7 @@
             smbert_model_buf,
             qambert_vocab_buf,
             qambert_model_buf,
+            ltr_model_buf,
             undefined,
           );
         } catch (e) {
