@@ -12,15 +12,19 @@ pub(super) struct QueryFeatures {
     /// Average `n` where query is the `n`th of a session.
     pub(super) mean_query_count: f32,
     /// Average number of occurrences per session.
-    pub(super) occurs_per_session: f32,
+    pub(super) mean_occurs_per_session: f32,
     /// Total number of occurrences.
     pub(super) num_occurs: usize,
     /// Mean reciprocal rank of clicked results.
     pub(super) click_mrr: f32,
     /// Average number of clicks.
     pub(super) mean_clicks: f32,
-    /// Average number of skips.
-    pub(super) mean_skips: f32,
+    /// Average number of non-clicks.
+    ///
+    /// The python reference implementation implies this is supposed to be the
+    /// mean number of skips. But it is implemented as the mean number of non
+    /// clicks.
+    pub(super) mean_non_clicks: f32,
 }
 
 impl QueryFeatures {
@@ -39,11 +43,11 @@ impl QueryFeatures {
                 click_entropy: 0.,
                 num_terms,
                 mean_query_count: 0.,
-                occurs_per_session: 0.,
+                mean_occurs_per_session: 0.,
                 num_occurs: 0,
                 click_mrr: 0.283,
                 mean_clicks: 0.,
-                mean_skips: 0.,
+                mean_non_clicks: 0.,
             };
         }
 
@@ -65,18 +69,21 @@ impl QueryFeatures {
 
         let mean_clicks = clicked.len() as f32 / num_occurs as f32;
 
-        let mean_skips =
-            hists_q.into_iter().filter(|hist| hist.is_skipped()).count() as f32 / num_occurs as f32;
+        let mean_non_clicks = hists_q
+            .into_iter()
+            .filter(|hist| !hist.is_clicked())
+            .count() as f32
+            / num_occurs as f32;
 
         Self {
             click_entropy,
             num_terms,
             mean_query_count,
-            occurs_per_session,
+            mean_occurs_per_session: occurs_per_session,
             num_occurs,
             click_mrr,
             mean_clicks,
-            mean_skips,
+            mean_non_clicks,
         }
     }
 }
@@ -97,4 +104,156 @@ fn mean_query_count<'a>(history_q: impl Iterator<Item = &'a &'a HistSearchResult
     let mean_query_count = sum_query_count / num_occurs as f32;
 
     (mean_query_count, num_occurs)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::mock_uuid;
+
+    use super::super::{Action, DayOfWeek, QueryId, Rank, SessionId};
+
+    use super::*;
+
+    #[test]
+    fn test_query_features_no_matching_history() {
+        let QueryFeatures {
+            click_entropy,
+            num_terms,
+            mean_query_count,
+            mean_occurs_per_session,
+            num_occurs,
+            click_mrr,
+            mean_clicks,
+            mean_non_clicks,
+        } = QueryFeatures::build(
+            &[],
+            &Query {
+                session_id: SessionId(mock_uuid(10)),
+                query_count: 1,
+                query_id: QueryId(mock_uuid(233)),
+                query_words: vec!["2".to_owned(), "100".to_owned(), "4".to_owned()],
+            },
+        );
+
+        assert_approx_eq!(f32, click_entropy, 0.0);
+        assert_eq!(num_terms, 3);
+
+        assert_approx_eq!(f32, mean_query_count, 0.0);
+        assert_approx_eq!(f32, mean_occurs_per_session, 0.0);
+        assert_eq!(num_occurs, 0);
+
+        assert_approx_eq!(f32, click_mrr, 0.283);
+        assert_approx_eq!(f32, mean_clicks, 0.0);
+        assert_approx_eq!(f32, mean_non_clicks, 0.0);
+    }
+
+    fn history<'a>(
+        query_id: QueryId,
+        iter: impl IntoIterator<Item = &'a (&'a str, Action)>,
+    ) -> Vec<HistSearchResult> {
+        iter.into_iter()
+            .enumerate()
+            .map(|(id, (domain, action))| {
+                let in_query_id = id % 10;
+                let per_query_id = id / 10;
+                HistSearchResult {
+                    query: Query {
+                        session_id: SessionId(mock_uuid(1)),
+                        query_count: per_query_id,
+                        query_id,
+                        query_words: vec!["1".to_owned()],
+                    },
+                    url: in_query_id.to_string(),
+                    domain: (*domain).to_owned(),
+                    final_rank: Rank(in_query_id),
+                    day: DayOfWeek::Tue,
+                    action: *action,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_query_features() {
+        let query_id = QueryId(mock_uuid(233));
+        let history = history(
+            query_id,
+            &[
+                /* query 1 */
+                ("1", Action::Skip),
+                ("2", Action::Skip),
+                ("3", Action::Click1),
+                ("3", Action::Click2),
+                ("4", Action::Miss),
+                ("5", Action::Miss),
+                ("6", Action::Miss),
+                ("7", Action::Miss),
+                ("8", Action::Miss),
+                ("9", Action::Miss),
+                /* query 2 */
+                ("1", Action::Skip),
+                ("2", Action::Skip),
+                ("3", Action::Skip),
+                ("3", Action::Skip),
+                ("4", Action::Skip),
+                ("5", Action::Skip),
+                ("6", Action::Click1),
+                ("7", Action::Click1),
+                ("8", Action::Click2),
+                ("9", Action::Miss),
+                /* query 3 */
+                ("1", Action::Skip),
+                ("2", Action::Click1),
+                ("3", Action::Click1),
+                ("3", Action::Click1),
+                ("5", Action::Skip),
+                ("4", Action::Click2),
+                ("6", Action::Miss),
+                ("7", Action::Miss),
+                ("8", Action::Miss),
+                ("9", Action::Miss),
+                /* query 4 */
+                ("1", Action::Miss),
+                ("2", Action::Miss),
+                ("3", Action::Miss),
+                ("3", Action::Miss),
+                ("5", Action::Miss),
+                ("4", Action::Miss),
+                ("6", Action::Miss),
+                ("7", Action::Miss),
+                ("8", Action::Miss),
+                ("9", Action::Miss),
+            ],
+        );
+
+        let QueryFeatures {
+            click_entropy,
+            num_terms,
+            mean_query_count,
+            mean_occurs_per_session,
+            num_occurs,
+            click_mrr,
+            mean_clicks,
+            mean_non_clicks,
+        } = QueryFeatures::build(
+            &history,
+            &Query {
+                session_id: SessionId(mock_uuid(10)),
+                query_count: 1,
+                query_id,
+                query_words: vec!["2".to_owned(), "100".to_owned(), "4".to_owned()],
+            },
+        );
+
+        assert_approx_eq!(f32, click_entropy, 2.725_480_6);
+        assert_eq!(num_terms, 3);
+
+        assert_approx_eq!(f32, mean_query_count, 1.5);
+        assert_approx_eq!(f32, mean_occurs_per_session, 4.0);
+        assert_eq!(num_occurs, 4);
+
+        assert_approx_eq!(f32, click_mrr, 0.249_530_15);
+        assert_approx_eq!(f32, mean_clicks, 2.25);
+        assert_approx_eq!(f32, mean_non_clicks, 7.75);
+    }
 }
