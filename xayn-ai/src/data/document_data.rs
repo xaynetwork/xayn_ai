@@ -5,7 +5,7 @@ use crate::{
         document::{DocumentId, QueryId, SessionId},
         CoiId,
     },
-    embedding::smbert::Embedding,
+    embedding::utils::Embedding,
     reranker::systems::CoiSystemData,
 };
 
