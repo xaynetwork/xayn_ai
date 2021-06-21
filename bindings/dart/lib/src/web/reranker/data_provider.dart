@@ -14,6 +14,7 @@ class SetupData implements common.SetupData {
   late Uint8List smbertModel;
   late Uint8List qambertVocab;
   late Uint8List qambertModel;
+  late Uint8List ltrModel;
   late Uint8List wasmModule;
 
   SetupData(Map<common.AssetType, Uint8List> assets) {
@@ -21,6 +22,7 @@ class SetupData implements common.SetupData {
     smbertModel = assets[common.AssetType.smbertModel]!;
     qambertVocab = assets[common.AssetType.qambertVocab]!;
     qambertModel = assets[common.AssetType.qambertModel]!;
+    ltrModel = assets[common.AssetType.ltrModel]!;
     wasmModule = assets[common.AssetType.wasmModule]!;
   }
 }

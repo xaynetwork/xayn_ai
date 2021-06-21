@@ -57,6 +57,7 @@ impl CXaynAi {
         smbert_model: Option<&u8>,
         qambert_vocab: Option<&u8>,
         qambert_model: Option<&u8>,
+        ltr_model: Option<&u8>,
         serialized: Option<&CBytes>,
     ) -> Result<Self, Error> {
         let smbert_vocab =
@@ -67,11 +68,14 @@ impl CXaynAi {
             unsafe { as_str(qambert_vocab, CCode::QAMBertVocabPointer, FAIL_INIT_AI) }?;
         let qambert_model =
             unsafe { as_str(qambert_model, CCode::QAMBertModelPointer, FAIL_INIT_AI) }?;
+        let ltr_model = unsafe { as_str(ltr_model, CCode::LtrModelPointer, FAIL_INIT_AI) }?;
 
         Builder::default()
             .with_smbert_from_file(smbert_vocab, smbert_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_qambert_from_file(qambert_vocab, qambert_model)
+            .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
+            .with_domain_from_file(ltr_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_serialized_database(serialized)
             .map_err(|cause| {
@@ -168,6 +172,7 @@ pub unsafe extern "C" fn xaynai_new(
     smbert_model: Option<&u8>,
     qambert_vocab: Option<&u8>,
     qambert_model: Option<&u8>,
+    ltr_model: Option<&u8>,
     serialized: Option<&CBytes>,
     error: Option<&mut CError>,
 ) -> Option<Box<CXaynAi>> {
@@ -177,6 +182,7 @@ pub unsafe extern "C" fn xaynai_new(
             smbert_model,
             qambert_vocab,
             qambert_model,
+            ltr_model,
             serialized,
         )
     };
@@ -325,7 +331,7 @@ mod tests {
         },
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
-        tests::{QAMBERT_MODEL, QAMBERT_VOCAB, SMBERT_MODEL, SMBERT_VOCAB},
+        tests::{LTR_MODEL, QAMBERT_MODEL, QAMBERT_VOCAB, SMBERT_MODEL, SMBERT_VOCAB},
         utils::tests::AsPtr,
     };
 
@@ -356,6 +362,10 @@ mod tests {
 
         fn qambert_model() -> Self {
             Self::new(QAMBERT_MODEL)
+        }
+
+        fn ltr_model() -> Self {
+            Self::new(LTR_MODEL)
         }
     }
 
@@ -403,6 +413,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let hists = TestHistories::default();
         let docs = TestDocuments::default();
         let db = TestDb::default();
@@ -414,6 +425,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -442,6 +454,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -451,6 +464,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -470,6 +484,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -479,6 +494,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -498,6 +514,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -507,6 +524,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -527,6 +545,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -537,6 +556,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -560,6 +580,7 @@ mod tests {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -570,6 +591,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 invalid,
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -593,6 +615,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -610,6 +633,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -630,6 +654,7 @@ mod tests {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -647,6 +672,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 invalid,
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -667,6 +693,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -678,6 +705,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -699,6 +727,7 @@ mod tests {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -710,6 +739,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 invalid,
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -731,6 +761,7 @@ mod tests {
         let smbert_vocab = TestFile::smbert_vocab();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -741,6 +772,7 @@ mod tests {
                 invalid,
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -764,6 +796,7 @@ mod tests {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -774,6 +807,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 invalid,
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -793,10 +827,42 @@ mod tests {
     }
 
     #[test]
+    fn test_ltr_model_null() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = None;
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                invalid,
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::LtrModelPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            format!("{}: The {} is null", FAIL_INIT_AI, CCode::LtrModelPointer,),
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
     fn test_smbert_model_empty() {
         let smbert_vocab = TestFile::smbert_vocab();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -814,6 +880,7 @@ mod tests {
                 invalid,
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -836,6 +903,7 @@ mod tests {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -853,6 +921,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 invalid,
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -871,10 +940,49 @@ mod tests {
     }
 
     #[test]
+    fn test_ltr_model_empty() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = TempBuilder::new()
+            .prefix("ltr")
+            .suffix(".binparams")
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
+        let invalid = CString::new(invalid.to_str().unwrap()).unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                invalid,
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::InitAi);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            format!("{}: io error: failed to fill whole buffer", FAIL_INIT_AI),
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
     fn test_smbert_model_invalid() {
         let smbert_vocab = TestFile::smbert_vocab();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -886,6 +994,7 @@ mod tests {
                 invalid,
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -907,6 +1016,7 @@ mod tests {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
+        let ltr_model = TestFile::ltr_model();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -918,6 +1028,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 invalid,
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -930,6 +1041,38 @@ mod tests {
             .unwrap()
             .as_str()
             .contains(&format!("{}: Failed to load a data file: ", FAIL_INIT_AI)));
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_ltr_model_invalid() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let invalid = CString::new("").unwrap();
+        let invalid = unsafe { invalid.as_ptr().cast::<u8>().as_ref() };
+        assert!(unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                invalid,
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .is_none());
+        assert_eq!(error.code, CCode::ReadFile);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            format!("{}: No such file or directory (os error 2)", FAIL_INIT_AI),
+        );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
@@ -1011,6 +1154,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::smbert_vocab();
         let qambert_model = TestFile::smbert_model();
+        let ltr_model = TestFile::ltr_model();
         let docs = TestDocuments::default();
         let db = TestDb::default();
         let mut error = CError::default();
@@ -1021,6 +1165,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -1055,6 +1200,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let hists = TestHistories::default();
         let db = TestDb::default();
         let mut error = CError::default();
@@ -1065,6 +1211,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 db.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -1099,6 +1246,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let mut error = CError::default();
 
         let empty: CBytes = Vec::new().into_boxed_slice().into();
@@ -1108,6 +1256,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 empty.as_ptr(),
                 error.as_mut_ptr(),
             )
@@ -1124,6 +1273,7 @@ mod tests {
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
         let mut error = CError::default();
 
         let version = u8::MAX;
@@ -1134,6 +1284,7 @@ mod tests {
                 smbert_model.as_ptr(),
                 qambert_vocab.as_ptr(),
                 qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
                 invalid.as_ptr(),
                 error.as_mut_ptr(),
             )

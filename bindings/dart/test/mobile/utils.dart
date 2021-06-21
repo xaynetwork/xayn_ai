@@ -15,14 +15,16 @@ const smbertVocab = '../../data/smbert_v0000/vocab.txt';
 const smbertModel = '../../data/smbert_v0000/smbert.onnx';
 const qambertVocab = '../../data/qambert_v0001/vocab.txt';
 const qambertModel = '../../data/qambert_v0001/qambert.onnx';
+const ltrModel = '../../data/ltr_v0000/ltr.binparams';
 
 SetupData mkSetupData(String smbertVocab, String smbertModel,
-    String qambertVocab, String qambertModel) {
+    String qambertVocab, String qambertModel, String ltrModel) {
   return SetupData(<AssetType, String>{
     AssetType.smbertVocab: smbertVocab,
     AssetType.smbertModel: smbertModel,
     AssetType.qambertVocab: qambertVocab,
     AssetType.qambertModel: qambertModel,
+    AssetType.ltrModel: ltrModel,
   });
 }
 

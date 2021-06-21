@@ -14,11 +14,13 @@ class SetupData implements common.SetupData {
   late String smbertModel;
   late String qambertVocab;
   late String qambertModel;
+  late String ltrModel;
 
   SetupData(Map<common.AssetType, String> assets) {
     smbertVocab = assets[common.AssetType.smbertVocab]!;
     smbertModel = assets[common.AssetType.smbertModel]!;
     qambertVocab = assets[common.AssetType.qambertVocab]!;
     qambertModel = assets[common.AssetType.qambertModel]!;
+    ltrModel = assets[common.AssetType.ltrModel]!;
   }
 }
