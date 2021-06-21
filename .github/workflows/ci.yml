@@ -692,12 +692,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-10.15]
+        target: [android, ios, web]
         include:
-          - os: ubuntu-20.04
+          - target: android
+            os: ubuntu-20.04
             cmd: flutter build apk --debug --split-per-abi
-          - os: macos-10.15
+          - target: ios
+            os: macos-10.15
             cmd: flutter build ios --debug --no-codesign
+          - target: web
+            os: ubuntu-20.04
+            cmd: flutter build web
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -727,21 +732,21 @@ jobs:
           mv bindings/dart/ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
 
       - name: Download iOS aarch64 artifacts
-        if: matrix.os == 'macos-10.15'
+        if: matrix.target == 'ios'
         uses: actions/download-artifact@v2
         with:
           name: build-ios-aarch64-apple-ios-${{ github.sha }}
           path: ${{ runner.temp }}/build-ios-${{ github.sha }}
 
       - name: Download iOS x84_64 artifacts
-        if: matrix.os == 'macos-10.15'
+        if: matrix.target == 'ios'
         uses: actions/download-artifact@v2
         with:
           name: build-ios-x86_64-apple-ios-${{ github.sha }}
           path: ${{ runner.temp }}/build-ios-${{ github.sha }}
 
       - name: Move iOS artifacts
-        if: matrix.os == 'macos-10.15'
+        if: matrix.target == 'ios'
         run: |
           cd ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
           cd ${{ runner.temp }}/build-ios-${{ github.sha }}
@@ -776,12 +781,12 @@ jobs:
         run: |
           flutter pub run build_runner build
 
-      - name: Build flutter example
+      - name: Build flutter example for ${{ matrix.target }}
         working-directory: ${{ env.DART_WORKSPACE }}/example
         run: ${{ matrix.cmd }}
 
-      - name: Build archive
-        if: matrix.os == 'macos-10.15'
+      - name: Build ios archive
+        if: matrix.target == 'ios'
         working-directory: ${{ env.DART_WORKSPACE }}/example
         run: xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner archive -configuration release -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED="NO"
 
