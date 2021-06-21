@@ -172,17 +172,17 @@ mod tests {
         assert_approx_eq!(
             f32,
             cxt_docs[0].context.context_value,
-            (5. / 6. + 1. + 0.9 + 8. / 17.) / 4.
+            (5. / 6. + 1. + 0.9 + 8. / 17.) / 4.,
         );
         assert_approx_eq!(
             f32,
             cxt_docs[1].context.context_value,
-            (5. / 11. + 1. / 7. + 0.5 + 8. / 11.) / 4.
+            (5. / 11. + 1. / 7. + 0.5 + 8. / 11.) / 4.,
         );
         assert_approx_eq!(
             f32,
             cxt_docs[2].context.context_value,
-            (5. / 13. + 1. / 9. + 0.3 + 8. / 20.) / 4.
+            (5. / 13. + 1. / 9. + 0.3 + 8. / 20.) / 4.,
         );
     }
 }

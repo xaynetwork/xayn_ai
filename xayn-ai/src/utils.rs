@@ -98,10 +98,10 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
 /// Furthermore in dependencies which use this you need to have the `float-cmp` dependency available.
 #[macro_export]
 macro_rules! assert_approx_eq {
-    ($t:ty, $left:expr, $right:expr) => {
+    ($t:ty, $left:expr, $right:expr $(,)?) => {
         assert_approx_eq!($t, $left, $right, ulps = 2)
     };
-    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr) => {{
+    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr $(,)?) => {{
         let ulps = $ulps;
         let left = $left;
         let right = $right;
@@ -347,7 +347,7 @@ mod tests {
         assert_approx_eq!(
             f32,
             &[[[0.25, 1.25, 0.], [0.0, 0.125, 0.]]],
-            arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]])
+            arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]]),
         );
     }
 
@@ -356,17 +356,17 @@ mod tests {
         assert_approx_eq!(
             f32,
             &[[0.25, 1.25], [0.0, 0.125]],
-            &[[0.25, 1.25], [0.0, 0.125]]
+            &[[0.25, 1.25], [0.0, 0.125]],
         );
         assert_approx_eq!(
             f32,
             &[[0.25, 1.25], [0.0, 0.125]],
-            arr2(&[[0.25, 1.25], [0.0, 0.125]])
+            arr2(&[[0.25, 1.25], [0.0, 0.125]]),
         );
         assert_approx_eq!(
             f32,
             &[[[0.25, 1.25], [0.0, 0.125]]],
-            arr3(&[[[0.25, 1.25], [0.0, 0.125]]])
+            arr3(&[[[0.25, 1.25], [0.0, 0.125]]]),
         );
     }
 

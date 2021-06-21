@@ -122,16 +122,11 @@ mod tests {
         assert_eq!(raw.final_ranking, [0, 2, 3, 1]);
         assert_approx_eq!(
             f32,
-            raw.qambert_similarities.as_slice(),
+            raw.qambert_similarities,
             [3.0, 2.125, 4.5, 21.25],
-            ulps = 0
+            ulps = 0,
         );
-        assert_approx_eq!(
-            f32,
-            raw.context_scores.as_slice(),
-            [2.0, 1.0, 0.2, 0.8],
-            ulps = 0
-        );
+        assert_approx_eq!(f32, raw.context_scores, [2.0, 1.0, 0.2, 0.8], ulps = 0);
     }
 
     #[test]
