@@ -376,7 +376,7 @@ mod tests {
         }
 
         fn ltr_model() -> Pin<Box<Self>> {
-            Self::initialized(LTR_MODEL)
+            Self::dangling(LTR_MODEL).init()
         }
 
         #[allow(clippy::wrong_self_convention)] // false positive
