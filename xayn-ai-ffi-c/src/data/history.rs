@@ -172,7 +172,7 @@ pub(crate) mod tests {
     }
 
     impl<'a> TestHistories<'a> {
-        fn dangling() -> Pin<Box<Self>> {
+        fn uninitialized() -> Pin<Box<Self>> {
             let len = 6;
             let ids = (0..len)
                 .map(|idx| CString::new(DocumentId::from_u128(idx as u128).to_string()).unwrap())
@@ -206,7 +206,7 @@ pub(crate) mod tests {
             })
         }
 
-        fn init_hist(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+        fn initialize_history(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
             let len = self.len();
             let relevances = repeat(Relevance::Low)
                 .take(len / 2)
@@ -272,7 +272,7 @@ pub(crate) mod tests {
             self
         }
 
-        fn init_hists(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+        fn initialize_histories(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
             let data = unsafe { self.history.as_ptr().as_ref() };
             let len = self.len() as u32;
             unsafe { self.as_mut().get_unchecked_mut() }.histories = CHistories { data, len };
@@ -281,7 +281,9 @@ pub(crate) mod tests {
         }
 
         pub fn initialized() -> Pin<Box<Self>> {
-            Self::dangling().init_hist().init_hists()
+            Self::uninitialized()
+                .initialize_history()
+                .initialize_histories()
         }
 
         #[allow(clippy::wrong_self_convention)] // false positive
@@ -326,9 +328,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_history_id_null() {
-        let mut hists = TestHistories::dangling().init_hist();
+        let mut hists = TestHistories::uninitialized().initialize_history();
         unsafe { hists.as_mut().get_unchecked_mut() }.history[0].id = None;
-        let hists = hists.init_hists();
+        let hists = hists.initialize_histories();
 
         let error = unsafe { hists.histories.to_histories() }.unwrap_err();
         assert_eq!(error.code(), CCode::HistoryIdPointer);

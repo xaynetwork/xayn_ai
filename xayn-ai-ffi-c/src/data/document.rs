@@ -180,7 +180,7 @@ pub(crate) mod tests {
     }
 
     impl<'a> TestDocuments<'a> {
-        fn dangling() -> Pin<Box<Self>> {
+        fn uninitialized() -> Pin<Box<Self>> {
             let len = 10;
             let ids = (0..len)
                 .map(|idx| CString::new(DocumentId::from_u128(idx).to_string()).unwrap())
@@ -222,7 +222,7 @@ pub(crate) mod tests {
             })
         }
 
-        fn init_doc(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+        fn initialize_document(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
             let len = self.len();
             let ranks = 0..len as u32;
             let query_counts = iter::repeat(1).take(len);
@@ -272,7 +272,7 @@ pub(crate) mod tests {
             self
         }
 
-        fn init_docs(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+        fn initialize_documents(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
             let data = unsafe { self.document.as_ptr().as_ref() };
             let len = self.len() as u32;
             unsafe { self.as_mut().get_unchecked_mut() }.documents = CDocuments { data, len };
@@ -281,7 +281,9 @@ pub(crate) mod tests {
         }
 
         pub fn initialized() -> Pin<Box<Self>> {
-            Self::dangling().init_doc().init_docs()
+            Self::uninitialized()
+                .initialize_document()
+                .initialize_documents()
         }
 
         #[allow(clippy::wrong_self_convention)] // false positive
@@ -322,9 +324,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_document_id_null() {
-        let mut docs = TestDocuments::dangling().init_doc();
+        let mut docs = TestDocuments::uninitialized().initialize_document();
         unsafe { docs.as_mut().get_unchecked_mut() }.document[0].id = None;
-        let docs = docs.init_docs();
+        let docs = docs.initialize_documents();
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code(), CCode::DocumentIdPointer);
@@ -339,9 +341,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_document_title_null() {
-        let mut docs = TestDocuments::dangling().init_doc();
+        let mut docs = TestDocuments::uninitialized().initialize_document();
         unsafe { docs.as_mut().get_unchecked_mut() }.document[0].title = None;
-        let docs = docs.init_docs();
+        let docs = docs.initialize_documents();
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code(), CCode::DocumentTitlePointer);

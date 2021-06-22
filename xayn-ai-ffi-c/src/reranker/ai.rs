@@ -344,7 +344,7 @@ mod tests {
     }
 
     impl<'a> TestFile<'a> {
-        fn dangling(file: &str) -> Pin<Box<Self>> {
+        fn uninitialized(file: &str) -> Pin<Box<Self>> {
             Box::pin(Self {
                 file: CString::new(file).unwrap(),
                 ptr: None,
@@ -352,7 +352,7 @@ mod tests {
             })
         }
 
-        fn init(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+        fn initialize(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
             let ptr = unsafe { self.file.as_ptr().cast::<u8>().as_ref() };
             unsafe { self.as_mut().get_unchecked_mut() }.ptr = ptr;
 
@@ -360,23 +360,23 @@ mod tests {
         }
 
         fn smbert_vocab() -> Pin<Box<Self>> {
-            Self::dangling(SMBERT_VOCAB).init()
+            Self::uninitialized(SMBERT_VOCAB).initialize()
         }
 
         fn smbert_model() -> Pin<Box<Self>> {
-            Self::dangling(SMBERT_MODEL).init()
+            Self::uninitialized(SMBERT_MODEL).initialize()
         }
 
         fn qambert_vocab() -> Pin<Box<Self>> {
-            Self::dangling(QAMBERT_VOCAB).init()
+            Self::uninitialized(QAMBERT_VOCAB).initialize()
         }
 
         fn qambert_model() -> Pin<Box<Self>> {
-            Self::dangling(QAMBERT_MODEL).init()
+            Self::uninitialized(QAMBERT_MODEL).initialize()
         }
 
         fn ltr_model() -> Pin<Box<Self>> {
-            Self::dangling(LTR_MODEL).init()
+            Self::uninitialized(LTR_MODEL).initialize()
         }
 
         #[allow(clippy::wrong_self_convention)] // false positive
