@@ -66,7 +66,6 @@ impl ContextCalc {
 
 #[cfg(test)]
 mod tests {
-    use float_cmp::approx_eq;
     use ndarray::arr1;
 
     use super::*;
@@ -127,16 +126,16 @@ mod tests {
         };
 
         let cxt = calc.calculate(0., 0., calc.neg_max, 0.);
-        assert!(approx_eq!(f32, cxt, 3. / 4.)); // 1/4 + 1/4 + 1/4
+        assert_approx_eq!(f32, cxt, 3. / 4.); // 1/4 + 1/4 + 1/4
 
         let cxt = calc.calculate(1., 0., calc.neg_max, 0.);
-        assert!(approx_eq!(f32, cxt, 1.)); // 1/4 * 4
+        assert_approx_eq!(f32, cxt, 1.); // 1/4 * 4
 
         let cxt = calc.calculate(0., calc.pos_avg, calc.neg_max, calc.similarity_avg);
-        assert!(approx_eq!(f32, cxt, 0.5)); // 2/8 + 1/4
+        assert_approx_eq!(f32, cxt, 0.5); // 2/8 + 1/4
 
         let cxt = calc.calculate(0., 8., 7., 4.);
-        assert!(approx_eq!(f32, cxt, 49. / 120.)) // 1/12 + 1/8 + 1/5
+        assert_approx_eq!(f32, cxt, 49. / 120.); // 1/12 + 1/8 + 1/5
     }
 
     #[test]
@@ -150,7 +149,7 @@ mod tests {
         };
 
         let ctx = calc.calculate(0., 0., calc.neg_max, 0.);
-        assert!(approx_eq!(f32, ctx, 3. / 4.)); // 1/4 + 1/4 + 1/4
+        assert_approx_eq!(f32, ctx, 3. / 4.); // 1/4 + 1/4 + 1/4
     }
 
     #[test]
@@ -161,29 +160,29 @@ mod tests {
         ltr_docs.add_doc(0.3, 8., 2., 12.);
 
         let calc = ContextCalc::from_docs(&ltr_docs.docs);
-        assert!(approx_eq!(f32, calc.pos_avg, 5.));
-        assert!(approx_eq!(f32, calc.neg_max, 10.));
-        assert!(approx_eq!(f32, calc.similarity_avg, 8.));
+        assert_approx_eq!(f32, calc.pos_avg, 5.);
+        assert_approx_eq!(f32, calc.neg_max, 10.);
+        assert_approx_eq!(f32, calc.similarity_avg, 8.);
 
         let cxt_docs = Context.compute_context(ltr_docs.docs);
         assert!(cxt_docs.is_ok());
         let cxt_docs = cxt_docs.unwrap();
         assert_eq!(cxt_docs.len(), 3);
 
-        assert!(approx_eq!(
+        assert_approx_eq!(
             f32,
             cxt_docs[0].context.context_value,
-            (5. / 6. + 1. + 0.9 + 8. / 17.) / 4.
-        ));
-        assert!(approx_eq!(
+            (5. / 6. + 1. + 0.9 + 8. / 17.) / 4.,
+        );
+        assert_approx_eq!(
             f32,
             cxt_docs[1].context.context_value,
-            (5. / 11. + 1. / 7. + 0.5 + 8. / 11.) / 4.
-        ));
-        assert!(approx_eq!(
+            (5. / 11. + 1. / 7. + 0.5 + 8. / 11.) / 4.,
+        );
+        assert_approx_eq!(
             f32,
             cxt_docs[2].context.context_value,
-            (5. / 13. + 1. / 9. + 0.3 + 8. / 20.) / 4.
-        ));
+            (5. / 13. + 1. / 9. + 0.3 + 8. / 20.) / 4.,
+        );
     }
 }

@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(test)]
-use std::fmt;
+use ::{std::fmt, xayn_ai::ApproxAssertIterHelper};
 
 /// A boxed slice with a C-compatible ABI.
 ///
@@ -221,6 +221,21 @@ where
 // Safety: The data is owned and unaliased.
 unsafe impl<T: Send> Send for CBoxedSlice<T> {}
 unsafe impl<T: Sync> Sync for CBoxedSlice<T> {}
+
+#[cfg(test)]
+impl<'a, T> ApproxAssertIterHelper<'a> for &'a CBoxedSlice<T>
+where
+    &'a T: ApproxAssertIterHelper<'a>,
+{
+    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
+
+    fn indexed_iter_logical_order(
+        self,
+        prefix: Vec<usize>,
+    ) -> Box<dyn Iterator<Item = (Vec<usize>, Self::LeafElement)> + 'a> {
+        self.as_slice().indexed_iter_logical_order(prefix)
+    }
+}
 
 #[cfg(test)]
 mod tests {

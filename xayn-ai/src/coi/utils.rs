@@ -126,7 +126,6 @@ fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
 
 #[cfg(test)]
 pub(super) mod tests {
-    use float_cmp::approx_eq;
     use ndarray::{arr1, FixedInitializer};
 
     use super::*;
@@ -257,16 +256,16 @@ pub(super) mod tests {
         let docs = to_vec_of_ref_of!(docs, &dyn CoiSystemData);
 
         let updated_cois = update_alpha(&docs, cois.clone());
-        assert!(approx_eq!(f32, updated_cois[0].alpha, 1.1));
-        assert!(approx_eq!(f32, updated_cois[0].beta, 1.));
-        assert!(approx_eq!(f32, updated_cois[1].alpha, 1.21));
-        assert!(approx_eq!(f32, updated_cois[1].beta, 1.));
+        assert_approx_eq!(f32, updated_cois[0].alpha, 1.1);
+        assert_approx_eq!(f32, updated_cois[0].beta, 1.);
+        assert_approx_eq!(f32, updated_cois[1].alpha, 1.21);
+        assert_approx_eq!(f32, updated_cois[1].beta, 1.);
 
         let updated_cois = update_beta(&docs, cois);
-        assert!(approx_eq!(f32, updated_cois[0].alpha, 1.));
-        assert!(approx_eq!(f32, updated_cois[0].beta, 1.1));
-        assert!(approx_eq!(f32, updated_cois[1].alpha, 1.));
-        assert!(approx_eq!(f32, updated_cois[1].beta, 1.21));
+        assert_approx_eq!(f32, updated_cois[0].alpha, 1.);
+        assert_approx_eq!(f32, updated_cois[0].beta, 1.1);
+        assert_approx_eq!(f32, updated_cois[1].alpha, 1.);
+        assert_approx_eq!(f32, updated_cois[1].beta, 1.21);
     }
 
     #[test]
@@ -278,15 +277,15 @@ pub(super) mod tests {
         // only update the alpha of coi_id 1 and 2
         let updated_cois = update_alpha(&docs, cois.clone());
 
-        assert!(approx_eq!(f32, updated_cois[0].alpha, 1.1));
-        assert!(approx_eq!(f32, updated_cois[1].alpha, 1.21));
-        assert!(approx_eq!(f32, updated_cois[2].alpha, 1.));
+        assert_approx_eq!(f32, updated_cois[0].alpha, 1.1);
+        assert_approx_eq!(f32, updated_cois[1].alpha, 1.21);
+        assert_approx_eq!(f32, updated_cois[2].alpha, 1.);
 
         // same for beta
         let updated_cois = update_beta(&docs, cois);
-        assert!(approx_eq!(f32, updated_cois[0].beta, 1.1));
-        assert!(approx_eq!(f32, updated_cois[1].beta, 1.21));
-        assert!(approx_eq!(f32, updated_cois[2].beta, 1.));
+        assert_approx_eq!(f32, updated_cois[0].beta, 1.1);
+        assert_approx_eq!(f32, updated_cois[1].beta, 1.21);
+        assert_approx_eq!(f32, updated_cois[2].beta, 1.);
     }
 
     #[test]

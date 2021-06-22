@@ -74,6 +74,15 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
 ///
 /// The number of `ulps` defaults to `2` if not specified.
 ///
+/// # NaN Handling
+///
+/// The assertions treats two NaN values to be "approximately" equal.
+///
+/// While there are good reasons for two NaN values not to compare as equal in
+/// general, they don't really apply for this assertions which tries to check if
+/// something has "an expected outcome" instead of "two values being semantically
+/// the same".
+///
 /// # Missing Implementations
 ///
 /// Implementations for other primitives, smart pointer types or other sequential containers
@@ -89,10 +98,10 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
 /// Furthermore in dependencies which use this you need to have the `float-cmp` dependency available.
 #[macro_export]
 macro_rules! assert_approx_eq {
-    ($t:ty, $left:expr, $right:expr) => {
+    ($t:ty, $left:expr, $right:expr $(,)?) => {
         assert_approx_eq!($t, $left, $right, ulps = 2)
     };
-    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr) => {{
+    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr $(,)?) => {{
         let ulps = $ulps;
         let left = $left;
         let right = $right;
@@ -108,14 +117,16 @@ macro_rules! assert_approx_eq {
                         "Dimensionality mismatch when iterating in logical order: {:?} != {:?}",
                         lidx, ridx
                     );
-                    assert!(
-                        ::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps),
-                        "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}",
-                        ulps=ulps,
-                        lv=lv,
-                        rv=rv,
-                        idx=lidx,
-                    );
+                    if !(lv.is_nan() && rv.is_nan()) {
+                        assert!(
+                            ::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps),
+                            "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}",
+                            ulps=ulps,
+                            lv=lv,
+                            rv=rv,
+                            idx=lidx,
+                        );
+                    }
                 }
                 (Some(pair), None) => {
                     panic!("Left input is longer starting with from index {:?}", pair);
@@ -277,28 +288,26 @@ mod tests {
 
     #[test]
     fn test_nan_safe_f32_cmp_sorts_in_the_right_order() {
-        #![allow(clippy::float_cmp)]
-
         let data = &mut [f32::NAN, 1., 5., f32::NAN, 4.];
         data.sort_by(nan_safe_f32_cmp);
 
-        assert_eq!(&data[2..], &[1., 4., 5.]);
+        assert_approx_eq!(f32, &data[2..], [1., 4., 5.], ulps = 0);
         assert!(data[0].is_nan());
         assert!(data[1].is_nan());
 
         data.sort_by(nan_safe_f32_cmp_desc);
 
-        assert_eq!(&data[..3], &[5., 4., 1.]);
+        assert_approx_eq!(f32, &data[..3], [5., 4., 1.], ulps = 0);
         assert!(data[3].is_nan());
         assert!(data[4].is_nan());
 
         let data = &mut [1., 5., 3., 4.];
 
         data.sort_by(nan_safe_f32_cmp);
-        assert_eq!(&data[..], &[1., 3., 4., 5.]);
+        assert_approx_eq!(f32, &data[..], [1., 3., 4., 5.], ulps = 0);
 
         data.sort_by(nan_safe_f32_cmp_desc);
-        assert_eq!(&data[..], &[5., 4., 3., 1.]);
+        assert_approx_eq!(f32, &data[..], [5., 4., 3., 1.], ulps = 0);
     }
 
     #[test]
@@ -338,7 +347,7 @@ mod tests {
         assert_approx_eq!(
             f32,
             &[[[0.25, 1.25, 0.], [0.0, 0.125, 0.]]],
-            arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]])
+            arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]]),
         );
     }
 
@@ -347,18 +356,35 @@ mod tests {
         assert_approx_eq!(
             f32,
             &[[0.25, 1.25], [0.0, 0.125]],
-            &[[0.25, 1.25], [0.0, 0.125]]
+            &[[0.25, 1.25], [0.0, 0.125]],
         );
         assert_approx_eq!(
             f32,
             &[[0.25, 1.25], [0.0, 0.125]],
-            arr2(&[[0.25, 1.25], [0.0, 0.125]])
+            arr2(&[[0.25, 1.25], [0.0, 0.125]]),
         );
         assert_approx_eq!(
             f32,
             &[[[0.25, 1.25], [0.0, 0.125]]],
-            arr3(&[[[0.25, 1.25], [0.0, 0.125]]])
+            arr3(&[[[0.25, 1.25], [0.0, 0.125]]]),
         );
+    }
+
+    #[test]
+    fn test_compares_nan_values() {
+        assert_approx_eq!(f32, [3.1, f32::NAN, 1.0], [3.1, f32::NAN, 1.0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "[2]")]
+    fn test_compares_nan_with_panic1() {
+        assert_approx_eq!(f32, [3.1, f32::NAN, 1.0], [3.1, f32::NAN, 2.0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "[1]")]
+    fn test_compares_nan_with_panic2() {
+        assert_approx_eq!(f32, [3.1, f32::NAN, 1.0], [3.1, 3.0, 1.0]);
     }
 
     #[test]

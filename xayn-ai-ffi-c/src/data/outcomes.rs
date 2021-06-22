@@ -108,13 +108,10 @@ pub unsafe extern "C" fn reranking_outcomes_drop(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use xayn_ai::assert_approx_eq;
 
     #[test]
     fn test_into_raw() {
-        // We don't do any computations, just move them around, so this is fine
-        // in the future when we have a `assert_approx_array_eq` or similar we
-        // should use that with explicit ulps=0.
-        #![allow(clippy::float_cmp)]
         let value = xayn_ai::RerankingOutcomes {
             final_ranking: vec![0, 2, 3, 1],
             qambert_similarities: Some(vec![3.0, 2.125, 4.5, 21.25]),
@@ -123,8 +120,13 @@ mod tests {
         let raw = RerankingOutcomes(value).into_raw().unwrap();
 
         assert_eq!(raw.final_ranking, [0, 2, 3, 1]);
-        assert_eq!(raw.qambert_similarities, [3.0, 2.125, 4.5, 21.25]);
-        assert_eq!(raw.context_scores, [2.0, 1.0, 0.2, 0.8]);
+        assert_approx_eq!(
+            f32,
+            raw.qambert_similarities,
+            [3.0, 2.125, 4.5, 21.25],
+            ulps = 0,
+        );
+        assert_approx_eq!(f32, raw.context_scores, [2.0, 1.0, 0.2, 0.8], ulps = 0);
     }
 
     #[test]
