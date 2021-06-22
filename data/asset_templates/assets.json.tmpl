@@ -38,7 +38,8 @@
     {
       "name": "ltrModel",
       "suffix": "{{ $ltr_model }}",
-      "checksum": "{{ print $data_dir "/" $ltr_model | file.Read | crypto.SHA256 }}"
+      "checksum": "{{ print $data_dir "/" $ltr_model | file.Read | crypto.SHA256 }}",
+      "path": "{{ $data_dir }}/{{ $ltr_model }}"
     },
     {
       "name": "wasmModule",
