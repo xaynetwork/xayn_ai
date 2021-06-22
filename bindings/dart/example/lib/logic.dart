@@ -1,5 +1,6 @@
 import 'dart:convert' show jsonDecode;
 
+import 'package:flutter/material.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle;
 import 'package:stats/stats.dart' show Stats;
 import 'package:xayn_ai_ffi_dart/package.dart'
@@ -93,8 +94,15 @@ class Logic {
     print('Starting Single Reranking');
     final results = _currentAi.rerank(_currentCallData.rerankMode,
         _currentCallData.histories, _currentCallData.documents);
+    _printFaults();
     print('Finished Single Reranking');
     return Outcome.fromXaynAiOutcomes(_currentCallData.documents, results);
+  }
+
+  void _printFaults() {
+    _currentAi
+        .faults()
+        .forEach((fault) => debugPrint('AI FAULT: $fault', wrapWidth: 1000));
   }
 
   Stats benchmark() {
@@ -125,9 +133,9 @@ class Logic {
       final start = DateTime.now().millisecondsSinceEpoch;
       _currentAi.rerank(mode, histories, documents);
       final end = DateTime.now().millisecondsSinceEpoch;
-
       times.add(end - start);
 
+      _printFaults();
       print('Iteration: $i');
     }
 
