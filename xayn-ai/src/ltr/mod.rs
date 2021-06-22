@@ -118,7 +118,6 @@ impl LtrSystem for ConstLtr {
 
 #[cfg(test)]
 mod tests {
-    use float_cmp::approx_eq;
     use ndarray::arr1;
 
     use super::*;
@@ -180,7 +179,7 @@ mod tests {
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);
-        assert!(approx_eq!(f32, ltr_docs[0].ltr.ltr_score, 0.5));
-        assert!(approx_eq!(f32, ltr_docs[1].ltr.ltr_score, 0.5));
+        assert_approx_eq!(f32, ltr_docs[0].ltr.ltr_score, 0.5, ulps = 0);
+        assert_approx_eq!(f32, ltr_docs[1].ltr.ltr_score, 0.5, ulps = 0);
     }
 }

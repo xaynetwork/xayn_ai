@@ -204,7 +204,6 @@ impl systems::CoiSystem for CoiSystem {
 
 #[cfg(test)]
 mod tests {
-    use float_cmp::approx_eq;
     use ndarray::{arr1, FixedInitializer};
     use std::f32::{consts::SQRT_2, NAN};
 
@@ -271,7 +270,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(index, 1);
-        assert!(approx_eq!(f32, distance, 5.7716017));
+        assert_approx_eq!(f32, distance, 5.7716017);
     }
 
     #[test]
@@ -284,7 +283,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(index, 0);
-        assert!(approx_eq!(f32, distance, 0.0));
+        assert_approx_eq!(f32, distance, 0.0, ulps = 0);
     }
 
     #[test]
@@ -335,7 +334,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(index, 1);
-        assert!(approx_eq!(f32, distance, 26.747852));
+        assert_approx_eq!(f32, distance, 26.747852);
         assert!(threshold < distance);
 
         cois = coi_system.update_coi(&embedding, cois);
@@ -409,8 +408,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(coi_comp.id, CoiId(2));
-        assert!(approx_eq!(f32, coi_comp.pos_distance, 4.8904557));
-        assert!(approx_eq!(f32, coi_comp.neg_distance, 8.1273575));
+        assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
+        assert_approx_eq!(f32, coi_comp.neg_distance, 8.1273575);
     }
 
     #[test]
@@ -428,8 +427,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(coi_comp.id, CoiId(2));
-        assert!(approx_eq!(f32, coi_comp.pos_distance, 4.8904557));
-        assert!(approx_eq!(f32, coi_comp.neg_distance, f32::MAX));
+        assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
+        assert_approx_eq!(f32, coi_comp.neg_distance, f32::MAX, ulps = 0);
     }
 
     #[test]
@@ -444,24 +443,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(documents_coi[0].coi.id.0, 1);
-        assert!(approx_eq!(
-            f32,
-            documents_coi[0].coi.pos_distance,
-            2.8996046
-        ));
-        assert!(approx_eq!(
-            f32,
-            documents_coi[0].coi.neg_distance,
-            3.7416575
-        ));
+        assert_approx_eq!(f32, documents_coi[0].coi.pos_distance, 2.8996046);
+        assert_approx_eq!(f32, documents_coi[0].coi.neg_distance, 3.7416575);
 
         assert_eq!(documents_coi[1].coi.id.0, 1);
-        assert!(approx_eq!(
-            f32,
-            documents_coi[1].coi.pos_distance,
-            5.8501925
-        ));
-        assert!(approx_eq!(f32, documents_coi[1].coi.neg_distance, SQRT_2));
+        assert_approx_eq!(f32, documents_coi[1].coi.pos_distance, 5.8501925);
+        assert_approx_eq!(f32, documents_coi[1].coi.neg_distance, SQRT_2);
     }
 
     #[test]
@@ -509,16 +496,16 @@ mod tests {
 
         assert_eq!(positive.len(), 3);
 
-        assert!(approx_eq!(f32, positive[0].alpha, 1.));
-        assert!(approx_eq!(f32, positive[0].beta, 1.));
+        assert_approx_eq!(f32, positive[0].alpha, 1.);
+        assert_approx_eq!(f32, positive[0].beta, 1.);
         assert_eq!(positive[0].point, arr1(&[2.7999997, 1.9, 1.]));
 
-        assert!(approx_eq!(f32, positive[1].alpha, 1.21));
-        assert!(approx_eq!(f32, positive[1].beta, 1.1));
+        assert_approx_eq!(f32, positive[1].alpha, 1.21);
+        assert_approx_eq!(f32, positive[1].beta, 1.1);
         assert_eq!(positive[1].point, arr1(&[1., 2., 3.]));
 
-        assert!(approx_eq!(f32, positive[2].alpha, 1.));
-        assert!(approx_eq!(f32, positive[2].beta, 1.));
+        assert_approx_eq!(f32, positive[2].alpha, 1.);
+        assert_approx_eq!(f32, positive[2].beta, 1.);
         assert_eq!(positive[2].point, arr1(&[3., 6., 6.]));
 
         assert_eq!(negative.len(), 1);
