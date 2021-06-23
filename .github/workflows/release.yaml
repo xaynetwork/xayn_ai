@@ -188,8 +188,7 @@ jobs:
 
       - name: Other Dart code generation
         working-directory: ${{ env.DART_WORKSPACE }}
-        run: |
-          flutter pub run build_runner build
+        run: flutter pub run build_runner build
 
       - name: Find .g.dart Artifacts
         id: find_g_dart_artifacts
