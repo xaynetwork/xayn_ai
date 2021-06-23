@@ -157,142 +157,151 @@ impl<'a> CDocuments<'a> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::{ffi::CString, iter, pin::Pin};
+    use std::{ffi::CString, iter, marker::PhantomPinned, pin::Pin};
 
     use itertools::izip;
-
     use xayn_ai::{DocumentId, QueryId, SessionId};
 
     use super::*;
     use crate::utils::tests::as_str_unchecked;
 
     pub struct TestDocuments<'a> {
-        _ids: Pin<Vec<CString>>,
-        _titles: Pin<Vec<CString>>,
-        _snippets: Pin<Vec<CString>>,
-        _sessions: Pin<Vec<CString>>,
-        _query_ids: Pin<Vec<CString>>,
-        _query_words: Pin<Vec<CString>>,
-        _urls: Pin<Vec<CString>>,
-        _domains: Pin<Vec<CString>>,
-        document: Pin<Vec<CDocument<'a>>>,
+        ids: Vec<CString>,
+        titles: Vec<CString>,
+        snippets: Vec<CString>,
+        sessions: Vec<CString>,
+        query_ids: Vec<CString>,
+        query_words: Vec<CString>,
+        urls: Vec<CString>,
+        domains: Vec<CString>,
+        document: Vec<CDocument<'a>>,
         documents: CDocuments<'a>,
-    }
-
-    impl Drop for TestDocuments<'_> {
-        fn drop(&mut self) {}
-    }
-
-    impl Default for TestDocuments<'_> {
-        fn default() -> Self {
-            let len = 10;
-            let _ids = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(DocumentId::from_u128(idx).to_string()).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let _titles = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("title {}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let _snippets = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("snippet {}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let ranks = 0..len as u32;
-            let _sessions = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(SessionId::from_u128(idx).to_string()).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let query_counts = iter::repeat(1).take(len as usize);
-            let _query_ids = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(QueryId::from_u128(idx).to_string()).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let _query_words = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("query {}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let _urls = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("url-{}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let _domains = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("domain-{}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-
-            let document = Pin::new(
-                izip!(
-                    _ids.as_ref().get_ref(),
-                    _titles.as_ref().get_ref(),
-                    _snippets.as_ref().get_ref(),
-                    ranks,
-                    _sessions.as_ref().get_ref(),
-                    query_counts,
-                    _query_ids.as_ref().get_ref(),
-                    _query_words.as_ref().get_ref(),
-                    _urls.as_ref().get_ref(),
-                    _domains.as_ref().get_ref()
-                )
-                .map(|cdoc| CDocument {
-                    id: unsafe { cdoc.0.as_ptr().cast::<u8>().as_ref() },
-                    title: unsafe { cdoc.1.as_ptr().cast::<u8>().as_ref() },
-                    snippet: unsafe { cdoc.2.as_ptr().cast::<u8>().as_ref() },
-                    rank: cdoc.3,
-                    session: unsafe { cdoc.4.as_ptr().cast::<u8>().as_ref() },
-                    query_count: cdoc.5,
-                    query_id: unsafe { cdoc.6.as_ptr().cast::<u8>().as_ref() },
-                    query_words: unsafe { cdoc.7.as_ptr().cast::<u8>().as_ref() },
-                    url: unsafe { cdoc.8.as_ptr().cast::<u8>().as_ref() },
-                    domain: unsafe { cdoc.9.as_ptr().cast::<u8>().as_ref() },
-                })
-                .collect::<Vec<_>>(),
-            );
-
-            let documents = CDocuments {
-                data: unsafe { document.as_ptr().as_ref() },
-                len: document.len() as u32,
-            };
-
-            Self {
-                _ids,
-                _titles,
-                _snippets,
-                _sessions,
-                _query_ids,
-                _query_words,
-                _urls,
-                _domains,
-                document,
-                documents,
-            }
-        }
+        _pinned: PhantomPinned,
     }
 
     impl<'a> TestDocuments<'a> {
-        pub fn as_ptr(&self) -> Option<&CDocuments<'a>> {
+        fn uninitialized() -> Pin<Box<Self>> {
+            let len = 10;
+            let ids = (0..len)
+                .map(|idx| CString::new(DocumentId::from_u128(idx).to_string()).unwrap())
+                .collect::<Vec<_>>();
+            let titles = (0..len)
+                .map(|idx| CString::new(format!("title {}", idx)).unwrap())
+                .collect::<Vec<_>>();
+            let snippets = (0..len)
+                .map(|idx| CString::new(format!("snippet {}", idx)).unwrap())
+                .collect::<Vec<_>>();
+            let sessions = (0..len)
+                .map(|idx| CString::new(SessionId::from_u128(idx).to_string()).unwrap())
+                .collect::<Vec<_>>();
+            let query_ids = (0..len)
+                .map(|idx| CString::new(QueryId::from_u128(idx).to_string()).unwrap())
+                .collect::<Vec<_>>();
+            let query_words = (0..len)
+                .map(|idx| CString::new(format!("query {}", idx)).unwrap())
+                .collect::<Vec<_>>();
+            let urls = (0..len)
+                .map(|idx| CString::new(format!("url-{}", idx)).unwrap())
+                .collect::<Vec<_>>();
+            let domains = (0..len)
+                .map(|idx| CString::new(format!("domain-{}", idx)).unwrap())
+                .collect::<Vec<_>>();
+
+            Box::pin(Self {
+                ids,
+                titles,
+                snippets,
+                sessions,
+                query_ids,
+                query_words,
+                urls,
+                domains,
+                document: Vec::new(),
+                documents: CDocuments { data: None, len: 0 },
+                _pinned: PhantomPinned,
+            })
+        }
+
+        fn initialize_document(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+            let len = self.len();
+            let ranks = 0..len as u32;
+            let query_counts = iter::repeat(1).take(len);
+
+            let document = izip!(
+                self.ids.iter(),
+                self.titles.iter(),
+                self.snippets.iter(),
+                ranks,
+                self.sessions.iter(),
+                query_counts,
+                self.query_ids.iter(),
+                self.query_words.iter(),
+                self.urls.iter(),
+                self.domains.iter(),
+            )
+            .map(
+                |(
+                    id,
+                    title,
+                    snippet,
+                    rank,
+                    session,
+                    query_count,
+                    query_id,
+                    query_words,
+                    url,
+                    domain,
+                )| {
+                    CDocument {
+                        id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
+                        title: unsafe { title.as_ptr().cast::<u8>().as_ref() },
+                        snippet: unsafe { snippet.as_ptr().cast::<u8>().as_ref() },
+                        rank,
+                        session: unsafe { session.as_ptr().cast::<u8>().as_ref() },
+                        query_count,
+                        query_id: unsafe { query_id.as_ptr().cast::<u8>().as_ref() },
+                        query_words: unsafe { query_words.as_ptr().cast::<u8>().as_ref() },
+                        url: unsafe { url.as_ptr().cast::<u8>().as_ref() },
+                        domain: unsafe { domain.as_ptr().cast::<u8>().as_ref() },
+                    }
+                },
+            )
+            .collect::<Vec<_>>();
+            unsafe { self.as_mut().get_unchecked_mut() }.document = document;
+
+            self
+        }
+
+        fn initialize_documents(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+            let data = unsafe { self.document.as_ptr().as_ref() };
+            let len = self.len() as u32;
+            unsafe { self.as_mut().get_unchecked_mut() }.documents = CDocuments { data, len };
+
+            self
+        }
+
+        pub fn initialized() -> Pin<Box<Self>> {
+            Self::uninitialized()
+                .initialize_document()
+                .initialize_documents()
+        }
+
+        #[allow(clippy::wrong_self_convention)] // false positive
+        pub fn as_ptr(self: &'a Pin<Box<Self>>) -> Option<&'a CDocuments<'a>> {
             Some(&self.documents)
         }
 
-        fn len(&self) -> usize {
-            self.document.len()
+        fn len(self: &Pin<Box<Self>>) -> usize {
+            self.ids.len()
         }
     }
 
     #[test]
     fn test_documents_to_vec() {
-        let docs = TestDocuments::default();
+        let docs = TestDocuments::initialized();
         let documents = unsafe { docs.documents.to_documents() }.unwrap();
         assert_eq!(documents.len(), docs.len());
-        for (d, cd) in izip!(documents, docs.document.as_ref().get_ref()) {
+        for (d, cd) in izip!(documents, docs.document.iter()) {
             assert_eq!(d.id.0.to_string(), unsafe { as_str_unchecked(cd.id) });
             assert_eq!(d.title, unsafe { as_str_unchecked(cd.title) });
             assert_eq!(d.rank, cd.rank as usize);
@@ -301,22 +310,23 @@ pub(crate) mod tests {
 
     #[test]
     fn test_documents_empty_null() {
-        let mut docs = TestDocuments::default();
-        docs.documents.data = None;
+        let mut docs = TestDocuments::initialized();
+        unsafe { docs.as_mut().get_unchecked_mut() }.documents.data = None;
         assert!(unsafe { docs.documents.to_documents() }.unwrap().is_empty());
     }
 
     #[test]
     fn test_documents_empty_zero() {
-        let mut docs = TestDocuments::default();
-        docs.documents.len = 0;
+        let mut docs = TestDocuments::initialized();
+        unsafe { docs.as_mut().get_unchecked_mut() }.documents.len = 0;
         assert!(unsafe { docs.documents.to_documents() }.unwrap().is_empty());
     }
 
     #[test]
     fn test_document_id_null() {
-        let mut docs = TestDocuments::default();
-        docs.document[0].id = None;
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].id = None;
+        let docs = docs.initialize_documents();
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code(), CCode::DocumentIdPointer);
@@ -331,8 +341,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_document_title_null() {
-        let mut docs = TestDocuments::default();
-        docs.document[0].title = None;
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].title = None;
+        let docs = docs.initialize_documents();
 
         let error = unsafe { docs.documents.to_documents() }.unwrap_err();
         assert_eq!(error.code(), CCode::DocumentTitlePointer);

@@ -151,144 +151,157 @@ impl<'a> CHistories<'a> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::{ffi::CString, iter::repeat, pin::Pin};
+    use std::{ffi::CString, iter::repeat, marker::PhantomPinned, pin::Pin};
 
     use itertools::izip;
+    use xayn_ai::{DocumentId, QueryId, SessionId};
 
     use super::*;
     use crate::utils::tests::as_str_unchecked;
-    use xayn_ai::{DocumentId, QueryId, SessionId};
 
     pub struct TestHistories<'a> {
-        _ids: Pin<Vec<CString>>,
-        _sessions: Pin<Vec<CString>>,
-        _query_ids: Pin<Vec<CString>>,
-        _query_words: Pin<Vec<CString>>,
-        _urls: Pin<Vec<CString>>,
-        _domains: Pin<Vec<CString>>,
-        history: Pin<Vec<CHistory<'a>>>,
+        ids: Vec<CString>,
+        sessions: Vec<CString>,
+        query_ids: Vec<CString>,
+        query_words: Vec<CString>,
+        urls: Vec<CString>,
+        domains: Vec<CString>,
+        history: Vec<CHistory<'a>>,
         histories: CHistories<'a>,
+        _pinned: PhantomPinned,
     }
 
-    impl Drop for TestHistories<'_> {
-        fn drop(&mut self) {}
-    }
-
-    impl Default for TestHistories<'_> {
-        fn default() -> Self {
+    impl<'a> TestHistories<'a> {
+        fn uninitialized() -> Pin<Box<Self>> {
             let len = 6;
-            let _ids = Pin::new(
-                (0..len)
-                    .map(|idx| {
-                        CString::new(DocumentId::from_u128(idx as u128).to_string()).unwrap()
-                    })
-                    .collect::<Vec<_>>(),
-            );
+            let ids = (0..len)
+                .map(|idx| CString::new(DocumentId::from_u128(idx as u128).to_string()).unwrap())
+                .collect::<Vec<_>>();
+            let sessions = (0..len)
+                .map(|idx| CString::new(SessionId::from_u128(idx as u128).to_string()).unwrap())
+                .collect::<Vec<_>>();
+            let query_ids = (0..len)
+                .map(|idx| CString::new(QueryId::from_u128(idx as u128).to_string()).unwrap())
+                .collect::<Vec<_>>();
+            let query_words = (0..len)
+                .map(|idx| CString::new(format!("query {}", idx)).unwrap())
+                .collect::<Vec<_>>();
+            let urls = (0..len)
+                .map(|idx| CString::new(format!("url-{}", idx)).unwrap())
+                .collect::<Vec<_>>();
+            let domains = (0..len)
+                .map(|idx| CString::new(format!("domain-{}", idx)).unwrap())
+                .collect::<Vec<_>>();
+
+            Box::pin(Self {
+                ids,
+                sessions,
+                query_ids,
+                query_words,
+                urls,
+                domains,
+                history: Vec::new(),
+                histories: CHistories { data: None, len: 0 },
+                _pinned: PhantomPinned,
+            })
+        }
+
+        fn initialize_history(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+            let len = self.len();
             let relevances = repeat(Relevance::Low)
                 .take(len / 2)
                 .chain(repeat(Relevance::High).take(len - len / 2));
-            let feedbacks = repeat(UserFeedback::Irrelevant)
+            let user_feedbacks = repeat(UserFeedback::Irrelevant)
                 .take(len / 2)
                 .chain(repeat(UserFeedback::Relevant).take(len - len / 2));
-            let _sessions = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(SessionId::from_u128(idx as u128).to_string()).unwrap())
-                    .collect::<Vec<_>>(),
-            );
             let query_counts = repeat(1).take(len);
-            let _query_ids = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(QueryId::from_u128(idx as u128).to_string()).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let _query_words = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("query {}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
             let days = repeat(DayOfWeek::Sun)
                 .take(len / 2)
                 .chain(repeat(DayOfWeek::Mon).take(len - len / 2));
-            let _urls = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("url-{}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
-            let _domains = Pin::new(
-                (0..len)
-                    .map(|idx| CString::new(format!("domain-{}", idx)).unwrap())
-                    .collect::<Vec<_>>(),
-            );
             let ranks = 0..len as u32;
             let user_actions = repeat(UserAction::Miss)
                 .take(len / 2)
                 .chain(repeat(UserAction::Click).take(len - len / 2));
 
-            let history = Pin::new(
-                izip!(
-                    _ids.as_ref().get_ref(),
-                    relevances,
-                    feedbacks,
-                    _sessions.as_ref().get_ref(),
-                    query_counts,
-                    _query_ids.as_ref().get_ref(),
-                    _query_words.as_ref().get_ref(),
-                    days,
-                    _urls.as_ref().get_ref(),
-                    _domains.as_ref().get_ref(),
-                    ranks,
-                    user_actions,
-                )
-                .map(|chist| CHistory {
-                    id: unsafe { chist.0.as_ptr().cast::<u8>().as_ref() },
-                    relevance: chist.1,
-                    user_feedback: chist.2,
-                    session: unsafe { chist.3.as_ptr().cast::<u8>().as_ref() },
-                    query_count: chist.4,
-                    query_id: unsafe { chist.5.as_ptr().cast::<u8>().as_ref() },
-                    query_words: unsafe { chist.6.as_ptr().cast::<u8>().as_ref() },
-                    day: chist.7,
-                    url: unsafe { chist.8.as_ptr().cast::<u8>().as_ref() },
-                    domain: unsafe { chist.9.as_ptr().cast::<u8>().as_ref() },
-                    rank: chist.10,
-                    user_action: chist.11,
-                })
-                .collect::<Vec<_>>(),
-            );
-            let histories = CHistories {
-                data: unsafe { history.as_ptr().as_ref() },
-                len: history.len() as u32,
-            };
+            let history = izip!(
+                self.ids.iter(),
+                relevances,
+                user_feedbacks,
+                self.sessions.iter(),
+                query_counts,
+                self.query_ids.iter(),
+                self.query_words.iter(),
+                days,
+                self.urls.iter(),
+                self.domains.iter(),
+                ranks,
+                user_actions,
+            )
+            .map(
+                |(
+                    id,
+                    relevance,
+                    user_feedback,
+                    session,
+                    query_count,
+                    query_id,
+                    query_words,
+                    day,
+                    url,
+                    domain,
+                    rank,
+                    user_action,
+                )| CHistory {
+                    id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
+                    relevance,
+                    user_feedback,
+                    session: unsafe { session.as_ptr().cast::<u8>().as_ref() },
+                    query_count,
+                    query_id: unsafe { query_id.as_ptr().cast::<u8>().as_ref() },
+                    query_words: unsafe { query_words.as_ptr().cast::<u8>().as_ref() },
+                    day,
+                    url: unsafe { url.as_ptr().cast::<u8>().as_ref() },
+                    domain: unsafe { domain.as_ptr().cast::<u8>().as_ref() },
+                    rank,
+                    user_action,
+                },
+            )
+            .collect::<Vec<_>>();
+            unsafe { self.as_mut().get_unchecked_mut() }.history = history;
 
-            Self {
-                _ids,
-                _sessions,
-                _query_ids,
-                _query_words,
-                _urls,
-                _domains,
-                history,
-                histories,
-            }
+            self
         }
-    }
 
-    impl<'a> TestHistories<'a> {
-        pub fn as_ptr(&self) -> Option<&CHistories<'a>> {
+        fn initialize_histories(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+            let data = unsafe { self.history.as_ptr().as_ref() };
+            let len = self.len() as u32;
+            unsafe { self.as_mut().get_unchecked_mut() }.histories = CHistories { data, len };
+
+            self
+        }
+
+        pub fn initialized() -> Pin<Box<Self>> {
+            Self::uninitialized()
+                .initialize_history()
+                .initialize_histories()
+        }
+
+        #[allow(clippy::wrong_self_convention)] // false positive
+        pub fn as_ptr(self: &'a Pin<Box<Self>>) -> Option<&'a CHistories<'a>> {
             Some(&self.histories)
         }
 
-        fn len(&self) -> usize {
-            self.history.len()
+        fn len(self: &Pin<Box<Self>>) -> usize {
+            self.ids.len()
         }
     }
 
     #[test]
     fn test_histories_to_vec() {
-        let hists = TestHistories::default();
+        let hists = TestHistories::initialized();
         let histories = unsafe { hists.histories.to_histories() }.unwrap();
         assert_eq!(histories.len(), hists.len());
-        for (dh, ch) in izip!(histories, hists.history.as_ref().get_ref()) {
+        for (dh, ch) in izip!(histories, hists.history.iter()) {
             assert_eq!(dh.id.0.to_string(), unsafe { as_str_unchecked(ch.id) });
             assert_eq!(dh.relevance, ch.relevance);
             assert_eq!(dh.user_feedback, ch.user_feedback);
@@ -297,8 +310,8 @@ pub(crate) mod tests {
 
     #[test]
     fn test_histories_empty_null() {
-        let mut hists = TestHistories::default();
-        hists.histories.data = None;
+        let mut hists = TestHistories::initialized();
+        unsafe { hists.as_mut().get_unchecked_mut() }.histories.data = None;
         assert!(unsafe { hists.histories.to_histories() }
             .unwrap()
             .is_empty());
@@ -306,8 +319,8 @@ pub(crate) mod tests {
 
     #[test]
     fn test_histories_empty_zero() {
-        let mut hists = TestHistories::default();
-        hists.histories.len = 0;
+        let mut hists = TestHistories::initialized();
+        unsafe { hists.as_mut().get_unchecked_mut() }.histories.len = 0;
         assert!(unsafe { hists.histories.to_histories() }
             .unwrap()
             .is_empty());
@@ -315,8 +328,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_history_id_null() {
-        let mut hists = TestHistories::default();
-        hists.history[0].id = None;
+        let mut hists = TestHistories::uninitialized().initialize_history();
+        unsafe { hists.as_mut().get_unchecked_mut() }.history[0].id = None;
+        let hists = hists.initialize_histories();
 
         let error = unsafe { hists.histories.to_histories() }.unwrap_err();
         assert_eq!(error.code(), CCode::HistoryIdPointer);
