@@ -318,7 +318,7 @@ pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::CString, mem, pin::Pin};
+    use std::{ffi::CString, marker::PhantomPinned, mem, pin::Pin};
 
     use tempfile::Builder as TempBuilder;
 
@@ -337,41 +337,51 @@ mod tests {
 
     impl AsPtr for CXaynAi {}
 
-    struct TestFile(Pin<CString>);
-
-    impl Drop for TestFile {
-        fn drop(&mut self) {}
+    struct TestFile<'a> {
+        file: CString,
+        ptr: Option<&'a u8>,
+        _pinned: PhantomPinned,
     }
 
-    impl TestFile {
-        fn new(file: &str) -> Self {
-            Self(Pin::new(CString::new(file).unwrap()))
+    impl<'a> TestFile<'a> {
+        fn uninitialized(file: &str) -> Pin<Box<Self>> {
+            Box::pin(Self {
+                file: CString::new(file).unwrap(),
+                ptr: None,
+                _pinned: PhantomPinned,
+            })
         }
 
-        fn smbert_vocab() -> Self {
-            Self::new(SMBERT_VOCAB)
+        fn initialize(mut self: Pin<Box<Self>>) -> Pin<Box<Self>> {
+            let ptr = unsafe { self.file.as_ptr().cast::<u8>().as_ref() };
+            unsafe { self.as_mut().get_unchecked_mut() }.ptr = ptr;
+
+            self
         }
 
-        fn smbert_model() -> Self {
-            Self::new(SMBERT_MODEL)
+        fn smbert_vocab() -> Pin<Box<Self>> {
+            Self::uninitialized(SMBERT_VOCAB).initialize()
         }
 
-        fn qambert_vocab() -> Self {
-            Self::new(QAMBERT_VOCAB)
+        fn smbert_model() -> Pin<Box<Self>> {
+            Self::uninitialized(SMBERT_MODEL).initialize()
         }
 
-        fn qambert_model() -> Self {
-            Self::new(QAMBERT_MODEL)
+        fn qambert_vocab() -> Pin<Box<Self>> {
+            Self::uninitialized(QAMBERT_VOCAB).initialize()
         }
 
-        fn ltr_model() -> Self {
-            Self::new(LTR_MODEL)
+        fn qambert_model() -> Pin<Box<Self>> {
+            Self::uninitialized(QAMBERT_MODEL).initialize()
         }
-    }
 
-    impl TestFile {
-        fn as_ptr(&self) -> Option<&u8> {
-            unsafe { self.0.as_ref().get_ref().as_ptr().cast::<u8>().as_ref() }
+        fn ltr_model() -> Pin<Box<Self>> {
+            Self::uninitialized(LTR_MODEL).initialize()
+        }
+
+        #[allow(clippy::wrong_self_convention)] // false positive
+        fn as_ptr(self: &'a Pin<Box<Self>>) -> Option<&'a u8> {
+            self.ptr
         }
     }
 
@@ -414,8 +424,8 @@ mod tests {
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
         let ltr_model = TestFile::ltr_model();
-        let hists = TestHistories::default();
-        let docs = TestDocuments::default();
+        let hists = TestHistories::initialized();
+        let docs = TestDocuments::initialized();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -1079,8 +1089,8 @@ mod tests {
 
     #[test]
     fn test_ai_null_rerank() {
-        let hists = TestHistories::default();
-        let docs = TestDocuments::default();
+        let hists = TestHistories::initialized();
+        let docs = TestDocuments::initialized();
         let mut error = CError::default();
 
         let invalid = None;
@@ -1155,7 +1165,7 @@ mod tests {
         let qambert_vocab = TestFile::smbert_vocab();
         let qambert_model = TestFile::smbert_model();
         let ltr_model = TestFile::ltr_model();
-        let docs = TestDocuments::default();
+        let docs = TestDocuments::initialized();
         let db = TestDb::default();
         let mut error = CError::default();
 
@@ -1201,7 +1211,7 @@ mod tests {
         let qambert_vocab = TestFile::qambert_vocab();
         let qambert_model = TestFile::qambert_model();
         let ltr_model = TestFile::ltr_model();
-        let hists = TestHistories::default();
+        let hists = TestHistories::initialized();
         let db = TestDb::default();
         let mut error = CError::default();
 
