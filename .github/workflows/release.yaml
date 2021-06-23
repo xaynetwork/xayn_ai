@@ -459,39 +459,35 @@ jobs:
             ${{ steps.asset-paths.outputs.dart-manifest }}
             ${{ steps.asset-paths.outputs.json-manifest }}
 
-  upload-asset-artifacts-to-s3:
-    name: upload-asset-artifacts-to-s3
+  publish-asset-artifacts:
+    name: publish-asset-artifacts
     runs-on: ubuntu-20.04
     needs: [build-wasm-lib-release, build-asset-artifacts]
     timeout-minutes: 20
     steps:
       - name: Checkout
-        if: github.ref != 'refs/heads/release'
         uses: actions/checkout@v2
 
-      - name: Install s3cmd
-        if: github.ref != 'refs/heads/release'
-        env:
-          S3CMD_VERSION: 2.1.0
-        run: pip install s3cmd==${{ env.S3CMD_VERSION }}
-
       - name: Download asset artifacts
-        if: github.ref != 'refs/heads/release'
         uses: actions/download-artifact@v2
         with:
           name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
           path: ${{ github.workspace }}
 
       - name: Download WASM artifacts
-        if: github.ref != 'refs/heads/release'
         uses: actions/download-artifact@v2
         with:
           name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
           path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
 
       - name: Download data
-        if: github.ref != 'refs/heads/release'
         run: sh download_data.sh
+
+      - name: Install s3cmd
+        if: github.ref != 'refs/heads/release'
+        env:
+          S3CMD_VERSION: 2.1.0
+        run: pip install s3cmd==${{ env.S3CMD_VERSION }}
 
       - name: Upload assets to S3
         if: github.ref != 'refs/heads/release'
@@ -508,10 +504,46 @@ jobs:
             s3cmd sync --acl-public --guess-mime-type $ASSET_REL_PATH $ASSET_REL_PATH ${{ env.BUCKET_URL }}/$ASSET_SUFFIX
           done
 
+      - name: Install KeyCDN SSH privkey
+        if: github.ref == 'refs/heads/release'
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.KEYCDN_RSYNC_PRIVKEY }}
+          name: keycdn-publisher
+          known_hosts: 'placeholder'
+          config: |
+            Host keycdn
+              HostName rsync.keycdn.com
+              User ${{ secrets.KEYCDN_RSYNC_USERNAME }}
+              IdentityFile ~/.ssh/keycdn-publisher
+
+      - name: Dynamically add KeyCDN to known_hosts
+        if: github.ref == 'refs/heads/release'
+        run: ssh-keyscan -H rsync.keycdn.com | tee -a ~/.ssh/known_hosts
+
+      - name: Upload assets (KeyCDN)
+        if: github.ref == 'refs/heads/release'
+        env:
+          PREPARE_ASSETS_DIR: ${{ runner.temp }}/prepare_assets
+        run: |
+          set -e
+          mkdir -p $PREPARE_ASSETS_DIR
+          cd $PREPARE_ASSETS_DIR
+
+          for asset in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
+            ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
+            ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
+            ASSET_SUFFIX_DIR=$(dirname $ASSET_SUFFIX)
+            mkdir -p $ASSET_SUFFIX_DIR
+            cp -r ${{ github.workspace }}/$ASSET_REL_PATH $ASSET_SUFFIX
+          done
+
+          rsync -rtzv --chmod=D2755,F644 . keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/
+
   release:
     name: release
     runs-on: ubuntu-20.04
-    needs: [build-headers, build-android-libs, build-ios-libs, build-asset-artifacts, upload-asset-artifacts-to-s3]
+    needs: [build-headers, build-android-libs, build-ios-libs, build-asset-artifacts, publish-asset-artifacts]
     timeout-minutes: 60
     steps:
       - name: Install SSH key
