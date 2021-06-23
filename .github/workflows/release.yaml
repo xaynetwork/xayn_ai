@@ -194,6 +194,7 @@ jobs:
         with:
           name: headers-${{ github.sha }}
           retention-days: 1
+          if-no-files-found: error
           path: |
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
@@ -259,6 +260,7 @@ jobs:
         with:
           name: android-${{ matrix.target }}-${{ github.sha }}
           retention-days: 1
+          if-no-files-found: error
           path: ${{ env.ANDROID_LIBS_DIR }}
 
   build-ios-libs:
@@ -323,6 +325,7 @@ jobs:
         with:
           name: ios-${{ matrix.target }}-${{ github.sha }}
           retention-days: 1
+          if-no-files-found: error
           path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
   build-wasm-lib-release:
