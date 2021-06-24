@@ -135,7 +135,7 @@ python3 -m http.server
 
 #### Running on a mobile device/emulator
 
-```
+```shell
 cargo make build-mobile
 cd bindings/dart/example
 flutter run
@@ -143,7 +143,7 @@ flutter run
 
 #### Running in Chrome
 
-```
+```shell
 cargo make build-web
 cd bindings/dart/example
 flutter run -d chrome
@@ -151,13 +151,33 @@ flutter run -d chrome
 
 #### Running in a web browser other than Chrome
 
-```
+```shell
 cargo make build-web
 cd bindings/dart/example
 flutter build web
 cd build/web/
 python3 -m http.server
 # open the url http://localhost:8000/ in our browser
+```
+
+#### Running with a branch of the release repository
+
+**bindings/dart/example/pubspec.yaml**
+
+```diff
+  xayn_ai_ffi_dart:
+-   path: '../'
++   git:
++       url: git@github.com:xaynetwork/xayn_ai_release.git
++       ref: master
+```
+
+**bindings/dart/example/lib/data_provider/web.dart**
+
+```diff
+- const _baseAssetUrl = 'assets';
++ const _baseAssetUrl =
++   'https://xayn_ai_staging_assets.s3-de-central.profitbricks.com';
 ```
 
 ## License
