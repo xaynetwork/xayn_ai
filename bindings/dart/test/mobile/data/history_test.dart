@@ -21,7 +21,7 @@ import '../utils.dart' show histories;
 void main() {
   group('History', () {
     test('empty', () {
-      var id = 'fcb6a685-eb92-4d36-8686-000000000000';
+      final id = 'fcb6a685-eb92-4d36-8686-000000000000';
       expect(
         () => History(
           id: '', // empty id

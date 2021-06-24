@@ -11,7 +11,7 @@ import '../utils.dart' show documents;
 void main() {
   group('Document', () {
     test('empty', () {
-      var id = 'fcb6a685-eb92-4d36-8686-000000000000';
+      final id = 'fcb6a685-eb92-4d36-8686-000000000000';
       expect(
         () => Document(
           id: '', // empty id

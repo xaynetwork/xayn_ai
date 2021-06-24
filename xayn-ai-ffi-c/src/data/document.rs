@@ -368,8 +368,8 @@ pub(crate) mod tests {
             error.message(),
             format!(
                 "Failed to rerank the documents: The {} is null",
-                CCode::DocumentSnippetPointer
-            )
+                CCode::DocumentSnippetPointer,
+            ),
         );
     }
 
@@ -386,7 +386,7 @@ pub(crate) mod tests {
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentSessionPointer,
-            )
+            ),
         );
     }
 
@@ -403,7 +403,7 @@ pub(crate) mod tests {
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentQueryIdPointer,
-            )
+            ),
         );
     }
 
@@ -420,7 +420,7 @@ pub(crate) mod tests {
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentQueryWordsPointer,
-            )
+            ),
         );
     }
 
@@ -437,7 +437,7 @@ pub(crate) mod tests {
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentUrlPointer,
-            )
+            ),
         );
     }
 
@@ -454,7 +454,7 @@ pub(crate) mod tests {
             format!(
                 "Failed to rerank the documents: The {} is null",
                 CCode::DocumentDomainPointer,
-            )
+            ),
         );
     }
 }
