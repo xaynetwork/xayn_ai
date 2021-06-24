@@ -42,6 +42,13 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
     nan_safe_f32_cmp(b, a)
 }
 
+/// Creates a UUID by combining `fcb6a685-eb92-4d36-8686-XXXXXXXXXXXX` with given `sub_id`.
+#[cfg(test)]
+pub(crate) fn mock_uuid(sub_id: usize) -> uuid::Uuid {
+    const BASE_UUID: u128 = 0xfcb6a685eb924d368686000000000000;
+    uuid::Uuid::from_u128(BASE_UUID | (sub_id as u128))
+}
+
 /// Compares two "things" with approximate equality.
 ///
 /// # Examples
@@ -391,5 +398,13 @@ mod tests {
     #[should_panic(expected = "[0, 2]")]
     fn test_panic_at_different_length() {
         assert_approx_eq!(f32, &[[1., 2., 3.]], &[[1., 2.]]);
+    }
+
+    #[test]
+    fn test_mock_uuid() {
+        assert_eq!(
+            format!("{}", mock_uuid(0xABCDEF0A)),
+            "fcb6a685-eb92-4d36-8686-0000abcdef0a"
+        );
     }
 }

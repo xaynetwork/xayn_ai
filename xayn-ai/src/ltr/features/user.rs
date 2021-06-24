@@ -42,9 +42,9 @@ pub(super) struct UserFeatures {
     /// Total number of search queries over all sessions.
     pub(super) num_queries: usize,
     /// Mean number of words per query.
-    pub(super) words_per_query: f32,
+    pub(super) mean_words_per_query: f32,
     /// Mean number of unique query words per session.
-    pub(super) words_per_session: f32,
+    pub(super) mean_unique_words_per_session: f32,
 }
 
 impl UserFeatures {
@@ -55,8 +55,8 @@ impl UserFeatures {
                 click_entropy: 0.,
                 click_counts: ClickCounts::new(),
                 num_queries: 0,
-                words_per_query: 0.,
-                words_per_session: 0.,
+                mean_words_per_query: 0.,
+                mean_unique_words_per_session: 0.,
             };
         }
 
@@ -82,8 +82,8 @@ impl UserFeatures {
             click_entropy,
             click_counts,
             num_queries,
-            words_per_query,
-            words_per_session,
+            mean_words_per_query: words_per_query,
+            mean_unique_words_per_session: words_per_session,
         }
     }
 }
@@ -114,4 +114,129 @@ fn words_per_session<'a>(results: impl Iterator<Item = (SessionId, &'a Vec<Strin
         .map(|(_, words)| words.len())
         .sum::<usize>() as f32
         / num_sessions as f32
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::mock_uuid;
+
+    use super::{
+        super::{Action, DayOfWeek, Query, QueryId, Rank, SessionId},
+        *,
+    };
+
+    fn history<'a>(
+        iter: impl IntoIterator<Item = &'a (usize, usize, &'a [&'a str], Action)>,
+    ) -> Vec<HistSearchResult> {
+        iter.into_iter()
+            .enumerate()
+            .map(|(id, (session_id, query_id, query_words, action))| {
+                let in_query_id = id % 10;
+                let per_query_id = id / 10;
+                HistSearchResult {
+                    query: Query {
+                        session_id: SessionId(mock_uuid(*session_id)),
+                        query_count: per_query_id,
+                        query_id: QueryId(mock_uuid(*query_id)),
+                        query_words: query_words.iter().map(ToString::to_string).collect(),
+                    },
+                    url: in_query_id.to_string(),
+                    domain: in_query_id.to_string(),
+                    final_rank: Rank(in_query_id),
+                    day: DayOfWeek::Tue,
+                    action: *action,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_nonempty_user_history() {
+        let history = history(&[
+            /* query 1 */
+            (1, 2, &["23", "445"] as &[_], Action::Skip),
+            (1, 2, &["23", "445"], Action::Skip),
+            (1, 2, &["23", "445"], Action::Click1),
+            (1, 2, &["23", "445"], Action::Click2),
+            (1, 2, &["23", "445"], Action::Miss),
+            (1, 2, &["23", "445"], Action::Miss),
+            (1, 2, &["23", "445"], Action::Miss),
+            (1, 2, &["23", "445"], Action::Miss),
+            (1, 2, &["23", "445"], Action::Miss),
+            (1, 2, &["23", "445"], Action::Miss),
+            /* query 2 */
+            (2, 33, &["48", "48", "48"], Action::Skip),
+            (2, 33, &["48", "48", "48"], Action::Skip),
+            (2, 33, &["48", "48", "48"], Action::Skip),
+            (2, 33, &["48", "48", "48"], Action::Skip),
+            (2, 33, &["48", "48", "48"], Action::Skip),
+            (2, 33, &["48", "48", "48"], Action::Skip),
+            (2, 33, &["48", "48", "48"], Action::Click1),
+            (2, 33, &["48", "48", "48"], Action::Click1),
+            (2, 33, &["48", "48", "48"], Action::Click2),
+            (2, 33, &["48", "48", "48"], Action::Miss),
+            /* query 3 */
+            (1, 3, &["321", "12"], Action::Skip),
+            (1, 3, &["321", "12"], Action::Click1),
+            (1, 3, &["321", "12"], Action::Click1),
+            (1, 3, &["321", "12"], Action::Click1),
+            (1, 3, &["321", "12"], Action::Click2),
+            (1, 3, &["321", "12"], Action::Miss),
+            (1, 3, &["321", "12"], Action::Miss),
+            (1, 3, &["321", "12"], Action::Miss),
+            (1, 3, &["321", "12"], Action::Miss),
+            (1, 3, &["321", "12"], Action::Miss),
+        ]);
+
+        let UserFeatures {
+            click_entropy,
+            click_counts,
+            num_queries,
+            mean_words_per_query,
+            mean_unique_words_per_session,
+        } = UserFeatures::build(&history);
+
+        let ClickCounts {
+            click12,
+            click345,
+            click6up,
+        } = click_counts;
+
+        assert_eq!(click12, 1);
+        assert_eq!(click345, 5);
+        assert_eq!(click6up, 3);
+
+        assert_approx_eq!(f32, click_entropy, 2.725_480_6);
+
+        assert_eq!(num_queries, 3);
+        assert_approx_eq!(f32, mean_words_per_query, 2.333_333_3);
+        assert_approx_eq!(f32, mean_unique_words_per_session, 2.5);
+    }
+
+    #[test]
+    fn test_empty_user_history() {
+        let UserFeatures {
+            click_entropy,
+            click_counts,
+            num_queries,
+            mean_words_per_query,
+            mean_unique_words_per_session,
+        } = UserFeatures::build(&[]);
+
+        let ClickCounts {
+            click12,
+            click345,
+            click6up,
+        } = click_counts;
+
+        assert_eq!(click12, 0);
+        assert_eq!(click345, 0);
+        assert_eq!(click6up, 0);
+
+        assert_approx_eq!(f32, click_entropy, 0.0, ulps = 0);
+
+        assert_eq!(num_queries, 0);
+        assert_approx_eq!(f32, mean_words_per_query, 0.0, ulps = 0);
+        assert_approx_eq!(f32, mean_unique_words_per_session, 0.0, ulps = 0);
+    }
 }
