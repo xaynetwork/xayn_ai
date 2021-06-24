@@ -178,7 +178,6 @@ python3 -m http.server
 - const _baseAssetUrl = 'assets';
 + const _baseAssetUrl =
 +   'https://xayn_ai_staging_assets.s3-de-central.profitbricks.com';
-
 ```
 
 ## License
