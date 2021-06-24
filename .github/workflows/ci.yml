@@ -539,11 +539,15 @@ jobs:
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter format --set-exit-if-changed .
 
-  flutter-analyze:
-    name: flutter-analyze
+  flutter-checks:
+    name: flutter-checks
     needs: build-linux-lib
     runs-on: ubuntu-20.04
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        cmd: [analyze, test]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -605,84 +609,11 @@ jobs:
 
       - name: Other Dart code generation
         working-directory: ${{ env.DART_WORKSPACE }}
-        run: |
-          flutter pub run build_runner build
+        run: flutter pub run build_runner build
 
-      - name: Analyze flutter code
+      - name: ${{ matrix.cmd }} flutter code
         working-directory: ${{ env.DART_WORKSPACE }}
-        run: flutter analyze
-
-  flutter-test:
-    name: flutter-test
-    needs: build-linux-lib
-    runs-on: ubuntu-20.04
-    timeout-minutes: 10
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Install libclang-10-dev
-        run: sudo apt-get install libclang-10-dev
-
-      - name: Install gomplate
-        uses: ./.ci/install-gomplate
-
-      - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v1
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
-        uses: actions/cache@v2.1.4
-        with:
-          path: /opt/hostedtoolcache/flutter
-          key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
-
-      - name: Set path or install flutter
-        uses: subosito/flutter-action@v1
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-
-      - name: Download ${{ needs.build-linux-lib.outputs.cache-key }} artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: ${{ needs.build-linux-lib.outputs.cache-key }}
-          path: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
-
-      - name: Move C-headers and linux lib
-        working-directory: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
-        run: |
-          mv bindings/dart/ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
-          mv bindings/dart/ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
-          cp -R target ${{ github.workspace }}
-
-      - name: Download data
-        run: sh download_data.sh
-
-      - name: Install flutter dependencies
-        working-directory: ${{ env.DART_WORKSPACE }}
-        run: flutter pub get
-
-      - name: Generate flutter ffi
-        working-directory: ${{ env.DART_WORKSPACE }}
-        run: |
-          flutter pub run ffigen --config ffigen_common.yaml
-          flutter pub run ffigen --config ffigen_mobile.yaml
-          grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" lib/src/common/ffi/genesis.dart > genesis && mv genesis lib/src/common/ffi/genesis.dart
-
-      - name: Build asset artifacts
-        uses: ./.ci/build-asset-artifacts
-        with:
-          dart-ws: ${{ env.DART_WORKSPACE }}
-
-      - name: Other Dart code generation
-        working-directory: ${{ env.DART_WORKSPACE }}
-        run: |
-          flutter pub run build_runner build
-
-      - name: Run flutter tests
-        working-directory: ${{ env.DART_WORKSPACE }}
-        run: flutter test
+        run: flutter ${{ matrix.cmd }}
 
   flutter-build-example:
     name: flutter-build-example
@@ -778,8 +709,7 @@ jobs:
 
       - name: Other Dart code generation
         working-directory: ${{ env.DART_WORKSPACE }}
-        run: |
-          flutter pub run build_runner build
+        run: flutter pub run build_runner build
 
       - name: Build flutter example for ${{ matrix.target }}
         working-directory: ${{ env.DART_WORKSPACE }}/example
@@ -795,7 +725,7 @@ jobs:
   # for this job
   one-leaf:
     name: ignore-me
-    needs: [flutter-format, coverage, test-wasm-lib, test-android-libs, flutter-analyze, flutter-test, flutter-build-example]
+    needs: [flutter-format, coverage, test-wasm-lib, test-android-libs, flutter-checks, flutter-build-example]
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
