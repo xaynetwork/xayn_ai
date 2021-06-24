@@ -4,15 +4,132 @@ import 'package:ffi/ffi.dart' show Utf8, Utf8Pointer;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNot, test, throwsArgumentError;
 
+import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/document.dart' show Documents;
-import '../utils.dart' show documents, mkTestDoc;
+import '../utils.dart' show documents;
 
 void main() {
   group('Document', () {
     test('empty', () {
-      expect(() => mkTestDoc('', 'abc', 0), throwsArgumentError);
+      final id = 'fcb6a685-eb92-4d36-8686-000000000000';
       expect(
-        () => mkTestDoc('fcb6a685-eb92-4d36-8686-000000000000', 'abc', -1),
+        () => Document(
+          id: '', // empty id
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          url: 'url',
+          domain: 'domain',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: -1, // negative rank
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          url: 'url',
+          domain: 'domain',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: '', // empty session id
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          url: 'url',
+          domain: 'domain',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: id,
+          queryCount: 0, // non-positive query count
+          queryId: id,
+          queryWords: 'query words',
+          url: 'url',
+          domain: 'domain',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: id,
+          queryCount: 1,
+          queryId: '', // empty query id
+          queryWords: 'query words',
+          url: 'url',
+          domain: 'domain',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: '', // empty query words
+          url: 'url',
+          domain: 'domain',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          url: '', // empty url
+          domain: 'domain',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          url: 'url',
+          domain: '', // empty domain
+        ),
         throwsArgumentError,
       );
     });
