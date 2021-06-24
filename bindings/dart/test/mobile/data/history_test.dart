@@ -6,20 +6,156 @@ import 'package:flutter_test/flutter_test.dart'
 
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show
+        DayOfWeek,
         DayOfWeekToInt,
         UserFeedback,
         FeedbackToInt,
+        History,
         Relevance,
         RelevanceToInt,
+        UserAction,
         UserActionToInt;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart' show Histories;
-import '../utils.dart' show histories, mkTestHist;
+import '../utils.dart' show histories;
 
 void main() {
   group('History', () {
     test('empty', () {
+      final id = 'fcb6a685-eb92-4d36-8686-000000000000';
       expect(
-        () => mkTestHist('', Relevance.low, UserFeedback.irrelevant),
+        () => History(
+          id: '', // empty id
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          day: DayOfWeek.mon,
+          url: 'url',
+          domain: 'domain',
+          rank: 0,
+          userAction: UserAction.miss,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => History(
+          id: id,
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: '', // empty session id
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          day: DayOfWeek.mon,
+          url: 'url',
+          domain: 'domain',
+          rank: 0,
+          userAction: UserAction.miss,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => History(
+          id: id,
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: id,
+          queryCount: 0, // non-positive query count
+          queryId: id,
+          queryWords: 'query words',
+          day: DayOfWeek.mon,
+          url: 'url',
+          domain: 'domain',
+          rank: 0,
+          userAction: UserAction.miss,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => History(
+          id: id,
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: id,
+          queryCount: 1,
+          queryId: '', // empty query id
+          queryWords: 'query words',
+          day: DayOfWeek.mon,
+          url: 'url',
+          domain: 'domain',
+          rank: 0,
+          userAction: UserAction.miss,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => History(
+          id: id,
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: '', // empty query words
+          day: DayOfWeek.mon,
+          url: 'url',
+          domain: 'domain',
+          rank: 0,
+          userAction: UserAction.miss,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => History(
+          id: id,
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          day: DayOfWeek.mon,
+          url: '', // empty url
+          domain: 'domain',
+          rank: 0,
+          userAction: UserAction.miss,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => History(
+          id: id,
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          day: DayOfWeek.mon,
+          url: 'url',
+          domain: '', // empty domain
+          rank: 0,
+          userAction: UserAction.miss,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => History(
+          id: id,
+          relevance: Relevance.low,
+          userFeedback: UserFeedback.irrelevant,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          day: DayOfWeek.mon,
+          url: 'url',
+          domain: 'domain',
+          rank: -1, // negative rank
+          userAction: UserAction.miss,
+        ),
         throwsArgumentError,
       );
     });

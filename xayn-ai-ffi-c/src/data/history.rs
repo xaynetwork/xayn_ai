@@ -342,4 +342,89 @@ pub(crate) mod tests {
             ),
         );
     }
+
+    #[test]
+    fn test_history_session_null() {
+        let mut hists = TestHistories::uninitialized().initialize_history();
+        unsafe { hists.as_mut().get_unchecked_mut() }.history[0].session = None;
+        let hists = hists.initialize_histories();
+
+        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
+        assert_eq!(error.code(), CCode::HistorySessionPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::HistorySessionPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_history_queryid_null() {
+        let mut hists = TestHistories::uninitialized().initialize_history();
+        unsafe { hists.as_mut().get_unchecked_mut() }.history[0].query_id = None;
+        let hists = hists.initialize_histories();
+
+        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
+        assert_eq!(error.code(), CCode::HistoryQueryIdPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::HistoryQueryIdPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_history_querywords_null() {
+        let mut hists = TestHistories::uninitialized().initialize_history();
+        unsafe { hists.as_mut().get_unchecked_mut() }.history[0].query_words = None;
+        let hists = hists.initialize_histories();
+
+        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
+        assert_eq!(error.code(), CCode::HistoryQueryWordsPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::HistoryQueryWordsPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_history_url_null() {
+        let mut hists = TestHistories::uninitialized().initialize_history();
+        unsafe { hists.as_mut().get_unchecked_mut() }.history[0].url = None;
+        let hists = hists.initialize_histories();
+
+        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
+        assert_eq!(error.code(), CCode::HistoryUrlPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::HistoryUrlPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_history_domain_null() {
+        let mut hists = TestHistories::uninitialized().initialize_history();
+        unsafe { hists.as_mut().get_unchecked_mut() }.history[0].domain = None;
+        let hists = hists.initialize_histories();
+
+        let error = unsafe { hists.histories.to_histories() }.unwrap_err();
+        assert_eq!(error.code(), CCode::HistoryDomainPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::HistoryDomainPointer,
+            ),
+        );
+    }
 }

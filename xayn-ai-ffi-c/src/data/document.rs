@@ -355,4 +355,106 @@ pub(crate) mod tests {
             ),
         );
     }
+
+    #[test]
+    fn test_document_snippet_null() {
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].snippet = None;
+        let docs = docs.initialize_documents();
+
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code(), CCode::DocumentSnippetPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::DocumentSnippetPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_document_session_null() {
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].session = None;
+        let docs = docs.initialize_documents();
+
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code(), CCode::DocumentSessionPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::DocumentSessionPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_document_queryid_null() {
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].query_id = None;
+        let docs = docs.initialize_documents();
+
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code(), CCode::DocumentQueryIdPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::DocumentQueryIdPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_document_querywords_null() {
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].query_words = None;
+        let docs = docs.initialize_documents();
+
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code(), CCode::DocumentQueryWordsPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::DocumentQueryWordsPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_document_url_null() {
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].url = None;
+        let docs = docs.initialize_documents();
+
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code(), CCode::DocumentUrlPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::DocumentUrlPointer,
+            ),
+        );
+    }
+
+    #[test]
+    fn test_document_domain_null() {
+        let mut docs = TestDocuments::uninitialized().initialize_document();
+        unsafe { docs.as_mut().get_unchecked_mut() }.document[0].domain = None;
+        let docs = docs.initialize_documents();
+
+        let error = unsafe { docs.documents.to_documents() }.unwrap_err();
+        assert_eq!(error.code(), CCode::DocumentDomainPointer);
+        assert_eq!(
+            error.message(),
+            format!(
+                "Failed to rerank the documents: The {} is null",
+                CCode::DocumentDomainPointer,
+            ),
+        );
+    }
 }
