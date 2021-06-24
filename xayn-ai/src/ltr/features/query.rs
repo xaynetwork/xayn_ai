@@ -28,7 +28,7 @@ pub(super) struct QueryFeatures {
 }
 
 impl QueryFeatures {
-    /// Build query features for the given search result and history of a user.
+    /// Build query features for the given query and history of the user.
     pub(super) fn build(hists: &[HistSearchResult], query: &Query) -> Self {
         // history filtered by query
         let hists_q = hists
@@ -164,7 +164,7 @@ mod tests {
                         query_words: vec!["1".to_owned()],
                     },
                     url: in_query_id.to_string(),
-                    domain: (*domain).to_owned(),
+                    domain: domain.to_string(),
                     final_rank: Rank(in_query_id),
                     day: DayOfWeek::Tue,
                     action: *action,

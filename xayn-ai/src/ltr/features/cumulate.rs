@@ -73,7 +73,7 @@ mod tests {
                         query_words: vec![per_query_id.to_string()],
                     },
                     url: in_query_id.to_string(),
-                    domain: (*domain).to_owned(),
+                    domain: domain.to_string(),
                     final_rank: Rank(in_query_id),
                     day: DayOfWeek::Tue,
                     action: *action,

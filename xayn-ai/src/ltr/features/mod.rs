@@ -364,7 +364,7 @@ pub(crate) struct Features {
     /// Initial unpersonalised rank.
     initial_rank: Rank,
     /// Aggregate features.
-    aggregated: AggregateFeatures,
+    aggregate: AggregateFeatures,
     /// User features.
     user: UserFeatures,
     /// Query features.
@@ -396,7 +396,7 @@ impl Features {
 
         Self {
             initial_rank,
-            aggregated: aggregate,
+            aggregate,
             user,
             query,
             cumulated,
@@ -471,7 +471,7 @@ pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
     for (feats, row) in izip!(feats_list, arr.axis_iter_mut(Axis(0))) {
         let Features {
             initial_rank,
-            aggregated: aggregate,
+            aggregate,
             user,
             query,
             cumulated,
@@ -806,7 +806,7 @@ mod tests {
                             ],
                         })
                         .clone(),
-                    url: (*url).to_owned(),
+                    url: url.to_string(),
                     domain: "example.com".to_owned(),
                     final_rank: Rank(in_query_id),
                     day: DayOfWeek::Tue,
@@ -904,14 +904,6 @@ mod tests {
         );
 
         // 1 query matches
-        //  first query
-        //      no matching skip
-        //      matching click
-        //          clicked_documents = [2,55,8], current_document=55
-        //          so index + 1 == 2
-        //          score += 1/2
-        //      score = 0.5
-        //  total_score = 0.5
         //  nr_missed_or_skipped = 0
         //  => return 0
         assert_approx_eq!(f32, quality, 0.0);
@@ -945,21 +937,7 @@ mod tests {
             &HISTORY_FOR_URL,
             FilterPred::new(UrlOrDom::Url(&current.url)),
         );
-        // 3 query matches
-        //  first query
-        //      no matching skip
-        //      matching click
-        //          clicked_documents = [2,55,8]
-        //          score += -1/3
-        //      score = -1/3
-        //  second query
-        //      no matching skip
-        //      matching click
-        //          clicked_documents = [1,2,4,3333,7,8,9,10], current_document=8
-        //          so index + 1 == 6
-        //          score += 1/6
-        //      score = 1/6
-        //  total_score = -0.16666666666666666
+        // 2 query matches
         //  nr_missed_or_skipped = 0
         //  => return 0
         assert_approx_eq!(f32, quality, 0.0);
@@ -990,7 +968,7 @@ mod tests {
                         })
                         .clone(),
                     url: id.to_string(),
-                    domain: (*domain).to_owned(),
+                    domain: domain.to_string(),
                     final_rank: Rank(in_query_id),
                     day: DayOfWeek::Tue,
                     action: *action,
@@ -1122,7 +1100,7 @@ mod tests {
                         })
                         .clone(),
                     url: id.to_string(),
-                    domain: (*domain).to_owned(),
+                    domain: domain.to_string(),
                     final_rank: Rank(in_query_id),
                     day: *day,
                     action: *action,
@@ -1198,7 +1176,7 @@ mod tests {
         }
     }
 
-    fn query_results_by_rank_and_relevance<'a>(
+    fn history_by_rank_and_action<'a>(
         iter: impl IntoIterator<Item = &'a (Rank, Action)>,
     ) -> Vec<HistSearchResult> {
         let mut queries = HashMap::new();
@@ -1229,7 +1207,7 @@ mod tests {
 
     #[test]
     fn test_mean_reciprocal_rank() {
-        let history = query_results_by_rank_and_relevance(&[
+        let history = history_by_rank_and_action(&[
             (Rank(0), Action::Skip),
             (Rank(1), Action::Miss),
             (Rank(2), Action::Click0),
@@ -1238,18 +1216,23 @@ mod tests {
         ]);
 
         let mrr = mean_recip_rank(&history, None, None);
+        // (1 + 1/2 + 1/3 + 1/4 + 1/5 + 0.283)/(5+1) (as closest f32)
         assert_approx_eq!(f32, mrr, 0.427_722_25);
 
         let mrr = mean_recip_rank(&history, None, Some(FilterPred::new(UrlOrDom::Dom("0"))));
+        // (1 + 1/3 + 1/5 + 0.283)/(3+1)
         assert_approx_eq!(f32, mrr, 0.454_083_35);
 
         let mrr = mean_recip_rank(&history, Some(MrrOutcome::Miss), None);
+        // (1/2 + 0.283)/(1+1)
         assert_approx_eq!(f32, mrr, 0.391_5);
 
         let mrr = mean_recip_rank(&history, Some(MrrOutcome::Skip), None);
+        // (1 + 0.283)/(1+1)
         assert_approx_eq!(f32, mrr, 0.6415);
 
         let mrr = mean_recip_rank(&history, Some(MrrOutcome::Click), None);
+        // (1/4 + 1/5 + 0.283)/(2+1)
         assert_approx_eq!(f32, mrr, 0.244_333_33);
 
         let mrr = mean_recip_rank(
@@ -1257,6 +1240,7 @@ mod tests {
             Some(MrrOutcome::Click),
             Some(FilterPred::new(UrlOrDom::Dom("0"))),
         );
+        // (1/5 + 0.283)/(1+1)
         assert_approx_eq!(f32, mrr, 0.241_5);
     }
 
@@ -1309,7 +1293,7 @@ mod tests {
     }
 
     #[test]
-    fn the_right_aggregate_atoms_are_chosen() {
+    fn test_that_the_right_statistics_are_computed() {
         use UrlOrDom::*;
 
         let click_mrr = AtomFeat::MeanRecipRank(MrrOutcome::Click);
@@ -1368,7 +1352,6 @@ mod tests {
             }
         }
 
-        //----
         fn not_current(sub_id: usize) -> SessionCond {
             SessionCond::NotCurrent {
                 current: SessionId(mock_uuid(sub_id)),
@@ -1410,11 +1393,9 @@ mod tests {
         assert!(result.is_clicked());
     }
 
-    //TODO turn this into end to end tests where you compare the extracted feature arrays (once we do create them)
-    //rustfmt makes all the assert_approx_eq much less readable in this specific case.
     #[rustfmt::skip]
     fn do_test_compute_features(history: Vec<HistSearchResult>, search_results: Vec<DocSearchResult>, expected_features: &[[f32;50]]) {
-        let got_features = build_features(history, search_results).unwrap();
+        let extracted_features = build_features(history, search_results).unwrap();
 
         let click_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Click);
         let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);
@@ -1425,10 +1406,10 @@ mod tests {
         let skipped = &AtomFeat::CondProb(Action::Skip);
         let snippet_quality = &AtomFeat::SnippetQuality;
 
-        for (features, feature_row) in izip!(got_features, expected_features) {
+        for (features, feature_row) in izip!(extracted_features, expected_features) {
             let Features {
                 initial_rank,
-                aggregated,
+                aggregate,
                 user,
                 query,
                 cumulated,
@@ -1438,35 +1419,35 @@ mod tests {
 
             assert_approx_eq!(f32, feature_row[0], f32::from(initial_rank), ulps = 0);
 
-            assert_approx_eq!(f32, feature_row[1], aggregated.url[click_mrr]);
-            assert_approx_eq!(f32, feature_row[2], aggregated.url[click2]);
-            assert_approx_eq!(f32, feature_row[3], aggregated.url[missed]);
-            assert_approx_eq!(f32, feature_row[4], aggregated.url[snippet_quality]);
-            assert_approx_eq!(f32, feature_row[5], aggregated.url_ant[click2]);
-            assert_approx_eq!(f32, feature_row[6], aggregated.url_ant[missed]);
-            assert_approx_eq!(f32, feature_row[7], aggregated.url_ant[snippet_quality]);
-            assert_approx_eq!(f32, feature_row[8], aggregated.url_query[combine_mrr]);
-            assert_approx_eq!(f32, feature_row[9], aggregated.url_query[click2]);
-            assert_approx_eq!(f32, feature_row[10], aggregated.url_query[missed]);
-            assert_approx_eq!(f32, feature_row[11], aggregated.url_query[snippet_quality]);
-            assert_approx_eq!(f32, feature_row[12], aggregated.url_query_ant[combine_mrr]);
-            assert_approx_eq!(f32, feature_row[13], aggregated.url_query_ant[click_mrr]);
-            assert_approx_eq!(f32, feature_row[14], aggregated.url_query_ant[miss_mrr]);
-            assert_approx_eq!(f32, feature_row[15], aggregated.url_query_ant[skip_mrr]);
-            assert_approx_eq!(f32, feature_row[16], aggregated.url_query_ant[missed]);
-            assert_approx_eq!(f32, feature_row[17], aggregated.url_query_ant[snippet_quality]);
-            assert_approx_eq!(f32, feature_row[18], aggregated.url_query_curr[miss_mrr]);
-            assert_approx_eq!(f32, feature_row[19], aggregated.dom[skipped]);
-            assert_approx_eq!(f32, feature_row[20], aggregated.dom[missed]);
-            assert_approx_eq!(f32, feature_row[21], aggregated.dom[click2]);
-            assert_approx_eq!(f32, feature_row[22], aggregated.dom[snippet_quality]);
-            assert_approx_eq!(f32, feature_row[23], aggregated.dom_ant[click2]);
-            assert_approx_eq!(f32, feature_row[24], aggregated.dom_ant[missed]);
-            assert_approx_eq!(f32, feature_row[25], aggregated.dom_ant[snippet_quality]);
-            assert_approx_eq!(f32, feature_row[26], aggregated.dom_query[missed]);
-            assert_approx_eq!(f32, feature_row[27], aggregated.dom_query[snippet_quality]);
-            assert_approx_eq!(f32, feature_row[28], aggregated.dom_query[miss_mrr]);
-            assert_approx_eq!(f32, feature_row[29], aggregated.dom_query_ant[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[1], aggregate.url[click_mrr]);
+            assert_approx_eq!(f32, feature_row[2], aggregate.url[click2]);
+            assert_approx_eq!(f32, feature_row[3], aggregate.url[missed]);
+            assert_approx_eq!(f32, feature_row[4], aggregate.url[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[5], aggregate.url_ant[click2]);
+            assert_approx_eq!(f32, feature_row[6], aggregate.url_ant[missed]);
+            assert_approx_eq!(f32, feature_row[7], aggregate.url_ant[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[8], aggregate.url_query[combine_mrr]);
+            assert_approx_eq!(f32, feature_row[9], aggregate.url_query[click2]);
+            assert_approx_eq!(f32, feature_row[10], aggregate.url_query[missed]);
+            assert_approx_eq!(f32, feature_row[11], aggregate.url_query[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[12], aggregate.url_query_ant[combine_mrr]);
+            assert_approx_eq!(f32, feature_row[13], aggregate.url_query_ant[click_mrr]);
+            assert_approx_eq!(f32, feature_row[14], aggregate.url_query_ant[miss_mrr]);
+            assert_approx_eq!(f32, feature_row[15], aggregate.url_query_ant[skip_mrr]);
+            assert_approx_eq!(f32, feature_row[16], aggregate.url_query_ant[missed]);
+            assert_approx_eq!(f32, feature_row[17], aggregate.url_query_ant[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[18], aggregate.url_query_curr[miss_mrr]);
+            assert_approx_eq!(f32, feature_row[19], aggregate.dom[skipped]);
+            assert_approx_eq!(f32, feature_row[20], aggregate.dom[missed]);
+            assert_approx_eq!(f32, feature_row[21], aggregate.dom[click2]);
+            assert_approx_eq!(f32, feature_row[22], aggregate.dom[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[23], aggregate.dom_ant[click2]);
+            assert_approx_eq!(f32, feature_row[24], aggregate.dom_ant[missed]);
+            assert_approx_eq!(f32, feature_row[25], aggregate.dom_ant[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[26], aggregate.dom_query[missed]);
+            assert_approx_eq!(f32, feature_row[27], aggregate.dom_query[snippet_quality]);
+            assert_approx_eq!(f32, feature_row[28], aggregate.dom_query[miss_mrr]);
+            assert_approx_eq!(f32, feature_row[29], aggregate.dom_query_ant[snippet_quality]);
 
             let QueryFeatures {
                 click_entropy,
@@ -1511,66 +1492,6 @@ mod tests {
 
             assert_approx_eq!(f32, feature_row[49], seasonality);
         }
-    }
-
-    #[test]
-    fn test_full_feature_extraction_simple() {
-        //auto generated
-        #[rustfmt::skip]
-        let history = vec![
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "26142648".to_owned(), domain: "2597528".to_owned(), action: Action::Click2, final_rank: Rank(0), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "44200215".to_owned(), domain: "3852697".to_owned(), action: Action::Miss, final_rank: Rank(1), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "40218620".to_owned(), domain: "3602893".to_owned(), action: Action::Miss, final_rank: Rank(2), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "21854374".to_owned(), domain: "2247911".to_owned(), action: Action::Miss, final_rank: Rank(3), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "6152223".to_owned(), domain: "787424".to_owned(), action: Action::Miss, final_rank: Rank(4), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "46396840".to_owned(), domain: "3965502".to_owned(), action: Action::Miss, final_rank: Rank(5), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "65705884".to_owned(), domain: "4978404".to_owned(), action: Action::Miss, final_rank: Rank(6), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "4607041".to_owned(), domain: "608358".to_owned(), action: Action::Miss, final_rank: Rank(7), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "60306140".to_owned(), domain: "4679885".to_owned(), action: Action::Miss, final_rank: Rank(8), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(12283852)), query_words: vec!["3468976".to_owned(), "4614115".to_owned()], query_count: 0, }, day: DayOfWeek::Fri, url: "1991065".to_owned(), domain: "295576".to_owned(), action: Action::Miss, final_rank: Rank(9), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "43220173".to_owned(), domain: "3802280".to_owned(), action: Action::Click2, final_rank: Rank(0),  },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "68391867".to_owned(), domain: "5124172".to_owned(), action: Action::Miss, final_rank: Rank(1), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "48241082".to_owned(), domain: "4077775".to_owned(), action: Action::Miss, final_rank: Rank(2), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "28461283".to_owned(), domain: "2809381".to_owned(), action: Action::Miss, final_rank: Rank(3), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "36214392".to_owned(), domain: "3398386".to_owned(), action: Action::Miss, final_rank: Rank(4), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "26215090".to_owned(), domain: "2597528".to_owned(), action: Action::Miss, final_rank: Rank(5), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "55157032".to_owned(), domain: "4429726".to_owned(), action: Action::Miss, final_rank: Rank(6), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "35921251".to_owned(), domain: "3380635".to_owned(), action: Action::Miss, final_rank: Rank(7), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "37498049".to_owned(), domain: "3463275".to_owned(), action: Action::Miss, final_rank: Rank(8), },
-            HistSearchResult { query: Query { session_id: SessionId(mock_uuid(2746324)),query_id: QueryId(mock_uuid(7297472)), query_words: vec!["2758230".to_owned()], query_count: 1, }, day: DayOfWeek::Fri, url: "70173304".to_owned(), domain: "5167485".to_owned(), action: Action::Miss, final_rank: Rank(9), },
-        ];
-
-        //auto generated
-        #[rustfmt::skip]
-        let current_search_results = vec![
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "41131641".to_owned(), domain: "3661944".to_owned(), initial_rank: Rank(0), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "43630521".to_owned(), domain: "3823198".to_owned(), initial_rank: Rank(1), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "28819788".to_owned(), domain: "2832997".to_owned(), initial_rank: Rank(2), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "28630417".to_owned(), domain: "2819308".to_owned(), initial_rank: Rank(3), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "49489872".to_owned(), domain: "4155543".to_owned(), initial_rank: Rank(4), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "1819187".to_owned(), domain: "269174".to_owned(), initial_rank: Rank(5), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "27680026".to_owned(), domain: "2696111".to_owned(), initial_rank: Rank(6), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "1317174".to_owned(), domain: "207936".to_owned(), initial_rank: Rank(7), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "28324834".to_owned(), domain: "2790971".to_owned(), initial_rank: Rank(8), },
-            DocSearchResult { query: Query { session_id: SessionId(mock_uuid(2746325)), query_id: QueryId(mock_uuid(20331734)), query_words: vec!["4631619".to_owned(), "2289501".to_owned()], query_count: 0, }, url: "54208271".to_owned(), domain: "4389621".to_owned(), initial_rank: Rank(9), },
-        ];
-
-        //auto generated
-        #[rustfmt::skip]
-        let features = &[
-            [1.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [2.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [3.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [4.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [5.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [6.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [7.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [8.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [9.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-            [10.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.283, 0.283, 0.283, 0.283, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.283, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 1.5, 3.0, 0.0, 0.0, 0.0, 2.0, 0.0]
-        ];
-
-        do_test_compute_features(history, current_search_results, features);
     }
 
     const TEST_DATA_DIR: &str = "../data/ltr_feature_extraction_tests_v0000";
@@ -1715,7 +1636,7 @@ mod tests {
         }
 
         if !did_run {
-            panic!("Missing test cases. Did you run ./download_data.sh.");
+            panic!("Missing test cases. Did you run ./download_data.sh?");
         }
     }
 }

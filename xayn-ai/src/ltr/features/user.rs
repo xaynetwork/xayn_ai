@@ -138,7 +138,7 @@ mod tests {
                         session_id: SessionId(mock_uuid(*session_id)),
                         query_count: per_query_id,
                         query_id: QueryId(mock_uuid(*query_id)),
-                        query_words: query_words.iter().map(|s| (**s).to_owned()).collect(),
+                        query_words: query_words.iter().map(ToString::to_string).collect(),
                     },
                     url: in_query_id.to_string(),
                     domain: in_query_id.to_string(),
@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn the_right_statistics_are_computed() {
+    fn test_nonempty_user_history() {
         let history = history(&[
             /* query 1 */
             (1, 2, &["23", "445"] as &[_], Action::Skip),
