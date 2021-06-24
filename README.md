@@ -168,4 +168,4 @@ directories, licensed under their own particular licenses:
  * `rubert-tokenizer/*`: Apache2 ([LICENSE](rubert-tokenizer/LICENSE))
 
 Xayn-ai and its components, unless otherwise stated, are licensed under
- * Xayn AG Transparency License ([LICENSE](LICENSE)).
+ * AGPL-3.0 ([LICENSE](LICENSE)).
