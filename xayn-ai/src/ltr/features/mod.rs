@@ -634,7 +634,7 @@ pub(crate) fn click_entropy(hists: &[impl AsRef<HistSearchResult>]) -> f32 {
 /// |hist({Miss, Skip}, pred)|
 /// ```
 ///
-/// where the sum ranges over all query results containing a result `r` with URL/domain matching the URL/domain of `res`.
+/// where the sum ranges over all `query` results containing a result matching `pred`.
 ///
 /// If `|hist({Miss, Skip}, pred)|` is `0` then `0` is returned.
 pub(crate) fn snippet_quality(hists: &[HistSearchResult], pred: FilterPred) -> f32 {
@@ -667,12 +667,12 @@ pub(crate) fn snippet_quality(hists: &[HistSearchResult], pred: FilterPred) -> f
 ///
 /// The base score of `0` is modified in up to two ways before being returned:
 ///
-/// 1.  `1 / p` is added if there exist a clicked document matching `pred`. `p` is the number of
-///     clicked documents which do not match `pred` and have a better ranking then the found
+/// 1.  `1 / p` is added if there exists a clicked document matching `pred`. `p` is the number of
+///     clicked documents which do not match `pred` and have a better ranking than the first found
 ///     matching document.
 ///
 /// 2. `-1 / nr_clicked` is added if there exists a skipped document matching `pred`. `nr_clicked`
-///     is the number of all clicked documents independent of weather or not they match.
+///     is the number of all clicked documents independent of whether or not they match.
 fn snippet_score(rs: &ResultSet, pred: FilterPred) -> f32 {
     let mut score = 0.0;
 
