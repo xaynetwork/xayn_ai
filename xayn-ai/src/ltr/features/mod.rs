@@ -942,6 +942,27 @@ mod tests {
         //  nr_missed_or_skipped = 0
         //  => return 0
         assert_approx_eq!(f32, quality, 0.0);
+
+        let current = &HISTORY_FOR_URL[15];
+        let quality = snippet_quality(
+            &HISTORY_FOR_URL,
+            FilterPred::new(UrlOrDom::Url(&current.url)),
+        );
+        // 2 query matches
+        //  first query
+        //      matching skip
+        //          clicked_documents = [2,55,8]
+        //          score += -1/3
+        //      no matching click
+        //      score = -1/3
+        //  second query
+        //      no matching miss
+        //      no matching click
+        //      score = 0
+        //  total_score = -1/3
+        //  nr_missed_or_skipped = 2
+        //  => return -0.16666666666666666 //closest f32 is -0.166_666_67
+        assert_approx_eq!(f32, quality, -0.166_666_67);
     }
 
     fn history_by_domain<'a>(
@@ -1062,6 +1083,24 @@ mod tests {
         //  nr_missed_or_skipped = 1
         //  return 0.25
         assert_approx_eq!(f32, quality, 0.25);
+
+        let current = &HISTORY_FOR_DOMAIN[25];
+        let quality = snippet_quality(
+            &HISTORY_FOR_DOMAIN,
+            FilterPred::new(UrlOrDom::Dom(&current.domain)),
+        );
+        // 1 query match
+        //  first query
+        //      no matching skip
+        //      matching click
+        //          clicked_documents = [1,2,3,4,7,8,9,10], current_document=4
+        //          so index + 1 == 4
+        //          score += 1/4
+        //      score = 0
+        //  total_score = 0
+        //  nr_missed_or_skipped = 1
+        //  return 0
+        assert_approx_eq!(f32, quality, 0.25);
     }
 
     #[test]
@@ -1131,6 +1170,9 @@ mod tests {
             (Action::Click1, DayOfWeek::Mon, "1"),
             (Action::Click1, DayOfWeek::Sat, "1"),
             (Action::Click1, DayOfWeek::Mon, "1"),
+            (Action::Click1, DayOfWeek::Thu, "3"),
+            (Action::Click1, DayOfWeek::Fri, "3"),
+            (Action::Click1, DayOfWeek::Sat, "3"),
         ]);
 
         // seasonality = (5*(1+w_end_day))/(2*(1+working_day))
@@ -1143,6 +1185,11 @@ mod tests {
         // relevant other days: 5
         let value = seasonality(&history, "2");
         assert_approx_eq!(f32, value, 0.416_666_66);
+
+        // relevant thu/fr days: 2
+        // relevant other days: 1
+        let value = seasonality(&history, "3");
+        assert_approx_eq!(f32, value, 3.75);
 
         assert_approx_eq!(f32, seasonality(&[], "1"), 0.0, ulps = 0);
     }
