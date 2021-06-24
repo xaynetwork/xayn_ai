@@ -38,9 +38,7 @@ impl AggregateFeatures {
     pub(super) fn build(hists: &[HistSearchResult], doc: impl AsRef<DocSearchResult>) -> Self {
         let doc = doc.as_ref();
 
-        let not_current = SessionCond::NotCurrent {
-            current: doc.query.session_id,
-        };
+        let not_current = SessionCond::Anterior(doc.query.session_id);
         let current = SessionCond::Current(doc.query.session_id);
         let doc_url = UrlOrDom::Url(&doc.url);
         let doc_dom = UrlOrDom::Dom(&doc.domain);
@@ -105,9 +103,7 @@ mod tests {
         let history = &[];
         let filter = FilterPred::new(UrlOrDom::Url("1"))
             .with_query(QueryId(mock_uuid(2)))
-            .with_session(SessionCond::NotCurrent {
-                current: SessionId(mock_uuid(10)),
-            });
+            .with_session(SessionCond::Anterior(SessionId(mock_uuid(10))));
         let map = aggregate_feature(history, filter);
 
         assert_approx_eq!(f32, map[&AtomFeat::MeanRecipRankAll], 0.283);

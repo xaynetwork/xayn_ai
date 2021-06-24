@@ -247,7 +247,7 @@ pub(crate) enum SessionCond {
     /// last session, furthermore we do not have a ordering
     /// between sessions as they now use UUIDv4 ids instead
     /// of incremental counter ids.
-    NotCurrent { current: SessionId },
+    Anterior(SessionId),
 
     /// Current session.
     Current(SessionId),
@@ -286,6 +286,9 @@ impl<'a> FilterPred<'a> {
     /// Lookup the atoms making up the aggregate feature for this filter predicate.
     ///
     /// Mapping of (predicate => atomic features) based on Dataiku's winning model (see paper).
+    // Don't rustfmt the match statement below.
+    // We can't annotate the statement directly with the current rust compiler version.
+    #[rustfmt::skip]
     pub(crate) fn agg_atoms(&self) -> SmallVec<[AtomFeat; 6]> {
         use AtomFeat::{
             CondProb,
@@ -294,7 +297,7 @@ impl<'a> FilterPred<'a> {
             SnippetQuality as SQ,
         };
         use MrrOutcome::{Click, Miss, Skip};
-        use SessionCond::{All, Current, NotCurrent};
+        use SessionCond::{All, Anterior, Current};
         use UrlOrDom::{Dom, Url};
 
         let skip = CondProb(Action::Skip);
@@ -302,17 +305,15 @@ impl<'a> FilterPred<'a> {
         let click2 = CondProb(Action::Click2);
 
         match (self.doc, self.query, self.session) {
-            (Dom(_), None, All) => smallvec![skip, miss, click2, SQ],
-            (Dom(_), None, NotCurrent { .. }) => smallvec![click2, miss, SQ],
-            (Url(_), None, All) => smallvec![MRR(Click), click2, miss, SQ],
-            (Url(_), None, NotCurrent { .. }) => smallvec![click2, miss, SQ],
-            (Dom(_), Some(_), All) => smallvec![miss, SQ, MRR(Miss)],
-            (Dom(_), Some(_), NotCurrent { .. }) => smallvec![SQ],
-            (Url(_), Some(_), All) => smallvec![mrr, click2, miss, SQ],
-            (Url(_), Some(_), NotCurrent { .. }) => {
-                smallvec![mrr, MRR(Click), MRR(Miss), MRR(Skip), miss, SQ]
-            }
-            (Url(_), Some(_), Current(_)) => smallvec![MRR(Miss)],
+            (Dom(_),    None,       All         ) => smallvec![skip, miss, click2, SQ],
+            (Dom(_),    None,       Anterior(_) ) => smallvec![click2, miss, SQ],
+            (Url(_),    None,       All         ) => smallvec![MRR(Click), click2, miss, SQ],
+            (Url(_),    None,       Anterior(_) ) => smallvec![click2, miss, SQ],
+            (Dom(_),    Some(_),    All         ) => smallvec![miss, SQ, MRR(Miss)],
+            (Dom(_),    Some(_),    Anterior(_) ) => smallvec![SQ],
+            (Url(_),    Some(_),    All         ) => smallvec![mrr, click2, miss, SQ],
+            (Url(_),    Some(_),    Anterior(_) ) => smallvec![mrr, MRR(Click), MRR(Miss), MRR(Skip), miss, SQ],
+            (Url(_),    Some(_),    Current(_)  ) => smallvec![MRR(Miss)],
             _ => smallvec![],
         }
     }
@@ -331,7 +332,7 @@ impl<'a> FilterPred<'a> {
         let session_id = hist.query.session_id;
         let session_cond = match self.session {
             // `id` is of the *current* session hence any other must be *older*
-            SessionCond::NotCurrent { current } => session_id != current,
+            SessionCond::Anterior(current) => session_id != current,
             SessionCond::Current(id) => session_id == id,
             SessionCond::All => true,
         };
@@ -1275,9 +1276,7 @@ mod tests {
         result.query.session_id = SessionId(mock_uuid(100));
         assert!(filter.apply(&result));
 
-        let filter = filter.with_session(SessionCond::NotCurrent {
-            current: SessionId(mock_uuid(100)),
-        });
+        let filter = filter.with_session(SessionCond::Anterior(SessionId(mock_uuid(100))));
         assert!(!filter.apply(&result));
         result.query.session_id = SessionId(mock_uuid(80));
         assert!(filter.apply(&result));
@@ -1353,9 +1352,7 @@ mod tests {
         }
 
         fn not_current(sub_id: usize) -> SessionCond {
-            SessionCond::NotCurrent {
-                current: SessionId(mock_uuid(sub_id)),
-            }
+            SessionCond::Anterior(SessionId(mock_uuid(sub_id)))
         }
 
         fn current(sub_id: usize) -> SessionCond {
