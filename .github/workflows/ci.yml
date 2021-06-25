@@ -77,7 +77,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_NIGHTLY }} toolchain
         uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
@@ -88,7 +88,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -107,7 +107,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
@@ -118,7 +118,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -127,7 +127,7 @@ jobs:
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-check-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -147,11 +147,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
@@ -159,7 +159,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -168,7 +168,7 @@ jobs:
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-clippy-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -188,18 +188,18 @@ jobs:
       cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -213,7 +213,7 @@ jobs:
         run: echo "::set-output name=key::$(echo "${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tests-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}")"
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
           key: ${{ steps.cache-key.outputs.key }}
@@ -237,18 +237,18 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           toolchain: ${{ env.RUST_STABLE }}
           profile: minimal
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -257,7 +257,7 @@ jobs:
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-tarpaulin-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -287,7 +287,7 @@ jobs:
         run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-lipo-bin-${{ env.CARGO_LIPO }})"
 
       - name: Restore ${{ steps.cache-key.outputs.key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         id: cargo-lipo-cache
         with:
           path: ~/.cargo/bin/cargo-lipo
@@ -308,11 +308,11 @@ jobs:
         target: [aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
@@ -320,7 +320,7 @@ jobs:
           default: true
 
       - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -339,7 +339,7 @@ jobs:
         run: sh download_data.sh
 
       - name: Restore build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-test-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -361,11 +361,11 @@ jobs:
         target: [aarch64-apple-ios, x86_64-apple-ios]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain with target ${{ matrix.target }}
         id: rust-toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
@@ -373,7 +373,7 @@ jobs:
           default: true
 
       - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -382,13 +382,13 @@ jobs:
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ~/.cargo/bin/cargo-lipo
           key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
 
       - name: Restore build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-build-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -418,11 +418,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
@@ -430,7 +430,7 @@ jobs:
           default: true
 
       - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -459,18 +459,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
@@ -479,7 +479,7 @@ jobs:
           key: ${{ needs.registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
           key: ${{ needs.test.outputs.cache-key }}
@@ -498,7 +498,7 @@ jobs:
         run: echo "::set-output name=key::$(echo build-x86_64-unknown-linux-gnu-${{ hashFiles('target/debug/libxayn_ai_ffi_c.so', '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h', '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h') }})"
 
       - name: Upload library artifacts
-        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
+        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
         with:
           name: ${{ steps.cache-key.outputs.key }}
           retention-days: 1
@@ -514,7 +514,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Setup java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78 # v2.1.0
@@ -523,7 +523,7 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: /opt/hostedtoolcache/flutter
           key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
@@ -550,7 +550,7 @@ jobs:
         cmd: [analyze, test]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install libclang-10-dev
         # required by ffigen
@@ -560,19 +560,19 @@ jobs:
         uses: ./.ci/install-gomplate
 
       - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78
+        uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78 # v2.1.0
         with:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Restore flutter ${{ env.FLUTTER_VERSION }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: /opt/hostedtoolcache/flutter
           key: ${{ runner.os }}-flutter-cache-${{ env.FLUTTER_VERSION }}
 
       - name: Set path or install flutter
-        uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8
+        uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
@@ -635,10 +635,10 @@ jobs:
             cmd: flutter build web
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78
+        uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78 # v2.1.0
         with:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VERSION }}
@@ -651,7 +651,7 @@ jobs:
         uses: ./.ci/install-gomplate
 
       - name: Download ${{ needs.build-linux-lib.outputs.cache-key }} artifacts
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
           name: ${{ needs.build-linux-lib.outputs.cache-key }}
           path: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
@@ -664,14 +664,14 @@ jobs:
 
       - name: Download iOS aarch64 artifacts
         if: matrix.target == 'ios'
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
           name: build-ios-aarch64-apple-ios-${{ github.sha }}
           path: ${{ runner.temp }}/build-ios-${{ github.sha }}
 
       - name: Download iOS x84_64 artifacts
         if: matrix.target == 'ios'
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
           name: build-ios-x86_64-apple-ios-${{ github.sha }}
           path: ${{ runner.temp }}/build-ios-${{ github.sha }}
@@ -684,7 +684,7 @@ jobs:
           find . -iname '*.a' -exec cp \{\} ${{ env.DART_WORKSPACE }}/ios \;
 
       - name: Set path or install flutter
-        uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8
+        uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
