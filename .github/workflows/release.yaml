@@ -19,11 +19,16 @@ env:
   PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
   CARGO_INCREMENTAL: 0
 
+permissions:
+  contents: read
+
 jobs:
   cancel:
     name: cancel-previous-runs
     runs-on: ubuntu-20.04
     timeout-minutes: 5
+    permissions:
+      actions: write
     steps:
       # When you git push, this GitHub Action will capture the current Branch and SHA.
       # It will query GitHub's API to find previous workflow runs that match the Branch
