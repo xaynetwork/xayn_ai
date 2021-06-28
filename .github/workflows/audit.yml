@@ -46,7 +46,7 @@ jobs:
                 },
               ],
               "attachments": [{
-                "color": '${{ steps.cargo-audit.outcome }}' === 'success' ? 'good' : '${{ steps.cargo-audit.outcome }}' === 'failure' ? 'danger' : 'warning',
+                "color": 'danger'
                 "text": `\`\`\`${{ env.CARGO_AUDIT }}\`\`\``,
               }]
             }
