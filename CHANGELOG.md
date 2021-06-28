@@ -6,13 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+## 2.0.0 - 2021/06/28
+
 ### Changed
 
-- Outsourcing of ai assets. The assets are no longer part of the library. See [#94](https://github.com/xaynetwork/xayn_ai/pull/94) more information about the API changes.
+- Outsourcing of ai assets. The assets are no longer part of the library. See [#94](https://github.com/xaynetwork/xayn_ai/pull/94) for more information about the API changes.
 - `XaynAi.rerank` takes as parameter `RerankMode` that allows to specify if we are reranking news or results from a search.
 - Assets for releases on the `staging` branch are uploaded to a S3 bucket (`https://xayn_ai_staging_assets.s3-de-central.profitbricks.com`).
-- Renamed `Feedback` to `UserFeedback`.
-    - `History.feedback` => `History.userFeedback`
+- Renamed `Feedback` to `UserFeedback` and `History.feedback` to `History.userFeedback`.
 - Use keyword arguments for `Document`/`History` constructors.
 - `XainAi` is initialized with an additional parameter to support the domain reranker.
 - Assets for releases on the `release` branch are uploaded to KeyCDN.
