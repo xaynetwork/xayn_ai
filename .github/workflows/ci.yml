@@ -14,6 +14,9 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   RUST_STABLE: 1.51
   RUST_NIGHTLY: nightly-2021-05-10
@@ -724,15 +727,13 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Notify failure
-        if: needs.one_leaf.result != 'success'
+        if: needs.one-leaf.result != 'success'
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43 # v3.9.1
         with:
           status: custom
-          fields: workflow, job, repo
+          fields: workflow, repo
           custom_payload: |
             {
-              username: 'GitHub Actions',
-              icon_emoji: ':octocat:',
               attachments: [{
                 title: 'Staging CI failed :warning:',
                 color: 'danger',
@@ -740,5 +741,4 @@ jobs:
               }]
             }
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
