@@ -13,7 +13,7 @@ derive_more = { version = "0.99.14", default-features = false, features = ["from
 displaydoc = "0.2.1"
 itertools = "0.10.0"
 # to be kept in sync with rubert
-ndarray = "=0.15.2"
+ndarray = "=0.15.3"
 rand = "0.8.3"
 rand_distr = "0.4.0"
 rubert = { path = "../rubert" }
