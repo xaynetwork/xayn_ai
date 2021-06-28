@@ -258,7 +258,7 @@ jobs:
             -t ${{ matrix.target }} \
             -p ${{ env.ANDROID_PLATFORM_VERSION }} \
             -o ${{ env.ANDROID_LIBS_DIR }} \
-            build --release
+            build --release --workspace --exclude xayn-ai-ffi-wasm
 
       - name: Upload artifact
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
