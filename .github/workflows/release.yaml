@@ -38,10 +38,10 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
-  registry-cache:
+  cargo-registry-cache:
     # we use the latest stable rustc + cargo version that is already installed on the image
     # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
-    name: cargo-fetch
+    name: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 5
     outputs:
@@ -61,7 +61,7 @@ jobs:
       - name: Generate cargo registry cache key
         id: cache-key
         shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
 
       - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -71,7 +71,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
           key: ${{ steps.cache-key.outputs.key }}
-          restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
+          restore-keys: ${{ runner.os }}-${{ github.job }}-${{ steps.get-date.outputs.date }}-
 
       - name: Fetch dependencies
         run: cargo fetch
@@ -86,7 +86,7 @@ jobs:
       - name: Generate cargo-ndk cache key
         id: cache-key
         shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-ndk-bin-${{ env.CARGO_NDK }})"
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ env.CARGO_NDK }})"
 
       - name: Restore ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -111,7 +111,7 @@ jobs:
       - name: Generate cargo-lipo cache key
         id: cache-key
         shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-lipo-bin-${{ env.CARGO_LIPO }})"
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ env.CARGO_LIPO }})"
 
       - name: Restore ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -124,9 +124,9 @@ jobs:
         if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
         run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
 
-  build-headers:
-    name: build-headers
-    needs: [registry-cache]
+  build-release-headers:
+    name: build-release-headers
+    needs: [cargo-registry-cache]
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     steps:
@@ -156,21 +156,21 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Build headers
         run: cargo check
@@ -207,9 +207,9 @@ jobs:
             ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi/genesis.dart
             ${{ steps.find_g_dart_artifacts.outputs.artifacts }}
 
-  build-android-libs:
-    name: build-android-libs
-    needs: [registry-cache, install-cargo-ndk]
+  build-release-android-libs:
+    name: build-release-android-libs
+    needs: [cargo-registry-cache, install-cargo-ndk]
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     strategy:
@@ -228,21 +228,21 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -268,9 +268,9 @@ jobs:
           if-no-files-found: error
           path: ${{ env.ANDROID_LIBS_DIR }}
 
-  build-ios-libs:
-    name: build-ios-libs
-    needs: [registry-cache, install-cargo-lipo]
+  build-release-ios-libs:
+    name: build-release-ios-libs
+    needs: [cargo-registry-cache, install-cargo-lipo]
     runs-on: macos-10.15
     timeout-minutes: 25
     strategy:
@@ -289,21 +289,21 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -333,9 +333,9 @@ jobs:
           if-no-files-found: error
           path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
-  build-wasm-lib-release:
-    name: build-wasm-lib-release
-    needs: registry-cache
+  build-release-wasm-lib:
+    name: build-release-wasm-lib
+    needs: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     outputs:
@@ -358,21 +358,21 @@ jobs:
       - name: Install wasm-pack
         uses: ./.ci/install-wasm-pack
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Build WASM library
         run: |
@@ -399,7 +399,7 @@ jobs:
   build-asset-artifacts:
     name: build-asset-artifacts
     runs-on: ubuntu-20.04
-    needs: build-wasm-lib-release
+    needs: build-release-wasm-lib
     timeout-minutes: 20
     outputs:
       upload-name: ${{ steps.asset-artifacts.outputs.upload-name }}
@@ -425,8 +425,8 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
-          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          name: ${{ needs.build-release-wasm-lib.outputs.upload-name }}
+          path: ${{ needs.build-release-wasm-lib.outputs.upload-path }}
 
       - name: Download data
         run: sh download_data.sh
@@ -436,8 +436,8 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-suffix: ${{ needs.build-wasm-lib-release.outputs.dir-name }}
-          wasm-rel-path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          wasm-suffix: ${{ needs.build-release-wasm-lib.outputs.dir-name }}
+          wasm-rel-path: ${{ needs.build-release-wasm-lib.outputs.upload-path }}
           release: "true"
 
       - name: Generate asset artifacts name
@@ -457,7 +457,7 @@ jobs:
   publish-asset-artifacts:
     name: publish-asset-artifacts
     runs-on: ubuntu-20.04
-    needs: [build-wasm-lib-release, build-asset-artifacts]
+    needs: [build-release-wasm-lib, build-asset-artifacts]
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -472,8 +472,8 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
-          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          name: ${{ needs.build-release-wasm-lib.outputs.upload-name }}
+          path: ${{ needs.build-release-wasm-lib.outputs.upload-path }}
 
       - name: Download data
         run: sh download_data.sh
@@ -538,7 +538,12 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-20.04
-    needs: [build-headers, build-android-libs, build-ios-libs, build-asset-artifacts, publish-asset-artifacts]
+    needs:
+      - build-release-headers
+      - build-release-android-libs
+      - build-release-ios-libs
+      - build-asset-artifacts
+      - publish-asset-artifacts
     timeout-minutes: 60
     steps:
       - name: Install SSH key
