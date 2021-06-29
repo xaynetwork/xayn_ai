@@ -93,7 +93,7 @@ dependencies = [ "build-dart" ]
 script_runner = "@duckscript"
 env = { WASM_SUFFIX="wasm_bindings" }
 script = ["""
-  wasm_rel_path = set "bindings/dart/example/${WASM_SUFFIX}"
+  wasm_rel_path = set "bindings/dart/example/assets/${WASM_SUFFIX}"
   set_env WASM_REL_PATH "${wasm_rel_path}"
   cm_run_task build-wasm
   cm_run_task gen-assets
@@ -121,9 +121,9 @@ script = ["""
   rm -f ios/Classes/XaynAiFFiDart.h
   rm -f lib/src/common/ffi/genesis.dart
   rm -f lib/src/mobile/ffi/genesis.dart
-  rm -f example/wasm_bindings/genesis_bg.wasm
-  rm -f example/wasm_bindings/genesis.js
-  rm -f example/wasm_bindings/package.json
+  rm -f example/assets/wasm_bindings/genesis_bg.wasm
+  rm -f example/assets/wasm_bindings/genesis.js
+  rm -f example/assets/wasm_bindings/package.json
 """]
 
 [tasks.clean-codegen]
