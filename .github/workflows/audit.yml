@@ -46,7 +46,7 @@ jobs:
                 },
               ],
               "attachments": [{
-                "color": 'danger'
+                "color": "danger",
                 "text": `\`\`\`${{ env.CARGO_AUDIT }}\`\`\``,
               }]
             }
