@@ -2,8 +2,8 @@ use rubert::{FirstPooler, SMBertBuilder};
 
 fn main() {
     let smbert = SMBertBuilder::from_files(
-        "../data/rubert_v0001/vocab.txt",
-        "../data/rubert_v0001/smbert.onnx",
+        "../data/smbert_v0000/vocab.txt",
+        "../data/smbert_v0000/smbert.onnx",
     )
     .unwrap()
     .with_accents(false)
