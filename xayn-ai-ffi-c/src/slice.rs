@@ -268,27 +268,27 @@ mod tests {
             len: 0,
             _owned,
         });
-        assert_eq!(with_null_ptr.is_sound(), true);
+        assert!(with_null_ptr.is_sound());
         with_null_ptr.len = 1;
-        assert_eq!(with_null_ptr.is_sound(), false);
+        assert!(!with_null_ptr.is_sound());
 
         let mut with_dangeling = ManuallyDrop::new(CBoxedSlice {
             data: Some(NonNull::dangling()),
             len: 0,
             _owned,
         });
-        assert_eq!(with_dangeling.is_sound(), true);
+        assert!(with_dangeling.is_sound());
         // allocation soundness can't be checked by is sound
         with_dangeling.len = 4;
-        assert_eq!(with_dangeling.is_sound(), true);
+        assert!(with_dangeling.is_sound());
 
         with_dangeling.len = isize::MAX as u64;
-        assert_eq!(with_dangeling.is_sound(), false);
+        assert!(!with_dangeling.is_sound());
 
         with_dangeling.len = 0;
-        assert_eq!(with_dangeling.is_sound(), true);
+        assert!(with_dangeling.is_sound());
         with_dangeling.data = NonNull::new(1 as _);
-        assert_eq!(with_dangeling.is_sound(), false);
+        assert!(!with_dangeling.is_sound());
     }
 
     #[test]
