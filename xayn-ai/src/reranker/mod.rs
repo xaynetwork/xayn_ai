@@ -315,6 +315,8 @@ mod tests {
     };
     use anyhow::bail;
     use paste::paste;
+    use rstest::rstest;
+    use rstest_reuse::{apply, template};
 
     macro_rules! check_error {
         ($reranker: expr, $error:pat) => {
@@ -375,14 +377,19 @@ mod tests {
         }
     }
 
+    /// Template to run a test with all the rerank mode we support.
+    #[template]
+    #[rstest(mode, case(RerankMode::Search), case(RerankMode::News))]
+    fn tmpl_rerank_mode_cases(mode: RerankMode) {}
+
     /// A user performs the very first search that returns no results/`Documents`.
     /// In this case, the `Reranker` should return an empty `DocumentsRank`.
-    #[test]
-    fn test_first_search_without_search_results() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_first_search_without_search_results(mode: RerankMode) {
         let cs = MockCommonSystems::default();
         let mut reranker = Reranker::new(cs).unwrap();
 
-        let outcome = reranker.rerank(RerankMode::Search, &[], &[]);
+        let outcome = reranker.rerank(mode, &[], &[]);
         assert_eq!(outcome.final_ranking, []);
     }
 
@@ -393,13 +400,13 @@ mod tests {
     /// `Reranker` should create `DocumentDataWithEmbedding` from the `Document`s,
     /// from which the first user interests will be learned in the next call
     /// to `rerank`.
-    #[test]
-    fn test_first_search_with_search_results() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_first_search_with_search_results(mode: RerankMode) {
         let cs = MockCommonSystems::default();
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = documents_from_ids(0..10);
 
-        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
+        let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
@@ -414,13 +421,16 @@ mod tests {
     /// searches, the user interests should be learned from the previous
     /// documents and the current results/`Document`s should be reranked
     /// based on the newly learned user interests.
-    #[test]
-    fn test_first_and_second_search_learn_cois_and_rerank() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_first_and_second_search_learn_cois_and_rerank(
+        mode: RerankMode,
+        #[values(RerankMode::Search, RerankMode::News)] second_mode: RerankMode,
+    ) {
         let cs = MockCommonSystems::default();
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = car_interest_example::documents();
 
-        let _rank = reranker.rerank(RerankMode::Search, &[], &documents);
+        let _rank = reranker.rerank(mode, &[], &documents);
 
         let history = history_for_prev_docs(
             &reranker.data.prev_documents.to_coi_system_data(),
@@ -436,7 +446,7 @@ mod tests {
 
         let documents = documents_from_ids(10..20);
 
-        let _rank = reranker.rerank(RerankMode::Search, &history, &documents);
+        let _rank = reranker.rerank(second_mode, &history, &documents);
         assert!(reranker.errors().is_empty());
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
 
@@ -450,14 +460,14 @@ mod tests {
     /// the learning step, discard the previous documents, rerank the
     /// current `Document`s based on the current user interests and
     /// create the previous documents from the current `Document`s.
-    #[test]
-    fn test_rerank_no_history() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_rerank_no_history(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
             MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..10))
         });
         let mut reranker = Reranker::new(cs).unwrap();
 
-        let outcome = reranker.rerank(RerankMode::Search, &[], &car_interest_example::documents());
+        let outcome = reranker.rerank(mode, &[], &car_interest_example::documents());
 
         assert_eq!(
             outcome.final_ranking,
@@ -476,8 +486,8 @@ mod tests {
     /// `Reranker` should fail in the learning step with a `NoMatchingDocuments`
     /// error, create the previous documents from the current `Document`s
     /// and rerank the current `Document`s based on the current user interests.
-    #[test]
-    fn test_rerank_no_matching_documents() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_rerank_no_matching_documents(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
             MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..10))
         });
@@ -486,7 +496,7 @@ mod tests {
         // creates a history with one document with the id 11
         let history = document_history(vec![(11, Relevance::Low, UserFeedback::Relevant)]);
         let documents = car_interest_example::documents();
-        let outcome = reranker.rerank(RerankMode::Search, &history, &documents);
+        let outcome = reranker.rerank(mode, &history, &documents);
 
         assert_eq!(
             outcome.final_ranking,
@@ -507,8 +517,8 @@ mod tests {
     /// aware of any user interests and can therefore not perform any
     /// reranking. The `Reranker` should return the results/`Document`s
     /// in an unchanged order.
-    #[test]
-    fn test_first_and_second_search_no_history() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_first_and_second_search_no_history(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
             MemDb::from_data(RerankerData {
                 prev_documents: documents_with_embeddings_from_ids(0..10).into(),
@@ -518,7 +528,7 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = documents_from_ids(0..10);
 
-        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
+        let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
@@ -532,8 +542,8 @@ mod tests {
     /// the `Reranker` cannot find any matching documents. The `Reranker`
     /// should return the results/`Document`s in an unchanged order and
     /// create the previous documents from the current `Document`s.
-    #[test]
-    fn test_first_and_second_search_no_matching_documents() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_first_and_second_search_no_matching_documents(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
             MemDb::from_data(RerankerData {
                 prev_documents: documents_with_embeddings_from_ids(0..10).into(),
@@ -545,7 +555,7 @@ mod tests {
 
         // creates a history with one document with the id 11
         let history = document_history(vec![(11, Relevance::Low, UserFeedback::Relevant)]);
-        let outcome = reranker.rerank(RerankMode::Search, &history, &documents);
+        let outcome = reranker.rerank(mode, &history, &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
@@ -582,7 +592,7 @@ mod tests {
         }
     }
 
-    fn test_system_failure(cs: impl CommonSystems, can_fill_prev_docs: bool) {
+    fn test_system_failure(cs: impl CommonSystems, can_fill_prev_docs: bool, mode: RerankMode) {
         // If any of the systems fail in the `rerank` method, the `Reranker`
         // should return the results/`Document`s in an unchanged order and
         // create the previous documents from the current `Document`s.
@@ -592,7 +602,7 @@ mod tests {
         let documents = documents_from_ids(0..10);
 
         // We use an empty history in order to skip the learning step.
-        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
+        let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
@@ -613,10 +623,10 @@ mod tests {
         };
         ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|, $can_fill_prev_docs: expr) => {
             paste! {
-                #[test]
-                fn [<test_component_failure_ $system>]() {
+                #[apply(tmpl_rerank_mode_cases)]
+                fn [<test_component_failure_ $system>](mode: RerankMode) {
                     let cs = common_systems_with_fail!($system, $mock, $method, |$($args),*|);
-                    test_system_failure(cs, $can_fill_prev_docs);
+                    test_system_failure(cs, $can_fill_prev_docs, mode);
                 }
             }
         };
@@ -630,8 +640,8 @@ mod tests {
     /// An analytics system error should not prevent the documents from
     /// being reranked using the learned user interests. However, the error
     /// should be stored and made available via `Reranker::error()`.
-    #[test]
-    fn test_system_failure_analytics() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_system_failure_analytics(mode: RerankMode) {
         let cs =
             common_systems_with_fail!(analytics, MockAnalyticsSystem, compute_analytics, |_,_|);
         let mut reranker = Reranker::new(cs).unwrap();
@@ -647,7 +657,7 @@ mod tests {
             vec![(Relevance::Low, UserFeedback::Relevant)],
         );
 
-        let outcome = reranker.rerank(RerankMode::Search, &history, &documents);
+        let outcome = reranker.rerank(mode, &history, &documents);
 
         assert_eq!(
             outcome.final_ranking,
@@ -657,8 +667,8 @@ mod tests {
         assert!(reranker.analytics.is_none())
     }
 
-    #[test]
-    fn test_system_failure_coi_fails_in_rerank() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_system_failure_coi_fails_in_rerank(mode: RerankMode) {
         let cs = MockCommonSystems::default().set_coi(|| {
             let mut coi = MockCoiSystem::new();
             // we need to set this otherwise it will panic when called
@@ -669,14 +679,14 @@ mod tests {
             coi
         });
 
-        test_system_failure(cs, true);
+        test_system_failure(cs, true, mode);
     }
 
     /// If the smbert system fails spontaneously in the `rerank` function, the
     /// `Reranker` should return the results/`Document`s in an unchanged order
     /// and create the previous documents from the current `Document`s.
-    #[test]
-    fn test_system_failure_smbert_fails_in_rerank() {
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_system_failure_smbert_fails_in_rerank(mode: RerankMode) {
         let mut called = 0;
 
         let cs = MockCommonSystems::default().set_smbert(|| {
@@ -696,7 +706,7 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = car_interest_example::documents();
 
-        let outcome = reranker.rerank(RerankMode::Search, &[], &documents);
+        let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
