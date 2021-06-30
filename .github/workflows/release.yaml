@@ -258,7 +258,7 @@ jobs:
             -t ${{ matrix.target }} \
             -p ${{ env.ANDROID_PLATFORM_VERSION }} \
             -o ${{ env.ANDROID_LIBS_DIR }} \
-            build --release
+            build --release --workspace --exclude xayn-ai-ffi-wasm
 
       - name: Upload artifact
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
@@ -615,7 +615,7 @@ jobs:
           # --ignore-unmatch avoid to fail if the repository is empty
           git rm --ignore-unmatch -r .
 
-          rsync -a ${{ env.DART_WORKSPACE}}/ .
+          rsync -a --exclude example ${{ env.DART_WORKSPACE }}/ .
 
           # Remove files from .gitignore that needs to be uploaded to the release repo
           sed -i -e '/DELETE_AFTER_THIS_IN_RELEASE/,$d' .gitignore
