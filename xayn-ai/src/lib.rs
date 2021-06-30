@@ -43,6 +43,7 @@ mod tests;
 // which is not possible to silence.
 #[cfg(test)]
 #[allow(unused_imports)]
+#[rustfmt::skip]
 pub(crate) use rstest_reuse as rstest_reuse;
 
 // Reexport for assert_approx_eq for usage in FFI crates.
