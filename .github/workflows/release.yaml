@@ -615,7 +615,7 @@ jobs:
           # --ignore-unmatch avoid to fail if the repository is empty
           git rm --ignore-unmatch -r .
 
-          rsync -a --exclude example ${{ env.DART_WORKSPACE}}/ .
+          rsync -a --exclude example ${{ env.DART_WORKSPACE }}/ .
 
           # Remove files from .gitignore that needs to be uploaded to the release repo
           sed -i -e '/DELETE_AFTER_THIS_IN_RELEASE/,$d' .gitignore
