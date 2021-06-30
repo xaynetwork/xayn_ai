@@ -18,7 +18,15 @@ impl QAMBertSystem for QAMBert {
             documents
                 .into_iter()
                 .map(|document| {
-                    self.run(&document.document_content.snippet)
+                    let snippet = &document.document_content.snippet;
+                    // not all documents have a snippet, if snippet is empty we use the title
+                    let data = if !snippet.is_empty() {
+                        snippet
+                    } else {
+                        &document.document_content.title
+                    };
+
+                    self.run(&data)
                         .map(|embedding| {
                             let similarity = l2_distance(&query, &embedding);
                             DocumentDataWithQAMBert::from_document(
@@ -119,5 +127,20 @@ mod tests {
     #[test]
     fn test_empty_documents_dummy() {
         check_empty_documents(NeutralQAMBert);
+    }
+
+    #[test]
+    fn use_title_if_snippet_empty() {
+        // we want to check that if the snippet is empty the title is used instead.
+        // to do this we check that the similarity between an empty query and a document with
+        // an empty snippet is not zero.
+        // `documents_with_embeddings_from_snippet_and_query` always returns a non empty title.
+        let documents = documents_with_embeddings_from_snippet_and_query("", &[""]);
+
+        let similarity = qambert().compute_similarity(documents).unwrap()[0]
+            .qambert
+            .similarity;
+
+        assert!(similarity > 1.);
     }
 }
