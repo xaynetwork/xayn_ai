@@ -60,7 +60,8 @@ impl ContextCalc {
         let frac_neg = (1. + (self.neg_max - neg)).recip();
         let frac_similarity = (1. + similarity / self.similarity_avg).recip();
 
-        (frac_pos + frac_neg + frac_similarity + ltr_score) / 4.
+        // frac_similarity weights 70% all the others weight 10%
+        (frac_similarity * 7. + frac_pos + frac_neg + ltr_score) / 10.
     }
 }
 
@@ -126,16 +127,16 @@ mod tests {
         };
 
         let cxt = calc.calculate(0., 0., calc.neg_max, 0.);
-        assert_approx_eq!(f32, cxt, 3. / 4.); // 1/4 + 1/4 + 1/4
+        assert_approx_eq!(f32, cxt, 9. / 10.); // 0 + 1/10 + 1/10 + 7/10
 
         let cxt = calc.calculate(1., 0., calc.neg_max, 0.);
-        assert_approx_eq!(f32, cxt, 1.); // 1/4 * 4
+        assert_approx_eq!(f32, cxt, 1.); // 1/10 + 1/10 + 1/10 + 7/10
 
         let cxt = calc.calculate(0., calc.pos_avg, calc.neg_max, calc.similarity_avg);
-        assert_approx_eq!(f32, cxt, 0.5); // 2/8 + 1/4
+        assert_approx_eq!(f32, cxt, 50. / 100.); // 0 + 5/100 + 10/100 + 35/100
 
-        let cxt = calc.calculate(0., 8., 7., 4.);
-        assert_approx_eq!(f32, cxt, 49. / 120.); // 1/12 + 1/8 + 1/5
+        let cxt = calc.calculate(0., 6., 7., 4.);
+        assert_approx_eq!(f32, cxt, 65. / 100.); // 0 + 4/100 + 5/100 + 56/100
     }
 
     #[test]
@@ -149,7 +150,7 @@ mod tests {
         };
 
         let ctx = calc.calculate(0., 0., calc.neg_max, 0.);
-        assert_approx_eq!(f32, ctx, 3. / 4.); // 1/4 + 1/4 + 1/4
+        assert_approx_eq!(f32, ctx, 9. / 10.); // 0 + 1/10 + 1/10 + 7/10
     }
 
     #[test]
@@ -172,17 +173,17 @@ mod tests {
         assert_approx_eq!(
             f32,
             cxt_docs[0].context.context_value,
-            (5. / 6. + 1. + 0.9 + 8. / 17.) / 4.,
+            (5. / 6. + 1. + 0.9 + 8. / 17. * 7.) / 10.,
         );
         assert_approx_eq!(
             f32,
             cxt_docs[1].context.context_value,
-            (5. / 11. + 1. / 7. + 0.5 + 8. / 11.) / 4.,
+            (5. / 11. + 1. / 7. + 0.5 + 8. / 11. * 7.) / 10.,
         );
         assert_approx_eq!(
             f32,
             cxt_docs[2].context.context_value,
-            (5. / 13. + 1. / 9. + 0.3 + 8. / 20.) / 4.,
+            (5. / 13. + 1. / 9. + 0.3 + 8. / 20. * 7.) / 10.,
         );
     }
 }
