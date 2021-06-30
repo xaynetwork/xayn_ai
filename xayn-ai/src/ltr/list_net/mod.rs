@@ -41,6 +41,11 @@ impl ListNet {
     /// Number of documents directly reranked
     const INPUT_NR_DOCUMENTS: Ix = 10;
 
+    /// The size by with input is chunked.
+    ///
+    /// The first chunk is then used together with each other chunk.
+    const CHUNK_SIZE: Ix = Self::INPUT_NR_DOCUMENTS / 2;
+
     /// Number of features per document
     const INPUT_NR_FEATURES: Ix = 50;
 
@@ -181,11 +186,8 @@ impl ListNet {
 
         let intermediate_scores = self.calculate_intermediate_scores(inputs);
 
-        let chunk_size = Self::INPUT_NR_DOCUMENTS / 2;
-        debug_assert_eq!(Self::INPUT_NR_DOCUMENTS % 2, 0);
-
         let mut scores = Vec::with_capacity(nr_documents);
-        let mut chunks = intermediate_scores.chunks(chunk_size);
+        let mut chunks = intermediate_scores.chunks(Self::CHUNK_SIZE);
 
         let first_chunk = chunks.next().unwrap();
         let second_chunk = chunks.next();
@@ -198,7 +200,7 @@ impl ListNet {
 
         for chunk in chunks {
             scores.extend_from_slice(
-                &self.calculate_final_scores_padded(first_chunk, Some(chunk))[chunk_size..],
+                &self.calculate_final_scores_padded(first_chunk, Some(chunk))[Self::CHUNK_SIZE..],
             );
         }
 
@@ -493,5 +495,10 @@ mod tests {
         expected.insert("foo");
         expected.insert("bar");
         assert_eq!(params.keys().collect::<HashSet<_>>(), expected);
+    }
+
+    #[test]
+    fn test_chunk_size_is_valid() {
+        assert_eq!(ListNet::CHUNK_SIZE * 2, ListNet::INPUT_NR_DOCUMENTS);
     }
 }
