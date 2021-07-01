@@ -20,10 +20,10 @@ impl QAMBertSystem for QAMBert {
                 .map(|document| {
                     let snippet = &document.document_content.snippet;
                     // not all documents have a snippet, if snippet is empty we use the title
-                    let data = if !snippet.is_empty() {
-                        snippet
-                    } else {
+                    let data = if snippet.is_empty() {
                         &document.document_content.title
+                    } else {
+                        snippet
                     };
 
                     self.run(&data)
