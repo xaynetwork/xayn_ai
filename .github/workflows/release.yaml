@@ -334,7 +334,7 @@ jobs:
           path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
   build-release-wasm-libs:
-    name: build-release-wasm-lib
+    name: build-release-wasm-libs
     needs: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 30
@@ -399,7 +399,7 @@ jobs:
   build-asset-artifacts:
     name: build-asset-artifacts
     runs-on: ubuntu-20.04
-    needs: build-release-wasm-lib
+    needs: build-release-wasm-libs
     timeout-minutes: 20
     outputs:
       upload-name: ${{ steps.asset-artifacts.outputs.upload-name }}
@@ -425,8 +425,8 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-release-wasm-lib.outputs.upload-name }}
-          path: ${{ needs.build-release-wasm-lib.outputs.upload-path }}
+          name: ${{ needs.build-release-wasm-libs.outputs.upload-name }}
+          path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
 
       - name: Download data
         run: sh download_data.sh
@@ -436,8 +436,8 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-suffix: ${{ needs.build-release-wasm-lib.outputs.dir-name }}
-          wasm-rel-path: ${{ needs.build-release-wasm-lib.outputs.upload-path }}
+          wasm-suffix: ${{ needs.build-release-wasm-libs.outputs.dir-name }}
+          wasm-rel-path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
           release: "true"
 
       - name: Generate asset artifacts name
@@ -457,7 +457,7 @@ jobs:
   publish-asset-artifacts:
     name: publish-asset-artifacts
     runs-on: ubuntu-20.04
-    needs: [build-release-wasm-lib, build-asset-artifacts]
+    needs: [build-release-wasm-libs, build-asset-artifacts]
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -472,8 +472,8 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-release-wasm-lib.outputs.upload-name }}
-          path: ${{ needs.build-release-wasm-lib.outputs.upload-path }}
+          name: ${{ needs.build-release-wasm-libs.outputs.upload-name }}
+          path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
 
       - name: Download data
         run: sh download_data.sh

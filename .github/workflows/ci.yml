@@ -414,8 +414,8 @@ jobs:
           if-no-files-found: error
           path: target/${{ matrix.target}}/debug/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
-  test-wasm-lib:
-    name: test-wasm-lib
+  test-wasm-libs:
+    name: test-wasm-libs
     needs: [cargo-registry-cache, cargo-test]
     runs-on: ubuntu-20.04
     timeout-minutes: 20
@@ -715,7 +715,7 @@ jobs:
     needs:
       - flutter-format
       - cargo-tarpaulin
-      - test-wasm-lib
+      - test-wasm-libs
       - test-android-libs
       - flutter-checks
       - flutter-build-example
