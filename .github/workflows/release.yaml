@@ -38,10 +38,10 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
-  registry-cache:
+  cargo-registry-cache:
     # we use the latest stable rustc + cargo version that is already installed on the image
     # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
-    name: cargo-fetch
+    name: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 5
     outputs:
@@ -61,7 +61,7 @@ jobs:
       - name: Generate cargo registry cache key
         id: cache-key
         shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
 
       - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -71,7 +71,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
           key: ${{ steps.cache-key.outputs.key }}
-          restore-keys: ${{ runner.os }}-cargo-registry-${{ steps.get-date.outputs.date }}-
+          restore-keys: ${{ runner.os }}-${{ github.job }}-${{ steps.get-date.outputs.date }}-
 
       - name: Fetch dependencies
         run: cargo fetch
@@ -86,7 +86,7 @@ jobs:
       - name: Generate cargo-ndk cache key
         id: cache-key
         shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-ndk-bin-${{ env.CARGO_NDK }})"
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ env.CARGO_NDK }})"
 
       - name: Restore ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -111,7 +111,7 @@ jobs:
       - name: Generate cargo-lipo cache key
         id: cache-key
         shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-cargo-lipo-bin-${{ env.CARGO_LIPO }})"
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ env.CARGO_LIPO }})"
 
       - name: Restore ${{ steps.cache-key.outputs.key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -124,9 +124,9 @@ jobs:
         if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
         run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
 
-  build-headers:
-    name: build-headers
-    needs: [registry-cache]
+  build-release-headers:
+    name: build-release-headers
+    needs: [cargo-registry-cache]
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     steps:
@@ -156,21 +156,21 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-headers-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Build headers
         run: cargo check
@@ -207,9 +207,9 @@ jobs:
             ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi/genesis.dart
             ${{ steps.find_g_dart_artifacts.outputs.artifacts }}
 
-  build-android-libs:
-    name: build-android-libs
-    needs: [registry-cache, install-cargo-ndk]
+  build-release-android-libs:
+    name: build-release-android-libs
+    needs: [cargo-registry-cache, install-cargo-ndk]
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     strategy:
@@ -228,21 +228,21 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -268,9 +268,9 @@ jobs:
           if-no-files-found: error
           path: ${{ env.ANDROID_LIBS_DIR }}
 
-  build-ios-libs:
-    name: build-ios-libs
-    needs: [registry-cache, install-cargo-lipo]
+  build-release-ios-libs:
+    name: build-release-ios-libs
+    needs: [cargo-registry-cache, install-cargo-lipo]
     runs-on: macos-10.15
     timeout-minutes: 25
     strategy:
@@ -289,21 +289,21 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-release-${{ matrix.target }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
@@ -333,13 +333,13 @@ jobs:
           if-no-files-found: error
           path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
-  build-wasm-lib-release:
-    name: build-wasm-lib-release
-    needs: registry-cache
+  build-release-wasm-libs:
+    name: build-release-wasm-libs
+    needs: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     outputs:
-      version: ${{ steps.wasm-lib.outputs.version }}
+      dir-name: ${{ steps.wasm-lib.outputs.dir-name }}
       upload-name: ${{ steps.wasm-lib.outputs.upload-name }}
       upload-path: ${{ steps.wasm-lib.outputs.upload-path }}
     steps:
@@ -358,21 +358,21 @@ jobs:
       - name: Install wasm-pack
         uses: ./.ci/install-wasm-pack
 
-      - name: Restore ${{ needs.registry-cache.outputs.cache-key }} cache
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ needs.registry-cache.outputs.cache-key }}
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Build WASM library
         run: |
@@ -383,7 +383,7 @@ jobs:
         id: wasm-lib
         run: |
           WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
-          echo "::set-output name=version::$(echo wasm_$WASM_ARTIFACTS_VERSION)"
+          echo "::set-output name=dir-name::$(echo wasm_$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-name::$(echo build-wasm-release-$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-path::$(echo out/wasm_$WASM_ARTIFACTS_VERSION)"
       - run: mv out/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
@@ -399,11 +399,11 @@ jobs:
   build-asset-artifacts:
     name: build-asset-artifacts
     runs-on: ubuntu-20.04
-    needs: build-wasm-lib-release
+    needs: build-release-wasm-libs
     timeout-minutes: 20
     outputs:
       upload-name: ${{ steps.asset-artifacts.outputs.upload-name }}
-      json-metadata: ${{ steps.asset-paths.outputs.json-metadata }}
+      json-manifest: ${{ steps.asset-paths.outputs.json-manifest }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
@@ -425,8 +425,8 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
-          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          name: ${{ needs.build-release-wasm-libs.outputs.upload-name }}
+          path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
 
       - name: Download data
         run: sh download_data.sh
@@ -436,8 +436,9 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-version: ${{ needs.build-wasm-lib-release.outputs.version }}
-          wasm-out-dir-path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          wasm-suffix: ${{ needs.build-release-wasm-libs.outputs.dir-name }}
+          wasm-rel-path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
+          release: "true"
 
       - name: Generate asset artifacts name
         id: asset-artifacts
@@ -450,14 +451,13 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           path: |
-            ${{ steps.asset-paths.outputs.dart-metadata }}
-            ${{ steps.asset-paths.outputs.json-metadata }}
-            ${{ steps.asset-paths.outputs.chunks-dir }}
+            ${{ steps.asset-paths.outputs.dart-manifest }}
+            ${{ steps.asset-paths.outputs.json-manifest }}
 
   publish-asset-artifacts:
     name: publish-asset-artifacts
     runs-on: ubuntu-20.04
-    needs: [build-wasm-lib-release, build-asset-artifacts]
+    needs: [build-release-wasm-libs, build-asset-artifacts]
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -472,18 +472,17 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-wasm-lib-release.outputs.upload-name }}
-          path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
+          name: ${{ needs.build-release-wasm-libs.outputs.upload-name }}
+          path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
 
       - name: Download data
         run: sh download_data.sh
 
       - name: Install s3cmd
         if: github.ref != 'refs/heads/release'
-        uses: ./.ci/install-s3cmd
-        with:
-          access-key: ${{ secrets.STAGING_ASSETS_BUCKET_ACCESS_KEY }}
-          secret-key: ${{ secrets.STAGING_ASSETS_BUCKET_SECRET_KEY }}
+        env:
+          S3CMD_VERSION: 2.1.0
+        run: pip install s3cmd==${{ env.S3CMD_VERSION }}
 
       - name: Upload assets to S3
         if: github.ref != 'refs/heads/release'
@@ -492,20 +491,12 @@ jobs:
           BUCKET_URL: s3://xayn_ai_staging_assets
         run: |
           set -e
+          echo -e ${{ secrets.STAGING_ASSETS_S3CFG }} | base64 -d > $HOME/.s3cfg
 
-          for ASSET in $(cat ${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.assets[]'); do
-              FRAGMENTS_LEN=$(echo $ASSET | jq -r '.fragments | length')
-              if [ "$FRAGMENTS_LEN" = "0" ]; then
-                  ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
-                  ASSET_PATH=$(echo $ASSET | jq -r '.path')
-                  s3cmd sync --acl-public --guess-mime-type $ASSET_PATH $ASSET_PATH ${{ env.BUCKET_URL }}/$ASSET_URL_SUFFIX
-              else
-                  for FRAGMENT in $(echo $ASSET | jq -c '.fragments[]'); do
-                      FRAGMENT_URL_SUFFIX=$(echo $FRAGMENT | jq -r '.url_suffix')
-                      FRAGMENT_PATH=$(echo $FRAGMENT | jq -r '.path')
-                      s3cmd sync --acl-public --guess-mime-type $FRAGMENT_PATH $FRAGMENT_PATH ${{ env.BUCKET_URL }}/$FRAGMENT_URL_SUFFIX
-                  done
-              fi
+          for asset in $(cat ${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
+            ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
+            ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
+            s3cmd sync --acl-public --guess-mime-type $ASSET_REL_PATH $ASSET_REL_PATH ${{ env.BUCKET_URL }}/$ASSET_SUFFIX
           done
 
       - name: Install KeyCDN SSH privkey
@@ -528,58 +519,31 @@ jobs:
       - name: Upload assets (KeyCDN)
         if: github.ref == 'refs/heads/release'
         env:
-          PREPARE_LOCAL_ASSETS_DIR: ${{ runner.temp }}/prepare_local_assets
           PREPARE_ASSETS_DIR: ${{ runner.temp }}/prepare_assets
         run: |
           set -e
-
-          mkdir -p $PREPARE_LOCAL_ASSETS_DIR
-          cd $PREPARE_LOCAL_ASSETS_DIR
-
-          for ASSET in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.assets[]'); do
-              ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
-              ASSET_VERSION=$(dirname $ASSET_URL_SUFFIX)
-
-              FRAGMENTS_LEN=$(echo $ASSET | jq -r '.fragments | length')
-              if [ "$FRAGMENTS_LEN" = "0" ]; then
-                  ASSET_PATH=$(echo $ASSET | jq -r '.path')
-                  mkdir -p $ASSET_VERSION
-                  cp -r ${{ github.workspace }}/$ASSET_PATH $ASSET_URL_SUFFIX
-
-                  ASSET_CHECKSUM=$(echo $ASSET | jq -r '.checksum')
-                  echo "$ASSET_CHECKSUM *$ASSET_URL_SUFFIX" | shasum -c -
-              else
-                  for FRAGMENT in $(echo $ASSET | jq -c '.fragments[]'); do
-                      FRAGMENT_URL_SUFFIX=$(echo $FRAGMENT | jq -r '.url_suffix')
-                      FRAGMENT_PATH=$(echo $FRAGMENT | jq -r '.path')
-                      mkdir -p $ASSET_VERSION
-                      cp -r ${{ github.workspace }}/$FRAGMENT_PATH $FRAGMENT_URL_SUFFIX
-
-                      FRAGMENT_CHECKSUM=$(echo $FRAGMENT | jq -r '.checksum')
-                      echo "$FRAGMENT_CHECKSUM *$FRAGMENT_URL_SUFFIX" | shasum -c -
-                  done
-              fi
-          done
-
           mkdir -p $PREPARE_ASSETS_DIR
           cd $PREPARE_ASSETS_DIR
 
-          # Download the remote asset (if it exists) of the local asset that we want to upload.
-          for ASSET_VERSION in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c -r '.assets[].url_suffix' | awk -F "/" '{print $1}'| sort -n  | uniq ); do
-              rsync -rtzv keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/$ASSET_VERSION . || true
+          for asset in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
+            ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
+            ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
+            ASSET_SUFFIX_DIR=$(dirname $ASSET_SUFFIX)
+            mkdir -p $ASSET_SUFFIX_DIR
+            cp -r ${{ github.workspace }}/$ASSET_REL_PATH $ASSET_SUFFIX
           done
 
-          # In order to not accidentally override remote assets we sync the local and remote assets
-          # with the `--ignore-existing` flag. This way we only add new local assets.
-          rsync -avv --ignore-existing $PREPARE_LOCAL_ASSETS_DIR/ .
-
-          # Sync with KeyCDN
           rsync -rtzv --chmod=D2755,F644 . keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/
 
   release:
     name: release
     runs-on: ubuntu-20.04
-    needs: [build-headers, build-android-libs, build-ios-libs, build-asset-artifacts, publish-asset-artifacts]
+    needs:
+      - build-release-headers
+      - build-release-android-libs
+      - build-release-ios-libs
+      - build-asset-artifacts
+      - publish-asset-artifacts
     timeout-minutes: 60
     steps:
       - name: Install SSH key
