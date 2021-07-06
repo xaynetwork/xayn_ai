@@ -239,7 +239,7 @@ mod tests {
 
         let cost = kl_divergence(good_dist, eval_dist);
 
-        assert_approx_eq!(f32, cost, 0.30434748478142093);
+        assert_approx_eq!(f32, cost, 0.304_347_5);
     }
 
     #[test]
