@@ -28,6 +28,23 @@ where
     array
 }
 
+/// Compute the Kullback-Leibler Divergence between a "good" distribution and one we want to evaluate.
+pub fn kl_divergence(
+    good_dist: impl IntoIterator<Item = f32>,
+    eval_dist: impl IntoIterator<Item = f32>,
+) -> f32 {
+    good_dist.into_iter().zip(eval_dist.into_iter()).fold(
+        0f32,
+        |acc, (good_dist_prob, eval_dist_prob)| {
+            acc + if good_dist_prob == 0. || eval_dist_prob == 0. {
+                0.
+            } else {
+                good_dist_prob * (good_dist_prob / eval_dist_prob).log2()
+            }
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::{arr1, arr2, arr3};

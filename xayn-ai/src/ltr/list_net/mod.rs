@@ -1,16 +1,31 @@
 //! ListNet implementation using the NdArray crate.
 
-use std::{io::Read, path::Path};
+use std::{
+    io::Read,
+    ops::{Add, Div, MulAssign},
+    path::Path,
+};
 
-use ndutils::io::{BinParams, LoadingBinParamsFailed};
+use derive_more::Deref;
 use thiserror::Error;
 
-use ndarray::{Array1, Array2, Axis, Dimension, IntoDimension, Ix};
-use ndlayers::{
-    activation::{Linear, Relu, Softmax},
-    Dense,
-    IncompatibleMatrices,
-    LoadingDenseFailed,
+use ndarray::{s, Array1, Array2, ArrayView2, Axis, Dimension, IntoDimension, Ix};
+
+use crate::Relevance;
+
+use self::{
+    ndlayers::{
+        activation::{Linear, Relu, Softmax},
+        Dense,
+        DenseGradientSet,
+        IncompatibleMatrices,
+        LoadingDenseFailed,
+    },
+    ndutils::{
+        io::{BinParams, LoadingBinParamsFailed},
+        kl_divergence,
+        softmax,
+    },
 };
 
 mod ndlayers;
@@ -109,27 +124,38 @@ impl ListNet {
     /// The input is a 2-dimensional array with the shape `(number_of_documents, Self::INPUT_NR_FEATURES)`.
     ///
     /// Any number of documents is supported.
-    fn calculate_intermediate_scores(&self, inputs: Array2<f32>) -> Vec<f32> {
+    fn calculate_intermediate_scores(
+        &self,
+        inputs: ArrayView2<f32>,
+        for_back_propagation: bool,
+    ) -> (Array1<f32>, Option<PartialForwardPassData>) {
         debug_assert_eq!(inputs.shape()[1], Self::INPUT_NR_FEATURES);
-        let dense1_out = self.dense_1.run(inputs);
-        let dense2_out = self.dense_2.run(dense1_out);
-        let scores = self.scores.run(dense2_out);
+        let (dense1_y, dense1_z) = self.dense_1.run(&inputs, for_back_propagation);
+        let (dense2_y, dense2_z) = self.dense_2.run(&dense1_y, for_back_propagation);
+        let (scores, _) = self.scores.run(&dense2_y, false);
         debug_assert_eq!(scores.shape()[1], 1);
-        // flattens the array by removing axis 1
+
+        //flatten
         let scores = scores.index_axis_move(Axis(1), 0);
-        debug_assert!(scores.is_standard_layout());
-        scores.into_raw_vec()
+
+        let forward_pass = for_back_propagation.then(|| PartialForwardPassData {
+            dense1_y,
+            dense1_z: dense1_z.unwrap(),
+            dense2_y,
+            dense2_z: dense2_z.unwrap(),
+        });
+
+        (scores, forward_pass)
     }
 
     /// Calculates the final ListNet scores based on the intermediate scores.
     ///
     /// The input must be based on the output of [`ListNet.calculate_intermediate_scores()`],
     /// but only supports a size of exactly [`Self::INPUT_NR_DOCUMENT`].
-    fn calculate_final_scores(&self, scores: Array1<f32>) -> Vec<f32> {
+    fn calculate_final_scores(&self, scores: &Array1<f32>) -> Array1<f32> {
         debug_assert_eq!(scores.shape()[0], Self::INPUT_NR_DOCUMENTS);
-        let outputs = self.scores_prob_dist.run(scores);
-        debug_assert!(outputs.is_standard_layout());
-        outputs.into_raw_vec()
+        let (prob_dist_y, _) = self.scores_prob_dist.run(scores, false);
+        prob_dist_y
     }
 
     /// Calculates the final scores for up to [`ListNet::INPUT_NR_DOCUMENTS`] intermediate scores.
@@ -156,7 +182,9 @@ impl ListNet {
             inputs.last().copied().unwrap_or_default(),
         );
 
-        let mut outputs = self.calculate_final_scores(Array1::from(inputs));
+        let mut outputs = self
+            .calculate_final_scores(&Array1::from(inputs))
+            .into_raw_vec();
         outputs.truncate(nr_documents);
 
         outputs
@@ -184,7 +212,11 @@ impl ListNet {
             return Vec::new();
         }
 
-        let intermediate_scores = self.calculate_intermediate_scores(inputs);
+        let intermediate_scores = {
+            let (scores, _) = self.calculate_intermediate_scores(inputs.view(), false);
+            debug_assert!(scores.is_standard_layout());
+            scores.into_raw_vec()
+        };
 
         let mut scores = Vec::with_capacity(nr_documents);
         let mut chunks = intermediate_scores.chunks(Self::CHUNK_SIZE);
@@ -206,6 +238,246 @@ impl ListNet {
 
         scores
     }
+
+    /// Given a vec of batches, train set, learning rate and number of epochs trains the ListNet.
+    ///
+    /// Returns the mean cost of the `test_data` for each epoch.
+    //FIXME we probably will need some more complete training loop,
+    //      including functionality to external triggered early stop or pause of training
+    //      and automatic stop of training if the improvement in the evaluation is too small
+    //      ever multiple epochs or similar. But that depends a lot on the integration with
+    //      XaynNet and Team Blue so it doesn't make sense at the current point.
+    //FIXME remove annotation
+    #[allow(dead_code)]
+    pub(crate) fn train_with_sdg(
+        &mut self,
+        training_data: Vec<Vec<(Array2<f32>, Vec<Relevance>)>>,
+        test_data: Vec<(Array2<f32>, Vec<Relevance>)>,
+        learning_rate: f32,
+        epochs: usize,
+    ) -> Vec<f32> {
+        (0..epochs)
+            .map(|_| {
+                for batch in &training_data {
+                    self.train_batch_with_sdg(batch, learning_rate);
+                }
+                let (acc, count) =
+                    test_data
+                        .iter()
+                        .fold((0f32, 1), |(acc, count), (inputs, relevances)| {
+                            if let Some(cost) = self.evaluate_with_kl_divergence(inputs, relevances)
+                            {
+                                (acc + cost, count + 1)
+                            } else {
+                                (acc, count)
+                            }
+                        });
+                if count > 0 {
+                    acc / count as f32
+                } else {
+                    0.
+                }
+            })
+            .collect()
+    }
+
+    /// Trains this ListNet on a single batch a single time using SGD with given learning rate.
+    fn train_batch_with_sdg<'a>(
+        &mut self,
+        batch: impl IntoIterator<Item = &'a (Array2<f32>, Vec<Relevance>)>,
+        learning_rate: f32,
+    ) {
+        let gradient_sets = batch.into_iter().flat_map(|(inputs, relevances)| {
+            Self::prepare_inputs_for_training(&inputs, &relevances)
+                .map(|(inputs, relevances)| self.gradients_for_query(inputs, relevances))
+        });
+
+        if let Some(mut gradients) = GradientSet::merge_batch(gradient_sets) {
+            gradients *= -learning_rate;
+            self.add_gradients(gradients);
+        }
+    }
+
+    /// Computes the KL Divergence for given inputs and relevances.
+    ///
+    /// It should be noted that the Kullback-Leibler Divergence returned
+    /// is based on bits, while the cost used for back-propagation is
+    /// based on nats (it used `ln` instead of `log2`).
+    fn evaluate_with_kl_divergence(
+        &self,
+        inputs: &Array2<f32>,
+        relevance: &[Relevance],
+    ) -> Option<f32> {
+        Self::prepare_inputs_for_training(inputs, relevance).map(|(inputs, targets)| {
+            let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
+            let prob_dist_y = self.calculate_final_scores(&scores_y);
+
+            kl_divergence(targets, prob_dist_y)
+        })
+    }
+
+    /// Computes the gradients for given inputs and target prob. dist.
+    ///
+    /// # Panics
+    ///
+    /// If inputs and relevances are not exactly [`Self::INPUT_NR_DOCUMENTS`].
+    fn gradients_for_query(
+        &self,
+        inputs: ArrayView2<f32>,
+        target_prob_dist: Array1<f32>,
+    ) -> GradientSet {
+        assert_eq!(inputs.shape()[0], Self::INPUT_NR_DOCUMENTS);
+        assert_eq!(target_prob_dist.len(), Self::INPUT_NR_DOCUMENTS);
+        let results = self.train_forward_pass(inputs);
+        self.train_back_propagation(inputs, target_prob_dist, results)
+    }
+
+    /// Run the the forward pass of back-propagation.
+    ///
+    /// # Panics
+    ///
+    /// Expects exactly 10 documents, panics else wise.
+    fn train_forward_pass(&self, inputs: ArrayView2<f32>) -> ForwardPassData {
+        let (scores_y, partial_forward_pass) = self.calculate_intermediate_scores(inputs, true);
+        let prob_dist_y = self.calculate_final_scores(&scores_y);
+
+        ForwardPassData {
+            partial_forward_pass: partial_forward_pass.unwrap(),
+            scores_y,
+            prob_dist_y,
+        }
+    }
+
+    /// Run back propagation base on given inputs, target prob. dist. and forward pass data.
+    fn train_back_propagation(
+        &self,
+        inputs: ArrayView2<f32>,
+        target_prob_dist: Array1<f32>,
+        forward_pass: ForwardPassData,
+    ) -> GradientSet {
+        let nr_documents = inputs.shape()[0];
+        let p_cost_and_prob_dist = &forward_pass.prob_dist_y - target_prob_dist;
+        let d_prob_dist = self
+            .scores_prob_dist
+            .gradients_from_partials_1d(forward_pass.scores_y.view(), p_cost_and_prob_dist.view());
+
+        //FIXME transpose weights?
+        let p_scores = p_cost_and_prob_dist.dot(&self.scores_prob_dist.weights().t()); // * 1 as af' = 1 as activation function is linear
+
+        let mut d_scores = DenseGradientSet::no_change_for(&self.scores);
+        let mut d_dense2 = DenseGradientSet::no_change_for(&self.dense_1);
+        let mut d_dense1 = DenseGradientSet::no_change_for(&self.dense_2);
+
+        for row in 0..nr_documents {
+            let p_scores = p_scores.slice(s![row..row + 1]);
+
+            let d_scores_part = self
+                .scores
+                .gradients_from_partials_1d(forward_pass.dense2_y.slice(s![row, ..]), p_scores);
+            d_scores += d_scores_part;
+
+            let p_dense2 = p_scores.dot(&self.scores.weights().t())
+                * Relu::partial_derivatives_at(&forward_pass.dense2_z.slice(s![row, ..]));
+            let d_dense2_part = self.dense_2.gradients_from_partials_1d(
+                forward_pass.dense1_y.slice(s![row, ..]),
+                p_dense2.view(),
+            );
+            d_dense2 += d_dense2_part;
+
+            let p_dense1 = p_dense2.dot(&self.dense_2.weights().t())
+                * Relu::partial_derivatives_at(&forward_pass.dense1_z.slice(s![row, ..]));
+            let d_dense1_part = self
+                .dense_1
+                .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
+            d_dense1 += d_dense1_part;
+        }
+
+        GradientSet {
+            dense1: d_dense1,
+            dense2: d_dense2,
+            scores: d_scores,
+            prob_dist: d_prob_dist,
+        }
+    }
+
+    /// Adds gradients to this `ListNet`.
+    fn add_gradients(&mut self, gradients: GradientSet) {
+        let GradientSet {
+            dense1,
+            dense2,
+            scores,
+            prob_dist,
+        } = gradients;
+
+        self.scores_prob_dist.add_gradients(&prob_dist);
+        self.scores.add_gradients(&scores);
+        self.dense_2.add_gradients(&dense2);
+        self.dense_1.add_gradients(&dense1);
+    }
+
+    /// Prepare the inputs for training.
+    ///
+    /// This will:
+    ///
+    /// - return `None` if there are less then 10 documents
+    /// - truncates inputs and relevances to 10 documents
+    /// - return `None` if there are no relevant documents (after truncating)
+    /// - calculates the target distribution based on the relevances
+    fn prepare_inputs_for_training<'a>(
+        inputs: &'a Array2<f32>,
+        relevances: &'a [Relevance],
+    ) -> Option<(ArrayView2<'a, f32>, Array1<f32>)> {
+        if inputs.shape()[0] < Self::INPUT_NR_DOCUMENTS {
+            None
+        } else {
+            Some((
+                inputs.slice(s![..Self::INPUT_NR_DOCUMENTS, ..]),
+                Self::prepare_target_prob_dist(&relevances[..Self::INPUT_NR_DOCUMENTS])?,
+            ))
+        }
+    }
+
+    /// Turns the given relevances into a probability distribution.
+    ///
+    /// If there was no relevant document in the inputs `None` is returned.
+    fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
+        if !relevance.iter().any(|r| match *r {
+            Relevance::Low => false,
+            Relevance::High | Relevance::Medium => true,
+        }) {
+            return None;
+        }
+
+        let len = relevance.len() as f32;
+        let target: Array1<f32> = relevance
+            .iter()
+            .enumerate()
+            .map(|(idx, relevance)| {
+                let idx = idx as f32;
+                let relevance = *relevance as u8 as f32;
+                // mirrors dart impl. but works for more or less then 10 elements
+                // still this seems to be a somewhat arbitrary choice
+                (len - idx - 1.0) / len + relevance
+            })
+            .collect();
+
+        Some(softmax(target, Axis(0)))
+    }
+}
+
+#[derive(Deref)]
+struct ForwardPassData {
+    #[deref]
+    partial_forward_pass: PartialForwardPassData,
+    scores_y: Array1<f32>,
+    prob_dist_y: Array1<f32>,
+}
+
+struct PartialForwardPassData {
+    dense1_y: Array2<f32>,
+    dense1_z: Array2<f32>,
+    dense2_y: Array2<f32>,
+    dense2_z: Array2<f32>,
 }
 
 /// ListNet load failure.
@@ -227,6 +499,58 @@ pub enum LoadingListNetFailed {
     /// probably due to loading the wrong model.
     #[error("BinParams contains additional parameters, model data is probably wrong: {params:?}")]
     LeftoverBinParams { params: Vec<String> },
+}
+
+struct GradientSet {
+    dense1: DenseGradientSet,
+    dense2: DenseGradientSet,
+    scores: DenseGradientSet,
+    prob_dist: DenseGradientSet,
+}
+
+impl GradientSet {
+    fn merge_batch(gradient_sets: impl Iterator<Item = GradientSet>) -> Option<GradientSet> {
+        let mut count = 0;
+        gradient_sets
+            .reduce(|left, right| {
+                count += 1;
+                left + right
+            })
+            .map(|gradient_set| gradient_set / count as f32)
+    }
+}
+
+impl Add for GradientSet {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.dense1 += rhs.dense1;
+        self.dense2 += rhs.dense2;
+        self.scores += rhs.scores;
+        self.prob_dist += rhs.prob_dist;
+        self
+    }
+}
+
+impl Div<f32> for GradientSet {
+    type Output = Self;
+
+    fn div(mut self, rhs: f32) -> Self::Output {
+        self.dense1 /= rhs;
+        self.dense2 /= rhs;
+        self.scores /= rhs;
+        self.prob_dist /= rhs;
+        self
+    }
+}
+
+impl MulAssign<f32> for GradientSet {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.dense1 *= rhs;
+        self.dense2 *= rhs;
+        self.scores *= rhs;
+        self.prob_dist *= rhs;
+    }
 }
 
 #[cfg(test)]
@@ -367,7 +691,8 @@ mod tests {
             .into_shape((10, 50))
             .unwrap();
 
-        let scores = list_net.calculate_intermediate_scores(inputs);
+        let (scores, _) = list_net.calculate_intermediate_scores(inputs.view(), false);
+        let scores = scores.into_raw_vec();
         let outcome = list_net.calculate_final_scores_padded(&scores, None);
 
         assert_approx_eq!(f32, outcome, EXPECTED_OUTPUTS, ulps = 4);

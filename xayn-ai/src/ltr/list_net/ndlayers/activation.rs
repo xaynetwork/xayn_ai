@@ -1,4 +1,4 @@
-use ndarray::{ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
+use ndarray::{Array, ArrayBase, Axis, Data, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
 use super::super::ndutils::softmax;
 
@@ -18,6 +18,20 @@ where
     {
         input.mapv_inplace(|v| A::max(A::zero(), v));
         input
+    }
+}
+
+impl Relu {
+    /// Calculates the partial derivatives of reLU at given input.
+    ///
+    /// I.e. return a array where for all values in input a 1 is included
+    /// if the values is positive or 0 is included else wise.
+    pub(crate) fn partial_derivatives_at<S, D>(input: &ArrayBase<S, D>) -> Array<f32, D>
+    where
+        S: Data<Elem = f32>,
+        D: Dimension,
+    {
+        input.mapv(|v| if v.is_sign_positive() { 1. } else { 0. })
     }
 }
 
