@@ -48,6 +48,7 @@ pub enum LoadingDenseFailed {
 ///
 /// This can be used for both 1D and 2D inputs depending
 /// on the activation function.
+#[cfg_attr(test, derive(Clone))]
 pub(crate) struct Dense<AF>
 where
     AF: ActivationFunction<f32>,
@@ -219,6 +220,7 @@ where
     }
 }
 
+#[cfg_attr(test, derive(Debug, Clone))]
 pub(crate) struct DenseGradientSet {
     pub(crate) weight_gradients: Array<f32, Ix2>,
     pub(crate) bias_gradients: Array<f32, Ix1>,

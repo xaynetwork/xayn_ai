@@ -45,6 +45,7 @@ mod ndutils;
 /// 3. Dense layer with 1 unit, bias and linear activation function (out shape: `(10, 1)`)
 /// 4. Flattening to the number of input documents. (out shape `(10,)`)
 /// 5. Dense with `nr_of_input_documents` (10) units, bias and softmax activation function (out shape `(10,)`)
+#[cfg_attr(test, derive(Clone))]
 pub struct ListNet {
     dense_1: Dense<Relu>,
     dense_2: Dense<Relu>,
@@ -311,7 +312,6 @@ impl ListNet {
         Self::prepare_inputs_for_training(inputs, relevance).map(|(inputs, targets)| {
             let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
             let prob_dist_y = self.calculate_final_scores(&scores_y);
-
             kl_divergence(targets, prob_dist_y)
         })
     }
@@ -365,8 +365,8 @@ impl ListNet {
         let p_scores = p_cost_and_prob_dist.dot(&self.scores_prob_dist.weights().t()); // * 1 as af' = 1 as activation function is linear
 
         let mut d_scores = DenseGradientSet::no_change_for(&self.scores);
-        let mut d_dense2 = DenseGradientSet::no_change_for(&self.dense_1);
-        let mut d_dense1 = DenseGradientSet::no_change_for(&self.dense_2);
+        let mut d_dense2 = DenseGradientSet::no_change_for(&self.dense_2);
+        let mut d_dense1 = DenseGradientSet::no_change_for(&self.dense_1);
 
         for row in 0..nr_documents {
             let p_scores = p_scores.slice(s![row..row + 1]);
@@ -501,6 +501,7 @@ pub enum LoadingListNetFailed {
     LeftoverBinParams { params: Vec<String> },
 }
 
+#[cfg_attr(test, derive(Debug, Clone))]
 struct GradientSet {
     dense1: DenseGradientSet,
     dense2: DenseGradientSet,
@@ -509,9 +510,10 @@ struct GradientSet {
 }
 
 impl GradientSet {
-    fn merge_batch(gradient_sets: impl Iterator<Item = GradientSet>) -> Option<GradientSet> {
-        let mut count = 0;
+    fn merge_batch(gradient_sets: impl IntoIterator<Item = GradientSet>) -> Option<GradientSet> {
+        let mut count = 1;
         gradient_sets
+            .into_iter()
             .reduce(|left, right| {
                 count += 1;
                 left + right
@@ -558,7 +560,7 @@ mod tests {
 
     use std::collections::HashSet;
 
-    use ndarray::{Array, IxDyn};
+    use ndarray::{arr1, arr2, Array, IxDyn};
     use once_cell::sync::Lazy;
 
     use super::*;
@@ -825,5 +827,119 @@ mod tests {
     #[test]
     fn test_chunk_size_is_valid() {
         assert_eq!(ListNet::CHUNK_SIZE * 2, ListNet::INPUT_NR_DOCUMENTS);
+    }
+
+    //FIXME create better tests
+    #[test]
+    fn test_training_list_net_does_not_panic() {
+        use Relevance::{High, Low, Medium};
+        let mut list_net = LIST_NET.clone();
+
+        let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
+            .into_shape((10, 50))
+            .unwrap();
+
+        let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
+        let data_frame = (inputs, relevances);
+
+        let training_data = vec![vec![
+            data_frame.clone(),
+            data_frame.clone(),
+            data_frame.clone(),
+        ]];
+        let test_data = vec![data_frame.clone()];
+
+        let nr_epochs = 5;
+        let res = list_net.train_with_sdg(training_data, test_data, 0.1, nr_epochs);
+        assert_eq!(res.len(), nr_epochs);
+        for idx in 0..(res.len() - 1) {
+            // I think, this could fail. But with the training data
+            // we use in this test it should not.
+            assert!(!res[idx].is_nan());
+            assert!(res[idx] >= res[idx + 1]);
+        }
+    }
+
+    #[test]
+    fn test_gradients_merge_batch() {
+        let res = GradientSet::merge_batch(std::iter::empty());
+        assert!(res.is_none());
+
+        let a = GradientSet {
+            dense1: DenseGradientSet {
+                weight_gradients: arr2(&[[0.1, -2.], [0.3, 0.04]]),
+                bias_gradients: arr1(&[0.4, 1.23]),
+            },
+            dense2: DenseGradientSet {
+                weight_gradients: arr2(&[[2., -2.], [-0.3, 0.4]]),
+                bias_gradients: arr1(&[0.1, 3.43]),
+            },
+            scores: DenseGradientSet {
+                weight_gradients: arr2(&[[0.125, 2.4], [0.321, 0.454]]),
+                bias_gradients: arr1(&[0.42, 2.23]),
+            },
+            prob_dist: DenseGradientSet {
+                weight_gradients: arr2(&[[100., -0.2], [3.25, 0.22]]),
+                bias_gradients: arr1(&[-0.42, -2.25]),
+            },
+        };
+
+        let a2 = GradientSet::merge_batch(Some(a.clone())).unwrap();
+
+        assert_approx_eq!(f32, &a2.dense1.weight_gradients, &a.dense1.weight_gradients);
+        assert_approx_eq!(f32, &a2.dense1.bias_gradients, &a.dense1.bias_gradients);
+        assert_approx_eq!(f32, &a2.dense2.weight_gradients, &a.dense2.weight_gradients);
+        assert_approx_eq!(f32, &a2.dense2.bias_gradients, &a.dense2.bias_gradients);
+        assert_approx_eq!(f32, &a2.scores.weight_gradients, &a.scores.weight_gradients);
+        assert_approx_eq!(f32, &a2.scores.bias_gradients, &a.scores.bias_gradients);
+        assert_approx_eq!(
+            f32,
+            &a2.prob_dist.weight_gradients,
+            &a.prob_dist.weight_gradients
+        );
+        assert_approx_eq!(
+            f32,
+            &a2.prob_dist.bias_gradients,
+            &a.prob_dist.bias_gradients
+        );
+
+        let b = GradientSet {
+            dense1: DenseGradientSet {
+                weight_gradients: arr2(&[[0.1, 2.], [0.3, 0.04]]),
+                bias_gradients: arr1(&[0.4, 1.23]),
+            },
+            dense2: DenseGradientSet {
+                weight_gradients: arr2(&[[0.2, -2.8], [0.3, 0.04]]),
+                bias_gradients: arr1(&[0.4, 1.23]),
+            },
+            scores: DenseGradientSet {
+                weight_gradients: arr2(&[[0.1, -2.], [0.3, 0.04]]),
+                bias_gradients: arr1(&[0.4, 1.23]),
+            },
+            prob_dist: DenseGradientSet {
+                weight_gradients: arr2(&[[0.0, -2.], [0.3, 0.04]]),
+                bias_gradients: arr1(&[0.38, 1.21]),
+            },
+        };
+
+        let g = GradientSet::merge_batch(vec![a, b]).unwrap();
+
+        assert_approx_eq!(f32, &g.dense1.weight_gradients, [[0.1, 0.], [0.3, 0.04]]);
+        assert_approx_eq!(f32, &g.dense1.bias_gradients, [0.4, 1.23]);
+        assert_approx_eq!(f32, &g.dense2.weight_gradients, [[1.1, -2.4], [0.0, 0.22]]);
+        assert_approx_eq!(f32, &g.dense2.bias_gradients, [0.25, 2.33]);
+        assert_approx_eq!(
+            f32,
+            &g.scores.weight_gradients,
+            [[0.1125, 0.2], [0.3105, 0.247]],
+            ulps = 4
+        );
+        assert_approx_eq!(f32, &g.scores.bias_gradients, [0.41, 1.73]);
+        assert_approx_eq!(
+            f32,
+            &g.prob_dist.weight_gradients,
+            [[50., -1.1], [1.775, 0.13]]
+        );
+        assert_approx_eq!(f32, &g.prob_dist.bias_gradients, [-0.02, -0.52], ulps = 4);
     }
 }
