@@ -231,4 +231,24 @@ mod tests {
         let res = arr3(&[[[1_f32], [1.], [1.]], [[1.], [1.], [1.]]]);
         assert_approx_eq!(f32, softmax(arr, Axis(2)), res);
     }
+
+    #[test]
+    fn test_kl_divergence_calculation() {
+        let good_dist = vec![0.5, 0.1, 0.025, 0.3, 0.075];
+        let eval_dist = vec![0.3, 0.2, 0.15, 0.2, 0.15];
+
+        let cost = kl_divergence(good_dist, eval_dist);
+
+        assert_approx_eq!(f32, cost, 0.30434748478142093);
+    }
+
+    #[test]
+    fn test_kl_divergence_calculation_handles_zeros() {
+        let good_dist = vec![0.0, 0.1, 0.0, 0.3, 0.075];
+        let eval_dist = vec![0.0, 0.2, 0.15, 0.0, 0.15];
+
+        let cost = kl_divergence(good_dist, eval_dist);
+
+        assert_approx_eq!(f32, cost, -0.175);
+    }
 }
