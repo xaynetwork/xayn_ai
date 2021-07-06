@@ -942,4 +942,72 @@ mod tests {
         );
         assert_approx_eq!(f32, &g.prob_dist.bias_gradients, [-0.02, -0.52], ulps = 4);
     }
+
+    #[test]
+    fn test_prepare_target_prop_dist() {
+        use Relevance::{High, Low, Medium};
+
+        let relevances = vec![Low; 10];
+        let res = ListNet::prepare_target_prob_dist(&relevances);
+        assert!(res.is_none());
+
+        let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
+        let dist = ListNet::prepare_target_prob_dist(&relevances).unwrap();
+        assert_approx_eq!(
+            f32,
+            dist,
+            [
+                0.051708338569288054,
+                0.04678763956196383,
+                0.11507902383029622,
+                0.10412780679270388,
+                0.03466113589019159,
+                0.08525263767174904,
+                0.20968765285177007,
+                0.025677601016978965,
+                0.17167772993048422,
+                0.15534043388457408
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prepare_inputs_for_training() {
+        use Relevance::{High, Low, Medium};
+
+        let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
+        let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
+            .into_shape((10, 50))
+            .unwrap();
+
+        let (processed_inputs, dist) =
+            ListNet::prepare_inputs_for_training(&inputs, &relevances).unwrap();
+
+        assert_approx_eq!(f32, &inputs, processed_inputs);
+
+        assert_approx_eq!(
+            f32,
+            dist,
+            [
+                0.051708338569288054,
+                0.04678763956196383,
+                0.11507902383029622,
+                0.10412780679270388,
+                0.03466113589019159,
+                0.08525263767174904,
+                0.20968765285177007,
+                0.025677601016978965,
+                0.17167772993048422,
+                0.15534043388457408
+            ]
+        );
+
+        assert!(ListNet::prepare_inputs_for_training(&inputs, &vec![Low; 10]).is_none());
+
+        let few_inputs = Array1::from(SAMPLE_INPUTS_TO_FEW.to_vec())
+            .into_shape((3, 50))
+            .unwrap();
+
+        assert!(ListNet::prepare_inputs_for_training(&few_inputs, &relevances).is_none());
+    }
 }
