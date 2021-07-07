@@ -343,9 +343,7 @@ mod tests {
     }
 
     mod car_interest_example {
-        use super::from_ids;
-
-        use std::ops::Range;
+        use super::{from_ids, sync::SyncData};
 
         use crate::{
             data::{
@@ -360,6 +358,7 @@ mod tests {
                 pos_cois_from_words,
             },
         };
+        use std::ops::Range;
 
         pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {
             let docs = data_with_mab(from_ids(ids));
@@ -384,9 +383,11 @@ mod tests {
         fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
             RerankerData {
                 prev_documents: docs.into(),
-                user_interests: UserInterests {
-                    positive: pos_cois_from_words(&["vehicle"], mocked_smbert_system()),
-                    ..Default::default()
+                sync_data: SyncData {
+                    user_interests: UserInterests {
+                        positive: pos_cois_from_words(&["vehicle"], mocked_smbert_system()),
+                        ..Default::default()
+                    },
                 },
             }
         }
@@ -425,8 +426,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
-        assert!(reranker.data.user_interests.positive.is_empty());
-        assert!(reranker.data.user_interests.negative.is_empty());
+        assert!(reranker.data.sync_data.user_interests.positive.is_empty());
+        assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         check_error!(reranker, CoiSystemError::NoCoi);
     }
@@ -465,8 +466,8 @@ mod tests {
         assert!(reranker.errors().is_empty());
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
 
-        assert_eq!(reranker.data.user_interests.positive.len(), 3);
-        assert_eq!(reranker.data.user_interests.negative.len(), 3);
+        assert_eq!(reranker.data.sync_data.user_interests.positive.len(), 3);
+        assert_eq!(reranker.data.sync_data.user_interests.negative.len(), 3);
     }
 
     /// A user performed a couple of searches. The `Reranker` data holds the
@@ -547,8 +548,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
-        assert!(reranker.data.user_interests.positive.is_empty());
-        assert!(reranker.data.user_interests.negative.is_empty());
+        assert!(reranker.data.sync_data.user_interests.positive.is_empty());
+        assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
@@ -574,8 +575,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
-        assert!(reranker.data.user_interests.positive.is_empty());
-        assert!(reranker.data.user_interests.negative.is_empty());
+        assert!(reranker.data.sync_data.user_interests.positive.is_empty());
+        assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
         check_error!(reranker, CoiSystemError::NoCoi);
