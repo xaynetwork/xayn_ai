@@ -47,10 +47,10 @@ mod ndutils;
 /// 5. Dense with `nr_of_input_documents` (10) units, bias and softmax activation function (out shape `(10,)`)
 #[cfg_attr(test, derive(Clone))]
 pub struct ListNet {
-    dense_1: Dense<Relu>,
-    dense_2: Dense<Relu>,
+    dense1: Dense<Relu>,
+    dense2: Dense<Relu>,
     scores: Dense<Linear>,
-    scores_prob_dist: Dense<Softmax>,
+    prob_dist: Dense<Softmax>,
 }
 
 impl ListNet {
@@ -83,35 +83,35 @@ impl ListNet {
 
     /// Load ListNet from `BinParams`.
     fn load(mut params: BinParams) -> Result<Self, LoadingListNetFailed> {
-        let dense_1 = Dense::load(params.with_scope("dense_1"), Relu)?;
-        let dense_1_out_shape = dense_1.check_in_out_shapes(Self::INPUT_SHAPE.into_dimension())?;
+        let dense1 = Dense::load(params.with_scope("dense_1"), Relu)?;
+        let dense1_out_shape = dense1.check_in_out_shapes(Self::INPUT_SHAPE.into_dimension())?;
 
-        let dense_2 = Dense::load(params.with_scope("dense_2"), Relu)?;
-        let dense_2_out_shape = dense_2.check_in_out_shapes(dense_1_out_shape)?;
+        let dense2 = Dense::load(params.with_scope("dense_2"), Relu)?;
+        let dense2_out_shape = dense2.check_in_out_shapes(dense1_out_shape)?;
 
         let scores = Dense::load(params.with_scope("scores"), Linear)?;
-        let scores_out_shape = scores.check_in_out_shapes(dense_2_out_shape)?;
+        let scores_out_shape = scores.check_in_out_shapes(dense2_out_shape)?;
         let flattened_shape = [scores_out_shape.size()].into_dimension();
 
-        let scores_prob_dist =
+        let prob_dist =
             Dense::load(params.with_scope("scores_prob_dist"), Softmax::default())?;
-        let scores_prob_dist_out_shape = scores_prob_dist.check_in_out_shapes(flattened_shape)?;
+        let prob_dist_out_shape = prob_dist.check_in_out_shapes(flattened_shape)?;
 
         if !params.is_empty() {
             Err(LoadingListNetFailed::LeftoverBinParams {
                 params: params.keys().map(Into::into).collect(),
             })
-        } else if scores_prob_dist_out_shape.slice() == [10] {
+        } else if prob_dist_out_shape.slice() == [10] {
             Ok(Self {
-                dense_1,
-                dense_2,
+                dense1,
+                dense2,
                 scores,
-                scores_prob_dist,
+                prob_dist,
             })
         } else {
             Err(IncompatibleMatrices {
                 name_left: "scores_prob_dist/output",
-                shape_left: scores_prob_dist_out_shape.into_dyn(),
+                shape_left: prob_dist_out_shape.into_dyn(),
                 name_right: "list_net/output",
                 shape_right: (10,).into_dimension().into_dyn(),
                 hint: "expected scores_prob_dist output shape to be equal to (10,)",
@@ -131,8 +131,8 @@ impl ListNet {
         for_back_propagation: bool,
     ) -> (Array1<f32>, Option<PartialForwardPassData>) {
         debug_assert_eq!(inputs.shape()[1], Self::INPUT_NR_FEATURES);
-        let (dense1_y, dense1_z) = self.dense_1.run(&inputs, for_back_propagation);
-        let (dense2_y, dense2_z) = self.dense_2.run(&dense1_y, for_back_propagation);
+        let (dense1_y, dense1_z) = self.dense1.run(&inputs, for_back_propagation);
+        let (dense2_y, dense2_z) = self.dense2.run(&dense1_y, for_back_propagation);
         let (scores, _) = self.scores.run(&dense2_y, false);
         debug_assert_eq!(scores.shape()[1], 1);
 
@@ -155,7 +155,7 @@ impl ListNet {
     /// but only supports a size of exactly [`Self::INPUT_NR_DOCUMENT`].
     fn calculate_final_scores(&self, scores: &Array1<f32>) -> Array1<f32> {
         debug_assert_eq!(scores.shape()[0], Self::INPUT_NR_DOCUMENTS);
-        let (prob_dist_y, _) = self.scores_prob_dist.run(scores, false);
+        let (prob_dist_y, _) = self.prob_dist.run(scores, false);
         prob_dist_y
     }
 
@@ -366,16 +366,16 @@ impl ListNet {
         let nr_documents = inputs.shape()[0];
         let p_cost_and_prob_dist = &forward_pass.prob_dist_y - target_prob_dist;
         let d_prob_dist = self
-            .scores_prob_dist
+            .prob_dist
             .gradients_from_partials_1d(forward_pass.scores_y.view(), p_cost_and_prob_dist.view());
 
         // The activation functions of `scores` is the identity function (linear) so
         // it's gradient is 1 at all inputs and we can omit it.
-        let p_scores = p_cost_and_prob_dist.dot(&self.scores_prob_dist.weights().t());
+        let p_scores = p_cost_and_prob_dist.dot(&self.prob_dist.weights().t());
 
         let mut d_scores = DenseGradientSet::zero_gradients_for(&self.scores);
-        let mut d_dense2 = DenseGradientSet::zero_gradients_for(&self.dense_2);
-        let mut d_dense1 = DenseGradientSet::zero_gradients_for(&self.dense_1);
+        let mut d_dense2 = DenseGradientSet::zero_gradients_for(&self.dense2);
+        let mut d_dense1 = DenseGradientSet::zero_gradients_for(&self.dense1);
 
         for row in 0..nr_documents {
             // From here on training is "split" into multiple parallel "path" using
@@ -389,16 +389,16 @@ impl ListNet {
 
             let p_dense2 = p_scores.dot(&self.scores.weights().t())
                 * Relu::partial_derivatives_at(&forward_pass.dense2_z.slice(s![row, ..]));
-            let d_dense2_part = self.dense_2.gradients_from_partials_1d(
+            let d_dense2_part = self.dense2.gradients_from_partials_1d(
                 forward_pass.dense1_y.slice(s![row, ..]),
                 p_dense2.view(),
             );
             d_dense2 += d_dense2_part;
 
-            let p_dense1 = p_dense2.dot(&self.dense_2.weights().t())
+            let p_dense1 = p_dense2.dot(&self.dense2.weights().t())
                 * Relu::partial_derivatives_at(&forward_pass.dense1_z.slice(s![row, ..]));
             let d_dense1_part = self
-                .dense_1
+                .dense1
                 .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
             d_dense1 += d_dense1_part;
         }
@@ -420,10 +420,10 @@ impl ListNet {
             prob_dist,
         } = gradients;
 
-        self.scores_prob_dist.add_gradients(&prob_dist);
+        self.prob_dist.add_gradients(&prob_dist);
         self.scores.add_gradients(&scores);
-        self.dense_2.add_gradients(&dense2);
-        self.dense_1.add_gradients(&dense1);
+        self.dense2.add_gradients(&dense2);
+        self.dense1.add_gradients(&dense1);
     }
 
     /// Prepare the inputs for training.
