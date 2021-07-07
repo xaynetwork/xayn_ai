@@ -93,8 +93,7 @@ impl ListNet {
         let scores_out_shape = scores.check_in_out_shapes(dense2_out_shape)?;
         let flattened_shape = [scores_out_shape.size()].into_dimension();
 
-        let prob_dist =
-            Dense::load(params.with_scope("scores_prob_dist"), Softmax::default())?;
+        let prob_dist = Dense::load(params.with_scope("scores_prob_dist"), Softmax::default())?;
         let prob_dist_out_shape = prob_dist.check_in_out_shapes(flattened_shape)?;
 
         if !params.is_empty() {
@@ -258,13 +257,13 @@ impl ListNet {
         test_data: Vec<(Array2<f32>, Vec<Relevance>)>,
         learning_rate: f32,
         epochs: usize,
-    ) -> Vec<f32> {
+    ) -> Vec<Option<f32>> {
         (0..epochs)
             .map(|_| {
                 for batch in &training_data {
                     self.train_batch_with_sdg(batch, learning_rate);
                 }
-                self.evaluate_multiple_with_kl_divergence(&test_data)
+                self.evaluate(&test_data, kl_divergence)
             })
             .collect()
     }
@@ -288,15 +287,21 @@ impl ListNet {
 
     /// Runs [`ListNet.evaluate_with_kl_divergence()`] on all inputs returning the mean of the costs.
     //FIXME maybe return `Option<f32>`
-    fn evaluate_multiple_with_kl_divergence<'a>(
+    fn evaluate<'a>(
         &self,
         test_data: impl IntoIterator<Item = &'a (Array2<f32>, Vec<Relevance>)>,
-    ) -> f32 {
+        cost_function: fn(&Array1<f32>, &Array1<f32>) -> f32,
+    ) -> Option<f32> {
         let (acc, count) =
             test_data
                 .into_iter()
-                .fold((0f32, 1), |(acc, count), (inputs, relevances)| {
-                    if let Some(cost) = self.evaluate_with_kl_divergence(inputs, relevances) {
+                .fold((0f32, 0), |(acc, count), (inputs, relevances)| {
+                    if let Some((inputs, targets)) =
+                        Self::prepare_inputs_for_training(inputs, relevances)
+                    {
+                        let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
+                        let prob_dist_y = self.calculate_final_scores(&scores_y);
+                        let cost = cost_function(&targets, &prob_dist_y);
                         (acc + cost, count + 1)
                     } else {
                         (acc, count)
@@ -304,27 +309,10 @@ impl ListNet {
                 });
 
         if count > 0 {
-            acc / count as f32
+            Some(acc / count as f32)
         } else {
-            0.
+            None
         }
-    }
-
-    /// Computes the KL Divergence for given inputs and relevances.
-    ///
-    /// It should be noted, that the Kullback-Leibler Divergence returned
-    /// is based on bits, while the cost used for back-propagation is
-    /// based on nats (it used `ln` instead of `log2`).
-    fn evaluate_with_kl_divergence(
-        &self,
-        inputs: &Array2<f32>,
-        relevance: &[Relevance],
-    ) -> Option<f32> {
-        Self::prepare_inputs_for_training(inputs, relevance).map(|(inputs, targets)| {
-            let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
-            let prob_dist_y = self.calculate_final_scores(&scores_y);
-            kl_divergence(targets, prob_dist_y)
-        })
     }
 
     /// Computes the gradients for given inputs and target prob. dist.
@@ -880,7 +868,7 @@ mod tests {
         let res = list_net.train_with_sdg(training_data, test_data, 0.1, nr_epochs);
         assert_eq!(res.len(), nr_epochs);
         assert!(
-            res.iter().all(|v| !v.is_nan()),
+            res.iter().all(|v| !v.unwrap().is_nan()),
             "contains NaN values {:?}",
             res
         );

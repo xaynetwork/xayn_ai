@@ -1,4 +1,4 @@
-use ndarray::{ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
+use ndarray::{Array1, ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
 pub mod io;
 
@@ -31,13 +31,10 @@ where
 /// Compute the Kullback-Leibler Divergence between a "good" distribution and one we want to evaluate.
 ///
 /// This returns a result based on bits, i.e. it uses `log2`.
-pub fn kl_divergence(
-    good_dist: impl IntoIterator<Item = f32>,
-    eval_dist: impl IntoIterator<Item = f32>,
-) -> f32 {
+pub fn kl_divergence(good_dist: &Array1<f32>, eval_dist: &Array1<f32>) -> f32 {
     good_dist.into_iter().zip(eval_dist.into_iter()).fold(
         0f32,
-        |acc, (good_dist_prob, eval_dist_prob)| {
+        |acc, (&good_dist_prob, &eval_dist_prob)| {
             acc + if good_dist_prob == 0. || eval_dist_prob == 0. {
                 0.
             } else {
@@ -236,20 +233,20 @@ mod tests {
 
     #[test]
     fn test_kl_divergence_calculation() {
-        let good_dist = vec![0.5, 0.1, 0.025, 0.3, 0.075];
-        let eval_dist = vec![0.3, 0.2, 0.15, 0.2, 0.15];
+        let good_dist = arr1(&[0.5, 0.1, 0.025, 0.3, 0.075]);
+        let eval_dist = arr1(&[0.3, 0.2, 0.15, 0.2, 0.15]);
 
-        let cost = kl_divergence(good_dist, eval_dist);
+        let cost = kl_divergence(&good_dist, &eval_dist);
 
         assert_approx_eq!(f32, cost, 0.304_347_5);
     }
 
     #[test]
     fn test_kl_divergence_calculation_handles_zeros() {
-        let good_dist = vec![0.0, 0.1, 0.0, 0.3, 0.075];
-        let eval_dist = vec![0.0, 0.2, 0.15, 0.0, 0.15];
+        let good_dist = arr1(&[0.0, 0.1, 0.0, 0.3, 0.075]);
+        let eval_dist = arr1(&[0.0, 0.2, 0.15, 0.0, 0.15]);
 
-        let cost = kl_divergence(good_dist, eval_dist);
+        let cost = kl_divergence(&good_dist, &eval_dist);
 
         assert_approx_eq!(f32, cost, -0.175);
     }
