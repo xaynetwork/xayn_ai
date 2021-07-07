@@ -852,12 +852,16 @@ mod tests {
         let nr_epochs = 5;
         let res = list_net.train_with_sdg(training_data, test_data, 0.1, nr_epochs);
         assert_eq!(res.len(), nr_epochs);
-        for idx in 0..(res.len() - 1) {
-            // I think, this could fail. But with the training data
-            // we use in this test it should not.
-            assert!(!res[idx].is_nan());
-            assert!(res[idx] >= res[idx + 1]);
-        }
+        assert!(
+            res.iter().all(|v| !v.is_nan()),
+            "contains NaN values {:?}",
+            res
+        );
+        assert!(
+            res.first() > res.last(),
+            "unexpected regression of training: {:?}",
+            res
+        );
     }
 
     #[test]
