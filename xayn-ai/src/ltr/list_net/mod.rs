@@ -3,7 +3,6 @@
 use std::{
     io::Read,
     ops::{Add, Div, MulAssign},
-    path::Path,
 };
 
 use derive_more::Deref;
@@ -69,8 +68,8 @@ impl ListNet {
     const INPUT_SHAPE: [Ix; 2] = [Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_FEATURES];
 
     /// Load ListNet from file at given path.
-    #[allow(unused)] //TODO tmp
-    pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, LoadingListNetFailed> {
+    #[cfg(test)]
+    pub fn load_from_file(path: impl AsRef<std::path::Path>) -> Result<Self, LoadingListNetFailed> {
         let params = BinParams::load_from_file(path)?;
         Self::load(params)
     }
@@ -286,7 +285,6 @@ impl ListNet {
     }
 
     /// Runs [`ListNet.evaluate_with_kl_divergence()`] on all inputs returning the mean of the costs.
-    //FIXME maybe return `Option<f32>`
     fn evaluate<'a>(
         &self,
         test_data: impl IntoIterator<Item = &'a (Array2<f32>, Vec<Relevance>)>,
