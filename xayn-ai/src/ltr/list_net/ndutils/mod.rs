@@ -29,6 +29,8 @@ where
 }
 
 /// Compute the Kullback-Leibler Divergence between a "good" distribution and one we want to evaluate.
+///
+/// This returns a result based on bits, i.e. it uses `log2`.
 pub fn kl_divergence(
     good_dist: impl IntoIterator<Item = f32>,
     eval_dist: impl IntoIterator<Item = f32>,

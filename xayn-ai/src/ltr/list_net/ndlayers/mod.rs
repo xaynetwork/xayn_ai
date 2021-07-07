@@ -6,7 +6,7 @@ pub use dense::*;
 use ndarray::{ArrayBase, DataMut, DataOwned, Dimension, RemoveAxis};
 
 /// Trait representing an activation function.
-pub(crate) trait ActivationFunction<A>: Clone {
+pub(crate) trait ActivationFunction<A> {
     /// Applies the activation function to the given array.
     ///
     /// In most cases this will call `input.mapv_inplace` to

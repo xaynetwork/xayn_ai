@@ -11,11 +11,9 @@ use ndarray::{
     Array1,
     Array2,
     ArrayBase,
-    ArrayView,
+    ArrayView1,
     Data,
     Dimension,
-    Ix1,
-    Ix2,
     IxDyn,
     RemoveAxis,
 };
@@ -130,9 +128,7 @@ where
     ///
     /// If `for_back_propagation` is `true` this will also return the
     /// intermediate result (`z_out`) from before the activation function
-    /// was applied.
-    ///
-    /// If not the `None` is returned instead.
+    /// was applied. If not the `None` is returned instead.
     pub(crate) fn run<S, D>(
         &self,
         input: &ArrayBase<S, D>,
@@ -153,25 +149,11 @@ where
         (y_out, z_out)
     }
 
-    /// This calculates the gradients of a dense layer *without activation function* for a single row of input.
-    ///
-    /// But as the chained partial gradients are passed in you can just pass in the gradients
-    /// from the activation function.
-    ///
-    /// If multiple row's are provided this need to be run for each row, then
-    /// if there are multiple rows because of ...
-    ///
-    /// 1) batching, you generate the mean of the gradients
-    /// 2) shared weights, you sum the gradients (normally, at least in our case)
-    ///
-    /// Be sure to pass the right gradients down to parent layers, i.e. apply the
-    /// sum/mean in gradient decent but pass the i-th gradient set down as previous
-    /// gradients for the parent i-th row (as long as you have no merge/split points).
-    /// FIXME IxN vs ArrayN
+    /// This calculates the gradients of a dense layer based on the relevant partial derivatives.
     pub(crate) fn gradients_from_partials_1d(
         &self,
-        input: ArrayView<f32, Ix1>,
-        partials: ArrayView<f32, Ix1>,
+        input: ArrayView1<f32>,
+        partials: ArrayView1<f32>,
     ) -> DenseGradientSet {
         let weights_nr_rows = self.weights.shape()[0];
         let weights_nr_columns = self.weights.shape()[1];
@@ -181,10 +163,8 @@ where
         // The formula for bias at index i is:  `b_i = x_i + b_i` of which the derivative wrt. b_i is `1`
         let bias_gradients = partials.to_owned();
 
-        // For the weight matrix we need the Jacobian Matrix, i.e. the partial derivative of the matrix
-        // multiplication wrt. each weight multiplied with the prev gradient associated with it.
-        // The derivative of matmul. wrt. `w_{i,j}` is `s_i` and the relevant prev. gradient is
-        // `p_j` so the result is:
+        // For the weight matrix we need the Jacobian Matrix, i.e. donating the inputs as `s_i`
+        // and the partial derivatives as `p_j` we need:
         //
         // ```
         // J = [
@@ -197,10 +177,6 @@ where
         // With dimensions [i, j].
         let input = input.into_shape((weights_nr_rows, 1)).unwrap();
         let partials = partials.into_shape((1, weights_nr_columns)).unwrap();
-        //FIXME source uses `partials @ input` which will result in the same output but
-        //      transposed, it also does `W*x` where we do `x*W` but it also seem to be
-        //      based on column vectors while we are more based on row vectors. So I guess
-        //      we are living in transpose world ;=)
         let weight_gradients = input.dot(&partials);
 
         DenseGradientSet {
@@ -215,19 +191,24 @@ where
         self.bias += &gradients.bias_gradients;
     }
 
-    pub(crate) fn weights(&self) -> &Array<f32, Ix2> {
+    pub(crate) fn weights(&self) -> &Array2<f32> {
         &self.weights
     }
 }
 
+/// A gradient set containing gradients for all parameters in a dense layer.
+///
+/// (Assuming the activation function has no parameters. It might still have
+/// hyper-parameters.)
 #[cfg_attr(test, derive(Debug, Clone))]
 pub(crate) struct DenseGradientSet {
-    pub(crate) weight_gradients: Array<f32, Ix2>,
-    pub(crate) bias_gradients: Array<f32, Ix1>,
+    pub(crate) weight_gradients: Array2<f32>,
+    pub(crate) bias_gradients: Array1<f32>,
 }
 
 impl DenseGradientSet {
-    pub(crate) fn no_change_for(dense: &Dense<impl ActivationFunction<f32>>) -> Self {
+    /// Creates a gradient set with 0 gradients for given dense layer.
+    pub(crate) fn zero_gradients_for(dense: &Dense<impl ActivationFunction<f32>>) -> Self {
         DenseGradientSet {
             weight_gradients: Array::zeros(dense.weights.dim()),
             bias_gradients: Array::zeros(dense.bias.dim()),

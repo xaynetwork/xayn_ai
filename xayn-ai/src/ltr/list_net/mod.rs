@@ -136,7 +136,7 @@ impl ListNet {
         let (scores, _) = self.scores.run(&dense2_y, false);
         debug_assert_eq!(scores.shape()[1], 1);
 
-        //flatten
+        // flattens the array by removing axis 1
         let scores = scores.index_axis_move(Axis(1), 0);
 
         let forward_pass = for_back_propagation.then(|| PartialForwardPassData {
@@ -183,9 +183,9 @@ impl ListNet {
             inputs.last().copied().unwrap_or_default(),
         );
 
-        let mut outputs = self
-            .calculate_final_scores(&Array1::from(inputs))
-            .into_raw_vec();
+        let outputs = self.calculate_final_scores(&Array1::from(inputs));
+        debug_assert!(outputs.is_standard_layout());
+        let mut outputs = outputs.into_raw_vec();
         outputs.truncate(nr_documents);
 
         outputs
@@ -240,15 +240,17 @@ impl ListNet {
         scores
     }
 
-    /// Given a vec of batches, train set, learning rate and number of epochs trains the ListNet.
+    /// Given a vec of batches, a training set, the learning rate and a number of epochs, trains the ListNet.
     ///
     /// Returns the mean cost of the `test_data` for each epoch.
-    //FIXME we probably will need some more complete training loop,
+    ///
+    /// The cost is calculated using KL-Divergence based on bits.
+    //FIXME[followup PR] we probably will need some more complete training loop,
     //      including functionality to external triggered early stop or pause of training
     //      and automatic stop of training if the improvement in the evaluation is too small
     //      ever multiple epochs or similar. But that depends a lot on the integration with
     //      XaynNet and Team Blue so it doesn't make sense at the current point.
-    //FIXME remove annotation
+    //FIXME[followup PR?] remove dead code annotation
     #[allow(dead_code)]
     pub(crate) fn train_with_sdg(
         &mut self,
@@ -262,27 +264,12 @@ impl ListNet {
                 for batch in &training_data {
                     self.train_batch_with_sdg(batch, learning_rate);
                 }
-                let (acc, count) =
-                    test_data
-                        .iter()
-                        .fold((0f32, 1), |(acc, count), (inputs, relevances)| {
-                            if let Some(cost) = self.evaluate_with_kl_divergence(inputs, relevances)
-                            {
-                                (acc + cost, count + 1)
-                            } else {
-                                (acc, count)
-                            }
-                        });
-                if count > 0 {
-                    acc / count as f32
-                } else {
-                    0.
-                }
+                self.evaluate_multiple_with_kl_divergence(&test_data)
             })
             .collect()
     }
 
-    /// Trains this ListNet on a single batch a single time using SGD with given learning rate.
+    /// Trains this ListNet on a single batch one time using SGD with given learning rate.
     fn train_batch_with_sdg<'a>(
         &mut self,
         batch: impl IntoIterator<Item = &'a (Array2<f32>, Vec<Relevance>)>,
@@ -299,9 +286,33 @@ impl ListNet {
         }
     }
 
+    /// Runs [`ListNet.evaluate_with_kl_divergence()`] on all inputs returning the mean of the costs.
+    //FIXME maybe return `Option<f32>`
+    fn evaluate_multiple_with_kl_divergence<'a>(
+        &self,
+        test_data: impl IntoIterator<Item = &'a (Array2<f32>, Vec<Relevance>)>,
+    ) -> f32 {
+        let (acc, count) =
+            test_data
+                .into_iter()
+                .fold((0f32, 1), |(acc, count), (inputs, relevances)| {
+                    if let Some(cost) = self.evaluate_with_kl_divergence(inputs, relevances) {
+                        (acc + cost, count + 1)
+                    } else {
+                        (acc, count)
+                    }
+                });
+
+        if count > 0 {
+            acc / count as f32
+        } else {
+            0.
+        }
+    }
+
     /// Computes the KL Divergence for given inputs and relevances.
     ///
-    /// It should be noted that the Kullback-Leibler Divergence returned
+    /// It should be noted, that the Kullback-Leibler Divergence returned
     /// is based on bits, while the cost used for back-propagation is
     /// based on nats (it used `ln` instead of `log2`).
     fn evaluate_with_kl_divergence(
@@ -320,7 +331,8 @@ impl ListNet {
     ///
     /// # Panics
     ///
-    /// If inputs and relevances are not exactly [`Self::INPUT_NR_DOCUMENTS`].
+    /// If inputs and relevances are not for exactly [`Self::INPUT_NR_DOCUMENTS`]
+    /// documents.
     fn gradients_for_query(
         &self,
         inputs: ArrayView2<f32>,
@@ -333,10 +345,6 @@ impl ListNet {
     }
 
     /// Run the the forward pass of back-propagation.
-    ///
-    /// # Panics
-    ///
-    /// Expects exactly 10 documents, panics else wise.
     fn train_forward_pass(&self, inputs: ArrayView2<f32>) -> ForwardPassData {
         let (scores_y, partial_forward_pass) = self.calculate_intermediate_scores(inputs, true);
         let prob_dist_y = self.calculate_final_scores(&scores_y);
@@ -361,14 +369,17 @@ impl ListNet {
             .scores_prob_dist
             .gradients_from_partials_1d(forward_pass.scores_y.view(), p_cost_and_prob_dist.view());
 
-        //FIXME transpose weights?
-        let p_scores = p_cost_and_prob_dist.dot(&self.scores_prob_dist.weights().t()); // * 1 as af' = 1 as activation function is linear
+        // The activation functions of `scores` is the identity function (linear) so
+        // it's gradient is 1 at all inputs and we can omit it.
+        let p_scores = p_cost_and_prob_dist.dot(&self.scores_prob_dist.weights().t());
 
-        let mut d_scores = DenseGradientSet::no_change_for(&self.scores);
-        let mut d_dense2 = DenseGradientSet::no_change_for(&self.dense_2);
-        let mut d_dense1 = DenseGradientSet::no_change_for(&self.dense_1);
+        let mut d_scores = DenseGradientSet::zero_gradients_for(&self.scores);
+        let mut d_dense2 = DenseGradientSet::zero_gradients_for(&self.dense_2);
+        let mut d_dense1 = DenseGradientSet::zero_gradients_for(&self.dense_1);
 
         for row in 0..nr_documents {
+            // From here on training is "split" into multiple parallel "path" using
+            // shared weights (hence why we add up the gradients).
             let p_scores = p_scores.slice(s![row..row + 1]);
 
             let d_scores_part = self
@@ -439,7 +450,7 @@ impl ListNet {
 
     /// Turns the given relevances into a probability distribution.
     ///
-    /// If there was no relevant document in the inputs `None` is returned.
+    /// If there is no relevant document in the inputs `None` is returned.
     fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
         if !relevance.iter().any(|r| match *r {
             Relevance::Low => false,
@@ -465,21 +476,6 @@ impl ListNet {
     }
 }
 
-#[derive(Deref)]
-struct ForwardPassData {
-    #[deref]
-    partial_forward_pass: PartialForwardPassData,
-    scores_y: Array1<f32>,
-    prob_dist_y: Array1<f32>,
-}
-
-struct PartialForwardPassData {
-    dense1_y: Array2<f32>,
-    dense1_z: Array2<f32>,
-    dense2_y: Array2<f32>,
-    dense2_z: Array2<f32>,
-}
-
 /// ListNet load failure.
 #[derive(Debug, Error)]
 pub enum LoadingListNetFailed {
@@ -501,6 +497,32 @@ pub enum LoadingListNetFailed {
     LeftoverBinParams { params: Vec<String> },
 }
 
+/// Data collected when running the forward pass of back-propagation.
+///
+/// It extends [`PartialForwardPassData`] by dereferencing to it,
+/// so you can treat it as if it also contains all fields from
+/// [`PartialForwardPassData`].
+///
+/// By convention the `y` refers to the outputs of a layer and
+/// `z` to the outputs of a layer before that layers activation
+/// function has been applied to them.
+#[derive(Deref)]
+struct ForwardPassData {
+    #[deref]
+    partial_forward_pass: PartialForwardPassData,
+    scores_y: Array1<f32>,
+    prob_dist_y: Array1<f32>,
+}
+
+/// Some of the data collected when running the forward pass of back-propagation.
+struct PartialForwardPassData {
+    dense1_y: Array2<f32>,
+    dense1_z: Array2<f32>,
+    dense2_y: Array2<f32>,
+    dense2_z: Array2<f32>,
+}
+
+/// A set of gradients for all parameters of `ListNet`.
 #[cfg_attr(test, derive(Debug, Clone))]
 struct GradientSet {
     dense1: DenseGradientSet,
@@ -510,6 +532,11 @@ struct GradientSet {
 }
 
 impl GradientSet {
+    /// Merge all gradient sets computed for one batch of training data.
+    ///
+    /// This will create the mean of each gradient across all gradient sets.
+    ///
+    /// If there are no gradient sets in the input then `None` is returned.
     fn merge_batch(gradient_sets: impl IntoIterator<Item = GradientSet>) -> Option<GradientSet> {
         let mut count = 1;
         gradient_sets
