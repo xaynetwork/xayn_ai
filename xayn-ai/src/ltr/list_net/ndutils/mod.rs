@@ -30,16 +30,24 @@ where
 
 /// Compute the Kullback-Leibler Divergence between a "good" distribution and one we want to evaluate.
 ///
-/// This returns a result based on bits, i.e. it uses `log2`.
+/// This returns a result based on `nats`, i.e. it uses `ln` (instead of `log2` which
+/// would produce a result based on `bits`).
+///
+/// All values are clamped/cliped to the range `f32::EPSILON..=1.`.
+///
+/// For the eval distribution this makes sense as we should never predict `0` but at most
+/// a value so close to it, that it ends up as 0 due to the limited precision of
+/// `f32`.
+///
+/// For the good distribution we could argue similarly. An alternative choice
+/// is to return 0 if the good distributions probability is 0.)
 pub fn kl_divergence(good_dist: &Array1<f32>, eval_dist: &Array1<f32>) -> f32 {
     good_dist.into_iter().zip(eval_dist.into_iter()).fold(
         0f32,
-        |acc, (&good_dist_prob, &eval_dist_prob)| {
-            acc + if good_dist_prob == 0. || eval_dist_prob == 0. {
-                0.
-            } else {
-                good_dist_prob * (good_dist_prob / eval_dist_prob).log2()
-            }
+        |acc, (good_dist_prob, eval_dist_prob)| {
+            let good_dist_prob = good_dist_prob.clamp(f32::EPSILON, 1.);
+            let eval_dist_prob = eval_dist_prob.clamp(f32::EPSILON, 1.);
+            acc + good_dist_prob * (good_dist_prob / eval_dist_prob).ln()
         },
     )
 }
@@ -238,7 +246,7 @@ mod tests {
 
         let cost = kl_divergence(&good_dist, &eval_dist);
 
-        assert_approx_eq!(f32, cost, 0.304_347_5);
+        assert_approx_eq!(f32, cost, 0.210_957_6);
     }
 
     #[test]
@@ -248,6 +256,6 @@ mod tests {
 
         let cost = kl_divergence(&good_dist, &eval_dist);
 
-        assert_approx_eq!(f32, cost, -0.175);
+        assert_approx_eq!(f32, cost, 4.300_221_4);
     }
 }

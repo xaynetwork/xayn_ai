@@ -240,9 +240,15 @@ impl ListNet {
 
     /// Given a vec of batches, a training set, the learning rate and a number of epochs, trains the ListNet.
     ///
-    /// Returns the mean cost of the `test_data` for each epoch.
+    /// Returns the mean *evaluation* cost of the `test_data` for each epoch.
     ///
-    /// The cost is calculated using KL-Divergence based on bits.
+    /// Both the training loss and evaluation cost are calculated using
+    /// KL-Divergence based on nats.
+    ///
+    /// Be aware that this is not the same as e.g. the `loss` reported by
+    /// many tensorflow models. Which refers to the loss/cost calculated during
+    /// the training steps, while the cost reported here is calculated after the
+    /// training, and with a separate dataset.
     //FIXME[followup PR] we probably will need some more complete training loop,
     //      including functionality to external triggered early stop or pause of training
     //      and automatic stop of training if the improvement in the evaluation is too small
@@ -327,6 +333,9 @@ impl ListNet {
         assert_eq!(inputs.shape()[0], Self::INPUT_NR_DOCUMENTS);
         assert_eq!(target_prob_dist.len(), Self::INPUT_NR_DOCUMENTS);
         let results = self.train_forward_pass(inputs);
+        //FIXME[followup PR] make this optional and report it back as a metric
+        //  (How far we need/want this depends a lot on XaynNet and app integration.)
+        dbg!(kl_divergence(&target_prob_dist, &results.prob_dist_y));
         self.train_back_propagation(inputs, target_prob_dist, results)
     }
 
