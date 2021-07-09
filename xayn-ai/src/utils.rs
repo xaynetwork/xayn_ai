@@ -135,9 +135,16 @@ pub(crate) fn mock_uuid(sub_id: usize) -> uuid::Uuid {
 #[macro_export]
 macro_rules! assert_approx_eq {
     ($t:ty, $left:expr, $right:expr $(,)?) => {
-        assert_approx_eq!($t, $left, $right, ulps = 2)
+        assert_approx_eq!($t, $left, $right, epsilon = 0., ulps = 2)
     };
-    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr $(,)?) => {{
+    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr $(,)?) => {
+       assert_approx_eq!($t, $left, $right, epsilon = 0., ulps = $ulps)
+    };
+    ($t:ty, $left:expr, $right:expr, epsilon = $epsilon:expr $(,)?) => {
+       assert_approx_eq!($t, $left, $right, epsilon = $epsilon, ulps = 2)
+    };
+    ($t:ty, $left:expr, $right:expr, epsilon = $epsilon:expr, ulps = $ulps:expr $(,)?) => {{
+       let epsilon = $epsilon;
         let ulps = $ulps;
         let left = $left;
         let right = $right;
@@ -155,9 +162,10 @@ macro_rules! assert_approx_eq {
                     );
                     if !(lv.is_nan() && rv.is_nan()) {
                         assert!(
-                            ::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps),
-                            "approximated equal assertion failed (ulps={ulps:?}) at index {idx:?}: {lv:?} == {rv:?}",
+                            ::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps, epsilon = epsilon),
+                            "approximated equal assertion failed (ulps={ulps:?}, epsilon={epsilon:?}) at index {idx:?}: {lv:?} == {rv:?}",
                             ulps=ulps,
+                            epsilon=epsilon,
                             lv=lv,
                             rv=rv,
                             idx=lidx,
@@ -435,5 +443,16 @@ mod tests {
             format!("{}", mock_uuid(0xABCDEF0A)),
             "fcb6a685-eb92-4d36-8686-0000abcdef0a"
         );
+    }
+
+    #[test]
+    fn test_equality_using_epsilon() {
+        assert_approx_eq!(f32, 0.125, 0.625, epsilon = 0.5)
+    }
+
+    #[test]
+    #[should_panic(expected = "[]")]
+    fn test_equality_using_epsilon_with_panic() {
+        assert_approx_eq!(f32, 0.125, 0.625, epsilon = 0.49)
     }
 }

@@ -196,6 +196,11 @@ where
     pub(crate) fn weights(&self) -> ArrayView2<f32> {
         self.weights.view()
     }
+
+    #[cfg(test)]
+    pub(crate) fn bias(&self) -> &Array1<f32> {
+        &self.bias
+    }
 }
 
 /// A gradient set containing gradients for all parameters in a dense layer.

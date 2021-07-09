@@ -9,6 +9,7 @@ use std::{
 use thiserror::Error;
 
 use ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis, Dimension, IntoDimension, Ix};
+use ndutils::he_normal_weights_init;
 
 use crate::Relevance;
 
@@ -118,6 +119,52 @@ impl ListNet {
                 hint: "expected scores_prob_dist output shape to be equal to (10,)",
             }
             .into())
+        }
+    }
+
+    /// Create a new ListNet instance with random weights.
+    ///
+    /// The weights are initialized using the He-Normal weight
+    /// initializer, the biases are initialized to 0.
+    //TODO[maybe] run some tests to see weather or not Glorot or He
+    //            Uniform/Normal initialization works better for us.
+    #[allow(dead_code)] //FIXME
+    pub fn new_with_random_weights() -> Self {
+        let mut rng = rand::thread_rng();
+
+        let dense1 = Dense::new(
+            he_normal_weights_init(&mut rng, Self::INPUT_NR_FEATURES, 48),
+            Array1::zeros((48,)),
+            Relu,
+        )
+        .unwrap();
+
+        let dense2 = Dense::new(
+            he_normal_weights_init(&mut rng, 48, 8),
+            Array1::zeros((8,)),
+            Relu,
+        )
+        .unwrap();
+
+        let scores = Dense::new(
+            he_normal_weights_init(&mut rng, 8, 1),
+            Array1::zeros((1,)),
+            Linear,
+        )
+        .unwrap();
+
+        let prob_dist = Dense::new(
+            he_normal_weights_init(&mut rng, Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_DOCUMENTS),
+            Array1::zeros((Self::INPUT_NR_DOCUMENTS,)),
+            Softmax::default(),
+        )
+        .unwrap();
+
+        ListNet {
+            dense1,
+            dense2,
+            scores,
+            prob_dist,
         }
     }
 
@@ -696,12 +743,12 @@ fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashSet;
+    use std::{collections::HashSet, f32::consts::SQRT_2};
 
     use ndarray::{arr1, arr2, Array, IxDyn};
     use once_cell::sync::Lazy;
 
-    use super::optimizer::MiniBatchSgd;
+    use super::{ndlayers::ActivationFunction, optimizer::MiniBatchSgd};
 
     use super::*;
 
@@ -1259,5 +1306,38 @@ mod tests {
             .unwrap();
 
         assert!(prepare_inputs_for_training(&few_inputs, &relevances).is_none());
+    }
+
+    #[test]
+    fn test_random_weights_initialization() {
+        let ListNet {
+            dense1,
+            dense2,
+            scores,
+            prob_dist,
+        } = ListNet::new_with_random_weights();
+
+        test_layer(&dense1);
+        test_layer(&dense2);
+        test_layer(&scores);
+        test_layer(&prob_dist);
+
+        fn test_layer(layer: &Dense<impl ActivationFunction<f32>>) {
+            for b in layer.bias().iter() {
+                assert_approx_eq!(f32, b, 0.0, ulps = 9)
+            }
+            let weights = layer.weights();
+            let std = SQRT_2 / (weights.shape()[0] as f32).sqrt();
+            let limit = 2. * std;
+            for &w in weights.iter() {
+                assert!(
+                    -limit <= w && w <= limit,
+                    "out of bound weight: {} <= {} <= {}",
+                    -limit,
+                    w,
+                    limit
+                );
+            }
+        }
     }
 }

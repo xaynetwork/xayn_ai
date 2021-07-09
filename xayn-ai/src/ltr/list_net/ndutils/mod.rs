@@ -1,4 +1,19 @@
-use ndarray::{ArrayBase, ArrayView1, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
+use std::f32::consts::SQRT_2;
+
+use ndarray::{
+    Array2,
+    ArrayBase,
+    ArrayView1,
+    Axis,
+    DataMut,
+    DataOwned,
+    Dimension,
+    Ix,
+    NdFloat,
+    RemoveAxis,
+};
+use rand::Rng;
+use rand_distr::{Distribution, Normal};
 
 pub mod io;
 
@@ -50,6 +65,45 @@ pub fn kl_divergence(good_dist: ArrayView1<f32>, eval_dist: ArrayView1<f32>) -> 
             acc + good_dist_prob * (good_dist_prob / eval_dist_prob).ln()
         },
     )
+}
+
+/// He-Uniform Initializer
+///
+/// Weights for layer `j` are sampled from following normal distribution:
+///
+/// ```ascii
+/// W_j ~ N(μ=0, σ²=2/in_j)
+/// ```
+///
+/// Where `n_j` is the number of input units of this layer.
+/// This means for us `n_j` is the the number of rows of `W_j`.
+///
+/// Furthermore as we want to avoid exceedingly large values
+/// we truncate the normal distribution at 2σ.
+///
+/// Source:
+///
+/// - Website: https://www.cv-foundation.org/openaccess/content_iccv_2015/html/He_Delving_Deep_into_ICCV_2015_paper.html
+/// - Pdf: https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf
+pub fn he_normal_weights_init<R>(rng: &mut R, nr_rows: Ix, nr_columns: Ix) -> Array2<f32>
+where
+    R: Rng + ?Sized,
+{
+    // Avoids panic due to invalid σ which can only happen with empty weight matrices.
+    if nr_rows == 0 || nr_columns == 0 {
+        return Array2::zeros((nr_rows, nr_columns));
+    }
+
+    let std_dev = SQRT_2 / (nr_rows as f32).sqrt();
+    let dist = Normal::new(0., std_dev).unwrap();
+    let limit = 2. * std_dev;
+
+    Array2::from_shape_simple_fn((nr_rows, nr_columns), || loop {
+        let res = dist.sample(rng);
+        if -limit <= res && res <= limit {
+            break res;
+        }
+    })
 }
 
 #[cfg(test)]
@@ -257,5 +311,43 @@ mod tests {
         let cost = kl_divergence(good_dist.view(), eval_dist.view());
 
         assert_approx_eq!(f32, cost, 4.300_221_4);
+    }
+
+    #[test]
+    fn test_he_normal_weight_init() {
+        let mut rng = rand::thread_rng();
+        let weights = he_normal_weights_init(&mut rng, 300, 200);
+
+        assert_eq!(weights.shape(), &[300, 200]);
+
+        let std = SQRT_2 / (weights.shape()[0] as f32).sqrt();
+        let limit = 2. * std;
+        let mut c_1std = 0;
+        let mut c_2std = 0;
+        for &w in weights.iter() {
+            assert!(
+                -limit <= w && w <= limit,
+                "out of bound weight: {} <= {} <= {}",
+                -limit,
+                w,
+                limit
+            );
+            if -std <= w && w <= std {
+                c_1std += 1;
+            } else {
+                c_2std += 1;
+            }
+        }
+
+        let nr_weights = weights.len() as f32;
+        let prob_1std = c_1std as f32 / nr_weights;
+        let prob_2std = c_2std as f32 / nr_weights;
+
+        // Probabilities of a weight being in +-1std or +-2std corrected
+        // wrt. the truncating of values outside of +-2std. We accept this
+        // to be true if the found percentage is around +-5% of the expected
+        // percentage.
+        assert_approx_eq!(f32, prob_1std, 0.713_389_1, epsilon = 0.05);
+        assert_approx_eq!(f32, prob_2std, 0.284_518_84, epsilon = 0.05);
     }
 }
