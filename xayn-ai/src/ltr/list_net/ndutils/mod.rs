@@ -1,4 +1,4 @@
-use ndarray::{Array1, ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
+use ndarray::{ArrayBase, ArrayView1, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
 pub mod io;
 
@@ -41,7 +41,7 @@ where
 ///
 /// For the good distribution we could argue similarly. An alternative choice
 /// is to return 0 if the good distributions probability is 0.)
-pub fn kl_divergence(good_dist: &Array1<f32>, eval_dist: &Array1<f32>) -> f32 {
+pub fn kl_divergence(good_dist: ArrayView1<f32>, eval_dist: ArrayView1<f32>) -> f32 {
     good_dist.into_iter().zip(eval_dist.into_iter()).fold(
         0f32,
         |acc, (good_dist_prob, eval_dist_prob)| {
@@ -244,7 +244,7 @@ mod tests {
         let good_dist = arr1(&[0.5, 0.1, 0.025, 0.3, 0.075]);
         let eval_dist = arr1(&[0.3, 0.2, 0.15, 0.2, 0.15]);
 
-        let cost = kl_divergence(&good_dist, &eval_dist);
+        let cost = kl_divergence(good_dist.view(), eval_dist.view());
 
         assert_approx_eq!(f32, cost, 0.210_957_6);
     }
@@ -254,7 +254,7 @@ mod tests {
         let good_dist = arr1(&[0.0, 0.1, 0.0, 0.3, 0.075]);
         let eval_dist = arr1(&[0.0, 0.2, 0.15, 0.0, 0.15]);
 
-        let cost = kl_divergence(&good_dist, &eval_dist);
+        let cost = kl_divergence(good_dist.view(), eval_dist.view());
 
         assert_approx_eq!(f32, cost, 4.300_221_4);
     }

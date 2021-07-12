@@ -2,13 +2,13 @@
 
 use std::{
     io::Read,
+    iter,
     ops::{Add, Div, MulAssign},
 };
 
-use derive_more::Deref;
 use thiserror::Error;
 
-use ndarray::{s, Array1, Array2, ArrayView2, Axis, Dimension, IntoDimension, Ix};
+use ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis, Dimension, IntoDimension, Ix};
 
 use crate::Relevance;
 
@@ -25,10 +25,13 @@ use self::{
         kl_divergence,
         softmax,
     },
+    optimizer::Optimizer,
 };
 
 mod ndlayers;
 mod ndutils;
+
+pub mod optimizer;
 
 /// ListNet implementations.
 ///
@@ -238,105 +241,24 @@ impl ListNet {
         scores
     }
 
-    /// Given a vec of batches, a training set, the learning rate and a number of epochs, trains the ListNet.
-    ///
-    /// Returns the mean *evaluation* cost of the `test_data` for each epoch.
-    ///
-    /// Both the training loss and evaluation cost are calculated using
-    /// KL-Divergence based on nats.
-    ///
-    /// Be aware that this is not the same as e.g. the `loss` reported by
-    /// many tensorflow models. Which refers to the loss/cost calculated during
-    /// the training steps, while the cost reported here is calculated after the
-    /// training, and with a separate dataset.
-    //FIXME[followup PR] we probably will need some more complete training loop,
-    //      including functionality to external triggered early stop or pause of training
-    //      and automatic stop of training if the improvement in the evaluation is too small
-    //      ever multiple epochs or similar. But that depends a lot on the integration with
-    //      XaynNet and Team Blue so it doesn't make sense at the current point.
-    //FIXME[followup PR?] remove dead code annotation
-    #[allow(dead_code)]
-    pub(crate) fn train_with_sdg(
-        &mut self,
-        training_data: Vec<Vec<(Array2<f32>, Vec<Relevance>)>>,
-        test_data: Vec<(Array2<f32>, Vec<Relevance>)>,
-        learning_rate: f32,
-        epochs: usize,
-    ) -> Vec<Option<f32>> {
-        (0..epochs)
-            .map(|_| {
-                for batch in &training_data {
-                    self.train_batch_with_sdg(batch, learning_rate);
-                }
-                self.evaluate(&test_data, kl_divergence)
-            })
-            .collect()
-    }
-
-    /// Trains this ListNet on a single batch one time using SGD with given learning rate.
-    fn train_batch_with_sdg<'a>(
-        &mut self,
-        batch: impl IntoIterator<Item = &'a (Array2<f32>, Vec<Relevance>)>,
-        learning_rate: f32,
-    ) {
-        let gradient_sets = batch.into_iter().flat_map(|(inputs, relevances)| {
-            Self::prepare_inputs_for_training(&inputs, &relevances)
-                .map(|(inputs, relevances)| self.gradients_for_query(inputs, relevances))
-        });
-
-        if let Some(mut gradients) = GradientSet::merge_batch(gradient_sets) {
-            gradients *= -learning_rate;
-            self.add_gradients(gradients);
-        }
-    }
-
-    /// Runs [`ListNet.evaluate_with_kl_divergence()`] on all inputs returning the mean of the costs.
-    fn evaluate<'a>(
-        &self,
-        test_data: impl IntoIterator<Item = &'a (Array2<f32>, Vec<Relevance>)>,
-        cost_function: fn(&Array1<f32>, &Array1<f32>) -> f32,
-    ) -> Option<f32> {
-        let (acc, count) =
-            test_data
-                .into_iter()
-                .fold((0f32, 0), |(acc, count), (inputs, relevances)| {
-                    if let Some((inputs, targets)) =
-                        Self::prepare_inputs_for_training(inputs, relevances)
-                    {
-                        let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
-                        let prob_dist_y = self.calculate_final_scores(&scores_y);
-                        let cost = cost_function(&targets, &prob_dist_y);
-                        (acc + cost, count + 1)
-                    } else {
-                        (acc, count)
-                    }
-                });
-
-        if count > 0 {
-            Some(acc / count as f32)
-        } else {
-            None
-        }
-    }
-
-    /// Computes the gradients for given inputs and target prob. dist.
+    /// Computes the gradients and loss for given inputs and target prob. dist.
     ///
     /// # Panics
     ///
     /// If inputs and relevances are not for exactly [`Self::INPUT_NR_DOCUMENTS`]
     /// documents.
-    fn gradients_for_query(
-        &self,
-        inputs: ArrayView2<f32>,
-        target_prob_dist: Array1<f32>,
-    ) -> GradientSet {
-        assert_eq!(inputs.shape()[0], Self::INPUT_NR_DOCUMENTS);
-        assert_eq!(target_prob_dist.len(), Self::INPUT_NR_DOCUMENTS);
+    fn gradients_for_query(&self, sample: Sample) -> (GradientSet, f32) {
+        let Sample {
+            inputs,
+            target_prob_dist,
+        } = sample;
+        assert_eq!(inputs.shape()[0], ListNet::INPUT_NR_DOCUMENTS);
+        assert_eq!(target_prob_dist.len(), ListNet::INPUT_NR_DOCUMENTS);
         let results = self.train_forward_pass(inputs);
-        //FIXME[followup PR] make this optional and report it back as a metric
-        //  (How far we need/want this depends a lot on XaynNet and app integration.)
-        dbg!(kl_divergence(&target_prob_dist, &results.prob_dist_y));
-        self.train_back_propagation(inputs, target_prob_dist, results)
+        //FIXME[followup PR] if we don't track loss in XaynNet when used in the app we don't need to calculate it.
+        let loss = kl_divergence(target_prob_dist.view(), results.prob_dist_y.view());
+        let gradients = self.train_back_propagation(inputs, target_prob_dist, results);
+        (gradients, loss)
     }
 
     /// Run the the forward pass of back-propagation.
@@ -355,14 +277,31 @@ impl ListNet {
     fn train_back_propagation(
         &self,
         inputs: ArrayView2<f32>,
-        target_prob_dist: Array1<f32>,
+        target_prob_dist: ArrayView1<f32>,
         forward_pass: ForwardPassData,
     ) -> GradientSet {
+        let ForwardPassData {
+            partial_forward_pass:
+                PartialForwardPassData {
+                    dense1_y,
+                    dense1_z,
+                    dense2_y,
+                    dense2_z,
+                },
+            scores_y,
+            mut prob_dist_y,
+        } = forward_pass;
+
         let nr_documents = inputs.shape()[0];
-        let p_cost_and_prob_dist = &forward_pass.prob_dist_y - target_prob_dist;
+
+        let p_cost_and_prob_dist = {
+            prob_dist_y -= &target_prob_dist;
+            prob_dist_y
+        };
+
         let d_prob_dist = self
             .prob_dist
-            .gradients_from_partials_1d(forward_pass.scores_y.view(), p_cost_and_prob_dist.view());
+            .gradients_from_partials_1d(scores_y.view(), p_cost_and_prob_dist.view());
 
         // The activation functions of `scores` is the identity function (linear) so
         // it's gradient is 1 at all inputs and we can omit it.
@@ -379,19 +318,18 @@ impl ListNet {
 
             let d_scores_part = self
                 .scores
-                .gradients_from_partials_1d(forward_pass.dense2_y.slice(s![row, ..]), p_scores);
+                .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
             d_scores += d_scores_part;
 
             let p_dense2 = p_scores.dot(&self.scores.weights().t())
-                * Relu::partial_derivatives_at(&forward_pass.dense2_z.slice(s![row, ..]));
-            let d_dense2_part = self.dense2.gradients_from_partials_1d(
-                forward_pass.dense1_y.slice(s![row, ..]),
-                p_dense2.view(),
-            );
+                * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
+            let d_dense2_part = self
+                .dense2
+                .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
             d_dense2 += d_dense2_part;
 
             let p_dense1 = p_dense2.dot(&self.dense2.weights().t())
-                * Relu::partial_derivatives_at(&forward_pass.dense1_z.slice(s![row, ..]));
+                * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
             let d_dense1_part = self
                 .dense1
                 .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
@@ -407,7 +345,7 @@ impl ListNet {
     }
 
     /// Adds gradients to this `ListNet`.
-    fn add_gradients(&mut self, gradients: GradientSet) {
+    pub fn add_gradients(&mut self, gradients: GradientSet) {
         let GradientSet {
             dense1,
             dense2,
@@ -419,55 +357,6 @@ impl ListNet {
         self.scores.add_gradients(&scores);
         self.dense2.add_gradients(&dense2);
         self.dense1.add_gradients(&dense1);
-    }
-
-    /// Prepare the inputs for training.
-    ///
-    /// This will:
-    ///
-    /// - return `None` if there are less then 10 documents
-    /// - truncates inputs and relevances to 10 documents
-    /// - return `None` if there are no relevant documents (after truncating)
-    /// - calculates the target distribution based on the relevances
-    fn prepare_inputs_for_training<'a>(
-        inputs: &'a Array2<f32>,
-        relevances: &'a [Relevance],
-    ) -> Option<(ArrayView2<'a, f32>, Array1<f32>)> {
-        if inputs.shape()[0] < Self::INPUT_NR_DOCUMENTS {
-            None
-        } else {
-            Some((
-                inputs.slice(s![..Self::INPUT_NR_DOCUMENTS, ..]),
-                Self::prepare_target_prob_dist(&relevances[..Self::INPUT_NR_DOCUMENTS])?,
-            ))
-        }
-    }
-
-    /// Turns the given relevances into a probability distribution.
-    ///
-    /// If there is no relevant document in the inputs `None` is returned.
-    fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
-        if !relevance.iter().any(|r| match *r {
-            Relevance::Low => false,
-            Relevance::High | Relevance::Medium => true,
-        }) {
-            return None;
-        }
-
-        let len = relevance.len() as f32;
-        let target: Array1<f32> = relevance
-            .iter()
-            .enumerate()
-            .map(|(idx, relevance)| {
-                let idx = idx as f32;
-                let relevance = *relevance as u8 as f32;
-                // mirrors dart impl. but works for more or less then 10 elements
-                // still this seems to be a somewhat arbitrary choice
-                (len - idx - 1.0) / len + relevance
-            })
-            .collect();
-
-        Some(softmax(target, Axis(0)))
     }
 }
 
@@ -501,9 +390,7 @@ pub enum LoadingListNetFailed {
 /// By convention the `y` refers to the outputs of a layer and
 /// `z` to the outputs of a layer before that layers activation
 /// function has been applied to them.
-#[derive(Deref)]
 struct ForwardPassData {
-    #[deref]
     partial_forward_pass: PartialForwardPassData,
     scores_y: Array1<f32>,
     prob_dist_y: Array1<f32>,
@@ -519,7 +406,7 @@ struct PartialForwardPassData {
 
 /// A set of gradients for all parameters of `ListNet`.
 #[cfg_attr(test, derive(Debug, Clone))]
-struct GradientSet {
+pub struct GradientSet {
     dense1: DenseGradientSet,
     dense2: DenseGradientSet,
     scores: DenseGradientSet,
@@ -577,6 +464,242 @@ impl MulAssign<f32> for GradientSet {
     }
 }
 
+/// Trainer allowing the training a ListNets.
+pub struct ListNetTrainer<D, C, O>
+where
+    D: DataSource,
+    C: Callbacks,
+    O: Optimizer,
+{
+    list_net: ListNet,
+    data_source: D,
+    callbacks: C,
+    optimizer: O,
+}
+
+impl<D, C, O> ListNetTrainer<D, C, O>
+where
+    D: DataSource,
+    C: Callbacks,
+    O: Optimizer,
+{
+    /// Create a new `ListNetTrainer` instance.
+    #[allow(dead_code)] //FIXME
+    pub fn new(list_net: ListNet, data_source: D, callbacks: C, optimizer: O) -> Self {
+        Self {
+            list_net,
+            data_source,
+            callbacks,
+            optimizer,
+        }
+    }
+
+    /// Trains for the given number of epochs with given batch size.
+    ///
+    /// This will use the `list_net`, `data_source`, `callbacks` and `optimizer` used
+    /// to create this `ListNetTrainer`.
+    //FIXME[followup PR?] remove dead code annotation
+    #[allow(dead_code)]
+    pub fn train(&mut self, epochs: usize, batch_size: usize) {
+        self.callbacks.begin_of_training(&self.list_net);
+
+        for _ in 0..epochs {
+            self.data_source.reset();
+            self.callbacks.begin_of_epoch(&self.list_net);
+
+            while self.train_next_batch(batch_size) {}
+            let evaluation_results = self.evaluate_epoch(kl_divergence);
+
+            self.callbacks
+                .end_of_epoch(&self.list_net, evaluation_results);
+        }
+
+        self.callbacks.end_of_training(&self.list_net);
+    }
+
+    /// Trains the next batch of samples.
+    ///
+    /// If there where not more batches to train on this return false, else this
+    /// returns true.
+    fn train_next_batch(&mut self, batch_size: usize) -> bool {
+        let ListNetTrainer {
+            list_net,
+            data_source,
+            callbacks,
+            optimizer,
+        } = self;
+
+        let batch = data_source.next_training_batch(batch_size);
+        if batch.is_empty() {
+            return false;
+        }
+
+        callbacks.begin_of_batch();
+
+        let mut losses = Vec::new();
+        let gradient_set = GradientSet::merge_batch(batch.into_iter().map(|sample| {
+            let (gradients, loss) = list_net.gradients_for_query(sample);
+            losses.push(loss);
+            gradients
+        }))
+        .unwrap();
+
+        optimizer.apply_gradients(list_net, gradient_set);
+
+        callbacks.end_of_batch(losses);
+
+        true
+    }
+
+    /// Returns the mean of the evaluating all samples of the evaluation dataset using given cost function.
+    fn evaluate_epoch(
+        &mut self,
+        cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
+    ) -> Option<f32> {
+        let (acc, count) = iter::from_fn(|| {
+            let list_net = &self.list_net;
+            self.data_source.next_evaluation_sample().map(
+                |Sample {
+                     inputs,
+                     target_prob_dist,
+                 }| {
+                    let (scores_y, _) = list_net.calculate_intermediate_scores(inputs, false);
+                    let prob_dist_y = list_net.calculate_final_scores(&scores_y);
+                    cost_function(target_prob_dist, prob_dist_y.view())
+                },
+            )
+        })
+        .fold((0f32, 0), |(acc, count), cost| (acc + cost, count + 1));
+
+        if count > 0 {
+            Some(acc / count as f32)
+        } else {
+            None
+        }
+    }
+}
+
+/// A single sample you can train on.
+pub struct Sample<'a> {
+    /// Input used for training.
+    ///
+    /// (At least for now) this must be a `(10, 50)` array
+    /// view.
+    pub inputs: ArrayView2<'a, f32>,
+
+    /// Target probability distribution.
+    ///
+    /// Needs to have the same length as `inputs.shape()[0]`.
+    pub target_prob_dist: ArrayView1<'a, f32>,
+}
+
+/// A source of training and evaluation data.
+pub trait DataSource {
+    /// Resets the "iteration" of training and evaluation samples.
+    ///
+    /// This is allowed to also *change* the training and evaluation
+    /// samples and/or their order. E.g. this could shuffle them
+    /// before every epoch.
+    ///
+    /// This is called at the *begin* of every epoch.
+    fn reset(&mut self);
+
+    /// Return the next `batch_size` number of training samples.
+    ///
+    /// Returns a empty vector once all training samples have been returned.
+    ///
+    /// # Panics
+    ///
+    /// A batch size of 0 is not valid. And implementors are allowed to
+    /// panic if it's passed in.
+    fn next_training_batch(&mut self, batch_size: usize) -> Vec<Sample>;
+
+    /// Return the next evaluation sample.
+    ///
+    /// Returns `None` once all training sample have been returned.
+    fn next_evaluation_sample(&mut self) -> Option<Sample>;
+}
+
+/// A trait providing various callbacks used during training.
+pub trait Callbacks {
+    /// Called before started training a batch.
+    fn begin_of_batch(&mut self);
+
+    /// Called after training a batch, the loss for each sample will be passed in.
+    fn end_of_batch(&mut self, losses: Vec<f32>);
+
+    /// Called at the begin of each epoch.
+    fn begin_of_epoch(&mut self, list_net: &ListNet);
+
+    /// Called at the end of each epoch with the mean of running the evaluation with KL-Divergence.
+    ///
+    /// The passed in reference to `list_net` can be used to e.g. bump the intermediate training
+    /// result every 10 epochs.
+    fn end_of_epoch(&mut self, list_net: &ListNet, mean_kv_divergence_evaluation: Option<f32>);
+
+    /// Called at the begin of training.
+    fn begin_of_training(&mut self, list_net: &ListNet);
+
+    /// Called after training finished.
+    fn end_of_training(&mut self, list_net: &ListNet);
+}
+
+/// Prepare the inputs for training.
+///
+/// This is a static helper function which is meant to be used by `DataSource`
+/// implementations to filter and prepare inputs.
+///
+/// This will:
+///
+/// - return `None` if there are less then 10 documents
+/// - truncates inputs and relevances to 10 documents
+/// - return `None` if there are no relevant documents (after truncating)
+/// - calculates the target distribution based on the relevances
+#[allow(dead_code)]
+pub fn prepare_inputs_for_training<'a>(
+    inputs: &'a Array2<f32>,
+    relevances: &'a [Relevance],
+) -> Option<(ArrayView2<'a, f32>, Array1<f32>)> {
+    if inputs.shape()[0] < ListNet::INPUT_NR_DOCUMENTS {
+        None
+    } else {
+        Some((
+            inputs.slice(s![..ListNet::INPUT_NR_DOCUMENTS, ..]),
+            prepare_target_prob_dist(&relevances[..ListNet::INPUT_NR_DOCUMENTS])?,
+        ))
+    }
+}
+
+/// Turns the given relevances into a probability distribution.
+///
+/// This is a static helper function which is meant to be used by `DataSource`
+/// implementations to filter and prepare inputs.
+///
+/// If there is no relevant document in the inputs `None` is returned.
+fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
+    if !relevance.iter().any(|r| match *r {
+        Relevance::Low => false,
+        Relevance::High | Relevance::Medium => true,
+    }) {
+        return None;
+    }
+
+    let len = relevance.len() as f32;
+    let target: Array1<f32> = relevance
+        .iter()
+        .enumerate()
+        .map(|(idx, relevance)| {
+            let idx = idx as f32;
+            let relevance = *relevance as u8 as f32;
+            // mirrors dart impl. but works for more or less then 10 elements
+            // still this seems to be a somewhat arbitrary choice
+            (len - idx - 1.0) / len + relevance
+        })
+        .collect();
+
+    Some(softmax(target, Axis(0)))
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -584,6 +707,8 @@ mod tests {
 
     use ndarray::{arr1, arr2, Array, IxDyn};
     use once_cell::sync::Lazy;
+
+    use crate::ltr::list_net::optimizer::MiniBatchSDG;
 
     use super::*;
 
@@ -851,38 +976,145 @@ mod tests {
         assert_eq!(ListNet::CHUNK_SIZE * 2, ListNet::INPUT_NR_DOCUMENTS);
     }
 
+    struct VecDataSource {
+        training_data_idx: usize,
+        training_data: Vec<(Array2<f32>, Array1<f32>)>,
+        evaluation_data_idx: usize,
+        evaluation_data: Vec<(Array2<f32>, Array1<f32>)>,
+    }
+
+    impl VecDataSource {
+        fn new(
+            training_data: Vec<(Array2<f32>, Array1<f32>)>,
+            evaluation_data: Vec<(Array2<f32>, Array1<f32>)>,
+        ) -> Self {
+            Self {
+                training_data_idx: 0,
+                training_data,
+                evaluation_data_idx: 0,
+                evaluation_data,
+            }
+        }
+    }
+
+    impl DataSource for VecDataSource {
+        fn reset(&mut self) {
+            self.training_data_idx = 0;
+            self.evaluation_data_idx = 0;
+        }
+
+        fn next_training_batch(&mut self, batch_size: usize) -> Vec<Sample> {
+            assert!(batch_size > 0);
+            let end_idx = self.training_data_idx + batch_size;
+            if end_idx <= self.training_data.len() {
+                let start_idx = self.training_data_idx;
+                self.training_data_idx = end_idx;
+
+                self.training_data[start_idx..end_idx]
+                    .iter()
+                    .map(|(inputs, target_prop_dist)| Sample {
+                        inputs: inputs.view(),
+                        target_prob_dist: target_prop_dist.view(),
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        }
+
+        fn next_evaluation_sample(&mut self) -> Option<Sample> {
+            if self.evaluation_data_idx < self.evaluation_data.len() {
+                let idx = self.evaluation_data_idx;
+                self.evaluation_data_idx += 1;
+
+                let data = &self.evaluation_data[idx];
+                Some(Sample {
+                    inputs: data.0.view(),
+                    target_prob_dist: data.1.view(),
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    struct TestCallbacks {
+        evaluation_results: Vec<Option<f32>>,
+    }
+
+    impl TestCallbacks {
+        fn new() -> Self {
+            Self {
+                evaluation_results: Vec::new(),
+            }
+        }
+    }
+
+    impl Callbacks for TestCallbacks {
+        fn begin_of_batch(&mut self) {
+            dbg!("begin batch");
+        }
+
+        fn end_of_batch(&mut self, losses: Vec<f32>) {
+            dbg!(losses);
+        }
+
+        fn begin_of_epoch(&mut self, _list_net: &ListNet) {
+            dbg!("begin epoch");
+        }
+
+        fn end_of_epoch(
+            &mut self,
+            _list_net: &ListNet,
+            mean_kv_divergence_evaluation: Option<f32>,
+        ) {
+            dbg!(mean_kv_divergence_evaluation);
+            self.evaluation_results.push(mean_kv_divergence_evaluation);
+        }
+
+        fn begin_of_training(&mut self, _list_net: &ListNet) {
+            dbg!("begin of training");
+        }
+
+        fn end_of_training(&mut self, _list_net: &ListNet) {
+            dbg!("end of training");
+        }
+    }
+
     //FIXME create better tests
     #[test]
     fn test_training_list_net_does_not_panic() {
         use Relevance::{High, Low, Medium};
-        let mut list_net = LIST_NET.clone();
+        let list_net = LIST_NET.clone();
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
             .unwrap();
 
         let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
-        let data_frame = (inputs, relevances);
+        let data_frame = (inputs, prepare_target_prob_dist(&relevances).unwrap());
 
-        let training_data = vec![vec![
-            data_frame.clone(),
-            data_frame.clone(),
-            data_frame.clone(),
-        ]];
+        let training_data = vec![data_frame.clone(), data_frame.clone(), data_frame.clone()];
         let test_data = vec![data_frame];
 
         let nr_epochs = 5;
-        let res = list_net.train_with_sdg(training_data, test_data, 0.1, nr_epochs);
-        assert_eq!(res.len(), nr_epochs);
+        let data_source = VecDataSource::new(training_data, test_data);
+        let callbacks = TestCallbacks::new();
+        let optimizer = MiniBatchSDG { learning_rate: 0.1 };
+        let mut trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
+        trainer.train(nr_epochs, 3);
+
+        let evaluation_results = trainer.callbacks.evaluation_results;
+        assert_eq!(evaluation_results.len(), nr_epochs);
         assert!(
-            res.iter().all(|v| !v.unwrap().is_nan()),
+            evaluation_results.iter().all(|v| !v.unwrap().is_nan()),
             "contains NaN values {:?}",
-            res
+            evaluation_results
         );
         assert!(
-            res.first() > res.last(),
+            evaluation_results.first() > evaluation_results.last(),
             "unexpected regression of training: {:?}",
-            res
+            evaluation_results
         );
     }
 
@@ -974,11 +1206,11 @@ mod tests {
         use Relevance::{High, Low, Medium};
 
         let relevances = vec![Low; 10];
-        let res = ListNet::prepare_target_prob_dist(&relevances);
+        let res = prepare_target_prob_dist(&relevances);
         assert!(res.is_none());
 
         let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
-        let dist = ListNet::prepare_target_prob_dist(&relevances).unwrap();
+        let dist = prepare_target_prob_dist(&relevances).unwrap();
         assert_approx_eq!(
             f32,
             dist,
@@ -1006,8 +1238,7 @@ mod tests {
             .into_shape((10, 50))
             .unwrap();
 
-        let (processed_inputs, dist) =
-            ListNet::prepare_inputs_for_training(&inputs, &relevances).unwrap();
+        let (processed_inputs, dist) = prepare_inputs_for_training(&inputs, &relevances).unwrap();
 
         assert_approx_eq!(f32, &inputs, processed_inputs);
 
@@ -1028,12 +1259,12 @@ mod tests {
             ]
         );
 
-        assert!(ListNet::prepare_inputs_for_training(&inputs, &[Low; 10]).is_none());
+        assert!(prepare_inputs_for_training(&inputs, &[Low; 10]).is_none());
 
         let few_inputs = Array1::from(SAMPLE_INPUTS_TO_FEW.to_vec())
             .into_shape((3, 50))
             .unwrap();
 
-        assert!(ListNet::prepare_inputs_for_training(&few_inputs, &relevances).is_none());
+        assert!(prepare_inputs_for_training(&few_inputs, &relevances).is_none());
     }
 }
