@@ -708,7 +708,7 @@ mod tests {
     use ndarray::{arr1, arr2, Array, IxDyn};
     use once_cell::sync::Lazy;
 
-    use crate::ltr::list_net::optimizer::MiniBatchSDG;
+    use super::optimizer::MiniBatchSdg;
 
     use super::*;
 
@@ -1100,7 +1100,7 @@ mod tests {
         let nr_epochs = 5;
         let data_source = VecDataSource::new(training_data, test_data);
         let callbacks = TestCallbacks::new();
-        let optimizer = MiniBatchSDG { learning_rate: 0.1 };
+        let optimizer = MiniBatchSdg { learning_rate: 0.1 };
         let mut trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
         trainer.train(nr_epochs, 3);
 
