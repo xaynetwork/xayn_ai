@@ -251,6 +251,26 @@ where
     }
 }
 
+impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a Option<T>
+where
+    &'a T: ApproxAssertIterHelper<'a>,
+{
+    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
+
+    fn indexed_iter_logical_order(
+        self,
+        prefix: Vec<Ix>,
+    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
+        let iter = self.iter().flat_map(move |el| {
+            let mut new_prefix = prefix.clone();
+            new_prefix.push(0);
+            el.indexed_iter_logical_order(new_prefix)
+        });
+
+        Box::new(iter)
+    }
+}
+
 impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a Vec<T>
 where
     &'a T: ApproxAssertIterHelper<'a>,

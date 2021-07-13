@@ -4,19 +4,15 @@ use bincode::Options;
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
-    io::{self, Read},
+    fs::File,
+    io::{self, BufReader, BufWriter, Read, Write},
+    path::Path,
 };
-
-#[cfg(test)]
-use std::{fs::File, io::BufReader, path::Path};
 
 use thiserror::Error;
 
-use ndarray::{ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
+use ndarray::{Array, ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
 use serde::{Deserialize, Serialize};
-
-#[cfg(test)]
-use ndarray::Array;
 
 /// Deserialization helper representing a flattened array.
 ///
@@ -30,19 +26,19 @@ pub(crate) struct FlattenedArray<A> {
     data: Vec<A>,
 }
 
-#[cfg(test)]
 impl<A, D> From<Array<A, D>> for FlattenedArray<A>
 where
     A: Copy,
     D: Dimension,
 {
     fn from(array: Array<A, D>) -> Self {
-        //only used in tests so we don't care about the
-        //unnecessary addition allocation, if used outside
-        //of tests consider using `is_standard_layout()` and
-        //`.into_raw_vec()`.
         let shape = array.shape().to_owned();
-        let data = array.iter().copied().collect();
+
+        let data = if array.is_standard_layout() {
+            array.into_raw_vec()
+        } else {
+            array.iter().copied().collect()
+        };
 
         FlattenedArray { shape, data }
     }
@@ -145,23 +141,38 @@ impl TryIntoDimension for IxDyn {
         Ok(slice.into_dimension())
     }
 }
-#[derive(Serialize, Deserialize)]
-#[cfg_attr(test, derive(Debug, Default, PartialEq))]
+#[derive(Default, Serialize, Deserialize)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct BinParams {
     params: HashMap<String, FlattenedArray<f32>>,
 }
 
 impl BinParams {
-    #[cfg(test)]
-    pub(crate) fn load_from_file(file: impl AsRef<Path>) -> Result<Self, LoadingBinParamsFailed> {
+    pub(crate) fn deserialize_from_file(
+        file: impl AsRef<Path>,
+    ) -> Result<Self, LoadingBinParamsFailed> {
         let file = File::open(file)?;
         let source = BufReader::new(file);
-        Self::load(source)
+        Self::deserialize_from(source)
     }
 
-    pub(crate) fn load(source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
+    pub(crate) fn deserialize_from(source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
         let bincode = Self::setup_bincode();
         bincode.deserialize_from(source).map_err(Into::into)
+    }
+
+    pub(crate) fn serialize_into_file(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<(), Box<bincode::ErrorKind>> {
+        let file = File::create(path)?;
+        let writer = BufWriter::new(file);
+        self.serialize_into(writer)
+    }
+
+    pub(crate) fn serialize_into(&self, writer: impl Write) -> Result<(), Box<bincode::ErrorKind>> {
+        let bincode = Self::setup_bincode();
+        bincode.serialize_into(writer, self)
     }
 
     fn setup_bincode() -> impl bincode::Options {
@@ -194,6 +205,13 @@ impl BinParams {
             })?
             .try_into()
             .map_err(Into::into)
+    }
+
+    pub(crate) fn insert<A>(&mut self, name: impl Into<String>, array: A)
+    where
+        FlattenedArray<f32>: From<A>,
+    {
+        self.params.insert(name.into(), array.into());
     }
 
     /// Creates a new `BinParamsWithScope` instance.
@@ -231,14 +249,37 @@ impl<'a> BinParamsWithScope<'a> {
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
     {
-        let name = self.prefix.clone() + name;
+        let name = self.create_name(name);
         self.params.take(&name)
+    }
+
+    pub(crate) fn insert<A>(&mut self, name: &str, array: A)
+    where
+        FlattenedArray<f32>: From<A>,
+    {
+        let name = self.create_name(name);
+        self.params.insert(name, array);
+    }
+
+    fn create_name(&self, suffix: &str) -> String {
+        self.prefix.clone() + suffix
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_scope(&mut self, scope: &str) -> BinParamsWithScope {
+        BinParamsWithScope {
+            params: &mut *self.params,
+            prefix: self.prefix.clone() + "/" + scope,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use ndarray::{arr1, arr2, Array1, Array2};
+    use rand::{thread_rng, Rng};
+
+    use super::super::he_normal_weights_init;
 
     use super::*;
 
@@ -286,17 +327,42 @@ mod tests {
 
     #[test]
     fn bin_params_can_load_bin_params() {
-        let loaded = BinParams::load(BIN_PARAMS_MOCK_DATA_1).unwrap();
+        let loaded = BinParams::deserialize_from(BIN_PARAMS_MOCK_DATA_1).unwrap();
         assert_eq!(loaded, bin_params_mock_outcome_1());
     }
 
     #[test]
     fn bin_params_can_load_arrays_of_specific_dimensions() {
-        let mut loaded = BinParams::load(BIN_PARAMS_MOCK_DATA_1).unwrap();
+        let mut loaded = BinParams::deserialize_from(BIN_PARAMS_MOCK_DATA_1).unwrap();
         let array1 = loaded.take::<Array2<f32>>("a").unwrap();
         let array2 = loaded.take::<Array1<f32>>("b").unwrap();
 
         assert_eq!(array1, arr2(&[[1.0f32, 2.], [3., 4.]]));
         assert_eq!(array2, arr1(&[3.0f32, 2., 1., 4.]));
+    }
+
+    #[test]
+    fn serialize_deserialize_random_bin_params() {
+        let mut rng = thread_rng();
+        for nr_params in 0..4 {
+            let mut bin_params = BinParams::default();
+
+            let name = format!("{}", nr_params);
+            let nr_rows = rng.gen_range(0..100);
+            let nr_columns = rng.gen_range(0..100);
+            let matrix = he_normal_weights_init(&mut rng, (nr_rows, nr_columns));
+
+            bin_params.params.insert(name, matrix.into());
+
+            let mut buffer = Vec::new();
+            bin_params.serialize_into(&mut buffer).unwrap();
+            let bin_params2 = BinParams::deserialize_from(&*buffer).unwrap();
+
+            for (key, fla1) in bin_params.params.iter() {
+                let fla2 = bin_params2.params.get(key).unwrap();
+                assert_eq!(fla1.shape, fla2.shape);
+                assert_approx_eq!(f32, &fla1.data, &fla2.data, ulps = 0);
+            }
+        }
     }
 }

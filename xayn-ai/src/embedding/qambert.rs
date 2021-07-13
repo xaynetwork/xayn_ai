@@ -65,7 +65,8 @@ impl QAMBertSystem for NeutralQAMBert {
 }
 
 #[cfg(test)]
-mod tests {
+//FIXME philipp
+pub mod tests {
     use rubert::{AveragePooler, QAMBertBuilder};
 
     use crate::tests::documents_with_embeddings_from_snippet_and_query;
@@ -75,7 +76,8 @@ mod tests {
     const VOCAB: &str = "../data/qambert_v0001/vocab.txt";
     const QAMBERT_MODEL: &str = "../data/qambert_v0001/qambert.onnx";
 
-    fn qambert() -> QAMBert {
+    //FIXME philipp
+    pub fn qambert() -> QAMBert {
         QAMBertBuilder::from_files(VOCAB, QAMBERT_MODEL)
             .unwrap()
             .with_token_size(90)

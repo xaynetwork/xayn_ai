@@ -152,6 +152,12 @@ impl ListNet {
     ///
     /// The weights are initialized using the He-Normal weight
     /// initializer, the biases are initialized to 0.
+<<<<<<< HEAD
+    #[allow(dead_code)] //FIXME
+=======
+    //TODO[maybe] run some tests to see weather or not Glorot or He
+    //            Uniform/Normal initialization works better for us.
+>>>>>>> b6bebdf (WIP)
     pub fn new_with_random_weights() -> Self {
         let mut rng = rand::thread_rng();
 
@@ -1270,8 +1276,8 @@ mod tests {
 
         fn test(rng: &mut impl Rng, (ind, mid, out): (usize, usize, usize)) {
             drop(crate::embedding::qambert::tests::qambert());
-            let a = he_normal_weights_init(rng, (ind, mid));
-            let b = he_normal_weights_init(rng, (mid, out));
+            let a = he_normal_weights_init(rng, ind, mid);
+            let b = he_normal_weights_init(rng, mid, out);
             let expected = naive_matmul(a.view(), b.view());
             let res = a.dot(&b);
             assert_approx_eq!(f32, &res, expected, epsilon = EPSILON, ulps = ULPS);
