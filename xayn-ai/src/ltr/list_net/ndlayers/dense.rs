@@ -47,7 +47,7 @@ pub enum LoadingDenseFailed {
 ///
 /// This can be used for both 1D and 2D inputs depending
 /// on the activation function.
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 pub(crate) struct Dense<AF>
 where
     AF: ActivationFunction<f32>,
@@ -68,6 +68,11 @@ where
         let weights = params.take("weights")?;
         let bias = params.take("bias")?;
         Ok(Self::new(weights, bias, activation_function)?)
+    }
+
+    pub(crate) fn store_params(self, mut params: BinParamsWithScope) {
+        params.insert("weights", self.weights);
+        params.insert("bias", self.bias);
     }
 
     pub(crate) fn new(
@@ -220,6 +225,26 @@ impl DenseGradientSet {
             weight_gradients: Array::zeros(dense.weights.dim()),
             bias_gradients: Array::zeros(dense.bias.dim()),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn store(self, mut bin_params: BinParamsWithScope) {
+        let Self {
+            weight_gradients,
+            bias_gradients,
+        } = self;
+        bin_params.insert("weight_gradients", weight_gradients);
+        bin_params.insert("bias_gradients", bias_gradients);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn load(mut bin_params: BinParamsWithScope) -> Result<Self, FailedToRetrieveParams> {
+        let weight_gradients = bin_params.take("weight_gradients")?;
+        let bias_gradients = bin_params.take("bias_gradients")?;
+        Ok(Self {
+            weight_gradients,
+            bias_gradients,
+        })
     }
 }
 

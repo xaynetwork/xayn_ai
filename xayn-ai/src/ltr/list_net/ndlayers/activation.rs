@@ -5,7 +5,7 @@ use super::super::ndutils::softmax;
 use super::ActivationFunction;
 
 /// reLu activation function.
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 pub(crate) struct Relu;
 
 impl<A> ActivationFunction<A> for Relu
@@ -46,7 +46,7 @@ impl Relu {
 /// with an relative axis index of 10 on an array which
 /// is 2-dimensional (and as such only has support the
 /// relative axis indices 0,1,-1,-2).
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 pub(crate) struct Softmax {
     rel_axis_idx: isize,
 }
@@ -98,7 +98,7 @@ where
 ///
 /// Like common this is a identity function used
 /// in cases where there no activation function is needed.
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 pub(crate) struct Linear;
 
 impl<A> ActivationFunction<A> for Linear {

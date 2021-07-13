@@ -1,0 +1,465 @@
+//FIMXE: Move parts of this module into list_net to re-use them for in-app training.
+use std::{
+    error::Error as StdError,
+    fs::File,
+    io::{BufReader, BufWriter, Read, Write},
+    ops::RangeTo,
+    path::Path,
+    u64,
+};
+
+use anyhow::Error;
+use bincode::Options;
+use displaydoc::Display;
+use ndarray::{ArrayBase, ArrayView, ArrayView1, ArrayView2, Data, Dimension};
+use rand::{prelude::SliceRandom, Rng};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use xayn_ai::list_net::{self, ListNet, Sample};
+
+/// A [`xayn_ai::list_net::DataSource`] implementation.
+pub(crate) struct DataSource<S>
+where
+    S: Storage,
+{
+    storage: S,
+    training_data_order: DataLookupOrder,
+    evaluation_data_order: DataLookupOrder,
+}
+
+impl<S> DataSource<S>
+where
+    S: Storage,
+{
+    pub(crate) fn new(
+        storage: S,
+        evaluation_split: f32,
+    ) -> Result<Self, DataSourceError<S::Error>> {
+        if evaluation_split < 0. || !evaluation_split.is_normal() {
+            return Err(DataSourceError::BadEvaluationSplit(evaluation_split));
+        }
+        let nr_all_samples = storage.data_ids().map_err(DataSourceError::Storage)?.end;
+        if nr_all_samples == 0 {
+            return Err(DataSourceError::EmptyDatabase);
+        }
+        let nr_evaluation_samples = (nr_all_samples as f32 * evaluation_split).round() as usize;
+        if nr_evaluation_samples >= nr_all_samples {
+            return Err(DataSourceError::ToLargeEvaluationSplit(evaluation_split));
+        }
+        let nr_training_samples = nr_all_samples - nr_evaluation_samples;
+        let evaluation_ids = (nr_training_samples..nr_all_samples).collect();
+        let training_ids = (0..nr_training_samples).collect();
+
+        Ok(Self {
+            storage,
+            training_data_order: DataLookupOrder::new(training_ids),
+            evaluation_data_order: DataLookupOrder::new(evaluation_ids),
+        })
+    }
+}
+
+#[derive(Error, Debug, Display)]
+pub enum DataSourceError<SE>
+where
+    SE: StdError + 'static,
+{
+    /// Unusable evaluation split: Assertion `split >= 0 && split.is_normal()` failed (split = {0}).
+    BadEvaluationSplit(f32),
+    ///  Unusable evaluation split: With evaluation split {0} no samples are left for training.
+    ToLargeEvaluationSplit(f32),
+    /// A batch size of 0 is not usable for training.
+    BatchSize0,
+    /// Empty database can not be used for training.
+    EmptyDatabase,
+    /// Fetching sample from storage failed: {0}.
+    Storage(SE),
+}
+
+impl<S> list_net::DataSource for DataSource<S>
+where
+    S: Storage,
+{
+    type Error = DataSourceError<S::Error>;
+
+    fn reset(&mut self) {
+        let mut rng = rand::thread_rng();
+        self.training_data_order.reset(&mut rng);
+        self.evaluation_data_order.reset(&mut rng);
+    }
+
+    fn next_training_batch(&mut self, batch_size: usize) -> Result<Vec<Sample>, Self::Error> {
+        if batch_size == 0 {
+            return Err(DataSourceError::BatchSize0);
+        }
+        let ids = self.training_data_order.next_batch(batch_size);
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.storage
+            .load_batch(&ids)
+            .map_err(DataSourceError::Storage)
+    }
+
+    fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error> {
+        if let Some(id) = self.evaluation_data_order.next() {
+            match self.storage.load_sample(id) {
+                Ok(sample) => Ok(Some(sample)),
+                Err(error) => Err(DataSourceError::Storage(error)),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+pub(crate) trait Storage {
+    type Error: StdError + 'static;
+
+    /// Return the id's of samples.
+    ///
+    /// For now this is a range from `0..nr_of_samples`, we might need
+    /// to change this in the future.
+    fn data_ids(&self) -> Result<RangeTo<usize>, Self::Error>;
+
+    /// Loads a sample and returns a reference to it.
+    ///
+    /// This method is `&mut self` as it might change the internal state
+    /// (due to loading/caching) and we also want to make sure that there
+    /// are no more lend out samples, when `load_sample` or `load_batch` are
+    /// called again.
+    fn load_sample(&mut self, id: DataId) -> Result<Sample, Self::Error>;
+
+    /// Loads a batch of samples and returns a reference to it.
+    ///
+    /// See [`Storage.load_batch()`] about why this is `&mut self`.
+    fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<Sample<'a>>, Self::Error>;
+}
+
+type DataId = usize;
+
+struct DataLookupOrder {
+    data_ids: Vec<DataId>,
+    data_ids_offset: usize,
+}
+
+impl DataLookupOrder {
+    fn new(data_ids: Vec<DataId>) -> Self {
+        Self {
+            data_ids,
+            data_ids_offset: 0,
+        }
+    }
+
+    fn reset(&mut self, rng: &mut impl Rng) {
+        self.data_ids.shuffle(rng);
+    }
+
+    fn next(&mut self) -> Option<DataId> {
+        if self.data_ids_offset < self.data_ids.len() {
+            let idx = self.data_ids_offset;
+            self.data_ids_offset += 1;
+
+            Some(self.data_ids[idx])
+        } else {
+            None
+        }
+    }
+
+    fn next_batch(&mut self, batch_size: usize) -> Vec<DataId> {
+        let end_idx = self.data_ids_offset + batch_size;
+        if end_idx <= self.data_ids.len() {
+            let start_idx = self.data_ids_offset;
+            self.data_ids_offset = end_idx;
+
+            self.data_ids[start_idx..end_idx].to_owned()
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+/// A "in-memory" data storage.
+///
+/// It also can be portably stored to disk using bincode serialization.
+///
+/// BUT it will be stored as one large blob, that and the fact that it's
+/// fully in-memory makes puts limits on the size of the database.
+// If necessary a future implementation could use memory mapped I/O
+// and chunked storage or even remote chunks to support larger datasets,
+// through I don't think we will ever need it.
+#[derive(Serialize, Deserialize, Default)]
+pub(crate) struct InMemoryData {
+    // When using this with some dataset we have quite a bit of data (a few GiB)
+    // so we want to at least slightly optimize the storage, by storing the inputs
+    // and target prob. dist. into one large memory allocation which we then can create
+    // views into. This is especially useful wrt. bincode serialization as ndarray::Array
+    // has no long term stable serialization format.
+    data: Vec<Vec<f32>>,
+}
+
+#[derive(Error, Debug, Display)]
+pub enum StorageError {
+    /// The database was parsed successfully but contains broken invariants at index {at_index}.
+    BrokenInvariants { at_index: usize },
+}
+
+impl InMemoryData {
+    pub(crate) fn write_to_file(&self, file: impl AsRef<Path>) -> Result<(), Error> {
+        self.serialize_into(BufWriter::new(File::create(file)?))
+    }
+
+    fn serialize_into(&self, writer: impl Write) -> Result<(), Error> {
+        bincode::DefaultOptions::new()
+            .serialize_into(writer, self)
+            .map_err(Into::into)
+    }
+
+    pub(crate) fn load_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
+        Self::deserialize_from(BufReader::new(File::open(file)?))
+    }
+
+    fn deserialize_from(reader: impl Read) -> Result<Self, Error> {
+        bincode::DefaultOptions::new()
+            .deserialize_from(reader)
+            .map_err(Into::into)
+    }
+
+    fn load_sample_helper(&self, id: DataId) -> Result<Sample, StorageError> {
+        let raw = &self.data[id];
+
+        let nr_documents = raw.len() / (ListNet::INPUT_NR_FEATURES + 1);
+        let start_of_target_prob_dist = nr_documents * ListNet::INPUT_NR_FEATURES;
+        debug_assert_eq!(start_of_target_prob_dist + nr_documents, raw.len());
+
+        let inputs = ArrayView::from_shape(
+            (nr_documents, ListNet::INPUT_NR_FEATURES),
+            &raw[..start_of_target_prob_dist],
+        )
+        .map_err(|_| StorageError::BrokenInvariants { at_index: id })?;
+        let target_prob_dist =
+            ArrayView::from_shape((nr_documents,), &raw[start_of_target_prob_dist..])
+                .map_err(|_| StorageError::BrokenInvariants { at_index: id })?;
+
+        Ok(Sample {
+            inputs,
+            target_prob_dist,
+        })
+    }
+
+    /// Add a new sample to the data.
+    ///
+    /// # Panics
+    ///
+    /// If number of documents in `inputs` doesn't match the number of probabilities in
+    /// `target_prob_dist`.
+    pub(crate) fn add_sample(
+        &mut self,
+        inputs: ArrayView2<f32>,
+        target_prob_dist: ArrayView1<f32>,
+    ) {
+        let mut data = Vec::with_capacity(inputs.len() + target_prob_dist.len());
+        extend_vec_with_ndarray(&mut data, inputs);
+        extend_vec_with_ndarray(&mut data, target_prob_dist);
+        self.data.push(data);
+    }
+}
+
+fn extend_vec_with_ndarray<T: Clone>(
+    data: &mut Vec<T>,
+    array: ArrayBase<impl Data<Elem = T>, impl Dimension>,
+) {
+    if let Some(slice) = array.as_slice() {
+        data.extend_from_slice(slice);
+    } else {
+        data.extend(array.iter().cloned());
+    }
+}
+
+impl Storage for InMemoryData {
+    type Error = StorageError;
+
+    fn data_ids(&self) -> Result<RangeTo<usize>, Self::Error> {
+        Ok(..self.data.len())
+    }
+
+    fn load_sample(&mut self, id: DataId) -> Result<Sample, Self::Error> {
+        self.load_sample_helper(id)
+    }
+
+    fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<Sample<'a>>, Self::Error> {
+        let mut samples = Vec::new();
+        for id in ids {
+            samples.push(self.load_sample_helper(*id)?)
+        }
+        Ok(samples)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ndarray::Array;
+    use rand::thread_rng;
+    use xayn_ai::assert_approx_eq;
+
+    use super::*;
+
+    fn dummy_storage() -> InMemoryData {
+        let mut storage = InMemoryData::default();
+
+        let inputs = Array::zeros((10, 50));
+        let target_prob_dist = Array::ones((10,));
+        storage.add_sample(inputs.view(), target_prob_dist.view());
+
+        let inputs = Array::ones((10, 50));
+        let target_prob_dist = Array::zeros((10,));
+        storage.add_sample(inputs.view(), target_prob_dist.view());
+
+        let inputs = Array::from_elem((10, 50), 4.);
+        let target_prob_dist = Array::ones((10,));
+        storage.add_sample(inputs.view(), target_prob_dist.view());
+
+        storage
+    }
+
+    #[test]
+    fn test_runtime_representation_of_in_memory_storage() {
+        let storage = dummy_storage();
+
+        assert_eq!(storage.data.len(), 3);
+
+        for f in &storage.data[0][..500] {
+            assert_approx_eq!(f32, f, 0.0, ulps = 0);
+        }
+        for f in &storage.data[0][500..] {
+            assert_approx_eq!(f32, f, 1.0, ulps = 0);
+        }
+        assert_eq!(storage.data[0].len(), 510);
+
+        for f in &storage.data[1][..500] {
+            assert_approx_eq!(f32, f, 1.0, ulps = 0);
+        }
+        for f in &storage.data[1][500..] {
+            assert_approx_eq!(f32, f, 0.0, ulps = 0);
+        }
+        assert_eq!(storage.data[1].len(), 510);
+
+        for f in &storage.data[2][..500] {
+            assert_approx_eq!(f32, f, 4.0, ulps = 0);
+        }
+        for f in &storage.data[2][500..] {
+            assert_approx_eq!(f32, f, 1.0, ulps = 0);
+        }
+        assert_eq!(storage.data[2].len(), 510);
+    }
+
+    #[test]
+    fn test_get_samples_from_in_memory_storage() {
+        let mut storage = dummy_storage();
+
+        {
+            let sample = storage.load_sample(0).unwrap();
+            assert_eq!(sample.inputs.shape(), &[10, 50]);
+            for f in sample.inputs.iter() {
+                assert_approx_eq!(f32, f, 0.0, ulps = 0);
+            }
+            assert_eq!(sample.target_prob_dist.shape(), &[10]);
+            for f in sample.target_prob_dist.iter() {
+                assert_approx_eq!(f32, f, 1.0, ulps = 0);
+            }
+        }
+        {
+            let sample = storage.load_sample(1).unwrap();
+            assert_eq!(sample.inputs.shape(), &[10, 50]);
+            for f in sample.inputs.iter() {
+                assert_approx_eq!(f32, f, 1.0, ulps = 0);
+            }
+            assert_eq!(sample.target_prob_dist.shape(), &[10]);
+            for f in sample.target_prob_dist.iter() {
+                assert_approx_eq!(f32, f, 0.0, ulps = 0);
+            }
+        }
+        {
+            let sample = storage.load_sample(2).unwrap();
+            assert_eq!(sample.inputs.shape(), &[10, 50]);
+            for f in sample.inputs.iter() {
+                assert_approx_eq!(f32, f, 4.0, ulps = 0);
+            }
+            assert_eq!(sample.target_prob_dist.shape(), &[10]);
+            for f in sample.target_prob_dist.iter() {
+                assert_approx_eq!(f32, f, 1.0, ulps = 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_batch_from_in_memory_storage() {
+        let mut storage = dummy_storage();
+
+        assert_eq!(storage.load_batch(&[]).unwrap().len(), 0);
+
+        {
+            let samples = storage.load_batch(&[1, 1, 0, 1]).unwrap();
+            assert_eq!(samples.len(), 4);
+
+            assert_approx_eq!(f32, &samples[0].inputs, &samples[1].inputs, ulps = 0);
+            assert_approx_eq!(
+                f32,
+                &samples[0].target_prob_dist,
+                &samples[1].target_prob_dist,
+                ulps = 0
+            );
+            assert_approx_eq!(f32, &samples[0].inputs, &samples[3].inputs, ulps = 0);
+            assert_approx_eq!(
+                f32,
+                &samples[0].target_prob_dist,
+                &samples[3].target_prob_dist,
+                ulps = 0
+            );
+
+            assert_approx_eq!(f32, samples[0].inputs[[0, 0]], 1.0, ulps = 0);
+            assert_approx_eq!(f32, samples[2].inputs[[0, 0]], 0.0, ulps = 0);
+        }
+    }
+
+    #[test]
+    fn test_serialization_of_in_memory_storage_works() {
+        let storage = dummy_storage();
+
+        let mut buffer = Vec::new();
+        storage.serialize_into(&mut buffer).unwrap();
+        let storage2 = InMemoryData::deserialize_from(&*buffer).unwrap();
+
+        assert_approx_eq!(f32, storage.data, storage2.data);
+    }
+
+    #[test]
+    fn test_data_lookup_order_changes_on_reset() {
+        let mut rng = thread_rng();
+        let mut dlo = DataLookupOrder::new(vec![0, 1, 2, 3, 4]);
+
+        dlo.reset(&mut rng);
+        let all = dlo.next_batch(5);
+        dlo.reset(&mut rng);
+        let all2 = dlo.next_batch(5);
+        assert_ne!(all, all2);
+    }
+
+    #[test]
+    fn test_data_lookup_order_does_not_return_partial_batches() {
+        let mut dlo = DataLookupOrder::new(vec![0, 1, 2, 3, 4]);
+        assert_eq!(dlo.next_batch(2), [0, 1]);
+        assert_eq!(dlo.next_batch(2), [2, 3]);
+        assert!(dlo.next_batch(2).is_empty());
+        assert!(dlo.next_batch(2).is_empty());
+    }
+
+    #[test]
+    fn test_data_lookup_order_returns_samples_in_order() {
+        let mut dlo = DataLookupOrder::new(vec![0, 1, 4]);
+        assert_eq!(dlo.next(), Some(0));
+        assert_eq!(dlo.next(), Some(1));
+        assert_eq!(dlo.next(), Some(4));
+        assert_eq!(dlo.next(), None);
+        assert_eq!(dlo.next(), None);
+    }
+}
