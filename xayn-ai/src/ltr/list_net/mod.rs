@@ -415,16 +415,12 @@ impl GradientSet {
     /// This will create the mean of each gradient across all gradient sets.
     ///
     /// If there are no gradient sets in the input then `None` is returned.
-    fn merge_batch(gradient_sets: impl IntoIterator<Item = GradientSet>) -> Option<GradientSet> {
-        //FIXME[follow up PR] divide all gradients by count and then sum (it has better numeric stability).
-        let mut count = 1;
+    fn mean_of(gradient_sets: Vec<GradientSet>) -> Option<GradientSet> {
+        let count = gradient_sets.len() as f32;
         gradient_sets
             .into_iter()
-            .reduce(|left, right| {
-                count += 1;
-                left + right
-            })
-            .map(|gradient_set| gradient_set / count as f32)
+            .map(|gradient_set| gradient_set / count)
+            .reduce(Add::add)
     }
 }
 
@@ -534,14 +530,16 @@ where
         callbacks.begin_of_batch();
 
         let mut losses = Vec::new();
-        let gradient_set = GradientSet::merge_batch(batch.into_iter().map(|sample| {
-            let (gradients, loss) = list_net.gradients_for_query(sample);
-            losses.push(loss);
-            gradients
-        }))
-        .unwrap();
+        let gradient_sets = batch
+            .into_iter()
+            .map(|sample| {
+                let (gradients, loss) = list_net.gradients_for_query(sample);
+                losses.push(loss);
+                gradients
+            })
+            .collect();
 
-        optimizer.apply_gradients(list_net, gradient_set);
+        optimizer.apply_gradients(list_net, gradient_sets);
 
         callbacks.end_of_batch(losses);
 
@@ -1116,7 +1114,7 @@ mod tests {
 
     #[test]
     fn test_gradients_merge_batch() {
-        let res = GradientSet::merge_batch(std::iter::empty());
+        let res = GradientSet::mean_of(vec![]);
         assert!(res.is_none());
 
         let a = GradientSet {
@@ -1138,7 +1136,7 @@ mod tests {
             },
         };
 
-        let a2 = GradientSet::merge_batch(Some(a.clone())).unwrap();
+        let a2 = GradientSet::mean_of(vec![a.clone()]).unwrap();
 
         assert_approx_eq!(f32, &a2.dense1.weight_gradients, &a.dense1.weight_gradients);
         assert_approx_eq!(f32, &a2.dense1.bias_gradients, &a.dense1.bias_gradients);
@@ -1176,7 +1174,7 @@ mod tests {
             },
         };
 
-        let g = GradientSet::merge_batch(vec![a, b]).unwrap();
+        let g = GradientSet::mean_of(vec![a, b]).unwrap();
 
         assert_approx_eq!(f32, &g.dense1.weight_gradients, [[0.1, 0.], [0.3, 0.04]]);
         assert_approx_eq!(f32, &g.dense1.bias_gradients, [0.4, 1.23]);
