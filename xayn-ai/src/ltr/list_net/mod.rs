@@ -254,15 +254,15 @@ impl ListNet {
         } = sample;
         assert_eq!(inputs.shape()[0], ListNet::INPUT_NR_DOCUMENTS);
         assert_eq!(target_prob_dist.len(), ListNet::INPUT_NR_DOCUMENTS);
-        let results = self.train_forward_pass(inputs);
+        let results = self.forward_pass(inputs);
         //FIXME[followup PR] if we don't track loss in XaynNet when used in the app we don't need to calculate it.
         let loss = kl_divergence(target_prob_dist.view(), results.prob_dist_y.view());
-        let gradients = self.train_back_propagation(inputs, target_prob_dist, results);
+        let gradients = self.back_propagation(inputs, target_prob_dist, results);
         (gradients, loss)
     }
 
     /// Run the the forward pass of back-propagation.
-    fn train_forward_pass(&self, inputs: ArrayView2<f32>) -> ForwardPassData {
+    fn forward_pass(&self, inputs: ArrayView2<f32>) -> ForwardPassData {
         let (scores_y, partial_forward_pass) = self.calculate_intermediate_scores(inputs, true);
         let prob_dist_y = self.calculate_final_scores(&scores_y);
 
@@ -273,8 +273,8 @@ impl ListNet {
         }
     }
 
-    /// Run back propagation base on given inputs, target prob. dist. and forward pass data.
-    fn train_back_propagation(
+    /// Run back propagation based on given inputs, target prob. dist. and forward pass data.
+    fn back_propagation(
         &self,
         inputs: ArrayView2<f32>,
         target_prob_dist: ArrayView1<f32>,
@@ -289,15 +289,11 @@ impl ListNet {
                     dense2_z,
                 },
             scores_y,
-            mut prob_dist_y,
+            prob_dist_y,
         } = forward_pass;
 
         let nr_documents = inputs.shape()[0];
-
-        let p_cost_and_prob_dist = {
-            prob_dist_y -= &target_prob_dist;
-            prob_dist_y
-        };
+        let p_cost_and_prob_dist = prob_dist_y - target_prob_dist;
 
         let d_prob_dist = self
             .prob_dist
@@ -305,7 +301,7 @@ impl ListNet {
 
         // The activation functions of `scores` is the identity function (linear) so
         // it's gradient is 1 at all inputs and we can omit it.
-        let p_scores = p_cost_and_prob_dist.dot(&self.prob_dist.weights().t());
+        let p_scores = self.prob_dist.weights().dot(&p_cost_and_prob_dist);
 
         let mut d_scores = DenseGradientSet::zero_gradients_for(&self.scores);
         let mut d_dense2 = DenseGradientSet::zero_gradients_for(&self.dense2);
@@ -321,14 +317,14 @@ impl ListNet {
                 .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
             d_scores += d_scores_part;
 
-            let p_dense2 = p_scores.dot(&self.scores.weights().t())
+            let p_dense2 = self.scores.weights().dot(&p_scores)
                 * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
             let d_dense2_part = self
                 .dense2
                 .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
             d_dense2 += d_dense2_part;
 
-            let p_dense1 = p_dense2.dot(&self.dense2.weights().t())
+            let p_dense1 = self.dense2.weights().dot(&p_dense2)
                 * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
             let d_dense1_part = self
                 .dense1
@@ -420,6 +416,7 @@ impl GradientSet {
     ///
     /// If there are no gradient sets in the input then `None` is returned.
     fn merge_batch(gradient_sets: impl IntoIterator<Item = GradientSet>) -> Option<GradientSet> {
+        //FIXME[follow up PR] divide all gradients by count and then sum (it has better numeric stability).
         let mut count = 1;
         gradient_sets
             .into_iter()
@@ -517,9 +514,9 @@ where
         self.callbacks.end_of_training(&self.list_net);
     }
 
-    /// Trains the next batch of samples.
+    /// Trains on next batch of samples.
     ///
-    /// If there where not more batches to train on this return false, else this
+    /// If there where no more batches to train on this return false, else this
     /// returns true.
     fn train_next_batch(&mut self, batch_size: usize) -> bool {
         let ListNetTrainer {
@@ -551,7 +548,7 @@ where
         true
     }
 
-    /// Returns the mean of the evaluating all samples of the evaluation dataset using given cost function.
+    /// Returns the mean cost over all samples of the evaluation dataset using the given cost function.
     fn evaluate_epoch(
         &mut self,
         cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
@@ -708,7 +705,7 @@ mod tests {
     use ndarray::{arr1, arr2, Array, IxDyn};
     use once_cell::sync::Lazy;
 
-    use super::optimizer::MiniBatchSdg;
+    use super::optimizer::MiniBatchSgd;
 
     use super::*;
 
@@ -875,7 +872,6 @@ mod tests {
 
     #[test]
     fn test_list_net_for_more_than_10_works() {
-        //TODO load once
         let list_net = &*LIST_NET;
 
         let big_inputs = Array1::from(SAMPLE_INPUTS_REMIX.to_vec())
@@ -1081,7 +1077,7 @@ mod tests {
         }
     }
 
-    //FIXME create better tests
+    //FIXME[follow up PR] create better tests
     #[test]
     fn test_training_list_net_does_not_panic() {
         use Relevance::{High, Low, Medium};
@@ -1100,7 +1096,7 @@ mod tests {
         let nr_epochs = 5;
         let data_source = VecDataSource::new(training_data, test_data);
         let callbacks = TestCallbacks::new();
-        let optimizer = MiniBatchSdg { learning_rate: 0.1 };
+        let optimizer = MiniBatchSgd { learning_rate: 0.1 };
         let mut trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
         trainer.train(nr_epochs, 3);
 

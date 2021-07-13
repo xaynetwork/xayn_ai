@@ -7,12 +7,12 @@ pub trait Optimizer {
     fn apply_gradients(&mut self, list_net: &mut ListNet, gradient_set: GradientSet);
 }
 
-/// Mini-Batch Statistic Gradient Descent
-pub struct MiniBatchSdg {
+/// Mini-Batch Stochastic Gradient Descent
+pub struct MiniBatchSgd {
     pub learning_rate: f32,
 }
 
-impl Optimizer for MiniBatchSdg {
+impl Optimizer for MiniBatchSgd {
     fn apply_gradients(&mut self, list_net: &mut ListNet, mut gradient_set: GradientSet) {
         gradient_set *= -self.learning_rate;
         list_net.add_gradients(gradient_set)

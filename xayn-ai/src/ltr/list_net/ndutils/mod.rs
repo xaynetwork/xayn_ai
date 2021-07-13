@@ -33,7 +33,7 @@ where
 /// This returns a result based on `nats`, i.e. it uses `ln` (instead of `log2` which
 /// would produce a result based on `bits`).
 ///
-/// All values are clamped/cliped to the range `f32::EPSILON..=1.`.
+/// All values are clamped/clipped to the range `f32::EPSILON..=1.`.
 ///
 /// For the eval distribution this makes sense as we should never predict `0` but at most
 /// a value so close to it, that it ends up as 0 due to the limited precision of
