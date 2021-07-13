@@ -28,19 +28,19 @@ where
     array
 }
 
-/// Compute the Kullback-Leibler Divergence between a "good" distribution and one we want to evaluate.
+/// Computes the Kullback-Leibler Divergence between a "good" distribution and one we want to evaluate.
 ///
-/// This returns a result based on `nats`, i.e. it uses `ln` (instead of `log2` which
+/// Returns a result based on `nats`, i.e. it uses `ln` (instead of `log2` which
 /// would produce a result based on `bits`).
 ///
 /// All values are clamped/clipped to the range `f32::EPSILON..=1.`.
 ///
 /// For the eval distribution this makes sense as we should never predict `0` but at most
-/// a value so close to it, that it ends up as 0 due to the limited precision of
+/// a value so close to it, that it ends up as `0` due to the limited precision of
 /// `f32`.
 ///
 /// For the good distribution we could argue similarly. An alternative choice
-/// is to return 0 if the good distributions probability is 0.)
+/// is to return `0` if the good distributions probability is `0`.)
 pub fn kl_divergence(good_dist: ArrayView1<f32>, eval_dist: ArrayView1<f32>) -> f32 {
     good_dist.into_iter().zip(eval_dist.into_iter()).fold(
         0f32,

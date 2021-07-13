@@ -25,7 +25,7 @@ where
 impl Relu {
     /// Calculates the partial derivatives of reLU at given input.
     ///
-    /// I.e. returns an array where for all values in the input an 1 is included
+    /// I.e. it returns an array where for all values in the input an 1 is included
     /// if the value is positive or a 0 is included else wise.
     pub(crate) fn partial_derivatives_at<S, D>(input: &ArrayBase<S, D>) -> Array<f32, D>
     where

@@ -125,7 +125,7 @@ where
         }
     }
 
-    /// Return the result of applying this dense layer on given inputs.
+    /// Returns the result of applying this dense layer on given inputs.
     ///
     /// If `for_back_propagation` is `true` this will also return the
     /// intermediate result (`z_out`) from before the activation function
@@ -147,7 +147,7 @@ where
         (y_out, z_out)
     }
 
-    /// This calculates the gradients of a dense layer based on the relevant partial derivatives.
+    /// Calculates the gradients of a dense layer based on the relevant partial derivatives.
     ///
     /// # Panic
     ///
@@ -187,7 +187,7 @@ where
         }
     }
 
-    /// Add given gradients to the weight and bias matrices.
+    /// Adds given gradients to the weight and bias matrices.
     pub(crate) fn add_gradients(&mut self, gradients: &DenseGradientSet) {
         self.weights += &gradients.weight_gradients;
         self.bias += &gradients.bias_gradients;

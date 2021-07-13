@@ -410,7 +410,7 @@ pub struct GradientSet {
 }
 
 impl GradientSet {
-    /// Merge all gradient sets computed for one batch of training data.
+    /// Merges all gradient sets computed for one batch of training data.
     ///
     /// This will create the mean of each gradient across all gradient sets.
     ///
@@ -480,7 +480,7 @@ where
     C: Callbacks,
     O: Optimizer,
 {
-    /// Create a new `ListNetTrainer` instance.
+    /// Creates a new `ListNetTrainer` instance.
     #[allow(dead_code)] //FIXME
     pub fn new(list_net: ListNet, data_source: D, callbacks: C, optimizer: O) -> Self {
         Self {
@@ -601,7 +601,7 @@ pub trait DataSource {
     /// This is called at the *begin* of every epoch.
     fn reset(&mut self);
 
-    /// Return the next `batch_size` number of training samples.
+    /// Returns the next `batch_size` number of training samples.
     ///
     /// Returns a empty vector once all training samples have been returned.
     ///
@@ -611,7 +611,7 @@ pub trait DataSource {
     /// panic if it's passed in.
     fn next_training_batch(&mut self, batch_size: usize) -> Vec<Sample>;
 
-    /// Return the next evaluation sample.
+    /// Returns the next evaluation sample.
     ///
     /// Returns `None` once all training sample have been returned.
     fn next_evaluation_sample(&mut self) -> Option<Sample>;
@@ -641,16 +641,16 @@ pub trait Callbacks {
     fn end_of_training(&mut self, list_net: &ListNet);
 }
 
-/// Prepare the inputs for training.
+/// Prepares the inputs for training.
 ///
 /// This is a static helper function which is meant to be used by `DataSource`
 /// implementations to filter and prepare inputs.
 ///
 /// This will:
 ///
-/// - return `None` if there are less then 10 documents
+/// - returns `None` if there are less then 10 documents
 /// - truncates inputs and relevances to 10 documents
-/// - return `None` if there are no relevant documents (after truncating)
+/// - returns `None` if there are no relevant documents (after truncating)
 /// - calculates the target distribution based on the relevances
 #[allow(dead_code)]
 pub fn prepare_inputs_for_training<'a>(
