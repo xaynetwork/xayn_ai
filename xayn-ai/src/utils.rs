@@ -36,6 +36,30 @@ pub(crate) fn nan_safe_f32_cmp(a: &f32, b: &f32) -> Ordering {
     })
 }
 
+/// Allows comparing and sorting f32 even if `NaN` is involved.
+///
+/// Pretend that f32 has a total ordering.
+///
+/// `NaN` is treated as the highest possible value, similar to what [`f32::min`] does.
+///
+/// If this is used for sorting this will lead to an ascending order, like
+/// for example `[0.5, 1.5, 2.0, NaN]`.
+///
+/// By switching the input parameters around this can be used to create a
+/// descending sorted order, like e.g.: `[NaN, 2.0, 1.5, 0.5]`.
+pub(crate) fn nan_safe_f32_cmp_high(a: &f32, b: &f32) -> Ordering {
+    a.partial_cmp(&b).unwrap_or_else(|| {
+        // if `partial_cmp` returns None we have at least one `NaN`,
+        // we treat it as the highest value
+        match (a.is_nan(), b.is_nan()) {
+            (true, true) => Ordering::Equal,
+            (true, _) => Ordering::Greater,
+            (_, true) => Ordering::Less,
+            _ => unreachable!("partial_cmp returned None but both numbers are not NaN"),
+        }
+    })
+}
+
 /// `nan_safe_f32_cmp_desc(a,b)` is syntax suggar for `nan_safe_f32_cmp(b, a)`
 #[inline]
 pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {

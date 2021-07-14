@@ -12,7 +12,7 @@ pub(crate) trait Database {
     fn serialize(&self, data: &RerankerData) -> Result<Vec<u8>, Error>;
 }
 
-const CURRENT_SCHEMA_VERSION: u8 = 0;
+const CURRENT_SCHEMA_VERSION: u8 = 1;
 
 #[derive(Default)]
 pub(super) struct Db(RefCell<Option<RerankerData>>);
@@ -28,14 +28,14 @@ impl Db {
 
         // version is encoded in the first byte
         let version = bytes[0];
-        if version != CURRENT_SCHEMA_VERSION {
+        if version != CURRENT_SCHEMA_VERSION && version != 0 {
             bail!(
                 "Unsupported serialized data. Found version {} expected {}",
                 version,
                 CURRENT_SCHEMA_VERSION
             );
         }
-
+        // TODO migration from version 0 to current
         let data = bincode::deserialize(&bytes[1..])?;
 
         Ok(Self(RefCell::new(Some(data))))
