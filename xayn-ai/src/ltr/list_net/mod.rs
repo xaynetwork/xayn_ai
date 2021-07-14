@@ -566,11 +566,7 @@ where
         })
         .fold((0f32, 0), |(acc, count), cost| (acc + cost, count + 1));
 
-        if count > 0 {
-            Some(acc / count as f32)
-        } else {
-            None
-        }
+        (count > 0).then(|| acc / count as f32)
     }
 }
 
