@@ -293,7 +293,9 @@ impl ListNet {
         } = forward_pass;
 
         let nr_documents = inputs.shape()[0];
-        let p_cost_and_prob_dist = prob_dist_y - target_prob_dist;
+        let derivatives_of_clipping =
+            prob_dist_y.mapv(|v| (f32::EPSILON..=1.).contains(&v) as u8 as f32);
+        let p_cost_and_prob_dist = (prob_dist_y - target_prob_dist) * derivatives_of_clipping;
 
         let d_prob_dist = self
             .prob_dist
