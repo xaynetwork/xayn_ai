@@ -33,6 +33,9 @@ impl SyncData {
     }
 
     /// Merge another `SyncData` into the current one.
+    ///
+    /// <https://xainag.atlassian.net/wiki/spaces/XAY/pages/2029944833/CoI+synchronisation>
+    /// outlines the merge algorithm.
     pub(crate) fn merge(&mut self, other: SyncData) {
         let Self { user_interests } = other;
         self.user_interests.append(user_interests);
@@ -58,11 +61,9 @@ impl SyncData {
 
             self.user_interests
                 .positive
-                .retain(|coi| coi.id != min_coiple.cois.0.id || coi.id != min_coiple.cois.1.id);
+                .retain(|coi| !min_coiple.cois.contains(coi.id));
 
-            coiples.retain(|cpl| {
-                !cpl.contains(min_coiple.cois.0.id) && !cpl.contains(min_coiple.cois.1.id)
-            });
+            coiples.retain(|cpl| !cpl.cois.contains_any(&min_coiple.cois));
 
             let mut new_coiples = self
                 .user_interests
@@ -89,6 +90,16 @@ impl CoiPair {
         let min_id = self.0.id.0.min(self.1.id.0);
         self.0.from_merge(&self.1, min_id)
     }
+
+    /// True iff either CoI has the given id.
+    fn contains(&self, id: CoiId) -> bool {
+        self.0.id == id || self.1.id == id
+    }
+
+    /// True if either CoI is one of the given pair.
+    fn contains_any(&self, other: &Self) -> bool {
+        self.contains(other.0.id) || self.contains(self.1.id)
+    }
 }
 
 /// A `Coiple` is a pair of CoIs and the distance between them.
@@ -102,10 +113,6 @@ impl Coiple {
     fn new(coi1: &PositiveCoi, coi2: &PositiveCoi, dist: f32) -> Self {
         let cois = CoiPair(coi1.clone(), coi2.clone());
         Self { cois, dist }
-    }
-
-    fn contains(&self, id: CoiId) -> bool {
-        self.cois.0.id == id || self.cois.1.id == id
     }
 }
 

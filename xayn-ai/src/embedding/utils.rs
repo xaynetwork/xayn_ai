@@ -29,6 +29,18 @@ where
     distance
 }
 
+/// Computes the arithmetic mean of two vectors.
+///
+/// # Panics
+/// Panics if the vectors do not consist solely of real values.
+pub fn mean<A, S>(a: &A, b: &A) -> Embedding
+where
+    A: Deref<Target = ArrayBase<S, Ix1>>,
+    S: Data<Elem = f32>,
+{
+    (0.5 * (a.deref() + b.deref())).into()
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::arr1;
