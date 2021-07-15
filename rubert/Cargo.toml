@@ -19,3 +19,6 @@ tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
 
 [[example]]
 name = "smbert"
+
+[[example]]
+name = "qambert"
