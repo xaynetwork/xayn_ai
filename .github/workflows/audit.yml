@@ -23,7 +23,7 @@ jobs:
         run: |
           OUTCOME=0
           echo 'CARGO_AUDIT<<EOF' >> $GITHUB_ENV
-          cargo audit --deny warnings -q 2>&1 >> $GITHUB_ENV || OUTCOME=1
+          (((((cargo audit --deny warnings -q 2>&1; echo $? >&3) | sed 's/`/\\`/g' >&4) 3>&1) | (read xs; exit $xs)) 4>&1) >> $GITHUB_ENV || OUTCOME=1
           echo 'EOF' >> $GITHUB_ENV
           exit $OUTCOME
 
