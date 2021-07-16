@@ -5,10 +5,12 @@ use crate::{
     utils::nan_safe_f32_cmp_high,
     CoiId,
 };
+use anyhow::bail;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 const SOCIAL_DIST: f32 = 8.0;
+const CURRENT_SCHEMA_VERSION: u8 = 0;
 
 /// Synchronizable data of the reranker.
 #[cfg_attr(test, derive(Clone, PartialEq, Debug))]
@@ -20,22 +22,32 @@ pub(crate) struct SyncData {
 impl SyncData {
     /// Deserializes a `SyncData` from `bytes`.
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
-        if bytes.is_empty() {
-            return Ok(Self::default());
+        // version encoded in first byte
+        let version = bytes[0];
+        if version != CURRENT_SCHEMA_VERSION {
+            bail!(
+                "Unsupported serialized data. Found version {} expected {}.",
+                version,
+                CURRENT_SCHEMA_VERSION,
+            );
         }
 
-        Ok(bincode::deserialize(&bytes)?)
+        let data = bincode::deserialize(&bytes[1..])?;
+        Ok(data)
     }
 
     /// Serializes a `SyncData` to a byte representation.
     pub(crate) fn serialize(&self) -> Result<Vec<u8>, Error> {
-        Ok(bincode::serialize(self)?)
+        let size = bincode::serialized_size(self)? + 1;
+        let mut serialized = Vec::with_capacity(size as usize);
+        // version encoded in first byte
+        serialized.push(CURRENT_SCHEMA_VERSION);
+        bincode::serialize_into(&mut serialized, self)?;
+
+        Ok(serialized)
     }
 
     /// Synchronizes with another `SyncData`.
-    ///
-    /// <https://xainag.atlassian.net/wiki/spaces/XAY/pages/2029944833/CoI+synchronisation>
-    /// outlines the core of the algorithm.
     pub(crate) fn synchronize(&mut self, other: SyncData) {
         let Self { user_interests } = other;
         self.user_interests.append(user_interests);
@@ -97,6 +109,9 @@ where
 
 /// Reduces the given collection of CoIs by successively merging the pair in closest
 /// proximity to each other.
+///
+/// <https://xainag.atlassian.net/wiki/spaces/XAY/pages/2029944833/CoI+synchronisation>
+/// outlines the core of the algorithm.
 fn reduce_cois<C>(cois: &mut Vec<C>)
 where
     C: CoiPoint + Clone,

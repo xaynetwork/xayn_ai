@@ -1,9 +1,10 @@
 use anyhow::bail;
+use serde::Deserialize;
 use std::cell::RefCell;
 
-use crate::error::Error;
+use crate::{data::UserInterests, error::Error};
 
-use super::RerankerData;
+use super::{sync::SyncData, PreviousDocuments, RerankerData};
 
 #[cfg_attr(test, mockall::automock)]
 pub(crate) trait Database {
@@ -16,6 +17,25 @@ const CURRENT_SCHEMA_VERSION: u8 = 1;
 
 #[derive(Default)]
 pub(super) struct Db(RefCell<Option<RerankerData>>);
+
+/// Version 0 of `RerankerData` for backwards compatibility.
+#[derive(Deserialize)]
+struct RerankerData0 {
+    user_interests: UserInterests,
+    prev_documents: PreviousDocuments,
+}
+
+impl From<RerankerData0> for RerankerData {
+    fn from(data0: RerankerData0) -> Self {
+        let sync_data = SyncData {
+            user_interests: data0.user_interests,
+        };
+        Self {
+            sync_data,
+            prev_documents: data0.prev_documents,
+        }
+    }
+}
 
 impl Db {
     /// If `bytes` is empty it will return an empty database,
@@ -32,11 +52,17 @@ impl Db {
             bail!(
                 "Unsupported serialized data. Found version {} expected {}",
                 version,
-                CURRENT_SCHEMA_VERSION
+                CURRENT_SCHEMA_VERSION,
             );
         }
-        // TODO migration from version 0 to current
-        let data = bincode::deserialize(&bytes[1..])?;
+
+        // migration from version 0 to current
+        let data = if version == 0 {
+            let data0: RerankerData0 = bincode::deserialize(&bytes[1..])?;
+            data0.into()
+        } else {
+            bincode::deserialize(&bytes[1..])?
+        };
 
         Ok(Self(RefCell::new(Some(data))))
     }
