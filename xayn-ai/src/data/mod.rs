@@ -36,7 +36,7 @@ impl PositiveCoi {
         }
     }
 
-    pub(crate) fn from_merge(&self, other: &Self, id: usize) -> Self {
+    pub(crate) fn merge(&self, other: &Self, id: usize) -> Self {
         let point = mean(&self.point, &other.point);
         let (alpha, beta) = merge_params(self.alpha, self.beta, other.alpha, other.beta);
         Self {
@@ -48,11 +48,12 @@ impl PositiveCoi {
     }
 }
 
-/// Merges two beta distributions X ~ B(a1, b1), Y ~ B(a2, b2) into an "average" Z ~ B(a, b).
+/// Calculates an "average" beta distribution ~B(a, b) from the given two ~B(`a1`, `b1`), ~B(`a2`, `b2`).
 fn merge_params(a1: f32, b1: f32, a2: f32, b2: f32) -> (f32, f32) {
     let mean = |a, b| a / (a + b);
     let var = |a, b| a * b / (f32::powi(a + b, 2) * (a + b + 1.));
 
+    // geometric average of the mean and variance
     let avg_mean = f32::sqrt(mean(a1, b1) * mean(a2, b2));
     let avg_var = f32::sqrt(var(a1, b1) * var(a2, b2));
 
@@ -67,10 +68,20 @@ impl NegativeCoi {
             point,
         }
     }
+
+    pub fn merge(&self, other: &Self, id: usize) -> Self {
+        let point = mean(&self.point, &other.point);
+        Self {
+            id: CoiId(id),
+            point,
+        }
+    }
 }
 
 pub(crate) trait CoiPoint {
     fn new(id: usize, embedding: Embedding) -> Self;
+    fn merge(&self, other: &Self, id: usize) -> Self;
+    fn id(&self) -> CoiId;
     fn point(&self) -> &Embedding;
     fn set_point(&mut self, embedding: Embedding);
 }
@@ -80,6 +91,14 @@ macro_rules! impl_coi_point {
         impl CoiPoint for $type {
             fn new(id: usize, embedding: Embedding) -> Self {
                 <$type>::new(id, embedding)
+            }
+
+            fn merge(&self, other: &Self, id: usize) -> Self {
+                self.merge(other, id)
+            }
+
+            fn id(&self) -> CoiId {
+                self.id
             }
 
             fn point(&self) -> &Embedding {

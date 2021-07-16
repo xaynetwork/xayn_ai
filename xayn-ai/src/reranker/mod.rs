@@ -236,7 +236,7 @@ where
     #[allow(dead_code)] // TEMP
     pub(crate) fn synchronize(&mut self, bytes: &[u8]) -> Result<(), Error> {
         let remote_data = SyncData::deserialize(bytes)?;
-        self.data.sync_data.merge(remote_data);
+        self.data.sync_data.synchronize(remote_data);
         Ok(())
     }
 
