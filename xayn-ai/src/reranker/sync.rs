@@ -35,13 +35,15 @@ impl SyncData {
     /// Synchronizes with another `SyncData`.
     ///
     /// <https://xainag.atlassian.net/wiki/spaces/XAY/pages/2029944833/CoI+synchronisation>
-    /// outlines the algorithm.
+    /// outlines the core of the algorithm.
     pub(crate) fn synchronize(&mut self, other: SyncData) {
         let Self { user_interests } = other;
         self.user_interests.append(user_interests);
 
         reduce_cois(&mut self.user_interests.positive);
         reduce_cois(&mut self.user_interests.negative);
+
+        self.user_interests.reassign_ids();
     }
 }
 

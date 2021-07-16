@@ -1,6 +1,7 @@
 pub mod document;
 pub(crate) mod document_data;
 
+use itertools::izip;
 use serde::{Deserialize, Serialize};
 
 use crate::embedding::utils::{mean, Embedding};
@@ -82,6 +83,7 @@ pub(crate) trait CoiPoint {
     fn new(id: usize, embedding: Embedding) -> Self;
     fn merge(&self, other: &Self, id: usize) -> Self;
     fn id(&self) -> CoiId;
+    fn set_id(&mut self, id: usize);
     fn point(&self) -> &Embedding;
     fn set_point(&mut self, embedding: Embedding);
 }
@@ -99,6 +101,10 @@ macro_rules! impl_coi_point {
 
             fn id(&self) -> CoiId {
                 self.id
+            }
+
+            fn set_id(&mut self, id: usize) {
+                self.id = CoiId(id);
             }
 
             fn point(&self) -> &Embedding {
@@ -132,9 +138,34 @@ impl UserInterests {
 
     /// Moves all user interests of `other` into `Self`.
     pub(crate) fn append(&mut self, mut other: Self) {
-        self.positive.append(&mut other.positive);
-        self.negative.append(&mut other.negative);
-        // TODO drop dupe points, scheme for clashing ids
+        // TODO drop dupes in other
+        append_cois(&mut self.positive, &mut other.positive);
+        append_cois(&mut self.negative, &mut other.negative);
+    }
+
+    /// Re-assigns CoI ids for normalization.
+    pub(crate) fn reassign_ids(&mut self) {
+        reassign_coi_ids(&mut self.positive);
+        reassign_coi_ids(&mut self.negative);
+    }
+}
+
+fn append_cois<C>(locals: &mut Vec<C>, remotes: &mut Vec<C>)
+where
+    C: CoiPoint,
+{
+    // shift remote ids to avoid clashes with local ids
+    let max_local_id = locals.iter().map(|coi| coi.id().0).max().unwrap_or(0);
+    remotes
+        .iter_mut()
+        .for_each(|coi| coi.set_id(max_local_id + coi.id().0));
+
+    locals.append(remotes);
+}
+
+fn reassign_coi_ids(cois: &mut Vec<impl CoiPoint>) {
+    for (id, coi) in izip!(1..cois.len() + 1, cois) {
+        coi.set_id(id)
     }
 }
 
