@@ -352,7 +352,7 @@ impl Validator {
             self.errors[4], self.errors[9],
         );
         println!(
-            "  Cosine similarities: μ = {}, σ = {}",
+            "  Cosine similarity: μ = {}, σ = {}",
             self.errors[5], self.errors[10],
         );
     }
