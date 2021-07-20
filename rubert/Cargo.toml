@@ -19,3 +19,11 @@ tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
 
 [[example]]
 name = "mbert"
+
+[[example]]
+name = "validate"
+
+[dev-dependencies]
+csv = "1.1.6"
+indicatif = "0.16.2"
+onnxruntime = "0.0.12"
