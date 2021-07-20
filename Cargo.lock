@@ -1754,7 +1754,7 @@ dependencies = [
 [[package]]
 name = "tract-onnx"
 version = "0.15.0"
-source = "git+https://github.com/xaynetwork/tract?branch=master#b813d9b93c889b5c1744a3ad110e77fcba684c37"
+source = "git+https://github.com/xaynetwork/tract?branch=master#f4cdaddf9b689b9a87484455ae80d07912a2949b"
 dependencies = [
  "bytes",
  "derive-new",

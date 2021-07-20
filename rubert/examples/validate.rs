@@ -248,7 +248,7 @@ impl Validator {
         }
     }
 
-    /// Computes the l1-norm of the difference between source and target.
+    /// Computes the mean of the difference between source and target.
     fn mean_absolute_error(source: &Embedding2, target: &Embedding2) -> f32 {
         (source.deref() - target.deref())
             .mapv(|v| v.abs())
@@ -256,7 +256,7 @@ impl Validator {
             .unwrap_or_default()
     }
 
-    /// Computes the l1-norm of the difference between source and target relative to the source.
+    /// Computes the mean of the difference between source and target relative to the source.
     fn mean_relative_error(source: &Embedding2, target: &Embedding2) -> f32 {
         ((source.deref() - target.deref()) / source.deref())
             .mapv(|v| v.is_finite().then(|| v.abs()).unwrap_or_default())
@@ -264,7 +264,7 @@ impl Validator {
             .unwrap_or_default()
     }
 
-    /// Computes the l2-norm of the difference between source and target.
+    /// Computes the mean of the squared difference between source and target.
     fn mean_squared_absolute_error(source: &Embedding2, target: &Embedding2) -> f32 {
         (source.deref() - target.deref())
             .mapv(|v| v.powi(2))
@@ -273,7 +273,7 @@ impl Validator {
             .sqrt()
     }
 
-    /// Computes the l2-norm of the difference between source and target relative to the source.
+    /// Computes the mean of the squared difference between source and target relative to the source.
     fn mean_squared_relative_error(source: &Embedding2, target: &Embedding2) -> f32 {
         ((source.deref() - target.deref()) / source.deref())
             .mapv(|v| v.is_finite().then(|| v.powi(2)).unwrap_or_default())
@@ -284,14 +284,10 @@ impl Validator {
 
     /// Computes the cosine similarity between source and target.
     fn cosine_similarity(source: &Embedding2, target: &Embedding2) -> f32 {
-        let norm = source.mapv(|v| v.powi(2)).mean().unwrap_or_default().sqrt()
-            * target.mapv(|v| v.powi(2)).mean().unwrap_or_default().sqrt();
-        (norm.is_finite() && norm != 0.0)
-            .then(|| {
-                (source.deref() * target.deref() / norm)
-                    .sum()
-                    .clamp(-1.0, 1.0)
-            })
+        let norms =
+            source.mapv(|v| v.powi(2)).sum().sqrt() * target.mapv(|v| v.powi(2)).sum().sqrt();
+        (norms.is_finite() && norms > 0.0)
+            .then(|| (source.deref() * target.deref() / norms).sum())
             .unwrap_or_default()
     }
 
