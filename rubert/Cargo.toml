@@ -22,6 +22,7 @@ name = "mbert"
 
 [[example]]
 name = "validate"
+test = false
 
 [dev-dependencies]
 csv = "1.1.6"
