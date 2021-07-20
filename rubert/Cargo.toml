@@ -17,14 +17,18 @@ serde = { version = "1.0.126", features = ["derive"] }
 thiserror = "1.0.25"
 tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
 
+# example: validate (they can't be put under dev-dependencies because those are not allowed to be optional which in turn fails cross compilation in the ci)
+csv = { version = "1.1.6", optional = true }
+indicatif = { version = "0.16.2", optional = true }
+onnxruntime = { version = "0.0.12", optional = true }
+
+[features]
+validate = ["csv", "indicatif", "onnxruntime"]
+
 [[example]]
 name = "mbert"
 
 [[example]]
 name = "validate"
 test = false
-
-[dev-dependencies]
-csv = "1.1.6"
-indicatif = "0.16.2"
-onnxruntime = "0.0.12"
+required-features = ["validate"]
