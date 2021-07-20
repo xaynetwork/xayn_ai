@@ -34,7 +34,8 @@ use self::{
 use self::ndutils::io::{BinParamsWithScope, FailedToRetrieveParams};
 
 mod ndlayers;
-mod ndutils;
+//Pub for dev-tool
+pub mod ndutils;
 
 pub mod optimizer;
 

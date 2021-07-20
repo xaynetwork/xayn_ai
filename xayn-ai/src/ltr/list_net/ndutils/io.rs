@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// The flattened array is in row-major order.
 #[derive(Serialize)]
 #[cfg_attr(test, derive(Debug, Default, PartialEq))]
-pub(crate) struct FlattenedArray<A> {
+pub struct FlattenedArray<A> {
     shape: Vec<Ix>,
     /// There is a invariant that the length of data is
     /// equal to the product of all values in shape.
@@ -118,7 +118,7 @@ where
 /// so we must deserialize it as a `Vec<usize>` (or similar) and then convert
 /// it. But `ndarray` only ships with conversion methods from `Vec<Ix>`/`&[Ix]`
 /// to `IxDyn` but not to the various specific dims.
-pub(crate) trait TryIntoDimension: Sized {
+pub trait TryIntoDimension: Sized {
     fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions>;
 }
 
@@ -143,25 +143,23 @@ impl TryIntoDimension for IxDyn {
 }
 #[derive(Default, Serialize, Deserialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
-pub(crate) struct BinParams {
+pub struct BinParams {
     params: HashMap<String, FlattenedArray<f32>>,
 }
 
 impl BinParams {
-    pub(crate) fn deserialize_from_file(
-        file: impl AsRef<Path>,
-    ) -> Result<Self, LoadingBinParamsFailed> {
+    pub fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, LoadingBinParamsFailed> {
         let file = File::open(file)?;
         let source = BufReader::new(file);
         Self::deserialize_from(source)
     }
 
-    pub(crate) fn deserialize_from(source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
+    pub fn deserialize_from(source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
         let bincode = Self::setup_bincode();
         bincode.deserialize_from(source).map_err(Into::into)
     }
 
-    pub(crate) fn serialize_into_file(
+    pub fn serialize_into_file(
         &self,
         path: impl AsRef<Path>,
     ) -> Result<(), Box<bincode::ErrorKind>> {
@@ -170,7 +168,7 @@ impl BinParams {
         self.serialize_into(writer)
     }
 
-    pub(crate) fn serialize_into(&self, writer: impl Write) -> Result<(), Box<bincode::ErrorKind>> {
+    pub fn serialize_into(&self, writer: impl Write) -> Result<(), Box<bincode::ErrorKind>> {
         let bincode = Self::setup_bincode();
         bincode.serialize_into(writer, self)
     }
@@ -185,16 +183,16 @@ impl BinParams {
     }
 
     /// True if this instance is empty.
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.params.is_empty()
     }
 
     /// List the keys contained in this instance.
-    pub(crate) fn keys(&self) -> impl Iterator<Item = &str> {
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
         self.params.keys().map(|s| &**s)
     }
 
-    pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
+    pub fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
     {
@@ -207,7 +205,7 @@ impl BinParams {
             .map_err(Into::into)
     }
 
-    pub(crate) fn insert<A>(&mut self, name: impl Into<String>, array: A)
+    pub fn insert<A>(&mut self, name: impl Into<String>, array: A)
     where
         FlattenedArray<f32>: From<A>,
     {
@@ -218,11 +216,31 @@ impl BinParams {
     ///
     /// The name prefix will be  scope + '/'. Passing a empty
     /// scope in is possible.
-    pub(crate) fn with_scope<'b>(&'b mut self, scope: &str) -> BinParamsWithScope<'b> {
+    pub fn with_scope<'b>(&'b mut self, scope: &str) -> BinParamsWithScope<'b> {
         BinParamsWithScope {
             params: self,
             prefix: scope.to_owned() + "/",
         }
+    }
+}
+
+impl IntoIterator for BinParams {
+    type Item = (String, FlattenedArray<f32>);
+
+    type IntoIter = BinParamsIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BinParamsIntoIter(self.params.into_iter())
+    }
+}
+
+pub struct BinParamsIntoIter(std::collections::hash_map::IntoIter<String, FlattenedArray<f32>>);
+
+impl Iterator for BinParamsIntoIter {
+    type Item = (String, FlattenedArray<f32>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
     }
 }
 
@@ -239,13 +257,13 @@ pub enum LoadingBinParamsFailed {
 //Note: In the future we might have some Loader trait but given
 //that we currently only use it at one place that would be
 //overkill
-pub(crate) struct BinParamsWithScope<'a> {
+pub struct BinParamsWithScope<'a> {
     params: &'a mut BinParams,
     prefix: String,
 }
 
 impl<'a> BinParamsWithScope<'a> {
-    pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
+    pub fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
     {
@@ -253,7 +271,7 @@ impl<'a> BinParamsWithScope<'a> {
         self.params.take(&name)
     }
 
-    pub(crate) fn insert<A>(&mut self, name: &str, array: A)
+    pub fn insert<A>(&mut self, name: &str, array: A)
     where
         FlattenedArray<f32>: From<A>,
     {
@@ -266,7 +284,7 @@ impl<'a> BinParamsWithScope<'a> {
     }
 
     #[cfg(test)]
-    pub(crate) fn with_scope(&mut self, scope: &str) -> BinParamsWithScope {
+    pub fn with_scope(&mut self, scope: &str) -> BinParamsWithScope {
         BinParamsWithScope {
             params: &mut *self.params,
             prefix: self.prefix.clone() + "/" + scope,
