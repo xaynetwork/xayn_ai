@@ -47,7 +47,7 @@ fn main() {
 }
 
 /// The available model kinds.
-#[allow(dead_code)]
+#[allow(dead_code, clippy::enum_variant_names, clippy::upper_case_acronyms)]
 enum ModelKind {
     /// A SMBert or QAMBert model for the onnx runtime.
     OnnxMBert,
@@ -101,6 +101,7 @@ impl<R: RangeBounds<usize>> ValidatorConfig<R> {
 }
 
 /// The available MBert model pipelines.
+#[allow(clippy::enum_variant_names, clippy::upper_case_acronyms)]
 enum Pipeline {
     /// A SMBert or QAMBert model pipeline for the onnx runtime.
     OnnxMBert {
