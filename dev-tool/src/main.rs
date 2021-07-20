@@ -7,6 +7,7 @@ use structopt::StructOpt;
 
 use crate::exit_code::{FATAL_ERROR, NO_ERROR};
 
+mod bin_params;
 mod call_data;
 mod exit_code;
 mod list_net;
@@ -16,7 +17,7 @@ mod list_net;
 enum CommandArgs {
     RunCallData(call_data::CallDataCmd),
     ListNet(list_net::ListNetCmd),
-    //TODO BinParams(...) dev-tool bin-params inspect --print-data <file>
+    BinParams(bin_params::BinParamsCmd),
 }
 
 impl CommandArgs {
@@ -26,6 +27,7 @@ impl CommandArgs {
         match self {
             RunCallData(cmd) => cmd.run(),
             ListNet(cmd) => cmd.run(),
+            BinParams(cmd) => cmd.run(),
         }
     }
 }
@@ -42,9 +44,9 @@ fn main() {
     };
 
     if exit_code == NO_ERROR {
-        eprint!("DONE");
+        eprintln!("DONE");
     } else {
-        eprint!("EXIT WITH ERRORS");
+        eprintln!("EXIT WITH ERRORS");
     }
     exit(exit_code);
 }
