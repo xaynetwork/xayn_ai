@@ -139,7 +139,7 @@ impl TrainingController for CliTrainingController {
                 .progress_chars("=> "),
         );
         multibar.add(epoch_bar.clone());
-        // Drive bar output.
+        // Needed or else bars won't print to screen.
         std::thread::spawn(move || multibar.join());
         train_bar.tick();
         epoch_bar.tick();

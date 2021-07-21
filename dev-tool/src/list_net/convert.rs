@@ -57,7 +57,7 @@ impl ConvertCmd {
             }
         }
 
-        debug!("Write binparams file.");
+        debug!("Write binsamples file.");
         storage.write_to_file(out)?;
 
         Ok(())
@@ -102,7 +102,7 @@ struct SoundgardenUserDfRecord {
 impl SoundgardenUserDfRecord {
     fn into_document_history_with_bad_user_action(
         self,
-        per_user_query_counter: u32,
+        per_user_result_counter: u32,
     ) -> DocumentHistory {
         let Self {
             session_id,
@@ -118,7 +118,7 @@ impl SoundgardenUserDfRecord {
         } = self;
 
         DocumentHistory {
-            id: DocumentId(id2uuid(user_id, Some(per_user_query_counter))),
+            id: DocumentId(id2uuid(user_id, Some(per_user_result_counter))),
             relevance,
             user_feedback: UserFeedback::NotGiven,
             session: SessionId(id2uuid(session_id, None)),
@@ -129,7 +129,7 @@ impl SoundgardenUserDfRecord {
             url,
             domain,
             rank: position.checked_sub(1).unwrap(),
-            user_action: UserAction::Click,
+            user_action: UserAction::Miss,
         }
     }
 }
@@ -184,4 +184,262 @@ fn id2uuid(sub_id: usize, sub_id2: Option<u32>) -> Uuid {
     let sub_id2 = sub_id2.unwrap_or(DEFAULT_SUB_ID_2);
     let sub_id2 = (sub_id2 as u128) << 96;
     uuid::Uuid::from_u128(sub_id2 | BASE_UUID | (sub_id as u128))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_id2uuid() {
+        assert_eq!(
+            id2uuid(0, Some(0)),
+            Uuid::from_u128(0x00000000_eb92_4d36_0000_000000000000)
+        );
+        assert_eq!(
+            id2uuid(0, None),
+            Uuid::from_u128(0xd006a685_eb92_4d36_0000_000000000000)
+        );
+        assert_eq!(
+            id2uuid(usize::MAX, Some(u32::MAX)),
+            Uuid::from_u128(0xffffffff_eb92_4d36_ffff_ffffffffffff)
+        )
+    }
+
+    #[test]
+    fn test_day_from_offset() {
+        assert_eq!(day_from_day_offset(0), DayOfWeek::Mon);
+        assert_eq!(day_from_day_offset(1), DayOfWeek::Tue);
+        assert_eq!(day_from_day_offset(2), DayOfWeek::Wed);
+        assert_eq!(day_from_day_offset(3), DayOfWeek::Thu);
+        assert_eq!(day_from_day_offset(4), DayOfWeek::Fri);
+        assert_eq!(day_from_day_offset(5), DayOfWeek::Sat);
+        assert_eq!(day_from_day_offset(6), DayOfWeek::Sun);
+        assert_eq!(day_from_day_offset(7), DayOfWeek::Mon);
+        assert_eq!(day_from_day_offset(8), DayOfWeek::Tue);
+    }
+
+    #[test]
+    fn test_soundgarden_record_to_document_history() {
+        let record = SoundgardenUserDfRecord {
+            session_id: 10,
+            query_id: 23,
+            user_id: 142313,
+            day: 17,
+            query_words: "123,432".to_owned(),
+            url: "32".to_owned(),
+            domain: "23".to_owned(),
+            relevance: Relevance::Medium,
+            position: 4,
+            query_counter: 12,
+        };
+        let expected = DocumentHistory {
+            id: DocumentId(id2uuid(142313, Some(u32::MAX))),
+            relevance: Relevance::Medium,
+            user_feedback: UserFeedback::NotGiven,
+            session: SessionId(id2uuid(10, None)),
+            query_count: 12,
+            query_id: QueryId(id2uuid(23, None)),
+            query_words: "123,432".to_owned(),
+            day: DayOfWeek::Thu,
+            url: "32".to_owned(),
+            domain: "23".to_owned(),
+            rank: 3,
+            user_action: UserAction::Miss,
+        };
+
+        let history = record.into_document_history_with_bad_user_action(u32::MAX);
+
+        assert_eq!(history, expected);
+    }
+
+    #[test]
+    fn test_fix_user_action_in_history() {
+        let mut history = vec![
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(0))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 0,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar/a".to_owned(),
+                domain: "bar/foo".to_owned(),
+                rank: 0,
+                user_action: UserAction::Miss,
+            },
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(1))),
+                relevance: Relevance::Medium,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 0,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar/b".to_owned(),
+                domain: "bar/foo".to_owned(),
+                rank: 1,
+                user_action: UserAction::Miss,
+            },
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(2))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 0,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar".to_owned(),
+                domain: "bar/foo/t".to_owned(),
+                rank: 2,
+                user_action: UserAction::Miss,
+            },
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(3))),
+                relevance: Relevance::High,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 0,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar".to_owned(),
+                domain: "bar-foo/fu".to_owned(),
+                rank: 3,
+                user_action: UserAction::Miss,
+            },
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(4))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 0,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "bar/bar".to_owned(),
+                domain: "bar".to_owned(),
+                rank: 4,
+                user_action: UserAction::Miss,
+            },
+            /* ---- */
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(5))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 1,
+                query_id: QueryId(id2uuid(52, None)),
+                query_words: "bar,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar".to_owned(),
+                domain: "bar/foo".to_owned(),
+                rank: 0,
+                user_action: UserAction::Miss,
+            },
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(6))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 1,
+                query_id: QueryId(id2uuid(52, None)),
+                query_words: "bar,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foobar".to_owned(),
+                domain: "barfoo".to_owned(),
+                rank: 1,
+                user_action: UserAction::Miss,
+            },
+            /* ---- */
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(7))),
+                relevance: Relevance::High,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 2,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar".to_owned(),
+                domain: "bar/foo".to_owned(),
+                rank: 0,
+                user_action: UserAction::Miss,
+            },
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(8))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 2,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar".to_owned(),
+                domain: "bar/foo".to_owned(),
+                rank: 1,
+                user_action: UserAction::Miss,
+            },
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(9))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 2,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar".to_owned(),
+                domain: "bar/foo".to_owned(),
+                rank: 2,
+                user_action: UserAction::Miss,
+            },
+            /* ---- */
+            DocumentHistory {
+                id: DocumentId(id2uuid(12, Some(10))),
+                relevance: Relevance::Low,
+                user_feedback: UserFeedback::NotGiven,
+                session: SessionId(id2uuid(3441, None)),
+                query_count: 3,
+                query_id: QueryId(id2uuid(42, None)),
+                query_words: "foo,bar".to_owned(),
+                day: DayOfWeek::Wed,
+                url: "foo/bar".to_owned(),
+                domain: "bar/foo".to_owned(),
+                rank: 0,
+                user_action: UserAction::Miss,
+            },
+        ];
+        let fixed_history = &[
+            doc_with_action(&history[0], UserAction::Skip),
+            doc_with_action(&history[1], UserAction::Click),
+            doc_with_action(&history[2], UserAction::Skip),
+            doc_with_action(&history[3], UserAction::Click),
+            doc_with_action(&history[4], UserAction::Miss),
+            /* ---- */
+            doc_with_action(&history[5], UserAction::Miss),
+            doc_with_action(&history[6], UserAction::Miss),
+            /* ---- */
+            doc_with_action(&history[7], UserAction::Click),
+            doc_with_action(&history[8], UserAction::Miss),
+            doc_with_action(&history[9], UserAction::Miss),
+            doc_with_action(&history[10], UserAction::Miss),
+        ];
+
+        assert_eq!(history.len(), fixed_history.len());
+
+        fix_user_actions_in_history(&mut history);
+
+        assert_eq!(history, fixed_history);
+
+        fn doc_with_action(doc: &DocumentHistory, action: UserAction) -> DocumentHistory {
+            let mut doc = doc.clone();
+            doc.user_action = action;
+            doc
+        }
+    }
 }

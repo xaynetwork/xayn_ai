@@ -13,14 +13,7 @@ use super::{
 pub struct TrainCmd {
     /// A file containing samples we can train and evaluate on.
     #[structopt(long)]
-    database: PathBuf,
-
-    /// Randomly sample n users from the training data.
-    ///
-    /// Similarly `n/(1.0-evaluation_split)*evaluation_split` users will be sampled
-    /// from the evaluation data.
-    #[structopt(long)]
-    sample_users: Option<usize>,
+    data: PathBuf,
 
     /// The number of epochs to run.
     #[structopt(long)]
@@ -61,8 +54,7 @@ pub struct TrainCmd {
 impl TrainCmd {
     pub fn run(self) -> Result<(), Error> {
         let TrainCmd {
-            database,
-            sample_users,
+            data: database,
             epochs,
             batch_size,
             evaluation_split,
@@ -72,10 +64,6 @@ impl TrainCmd {
             dump_every,
             dump_initial_parameters,
         } = self;
-
-        if sample_users.is_some() {
-            panic!("Not yet implemented: --sample-users=<n>");
-        }
 
         let storage =
             InMemoryData::load_from_file(database).context("loading training/eval data failed")?;
