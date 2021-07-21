@@ -601,16 +601,19 @@ where
         batch_size: usize,
     ) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
         self.callbacks
-            .begin_of_training(&self.list_net)
+            .begin_of_training(epochs, &self.list_net)
             .map_err(TrainingError::Control)?;
 
         for _ in 0..epochs {
-            self.data_source.reset();
+            let nr_batches = self
+                .data_source
+                .reset(batch_size)
+                .map_err(TrainingError::Data)?;
             self.callbacks
-                .begin_of_epoch(&self.list_net)
+                .begin_of_epoch(nr_batches, &self.list_net)
                 .map_err(TrainingError::Control)?;
 
-            while self.train_next_batch(batch_size)? {}
+            while self.train_next_batch()? {}
             let evaluation_results = self.evaluate_epoch(kl_divergence)?;
 
             self.callbacks
@@ -630,10 +633,7 @@ where
     ///
     /// If there where no more batches to train on this return false, else this
     /// returns true.
-    fn train_next_batch(
-        &mut self,
-        batch_size: usize,
-    ) -> Result<bool, TrainingError<D::Error, C::Error>> {
+    fn train_next_batch(&mut self) -> Result<bool, TrainingError<D::Error, C::Error>> {
         let ListNetTrainer {
             list_net,
             data_source,
@@ -642,7 +642,7 @@ where
         } = self;
 
         let batch = data_source
-            .next_training_batch(batch_size)
+            .next_training_batch()
             .map_err(TrainingError::Data)?;
         if batch.is_empty() {
             return Ok(false);
@@ -714,24 +714,30 @@ pub struct Sample<'a> {
 pub trait DataSource {
     type Error: StdError + 'static;
 
-    /// Resets the "iteration" of training and evaluation samples.
+    /// Resets/initializes the "iteration" of training and evaluation samples.
+    ///
+    /// This returns the expected number of batches in the next epoch.
     ///
     /// This is allowed to also *change* the training and evaluation
     /// samples and/or their order. E.g. this could shuffle them
     /// before every epoch.
     ///
     /// This is called at the *begin* of every epoch.
-    fn reset(&mut self);
+    fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error>;
 
-    /// Returns the next `batch_size` number of training samples.
+    /// Returns the next batch of training samples.
+    ///
+    /// The batch will have the size last set when calling reset.
     ///
     /// Returns a empty vector once all training samples have been returned.
+    ///
+    /// If reset wasn't called before this should return a error.
     ///
     /// # Panics
     ///
     /// A batch size of 0 is not valid. And implementors are allowed to
     /// panic if it's passed in.
-    fn next_training_batch(&mut self, batch_size: usize) -> Result<Vec<Sample>, Self::Error>;
+    fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error>;
 
     /// Returns the next evaluation sample.
     ///
@@ -751,7 +757,7 @@ pub trait TrainingController {
     fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error>;
 
     /// Called at the begin of each epoch.
-    fn begin_of_epoch(&mut self, list_net: &ListNet) -> Result<(), Self::Error>;
+    fn begin_of_epoch(&mut self, nr_batches: usize, list_net: &ListNet) -> Result<(), Self::Error>;
 
     /// Called at the end of each epoch with the mean of running the evaluation with KL-Divergence.
     ///
@@ -764,7 +770,11 @@ pub trait TrainingController {
     ) -> Result<(), Self::Error>;
 
     /// Called at the begin of training.
-    fn begin_of_training(&mut self, list_net: &ListNet) -> Result<(), Self::Error>;
+    fn begin_of_training(
+        &mut self,
+        nr_epochs: usize,
+        list_net: &ListNet,
+    ) -> Result<(), Self::Error>;
 
     /// Called after training finished.
     fn end_of_training(&mut self) -> Result<(), Self::Error>;
@@ -1125,6 +1135,7 @@ mod tests {
     }
 
     struct VecDataSource {
+        batch_size: usize,
         training_data_idx: usize,
         training_data: Vec<(Array2<f32>, Array1<f32>)>,
         evaluation_data_idx: usize,
@@ -1137,6 +1148,7 @@ mod tests {
             evaluation_data: Vec<(Array2<f32>, Array1<f32>)>,
         ) -> Self {
             Self {
+                batch_size: 0,
                 training_data_idx: 0,
                 training_data,
                 evaluation_data_idx: 0,
@@ -1146,23 +1158,28 @@ mod tests {
     }
 
     #[derive(Error, Debug)]
-    #[error("Batch Size 0 is not supported")]
+    #[error("Batch Size 0 is not supported (or reset was not called)")]
     struct BatchSize0Error;
 
     impl DataSource for VecDataSource {
         type Error = BatchSize0Error;
 
-        fn reset(&mut self) {
-            self.training_data_idx = 0;
-            self.evaluation_data_idx = 0;
-        }
-
-        fn next_training_batch(&mut self, batch_size: usize) -> Result<Vec<Sample>, Self::Error> {
+        fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error> {
             if batch_size == 0 {
                 return Err(BatchSize0Error);
             }
+            self.batch_size = batch_size;
+            self.training_data_idx = 0;
+            self.evaluation_data_idx = 0;
+            Ok(self.training_data.len() / batch_size)
+        }
 
-            let end_idx = self.training_data_idx + batch_size;
+        fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
+            if self.batch_size == 0 {
+                return Err(BatchSize0Error);
+            }
+
+            let end_idx = self.training_data_idx + self.batch_size;
             if end_idx <= self.training_data.len() {
                 let start_idx = self.training_data_idx;
                 self.training_data_idx = end_idx;
@@ -1224,7 +1241,11 @@ mod tests {
             Ok(())
         }
 
-        fn begin_of_epoch(&mut self, _list_net: &ListNet) -> Result<(), Self::Error> {
+        fn begin_of_epoch(
+            &mut self,
+            _nr_batches: usize,
+            _list_net: &ListNet,
+        ) -> Result<(), Self::Error> {
             eprintln!("begin of epoch");
             Ok(())
         }
@@ -1240,7 +1261,11 @@ mod tests {
             Ok(())
         }
 
-        fn begin_of_training(&mut self, _list_net: &ListNet) -> Result<(), Self::Error> {
+        fn begin_of_training(
+            &mut self,
+            _nr_epochs: usize,
+            _list_net: &ListNet,
+        ) -> Result<(), Self::Error> {
             eprintln!("begin of training");
             Ok(())
         }

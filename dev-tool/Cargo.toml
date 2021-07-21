@@ -20,6 +20,10 @@ log = "0.4.14"
 env_logger =  "0.9.0"
 thiserror = "1.0.26"
 displaydoc = "0.2.3"
+csv = "1.1.6"
+uuid = "0.8.2"
+itertools = "0.10.0"
+indicatif = "0.16.2"
 
 [dev-dependencies]
 float-cmp = "0.8.0"

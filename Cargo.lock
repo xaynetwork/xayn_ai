@@ -341,9 +341,12 @@ dependencies = [
  "anyhow",
  "base64",
  "bincode",
+ "csv",
  "displaydoc",
  "env_logger",
  "float-cmp",
+ "indicatif",
+ "itertools",
  "log",
  "ndarray",
  "rand",
@@ -351,6 +354,7 @@ dependencies = [
  "serde_json",
  "structopt",
  "thiserror",
+ "uuid",
  "xayn-ai",
 ]
 

@@ -11,6 +11,7 @@ use std::{
 use anyhow::Error;
 use bincode::Options;
 use displaydoc::Display;
+use log::debug;
 use ndarray::{ArrayBase, ArrayView, ArrayView1, ArrayView2, Data, Dimension};
 use rand::{prelude::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
@@ -23,6 +24,7 @@ where
     S: Storage,
 {
     storage: S,
+    batch_size: Option<usize>,
     training_data_order: DataLookupOrder,
     evaluation_data_order: DataLookupOrder,
 }
@@ -46,12 +48,16 @@ where
         if nr_evaluation_samples >= nr_all_samples {
             return Err(DataSourceError::ToLargeEvaluationSplit(evaluation_split));
         }
+        if nr_evaluation_samples == 0 && evaluation_split > 0. {
+            return Err(DataSourceError::NoEvaluationSamples(evaluation_split));
+        }
         let nr_training_samples = nr_all_samples - nr_evaluation_samples;
         let evaluation_ids = (nr_training_samples..nr_all_samples).collect();
         let training_ids = (0..nr_training_samples).collect();
 
         Ok(Self {
             storage,
+            batch_size: None,
             training_data_order: DataLookupOrder::new(training_ids),
             evaluation_data_order: DataLookupOrder::new(evaluation_ids),
         })
@@ -65,10 +71,16 @@ where
 {
     /// Unusable evaluation split: Assertion `split >= 0 && split.is_normal()` failed (split = {0}).
     BadEvaluationSplit(f32),
-    ///  Unusable evaluation split: With evaluation split {0} no samples are left for training.
+    /// Unusable evaluation split: With evaluation split {0} no samples are left for training.
     ToLargeEvaluationSplit(f32),
+    /// Unusable evaluation split: Assertion `nr_evaluation_samples > 0 || split == 0` failed (split = {0})
+    NoEvaluationSamples(f32),
     /// A batch size of 0 is not usable for training.
     BatchSize0,
+    /// The batch size is larger then the number of samples.
+    ToLargeBatchSize(usize),
+    /// Not reset/initialized.
+    ResetWasNotCalledBeforeTraining,
     /// Empty database can not be used for training.
     EmptyDatabase,
     /// Fetching sample from storage failed: {0}.
@@ -81,16 +93,27 @@ where
 {
     type Error = DataSourceError<S::Error>;
 
-    fn reset(&mut self) {
-        let mut rng = rand::thread_rng();
-        self.training_data_order.reset(&mut rng);
-        self.evaluation_data_order.reset(&mut rng);
-    }
-
-    fn next_training_batch(&mut self, batch_size: usize) -> Result<Vec<Sample>, Self::Error> {
+    fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error> {
         if batch_size == 0 {
             return Err(DataSourceError::BatchSize0);
         }
+        let mut rng = rand::thread_rng();
+        self.batch_size = Some(batch_size);
+        self.training_data_order.reset(&mut rng);
+        self.evaluation_data_order.reset(&mut rng);
+
+        let nr_batches = self.training_data_order.number_of_batches(batch_size);
+        if nr_batches == 0 {
+            return Err(DataSourceError::ToLargeBatchSize(nr_batches));
+        }
+        Ok(nr_batches)
+    }
+
+    fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
+        let batch_size = self
+            .batch_size
+            .ok_or(DataSourceError::ResetWasNotCalledBeforeTraining)?;
+
         let ids = self.training_data_order.next_batch(batch_size);
         if ids.is_empty() {
             return Ok(Vec::new());
@@ -150,8 +173,13 @@ impl DataLookupOrder {
         }
     }
 
+    fn number_of_batches(&self, batch_size: usize) -> usize {
+        self.data_ids.len() / batch_size
+    }
+
     fn reset(&mut self, rng: &mut impl Rng) {
         self.data_ids.shuffle(rng);
+        self.data_ids_offset = 0;
     }
 
     fn next(&mut self) -> Option<DataId> {
@@ -219,9 +247,9 @@ impl InMemoryData {
     }
 
     fn deserialize_from(reader: impl Read) -> Result<Self, Error> {
-        bincode::DefaultOptions::new()
-            .deserialize_from(reader)
-            .map_err(Into::into)
+        let self_: Self = bincode::DefaultOptions::new().deserialize_from(reader)?;
+        debug!("Loaded {} samples.", self_.data.len());
+        Ok(self_)
     }
 
     fn load_sample_helper(&self, id: DataId) -> Result<Sample, StorageError> {
