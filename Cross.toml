@@ -1,2 +1,2 @@
 [build.env]
-passthrough = ["RUSTFLAGS"]
+passthrough = ["CARGO_INCREMENTAL", "RUSTFLAGS"]
