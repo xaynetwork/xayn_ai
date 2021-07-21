@@ -27,9 +27,8 @@ struct RerankerData0 {
 
 impl From<RerankerData0> for RerankerData {
     fn from(data0: RerankerData0) -> Self {
-        let sync_data = SyncData {
-            user_interests: data0.user_interests,
-        };
+        let user_interests = data0.user_interests;
+        let sync_data = SyncData { user_interests };
         Self {
             sync_data,
             prev_documents: data0.prev_documents,
@@ -48,7 +47,7 @@ impl Db {
 
         // version is encoded in the first byte
         let version = bytes[0];
-        if version != CURRENT_SCHEMA_VERSION && version != 0 {
+        if version > CURRENT_SCHEMA_VERSION {
             bail!(
                 "Unsupported serialized data. Found version {} expected {}",
                 version,

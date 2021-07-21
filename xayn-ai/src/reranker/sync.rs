@@ -9,7 +9,7 @@ use anyhow::bail;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-const SOCIAL_DIST: f32 = 8.0;
+const MERGE_THRESHOLD_DIST: f32 = 4.5;
 const CURRENT_SCHEMA_VERSION: u8 = 0;
 
 /// Synchronizable data of the reranker.
@@ -68,10 +68,10 @@ where
     C: CoiPoint,
 {
     /// Merges the CoI pair, assigning it the smaller of the two ids.
-    fn merge(&self) -> C {
+    fn merge(self) -> C {
         let CoiId(id1) = self.0.id();
         let CoiId(id2) = self.1.id();
-        self.0.merge(&self.1, id1.min(id2))
+        self.0.merge(self.1, id1.min(id2))
     }
 
     /// True iff either CoI has the given id.
@@ -124,30 +124,32 @@ where
         .filter(|(coi1, coi2)| coi1.id() < coi2.id())
         .filter_map(|(coi1, coi2)| {
             let dist = dist(coi1, coi2);
-            (dist < SOCIAL_DIST).then(|| Coiple::new(coi1.clone(), coi2.clone(), dist))
+            (dist < MERGE_THRESHOLD_DIST).then(|| Coiple::new(coi1.clone(), coi2.clone(), dist))
         })
         .collect_vec();
 
     while !coiples.is_empty() {
-        // find the minimum i.e. closest coiple
-        let min_coiple = coiples
+        // find the minimum i.e. closest pair of cois
+        let min_pair = coiples
             .iter()
             .cloned()
             .min_by(|cpl1, cpl2| nan_safe_f32_cmp_high(&cpl1.dist, &cpl2.dist))
-            .unwrap(); // safe: nonempty coiples
+            .unwrap() // safe: nonempty coiples
+            .cois;
 
-        let merged_coi = min_coiple.cois.merge();
+        // discard pair from collections
+        cois.retain(|coi| !min_pair.contains(coi.id()));
+        coiples.retain(|cpl| !cpl.cois.contains_any(&min_pair));
 
-        // discard component cois
-        cois.retain(|coi| !min_coiple.cois.contains(coi.id()));
-        coiples.retain(|cpl| !cpl.cois.contains_any(&min_coiple.cois));
+        let merged_coi = min_pair.merge();
 
         // record close coiples featuring the merged coi
         let mut new_coiples = cois
             .iter()
             .filter_map(|coi| {
                 let dist = dist(&merged_coi, coi);
-                (dist < SOCIAL_DIST).then(|| Coiple::new(merged_coi.clone(), coi.clone(), dist))
+                (dist < MERGE_THRESHOLD_DIST)
+                    .then(|| Coiple::new(merged_coi.clone(), coi.clone(), dist))
             })
             .collect_vec();
         coiples.append(&mut new_coiples);

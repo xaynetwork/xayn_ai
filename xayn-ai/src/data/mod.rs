@@ -37,7 +37,7 @@ impl PositiveCoi {
         }
     }
 
-    pub(crate) fn merge(&self, other: &Self, id: usize) -> Self {
+    pub(crate) fn merge(self, other: Self, id: usize) -> Self {
         let point = mean(&self.point, &other.point);
         let (alpha, beta) = merge_params(self.alpha, self.beta, other.alpha, other.beta);
         Self {
@@ -50,6 +50,9 @@ impl PositiveCoi {
 }
 
 /// Calculates an "average" beta distribution ~B(a, b) from the given two ~B(`a1`, `b1`), ~B(`a2`, `b2`).
+///
+/// <https://xainag.atlassian.net/wiki/spaces/XAY/pages/2029944833/CoI+synchronisation>
+/// outlines the calculation.
 fn merge_params(a1: f32, b1: f32, a2: f32, b2: f32) -> (f32, f32) {
     let mean = |a, b| a / (a + b);
     let var = |a, b| a * b / (f32::powi(a + b, 2) * (a + b + 1.));
@@ -70,18 +73,16 @@ impl NegativeCoi {
         }
     }
 
-    pub fn merge(&self, other: &Self, id: usize) -> Self {
+    pub fn merge(self, other: Self, id: usize) -> Self {
+        let id = CoiId(id);
         let point = mean(&self.point, &other.point);
-        Self {
-            id: CoiId(id),
-            point,
-        }
+        Self { id, point }
     }
 }
 
 pub(crate) trait CoiPoint {
     fn new(id: usize, embedding: Embedding) -> Self;
-    fn merge(&self, other: &Self, id: usize) -> Self;
+    fn merge(self, other: Self, id: usize) -> Self;
     fn id(&self) -> CoiId;
     fn set_id(&mut self, id: usize);
     fn point(&self) -> &Embedding;
@@ -95,7 +96,7 @@ macro_rules! impl_coi_point {
                 <$type>::new(id, embedding)
             }
 
-            fn merge(&self, other: &Self, id: usize) -> Self {
+            fn merge(self, other: Self, id: usize) -> Self {
                 self.merge(other, id)
             }
 
