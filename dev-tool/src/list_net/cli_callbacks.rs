@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::{convert::TryInto, path::PathBuf, time::Instant};
 
 use bincode::Error;
-use log::{info, trace};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use log::{debug, info, trace};
 use xayn_ai::list_net::{ListNet, TrainingController};
 
 pub(crate) struct CliTrainingControllerBuilder {
@@ -16,6 +17,9 @@ impl CliTrainingControllerBuilder {
             setting: self,
             current_epoch: 0,
             current_batch: 0,
+            start_time: None,
+            epoch_progress_bar: None,
+            train_progress_bar: None,
         }
     }
 }
@@ -24,6 +28,9 @@ pub(crate) struct CliTrainingController {
     setting: CliTrainingControllerBuilder,
     current_epoch: usize,
     current_batch: usize,
+    start_time: Option<Instant>,
+    epoch_progress_bar: Option<ProgressBar>,
+    train_progress_bar: Option<ProgressBar>,
 }
 
 impl CliTrainingController {
@@ -31,7 +38,7 @@ impl CliTrainingController {
         let file_path = self
             .setting
             .out_dir
-            .join(format!("list_net_{}.binparams", suffix));
+            .join(format!("list_net_{:0>4}.binparams", suffix));
         list_net.serialize_into_file(file_path).map_err(Into::into)
     }
 }
@@ -42,19 +49,34 @@ impl TrainingController for CliTrainingController {
     type Outcome = ();
 
     fn begin_of_batch(&mut self) -> Result<(), Self::Error> {
-        info!("Start of batch #{}", self.current_batch);
+        trace!("Start of batch #{}", self.current_batch);
         Ok(())
     }
 
     fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error> {
         let loss = mean_loss(&losses);
-        info!("End of batch #{}, mean loss = {}", self.current_batch, loss);
+        trace!("End of batch #{}, mean loss = {}", self.current_batch, loss);
+        if let Some(bar) = &self.epoch_progress_bar {
+            bar.inc(1);
+        }
         self.current_batch += 1;
         Ok(())
     }
 
-    fn begin_of_epoch(&mut self, _list_net: &ListNet) -> Result<(), Self::Error> {
-        info!("Begin of epoch #{}", self.current_epoch);
+    fn begin_of_epoch(
+        &mut self,
+        nr_batches: usize,
+        _list_net: &ListNet,
+    ) -> Result<(), Self::Error> {
+        debug!(
+            "Begin of epoch #{:0>4} (#batch {})",
+            self.current_epoch, nr_batches
+        );
+        self.current_batch = 0;
+        if let Some(bar) = &self.epoch_progress_bar {
+            bar.set_position(0);
+            bar.set_length(nr_batches.try_into().unwrap());
+        }
         Ok(())
     }
 
@@ -63,35 +85,87 @@ impl TrainingController for CliTrainingController {
         list_net: &ListNet,
         mean_kl_divergence_evaluation: Option<f32>,
     ) -> Result<(), Self::Error> {
-        info!(
+        debug!(
             "End of epoch #{}, Mean eval. KL-Divergence {:?}",
             self.current_epoch, mean_kl_divergence_evaluation
         );
+
         if let Some(dump_every) = self.setting.dump_every {
             if (self.current_epoch + 1) % dump_every == 0 {
                 trace!("Storing Parameters");
                 self.save_parameters(list_net.clone(), &format!("{}", self.current_epoch))?;
             }
         }
+
+        if let Some(bar) = &self.train_progress_bar {
+            bar.inc(1);
+        }
+
+        if mean_kl_divergence_evaluation
+            .map(|v| v.is_nan())
+            .unwrap_or_default()
+        {
+            panic!("evaluation KL-Divergence cost is NaN");
+        }
+
         self.current_epoch += 1;
         Ok(())
     }
 
-    fn begin_of_training(&mut self, list_net: &ListNet) -> Result<(), Self::Error> {
-        info!("Begin of training");
+    fn begin_of_training(
+        &mut self,
+        nr_epochs: usize,
+        list_net: &ListNet,
+    ) -> Result<(), Self::Error> {
+        self.start_time = Some(Instant::now());
+        info!("Begin of training for {}", nr_epochs);
         if self.setting.dump_initial_parameters {
             trace!("Storing Initial Parameters");
             self.save_parameters(list_net.clone(), "initial")?;
         }
+
+        let multibar = MultiProgress::new();
+        let train_bar = ProgressBar::new(nr_epochs.try_into().unwrap());
+        train_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("Epochs:  [{bar:50.green}] {percent:>3}% ({pos:>5}/{len:>5})")
+                .progress_chars("=> "),
+        );
+        multibar.add(train_bar.clone());
+        let epoch_bar = ProgressBar::new(1);
+        epoch_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("Batches: [{bar:50.green}] {percent:>3}% ({pos:>5}/{len:>5})")
+                .progress_chars("=> "),
+        );
+        multibar.add(epoch_bar.clone());
+        // Drive bar output.
+        std::thread::spawn(move || multibar.join());
+        train_bar.tick();
+        epoch_bar.tick();
+
+        self.train_progress_bar = Some(train_bar);
+        self.epoch_progress_bar = Some(epoch_bar);
         Ok(())
     }
 
     fn end_of_training(&mut self) -> Result<(), Self::Error> {
-        info!("End of training");
+        let elapsed_seconds = self.start_time.map(|t| t.elapsed().as_secs()).unwrap_or(0);
+        let (hours, minutes, seconds) = seconds_to_hms(elapsed_seconds);
+        info!(
+            "End of training, duration {}h{}m{}s",
+            hours, minutes, seconds
+        );
         Ok(())
     }
 
     fn training_result(self, list_net: ListNet) -> Result<Self::Outcome, Self::Error> {
+        if let Some(bar) = &self.epoch_progress_bar {
+            bar.finish_at_current_pos();
+        }
+        if let Some(bar) = &self.train_progress_bar {
+            bar.finish_at_current_pos();
+        }
         self.save_parameters(list_net, "final")?;
         Ok(())
     }
@@ -100,4 +174,12 @@ impl TrainingController for CliTrainingController {
 fn mean_loss(losses: &[f32]) -> f32 {
     let count = losses.len() as f32;
     losses.iter().fold(0f32, |acc, v| acc + v / count)
+}
+
+fn seconds_to_hms(total_seconds: u64) -> (u64, u8, u8) {
+    let total_minutes = total_seconds / 60;
+    let seconds = total_seconds % 60;
+    let hours = total_minutes / 60;
+    let minutes = total_minutes % 60;
+    (hours, minutes as u8, seconds as u8)
 }

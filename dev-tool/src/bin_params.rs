@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{bail, Error};
+use log::debug;
 use ndarray::{ArrayBase, ArrayD, Data, Dimension};
 use structopt::StructOpt;
 use xayn_ai::list_net::ndutils::io::{BinParams, LoadingBinParamsFailed};
@@ -81,14 +82,16 @@ impl InspectBinParamsCmd {
 
         let filter = filter.map(parse_filter);
 
+        debug!("Loading BinParams.");
         let params = load_bin_params(file)?;
 
+        debug!("Inspecting BinParams");
         let mut failed_normal_checks = Vec::new();
         let mut failed_range_checks = Vec::new();
-
         for (name, flat_array) in params.into_iter() {
             if let Some(filter) = &filter {
                 if !filter.contains(&name) {
+                    debug!("Skipping Array: {}", name);
                     continue;
                 }
             }
