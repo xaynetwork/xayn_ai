@@ -2,34 +2,32 @@ use std::{
     collections::HashSet,
     convert::TryInto,
     fmt::{self, Display},
+    iter,
     ops::RangeInclusive,
     path::PathBuf,
+    str::FromStr,
 };
 
 use anyhow::{bail, Error};
+use displaydoc::Display;
+use itertools::Itertools;
 use log::debug;
 use ndarray::{ArrayBase, ArrayD, Data, Dimension};
 use structopt::StructOpt;
-use xayn_ai::list_net::ndutils::io::{BinParams, LoadingBinParamsFailed};
+
+use xayn_ai::list_net::{ndutils::io::BinParams, Sample};
 
 use crate::exit_code::{NON_FATAL_ERROR, NO_ERROR};
 
-#[derive(StructOpt, Debug)]
-pub enum BinParamsCmd {
-    /// Inspect a ".binparams" file.
-    Inspect(InspectBinParamsCmd),
-}
+use super::data_source::{InMemoryData, Storage};
 
-impl BinParamsCmd {
-    pub fn run(self) -> Result<i32, Error> {
-        match self {
-            BinParamsCmd::Inspect(cmd) => cmd.run(),
-        }
-    }
-}
-
+/// Inspect data dumps (binparams, samples).
 #[derive(StructOpt, Debug)]
-pub struct InspectBinParamsCmd {
+pub struct InspectCmd {
+    /// Type of the file (either of "binparams", "samples")
+    #[structopt(short, long, parse(try_from_str))]
+    r#type: FileType,
+
     /// Prints all the values in all the matrices.
     #[structopt(short, long)]
     print_data: bool,
@@ -61,17 +59,62 @@ pub struct InspectBinParamsCmd {
     file: PathBuf,
 }
 
-impl InspectBinParamsCmd {
-    pub fn run(self) -> Result<i32, Error> {
-        self.run_(BinParams::deserialize_from_file)
+#[derive(Debug, Display, Clone, Copy)]
+/// Supported file types.
+pub enum FileType {
+    /// BinParams file
+    BinParams,
+    /// Samples file
+    Samples,
+}
+
+impl FromStr for FileType {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use FileType::*;
+        match &*s.trim().to_lowercase() {
+            "binparams" | "bin-params" => Ok(BinParams),
+            "samples" => Ok(Samples),
+            _ => bail!("Unexpected file type. Supported types are: \"binparams\", \"samples\""),
+        }
     }
-    fn run_(
-        self,
-        load_bin_params: impl FnOnce(PathBuf) -> Result<BinParams, LoadingBinParamsFailed>,
-    ) -> Result<i32, Error> {
+}
+
+type MatricesIter = Box<dyn Iterator<Item = Result<(String, ArrayD<f32>), Error>>>;
+
+impl InspectCmd {
+    pub fn run(self) -> Result<i32, Error> {
+        debug!("Loading Matrices from {}.", self.r#type);
+        let matrices = self.load_matrices()?;
+
+        debug!("Inspecting Matrices");
+        self.run_inspect_matrices(matrices)
+    }
+
+    fn load_matrices(&self) -> Result<MatricesIter, Error> {
+        use FileType::*;
+        match self.r#type {
+            BinParams => self.load_bin_params_matrices(),
+            Samples => self.load_samples_matrices(),
+        }
+    }
+
+    fn load_bin_params_matrices(&self) -> Result<MatricesIter, Error> {
+        let bin_params = BinParams::deserialize_from_file(&self.file)?;
+        Ok(bin_params_to_matrices_iter(bin_params))
+    }
+
+    fn load_samples_matrices(&self) -> Result<MatricesIter, Error> {
+        let samples = InMemoryData::deserialize_from_file(&self.file)?;
+        samples_to_matrices_iter(samples)
+    }
+
+    fn run_inspect_matrices(self, matrices: MatricesIter) -> Result<i32, Error> {
         let Self {
+            r#type: _,
             print_data,
-            file,
+            file: _,
             stats,
             check_normal,
             check_range,
@@ -79,16 +122,12 @@ impl InspectBinParamsCmd {
         } = self;
 
         let check_range = check_range.map(parse_range).transpose()?;
-
         let filter = filter.map(parse_filter);
 
-        debug!("Loading BinParams.");
-        let params = load_bin_params(file)?;
-
-        debug!("Inspecting BinParams");
         let mut failed_normal_checks = Vec::new();
         let mut failed_range_checks = Vec::new();
-        for (name, flat_array) in params.into_iter() {
+        for result in matrices {
+            let (name, array) = result?;
             if let Some(filter) = &filter {
                 if !filter.contains(&name) {
                     debug!("Skipping Array: {}", name);
@@ -97,13 +136,6 @@ impl InspectBinParamsCmd {
             }
 
             println!("----------------------------------------");
-            let array: ArrayD<f32> = match flat_array.try_into() {
-                Ok(array) => array,
-                Err(err) => {
-                    eprint!("Array {} has invalid data: {}\n{:?}", name, err, err);
-                    break;
-                }
-            };
             println!("Name: {}", name);
             println!("Shape: {:?}", array.shape());
             if stats || check_normal || check_range.is_some() {
@@ -150,6 +182,45 @@ impl InspectBinParamsCmd {
             Ok(NON_FATAL_ERROR)
         }
     }
+}
+
+fn bin_params_to_matrices_iter(bin_params: BinParams) -> MatricesIter {
+    let iter = bin_params
+        .into_iter()
+        .map(|(name, array)| (name, array.try_into()))
+        .sorted_by_key(|(name, _)| name.clone())
+        .into_iter()
+        .map(|(name, array_res)| Ok((name, array_res?)));
+
+    Box::new(iter)
+}
+
+fn samples_to_matrices_iter(mut samples: InMemoryData) -> Result<MatricesIter, Error> {
+    let mut count = 0;
+    let end = samples.data_ids()?.end;
+    let iter = iter::from_fn(move || {
+        let idx = count / 2;
+        let is_inputs = count % 2 == 0;
+        count += 1;
+
+        if idx >= end {
+            return None;
+        }
+        let sample: Sample = match samples.load_sample(idx) {
+            Ok(sample) => sample,
+            Err(err) => return Some(Err(err.into())),
+        };
+        let (name, array) = if is_inputs {
+            ("inputs", sample.inputs.to_owned().into_dyn())
+        } else {
+            (
+                "target_prob_dist",
+                sample.target_prob_dist.to_owned().into_dyn(),
+            )
+        };
+        Some(Ok((format!("{}.{}", idx, name), array)))
+    });
+    Ok(Box::new(iter))
 }
 
 fn write_failure_message(
@@ -302,9 +373,9 @@ fn highlight_if_true(val: bool) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter::FromIterator, path::Path};
+    use std::iter::{Enumerate, FromIterator};
 
-    use ndarray::{arr1, arr2};
+    use ndarray::{arr1, arr2, Array, Array1, Array2};
     use xayn_ai::assert_approx_eq;
 
     use super::*;
@@ -442,51 +513,124 @@ mod tests {
 
     #[test]
     fn test_failed_checks_affect_exit_status() {
-        let cmd = InspectBinParamsCmd {
+        let cmd = InspectCmd {
             print_data: false,
             filter: None,
             stats: false,
             check_normal: false,
             check_range: Some("0..=0.5".to_owned()),
             file: PathBuf::from("/my/path"),
+            r#type: FileType::BinParams,
         };
 
         let mut bin_params = BinParams::default();
         bin_params.insert("foobar", arr2(&[[1., 3.], [-4., 0.24]]));
         bin_params.insert("barfoot", arr1(&[0., 0.12]));
 
-        let exit_code = cmd
-            .run_(move |path| {
-                assert_eq!(path, Path::new("/my/path"));
-                Ok(bin_params)
-            })
-            .unwrap();
-
+        let matrices = bin_params_to_matrices_iter(bin_params);
+        let exit_code = cmd.run_inspect_matrices(matrices).unwrap();
         assert_eq!(exit_code, NON_FATAL_ERROR);
     }
 
     #[test]
     fn test_filter_works() {
-        let cmd = InspectBinParamsCmd {
+        let cmd = InspectCmd {
             print_data: false,
             filter: Some(vec!["foobar".to_owned()]),
             stats: false,
             check_normal: true,
             check_range: None,
             file: PathBuf::from("/my/path"),
+            r#type: FileType::BinParams,
         };
 
         let mut bin_params = BinParams::default();
         bin_params.insert("foobar", arr2(&[[1., 3.], [-4., 0.24]]));
         bin_params.insert("barfoot", arr1(&[0., f32::NAN, 0.12]));
 
-        let exit_code = cmd
-            .run_(move |path| {
-                assert_eq!(path, Path::new("/my/path"));
-                Ok(bin_params)
-            })
-            .unwrap();
+        let matrices = bin_params_to_matrices_iter(bin_params);
+        let exit_code = cmd.run_inspect_matrices(matrices).unwrap();
 
         assert_eq!(exit_code, NO_ERROR);
+    }
+
+    #[test]
+    fn test_bin_params_to_matrices_iter() {
+        let mut bin_params = BinParams::default();
+        bin_params.insert("foobar", arr2(&[[1., 3.], [-4., 0.24]]));
+        bin_params.insert("x", arr1(&[]));
+        bin_params.insert("barfoot", arr1(&[0., f32::NAN, 0.12]));
+
+        let mut iter = bin_params_to_matrices_iter(bin_params);
+
+        test(iter.next(), ("barfoot", arr1(&[0., f32::NAN, 0.12])));
+        test(iter.next(), ("foobar", arr2(&[[1., 3.], [-4., 0.24]])));
+        test(iter.next(), ("x", arr1(&[])));
+        assert!(iter.next().is_none());
+
+        fn test(
+            got: Option<Result<(String, ArrayD<f32>), Error>>,
+            expected: (&str, Array<f32, impl Dimension>),
+        ) {
+            let (name, array) = got.expect("iter ended prematurely").unwrap();
+
+            assert_eq!(name, expected.0);
+            assert_approx_eq!(f32, array, expected.1, ulps = 0);
+        }
+    }
+
+    #[test]
+    fn test_samples_to_matrices_iter() {
+        let mut storage = InMemoryData::default();
+
+        storage.add_sample(
+            Array::from_elem((2, 50), 3.25).view(),
+            arr1(&[0.25, 0.50]).view(),
+        );
+        storage.add_sample(Array::from_elem((0, 50), 3.25).view(), arr1(&[]).view());
+        storage.add_sample(
+            Array::from_elem((5, 50), 3.25).view(),
+            arr1(&[0.25, 0.50, 1.25, 0.25, 0.44]).view(),
+        );
+        storage.add_sample(
+            Array::from_elem((2, 50), 3.25).view(),
+            arr1(&[0.52, 0.05]).view(),
+        );
+
+        let mut iter = samples_to_matrices_iter(storage).unwrap().enumerate();
+        test(
+            &mut iter,
+            Array::from_elem((2, 50), 3.25),
+            arr1(&[0.25, 0.50]),
+        );
+        test(&mut iter, Array::from_elem((0, 50), 3.25), arr1(&[]));
+        test(
+            &mut iter,
+            Array::from_elem((5, 50), 3.25),
+            arr1(&[0.25, 0.50, 1.25, 0.25, 0.44]),
+        );
+        test(
+            &mut iter,
+            Array::from_elem((2, 50), 3.25),
+            arr1(&[0.52, 0.05]),
+        );
+        assert!(iter.next().is_none());
+
+        fn test(
+            iter: &mut Enumerate<MatricesIter>,
+            inputs: Array2<f32>,
+            target_prob_dist: Array1<f32>,
+        ) {
+            let (twice_idx, item) = iter.next().unwrap();
+            let (name, array) = item.unwrap();
+            let idx = twice_idx / 2;
+            assert_eq!(name, format!("{}.inputs", twice_idx / 2));
+            assert_approx_eq!(f32, array, inputs);
+            let (twice_idx_plus_1, item) = iter.next().unwrap();
+            let (name, array) = item.unwrap();
+            assert_eq!(name, format!("{}.target_prob_dist", idx));
+            assert_approx_eq!(f32, array, target_prob_dist);
+            assert_eq!(twice_idx_plus_1, idx * 2 + 1);
+        }
     }
 }

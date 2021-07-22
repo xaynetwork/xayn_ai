@@ -4,6 +4,8 @@ use anyhow::{Context, Error};
 use structopt::StructOpt;
 use xayn_ai::list_net::{optimizer::MiniBatchSgd, ListNet, ListNetTrainer};
 
+use crate::exit_code::NO_ERROR;
+
 use super::{
     cli_callbacks::CliTrainingControllerBuilder,
     data_source::{DataSource, InMemoryData},
@@ -52,7 +54,7 @@ pub struct TrainCmd {
 }
 
 impl TrainCmd {
-    pub fn run(self) -> Result<(), Error> {
+    pub fn run(self) -> Result<i32, Error> {
         let TrainCmd {
             data: database,
             epochs,
@@ -65,8 +67,8 @@ impl TrainCmd {
             dump_initial_parameters,
         } = self;
 
-        let storage =
-            InMemoryData::load_from_file(database).context("loading training/eval data failed")?;
+        let storage = InMemoryData::deserialize_from_file(database)
+            .context("loading training/eval data failed")?;
         let data_source =
             DataSource::new(storage, evaluation_split).context("Creating DataSource failed")?;
 
@@ -87,6 +89,6 @@ impl TrainCmd {
 
         let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
         trainer.train(epochs, batch_size)?;
-        Ok(())
+        Ok(NO_ERROR)
     }
 }
