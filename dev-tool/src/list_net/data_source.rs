@@ -242,7 +242,7 @@ impl InMemoryData {
             .map_err(Into::into)
     }
 
-    pub(crate) fn load_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
+    pub(crate) fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
         Self::deserialize_from(BufReader::new(File::open(file)?))
     }
 
@@ -278,13 +278,19 @@ impl InMemoryData {
     ///
     /// # Panics
     ///
-    /// If number of documents in `inputs` doesn't match the number of probabilities in
+    /// - If number of documents in `inputs` doesn't match the number of probabilities in
     /// `target_prob_dist`.
+    /// - If the number of features per document is not 50.
     pub(crate) fn add_sample(
         &mut self,
         inputs: ArrayView2<f32>,
         target_prob_dist: ArrayView1<f32>,
     ) {
+        //FIXME return error
+        assert_eq!(
+            inputs.shape(),
+            &[target_prob_dist.len(), ListNet::INPUT_NR_FEATURES]
+        );
         let mut data = Vec::with_capacity(inputs.len() + target_prob_dist.len());
         extend_vec_with_ndarray(&mut data, inputs);
         extend_vec_with_ndarray(&mut data, target_prob_dist);

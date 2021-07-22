@@ -23,21 +23,25 @@ use xayn_ai::{
     UserFeedback,
 };
 
+use crate::exit_code::NO_ERROR;
+
 use super::data_source::InMemoryData;
 
 #[derive(Debug, StructOpt)]
 pub struct ConvertCmd {
+    /// Directory with where soundgarden saved user data-frames (one csv file per user).
     #[structopt(short = "d", long)]
-    soundgarden_user_df_dir: PathBuf,
+    from_soundgarden: PathBuf,
+    /// File into which the samples should be stored e.g. `data.samples`.
     #[structopt(short = "o", long)]
-    out: PathBuf,
+    to_samples: PathBuf,
 }
 
 impl ConvertCmd {
-    pub fn run(self) -> Result<(), Error> {
+    pub fn run(self) -> Result<i32, Error> {
         let ConvertCmd {
-            soundgarden_user_df_dir,
-            out,
+            from_soundgarden: soundgarden_user_df_dir,
+            to_samples: out,
         } = self;
 
         let mut storage = InMemoryData::default();
@@ -60,7 +64,7 @@ impl ConvertCmd {
         debug!("Write binsamples file.");
         storage.write_to_file(out)?;
 
-        Ok(())
+        Ok(NO_ERROR)
     }
 }
 
