@@ -230,11 +230,11 @@ impl Validator {
         let take = match config.data.range.end_bound() {
             Bound::Included(end) => end + 1,
             Bound::Excluded(end) => *end,
-            Bound::Unbounded => 2467,
+            Bound::Unbounded => 2467, // total #talks
         } - skip;
         let source = Pipeline::build(&config.tokenizer, &config.source);
         let target = Pipeline::build(&config.tokenizer, &config.target);
-        let errors = Array1::zeros(11);
+        let errors = Array1::zeros(11); // #sentences and mean & std per error
 
         Self {
             talks,
@@ -293,7 +293,7 @@ impl Validator {
     fn validate(&mut self) -> &mut Self {
         let mut reader = Reader::from_path(self.talks).unwrap();
         let progress = ProgressBar::new(self.take as u64);
-        let mut errors = Array2::<f32>::zeros((330644, 5));
+        let mut errors = Array2::<f32>::zeros((330644, 5)); // total #sentences
         let mut idx = 0;
 
         for record in reader.records().skip(self.skip).take(self.take) {
