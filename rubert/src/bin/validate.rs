@@ -1,8 +1,11 @@
-//! Compare MBert models evaluated by the onnx or the tract runtime.
+//! Compares MBert models evaluated by the onnx or the tract runtime.
+//!
+//! Run as `cargo run --release --bin validate --features validate`.
 
 use std::{
     marker::PhantomPinned,
     ops::{Bound, Deref, RangeBounds},
+    pin::Pin,
 };
 
 use csv::Reader;
@@ -106,14 +109,18 @@ enum Pipeline {
     /// A SMBert or QAMBert model pipeline for the onnx runtime.
     OnnxMBert {
         tokenizer: Tokenizer<i64>,
-        environment: Environment,
-        session: Option<Session<'static>>,
-        _pinned: PhantomPinned,
+        session: Session<'static>,
+        _environment: Pin<Box<(Environment, PhantomPinned)>>,
     },
     /// A SMBert model pipeline for the tract runtime.
     TractSMBert(BertPipeline<SMBert, NonePooler>),
     /// A QAMBert model pipeline for the tract runtime.
     TractQAMBert(BertPipeline<QAMBert, NonePooler>),
+}
+
+// prevent moving out of the pipeline, since we can't pin the session together with the environment
+impl Drop for Pipeline {
+    fn drop(&mut self) {}
 }
 
 impl Pipeline {
@@ -130,33 +137,24 @@ impl Pipeline {
                     .with_padding(Padding::fixed(tokenizer.token_size, "[PAD]"))
                     .build()
                     .unwrap();
-                let environment = Environment::builder().build().unwrap();
-                let mut pipeline = Self::OnnxMBert {
-                    tokenizer,
-                    environment,
-                    session: None,
-                    _pinned: PhantomPinned,
-                };
-                if let Self::OnnxMBert {
-                    ref environment,
-                    ref mut session,
-                    ..
-                } = pipeline
-                {
-                    *session = unsafe {
-                        // Safety: environment is pinned and lives as long as session
-                        &*(environment as *const Environment)
-                    }
+                let _environment =
+                    Box::pin((Environment::builder().build().unwrap(), PhantomPinned));
+                // Safety:
+                // - environment is pinned, not unpinnable and dropped after session
+                // - session can't be moved out of the pipeline independently from the environment
+                let session = unsafe { &*(&_environment.0 as *const Environment) }
                     .new_session_builder()
                     .unwrap()
                     .with_optimization_level(GraphOptimizationLevel::DisableAll)
                     .unwrap()
                     .with_model_from_file(model.model)
-                    .unwrap()
-                    .into()
-                }
+                    .unwrap();
 
-                pipeline
+                Self::OnnxMBert {
+                    tokenizer,
+                    session,
+                    _environment,
+                }
             }
             ModelKind::TractSMBert => {
                 let pipeline = BertBuilder::from_files(model.vocab, model.model)
@@ -200,7 +198,7 @@ impl Pipeline {
                     Array1::<i64>::from(attention_mask).insert_axis(Axis(0)),
                     Array1::<i64>::from(type_ids).insert_axis(Axis(0)),
                 ];
-                let outputs = session.as_mut().unwrap().run(inputs).unwrap();
+                let outputs = session.run(inputs).unwrap();
 
                 outputs[0].slice(s![0, .., ..]).to_owned().into()
             }
