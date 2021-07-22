@@ -18,4 +18,4 @@ thiserror = "1.0.25"
 tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
 
 [[example]]
-name = "smbert"
+name = "mbert"
