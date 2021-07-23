@@ -587,15 +587,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37d572918e350e82412fe766d24b15e6682fb2ed2bbe018280caa810397cb319"
@@ -680,7 +671,7 @@ checksum = "be5a88630d73ac78b46277169f92ef135fb09ad50af039f76ccfc35264796cc5"
 dependencies = [
  "anymap",
  "chrono",
- "itertools 0.10.0",
+ "itertools",
  "kstring",
  "liquid-derive",
  "num-traits",
@@ -707,7 +698,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10c14f535f61c4263e57cd4f6ad9701b97459f026420347ed978c4ab0d2512cc"
 dependencies = [
  "chrono",
- "itertools 0.10.0",
+ "itertools",
  "kstring",
  "liquid-core",
  "once_cell",
@@ -1098,9 +1089,9 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e6984d2f1a23009bd270b8bb56d0926810a3d483f59c987d77969e9d8e840b2"
+checksum = "de5e2533f59d08fcf364fd374ebda0692a70bd6d7e66ef97f306f45c6c5d8020"
 dependencies = [
  "bytes",
  "prost-derive",
@@ -1108,13 +1099,13 @@ dependencies = [
 
 [[package]]
 name = "prost-build"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32d3ebd75ac2679c2af3a92246639f9fcc8a442ee420719cc4fe195b98dd5fa3"
+checksum = "355f634b43cdd80724ee7848f95770e7e70eefa6dcf14fea676216573b8fd603"
 dependencies = [
  "bytes",
  "heck",
- "itertools 0.9.0",
+ "itertools",
  "log",
  "multimap",
  "petgraph",
@@ -1126,12 +1117,12 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "169a15f3008ecb5160cba7d37bcd690a7601b6d30cfb87a117d45e59d52af5d4"
+checksum = "600d2f334aa05acb02a755e217ef1ab6dea4d51b58b7846588b747edec04efba"
 dependencies = [
  "anyhow",
- "itertools 0.9.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
@@ -1139,9 +1130,9 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b518d7cdd93dab1d1122cf07fa9a60771836c668dde9d9e2a139f957f0d9f1bb"
+checksum = "603bbd6394701d13f3f25aada59c7de9d35a6a5887cfc156181234a44002771b"
 dependencies = [
  "bytes",
  "prost",
@@ -1660,9 +1651,8 @@ dependencies = [
 
 [[package]]
 name = "tract-core"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6764d383b2e11e0a61422bc15f81e8881b89b540e69e9313178f8c16ee90e331"
+version = "0.15.3-pre"
+source = "git+https://github.com/sonos/tract?rev=d562d4a52a11efe46116c48c689bf5e748cb44d2#d562d4a52a11efe46116c48c689bf5e748cb44d2"
 dependencies = [
  "anyhow",
  "bit-set",
@@ -1684,14 +1674,13 @@ dependencies = [
 
 [[package]]
 name = "tract-data"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bab19b38a40ba6760a267c0f44b199c30260245e605810827277a7a138872654"
+version = "0.15.3-pre"
+source = "git+https://github.com/sonos/tract?rev=d562d4a52a11efe46116c48c689bf5e748cb44d2#d562d4a52a11efe46116c48c689bf5e748cb44d2"
 dependencies = [
  "anyhow",
  "educe",
  "half",
- "itertools 0.10.0",
+ "itertools",
  "lazy_static",
  "maplit",
  "ndarray",
@@ -1702,9 +1691,8 @@ dependencies = [
 
 [[package]]
 name = "tract-hir"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c255a7b7b0729933d9b167fc9a43beae03ab2502a76d7f6408e005676b51bb4"
+version = "0.15.3-pre"
+source = "git+https://github.com/sonos/tract?rev=d562d4a52a11efe46116c48c689bf5e748cb44d2#d562d4a52a11efe46116c48c689bf5e748cb44d2"
 dependencies = [
  "derive-new",
  "educe",
@@ -1714,9 +1702,8 @@ dependencies = [
 
 [[package]]
 name = "tract-linalg"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e8a8788035304b8f493aba81758c9490d84e858b9f39bbb34f817293549f6b1"
+version = "0.15.3-pre"
+source = "git+https://github.com/sonos/tract?rev=d562d4a52a11efe46116c48c689bf5e748cb44d2#d562d4a52a11efe46116c48c689bf5e748cb44d2"
 dependencies = [
  "cc",
  "derive-new",
@@ -1738,9 +1725,8 @@ dependencies = [
 
 [[package]]
 name = "tract-nnef"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2865581872e241198cc46f348755559bf67284c4638178068293c7b376fc815"
+version = "0.15.3-pre"
+source = "git+https://github.com/sonos/tract?rev=d562d4a52a11efe46116c48c689bf5e748cb44d2#d562d4a52a11efe46116c48c689bf5e748cb44d2"
 dependencies = [
  "byteorder",
  "flate2",
@@ -1753,8 +1739,8 @@ dependencies = [
 
 [[package]]
 name = "tract-onnx"
-version = "0.15.0"
-source = "git+https://github.com/xaynetwork/tract?branch=master#f4cdaddf9b689b9a87484455ae80d07912a2949b"
+version = "0.15.3-pre"
+source = "git+https://github.com/sonos/tract?rev=d562d4a52a11efe46116c48c689bf5e748cb44d2#d562d4a52a11efe46116c48c689bf5e748cb44d2"
 dependencies = [
  "bytes",
  "derive-new",
@@ -1772,9 +1758,8 @@ dependencies = [
 
 [[package]]
 name = "tract-onnx-opl"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "433ee66b0f386235afce0fa0aa3cbfc467ec0733a4354fc6aac366029cdc3945"
+version = "0.15.3-pre"
+source = "git+https://github.com/sonos/tract?rev=d562d4a52a11efe46116c48c689bf5e748cb44d2#d562d4a52a11efe46116c48c689bf5e748cb44d2"
 dependencies = [
  "educe",
  "tract-nnef",
@@ -2109,7 +2094,7 @@ dependencies = [
  "derive_more",
  "displaydoc",
  "float-cmp",
- "itertools 0.10.0",
+ "itertools",
  "maplit",
  "mockall",
  "ndarray",
@@ -2144,7 +2129,7 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "float-cmp",
- "itertools 0.10.0",
+ "itertools",
  "tempfile",
  "uuid",
  "xayn-ai",
@@ -2157,7 +2142,7 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "getrandom",
- "itertools 0.10.0",
+ "itertools",
  "js-sys",
  "serde",
  "wasm-bindgen",
