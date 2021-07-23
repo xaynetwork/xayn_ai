@@ -17,5 +17,19 @@ serde = { version = "1.0.126", features = ["derive"] }
 thiserror = "1.0.25"
 tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
 
+# bin/feature: validate
+csv = { version = "1.1.6", optional = true }
+indicatif = { version = "0.16.2", optional = true }
+onnxruntime = { version = "0.0.12", optional = true }
+
+[features]
+validate = ["csv", "indicatif", "onnxruntime"]
+
 [[example]]
 name = "mbert"
+
+[[bin]]
+name = "validate"
+test = false
+bench = false
+required-features = ["validate"]
