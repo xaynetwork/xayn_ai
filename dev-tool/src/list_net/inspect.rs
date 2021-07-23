@@ -15,47 +15,51 @@ use log::debug;
 use ndarray::{ArrayBase, ArrayD, Data, Dimension};
 use structopt::StructOpt;
 
-use xayn_ai::list_net::{ndutils::io::BinParams, Sample};
+use xayn_ai::list_net::ndutils::io::BinParams;
 
+use super::data_source::{InMemorySamples, Storage};
 use crate::exit_code::{NON_FATAL_ERROR, NO_ERROR};
-
-use super::data_source::{InMemoryData, Storage};
 
 /// Inspect data dumps (binparams, samples).
 #[derive(StructOpt, Debug)]
 pub struct InspectCmd {
-    /// Type of the file (either of "binparams", "samples")
+    //FIXME[followup pr] add a tag to the begin of bincode serialized files to
+    //   automatically select the right deserializer and prevent confusion when
+    //   accidentally mixing up this files.
+    /// Type of the file (either "binparams" or "samples")
     #[structopt(short, long, parse(try_from_str))]
     r#type: FileType,
 
-    /// Prints all the values in all the matrices.
+    /// Prints the elements of all inspected matrices.
     #[structopt(short, long)]
     print_data: bool,
 
     /// If set only skip arrays which names are not in the filter.
     ///
-    /// This accepts accepts comma separated lists. Additionally
-    /// to including the option multiple times.
+    /// This accepts comma separated lists.
+    /// As well as including the option multiple times.
     #[structopt(short, long)]
     filter: Option<Vec<String>>,
 
-    /// Prints stats including min,max,mean,std, has_nans, has_infs, has_subnormals
+    /// Prints stats including `min`, `max`, `mean`, `std`, `has_nans`, `has_infs`, `has_subnormals`.
     #[structopt(short = "s", long)]
     stats: bool,
 
-    /// Checks if all values in all arrays are "normal"
+    /// Checks if all elements in all matrices are "normal".
     #[structopt(short = "c", long)]
     check_normal: bool,
 
-    /// Checks if all values in all arrays are in given range
+    /// Checks if all values in all matrices are in given range.
     ///
     /// Format: <from>..=<to>
     ///
     /// E.g.: --check-range="-10..=20"
+    ///
+    /// Currently only full inclusive ranges are supported.
     #[structopt(short = "r", long)]
     check_range: Option<String>,
 
-    /// Path to a `.binparams` file.
+    /// Path to a input file.
     file: PathBuf,
 }
 
@@ -93,21 +97,16 @@ impl InspectCmd {
     }
 
     fn load_matrices(&self) -> Result<MatricesIter, Error> {
-        use FileType::*;
         match self.r#type {
-            BinParams => self.load_bin_params_matrices(),
-            Samples => self.load_samples_matrices(),
+            FileType::BinParams => {
+                let bin_params = BinParams::deserialize_from_file(&self.file)?;
+                Ok(bin_params_to_matrices_iter(bin_params))
+            }
+            FileType::Samples => {
+                let samples = InMemorySamples::deserialize_from_file(&self.file)?;
+                samples_to_matrices_iter(samples)
+            }
         }
-    }
-
-    fn load_bin_params_matrices(&self) -> Result<MatricesIter, Error> {
-        let bin_params = BinParams::deserialize_from_file(&self.file)?;
-        Ok(bin_params_to_matrices_iter(bin_params))
-    }
-
-    fn load_samples_matrices(&self) -> Result<MatricesIter, Error> {
-        let samples = InMemoryData::deserialize_from_file(&self.file)?;
-        samples_to_matrices_iter(samples)
     }
 
     fn run_inspect_matrices(self, matrices: MatricesIter) -> Result<i32, Error> {
@@ -184,6 +183,10 @@ impl InspectCmd {
     }
 }
 
+/// Turns a [`BinParams`] instance into a iterator over it's matrices and their names.
+///
+/// - The matrices are converted to the `ArrayD` type.
+/// - The matrices are returned sorted by their names.
 fn bin_params_to_matrices_iter(bin_params: BinParams) -> MatricesIter {
     let iter = bin_params
         .into_iter()
@@ -195,22 +198,28 @@ fn bin_params_to_matrices_iter(bin_params: BinParams) -> MatricesIter {
     Box::new(iter)
 }
 
-fn samples_to_matrices_iter(mut samples: InMemoryData) -> Result<MatricesIter, Error> {
+/// Turns an [`InMemorySamples`] instance into a iterator over all it's matrices and their names.
+///
+/// - Matrices are returned in sample order, and in the sample sorted by their name.
+/// - The name is created in the form of `{index}.{matrix_name}` the `index` will be
+///   formatted with leading `0` chars appropriate for the number of samples.
+fn samples_to_matrices_iter(mut samples: InMemorySamples) -> Result<MatricesIter, Error> {
     let mut count = 0;
     let end = samples.data_ids()?.end;
+    let nr_digits = format!("{}", end.saturating_sub(1)).len();
     let iter = iter::from_fn(move || {
         let idx = count / 2;
-        let is_inputs = count % 2 == 0;
+        let for_inputs = count % 2 == 0;
         count += 1;
 
         if idx >= end {
             return None;
         }
-        let sample: Sample = match samples.load_sample(idx) {
+        let sample = match samples.load_sample(idx) {
             Ok(sample) => sample,
             Err(err) => return Some(Err(err.into())),
         };
-        let (name, array) = if is_inputs {
+        let (name, array) = if for_inputs {
             ("inputs", sample.inputs.to_owned().into_dyn())
         } else {
             (
@@ -218,7 +227,10 @@ fn samples_to_matrices_iter(mut samples: InMemoryData) -> Result<MatricesIter, E
                 sample.target_prob_dist.to_owned().into_dyn(),
             )
         };
-        Some(Ok((format!("{}.{}", idx, name), array)))
+        Some(Ok((
+            format!("{:0>width$}.{}", idx, name, width = nr_digits),
+            array,
+        )))
     });
     Ok(Box::new(iter))
 }
@@ -236,6 +248,7 @@ fn write_failure_message(
     Ok(())
 }
 
+/// Parses the filter by splitting each filter sequence and trimming each filter.
 fn parse_filter(filter: Vec<String>) -> HashSet<String> {
     filter
         .iter()
@@ -248,6 +261,7 @@ fn parse_filter(filter: Vec<String>) -> HashSet<String> {
         .collect::<HashSet<_>>()
 }
 
+/// Parses a `<from>..=<to>` (f32) range.
 fn parse_range(range: impl AsRef<str>) -> Result<RangeInclusive<f32>, Error> {
     let mut split = range.as_ref().split("..=");
     let first = split.next().unwrap();
@@ -263,25 +277,24 @@ fn parse_range(range: impl AsRef<str>) -> Result<RangeInclusive<f32>, Error> {
     }
 }
 
+/// Stats for a matrix.
 struct Stats {
-    /// The max value in the array, or 0 if the array is empty.
+    /// The max element in the matrix, or 0 if the matrix is empty.
     min: f32,
-    /// The min value in the array, or 0 if the array is empty.
+    /// The min element in the matrix, or 0 if the matrix is empty.
     max: f32,
-    /// The arithmetic mean of the values in the array, or 0 if the array is empty.
+    /// The arithmetic mean of the elements in the matrix, or 0 if the matrix is empty.
     mean: f32,
-    /// The standard derivation (ddof=0) of the values in the array.
+    /// The standard derivation (ddof=0) of the elements in the matrix.
     std: f32,
-    /// Is `true` if the array contains `NaN` values.
+    /// Is `true` if the matrix contains `NaN` elements.
     has_nans: bool,
-    /// Is `true` if the array contains `Inf` values (independent of sign).
+    /// Is `true` if the matrix contains `Inf` elements (independent of sign).
     has_infs: bool,
-    /// Is `true` if the array contains subnormal values.
+    /// Is `true` if the matrix contains subnormal elements.
     has_subnormals: bool,
-
-    /// True if any value is not normal.
+    /// True if any element is not normal.
     normal_checks_failed: bool,
-
     /// True if any range checks failed.
     range_checks_failed: bool,
 }
@@ -313,7 +326,9 @@ impl Stats {
                 self_.max = self_.max.max(val);
                 self_.has_nans |= val.is_nan();
                 self_.has_infs |= val.is_infinite();
-                self_.has_subnormals |= val.is_subnormal();
+                // FIXME use once we switch to rust 1.53 on CI
+                // self_.has_subnormals |= val.is_subnormal();
+                self_.has_subnormals |= !val.is_normal() && !val.is_nan() && !val.is_infinite();
                 self_.normal_checks_failed |= do_normal_checks && !val.is_normal();
                 self_.range_checks_failed |= range_checks
                     .map(|range| !range.contains(&val))
@@ -363,6 +378,7 @@ impl Display for Stats {
     }
 }
 
+/// Formats the boolean, "highlighting" true.
 fn highlight_if_true(val: bool) -> &'static str {
     if val {
         "<<TRUE>>"
@@ -581,21 +597,29 @@ mod tests {
 
     #[test]
     fn test_samples_to_matrices_iter() {
-        let mut storage = InMemoryData::default();
+        let mut storage = InMemorySamples::default();
 
-        storage.add_sample(
-            Array::from_elem((2, 50), 3.25).view(),
-            arr1(&[0.25, 0.50]).view(),
-        );
-        storage.add_sample(Array::from_elem((0, 50), 3.25).view(), arr1(&[]).view());
-        storage.add_sample(
-            Array::from_elem((5, 50), 3.25).view(),
-            arr1(&[0.25, 0.50, 1.25, 0.25, 0.44]).view(),
-        );
-        storage.add_sample(
-            Array::from_elem((2, 50), 3.25).view(),
-            arr1(&[0.52, 0.05]).view(),
-        );
+        storage
+            .add_sample(
+                Array::from_elem((2, 50), 3.25).view(),
+                arr1(&[0.25, 0.50]).view(),
+            )
+            .unwrap();
+        storage
+            .add_sample(Array::from_elem((0, 50), 3.25).view(), arr1(&[]).view())
+            .unwrap();
+        storage
+            .add_sample(
+                Array::from_elem((5, 50), 3.25).view(),
+                arr1(&[0.25, 0.50, 1.25, 0.25, 0.44]).view(),
+            )
+            .unwrap();
+        storage
+            .add_sample(
+                Array::from_elem((2, 50), 3.25).view(),
+                arr1(&[0.52, 0.05]).view(),
+            )
+            .unwrap();
 
         let mut iter = samples_to_matrices_iter(storage).unwrap().enumerate();
         test(

@@ -790,11 +790,10 @@ pub trait TrainingController {
 #[derive(Error, Debug)]
 pub enum TrainingError<DE, CE>
 where
-    //FIXME allow anyhow
     DE: StdError + 'static,
     CE: StdError + 'static,
 {
-    #[error("Retrieving Training/Eval data failed: {0}")]
+    #[error("Retrieving training/evaluation samples failed: {0}")]
     Data(#[source] DE),
     #[error("Training controller produced an error: {0}")]
     Control(#[source] CE),
@@ -1280,8 +1279,9 @@ mod tests {
         }
     }
 
-    //FIXME remove test, this is just a sanity check due to the NaN bug
+    //FIXME[follow up PR] remove test, this is just a sanity check due to the NaN bug
     //WARNING this can take forever!
+    #[ignore = "takes to long to run"]
     #[test]
     fn test_ndarray_matrix_multiply() {
         const EPSILON: f32 = f32::EPSILON * 5.;

@@ -5,13 +5,27 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::{debug, info, trace};
 use xayn_ai::list_net::{ListNet, TrainingController};
 
+/// Builder to create a [`CliTrainingController`].
 pub(crate) struct CliTrainingControllerBuilder {
+    /// The output dir into which files are written.
     pub(crate) out_dir: PathBuf,
+
+    /// If true dumps the initial parameters.
+    ///
+    /// This is can be useful if the initial parameters
+    /// have been freshly created using some random
+    /// initializer.
     pub(crate) dump_initial_parameters: bool,
+
+    /// If included dumps the current ListNet parameters every `n` epochs.
+    ///
+    /// The ListNet will be written to the output folder in the form of
+    /// `list_net_{epoch}.binparams`.
     pub(crate) dump_every: Option<usize>,
 }
 
 impl CliTrainingControllerBuilder {
+    /// Builds the `CliTrainingController`.
     pub(crate) fn build(self) -> CliTrainingController {
         CliTrainingController {
             setting: self,
@@ -24,16 +38,28 @@ impl CliTrainingControllerBuilder {
     }
 }
 
+/// Training controller for usage in a CLI setup.
 pub(crate) struct CliTrainingController {
+    /// The settings to use when controlling the training.
     setting: CliTrainingControllerBuilder,
+    /// The current active (or just ended) epoch.
     current_epoch: usize,
+    /// The current active (or just ended) batch.
     current_batch: usize,
+    /// The time at which the training did start.
     start_time: Option<Instant>,
+    /// A (CLI) progress bar used to track the progress of the current epoch.
     epoch_progress_bar: Option<ProgressBar>,
+    /// A (CLI) progress bar used to track the progress of the current training.
     train_progress_bar: Option<ProgressBar>,
 }
 
 impl CliTrainingController {
+    /// Safe the current ListNet parameters to the output dir using the given suffix.
+    ///
+    /// The file path will be:
+    ///
+    /// `<out_dir>/list_net_<suffix>.binparams`
     fn save_parameters(&self, list_net: ListNet, suffix: &str) -> Result<(), Error> {
         let file_path = self
             .setting
@@ -92,7 +118,7 @@ impl TrainingController for CliTrainingController {
 
         if let Some(dump_every) = self.setting.dump_every {
             if (self.current_epoch + 1) % dump_every == 0 {
-                trace!("Storing Parameters");
+                trace!("Dumping parameters.");
                 self.save_parameters(list_net.clone(), &format!("{}", self.current_epoch))?;
             }
         }
@@ -101,6 +127,9 @@ impl TrainingController for CliTrainingController {
             bar.inc(1);
         }
 
+        //FIXME This can always happen (after a longer training, mainly
+        //      if training with inadequate data or parameters). Still
+        //      we want to handle this better in the future.
         if mean_kl_divergence_evaluation
             .map(|v| v.is_nan())
             .unwrap_or_default()
@@ -120,7 +149,7 @@ impl TrainingController for CliTrainingController {
         self.start_time = Some(Instant::now());
         info!("Begin of training for {}", nr_epochs);
         if self.setting.dump_initial_parameters {
-            trace!("Storing Initial Parameters");
+            trace!("Dumping initial parameters.");
             self.save_parameters(list_net.clone(), "initial")?;
         }
 
@@ -139,7 +168,7 @@ impl TrainingController for CliTrainingController {
                 .progress_chars("=> "),
         );
         multibar.add(epoch_bar.clone());
-        // Needed or else bars won't print to screen.
+        // Needed or else bars won't print to the screen.
         std::thread::spawn(move || multibar.join());
         train_bar.tick();
         epoch_bar.tick();
@@ -153,7 +182,7 @@ impl TrainingController for CliTrainingController {
         let elapsed_seconds = self.start_time.map(|t| t.elapsed().as_secs()).unwrap_or(0);
         let (hours, minutes, seconds) = seconds_to_hms(elapsed_seconds);
         info!(
-            "End of training, duration {}h{}m{}s",
+            "End of training. Duration: {}h{}m{}s",
             hours, minutes, seconds
         );
         Ok(())
@@ -166,20 +195,43 @@ impl TrainingController for CliTrainingController {
         if let Some(bar) = &self.train_progress_bar {
             bar.finish_at_current_pos();
         }
+        info!("Save final ListNet parameters.");
         self.save_parameters(list_net, "final")?;
         Ok(())
     }
 }
 
+/// Calculates the mean loss.
 fn mean_loss(losses: &[f32]) -> f32 {
     let count = losses.len() as f32;
     losses.iter().fold(0f32, |acc, v| acc + v / count)
 }
 
+/// Converts seconds to hours, remaining minutes and remaining seconds.
 fn seconds_to_hms(total_seconds: u64) -> (u64, u8, u8) {
     let total_minutes = total_seconds / 60;
     let seconds = total_seconds % 60;
     let hours = total_minutes / 60;
     let minutes = total_minutes % 60;
     (hours, minutes as u8, seconds as u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use xayn_ai::assert_approx_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_seconds_to_hms() {
+        assert_eq!(seconds_to_hms(0), (0, 0, 0));
+        assert_eq!(seconds_to_hms(60), (0, 1, 0));
+        assert_eq!(seconds_to_hms(63), (0, 1, 3));
+        assert_eq!(seconds_to_hms(866204), (240, 36, 44))
+    }
+
+    #[test]
+    fn test_mean_loss() {
+        assert_approx_eq!(f32, mean_loss(&[0.5, 0.75, 0.25, 0.5]), 0.5);
+    }
 }

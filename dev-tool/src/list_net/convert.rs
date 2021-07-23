@@ -11,6 +11,7 @@ use log::debug;
 use serde::Deserialize;
 use structopt::StructOpt;
 use uuid::Uuid;
+
 use xayn_ai::{
     list_net_training_data_from_history,
     DayOfWeek,
@@ -23,16 +24,20 @@ use xayn_ai::{
     UserFeedback,
 };
 
+use super::data_source::InMemorySamples;
 use crate::exit_code::NO_ERROR;
 
-use super::data_source::InMemoryData;
-
+/// Converts different file formats.
+///
+/// This is mainly used to prepare a samples file
+/// based on a directory containing soundgarden user
+/// data-frame csv files.
 #[derive(Debug, StructOpt)]
 pub struct ConvertCmd {
-    /// Directory with where soundgarden saved user data-frames (one csv file per user).
+    /// Directory in which soundgarden saved user data-frames (one csv file per user).
     #[structopt(short = "d", long)]
     from_soundgarden: PathBuf,
-    /// File into which the samples should be stored e.g. `data.samples`.
+    /// File in which the samples should be stored, e.g. `data.samples`.
     #[structopt(short = "o", long)]
     to_samples: PathBuf,
 }
@@ -40,13 +45,13 @@ pub struct ConvertCmd {
 impl ConvertCmd {
     pub fn run(self) -> Result<i32, Error> {
         let ConvertCmd {
-            from_soundgarden: soundgarden_user_df_dir,
-            to_samples: out,
+            from_soundgarden,
+            to_samples,
         } = self;
 
-        let mut storage = InMemoryData::default();
+        let mut storage = InMemorySamples::default();
 
-        for entry in fs::read_dir(&soundgarden_user_df_dir)? {
+        for entry in fs::read_dir(&from_soundgarden)? {
             let entry = entry?;
             let path = entry.path();
             if path.extension() != Some(OsStr::new("csv")) {
@@ -57,18 +62,31 @@ impl ConvertCmd {
             let history = load_history(path)?;
             debug!("Processing history");
             for (inputs, target_prob_dist) in list_net_training_data_from_history(&history) {
-                storage.add_sample(inputs.view(), target_prob_dist.view());
+                storage.add_sample(inputs.view(), target_prob_dist.view())?;
             }
         }
 
-        debug!("Write binsamples file.");
-        storage.write_to_file(out)?;
+        debug!("Write output file.");
+        storage.write_to_file(to_samples)?;
 
         Ok(NO_ERROR)
     }
 }
 
-//FIXME[follow up PR]: Change ltr feature extraction tests to also use this (or at least reuse some code and use the soundgarden user df csv data format)
+//FIXME[follow up PR]: Change ltr feature extraction tests to share code with
+//                     this implementation and then to use the normal soundgarden
+//                     user data-frames instead of specially pre-processed csv
+//                     files.
+//
+//FIXME maybe verify the structural integrity of the file, currently it's expected
+// to have the records partitioned by query as well as sorted both in each query
+// (first ranked record to last ranked record) and in between queries (oldest
+// query to newest query).
+//
+/// Loads a history from a soundgarden user data-frame csv file.
+///
+/// The [`UserAction`] values will be inferred from the data in the
+/// same way soundgarden does so.
 fn load_history(path: impl AsRef<Path>) -> Result<Vec<DocumentHistory>, Error> {
     let mut reader = csv::Reader::from_path(path)?;
 
@@ -89,21 +107,56 @@ fn load_history(path: impl AsRef<Path>) -> Result<Vec<DocumentHistory>, Error> {
     Ok(history)
 }
 
+/// Struct to load a soundgarden user data-frame csv file record into.
 #[derive(Deserialize)]
 struct SoundgardenUserDfRecord {
+    /// Session Id, is a incremental usize in soundgarden.
     session_id: usize,
+    /// Query Id, same for all queries using the same parameter.
     query_id: usize,
+    /// User Id, arbitrary usize.
+    ///
+    /// We treat all data as if it's from the same user, so we
+    /// don't really need it but we use it to infer a appropriate
+    /// deterministic document id.
     user_id: usize,
+    /// Day since the start of the training but starting as `Tue == 1`.
+    ///
+    /// As such `Mon` is `0`, `Wed` is `2` etc.
+    ///
+    /// The number is not limited to `0..=6`, e.g. all of `1`,`8`,`15` are `Tue`
     day: usize,
+    /// The words of the query as *comma* separated string.
+    ///
+    /// This are not actual words but word id's as string encoded,
+    /// e.g. `"2142,53423"` but treating `2142` as a word is not
+    /// a problem for our use-case.
     query_words: String,
+    /// The url of the document.
+    ///
+    /// Theoretically this is also an "arbitrary" usize id, but
+    /// practically it's simpler to just treat it as a string.
     url: String,
+    /// The domain of the document.
+    ///
+    /// Theoretically this is also an "arbitrary" usize id, but
+    /// practically it's simpler to just treat it as a string.
     domain: String,
+    /// The relevance of the document.
     relevance: Relevance,
+    /// The position of the document, *starting with `1`*.
     position: usize,
+    /// The index of the query in the session it belongs to.
     query_counter: usize,
 }
 
 impl SoundgardenUserDfRecord {
+    /// Creates a [`DocumentHistory`] from this record.
+    ///
+    /// The `user_action` field *will* be incorrect and
+    /// needs to be fixed separately. This is the case
+    /// as the following documents need to be known to
+    /// infer it correctly.
     fn into_document_history_with_bad_user_action(
         self,
         per_user_result_counter: u32,
@@ -122,6 +175,8 @@ impl SoundgardenUserDfRecord {
         } = self;
 
         DocumentHistory {
+            // By combining the `user_id` with a monotonic increasing per-user counter
+            // we can create deterministically an appropriate document id.
             id: DocumentId(id2uuid(user_id, Some(per_user_result_counter))),
             relevance,
             user_feedback: UserFeedback::NotGiven,
@@ -138,22 +193,27 @@ impl SoundgardenUserDfRecord {
     }
 }
 
-fn fix_user_actions_in_history(histories: &mut [DocumentHistory]) -> bool {
+/// Updates the history with user actions inferred from the context.
+///
+/// This uses the same approach as in soundgarden.
+fn fix_user_actions_in_history(histories: &mut [DocumentHistory]) {
     // Soundgarden User Df are already grouped query in order past to present.
-    // FIXME error/sort if they are not.
+    // (There is a FIXME for this above.)
     histories
         .iter_mut()
         .rev()
         .group_by(|d| d.query_id)
         .into_iter()
-        .fold(false, |has_clicks, (_, query)| {
-            has_clicks | fix_user_actions_in_query_reverse_order(query)
-        })
+        .for_each(|(_, query)| fix_user_actions_in_query_reverse_order(query))
 }
 
+/// Split out from [`fix_user_actions_in_history`] **do not reuse elsewhere**.
+///
+/// The iterator must iterate over queries from last to first, and fixes
+/// user actions.
 fn fix_user_actions_in_query_reverse_order<'a>(
     query: impl IntoIterator<Item = &'a mut DocumentHistory>,
-) -> bool {
+) {
     let mut has_clicked_docs_after_it = false;
     for doc in query.into_iter() {
         doc.user_action = match doc.relevance {
@@ -170,8 +230,6 @@ fn fix_user_actions_in_query_reverse_order<'a>(
             }
         }
     }
-
-    has_clicked_docs_after_it
 }
 
 /// Crate a DayOfWeek from the offset.
@@ -181,7 +239,12 @@ fn day_from_day_offset(day: usize) -> DayOfWeek {
     DAYS[day % 7]
 }
 
-/// Creates a UUID by combining `d006a685-eb92-4d36-XXXX-XXXXXXXXXXXX` with given `sub_id`(S).
+/// Creates an UUID by combining `YYYYYYYY-eb92-4d36-XXXX-XXXXXXXXXXXX` with given `sub_id`(s).
+///
+/// - `X..` is replaced with the `sub_id`.
+///
+/// - `Y..` is replaced with the `sub_id2` if given. If
+///       not given `0xd006a685` is used instead.
 fn id2uuid(sub_id: usize, sub_id2: Option<u32>) -> Uuid {
     const BASE_UUID: u128 = 0x00000000_eb92_4d36_0000_000000000000;
     const DEFAULT_SUB_ID_2: u32 = 0xd006a685;

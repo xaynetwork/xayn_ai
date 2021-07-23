@@ -9,6 +9,7 @@ mod data_source;
 mod inspect;
 mod train;
 
+/// Commands related to training ListNet (train, convert, inspect).
 #[derive(StructOpt, Debug)]
 pub enum ListNetCmd {
     Train(TrainCmd),
