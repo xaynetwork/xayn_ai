@@ -28,10 +28,9 @@ mod pipeline;
 mod pooler;
 mod tokenizer;
 
-use crate::model::kinds;
-
 pub use crate::{
     builder::{Builder, BuilderError},
+    model::kinds,
     pipeline::{Pipeline, PipelineError},
     pooler::{AveragePooler, Embedding1, Embedding2, FirstPooler, NonePooler},
 };
