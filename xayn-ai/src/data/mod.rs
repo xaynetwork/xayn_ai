@@ -7,7 +7,7 @@ use crate::embedding::utils::Embedding;
 
 // Hint: We use this id new-type in FFI so repr(transparent) needs to be kept
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct CoiId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]

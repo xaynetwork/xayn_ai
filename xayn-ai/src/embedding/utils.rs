@@ -38,7 +38,16 @@ where
     A: Deref<Target = ArrayBase<S, Ix1>>,
     S: Data<Elem = f32>,
 {
-    (0.5 * (a.deref() + b.deref())).into()
+    let mean = 0.5 * (a.deref() + b.deref());
+    if mean.iter().any(|elt| elt.is_nan() || elt.is_infinite()) {
+        panic!(
+            "vectors must consist of real values only, but got\na: {:?}\nb: {:?}",
+            a.deref(),
+            b.deref(),
+        );
+    }
+
+    mean.into()
 }
 
 #[cfg(test)]

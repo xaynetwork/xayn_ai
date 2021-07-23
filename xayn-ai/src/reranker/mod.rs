@@ -386,7 +386,7 @@ mod tests {
                 sync_data: SyncData {
                     user_interests: UserInterests {
                         positive: pos_cois_from_words(&["vehicle"], mocked_smbert_system()),
-                        ..Default::default()
+                        ..UserInterests::default()
                     },
                 },
             }

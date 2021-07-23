@@ -57,8 +57,7 @@ impl Db {
 
         // migration from version 0 to current
         let data = if version == 0 {
-            let data0: RerankerData0 = bincode::deserialize(&bytes[1..])?;
-            data0.into()
+            bincode::deserialize::<RerankerData0>(&bytes[1..])?.into()
         } else {
             bincode::deserialize(&bytes[1..])?
         };
