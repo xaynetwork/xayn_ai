@@ -124,13 +124,14 @@ pub fn list_net_training_data_from_history(
     mut history: &[DocumentHistory],
 ) -> Vec<(Array2<f32>, Array1<f32>)> {
     // FIXME[follow up PR] We have a few ways to do this:
-    // 1: just create a single sample based on the last query in the history
-    // 2: create samples for the last n unique queries in history (or based on percentage of queries)
-    // 3: go through the history and create a query for each query in history but discount sample relevance (weights)
+    // 1: Create a single sample based on the last query in the history as it's done in soundgarden.
+    // 2: Create samples for the last n unique queries in history (or based on percentage of queries).
+    // 3: Go through the history and create a query for each query in history but discount sample relevance (weights)
     //    for older queries. (Discount == given the gradient based on the sample a smaller weight when averaging the gradients)
     // ...
-    // FOR now we will go with 1. but this is like not the best choice
+    // For now we will go with 1. but this is like not the best choice.
     loop {
+        // History has no relevant query and as such no samples.
         if history.is_empty() {
             return Vec::new();
         }
@@ -153,6 +154,7 @@ pub fn list_net_training_data_from_history(
             if let Some(relevances) = self::list_net::prepare_target_prob_dist(&relevances) {
                 relevances
             } else {
+                // The last query is irrelevant so ignore pretend it doesn't exist.
                 history = &history[..start_of_last_query];
                 continue;
             };
@@ -165,9 +167,10 @@ pub fn list_net_training_data_from_history(
             .collect_vec();
         let features = match build_features(history, pseudo_current) {
             Ok(features) => features_to_ndarray(&features),
-            Err(_err) => {
-                //FIXME also return error
-                return Vec::new();
+            Err(err) => {
+                //FIXME[follow up PR] handle appropriately depending on chosen sampling approach
+                // Currently this can only happen if you try to train it with corrupted data.
+                panic!("Sanity check in building features failed: {}", err);
             }
         };
         return vec![(features, relevances)];

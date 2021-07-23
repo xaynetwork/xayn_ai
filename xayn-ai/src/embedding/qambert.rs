@@ -65,7 +65,7 @@ impl QAMBertSystem for NeutralQAMBert {
 }
 
 #[cfg(test)]
-//FIXME philipp
+//FIXME[follow up PR] temporary public to allow access to `qambert()` for triggering the NaN bug easier.
 pub mod tests {
     use rubert::{AveragePooler, QAMBertBuilder};
 
@@ -76,7 +76,7 @@ pub mod tests {
     const VOCAB: &str = "../data/qambert_v0001/vocab.txt";
     const QAMBERT_MODEL: &str = "../data/qambert_v0001/qambert.onnx";
 
-    //FIXME philipp
+    //FIXME[follow up PR] see above
     pub fn qambert() -> QAMBert {
         QAMBertBuilder::from_files(VOCAB, QAMBERT_MODEL)
             .unwrap()

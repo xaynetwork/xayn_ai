@@ -205,6 +205,7 @@ impl BinParams {
             .map_err(Into::into)
     }
 
+    /// Insert a array under given name (replacing any array previously set for that name).
     pub fn insert<A>(&mut self, name: impl Into<String>, array: A)
     where
         FlattenedArray<f32>: From<A>,
@@ -271,6 +272,7 @@ impl<'a> BinParamsWithScope<'a> {
         self.params.take(&name)
     }
 
+    /// Insert a array under given name combined with the current prefix (replacing any array previously set for that name).
     pub fn insert<A>(&mut self, name: &str, array: A)
     where
         FlattenedArray<f32>: From<A>,
@@ -279,6 +281,7 @@ impl<'a> BinParamsWithScope<'a> {
         self.params.insert(name, array);
     }
 
+    /// Create a name based on a suffix and the current prefix.
     fn create_name(&self, suffix: &str) -> String {
         self.prefix.clone() + suffix
     }
@@ -287,7 +290,7 @@ impl<'a> BinParamsWithScope<'a> {
     pub fn with_scope(&mut self, scope: &str) -> BinParamsWithScope {
         BinParamsWithScope {
             params: &mut *self.params,
-            prefix: self.prefix.clone() + "/" + scope,
+            prefix: self.prefix.clone() + scope + "/",
         }
     }
 }

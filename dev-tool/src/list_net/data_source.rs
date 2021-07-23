@@ -1,4 +1,4 @@
-//FIMXE: Move parts of this module into list_net to re-use them for in-app training.
+//FIXME[follow up PR]: Move modified parts of this module into the `ltr::list_net` module to re-use them for in-app training.
 use std::{
     error::Error as StdError,
     fs::File,
@@ -8,7 +8,7 @@ use std::{
     u64,
 };
 
-use anyhow::Error;
+use anyhow::{bail, Error};
 use bincode::Options;
 use displaydoc::Display;
 use log::debug;
@@ -16,6 +16,7 @@ use ndarray::{ArrayBase, ArrayView, ArrayView1, ArrayView2, Data, Dimension};
 use rand::{prelude::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
 use xayn_ai::list_net::{self, ListNet, Sample};
 
 /// A [`xayn_ai::list_net::DataSource`] implementation.
@@ -23,9 +24,13 @@ pub(crate) struct DataSource<S>
 where
     S: Storage,
 {
+    /// The storage containing all samples.
     storage: S,
+    /// The batch size (if already provided).
     batch_size: Option<usize>,
+    /// A container with all ids of all training samples, returning them in randomized order.
     training_data_order: DataLookupOrder,
+    /// A container with all ids of all evaluation samples, returning them in randomized order.
     evaluation_data_order: DataLookupOrder,
 }
 
@@ -33,6 +38,16 @@ impl<S> DataSource<S>
 where
     S: Storage,
 {
+    /// Creates a new `DataSource` from given storage and evaluation split.
+    ///
+    /// # Errors
+    ///
+    /// - If `evaluation_split` is less then 0 or not a normal float.
+    /// - If there are no samples.
+    /// - If there are no training samples with the given `evaluation_split`.
+    /// - If there are no evaluation samples with the given `evaluation_split`,
+    ///   but the split is not `0`.
+    /// - If calling `storage.data_ids()` failed.
     pub(crate) fn new(
         storage: S,
         evaluation_split: f32,
@@ -160,8 +175,11 @@ pub(crate) trait Storage {
 
 type DataId = usize;
 
+/// Helper to randomize sample order.
 struct DataLookupOrder {
+    /// Id's (indices) of all samples in this set.
     data_ids: Vec<DataId>,
+    /// The offset splitting already used samples from not yet used samples.
     data_ids_offset: usize,
 }
 
@@ -173,15 +191,21 @@ impl DataLookupOrder {
         }
     }
 
+    /// Returns the number of batches which will be produced with given batch size.
     fn number_of_batches(&self, batch_size: usize) -> usize {
         self.data_ids.len() / batch_size
     }
 
+    /// Resets this container.
+    ///
+    /// This will mark all samples as unused and
+    /// shuffles the order of samples.
     fn reset(&mut self, rng: &mut impl Rng) {
         self.data_ids.shuffle(rng);
         self.data_ids_offset = 0;
     }
 
+    /// Returns the next unused sample id.
     fn next(&mut self) -> Option<DataId> {
         if self.data_ids_offset < self.data_ids.len() {
             let idx = self.data_ids_offset;
@@ -193,6 +217,7 @@ impl DataLookupOrder {
         }
     }
 
+    /// Returns the next batch size many sample ids.
     fn next_batch(&mut self, batch_size: usize) -> Vec<DataId> {
         let end_idx = self.data_ids_offset + batch_size;
         if end_idx <= self.data_ids.len() {
@@ -206,22 +231,19 @@ impl DataLookupOrder {
     }
 }
 
-/// A "in-memory" data storage.
+/// A "in-memory" sample storage.
 ///
 /// It also can be portably stored to disk using bincode serialization.
-///
-/// BUT it will be stored as one large blob, that and the fact that it's
-/// fully in-memory makes puts limits on the size of the database.
 // If necessary a future implementation could use memory mapped I/O
 // and chunked storage or even remote chunks to support larger datasets,
 // through I don't think we will ever need it.
 #[derive(Serialize, Deserialize, Default)]
-pub(crate) struct InMemoryData {
+pub(crate) struct InMemorySamples {
     // When using this with some dataset we have quite a bit of data (a few GiB)
-    // so we want to at least slightly optimize the storage, by storing the inputs
-    // and target prob. dist. into one large memory allocation which we then can create
-    // views into. This is especially useful wrt. bincode serialization as ndarray::Array
-    // has no long term stable serialization format.
+    // so we want to at least slightly optimize the storage (size and locality),
+    // by storing the inputs and target prob. dist. into one large memory allocation
+    // which we then can create views into. This is especially useful wrt. bincode
+    // serialization as ndarray::Array has no long term stable serialization format.
     data: Vec<Vec<f32>>,
 }
 
@@ -231,7 +253,7 @@ pub enum StorageError {
     BrokenInvariants { at_index: usize },
 }
 
-impl InMemoryData {
+impl InMemorySamples {
     pub(crate) fn write_to_file(&self, file: impl AsRef<Path>) -> Result<(), Error> {
         self.serialize_into(BufWriter::new(File::create(file)?))
     }
@@ -255,6 +277,7 @@ impl InMemoryData {
     fn load_sample_helper(&self, id: DataId) -> Result<Sample, StorageError> {
         let raw = &self.data[id];
 
+        // len == nr_document * nr_features + nr_documents * 1
         let nr_documents = raw.len() / (ListNet::INPUT_NR_FEATURES + 1);
         let start_of_target_prob_dist = nr_documents * ListNet::INPUT_NR_FEATURES;
         debug_assert_eq!(start_of_target_prob_dist + nr_documents, raw.len());
@@ -274,30 +297,35 @@ impl InMemoryData {
         })
     }
 
-    /// Add a new sample to the data.
+    /// Add a new sample.
     ///
     /// # Panics
     ///
     /// - If number of documents in `inputs` doesn't match the number of probabilities in
     /// `target_prob_dist`.
-    /// - If the number of features per document is not 50.
+    /// - If the number of features per document is not equal to `[ListNet::INPUT_NR_FEATURES]`.
     pub(crate) fn add_sample(
         &mut self,
         inputs: ArrayView2<f32>,
         target_prob_dist: ArrayView1<f32>,
-    ) {
-        //FIXME return error
-        assert_eq!(
-            inputs.shape(),
-            &[target_prob_dist.len(), ListNet::INPUT_NR_FEATURES]
-        );
+    ) -> Result<(), Error> {
+        if inputs.shape() != [target_prob_dist.len(), ListNet::INPUT_NR_FEATURES] {
+            bail!("Sample with bad array shapes. Expected shapes [{nr_docs}, {nr_feats}] & [{nr_docs}] but got shapes {inputs_shape:?} & {prob_dist_shape:?}",
+                nr_docs=inputs.shape()[0],
+                nr_feats=ListNet::INPUT_NR_FEATURES,
+                inputs_shape=inputs.shape(),
+                prob_dist_shape=target_prob_dist.shape(),
+            );
+        }
         let mut data = Vec::with_capacity(inputs.len() + target_prob_dist.len());
         extend_vec_with_ndarray(&mut data, inputs);
         extend_vec_with_ndarray(&mut data, target_prob_dist);
         self.data.push(data);
+        Ok(())
     }
 }
 
+/// Extend a vec with the elements of given array in logical order.
 fn extend_vec_with_ndarray<T: Clone>(
     data: &mut Vec<T>,
     array: ArrayBase<impl Data<Elem = T>, impl Dimension>,
@@ -309,7 +337,7 @@ fn extend_vec_with_ndarray<T: Clone>(
     }
 }
 
-impl Storage for InMemoryData {
+impl Storage for InMemorySamples {
     type Error = StorageError;
 
     fn data_ids(&self) -> Result<RangeTo<usize>, Self::Error> {
@@ -337,22 +365,46 @@ mod tests {
 
     use super::*;
 
-    fn dummy_storage() -> InMemoryData {
-        let mut storage = InMemoryData::default();
+    fn dummy_storage() -> InMemorySamples {
+        let mut storage = InMemorySamples::default();
 
         let inputs = Array::zeros((10, 50));
         let target_prob_dist = Array::ones((10,));
-        storage.add_sample(inputs.view(), target_prob_dist.view());
+        storage
+            .add_sample(inputs.view(), target_prob_dist.view())
+            .unwrap();
 
         let inputs = Array::ones((10, 50));
         let target_prob_dist = Array::zeros((10,));
-        storage.add_sample(inputs.view(), target_prob_dist.view());
+        storage
+            .add_sample(inputs.view(), target_prob_dist.view())
+            .unwrap();
 
         let inputs = Array::from_elem((10, 50), 4.);
         let target_prob_dist = Array::ones((10,));
-        storage.add_sample(inputs.view(), target_prob_dist.view());
+        storage
+            .add_sample(inputs.view(), target_prob_dist.view())
+            .unwrap();
 
         storage
+    }
+
+    #[test]
+    fn test_adding_bad_matrices_fails() {
+        let mut storage = InMemorySamples::default();
+        let inputs = Array::zeros((10, 48));
+        let target_prob_dist = Array::ones((10,));
+        storage
+            .add_sample(inputs.view(), target_prob_dist.view())
+            .unwrap_err();
+
+        let inputs = Array::zeros((10, 50));
+        let target_prob_dist = Array::ones((12,));
+        storage
+            .add_sample(inputs.view(), target_prob_dist.view())
+            .unwrap_err();
+
+        assert!(storage.data.is_empty());
     }
 
     #[test]
@@ -461,7 +513,7 @@ mod tests {
 
         let mut buffer = Vec::new();
         storage.serialize_into(&mut buffer).unwrap();
-        let storage2 = InMemoryData::deserialize_from(&*buffer).unwrap();
+        let storage2 = InMemorySamples::deserialize_from(&*buffer).unwrap();
 
         assert_approx_eq!(f32, storage.data, storage2.data);
     }

@@ -8,14 +8,15 @@ use crate::exit_code::NO_ERROR;
 
 use super::{
     cli_callbacks::CliTrainingControllerBuilder,
-    data_source::{DataSource, InMemoryData},
+    data_source::{DataSource, InMemorySamples},
 };
 
+/// Trains a ListNet.
 #[derive(StructOpt, Debug)]
 pub struct TrainCmd {
     /// A file containing samples we can train and evaluate on.
     #[structopt(long)]
-    data: PathBuf,
+    samples: PathBuf,
 
     /// The number of epochs to run.
     #[structopt(long)]
@@ -40,15 +41,15 @@ pub struct TrainCmd {
     #[structopt(long)]
     use_initial_parameters: Option<PathBuf>,
 
-    /// Dire to store outputs in.
-    #[structopt(short, long, default_value = ".")]
+    /// Directory to store outputs in.
+    #[structopt(short, long, default_value = "./")]
     out_dir: PathBuf,
 
-    /// After how many epochs a intermediate result should be dumped.
+    /// After how many epochs a intermediate result should be dumped (if at all).
     #[structopt(long)]
     dump_every: Option<usize>,
 
-    /// Dumps the initial parameters before any training was done
+    /// Dumps the initial parameters before any training was done.
     #[structopt(long)]
     dump_initial_parameters: bool,
 }
@@ -56,7 +57,7 @@ pub struct TrainCmd {
 impl TrainCmd {
     pub fn run(self) -> Result<i32, Error> {
         let TrainCmd {
-            data: database,
+            samples,
             epochs,
             batch_size,
             evaluation_split,
@@ -67,10 +68,10 @@ impl TrainCmd {
             dump_initial_parameters,
         } = self;
 
-        let storage = InMemoryData::deserialize_from_file(database)
-            .context("loading training/eval data failed")?;
+        let storage = InMemorySamples::deserialize_from_file(samples)
+            .context("Loading training & evaluation samples failed.")?;
         let data_source =
-            DataSource::new(storage, evaluation_split).context("Creating DataSource failed")?;
+            DataSource::new(storage, evaluation_split).context("Creating DataSource failed.")?;
 
         let callbacks = CliTrainingControllerBuilder {
             out_dir,
