@@ -1,5 +1,7 @@
 PODS:
   - Flutter (1.0.0)
+  - integration_test (0.0.1):
+    - Flutter
   - path_provider (0.0.1):
     - Flutter
   - xayn_ai_ffi_dart (0.0.1):
@@ -7,12 +9,15 @@ PODS:
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
   - path_provider (from `.symlinks/plugins/path_provider/ios`)
   - xayn_ai_ffi_dart (from `.symlinks/plugins/xayn_ai_ffi_dart/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
   path_provider:
     :path: ".symlinks/plugins/path_provider/ios"
   xayn_ai_ffi_dart:
@@ -20,9 +25,10 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: 434fef37c0980e73bb6479ef766c45957d4b510c
+  integration_test: 6eb66a19f7104200dcfdd62bc0077e1b09686e4f
   path_provider: abfe2b5c733d04e238b0d8691db0cfd63a27a93c
   xayn_ai_ffi_dart: 286b391bc1afb0c5b9c3d3e15cf1a54df623ffda
 
-PODFILE CHECKSUM: 8462e319511eccc6fb15d8c90ec86661a5952ac8
+PODFILE CHECKSUM: 3dba82801e611e01c6a90d22eea148825eb570cf
 
 COCOAPODS: 1.10.1
