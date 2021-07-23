@@ -648,7 +648,7 @@ mod tests {
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
             LTR_MODEL,
-            Some(Box::new([1, 2, 3])),
+            Some(Box::new([2, 3, 4])),
         )
         .unwrap_err()
         .into_serde::<Error>()
