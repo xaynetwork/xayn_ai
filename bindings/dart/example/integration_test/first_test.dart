@@ -24,11 +24,11 @@ import 'package:xayn_ai_ffi_dart/package.dart'
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets("failing test example", (WidgetTester tester) async {
+  testWidgets('failing test example', (WidgetTester tester) async {
     expect(2 + 2, equals(5));
   });
 
-  testWidgets("xayn rerank test", (WidgetTester tester) async {
+  testWidgets('xayn rerank test', (WidgetTester tester) async {
     final ai = await XaynAi.create(await getInputData());
     final outcome = ai.rerank(RerankMode.search, histories, documents);
     final faults = ai.faults();
