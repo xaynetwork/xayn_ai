@@ -119,10 +119,12 @@ impl LtrSystem for ConstLtr {
     }
 }
 
+pub type OwnedSample = (Array2<f32>, Array1<f32>);
+
 /// Creates training data for ListNet from a users history.
 pub fn list_net_training_data_from_history(
     mut history: &[DocumentHistory],
-) -> Result<Vec<(Array2<f32>, Array1<f32>)>, Error> {
+) -> Result<Vec<OwnedSample>, Error> {
     // FIXME[follow up PR] We have a few ways to do this:
     // 1: Create a single sample based on the last query in the history as it's done in soundgarden.
     // 2: Create samples for the last n unique queries in history (or based on percentage of queries).

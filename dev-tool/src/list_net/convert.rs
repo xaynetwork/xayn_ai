@@ -61,7 +61,7 @@ impl ConvertCmd {
             debug!("Loading history for {:?}.", path.file_name().unwrap());
             let history = load_history(path)?;
             debug!("Processing history");
-            for (inputs, target_prob_dist) in list_net_training_data_from_history(&history) {
+            for (inputs, target_prob_dist) in list_net_training_data_from_history(&history)? {
                 storage.add_sample(inputs.view(), target_prob_dist.view())?;
             }
         }
