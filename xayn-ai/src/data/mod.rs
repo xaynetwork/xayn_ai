@@ -7,7 +7,7 @@ use crate::embedding::utils::Embedding;
 
 // Hint: We use this id new-type in FFI so repr(transparent) needs to be kept
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct CoiId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -48,6 +48,9 @@ impl NegativeCoi {
 
 pub(crate) trait CoiPoint {
     fn new(id: usize, embedding: Embedding) -> Self;
+    fn merge(self, other: Self, id: usize) -> Self;
+    fn id(&self) -> CoiId;
+    fn set_id(&mut self, id: usize);
     fn point(&self) -> &Embedding;
     fn set_point(&mut self, embedding: Embedding);
 }
@@ -57,6 +60,18 @@ macro_rules! impl_coi_point {
         impl CoiPoint for $type {
             fn new(id: usize, embedding: Embedding) -> Self {
                 <$type>::new(id, embedding)
+            }
+
+            fn merge(self, other: Self, id: usize) -> Self {
+                self.merge(other, id)
+            }
+
+            fn id(&self) -> CoiId {
+                self.id
+            }
+
+            fn set_id(&mut self, id: usize) {
+                self.id = CoiId(id);
             }
 
             fn point(&self) -> &Embedding {
