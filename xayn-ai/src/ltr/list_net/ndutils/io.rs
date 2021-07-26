@@ -282,7 +282,7 @@ impl<'a> BinParamsWithScope<'a> {
     }
 
     /// Create a name based on a suffix and the current prefix.
-    fn create_name(&self, suffix: &str) -> String {
+    pub fn create_name(&self, suffix: &str) -> String {
         self.prefix.clone() + suffix
     }
 
