@@ -4,7 +4,7 @@ use anyhow::{Context, Error};
 use structopt::StructOpt;
 use xayn_ai::list_net::{optimizer::MiniBatchSgd, ListNet, ListNetTrainer};
 
-use crate::exit_code::NO_ERROR;
+use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 
 use super::{
     cli_callbacks::CliTrainingControllerBuilder,
@@ -72,10 +72,11 @@ impl TrainCmd {
             dump_initial_parameters,
         } = self;
 
-        let storage = InMemorySamples::deserialize_from_file(samples)
-            .context("Loading training & evaluation samples failed.")?;
-        let data_source =
-            DataSource::new(storage, evaluation_split).context("Creating DataSource failed.")?;
+        let data_source = progress_spin_until_done("Loading samples", || {
+            let storage = InMemorySamples::deserialize_from_file(samples)
+                .context("Loading training & evaluation samples failed.")?;
+            DataSource::new(storage, evaluation_split).context("Creating DataSource failed.")
+        })?;
 
         let callbacks = CliTrainingControllerBuilder {
             out_dir,

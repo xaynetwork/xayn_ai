@@ -12,7 +12,7 @@ use anyhow::{bail, Error};
 use bincode::Options;
 use displaydoc::Display;
 use log::debug;
-use ndarray::{ArrayBase, ArrayView, ArrayView1, ArrayView2, Data, Dimension};
+use ndarray::{Array1, Array2, ArrayBase, ArrayView, Data, Dimension};
 use rand::{prelude::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -245,7 +245,7 @@ impl DataLookupOrder {
 // While there are many ways to improve on this (e.g. memory-mapped I/O), they are not relevant for our
 // use-case for now.
 #[derive(Serialize, Deserialize, Default)]
-pub(crate) struct InMemorySamples {
+pub struct InMemorySamples {
     /// Vector of concatenated `inputs` and `target_prob_dist`, this slightly improves memory size and
     /// cache locality, we can derive the number of document from the vectors length as the vectors length
     /// is `nr_document * INPUT_NR_FEATURES + nr_document*1`, i.e. `nr_documents * 51`.
@@ -259,10 +259,17 @@ pub enum StorageError {
 }
 
 impl InMemorySamples {
+    /// Creates a new storage which prepares for a specific number of samples to be added.
+    pub fn with_sample_capacity(nr_samples: usize) -> Self {
+        Self {
+            data: Vec::with_capacity(nr_samples),
+        }
+    }
+
     /// Serializes this instance into a file, preferably use the `.samples` file ending.
     //FIXME[follow-up PR] version the file format, it's used to persist data and it's not
     //                    unlikely to slightly change in the future.
-    pub(crate) fn serialize_into_file(&self, file: impl AsRef<Path>) -> Result<(), Error> {
+    pub fn serialize_into_file(&self, file: impl AsRef<Path>) -> Result<(), Error> {
         self.serialize_into(BufWriter::new(File::create(file)?))
     }
 
@@ -274,7 +281,7 @@ impl InMemorySamples {
     }
 
     /// Deserialize a instance from given file.
-    pub(crate) fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
+    pub fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
         Self::deserialize_from(BufReader::new(File::open(file)?))
     }
 
@@ -308,18 +315,50 @@ impl InMemorySamples {
         })
     }
 
-    /// Add a new sample.
+    /// Prepares samples to be added to this storage.
     ///
-    /// # Panics
+    /// This is split out from adding samples so that the preparation
+    /// can be parallelized while the adding is synchronized using a lock
+    /// or similar.
     ///
-    /// - If the number of documents in `inputs` doesn't match the number of probabilities in
+    /// # Errors
+    ///
+    /// This will return an error if for any sample:
+    ///
+    /// - The number of documents in `inputs` doesn't match the number of probabilities in
     /// `target_prob_dist`.
-    /// - If the number of features per document is not equal to `[ListNet::INPUT_NR_FEATURES]`.
-    pub(crate) fn add_sample(
+    /// - The the number of features per document is not equal to `[ListNet::INPUT_NR_FEATURES]`.
+    pub fn prepare_samples(
+        samples: impl IntoIterator<Item = (Array2<f32>, Array1<f32>)>,
+    ) -> Result<PreparedSamples, Error> {
+        let samples = samples
+            .into_iter()
+            .map(Self::sample_to_combined_vec)
+            .collect::<Result<_, _>>()?;
+
+        Ok(PreparedSamples { samples })
+    }
+
+    /// Adds all prepared samples to this storage.
+    pub fn add_prepared_samples(&mut self, prepared_samples: PreparedSamples) {
+        self.data.extend(prepared_samples.samples)
+    }
+
+    /// Adds a single non-prepared sample
+    #[cfg(test)]
+    pub fn add_sample(
         &mut self,
-        inputs: ArrayView2<f32>,
-        target_prob_dist: ArrayView1<f32>,
+        inputs: Array2<f32>,
+        target_prob_dist: Array1<f32>,
     ) -> Result<(), Error> {
+        let prepared_samples = Self::prepare_samples(std::iter::once((inputs, target_prob_dist)))?;
+        self.add_prepared_samples(prepared_samples);
+        Ok(())
+    }
+
+    fn sample_to_combined_vec(
+        (inputs, target_prob_dist): (Array2<f32>, Array1<f32>),
+    ) -> Result<Vec<f32>, Error> {
         if inputs.shape() != [target_prob_dist.len(), ListNet::INPUT_NR_FEATURES] {
             bail!("Sample with bad array shapes. Expected shapes [{nr_docs}, {nr_feats}] & [{nr_docs}] but got shapes {inputs_shape:?} & {prob_dist_shape:?}",
                 nr_docs=inputs.shape()[0],
@@ -331,9 +370,12 @@ impl InMemorySamples {
         let mut data = Vec::with_capacity(inputs.len() + target_prob_dist.len());
         extend_vec_with_ndarray(&mut data, inputs);
         extend_vec_with_ndarray(&mut data, target_prob_dist);
-        self.data.push(data);
-        Ok(())
+        Ok(data)
     }
+}
+
+pub struct PreparedSamples {
+    samples: Vec<Vec<f32>>,
 }
 
 /// Extend a vec with the elements of given array in logical order.
@@ -381,21 +423,15 @@ mod tests {
 
         let inputs = Array::zeros((10, 50));
         let target_prob_dist = Array::ones((10,));
-        storage
-            .add_sample(inputs.view(), target_prob_dist.view())
-            .unwrap();
+        storage.add_sample(inputs, target_prob_dist).unwrap();
 
         let inputs = Array::ones((10, 50));
         let target_prob_dist = Array::zeros((10,));
-        storage
-            .add_sample(inputs.view(), target_prob_dist.view())
-            .unwrap();
+        storage.add_sample(inputs, target_prob_dist).unwrap();
 
         let inputs = Array::from_elem((10, 50), 4.);
         let target_prob_dist = Array::ones((10,));
-        storage
-            .add_sample(inputs.view(), target_prob_dist.view())
-            .unwrap();
+        storage.add_sample(inputs, target_prob_dist).unwrap();
 
         storage
     }
@@ -405,15 +441,11 @@ mod tests {
         let mut storage = InMemorySamples::default();
         let inputs = Array::zeros((10, 48));
         let target_prob_dist = Array::ones((10,));
-        storage
-            .add_sample(inputs.view(), target_prob_dist.view())
-            .unwrap_err();
+        storage.add_sample(inputs, target_prob_dist).unwrap_err();
 
         let inputs = Array::zeros((10, 50));
         let target_prob_dist = Array::ones((12,));
-        storage
-            .add_sample(inputs.view(), target_prob_dist.view())
-            .unwrap_err();
+        storage.add_sample(inputs, target_prob_dist).unwrap_err();
 
         assert!(storage.data.is_empty());
     }

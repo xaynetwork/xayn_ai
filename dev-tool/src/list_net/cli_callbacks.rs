@@ -127,14 +127,16 @@ impl TrainingController for CliTrainingController {
             bar.inc(1);
         }
 
-        //FIXME This can always happen (after a longer training, mainly
-        //      if training with inadequate data or parameters). Still
-        //      we want to handle this better in the future.
-        if mean_kl_divergence_evaluation
-            .map(|v| v.is_nan())
-            .unwrap_or_default()
-        {
-            panic!("evaluation KL-Divergence cost is NaN");
+        if let Some(cost) = mean_kl_divergence_evaluation {
+            //FIXME This can always happen (after a longer training, mainly
+            //      if training with inadequate data or parameters). Still
+            //      we want to handle this better in the future.
+            if cost.is_nan() {
+                panic!("evaluation KL-Divergence cost is NaN");
+            }
+            if let Some(bar) = &self.train_progress_bar {
+                bar.println(format!("Evaluation Cost: {}", cost));
+            }
         }
 
         self.current_epoch += 1;
