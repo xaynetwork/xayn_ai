@@ -219,12 +219,16 @@ pub(crate) struct DenseGradientSet {
 }
 
 impl DenseGradientSet {
-    /// Creates a gradient set with 0 gradients for given dense layer.
-    pub(crate) fn zero_gradients_for(dense: &Dense<impl ActivationFunction<f32>>) -> Self {
-        Self {
-            weight_gradients: Array::zeros(dense.weights.dim()),
-            bias_gradients: Array::zeros(dense.bias.dim()),
-        }
+    /// Merge multiple gradients for the same shared weights.
+    ///
+    /// This will just sum them up.
+    pub(crate) fn merge_shared(
+        gradients_for_shared_weights: impl IntoIterator<Item = Self>,
+    ) -> Option<Self> {
+        gradients_for_shared_weights.into_iter().reduce(|mut l, r| {
+            l += r;
+            l
+        })
     }
 }
 
