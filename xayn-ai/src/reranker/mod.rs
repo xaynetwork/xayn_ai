@@ -1,9 +1,11 @@
 pub(crate) mod database;
 pub mod public;
+pub(crate) mod sync;
 pub(crate) mod systems;
 
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use sync::SyncData;
 use systems::QAMBertSystem;
 
 use crate::{
@@ -151,7 +153,7 @@ impl PreviousDocuments {
 #[cfg_attr(test, derive(Clone, PartialEq, Debug))]
 #[derive(Default, Serialize, Deserialize)]
 pub(crate) struct RerankerData {
-    user_interests: UserInterests,
+    sync_data: SyncData,
     prev_documents: PreviousDocuments,
 }
 
@@ -161,9 +163,10 @@ impl RerankerData {
         user_interests: UserInterests,
         prev_documents: Vec<DocumentDataWithMab>,
     ) -> Self {
+        let sync_data = SyncData { user_interests };
         let prev_documents = PreviousDocuments::Mab(prev_documents);
         Self {
-            user_interests,
+            sync_data,
             prev_documents,
         }
     }
@@ -179,7 +182,6 @@ impl RerankerData {
 pub enum RerankMode {
     /// Run reranking for news.
     News = 0,
-
     /// Run reranking for search.
     Search = 1,
 }
@@ -225,6 +227,19 @@ where
         self.common_systems.database().serialize(&self.data)
     }
 
+    #[allow(dead_code)] // TEMP
+    /// Create a byte representation of the synchronizable data.
+    pub(crate) fn sync_bytes(&self) -> Result<Vec<u8>, Error> {
+        self.data.sync_data.serialize()
+    }
+
+    #[allow(dead_code)] // TEMP
+    pub(crate) fn synchronize(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        let remote_data = SyncData::deserialize(bytes)?;
+        self.data.sync_data.synchronize(remote_data);
+        Ok(())
+    }
+
     pub(crate) fn rerank(
         &mut self,
         mode: RerankMode,
@@ -237,7 +252,7 @@ where
 
         // feedback loop and analytics
         {
-            let user_interests = self.data.user_interests.clone();
+            let user_interests = self.data.sync_data.user_interests.clone();
             let prev_documents = self.data.prev_documents.to_coi_system_data();
 
             match learn_user_interests(
@@ -246,7 +261,7 @@ where
                 prev_documents.as_slice(),
                 user_interests,
             ) {
-                Ok(user_interests) => self.data.user_interests = user_interests,
+                Ok(user_interests) => self.data.sync_data.user_interests = user_interests,
                 Err(e) => self.errors.push(e),
             };
 
@@ -257,7 +272,7 @@ where
             }
         }
 
-        let user_interests = self.data.user_interests.clone();
+        let user_interests = self.data.sync_data.user_interests.clone();
 
         rerank(
             &self.common_systems,
@@ -270,7 +285,7 @@ where
             let outcome = RerankingOutcomes::from_mab(mode, documents, &documents_with_mab);
 
             self.data.prev_documents = PreviousDocuments::Mab(documents_with_mab);
-            self.data.user_interests = user_interests;
+            self.data.sync_data.user_interests = user_interests;
 
             outcome
         })
@@ -328,9 +343,7 @@ mod tests {
     }
 
     mod car_interest_example {
-        use super::from_ids;
-
-        use std::ops::Range;
+        use super::{from_ids, sync::SyncData};
 
         use crate::{
             data::{
@@ -345,6 +358,7 @@ mod tests {
                 pos_cois_from_words,
             },
         };
+        use std::ops::Range;
 
         pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {
             let docs = data_with_mab(from_ids(ids));
@@ -369,9 +383,11 @@ mod tests {
         fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
             RerankerData {
                 prev_documents: docs.into(),
-                user_interests: UserInterests {
-                    positive: pos_cois_from_words(&["vehicle"], mocked_smbert_system()),
-                    ..Default::default()
+                sync_data: SyncData {
+                    user_interests: UserInterests {
+                        positive: pos_cois_from_words(&["vehicle"], mocked_smbert_system()),
+                        ..UserInterests::default()
+                    },
                 },
             }
         }
@@ -410,8 +426,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
-        assert!(reranker.data.user_interests.positive.is_empty());
-        assert!(reranker.data.user_interests.negative.is_empty());
+        assert!(reranker.data.sync_data.user_interests.positive.is_empty());
+        assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         check_error!(reranker, CoiSystemError::NoCoi);
     }
@@ -450,8 +466,8 @@ mod tests {
         assert!(reranker.errors().is_empty());
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
 
-        assert_eq!(reranker.data.user_interests.positive.len(), 3);
-        assert_eq!(reranker.data.user_interests.negative.len(), 3);
+        assert_eq!(reranker.data.sync_data.user_interests.positive.len(), 3);
+        assert_eq!(reranker.data.sync_data.user_interests.negative.len(), 3);
     }
 
     /// A user performed a couple of searches. The `Reranker` data holds the
@@ -532,8 +548,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
-        assert!(reranker.data.user_interests.positive.is_empty());
-        assert!(reranker.data.user_interests.negative.is_empty());
+        assert!(reranker.data.sync_data.user_interests.positive.is_empty());
+        assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
@@ -559,8 +575,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(reranker.data.prev_documents.len(), documents.len());
-        assert!(reranker.data.user_interests.positive.is_empty());
-        assert!(reranker.data.user_interests.negative.is_empty());
+        assert!(reranker.data.sync_data.user_interests.positive.is_empty());
+        assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         check_error!(reranker, CoiSystemError::NoMatchingDocuments);
         check_error!(reranker, CoiSystemError::NoCoi);
