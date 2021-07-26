@@ -30,9 +30,6 @@ use self::{
     optimizer::Optimizer,
 };
 
-#[cfg(test)]
-use self::ndutils::io::{BinParamsWithScope, FailedToRetrieveParams};
-
 mod ndlayers;
 //Pub for dev-tool
 pub mod ndutils;
@@ -497,35 +494,6 @@ impl GradientSet {
             .into_iter()
             .map(|gradient_set| gradient_set / count)
             .reduce(Add::add)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn store(self, mut bin_params: BinParamsWithScope) {
-        let Self {
-            dense1,
-            dense2,
-            scores,
-            prob_dist,
-        } = self;
-        dense1.store(bin_params.with_scope("dense1"));
-        dense2.store(bin_params.with_scope("dense2"));
-        scores.store(bin_params.with_scope("scores"));
-        prob_dist.store(bin_params.with_scope("prob_dist"));
-    }
-
-    #[cfg(test)]
-    pub(crate) fn load(mut bin_params: BinParamsWithScope) -> Result<Self, FailedToRetrieveParams> {
-        let dense1 = DenseGradientSet::load(bin_params.with_scope("dense1"))?;
-        let dense2 = DenseGradientSet::load(bin_params.with_scope("dense2"))?;
-        let scores = DenseGradientSet::load(bin_params.with_scope("scores"))?;
-        let prob_dist = DenseGradientSet::load(bin_params.with_scope("prob_dist"))?;
-
-        Ok(Self {
-            dense1,
-            dense2,
-            scores,
-            prob_dist,
-        })
     }
 }
 
@@ -1415,7 +1383,7 @@ mod tests {
             let rewrite_instead_of_test =
                 env::var_os("LTR_LIST_NET_TRAINING_INTERMEDIATES_REWRITE")
                     == Some(OsString::from("1"));
-            if rewrite_instead_of_test {
+            if dbg!(rewrite_instead_of_test) {
                 Self {
                     params: BinParams::default(),
                     write_to_path_on_normal_drop: Some(path.as_ref().to_owned()),
@@ -1450,7 +1418,7 @@ mod tests {
             self.write_to_path_on_normal_drop.is_some()
         }
 
-        fn assert_array_eq<D>(&mut self, name: &str, array: &Array<f32, D>)
+        fn assert_array_eq<D>(&mut self, prefix: Option<&str>, name: &str, array: &Array<f32, D>)
         where
             FlattenedArray<f32>:
                 TryInto<Array<f32, D>, Error = UnexpectedNumberOfDimensions> + From<Array<f32, D>>,
@@ -1460,10 +1428,17 @@ mod tests {
             let mut params = self
                 .params
                 .with_scope(&format!("{}", self.next_epoch.saturating_sub(1)));
+
+            let mut params = if let Some(prefix) = prefix {
+                params.with_scope(prefix)
+            } else {
+                params
+            };
+
             if do_rewrite {
                 params.insert(name, array.clone());
             } else {
-                eprintln!("Assert approx eq of {}.", name);
+                dbg!(params.create_name(name));
                 let expected = params.take::<Array<f32, D>>(name).unwrap();
                 assert_approx_eq!(
                     f32,
@@ -1471,77 +1446,6 @@ mod tests {
                     expected,
                     epsilon = self.epsilon,
                     ulps = self.ulps
-                );
-            }
-        }
-
-        fn assert_gradient_eq(&mut self, gradients: &GradientSet) {
-            let do_rewrite = self.do_rewrite();
-            let mut params = self
-                .params
-                .with_scope(&format!("{}", self.next_epoch.saturating_sub(1)));
-            let params = params.with_scope("gradients");
-            if do_rewrite {
-                gradients.clone().store(params);
-            } else {
-                eprintln!("Assert approx eq of gradients.");
-                let expected = GradientSet::load(params).unwrap();
-
-                assert_approx_eq!(
-                    f32,
-                    &gradients.dense1.weight_gradients,
-                    &expected.dense1.weight_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
-                );
-                assert_approx_eq!(
-                    f32,
-                    &gradients.dense1.bias_gradients,
-                    &expected.dense1.bias_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
-                );
-                assert_approx_eq!(
-                    f32,
-                    &gradients.dense2.weight_gradients,
-                    &expected.dense2.weight_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
-                );
-                assert_approx_eq!(
-                    f32,
-                    &gradients.dense2.bias_gradients,
-                    &expected.dense2.bias_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
-                );
-                assert_approx_eq!(
-                    f32,
-                    &gradients.scores.weight_gradients,
-                    &expected.scores.weight_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
-                );
-                assert_approx_eq!(
-                    f32,
-                    &gradients.scores.bias_gradients,
-                    &expected.scores.bias_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
-                );
-                assert_approx_eq!(
-                    f32,
-                    &gradients.prob_dist.weight_gradients,
-                    &expected.prob_dist.weight_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
-                );
-                assert_approx_eq!(
-                    f32,
-                    &gradients.prob_dist.bias_gradients,
-                    &expected.prob_dist.bias_gradients,
-                    epsilon = self.epsilon,
-                    ulps = self.ulps,
                 );
             }
         }
@@ -1561,8 +1465,13 @@ mod tests {
 
     macro_rules! assert_trace_array {
         ($inout:ident =?= $($array:ident),+) => ($(
-            $inout.assert_array_eq(stringify!($array), &$array);
+            $inout.assert_array_eq(None, stringify!($array), &$array);
         )*);
+
+        ($inout:ident [$($idx:expr),+] =?= $($array:expr),+) => ({
+            let prefix = [$($idx.to_string()),*].join("/");
+            $($inout.assert_array_eq(Some(&prefix), stringify!($array), &$array);)*
+        });
     }
 
     #[test]
@@ -1588,7 +1497,9 @@ mod tests {
         );
 
         while test_guard.next_iteration() {
-            // Run computation steps by hand to get *all* intermediate values.
+            // Inlined all functions involved into training to get *all* intermediates.
+            // FIXME: Doing it this way is useful for analysis of the NaN bug, but not
+            //        very maintainable.
             let target_prob_dist = prepare_target_prob_dist(&relevances).unwrap();
             assert_trace_array!(test_guard =?= target_prob_dist);
             let (dense1_y, dense1_z) = list_net.dense1.run(&inputs, true);
@@ -1606,19 +1517,117 @@ mod tests {
             let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(&scores_y, true);
             let prob_dist_z = prob_dist_z.unwrap();
             assert_trace_array!(test_guard =?= prob_dist_y, prob_dist_z);
-            let results = ForwardPassData {
-                partial_forward_pass: PartialForwardPassData {
-                    dense1_y,
-                    dense1_z,
-                    dense2_y,
-                    dense2_z,
-                },
-                scores_y,
-                prob_dist_y,
+
+            let nr_documents = inputs.shape()[0];
+            let p_cost_and_prob_dist = prob_dist_y - target_prob_dist;
+
+            let d_prob_dist = list_net
+                .prob_dist
+                .gradients_from_partials_1d(scores_y.view(), p_cost_and_prob_dist.view());
+
+            let p_scores = list_net.prob_dist.weights().dot(&p_cost_and_prob_dist);
+
+            let mut d_scores = DenseGradientSet::zero_gradients_for(&list_net.scores);
+            let mut d_dense2 = DenseGradientSet::zero_gradients_for(&list_net.dense2);
+            let mut d_dense1 = DenseGradientSet::zero_gradients_for(&list_net.dense1);
+
+            for row in 0..nr_documents {
+                // From here on training is "split" into multiple parallel "path" using
+                // shared weights (hence why we add up the gradients).
+                let p_scores = p_scores.slice(s![row..row + 1]);
+                assert_trace_array!(test_guard [row] =?= p_scores.to_owned());
+
+                let d_scores_part = list_net
+                    .scores
+                    .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
+                assert_trace_array!(test_guard [row] =?= d_scores_part.weight_gradients, d_scores_part.bias_gradients);
+                d_scores += &d_scores_part;
+
+                let p_dense2 = list_net.scores.weights().dot(&p_scores)
+                    * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
+                assert_trace_array!(test_guard [row] =?= p_dense2);
+                let d_dense2_part = list_net
+                    .dense2
+                    .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
+                assert_trace_array!(test_guard [row] =?= d_dense2_part.weight_gradients, d_dense2_part.bias_gradients);
+                d_dense2 += &d_dense2_part;
+
+                let p_dense1 = list_net.dense2.weights().dot(&p_dense2)
+                    * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
+                assert_trace_array!(test_guard [row] =?= p_dense1);
+                let d_dense1_part = list_net
+                    .dense1
+                    .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
+                assert_trace_array!(test_guard [row] =?= d_dense1_part.weight_gradients, d_dense1_part.bias_gradients);
+                d_dense1 += &d_dense1_part;
+
+                if row == 0 {
+                    dbg!("d_scores_part == d_scores (weights)");
+                    assert_approx_eq!(
+                        f32,
+                        &d_scores_part.weight_gradients,
+                        &d_scores.weight_gradients,
+                        ulps = 0
+                    );
+                    dbg!("d_scores_part == d_scores (bias)");
+                    assert_approx_eq!(
+                        f32,
+                        &d_scores_part.bias_gradients,
+                        &d_scores.bias_gradients,
+                        ulps = 0
+                    );
+
+                    dbg!("d_dense2_part == d_dense2 (weights)");
+                    assert_approx_eq!(
+                        f32,
+                        &d_dense2_part.weight_gradients,
+                        &d_dense2.weight_gradients,
+                        ulps = 0
+                    );
+                    dbg!("d_dense2_part == d_dense2 (bias)");
+                    assert_approx_eq!(
+                        f32,
+                        &d_dense2_part.bias_gradients,
+                        &d_dense2.bias_gradients,
+                        ulps = 0
+                    );
+
+                    //[xayn-ai/src/ltr/list_net/mod.rs:1572] "d_dense1_part == d_dense1 (weights)" = "d_dense1_part == d_dense1 (weights)"
+                    // thread 'main' panicked at 'approximated equal assertion failed (ulps=0, epsilon=0.0) at index [21, 16]: 0.0 == 6639903000000000.0',
+                    // So adding 0.0 to 0.0 yields 6639903000000000.0?????
+                    dbg!("d_dense1_part == d_dense1 (weights)");
+                    assert_approx_eq!(
+                        f32,
+                        &d_dense1_part.weight_gradients,
+                        &d_dense1.weight_gradients,
+                        ulps = 0
+                    );
+                    dbg!("d_dense1_part == d_dense1 (bias)");
+                    assert_approx_eq!(
+                        f32,
+                        &d_dense1_part.bias_gradients,
+                        &d_dense1.bias_gradients,
+                        ulps = 0
+                    );
+                }
+
+                assert_trace_array!(test_guard [row, "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
+                assert_trace_array!(test_guard [row, "gradients"] =?= d_dense2.weight_gradients, d_dense2.bias_gradients);
+                assert_trace_array!(test_guard [row, "gradients"] =?= d_dense1.weight_gradients, d_dense1.bias_gradients);
+            }
+
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_prob_dist.weight_gradients, d_prob_dist.bias_gradients);
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_dense2.weight_gradients, d_dense2.bias_gradients);
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_dense1.weight_gradients, d_dense1.bias_gradients);
+
+            let mut gradients = GradientSet {
+                dense1: d_dense1,
+                dense2: d_dense2,
+                scores: d_scores,
+                prob_dist: d_prob_dist,
             };
-            let mut gradients =
-                list_net.back_propagation(inputs.view(), target_prob_dist.view(), results);
-            test_guard.assert_gradient_eq(&gradients);
+
             gradients *= -0.1;
             list_net.add_gradients(gradients);
         }

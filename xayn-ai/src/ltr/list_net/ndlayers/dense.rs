@@ -226,30 +226,26 @@ impl DenseGradientSet {
             bias_gradients: Array::zeros(dense.bias.dim()),
         }
     }
-
-    #[cfg(test)]
-    pub(crate) fn store(self, mut bin_params: BinParamsWithScope) {
-        let Self {
-            weight_gradients,
-            bias_gradients,
-        } = self;
-        bin_params.insert("weight_gradients", weight_gradients);
-        bin_params.insert("bias_gradients", bias_gradients);
-    }
-
-    #[cfg(test)]
-    pub(crate) fn load(mut bin_params: BinParamsWithScope) -> Result<Self, FailedToRetrieveParams> {
-        let weight_gradients = bin_params.take("weight_gradients")?;
-        let bias_gradients = bin_params.take("bias_gradients")?;
-        Ok(Self {
-            weight_gradients,
-            bias_gradients,
-        })
-    }
 }
 
 impl AddAssign for DenseGradientSet {
     fn add_assign(&mut self, rhs: Self) {
+        debug_assert_eq!(
+            (self.weight_gradients.shape(), self.bias_gradients.shape()),
+            (rhs.weight_gradients.shape(), rhs.bias_gradients.shape())
+        );
+        self.weight_gradients += &rhs.weight_gradients;
+        self.bias_gradients += &rhs.bias_gradients;
+    }
+}
+
+#[cfg(test)]
+impl<'a> AddAssign<&'a Self> for DenseGradientSet {
+    fn add_assign(&mut self, rhs: &Self) {
+        debug_assert_eq!(
+            (self.weight_gradients.shape(), self.bias_gradients.shape()),
+            (rhs.weight_gradients.shape(), rhs.bias_gradients.shape())
+        );
         self.weight_gradients += &rhs.weight_gradients;
         self.bias_gradients += &rhs.bias_gradients;
     }
