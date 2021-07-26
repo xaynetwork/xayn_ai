@@ -602,25 +602,19 @@ mod tests {
         let mut storage = InMemorySamples::default();
 
         storage
-            .add_sample(
-                Array::from_elem((2, 50), 3.25).view(),
-                arr1(&[0.25, 0.50]).view(),
-            )
+            .add_sample(Array::from_elem((2, 50), 3.25), arr1(&[0.25, 0.50]))
             .unwrap();
         storage
-            .add_sample(Array::from_elem((0, 50), 3.25).view(), arr1(&[]).view())
+            .add_sample(Array::from_elem((0, 50), 3.25), arr1(&[]))
             .unwrap();
         storage
             .add_sample(
-                Array::from_elem((5, 50), 3.25).view(),
-                arr1(&[0.25, 0.50, 1.25, 0.25, 0.44]).view(),
+                Array::from_elem((5, 50), 3.25),
+                arr1(&[0.25, 0.50, 1.25, 0.25, 0.44]),
             )
             .unwrap();
         storage
-            .add_sample(
-                Array::from_elem((2, 50), 3.25).view(),
-                arr1(&[0.52, 0.05]).view(),
-            )
+            .add_sample(Array::from_elem((2, 50), 3.25), arr1(&[0.52, 0.05]))
             .unwrap();
 
         let mut iter = samples_to_matrices_iter(storage).unwrap().enumerate();
