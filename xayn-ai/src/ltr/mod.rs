@@ -119,10 +119,12 @@ impl LtrSystem for ConstLtr {
     }
 }
 
+pub type OwnedSample = (Array2<f32>, Array1<f32>);
+
 /// Creates training data for ListNet from a users history.
 pub fn list_net_training_data_from_history(
     mut history: &[DocumentHistory],
-) -> Vec<(Array2<f32>, Array1<f32>)> {
+) -> Result<Vec<OwnedSample>, Error> {
     // FIXME[follow up PR] We have a few ways to do this:
     // 1: Create a single sample based on the last query in the history as it's done in soundgarden.
     // 2: Create samples for the last n unique queries in history (or based on percentage of queries).
@@ -133,13 +135,16 @@ pub fn list_net_training_data_from_history(
     loop {
         // History has no relevant query and as such no samples.
         if history.is_empty() {
-            return Vec::new();
+            return Ok(Vec::new());
         }
 
-        let last_query = history.last().unwrap().query_id;
+        let last_query_results_id = {
+            let last = history.last().unwrap();
+            (last.session, last.query_count)
+        };
         let start_of_last_query = history
             .iter()
-            .rposition(|doc| doc.query_id != last_query)
+            .rposition(|doc| (doc.session, doc.query_count) != last_query_results_id)
             .map(|last_before_last_query_idx| last_before_last_query_idx + 1)
             .unwrap_or_default();
 
@@ -165,15 +170,9 @@ pub fn list_net_training_data_from_history(
             .iter()
             .map_into()
             .collect_vec();
-        let features = match build_features(history, pseudo_current) {
-            Ok(features) => features_to_ndarray(&features),
-            Err(err) => {
-                //FIXME[follow up PR] handle appropriately depending on chosen sampling approach
-                // Currently this can only happen if you try to train it with corrupted data.
-                panic!("Sanity check in building features failed: {}", err);
-            }
-        };
-        return vec![(features, relevances)];
+        let features = build_features(history, pseudo_current)?;
+        let features = features_to_ndarray(&features);
+        return Ok(vec![(features, relevances)]);
     }
 }
 

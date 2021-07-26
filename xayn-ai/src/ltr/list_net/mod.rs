@@ -1404,10 +1404,14 @@ mod tests {
     struct BinParamsEqTestGuard {
         params: BinParams,
         write_to_path_on_normal_drop: Option<PathBuf>,
+        nr_epochs: usize,
+        next_epoch: usize,
+        epsilon: f32,
+        ulps: i32,
     }
 
     impl BinParamsEqTestGuard {
-        fn setup(path: impl AsRef<Path>) -> Self {
+        fn setup(path: impl AsRef<Path>, nr_epochs: usize, epsilon: f32, ulps: i32) -> Self {
             let rewrite_instead_of_test =
                 env::var_os("LTR_LIST_NET_TRAINING_INTERMEDIATES_REWRITE")
                     == Some(OsString::from("1"));
@@ -1415,12 +1419,30 @@ mod tests {
                 Self {
                     params: BinParams::default(),
                     write_to_path_on_normal_drop: Some(path.as_ref().to_owned()),
+                    nr_epochs,
+                    next_epoch: 0,
+                    epsilon,
+                    ulps,
                 }
             } else {
                 Self {
                     params: BinParams::deserialize_from_file(path).unwrap(),
                     write_to_path_on_normal_drop: None,
+                    nr_epochs,
+                    next_epoch: 0,
+                    epsilon,
+                    ulps,
                 }
+            }
+        }
+
+        fn next_iteration(&mut self) -> bool {
+            if self.next_epoch < self.nr_epochs {
+                self.next_epoch += 1;
+                dbg!(self.next_epoch);
+                true
+            } else {
+                false
             }
         }
 
@@ -1434,61 +1456,92 @@ mod tests {
                 TryInto<Array<f32, D>, Error = UnexpectedNumberOfDimensions> + From<Array<f32, D>>,
             D: Dimension,
         {
-            if self.do_rewrite() {
-                self.params.insert(name, array.clone());
+            let do_rewrite = self.do_rewrite();
+            let mut params = self
+                .params
+                .with_scope(&format!("{}", self.next_epoch.saturating_sub(1)));
+            if do_rewrite {
+                params.insert(name, array.clone());
             } else {
                 eprintln!("Assert approx eq of {}.", name);
-                let expected = self.params.take::<Array<f32, D>>(name).unwrap();
-                assert_approx_eq!(f32, array, expected);
+                let expected = params.take::<Array<f32, D>>(name).unwrap();
+                assert_approx_eq!(
+                    f32,
+                    array,
+                    expected,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps
+                );
             }
         }
 
-        fn assert_gradient_eq(&mut self, gradients: GradientSet) {
-            if self.do_rewrite() {
-                gradients.store(self.params.with_scope("gradients"));
+        fn assert_gradient_eq(&mut self, gradients: &GradientSet) {
+            let do_rewrite = self.do_rewrite();
+            let mut params = self
+                .params
+                .with_scope(&format!("{}", self.next_epoch.saturating_sub(1)));
+            let params = params.with_scope("gradients");
+            if do_rewrite {
+                gradients.clone().store(params);
             } else {
                 eprintln!("Assert approx eq of gradients.");
-                let expected = GradientSet::load(self.params.with_scope("gradients")).unwrap();
+                let expected = GradientSet::load(params).unwrap();
 
                 assert_approx_eq!(
                     f32,
                     &gradients.dense1.weight_gradients,
-                    &expected.dense1.weight_gradients
+                    &expected.dense1.weight_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
                 assert_approx_eq!(
                     f32,
                     &gradients.dense1.bias_gradients,
-                    &expected.dense1.bias_gradients
+                    &expected.dense1.bias_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
                 assert_approx_eq!(
                     f32,
                     &gradients.dense2.weight_gradients,
-                    &expected.dense2.weight_gradients
+                    &expected.dense2.weight_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
                 assert_approx_eq!(
                     f32,
                     &gradients.dense2.bias_gradients,
-                    &expected.dense2.bias_gradients
+                    &expected.dense2.bias_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
                 assert_approx_eq!(
                     f32,
                     &gradients.scores.weight_gradients,
-                    &expected.scores.weight_gradients
+                    &expected.scores.weight_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
                 assert_approx_eq!(
                     f32,
                     &gradients.scores.bias_gradients,
-                    &expected.scores.bias_gradients
+                    &expected.scores.bias_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
                 assert_approx_eq!(
                     f32,
                     &gradients.prob_dist.weight_gradients,
-                    &expected.prob_dist.weight_gradients
+                    &expected.prob_dist.weight_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
                 assert_approx_eq!(
                     f32,
                     &gradients.prob_dist.bias_gradients,
-                    &expected.prob_dist.bias_gradients
+                    &expected.prob_dist.bias_gradients,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps,
                 );
             }
         }
@@ -1519,7 +1572,7 @@ mod tests {
 
         use Relevance::{High, Low, Medium};
 
-        let list_net = LIST_NET.clone();
+        let mut list_net = LIST_NET.clone();
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
@@ -1529,38 +1582,46 @@ mod tests {
 
         let mut test_guard = BinParamsEqTestGuard::setup(
             "../data/ltr_test_data_v0000/check_training_intermediates.binparams",
+            4,
+            0.0001,
+            8,
         );
 
-        // Run computation steps by hand to get *all* intermediate values.
-        let target_prob_dist = prepare_target_prob_dist(&relevances).unwrap();
-        assert_trace_array!(test_guard =?= target_prob_dist);
-        let (dense1_y, dense1_z) = list_net.dense1.run(&inputs, true);
-        let dense1_z = dense1_z.unwrap();
-        assert_trace_array!(test_guard =?= dense1_y, dense1_z);
-        let (dense2_y, dense2_z) = list_net.dense2.run(&dense1_y, true);
-        let dense2_z = dense2_z.unwrap();
-        assert_trace_array!(test_guard =?= dense2_y, dense2_z);
-        let (scores_y, scores_z) = list_net.scores.run(&dense2_y, true);
-        let scores_z = scores_z.unwrap();
-        assert_trace_array!(test_guard =?= scores_y, scores_z);
+        while test_guard.next_iteration() {
+            // Run computation steps by hand to get *all* intermediate values.
+            let target_prob_dist = prepare_target_prob_dist(&relevances).unwrap();
+            assert_trace_array!(test_guard =?= target_prob_dist);
+            let (dense1_y, dense1_z) = list_net.dense1.run(&inputs, true);
+            let dense1_z = dense1_z.unwrap();
+            assert_trace_array!(test_guard =?= dense1_y, dense1_z);
+            let (dense2_y, dense2_z) = list_net.dense2.run(&dense1_y, true);
+            let dense2_z = dense2_z.unwrap();
+            assert_trace_array!(test_guard =?= dense2_y, dense2_z);
+            let (scores_y, scores_z) = list_net.scores.run(&dense2_y, true);
+            let scores_z = scores_z.unwrap();
+            assert_trace_array!(test_guard =?= scores_y, scores_z);
 
-        let scores_y = scores_y.index_axis_move(Axis(1), 0);
+            let scores_y = scores_y.index_axis_move(Axis(1), 0);
 
-        let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(&scores_y, true);
-        let prob_dist_z = prob_dist_z.unwrap();
-        assert_trace_array!(test_guard =?= prob_dist_y, prob_dist_z);
-        let results = ForwardPassData {
-            partial_forward_pass: PartialForwardPassData {
-                dense1_y,
-                dense1_z,
-                dense2_y,
-                dense2_z,
-            },
-            scores_y,
-            prob_dist_y,
-        };
-        let gradients = list_net.back_propagation(inputs.view(), target_prob_dist.view(), results);
-        test_guard.assert_gradient_eq(gradients);
+            let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(&scores_y, true);
+            let prob_dist_z = prob_dist_z.unwrap();
+            assert_trace_array!(test_guard =?= prob_dist_y, prob_dist_z);
+            let results = ForwardPassData {
+                partial_forward_pass: PartialForwardPassData {
+                    dense1_y,
+                    dense1_z,
+                    dense2_y,
+                    dense2_z,
+                },
+                scores_y,
+                prob_dist_y,
+            };
+            let mut gradients =
+                list_net.back_propagation(inputs.view(), target_prob_dist.view(), results);
+            test_guard.assert_gradient_eq(&gradients);
+            gradients *= -0.1;
+            list_net.add_gradients(gradients);
+        }
     }
 
     //FIXME[follow up PR] create better tests
