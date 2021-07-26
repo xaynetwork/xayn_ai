@@ -1304,7 +1304,7 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to deserialize the reranker database: Unsupported serialized data. Found version {} expected 0",
+                "Failed to deserialize the reranker database: Unsupported serialized data. Found version {} expected 1",
                 version,
             ),
         );
