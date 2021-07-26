@@ -328,7 +328,10 @@ impl ListNet {
         let results = self.forward_pass(inputs);
         //FIXME[followup PR] if we don't track loss in XaynNet when used in the app we don't need to calculate it.
         let loss = kl_divergence(target_prob_dist.view(), results.prob_dist_y.view());
-        let gradients = self.back_propagation(inputs, target_prob_dist, results);
+        //UNWRAP_SAFE: Document are not empty.
+        let gradients = self
+            .back_propagation(inputs, target_prob_dist, results)
+            .unwrap();
         (gradients, loss)
     }
 
@@ -350,7 +353,7 @@ impl ListNet {
         inputs: ArrayView2<f32>,
         target_prob_dist: ArrayView1<f32>,
         forward_pass: ForwardPassData,
-    ) -> GradientSet {
+    ) -> Option<GradientSet> {
         let ForwardPassData {
             partial_forward_pass:
                 PartialForwardPassData {
@@ -364,6 +367,10 @@ impl ListNet {
         } = forward_pass;
 
         let nr_documents = inputs.shape()[0];
+        if nr_documents == 0 {
+            return None;
+        }
+
         let derivatives_of_clipping =
             prob_dist_y.mapv(|v| (f32::EPSILON..=1.).contains(&v) as u8 as f32);
         let p_cost_and_prob_dist = (prob_dist_y - target_prob_dist) * derivatives_of_clipping;
@@ -376,9 +383,9 @@ impl ListNet {
         // it's gradient is 1 at all inputs and we can omit it.
         let p_scores = self.prob_dist.weights().dot(&p_cost_and_prob_dist);
 
-        let mut d_scores = DenseGradientSet::zero_gradients_for(&self.scores);
-        let mut d_dense2 = DenseGradientSet::zero_gradients_for(&self.dense2);
-        let mut d_dense1 = DenseGradientSet::zero_gradients_for(&self.dense1);
+        let mut d_scores = Vec::with_capacity(nr_documents);
+        let mut d_dense2 = Vec::with_capacity(nr_documents);
+        let mut d_dense1 = Vec::with_capacity(nr_documents);
 
         for row in 0..nr_documents {
             // From here on training is "split" into multiple parallel "path" using
@@ -388,29 +395,33 @@ impl ListNet {
             let d_scores_part = self
                 .scores
                 .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
-            d_scores += d_scores_part;
+            d_scores.push(d_scores_part);
 
             let p_dense2 = self.scores.weights().dot(&p_scores)
                 * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
             let d_dense2_part = self
                 .dense2
                 .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
-            d_dense2 += d_dense2_part;
+            d_dense2.push(d_dense2_part);
 
             let p_dense1 = self.dense2.weights().dot(&p_dense2)
                 * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
             let d_dense1_part = self
                 .dense1
                 .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
-            d_dense1 += d_dense1_part;
+            d_dense1.push(d_dense1_part);
         }
 
-        GradientSet {
+        let d_scores = DenseGradientSet::merge_shared(d_scores).unwrap();
+        let d_dense2 = DenseGradientSet::merge_shared(d_dense2).unwrap();
+        let d_dense1 = DenseGradientSet::merge_shared(d_dense1).unwrap();
+
+        Some(GradientSet {
             dense1: d_dense1,
             dense2: d_dense2,
             scores: d_scores,
             prob_dist: d_prob_dist,
-        }
+        })
     }
 
     /// Adds gradients to this `ListNet`.
@@ -828,7 +839,6 @@ mod tests {
 
     use ndarray::{arr1, arr2, Array, IxDyn};
     use once_cell::sync::Lazy;
-    use rand::{thread_rng, Rng};
 
     use super::{
         ndlayers::ActivationFunction,
@@ -1247,56 +1257,9 @@ mod tests {
         }
     }
 
-    //FIXME[follow up PR] remove test, this is just a sanity check due to the NaN bug
-    //WARNING this can take forever!
-    #[ignore = "takes to long to run"]
-    #[test]
-    fn test_ndarray_matrix_multiply() {
-        const EPSILON: f32 = f32::EPSILON * 5.;
-        const ULPS: i32 = 4;
-
-        let mut rng = thread_rng();
-
-        test(&mut rng, dbg!((48, 8, 1)));
-        test(&mut rng, dbg!((10, 50, 48)));
-        test(&mut rng, dbg!((10, 1, 10)));
-        test(&mut rng, dbg!((8, 1, 1)));
-
-        fn test(rng: &mut impl Rng, (ind, mid, out): (usize, usize, usize)) {
-            drop(crate::embedding::qambert::tests::qambert());
-            let a = he_normal_weights_init(rng, (ind, mid));
-            let b = he_normal_weights_init(rng, (mid, out));
-            let expected = naive_matmul(a.view(), b.view());
-            let res = a.dot(&b);
-            assert_approx_eq!(f32, &res, expected, epsilon = EPSILON, ulps = ULPS);
-        }
-
-        fn naive_matmul(a: ArrayView2<f32>, b: ArrayView2<f32>) -> Array2<f32> {
-            assert_eq!(a.shape()[1], b.shape()[0]);
-
-            let new_rows = a.shape()[0];
-            let new_cols = b.shape()[1];
-
-            let mut res = Array2::from_elem((new_rows, new_cols), 4.25f32);
-
-            for row in 0..a.shape()[0] {
-                for column in 0..b.shape()[1] {
-                    let left_vec = a.slice(s![row, ..]);
-                    let right_vec = b.slice(s![.., column]);
-                    assert_eq!(left_vec.len(), right_vec.len());
-                    res[[row, column]] = left_vec
-                        .iter()
-                        .zip(right_vec.iter())
-                        .fold(0f32, |acc, (&l, &r)| acc + l * r);
-                }
-            }
-            res
-        }
-    }
-
     #[test]
     fn test_training_list_net_is_reproducible_for_same_inputs_and_state() {
-        //FIXME remove once it no longer causes failure
+        //FIXME remove once we know why it did cause failures.
         drop(crate::embedding::qambert::tests::qambert());
 
         use Relevance::{High, Low, Medium};
@@ -1314,6 +1277,8 @@ mod tests {
         let nr_epochs = 5;
         let batch_size = 1;
 
+        // The NaN bug somehow only appear on the first execution so uncommenting this
+        // makes the test pass even if the bug has not been fixed.
         // let (ctrl0, ln0) = {
         //     let data_source = VecDataSource::new(training_data.clone(), test_data.clone());
         //     let callbacks = TestController::new();
@@ -1335,18 +1300,6 @@ mod tests {
             let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
             trainer.train(nr_epochs, batch_size).unwrap()
         };
-
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            use std::is_x86_feature_detected;
-            if is_x86_feature_detected!("fma") {
-                eprintln!("USES: fma");
-            } else if is_x86_feature_detected!("avx") {
-                eprintln!("USES: avx");
-            } else if is_x86_feature_detected!("sse2") {
-                eprintln!("USES: sse2");
-            }
-        }
 
         assert_approx_eq!(f32, ln1.dense1.weights(), ln2.dense1.weights());
         assert_approx_eq!(f32, ln1.dense1.bias(), ln2.dense1.bias());
@@ -1527,9 +1480,9 @@ mod tests {
 
             let p_scores = list_net.prob_dist.weights().dot(&p_cost_and_prob_dist);
 
-            let mut d_scores = DenseGradientSet::zero_gradients_for(&list_net.scores);
-            let mut d_dense2 = DenseGradientSet::zero_gradients_for(&list_net.dense2);
-            let mut d_dense1 = DenseGradientSet::zero_gradients_for(&list_net.dense1);
+            let mut d_scores = Vec::new();
+            let mut d_dense2 = Vec::new();
+            let mut d_dense1 = Vec::new();
 
             for row in 0..nr_documents {
                 // From here on training is "split" into multiple parallel "path" using
@@ -1541,7 +1494,7 @@ mod tests {
                     .scores
                     .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
                 assert_trace_array!(test_guard [row] =?= d_scores_part.weight_gradients, d_scores_part.bias_gradients);
-                d_scores += &d_scores_part;
+                d_scores.push(d_scores_part);
 
                 let p_dense2 = list_net.scores.weights().dot(&p_scores)
                     * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
@@ -1550,7 +1503,7 @@ mod tests {
                     .dense2
                     .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
                 assert_trace_array!(test_guard [row] =?= d_dense2_part.weight_gradients, d_dense2_part.bias_gradients);
-                d_dense2 += &d_dense2_part;
+                d_dense2.push(d_dense2_part);
 
                 let p_dense1 = list_net.dense2.weights().dot(&p_dense2)
                     * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
@@ -1559,62 +1512,19 @@ mod tests {
                     .dense1
                     .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
                 assert_trace_array!(test_guard [row] =?= d_dense1_part.weight_gradients, d_dense1_part.bias_gradients);
-                d_dense1 += &d_dense1_part;
+                d_dense1.push(d_dense1_part);
 
-                if row == 0 {
-                    dbg!("d_scores_part == d_scores (weights)");
-                    assert_approx_eq!(
-                        f32,
-                        &d_scores_part.weight_gradients,
-                        &d_scores.weight_gradients,
-                        ulps = 0
-                    );
-                    dbg!("d_scores_part == d_scores (bias)");
-                    assert_approx_eq!(
-                        f32,
-                        &d_scores_part.bias_gradients,
-                        &d_scores.bias_gradients,
-                        ulps = 0
-                    );
-
-                    dbg!("d_dense2_part == d_dense2 (weights)");
-                    assert_approx_eq!(
-                        f32,
-                        &d_dense2_part.weight_gradients,
-                        &d_dense2.weight_gradients,
-                        ulps = 0
-                    );
-                    dbg!("d_dense2_part == d_dense2 (bias)");
-                    assert_approx_eq!(
-                        f32,
-                        &d_dense2_part.bias_gradients,
-                        &d_dense2.bias_gradients,
-                        ulps = 0
-                    );
-
-                    //[xayn-ai/src/ltr/list_net/mod.rs:1572] "d_dense1_part == d_dense1 (weights)" = "d_dense1_part == d_dense1 (weights)"
-                    // thread 'main' panicked at 'approximated equal assertion failed (ulps=0, epsilon=0.0) at index [21, 16]: 0.0 == 6639903000000000.0',
-                    // So adding 0.0 to 0.0 yields 6639903000000000.0?????
-                    dbg!("d_dense1_part == d_dense1 (weights)");
-                    assert_approx_eq!(
-                        f32,
-                        &d_dense1_part.weight_gradients,
-                        &d_dense1.weight_gradients,
-                        ulps = 0
-                    );
-                    dbg!("d_dense1_part == d_dense1 (bias)");
-                    assert_approx_eq!(
-                        f32,
-                        &d_dense1_part.bias_gradients,
-                        &d_dense1.bias_gradients,
-                        ulps = 0
-                    );
-                }
-
+                let d_scores = d_scores.last().unwrap();
                 assert_trace_array!(test_guard [row, "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
+                let d_dense2 = d_dense2.last().unwrap();
                 assert_trace_array!(test_guard [row, "gradients"] =?= d_dense2.weight_gradients, d_dense2.bias_gradients);
+                let d_dense1 = d_dense1.last().unwrap();
                 assert_trace_array!(test_guard [row, "gradients"] =?= d_dense1.weight_gradients, d_dense1.bias_gradients);
             }
+
+            let d_scores = DenseGradientSet::merge_shared(d_scores).unwrap();
+            let d_dense2 = DenseGradientSet::merge_shared(d_dense2).unwrap();
+            let d_dense1 = DenseGradientSet::merge_shared(d_dense1).unwrap();
 
             assert_trace_array!(test_guard ["final", "gradients"] =?= d_prob_dist.weight_gradients, d_prob_dist.bias_gradients);
             assert_trace_array!(test_guard ["final", "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
@@ -1633,14 +1543,11 @@ mod tests {
         }
     }
 
-    //FIXME[follow up PR] create better tests
-    #[ignore = "fails on android unclear reasons, fixed in followup PR"]
     #[test]
     fn test_training_list_net_does_not_panic() {
         use Relevance::{High, Low, Medium};
 
-        //LIST_NET.clone() (sanity check)
-        let list_net = ListNet::deserialize_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap();
+        let list_net = LIST_NET.clone();
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
