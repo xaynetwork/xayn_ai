@@ -111,15 +111,15 @@ fn load_history(path: impl AsRef<Path>) -> Result<Vec<DocumentHistory>, Error> {
 #[derive(Deserialize)]
 struct SoundgardenUserDfRecord {
     /// Session Id, is a incremental usize in soundgarden.
-    session_id: usize,
+    session_id: u64,
     /// Query Id, same for all queries using the same parameter.
-    query_id: usize,
+    query_id: u64,
     /// User Id, arbitrary usize.
     ///
     /// We treat all data as if it's from the same user, so we
     /// don't really need it but we use it to infer a appropriate
     /// deterministic document id.
-    user_id: usize,
+    user_id: u64,
     /// Day since the start of the training but starting as `Tue == 1`.
     ///
     /// As such `Mon` is `0`, `Wed` is `2` etc.
@@ -245,7 +245,7 @@ fn day_from_day_offset(day: usize) -> DayOfWeek {
 ///
 /// - `Y..` is replaced with the `sub_id2` if given. If
 ///       not given `0xd006a685` is used instead.
-fn id2uuid(sub_id: usize, sub_id2: Option<u32>) -> Uuid {
+fn id2uuid(sub_id: u64, sub_id2: Option<u32>) -> Uuid {
     const BASE_UUID: u128 = 0x00000000_eb92_4d36_0000_000000000000;
     const DEFAULT_SUB_ID_2: u32 = 0xd006a685;
     let sub_id2 = sub_id2.unwrap_or(DEFAULT_SUB_ID_2);
@@ -268,7 +268,7 @@ mod tests {
             Uuid::from_u128(0xd006a685_eb92_4d36_0000_000000000000)
         );
         assert_eq!(
-            id2uuid(usize::MAX, Some(u32::MAX)),
+            id2uuid(u64::MAX, Some(u32::MAX)),
             Uuid::from_u128(0xffffffff_eb92_4d36_ffff_ffffffffffff)
         )
     }
