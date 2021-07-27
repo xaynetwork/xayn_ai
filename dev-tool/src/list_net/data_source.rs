@@ -108,7 +108,7 @@ where
 {
     type Error = DataSourceError<S::Error>;
 
-    fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error> {
+    fn reset(&mut self, batch_size: usize) -> Result<(usize, usize), Self::Error> {
         if batch_size == 0 {
             return Err(DataSourceError::BatchSize0);
         }
@@ -121,7 +121,9 @@ where
         if nr_batches == 0 {
             return Err(DataSourceError::ToLargeBatchSize(nr_batches));
         }
-        Ok(nr_batches)
+        //FIXME[philipp]
+        let nr_eval_samples = self.evaluation_data_order.number_of_batches(1);
+        Ok((nr_batches, nr_eval_samples))
     }
 
     fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {

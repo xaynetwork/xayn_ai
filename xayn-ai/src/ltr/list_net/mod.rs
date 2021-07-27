@@ -585,7 +585,7 @@ where
             .map_err(TrainingError::Control)?;
 
         for _ in 0..epochs {
-            let nr_batches = self
+            let (nr_batches, nr_eval_samples) = self
                 .data_source
                 .reset(batch_size)
                 .map_err(TrainingError::Data)?;
@@ -594,10 +594,11 @@ where
                 .map_err(TrainingError::Control)?;
 
             while self.train_next_batch()? {}
-            let evaluation_results = self.evaluate_epoch(kl_divergence)?;
+
+            self.evaluate_epoch(kl_divergence, nr_eval_samples)?;
 
             self.callbacks
-                .end_of_epoch(&self.list_net, evaluation_results)
+                .end_of_epoch(&self.list_net)
                 .map_err(TrainingError::Control)?;
         }
 
@@ -644,9 +645,12 @@ where
     fn evaluate_epoch(
         &mut self,
         cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
-    ) -> Result<Option<f32>, TrainingError<D::Error, C::Error>> {
-        let list_net = &self.list_net;
-        let mut costs = Vec::new();
+        nr_samples: usize,
+    ) -> Result<(), TrainingError<D::Error, C::Error>> {
+        self.callbacks
+            .begin_of_evaluation(nr_samples)
+            .map_err(TrainingError::Control)?;
+
         while let Some(Sample {
             inputs,
             target_prob_dist,
@@ -655,15 +659,18 @@ where
             .next_evaluation_sample()
             .map_err(TrainingError::Data)?
         {
-            let (scores_y, _) = list_net.calculate_intermediate_scores(inputs, false);
-            let prob_dist_y = list_net.calculate_final_scores(&scores_y);
-            costs.push(cost_function(target_prob_dist, prob_dist_y.view()));
+            let (scores_y, _) = self.list_net.calculate_intermediate_scores(inputs, false);
+            let prob_dist_y = self.list_net.calculate_final_scores(&scores_y);
+            let cost = cost_function(target_prob_dist, prob_dist_y.view());
+            self.callbacks
+                .evaluation_result(cost)
+                .map_err(TrainingError::Control)?;
         }
 
-        let count = costs.len() as f32;
-        let mean =
-            (count > 0.).then(|| costs.into_iter().fold(0f32, |acc, cost| acc + cost / count));
-        Ok(mean)
+        self.callbacks
+            .end_of_evaluation()
+            .map_err(TrainingError::Control)?;
+        Ok(())
     }
 }
 
@@ -687,14 +694,15 @@ pub trait DataSource {
 
     /// Resets/initializes the "iteration" of training and evaluation samples.
     ///
-    /// This returns the expected number of batches in the next epoch.
+    /// This returns the expected number of batches in the next epoch
+    /// as well as the expected number of evaluation samples.
     ///
     /// This is allowed to also *change* the training and evaluation
     /// samples and/or their order. E.g. this could shuffle them
     /// before every epoch.
     ///
     /// This is called at the *begin* of every epoch.
-    fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error>;
+    fn reset(&mut self, batch_size: usize) -> Result<(usize, usize), Self::Error>;
 
     /// Returns the next batch of training samples.
     ///
@@ -743,11 +751,13 @@ pub trait TrainingController {
     ///
     /// The passed in reference to `list_net` can be used to e.g. bump the intermediate training
     /// result every 10 epochs.
-    fn end_of_epoch(
-        &mut self,
-        list_net: &ListNet,
-        mean_kl_divergence_evaluation: Option<f32>,
-    ) -> Result<(), Self::Error>;
+    fn end_of_epoch(&mut self, list_net: &ListNet) -> Result<(), Self::Error>;
+
+    fn begin_of_evaluation(&mut self, nr_samples: usize) -> Result<(), Self::Error>;
+
+    fn evaluation_result(&mut self, cost: f32) -> Result<(), Self::Error>;
+
+    fn end_of_evaluation(&mut self) -> Result<(), Self::Error>;
 
     /// Called at the begin of training.
     fn begin_of_training(
@@ -1142,14 +1152,17 @@ mod tests {
     impl DataSource for VecDataSource {
         type Error = BatchSize0Error;
 
-        fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error> {
+        fn reset(&mut self, batch_size: usize) -> Result<(usize, usize), Self::Error> {
             if batch_size == 0 {
                 return Err(BatchSize0Error);
             }
             self.batch_size = batch_size;
             self.training_data_idx = 0;
             self.evaluation_data_idx = 0;
-            Ok(self.training_data.len() / batch_size)
+            Ok((
+                self.training_data.len() / batch_size,
+                self.evaluation_data.len(),
+            ))
         }
 
         fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
@@ -1192,13 +1205,17 @@ mod tests {
     }
 
     struct TestController {
-        evaluation_results: Vec<Option<f32>>,
+        mean_evaluation_results: Vec<f32>,
+        current_mean_evaluation_result: f32,
+        current_nr_evaluation_samples: usize,
     }
 
     impl TestController {
         fn new() -> Self {
             Self {
-                evaluation_results: Vec::new(),
+                mean_evaluation_results: Vec::new(),
+                current_mean_evaluation_result: 0.0,
+                current_nr_evaluation_samples: 0,
             }
         }
     }
@@ -1244,14 +1261,28 @@ mod tests {
             Ok(())
         }
 
-        fn end_of_epoch(
-            &mut self,
-            _list_net: &ListNet,
-            mean_kv_divergence_evaluation: Option<f32>,
-        ) -> Result<(), Self::Error> {
+        fn end_of_epoch(&mut self, _list_net: &ListNet) -> Result<(), Self::Error> {
             eprintln!("end of epoch");
-            dbg!(mean_kv_divergence_evaluation);
-            self.evaluation_results.push(mean_kv_divergence_evaluation);
+            Ok(())
+        }
+
+        fn begin_of_evaluation(&mut self, nr_samples: usize) -> Result<(), Self::Error> {
+            eprintln!("begin of evaluation");
+            self.current_mean_evaluation_result = 0.0;
+            self.current_nr_evaluation_samples = nr_samples;
+            Ok(())
+        }
+
+        fn evaluation_result(&mut self, cost: f32) -> Result<(), Self::Error> {
+            self.current_mean_evaluation_result += cost / self.current_nr_evaluation_samples as f32;
+            Ok(())
+        }
+
+        fn end_of_evaluation(&mut self) -> Result<(), Self::Error> {
+            eprintln!("end of evaluation");
+            dbg!(self.current_mean_evaluation_result);
+            self.mean_evaluation_results
+                .push(self.current_mean_evaluation_result);
             Ok(())
         }
 
@@ -1326,15 +1357,16 @@ mod tests {
         assert_approx_eq!(f32, ln1.prob_dist.weights(), ln2.prob_dist.weights());
         assert_approx_eq!(f32, ln1.prob_dist.bias(), ln2.prob_dist.bias());
 
-        assert_approx_eq!(f32, &ctrl1.evaluation_results, &ctrl2.evaluation_results);
+        assert_approx_eq!(
+            f32,
+            &ctrl1.mean_evaluation_results,
+            &ctrl2.mean_evaluation_results
+        );
 
         assert!(
-            ctrl1
-                .evaluation_results
-                .iter()
-                .all(|v| !v.unwrap().is_nan()),
+            ctrl1.mean_evaluation_results.iter().all(|v| !v.is_nan()),
             "contains NaN values {:?}",
-            ctrl1.evaluation_results
+            ctrl1.mean_evaluation_results
         );
     }
 
@@ -1634,11 +1666,11 @@ mod tests {
         let optimizer = MiniBatchSgd { learning_rate: 0.1 };
         let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
         let (controller, _list_net) = trainer.train(nr_epochs, 3).unwrap();
-        let evaluation_results = controller.evaluation_results;
+        let evaluation_results = controller.mean_evaluation_results;
 
         assert_eq!(evaluation_results.len(), nr_epochs);
         assert!(
-            evaluation_results.iter().all(|v| !v.unwrap().is_nan()),
+            evaluation_results.iter().all(|v| !v.is_nan()),
             "contains NaN values {:?}",
             evaluation_results
         );
