@@ -1,9 +1,10 @@
-use std::{convert::TryInto, path::PathBuf, time::Instant};
+use std::{convert::TryInto, path::PathBuf, sync::Mutex, time::Instant};
 
 use bincode::Error;
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 use log::{debug, info, trace};
-use xayn_ai::list_net::{ListNet, TrainingController};
+use rayon::prelude::*;
+use xayn_ai::list_net::{GradientSet, ListNet, Sample, TrainingController};
 
 /// Builder to create a [`CliTrainingController`].
 pub(crate) struct CliTrainingControllerBuilder {
@@ -71,17 +72,41 @@ impl CliTrainingController {
 
 impl TrainingController for CliTrainingController {
     type Error = Error;
-
     type Outcome = ();
+
+    fn run_batch(
+        &mut self,
+        batch: Vec<Sample>,
+        map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
+    ) -> Vec<GradientSet> {
+        let losses = Mutex::new(Vec::new());
+        let gradient_sets = batch
+            .into_iter()
+            .par_bridge()
+            .map(|sample| {
+                let (gradient_set, loss) = map_fn(sample);
+                let mut losses = losses.lock().unwrap();
+                losses.push(loss);
+                gradient_set
+            })
+            .collect();
+
+        let losses = losses.into_inner().unwrap();
+        let mean_loss = mean_loss(&losses);
+        if let Some(bar) = &self.epoch_progress_bar {
+            bar.set_message(format!("loss={:.5}", mean_loss))
+        }
+
+        gradient_sets
+    }
 
     fn begin_of_batch(&mut self) -> Result<(), Self::Error> {
         trace!("Start of batch #{}", self.current_batch);
         Ok(())
     }
 
-    fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error> {
-        let loss = mean_loss(&losses);
-        trace!("End of batch #{}, mean loss = {}", self.current_batch, loss);
+    fn end_of_batch(&mut self) -> Result<(), Self::Error> {
+        trace!("End of batch #{}", self.current_batch);
         if let Some(bar) = &self.epoch_progress_bar {
             bar.inc(1);
         }
@@ -135,6 +160,7 @@ impl TrainingController for CliTrainingController {
                 panic!("evaluation KL-Divergence cost is NaN");
             }
             if let Some(bar) = &self.train_progress_bar {
+                bar.set_message(format!("cost={:.5}", cost));
                 bar.println(format!("Evaluation Cost: {}", cost));
             }
         }
@@ -159,14 +185,14 @@ impl TrainingController for CliTrainingController {
         let train_bar = ProgressBar::new(nr_epochs.try_into().unwrap());
         train_bar.set_style(
             ProgressStyle::default_bar()
-                .template("Epochs:  [{bar:50.green}] {percent:>3}% ({pos:>5}/{len:>5})")
+                .template("Epochs:  [{bar:30.green}] {percent:>3}% ({pos:>5}/{len:>5}) {msg}")
                 .progress_chars("=> "),
         );
         multibar.add(train_bar.clone());
         let epoch_bar = ProgressBar::new(1);
         epoch_bar.set_style(
             ProgressStyle::default_bar()
-                .template("Batches: [{bar:50.green}] {percent:>3}% ({pos:>5}/{len:>5})")
+                .template("Batches: [{bar:30.green}] {percent:>3}% ({pos:>5}/{len:>5}) {msg}")
                 .progress_chars("=> "),
         );
         multibar.add(epoch_bar.clone());

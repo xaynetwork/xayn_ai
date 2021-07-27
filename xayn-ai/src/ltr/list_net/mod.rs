@@ -630,21 +630,12 @@ where
 
         callbacks.begin_of_batch().map_err(TrainingError::Control)?;
 
-        let mut losses = Vec::new();
-        let gradient_sets = batch
-            .into_iter()
-            .map(|sample| {
-                let (gradients, loss) = list_net.gradients_for_query(sample);
-                losses.push(loss);
-                gradients
-            })
-            .collect();
+        let gradient_sets =
+            callbacks.run_batch(batch, |sample| list_net.gradients_for_query(sample));
 
         optimizer.apply_gradients(list_net, gradient_sets);
 
-        callbacks
-            .end_of_batch(losses)
-            .map_err(TrainingError::Control)?;
+        callbacks.end_of_batch().map_err(TrainingError::Control)?;
 
         Ok(true)
     }
@@ -730,11 +721,20 @@ pub trait TrainingController {
     type Error: StdError + 'static;
     type Outcome;
 
+    /// Runs a batch of training steps.
+    ///
+    /// Implementations can be both sequential or parallel.
+    fn run_batch(
+        &mut self,
+        batch: Vec<Sample>,
+        map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
+    ) -> Vec<GradientSet>;
+
     /// Called before started training a batch.
     fn begin_of_batch(&mut self) -> Result<(), Self::Error>;
 
     /// Called after training a batch, the loss for each sample will be passed in.
-    fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error>;
+    fn end_of_batch(&mut self) -> Result<(), Self::Error>;
 
     /// Called at the begin of each epoch.
     fn begin_of_epoch(&mut self, nr_batches: usize, list_net: &ListNet) -> Result<(), Self::Error>;
@@ -1205,17 +1205,33 @@ mod tests {
 
     impl TrainingController for TestController {
         type Error = Infallible;
-
         type Outcome = (Self, ListNet);
+
+        fn run_batch(
+            &mut self,
+            batch: Vec<Sample>,
+            map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
+        ) -> Vec<GradientSet> {
+            let mut losses = Vec::new();
+            let gradient_sets = batch
+                .into_iter()
+                .map(|sample| {
+                    let (gradient_set, loss) = map_fn(sample);
+                    losses.push(loss);
+                    gradient_set
+                })
+                .collect();
+            dbg!(losses);
+            gradient_sets
+        }
 
         fn begin_of_batch(&mut self) -> Result<(), Self::Error> {
             eprintln!("begin batch");
             Ok(())
         }
 
-        fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error> {
+        fn end_of_batch(&mut self) -> Result<(), Self::Error> {
             eprintln!("end of batch");
-            dbg!(losses);
             Ok(())
         }
 
