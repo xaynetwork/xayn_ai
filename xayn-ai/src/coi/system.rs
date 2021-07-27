@@ -125,7 +125,7 @@ impl CoiSystem {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, &coi.point()));
             }
-            _ => cois.push(CP::new(cois.len() + 1, embedding.clone())),
+            _ => cois.push(CP::new((cois.len() + 1).into(), embedding.clone())),
         }
         cois
     }

@@ -79,13 +79,13 @@ where
     let max_local_id = locals.iter().map(|coi| coi.id().0).max().unwrap_or(0);
     remotes
         .iter_mut()
-        .for_each(|coi| coi.set_id(max_local_id + coi.id().0));
+        .for_each(|coi| coi.set_id((max_local_id + coi.id().0).into()));
 
     locals.append(remotes);
 }
 
 fn reassign_coi_ids(cois: &mut Vec<impl CoiPoint>) {
     for (id, coi) in izip!(1..cois.len() + 1, cois) {
-        coi.set_id(id)
+        coi.set_id(id.into())
     }
 }

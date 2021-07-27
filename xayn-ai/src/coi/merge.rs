@@ -12,11 +12,11 @@ use crate::{
 const MERGE_THRESHOLD_DIST: f32 = 4.5;
 
 impl PositiveCoi {
-    pub fn merge(self, other: Self, id: usize) -> Self {
+    pub fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
         let (alpha, beta) = merge_params(self.alpha, self.beta, other.alpha, other.beta);
         Self {
-            id: CoiId(id),
+            id,
             point,
             alpha,
             beta,
@@ -25,12 +25,9 @@ impl PositiveCoi {
 }
 
 impl NegativeCoi {
-    pub fn merge(self, other: Self, id: usize) -> Self {
+    pub fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
-        Self {
-            id: CoiId(id),
-            point,
-        }
+        Self { id, point }
     }
 }
 
@@ -55,7 +52,7 @@ where
 
     /// Merges the CoI pair, assigning it the smaller of the two ids.
     fn merge_min(self) -> C {
-        let CoiId(min_id) = self.0.id();
+        let min_id = self.0.id();
         self.0.merge(self.1, min_id)
     }
 

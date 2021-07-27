@@ -1,13 +1,16 @@
 pub mod document;
 pub(crate) mod document_data;
 
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 use crate::embedding::utils::Embedding;
 
 // Hint: We use this id new-type in FFI so repr(transparent) needs to be kept
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(
+    Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize, From,
+)]
 pub struct CoiId(pub usize);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -27,9 +30,9 @@ pub(crate) struct NegativeCoi {
 }
 
 impl PositiveCoi {
-    pub fn new(id: usize, point: Embedding) -> Self {
+    pub fn new(id: CoiId, point: Embedding) -> Self {
         Self {
-            id: CoiId(id),
+            id,
             point,
             alpha: 1.,
             beta: 1.,
@@ -38,19 +41,16 @@ impl PositiveCoi {
 }
 
 impl NegativeCoi {
-    pub fn new(id: usize, point: Embedding) -> Self {
-        Self {
-            id: CoiId(id),
-            point,
-        }
+    pub fn new(id: CoiId, point: Embedding) -> Self {
+        Self { id, point }
     }
 }
 
 pub(crate) trait CoiPoint {
-    fn new(id: usize, embedding: Embedding) -> Self;
-    fn merge(self, other: Self, id: usize) -> Self;
+    fn new(id: CoiId, embedding: Embedding) -> Self;
+    fn merge(self, other: Self, id: CoiId) -> Self;
     fn id(&self) -> CoiId;
-    fn set_id(&mut self, id: usize);
+    fn set_id(&mut self, id: CoiId);
     fn point(&self) -> &Embedding;
     fn set_point(&mut self, embedding: Embedding);
 }
@@ -58,11 +58,11 @@ pub(crate) trait CoiPoint {
 macro_rules! impl_coi_point {
     ($type:ty) => {
         impl CoiPoint for $type {
-            fn new(id: usize, embedding: Embedding) -> Self {
+            fn new(id: CoiId, embedding: Embedding) -> Self {
                 <$type>::new(id, embedding)
             }
 
-            fn merge(self, other: Self, id: usize) -> Self {
+            fn merge(self, other: Self, id: CoiId) -> Self {
                 self.merge(other, id)
             }
 
@@ -70,8 +70,8 @@ macro_rules! impl_coi_point {
                 self.id
             }
 
-            fn set_id(&mut self, id: usize) {
-                self.id = CoiId(id);
+            fn set_id(&mut self, id: CoiId) {
+                self.id = id;
             }
 
             fn point(&self) -> &Embedding {
