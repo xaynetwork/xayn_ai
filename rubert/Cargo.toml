@@ -15,7 +15,7 @@ ndarray = { version = "=0.15.3", features = ["serde"] }
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 serde = { version = "1.0.126", features = ["derive"] }
 thiserror = "1.0.25"
-tract-onnx = { git = "https://github.com/xaynetwork/tract", branch = "master" }
+tract-onnx = { git = "https://github.com/sonos/tract", rev = "d562d4a52a11efe46116c48c689bf5e748cb44d2" }
 
 # bin/feature: validate
 csv = { version = "1.1.6", optional = true }
