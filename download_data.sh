@@ -45,4 +45,4 @@ download()
 download asset smbert v0000
 download asset qambert v0001
 download asset ltr v0000
-download misc ltr_feature_extraction_tests v0000
+download misc ltr_test_data v0000
