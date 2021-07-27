@@ -1435,6 +1435,7 @@ mod tests {
         use Relevance::{High, Low, Medium};
 
         let mut list_net = LIST_NET.clone();
+        let mut reference_list_net = LIST_NET.clone();
 
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
@@ -1472,7 +1473,7 @@ mod tests {
             assert_trace_array!(test_guard =?= prob_dist_y, prob_dist_z);
 
             let nr_documents = inputs.shape()[0];
-            let p_cost_and_prob_dist = prob_dist_y - target_prob_dist;
+            let p_cost_and_prob_dist = prob_dist_y - &target_prob_dist;
 
             let d_prob_dist = list_net
                 .prob_dist
@@ -1540,6 +1541,55 @@ mod tests {
 
             gradients *= -0.1;
             list_net.add_gradients(gradients);
+
+            // Check if our implementation diverged from the inlined and extended code above.
+            let (mut gradients, _) = reference_list_net.gradients_for_query(Sample {
+                inputs: inputs.view(),
+                target_prob_dist: target_prob_dist.view(),
+            });
+            gradients *= -0.1;
+            reference_list_net.add_gradients(gradients);
+
+            assert_approx_eq!(
+                f32,
+                list_net.prob_dist.weights(),
+                reference_list_net.prob_dist.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.prob_dist.bias(),
+                reference_list_net.prob_dist.bias()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.scores.weights(),
+                reference_list_net.scores.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.scores.bias(),
+                reference_list_net.scores.bias()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense2.weights(),
+                reference_list_net.dense2.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense2.bias(),
+                reference_list_net.dense2.bias()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense1.weights(),
+                reference_list_net.dense1.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense1.bias(),
+                reference_list_net.dense1.bias()
+            );
         }
     }
 
