@@ -35,10 +35,7 @@ impl NegativeCoi {
 #[derive(Clone)]
 struct CoiPair<C>(C, C);
 
-impl<C> CoiPair<C>
-where
-    C: CoiPoint,
-{
+impl<C: CoiPoint> CoiPair<C> {
     /// Creates a new CoI pair.
     ///
     /// The CoI with the smaller id (or `coi0` if the ids are equal) occupies position 0.
@@ -84,10 +81,7 @@ struct Coiple<C> {
     dist: f32,
 }
 
-impl<C> Coiple<C>
-where
-    C: CoiPoint,
-{
+impl<C: CoiPoint> Coiple<C> {
     /// Creates a new coiple.
     fn new(coi1: C, coi2: C, dist: f32) -> Self {
         let cois = CoiPair::new(coi1, coi2);
@@ -106,10 +100,7 @@ where
 }
 
 /// Computes the l2 distance between two CoI points.
-fn dist<C>(coi1: &C, coi2: &C) -> f32
-where
-    C: CoiPoint,
-{
+fn dist<C: CoiPoint>(coi1: &C, coi2: &C) -> f32 {
     l2_distance(coi1.point(), coi2.point())
 }
 

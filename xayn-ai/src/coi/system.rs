@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use displaydoc::Display;
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::{
     coi::{
@@ -124,8 +125,9 @@ impl CoiSystem {
         match self.find_closest_coi_mut(embedding, &mut cois) {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, &coi.point()));
+                coi.set_id(Uuid::new_v4().into());
             }
-            _ => cois.push(CP::new((cois.len() + 1).into(), embedding.clone())),
+            _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone())),
         }
         cois
     }

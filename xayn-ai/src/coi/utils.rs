@@ -6,6 +6,7 @@ use crate::{
         PositiveCoi,
     },
     reranker::systems::CoiSystemData,
+    CoiId,
     DocumentHistory,
     DocumentId,
 };
@@ -73,7 +74,7 @@ where
 {
     let counts = count_coi_ids(docs);
     for coi in cois.iter_mut() {
-        if let Some(count) = counts.get(&coi.id.0) {
+        if let Some(count) = counts.get(&coi.id) {
             let adjustment = 1.1f32.powi(*count as i32);
             f(coi, adjustment);
         }
@@ -108,7 +109,7 @@ pub(super) fn update_beta(
 /// documents = [d_1(coi_id_1), d_2(coi_id_2), d_3(coi_id_1)]
 /// count_coi_ids(documents) -> {coi_id_1: 2, coi_id_2: 1}
 /// ```
-fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
+fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<CoiId, u16> {
     documents
         .iter()
         .filter_map(|doc| doc.coi().map(|coi| coi.id))
@@ -116,7 +117,7 @@ fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
             HashMap::with_capacity(documents.len()),
             |mut counts, coi_id| {
                 counts
-                    .entry(coi_id.0)
+                    .entry(coi_id)
                     .and_modify(|count| *count += 1)
                     .or_insert(1);
                 counts

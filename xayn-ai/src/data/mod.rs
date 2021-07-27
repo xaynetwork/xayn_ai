@@ -3,6 +3,7 @@ pub(crate) mod document_data;
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::embedding::utils::Embedding;
 
@@ -11,7 +12,7 @@ use crate::embedding::utils::Embedding;
 #[derive(
     Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize, From,
 )]
-pub struct CoiId(pub usize);
+pub struct CoiId(pub Uuid);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone, Serialize, Deserialize)]
