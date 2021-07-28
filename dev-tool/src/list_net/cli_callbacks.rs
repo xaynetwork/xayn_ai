@@ -137,11 +137,7 @@ impl TrainingController for CliTrainingController {
         Ok(())
     }
 
-    fn begin_of_epoch(
-        &mut self,
-        nr_batches: usize,
-        _list_net: &ListNet,
-    ) -> Result<(), Self::Error> {
+    fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error> {
         debug!(
             "Begin of epoch #{:0>4} (#batch {})",
             self.current_epoch, nr_batches

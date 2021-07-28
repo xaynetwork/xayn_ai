@@ -75,7 +75,8 @@ impl TrainCmd {
         let data_source = progress_spin_until_done("Loading samples", || {
             let storage = InMemorySamples::deserialize_from_file(samples)
                 .context("Loading training & evaluation samples failed.")?;
-            DataSource::new(storage, evaluation_split).context("Creating DataSource failed.")
+            DataSource::new(storage, evaluation_split, batch_size)
+                .context("Creating DataSource failed.")
         })?;
 
         let callbacks = CliTrainingControllerBuilder {
@@ -94,7 +95,7 @@ impl TrainCmd {
         };
 
         let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
-        trainer.train(epochs, batch_size)?;
+        trainer.train(epochs)?;
         Ok(NO_ERROR)
     }
 }

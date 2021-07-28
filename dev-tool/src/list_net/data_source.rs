@@ -26,8 +26,8 @@ where
 {
     /// The storage containing all samples.
     storage: S,
-    /// The batch size (if already provided).
-    batch_size: Option<usize>,
+    /// The batch size.
+    batch_size: usize,
     /// A container with all ids of all training samples, returning them in randomized order.
     training_data_order: DataLookupOrder,
     /// A container with all ids of all evaluation samples, returning them in randomized order.
@@ -51,9 +51,13 @@ where
     pub(crate) fn new(
         storage: S,
         evaluation_split: f32,
+        batch_size: usize,
     ) -> Result<Self, DataSourceError<S::Error>> {
         if evaluation_split < 0. || !evaluation_split.is_normal() {
             return Err(DataSourceError::BadEvaluationSplit(evaluation_split));
+        }
+        if batch_size == 0 {
+            return Err(DataSourceError::BatchSize0);
         }
         let nr_all_samples = storage.data_ids().map_err(DataSourceError::Storage)?.end;
         if nr_all_samples == 0 {
@@ -67,12 +71,18 @@ where
             return Err(DataSourceError::NoEvaluationSamples(evaluation_split));
         }
         let nr_training_samples = nr_all_samples - nr_evaluation_samples;
+        if batch_size > nr_training_samples {
+            return Err(DataSourceError::ToLargeBatchSize {
+                batch_size,
+                nr_training_samples,
+            });
+        }
         let evaluation_ids = (nr_training_samples..nr_all_samples).collect();
         let training_ids = (0..nr_training_samples).collect();
 
         Ok(Self {
             storage,
-            batch_size: None,
+            batch_size,
             training_data_order: DataLookupOrder::new(training_ids),
             evaluation_data_order: DataLookupOrder::new(evaluation_ids),
         })
@@ -92,10 +102,11 @@ where
     NoEvaluationSamples(f32),
     /// A batch size of 0 is not usable for training.
     BatchSize0,
-    /// The batch size is larger then the number of samples.
-    ToLargeBatchSize(usize),
-    /// Not reset/initialized.
-    ResetWasNotCalledBeforeTraining,
+    /// The batch size ({batch_size}) is larger then the number of training samples ({nr_training_samples}).
+    ToLargeBatchSize {
+        batch_size: usize,
+        nr_training_samples: usize,
+    },
     /// Empty database can not be used for training.
     EmptyDatabase,
     /// Fetching sample from storage failed: {0}.
@@ -108,36 +119,29 @@ where
 {
     type Error = DataSourceError<S::Error>;
 
-    fn reset(&mut self, batch_size: usize) -> Result<(usize, usize), Self::Error> {
-        if batch_size == 0 {
-            return Err(DataSourceError::BatchSize0);
-        }
+    fn reset(&mut self) -> Result<(), Self::Error> {
         let mut rng = rand::thread_rng();
-        self.batch_size = Some(batch_size);
         self.training_data_order.reset(&mut rng);
         self.evaluation_data_order.reset(&mut rng);
+        Ok(())
+    }
 
-        let nr_batches = self.training_data_order.number_of_batches(batch_size);
-        if nr_batches == 0 {
-            return Err(DataSourceError::ToLargeBatchSize(nr_batches));
-        }
-        //FIXME[philipp]
-        let nr_eval_samples = self.evaluation_data_order.number_of_batches(1);
-        Ok((nr_batches, nr_eval_samples))
+    fn number_of_training_batches(&self) -> usize {
+        self.training_data_order.number_of_batches(self.batch_size)
     }
 
     fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
-        let batch_size = self
-            .batch_size
-            .ok_or(DataSourceError::ResetWasNotCalledBeforeTraining)?;
-
-        let ids = self.training_data_order.next_batch(batch_size);
+        let ids = self.training_data_order.next_batch(self.batch_size);
         if ids.is_empty() {
             return Ok(Vec::new());
         }
         self.storage
             .load_batch(&ids)
             .map_err(DataSourceError::Storage)
+    }
+
+    fn number_of_evaluation_samples(&self) -> usize {
+        self.evaluation_data_order.number_of_samples()
     }
 
     fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error> {
@@ -198,9 +202,14 @@ impl DataLookupOrder {
         }
     }
 
-    /// Returns the number of batches which will be produced with given batch size.
+    /// Returns total the number of batches which will be produced with given batch size.
     fn number_of_batches(&self, batch_size: usize) -> usize {
         self.data_ids.len() / batch_size
+    }
+
+    /// Returns the total number of samples which will be produced.
+    fn number_of_samples(&self) -> usize {
+        self.data_ids.len()
     }
 
     /// Resets this container.

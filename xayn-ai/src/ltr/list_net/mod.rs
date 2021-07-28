@@ -575,27 +575,21 @@ where
     ///
     /// This will use the `list_net`, `data_source`, `callbacks` and `optimizer` used
     /// to create this `ListNetTrainer`.
-    pub fn train(
-        mut self,
-        epochs: usize,
-        batch_size: usize,
-    ) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
+    pub fn train(mut self, epochs: usize) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
         self.callbacks
             .begin_of_training(epochs, &self.list_net)
             .map_err(TrainingError::Control)?;
 
         for _ in 0..epochs {
-            let (nr_batches, nr_eval_samples) = self
-                .data_source
-                .reset(batch_size)
-                .map_err(TrainingError::Data)?;
+            self.data_source.reset().map_err(TrainingError::Data)?;
+
             self.callbacks
-                .begin_of_epoch(nr_batches, &self.list_net)
+                .begin_of_epoch(self.data_source.number_of_training_batches())
                 .map_err(TrainingError::Control)?;
 
             while self.train_next_batch()? {}
 
-            self.evaluate_epoch(kl_divergence, nr_eval_samples)?;
+            self.evaluate_epoch(kl_divergence)?;
 
             self.callbacks
                 .end_of_epoch(&self.list_net)
@@ -645,10 +639,9 @@ where
     fn evaluate_epoch(
         &mut self,
         cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
-        nr_samples: usize,
     ) -> Result<(), TrainingError<D::Error, C::Error>> {
         self.callbacks
-            .begin_of_evaluation(nr_samples)
+            .begin_of_evaluation(self.data_source.number_of_evaluation_samples())
             .map_err(TrainingError::Control)?;
 
         while let Some(Sample {
@@ -689,34 +682,31 @@ pub struct Sample<'a> {
 }
 
 /// A source of training and evaluation data.
+///
+/// Settings like the batch size or evaluation split need
+/// to be handled when creating this instance.
 pub trait DataSource {
     type Error: StdError + 'static;
 
     /// Resets/initializes the "iteration" of training and evaluation samples.
-    ///
-    /// This returns the expected number of batches in the next epoch
-    /// as well as the expected number of evaluation samples.
     ///
     /// This is allowed to also *change* the training and evaluation
     /// samples and/or their order. E.g. this could shuffle them
     /// before every epoch.
     ///
     /// This is called at the *begin* of every epoch.
-    fn reset(&mut self, batch_size: usize) -> Result<(usize, usize), Self::Error>;
+    fn reset(&mut self) -> Result<(), Self::Error>;
+
+    /// Returns the expected number of training batches.
+    fn number_of_training_batches(&self) -> usize;
 
     /// Returns the next batch of training samples.
     ///
-    /// The batch will have the size last set when calling reset.
-    ///
     /// Returns a empty vector once all training samples have been returned.
-    ///
-    /// If reset wasn't called before this should return a error.
-    ///
-    /// # Panics
-    ///
-    /// A batch size of 0 is not valid. And implementors are allowed to
-    /// panic if it's passed in.
     fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error>;
+
+    /// Returns the expected number of evaluation samples.
+    fn number_of_evaluation_samples(&self) -> usize;
 
     /// Returns the next evaluation sample.
     ///
@@ -745,7 +735,7 @@ pub trait TrainingController {
     fn end_of_batch(&mut self) -> Result<(), Self::Error>;
 
     /// Called at the begin of each epoch.
-    fn begin_of_epoch(&mut self, nr_batches: usize, list_net: &ListNet) -> Result<(), Self::Error>;
+    fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error>;
 
     /// Called at the end of each epoch with the mean of running the evaluation with KL-Divergence.
     ///
@@ -1134,9 +1124,10 @@ mod tests {
         fn new(
             training_data: Vec<(Array2<f32>, Array1<f32>)>,
             evaluation_data: Vec<(Array2<f32>, Array1<f32>)>,
+            batch_size: usize,
         ) -> Self {
             Self {
-                batch_size: 0,
+                batch_size,
                 training_data_idx: 0,
                 training_data,
                 evaluation_data_idx: 0,
@@ -1152,24 +1143,17 @@ mod tests {
     impl DataSource for VecDataSource {
         type Error = BatchSize0Error;
 
-        fn reset(&mut self, batch_size: usize) -> Result<(usize, usize), Self::Error> {
-            if batch_size == 0 {
-                return Err(BatchSize0Error);
-            }
-            self.batch_size = batch_size;
+        fn reset(&mut self) -> Result<(), Self::Error> {
             self.training_data_idx = 0;
             self.evaluation_data_idx = 0;
-            Ok((
-                self.training_data.len() / batch_size,
-                self.evaluation_data.len(),
-            ))
+            Ok(())
+        }
+
+        fn number_of_training_batches(&self) -> usize {
+            self.training_data.len()
         }
 
         fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
-            if self.batch_size == 0 {
-                return Err(BatchSize0Error);
-            }
-
             let end_idx = self.training_data_idx + self.batch_size;
             if end_idx <= self.training_data.len() {
                 let start_idx = self.training_data_idx;
@@ -1186,6 +1170,10 @@ mod tests {
             } else {
                 Ok(Vec::new())
             }
+        }
+
+        fn number_of_evaluation_samples(&self) -> usize {
+            self.evaluation_data.len()
         }
 
         fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error> {
@@ -1252,11 +1240,7 @@ mod tests {
             Ok(())
         }
 
-        fn begin_of_epoch(
-            &mut self,
-            _nr_batches: usize,
-            _list_net: &ListNet,
-        ) -> Result<(), Self::Error> {
+        fn begin_of_epoch(&mut self, _nr_batches: usize) -> Result<(), Self::Error> {
             eprintln!("begin of epoch");
             Ok(())
         }
@@ -1334,18 +1318,19 @@ mod tests {
         //     trainer.train(nr_epochs, batch_size).unwrap()
         // };
         let (ctrl1, ln1) = {
-            let data_source = VecDataSource::new(training_data.clone(), test_data.clone());
+            let data_source =
+                VecDataSource::new(training_data.clone(), test_data.clone(), batch_size);
             let callbacks = TestController::new();
             let optimizer = MiniBatchSgd { learning_rate: 0.1 };
             let trainer = ListNetTrainer::new(list_net.clone(), data_source, callbacks, optimizer);
-            trainer.train(nr_epochs, batch_size).unwrap()
+            trainer.train(nr_epochs).unwrap()
         };
         let (ctrl2, ln2) = {
-            let data_source = VecDataSource::new(training_data, test_data);
+            let data_source = VecDataSource::new(training_data, test_data, batch_size);
             let callbacks = TestController::new();
             let optimizer = MiniBatchSgd { learning_rate: 0.1 };
             let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
-            trainer.train(nr_epochs, batch_size).unwrap()
+            trainer.train(nr_epochs).unwrap()
         };
 
         assert_approx_eq!(f32, ln1.dense1.weights(), ln2.dense1.weights());
@@ -1661,11 +1646,12 @@ mod tests {
         let test_data = vec![data_frame];
 
         let nr_epochs = 5;
-        let data_source = VecDataSource::new(training_data, test_data);
+        let batch_size = 3;
+        let data_source = VecDataSource::new(training_data, test_data, batch_size);
         let callbacks = TestController::new();
         let optimizer = MiniBatchSgd { learning_rate: 0.1 };
         let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
-        let (controller, _list_net) = trainer.train(nr_epochs, 3).unwrap();
+        let (controller, _list_net) = trainer.train(nr_epochs).unwrap();
         let evaluation_results = controller.mean_evaluation_results;
 
         assert_eq!(evaluation_results.len(), nr_epochs);
