@@ -273,16 +273,19 @@ where
 mod tests {
     use super::*;
 
-    use crate::data::{
-        document::DocumentId,
-        document_data::{
-            CoiComponent,
-            ContextComponent,
-            DocumentBaseComponent,
-            LtrComponent,
-            QAMBertComponent,
-            SMBertComponent,
+    use crate::{
+        data::{
+            document::DocumentId,
+            document_data::{
+                CoiComponent,
+                ContextComponent,
+                DocumentBaseComponent,
+                LtrComponent,
+                QAMBertComponent,
+                SMBertComponent,
+            },
         },
+        utils::mock_uuid,
     };
     use ndarray::arr1;
 
@@ -341,11 +344,11 @@ mod tests {
         let doc_id_4 = DocumentId::from_u128(4);
 
         let group = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), CoiId(0), 0.),
-            with_ctx(doc_id_1.clone(), CoiId(4), 0.),
-            with_ctx(doc_id_2.clone(), CoiId(9), 0.),
-            with_ctx(doc_id_3.clone(), CoiId(4), 0.),
-            with_ctx(doc_id_4.clone(), CoiId(9), 0.),
+            with_ctx(doc_id_0.clone(), mock_uuid(0).into(), 0.),
+            with_ctx(doc_id_1.clone(), mock_uuid(4).into(), 0.),
+            with_ctx(doc_id_2.clone(), mock_uuid(9).into(), 0.),
+            with_ctx(doc_id_3.clone(), mock_uuid(4).into(), 0.),
+            with_ctx(doc_id_4.clone(), mock_uuid(9).into(), 0.),
         ]);
 
         let check_contains = |coi_id: CoiId, docs_id_ok: Vec<DocumentId>| {
@@ -363,9 +366,9 @@ mod tests {
             }
         };
 
-        check_contains(CoiId(0), vec![doc_id_0]);
-        check_contains(CoiId(4), vec![doc_id_1, doc_id_3]);
-        check_contains(CoiId(9), vec![doc_id_2, doc_id_4]);
+        check_contains(mock_uuid(0).into(), vec![doc_id_0]);
+        check_contains(mock_uuid(4).into(), vec![doc_id_1, doc_id_3]);
+        check_contains(mock_uuid(9).into(), vec![doc_id_2, doc_id_4]);
     }
 
     #[test]
@@ -377,14 +380,16 @@ mod tests {
         let doc_id_4 = DocumentId::from_u128(4);
 
         let mut group = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), CoiId(0), 0.4),
-            with_ctx(doc_id_1.clone(), CoiId(0), 0.8),
-            with_ctx(doc_id_2.clone(), CoiId(0), 0.2),
-            with_ctx(doc_id_3.clone(), CoiId(0), 0.9),
-            with_ctx(doc_id_4.clone(), CoiId(0), 0.6),
+            with_ctx(doc_id_0.clone(), mock_uuid(0).into(), 0.4),
+            with_ctx(doc_id_1.clone(), mock_uuid(0).into(), 0.8),
+            with_ctx(doc_id_2.clone(), mock_uuid(0).into(), 0.2),
+            with_ctx(doc_id_3.clone(), mock_uuid(0).into(), 0.9),
+            with_ctx(doc_id_4.clone(), mock_uuid(0).into(), 0.6),
         ]);
 
-        let docs = group.remove(&CoiId(0)).expect("document from coi id");
+        let docs = group
+            .remove(&CoiId(mock_uuid(0)))
+            .expect("document from coi id");
         let docs_id: Vec<DocumentId> = docs
             .into_sorted_vec()
             .into_iter()
@@ -406,12 +411,14 @@ mod tests {
         let doc_id_2 = DocumentId::from_u128(2);
 
         let mut group = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), CoiId(0), 0.2),
-            with_ctx(doc_id_1.clone(), CoiId(0), f32::NAN),
-            with_ctx(doc_id_2.clone(), CoiId(0), 0.8),
+            with_ctx(doc_id_0.clone(), mock_uuid(0).into(), 0.2),
+            with_ctx(doc_id_1.clone(), mock_uuid(0).into(), f32::NAN),
+            with_ctx(doc_id_2.clone(), mock_uuid(0).into(), 0.8),
         ]);
 
-        let docs = group.remove(&CoiId(0)).expect("document from coi id");
+        let docs = group
+            .remove(&CoiId(mock_uuid(0)))
+            .expect("document from coi id");
         let docs_id: Vec<DocumentId> = docs
             .into_sorted_vec()
             .into_iter()
@@ -432,8 +439,8 @@ mod tests {
     #[test]
     fn test_update_coi_no_docs() {
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0)),
-            CoiId(1) => coi!(CoiId(1))
+            mock_uuid(0).into() => coi!(mock_uuid(0).into()),
+            mock_uuid(1).into() => coi!(mock_uuid(1).into()),
         };
 
         let new_cois = update_cois(cois.clone(), &[]).expect("cois");
@@ -444,7 +451,7 @@ mod tests {
     fn test_update_coi_no_coi() {
         let error = update_cois(
             HashMap::new(),
-            &[with_ctx(DocumentId::from_u128(0), CoiId(0), 0.)],
+            &[with_ctx(DocumentId::from_u128(0), mock_uuid(0).into(), 0.)],
         )
         .expect_err("no coi");
         assert!(matches!(error, MabError::DocumentCoiDoesNotExist));
@@ -453,14 +460,14 @@ mod tests {
     #[test]
     fn test_update_coi_invalid_context_value() {
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.91),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.91),
         };
 
         let error = update_cois(
             cois.clone(),
             &[
-                with_ctx(DocumentId::from_u128(0), CoiId(0), 0.35),
-                with_ctx(DocumentId::from_u128(1), CoiId(0), -1.),
+                with_ctx(DocumentId::from_u128(0), mock_uuid(0).into(), 0.35),
+                with_ctx(DocumentId::from_u128(1), mock_uuid(0).into(), -1.),
             ],
         )
         .expect_err("invalid context value");
@@ -469,8 +476,8 @@ mod tests {
         let error = update_cois(
             cois,
             &[
-                with_ctx(DocumentId::from_u128(0), CoiId(0), 0.35),
-                with_ctx(DocumentId::from_u128(1), CoiId(0), 1.01),
+                with_ctx(DocumentId::from_u128(0), mock_uuid(0).into(), 0.35),
+                with_ctx(DocumentId::from_u128(1), mock_uuid(0).into(), 1.01),
             ],
         )
         .expect_err("invalid context value");
@@ -480,17 +487,17 @@ mod tests {
     #[test]
     fn test_update_coi_ok() {
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.91),
-            CoiId(1) => coi!(CoiId(1), 0.27)
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.91),
+            mock_uuid(1).into() => coi!(mock_uuid(1).into(), 0.27)
         };
 
         let cois = update_cois(
             cois,
             &vec![
-                with_ctx(DocumentId::from_u128(0), CoiId(1), 1.),
-                with_ctx(DocumentId::from_u128(1), CoiId(0), 0.35),
-                with_ctx(DocumentId::from_u128(2), CoiId(1), 0.2),
-                with_ctx(DocumentId::from_u128(3), CoiId(0), 0.6),
+                with_ctx(DocumentId::from_u128(0), mock_uuid(1).into(), 1.),
+                with_ctx(DocumentId::from_u128(1), mock_uuid(0).into(), 0.35),
+                with_ctx(DocumentId::from_u128(2), mock_uuid(1).into(), 0.2),
+                with_ctx(DocumentId::from_u128(3), mock_uuid(0).into(), 0.6),
             ],
         )
         .expect("cois");
@@ -498,11 +505,11 @@ mod tests {
         // alpha is updated with `alpha += context_value`
         // beta is updated with `beta += (1. - context_value)`
 
-        let coi = cois.get(&CoiId(0)).expect("coi");
+        let coi = cois.get(&CoiId(mock_uuid(0))).expect("coi");
         assert_approx_eq!(f32, coi.alpha, 1.86);
         assert_approx_eq!(f32, coi.beta, 1.96);
 
-        let coi = cois.get(&CoiId(1)).expect("coi");
+        let coi = cois.get(&CoiId(mock_uuid(1))).expect("coi");
         assert_approx_eq!(f32, coi.alpha, 1.47);
         assert_approx_eq!(f32, coi.beta, 1.07);
     }
@@ -510,8 +517,8 @@ mod tests {
     #[test]
     fn test_pull_arms_coi_empty() {
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(DocumentId::from_u128(0), CoiId(0), 0.),
-            with_ctx(DocumentId::from_u128(1), CoiId(1), 0.),
+            with_ctx(DocumentId::from_u128(0), mock_uuid(0).into(), 0.),
+            with_ctx(DocumentId::from_u128(1), mock_uuid(1).into(), 0.),
         ]);
 
         let beta_sampler = MockBetaSample::new();
@@ -524,10 +531,14 @@ mod tests {
     #[test]
     fn test_pull_arms_no_coi() {
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.91),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.91),
         };
 
-        let documents_by_coi = group_by_coi(vec![with_ctx(DocumentId::from_u128(1), CoiId(1), 0.)]);
+        let documents_by_coi = group_by_coi(vec![with_ctx(
+            DocumentId::from_u128(1),
+            mock_uuid(1).into(),
+            0.,
+        )]);
 
         let beta_sampler = MockBetaSample::new();
 
@@ -545,7 +556,7 @@ mod tests {
         assert!(matches!(error, MabError::NoDocumentsToPull));
 
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.91),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.91),
         };
 
         let error =
@@ -556,13 +567,13 @@ mod tests {
     #[test]
     fn test_pull_arms_sampler_error() {
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.91),
-            CoiId(1) => coi!(CoiId(1), 0.1),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.91),
+            mock_uuid(1).into() => coi!(mock_uuid(1).into(), 0.1),
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(DocumentId::from_u128(1), CoiId(0), 0.),
-            with_ctx(DocumentId::from_u128(2), CoiId(1), 0.),
+            with_ctx(DocumentId::from_u128(1), mock_uuid(0).into(), 0.),
+            with_ctx(DocumentId::from_u128(2), mock_uuid(1).into(), 0.),
         ]);
 
         let mut beta_sampler = MockBetaSample::new();
@@ -598,13 +609,13 @@ mod tests {
     #[test]
     fn test_pull_arms_malformed_documents_by_coi() {
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.91),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.91),
         };
 
         let mut documents_by_coi = DocumentsByCoi::new();
         // If `group_by_coi` and `pull_arms` are behaving correctly we will never have
         // a coi with an empty heap.
-        documents_by_coi.insert(CoiId(0), BinaryHeap::new());
+        documents_by_coi.insert(mock_uuid(0).into(), BinaryHeap::new());
 
         let mut beta_sampler = MockBetaSample::new();
         beta_sampler.expect_sample().returning(|_, _| Ok(0.2));
@@ -623,18 +634,18 @@ mod tests {
         let doc_id_5 = DocumentId::from_u128(5);
 
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.1),
-            CoiId(4) => coi!(CoiId(4), 0.5),
-            CoiId(7) => coi!(CoiId(7), 0.8),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.1),
+            mock_uuid(4).into() => coi!(mock_uuid(4).into(), 0.5),
+            mock_uuid(7).into() => coi!(mock_uuid(7).into(), 0.8),
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), CoiId(0), 0.2),
-            with_ctx(doc_id_1.clone(), CoiId(0), 0.5),
-            with_ctx(doc_id_2.clone(), CoiId(0), 0.7),
-            with_ctx(doc_id_3.clone(), CoiId(4), 0.4),
-            with_ctx(doc_id_4.clone(), CoiId(4), 0.7),
-            with_ctx(doc_id_5.clone(), CoiId(7), 0.2),
+            with_ctx(doc_id_0.clone(), mock_uuid(0).into(), 0.2),
+            with_ctx(doc_id_1.clone(), mock_uuid(0).into(), 0.5),
+            with_ctx(doc_id_2.clone(), mock_uuid(0).into(), 0.7),
+            with_ctx(doc_id_3.clone(), mock_uuid(4).into(), 0.4),
+            with_ctx(doc_id_4.clone(), mock_uuid(4).into(), 0.7),
+            with_ctx(doc_id_5.clone(), mock_uuid(7).into(), 0.2),
         ]);
 
         let mut beta_sampler = MockBetaSample::new();
@@ -672,18 +683,18 @@ mod tests {
         let coi4 = 4.;
         let coi7 = 7.;
         let cois = hashmap! {
-            CoiId(1) => coi!(CoiId(1), coi1),
-            CoiId(4) => coi!(CoiId(4), coi4),
-            CoiId(7) => coi!(CoiId(7), coi7),
+            mock_uuid(1).into() => coi!(mock_uuid(1).into(), coi1),
+            mock_uuid(4).into() => coi!(mock_uuid(4).into(), coi4),
+            mock_uuid(7).into() => coi!(mock_uuid(7).into(), coi7),
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), CoiId(1), 0.2),
-            with_ctx(doc_id_1.clone(), CoiId(1), 0.5),
-            with_ctx(doc_id_2.clone(), CoiId(1), 0.7),
-            with_ctx(doc_id_3.clone(), CoiId(4), 0.4),
-            with_ctx(doc_id_4.clone(), CoiId(4), 0.7),
-            with_ctx(doc_id_5.clone(), CoiId(7), 0.2),
+            with_ctx(doc_id_0.clone(), mock_uuid(1).into(), 0.2),
+            with_ctx(doc_id_1.clone(), mock_uuid(1).into(), 0.5),
+            with_ctx(doc_id_2.clone(), mock_uuid(1).into(), 0.7),
+            with_ctx(doc_id_3.clone(), mock_uuid(4).into(), 0.4),
+            with_ctx(doc_id_4.clone(), mock_uuid(4).into(), 0.7),
+            with_ctx(doc_id_5.clone(), mock_uuid(7).into(), 0.2),
         ]);
 
         let mut coi_counter = 0;
@@ -756,17 +767,17 @@ mod tests {
 
         let cois = hashmap! {
             // high probability of low values
-            CoiId(0) => coi!(CoiId(0), 2., 8.),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 2., 8.),
             // high probability of high values
-            CoiId(4) => coi!(CoiId(4), 8., 2.),
+            mock_uuid(4).into() => coi!(mock_uuid(4).into(), 8., 2.),
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), CoiId(0), 0.2),
-            with_ctx(doc_id_1.clone(), CoiId(0), 0.5),
-            with_ctx(doc_id_2.clone(), CoiId(0), 0.7),
-            with_ctx(doc_id_3.clone(), CoiId(4), 0.4),
-            with_ctx(doc_id_4.clone(), CoiId(4), 0.7),
+            with_ctx(doc_id_0.clone(), mock_uuid(0).into(), 0.2),
+            with_ctx(doc_id_1.clone(), mock_uuid(0).into(), 0.5),
+            with_ctx(doc_id_2.clone(), mock_uuid(0).into(), 0.7),
+            with_ctx(doc_id_3.clone(), mock_uuid(4).into(), 0.4),
+            with_ctx(doc_id_4.clone(), mock_uuid(4).into(), 0.7),
         ]);
 
         let beta_sampler = BetaSampler;
@@ -815,18 +826,18 @@ mod tests {
         let doc_id_5 = DocumentId::from_u128(5);
 
         let cois = hashmap! {
-            CoiId(0) => coi!(CoiId(0), 0.1),
-            CoiId(4) => coi!(CoiId(4), 0.5),
-            CoiId(7) => coi!(CoiId(7), 0.8),
+            mock_uuid(0).into() => coi!(mock_uuid(0).into(), 0.1),
+            mock_uuid(4).into() => coi!(mock_uuid(4).into(), 0.5),
+            mock_uuid(7).into() => coi!(mock_uuid(7).into(), 0.8),
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), CoiId(0), 0.2),
-            with_ctx(doc_id_1.clone(), CoiId(0), 0.5),
-            with_ctx(doc_id_2.clone(), CoiId(0), 0.7),
-            with_ctx(doc_id_3.clone(), CoiId(4), 0.4),
-            with_ctx(doc_id_4.clone(), CoiId(4), 0.7),
-            with_ctx(doc_id_5.clone(), CoiId(7), 0.2),
+            with_ctx(doc_id_0.clone(), mock_uuid(0).into(), 0.2),
+            with_ctx(doc_id_1.clone(), mock_uuid(0).into(), 0.5),
+            with_ctx(doc_id_2.clone(), mock_uuid(0).into(), 0.7),
+            with_ctx(doc_id_3.clone(), mock_uuid(4).into(), 0.4),
+            with_ctx(doc_id_4.clone(), mock_uuid(4).into(), 0.7),
+            with_ctx(doc_id_5.clone(), mock_uuid(7).into(), 0.2),
         ]);
 
         let mut beta_sampler = MockBetaSample::new();
@@ -861,7 +872,11 @@ mod tests {
 
     #[test]
     fn test_mab_ranking_iter_propagate_errors() {
-        let documents_by_coi = group_by_coi(vec![with_ctx(DocumentId::from_u128(0), CoiId(0), 0.)]);
+        let documents_by_coi = group_by_coi(vec![with_ctx(
+            DocumentId::from_u128(0),
+            mock_uuid(0).into(),
+            0.,
+        )]);
 
         let beta_sampler = MockBetaSample::new();
 
@@ -870,7 +885,7 @@ mod tests {
         assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
 
         let cois = hashmap! {
-            CoiId(9) => coi!(CoiId(9), 0.1),
+            mock_uuid(9).into() => coi!(mock_uuid(9).into(), 0.1),
         };
         let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi.clone());
         assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
@@ -883,7 +898,7 @@ mod tests {
         assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
 
         let mut documents_by_coi = DocumentsByCoi::new();
-        documents_by_coi.insert(CoiId(0), BinaryHeap::new());
+        documents_by_coi.insert(mock_uuid(0).into(), BinaryHeap::new());
         let mab_rerank = MabRankingIter::new(&beta_sampler, &cois, documents_by_coi);
         assert!(mab_rerank.collect::<Result<Vec<_>, _>>().is_err());
     }
@@ -899,19 +914,19 @@ mod tests {
 
         let mut user_interests = UserInterests::new();
         user_interests.positive = vec![
-            coi!(CoiId(0), 1.),
-            coi!(CoiId(4), 10.),
-            coi!(CoiId(7), 100.),
+            coi!(mock_uuid(0).into(), 1.),
+            coi!(mock_uuid(4).into(), 10.),
+            coi!(mock_uuid(7).into(), 100.),
         ];
 
         // we use a small context_value to avoid changing alpha and beta too much
         let documents = vec![
-            with_ctx(doc_id_0.clone(), CoiId(0), 0.01),
-            with_ctx(doc_id_1.clone(), CoiId(0), 0.02),
-            with_ctx(doc_id_2.clone(), CoiId(0), 0.03),
-            with_ctx(doc_id_3.clone(), CoiId(4), 0.01),
-            with_ctx(doc_id_4.clone(), CoiId(4), 0.02),
-            with_ctx(doc_id_5.clone(), CoiId(7), 0.01),
+            with_ctx(doc_id_0.clone(), mock_uuid(0).into(), 0.01),
+            with_ctx(doc_id_1.clone(), mock_uuid(0).into(), 0.02),
+            with_ctx(doc_id_2.clone(), mock_uuid(0).into(), 0.03),
+            with_ctx(doc_id_3.clone(), mock_uuid(4).into(), 0.01),
+            with_ctx(doc_id_4.clone(), mock_uuid(4).into(), 0.02),
+            with_ctx(doc_id_5.clone(), mock_uuid(7).into(), 0.01),
         ];
 
         let mut beta_sampler = MockBetaSample::new();
@@ -943,15 +958,15 @@ mod tests {
             .map(|coi| (coi.id, coi))
             .collect::<HashMap<_, _>>();
 
-        let coi = cois.get(&CoiId(0)).expect("coi");
+        let coi = cois.get(&CoiId(mock_uuid(0))).expect("coi");
         assert_approx_eq!(f32, coi.alpha, 1.06);
         assert_approx_eq!(f32, coi.beta, 3.94);
 
-        let coi = cois.get(&CoiId(4)).expect("coi");
+        let coi = cois.get(&CoiId(mock_uuid(4))).expect("coi");
         assert_approx_eq!(f32, coi.alpha, 10.03);
         assert_approx_eq!(f32, coi.beta, 11.97);
 
-        let coi = cois.get(&CoiId(7)).expect("coi");
+        let coi = cois.get(&CoiId(mock_uuid(7))).expect("coi");
         assert_approx_eq!(f32, coi.alpha, 100.01);
         assert_approx_eq!(f32, coi.beta, 100.99);
     }

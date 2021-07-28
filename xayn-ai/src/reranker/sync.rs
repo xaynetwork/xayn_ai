@@ -63,7 +63,7 @@ impl UserInterests {
 
 /// Appends `remotes` to `locals`.
 ///
-/// Remote CoIs with ids clashing with any of the local CoIs are removed in the process.
+/// Remote CoIs with ids clashing with any of the local CoIs are removed.
 fn append_cois<C: CoiPoint>(locals: &mut Vec<C>, remotes: &mut Vec<C>) {
     remotes.retain(|rem| !locals.iter().any(|loc| loc.id() == rem.id()));
     locals.append(remotes);

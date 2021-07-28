@@ -68,6 +68,7 @@ impl ContextCalc {
 #[cfg(test)]
 mod tests {
     use ndarray::arr1;
+    use uuid::Uuid;
 
     use super::*;
     use crate::data::{
@@ -79,7 +80,6 @@ mod tests {
             QAMBertComponent,
             SMBertComponent,
         },
-        CoiId,
     };
 
     struct LtrDocBuilder {
@@ -109,7 +109,7 @@ mod tests {
                 smbert: SMBertComponent { embedding },
                 qambert: QAMBertComponent { similarity },
                 coi: CoiComponent {
-                    id: CoiId(0),
+                    id: Uuid::nil().into(),
                     pos_distance,
                     neg_distance,
                 },

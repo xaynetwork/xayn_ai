@@ -119,7 +119,7 @@ where
         .clone()
         .cartesian_product(cois_iter)
         .filter(|(coi1, coi2)| coi1.id() < coi2.id())
-        .filter_map(|(coi1, coi2)| -> Option<Coiple<C>> {
+        .filter_map(|(coi1, coi2)| {
             let dist = dist(coi1, coi2);
             (dist < MERGE_THRESHOLD_DIST).then(|| Coiple::new(coi1.clone(), coi2.clone(), dist))
         })
