@@ -1,5 +1,5 @@
 #![cfg(not(tarpaulin))]
-use std::{convert::TryInto, path::PathBuf, sync::Mutex, time::Instant};
+use std::{path::PathBuf, sync::Mutex, time::Instant};
 
 use bincode::Error;
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
@@ -146,7 +146,7 @@ impl TrainingController for CliTrainingController {
         self.current_batch = 0;
         self.epoch_progress_bar.set_position(0);
         self.epoch_progress_bar
-            .set_length(nr_batches.try_into().unwrap());
+            .set_length(nr_batches as u64);
         self.eval_progress_bar.set_position(0);
         Ok(())
     }
@@ -171,7 +171,7 @@ impl TrainingController for CliTrainingController {
         self.eval_progress_bar.set_message("");
         self.eval_progress_bar.set_position(0);
         self.eval_progress_bar
-            .set_length(nr_samples.try_into().unwrap());
+            .set_length(nr_samples as u64);
         Ok(())
     }
 
@@ -219,7 +219,7 @@ impl TrainingController for CliTrainingController {
         std::thread::spawn(move || multi_bar.join());
 
         self.train_progress_bar
-            .set_length(nr_epochs.try_into().unwrap());
+            .set_length(nr_epochs as u64);
 
         self.train_progress_bar.enable_steady_tick(100);
         self.epoch_progress_bar.tick();

@@ -313,6 +313,21 @@ impl ListNet {
         scores
     }
 
+    /// Evaluates the ListNet on given sample using given cost function.
+    pub fn evaluate(
+        &self,
+        cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
+        sample: Sample,
+    ) -> f32 {
+        let Sample {
+            inputs,
+            target_prob_dist,
+        } = sample;
+        let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
+        let prob_dist_y = self.calculate_final_scores(&scores_y);
+        cost_function(target_prob_dist, prob_dist_y.view())
+    }
+
     /// Computes the gradients and loss for given inputs and target prob. dist.
     ///
     /// # Panics
@@ -644,17 +659,12 @@ where
             .begin_of_evaluation(self.data_source.number_of_evaluation_samples())
             .map_err(TrainingError::Control)?;
 
-        while let Some(Sample {
-            inputs,
-            target_prob_dist,
-        }) = self
+        while let Some(sample) = self
             .data_source
             .next_evaluation_sample()
             .map_err(TrainingError::Data)?
         {
-            let (scores_y, _) = self.list_net.calculate_intermediate_scores(inputs, false);
-            let prob_dist_y = self.list_net.calculate_final_scores(&scores_y);
-            let cost = cost_function(target_prob_dist, prob_dist_y.view());
+            let cost = self.list_net.evaluate(cost_function, sample);
             self.callbacks
                 .evaluation_result(cost)
                 .map_err(TrainingError::Control)?;
