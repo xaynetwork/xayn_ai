@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin))]
 use std::{
     convert::TryInto,
     ffi::OsStr,

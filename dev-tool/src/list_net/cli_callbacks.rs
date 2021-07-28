@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin))]
 use std::{convert::TryInto, path::PathBuf, sync::Mutex, time::Instant};
 
 use bincode::Error;
