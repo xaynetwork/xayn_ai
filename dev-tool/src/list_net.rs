@@ -2,11 +2,12 @@
 use anyhow::Error;
 use structopt::StructOpt;
 
-use self::{convert::ConvertCmd, inspect::InspectCmd, train::TrainCmd};
+use self::{convert::ConvertCmd, evaluate::EvaluateCmd, inspect::InspectCmd, train::TrainCmd};
 
 mod cli_callbacks;
 mod convert;
 mod data_source;
+mod evaluate;
 mod inspect;
 mod train;
 
@@ -16,6 +17,7 @@ pub enum ListNetCmd {
     Convert(ConvertCmd),
     Train(TrainCmd),
     Inspect(InspectCmd),
+    Evaluate(EvaluateCmd),
 }
 
 impl ListNetCmd {
@@ -25,6 +27,7 @@ impl ListNetCmd {
             Convert(cmd) => cmd.run(),
             Train(cmd) => cmd.run(),
             Inspect(cmd) => cmd.run(),
+            Evaluate(cmd) => cmd.run(),
         }
     }
 }

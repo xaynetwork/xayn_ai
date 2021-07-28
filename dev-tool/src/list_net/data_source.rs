@@ -19,7 +19,7 @@ use rand::{prelude::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use xayn_ai::list_net::{self, ListNet, Sample};
+use xayn_ai::list_net::{self, ListNet, SampleOwned, SampleView};
 
 /// A [`xayn_ai::list_net::DataSource`] implementation.
 pub(crate) struct DataSource<S>
@@ -53,13 +53,10 @@ where
     pub(crate) fn new(
         storage: S,
         evaluation_split: f32,
-        batch_size: usize,
+        mut batch_size: usize,
     ) -> Result<Self, DataSourceError<S::Error>> {
         if evaluation_split < 0. || !evaluation_split.is_normal() {
             return Err(DataSourceError::BadEvaluationSplit(evaluation_split));
-        }
-        if batch_size == 0 {
-            return Err(DataSourceError::BatchSize0);
         }
         let nr_all_samples = storage.data_ids().map_err(DataSourceError::Storage)?.end;
         if nr_all_samples == 0 {
@@ -78,6 +75,8 @@ where
                 batch_size,
                 nr_training_samples,
             });
+        } else if batch_size == 0 {
+            batch_size = nr_training_samples;
         }
         let evaluation_ids = (nr_training_samples..nr_all_samples).collect();
         let training_ids = (0..nr_training_samples).collect();
@@ -88,6 +87,10 @@ where
             training_data_order: DataLookupOrder::new(training_ids),
             evaluation_data_order: DataLookupOrder::new(evaluation_ids),
         })
+    }
+
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
     }
 }
 
@@ -102,8 +105,6 @@ where
     ToLargeEvaluationSplit(f32),
     /// Unusable evaluation split: Assertion `nr_evaluation_samples > 0 || split == 0` failed (split = {0}).
     NoEvaluationSamples(f32),
-    /// A batch size of 0 is not usable for training.
-    BatchSize0,
     /// The batch size ({batch_size}) is larger then the number of training samples ({nr_training_samples}).
     ToLargeBatchSize {
         batch_size: usize,
@@ -132,7 +133,7 @@ where
         self.training_data_order.number_of_batches(self.batch_size)
     }
 
-    fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
+    fn next_training_batch(&mut self) -> Result<Vec<SampleView>, Self::Error> {
         let ids = self.training_data_order.next_batch(self.batch_size);
         if ids.is_empty() {
             return Ok(Vec::new());
@@ -146,10 +147,10 @@ where
         self.evaluation_data_order.number_of_samples()
     }
 
-    fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error> {
+    fn next_evaluation_sample(&mut self) -> Result<Option<SampleOwned>, Self::Error> {
         if let Some(id) = self.evaluation_data_order.next() {
             match self.storage.load_sample(id) {
-                Ok(sample) => Ok(Some(sample)),
+                Ok(sample) => Ok(Some(sample.to_owned())),
                 Err(error) => Err(DataSourceError::Storage(error)),
             }
         } else {
@@ -158,8 +159,8 @@ where
     }
 }
 
-pub(crate) trait Storage {
-    type Error: StdError + 'static;
+pub(crate) trait Storage: Send {
+    type Error: StdError + 'static + Send;
 
     /// Return the all sample ids.
     ///
@@ -173,12 +174,12 @@ pub(crate) trait Storage {
     /// (due to loading/caching) and we also want to make sure that there
     /// are no more lend out samples, when `load_sample` or `load_batch` are
     /// called again.
-    fn load_sample(&mut self, id: DataId) -> Result<Sample, Self::Error>;
+    fn load_sample(&mut self, id: DataId) -> Result<SampleView, Self::Error>;
 
     /// Loads a batch of samples and returns a vector of references to them.
     ///
     /// See [`Storage.load_batch()`] about why this is `&mut self`.
-    fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<Sample<'a>>, Self::Error>;
+    fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<SampleView<'a>>, Self::Error>;
 }
 
 /// For now samples id's are always incremental integers form `0..nr_samples`.
@@ -305,7 +306,7 @@ impl InMemorySamples {
         Ok(self_)
     }
 
-    fn load_sample_helper(&self, id: DataId) -> Result<Sample, StorageError> {
+    fn load_sample_helper(&self, id: DataId) -> Result<SampleView, StorageError> {
         let raw = &self.data[id];
 
         // len == nr_document * nr_features + nr_documents * 1
@@ -322,7 +323,7 @@ impl InMemorySamples {
             ArrayView::from_shape((nr_documents,), &raw[start_of_target_prob_dist..])
                 .map_err(|_| StorageError::BrokenInvariants { at_index: id })?;
 
-        Ok(Sample {
+        Ok(SampleView {
             inputs,
             target_prob_dist,
         })
@@ -410,11 +411,11 @@ impl Storage for InMemorySamples {
         Ok(..self.data.len())
     }
 
-    fn load_sample(&mut self, id: DataId) -> Result<Sample, Self::Error> {
+    fn load_sample(&mut self, id: DataId) -> Result<SampleView, Self::Error> {
         self.load_sample_helper(id)
     }
 
-    fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<Sample<'a>>, Self::Error> {
+    fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<SampleView<'a>>, Self::Error> {
         let mut samples = Vec::new();
         for id in ids {
             samples.push(self.load_sample_helper(*id)?)
