@@ -2,12 +2,12 @@
 
 use std::{iter, ops::Add, path::PathBuf};
 
-use anyhow::{Context, Error, bail};
+use anyhow::{bail, Context, Error};
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use structopt::StructOpt;
 
-use xayn_ai::list_net::{ndutils::kl_divergence, DataSource as _, ListNet, Sample};
+use xayn_ai::list_net::{ndutils::kl_divergence, DataSource as _, ListNet};
 
 use super::data_source::{DataSource, InMemorySamples};
 use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
@@ -64,23 +64,19 @@ impl EvaluateCmd {
         progress_bar.tick();
 
         let mut error_slot = None;
-        let iter = iter::from_fn(|| {
-            match data_source.next_evaluation_sample() {
-                Ok(Some(Sample { inputs, target_prob_dist })) => {
-                    Some((inputs.to_owned(), target_prob_dist.to_owned()))
-                },
-                Ok(None) => None,
-                Err(err) => {
-                    error_slot = Some(err);
-                    None
-                }
+        let iter = iter::from_fn(|| match data_source.next_evaluation_sample() {
+            Ok(v) => v,
+            Err(err) => {
+                error_slot = Some(err);
+                None
             }
         });
 
         let nr_samples = nr_samples as f32;
-        let mean_cost = iter.par_bridge()
-            .map(|(inputs, target_prob_dist)| {
-                let cost = list_net.evaluate(kl_divergence, Sample { inputs: inputs.view(), target_prob_dist: target_prob_dist.view() });
+        let mean_cost = iter
+            .par_bridge()
+            .map(|sample| {
+                let cost = list_net.evaluate(kl_divergence, sample.as_view());
                 progress_bar.inc(1);
                 cost
             })

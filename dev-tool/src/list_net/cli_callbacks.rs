@@ -1,11 +1,11 @@
 #![cfg(not(tarpaulin))]
-use std::{path::PathBuf, sync::Mutex, time::Instant};
+use std::{ops::Add, path::PathBuf, sync::Mutex, time::Instant};
 
 use bincode::Error;
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 use log::{debug, info, trace};
 use rayon::prelude::*;
-use xayn_ai::list_net::{GradientSet, ListNet, Sample, TrainingController};
+use xayn_ai::list_net::{GradientSet, ListNet, SampleOwned, SampleView, TrainingController};
 
 /// Builder to create a [`CliTrainingController`].
 pub(crate) struct CliTrainingControllerBuilder {
@@ -58,7 +58,6 @@ impl CliTrainingControllerBuilder {
             epoch_progress_bar,
             train_progress_bar,
             eval_progress_bar,
-            current_mean_evaluation_cost_and_len: None,
         }
     }
 }
@@ -79,8 +78,6 @@ pub(crate) struct CliTrainingController {
     epoch_progress_bar: ProgressBar,
     /// A (CLI) progress bar used to track the progress of the current evaluation.
     eval_progress_bar: ProgressBar,
-    /// The current mean of an in-progress evaluation as well as the nr of samples.
-    current_mean_evaluation_cost_and_len: Option<(f32, usize)>,
 }
 
 impl CliTrainingController {
@@ -104,9 +101,11 @@ impl TrainingController for CliTrainingController {
 
     fn run_batch(
         &mut self,
-        batch: Vec<Sample>,
-        map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
-    ) -> Vec<GradientSet> {
+        batch: Vec<SampleView>,
+        map_fn: impl Fn(SampleView) -> (GradientSet, f32) + Send + Sync,
+    ) -> Result<Vec<GradientSet>, Self::Error> {
+        trace!("Start of batch #{}", self.current_batch);
+
         let losses = Mutex::new(Vec::new());
         let gradient_sets = batch
             .into_iter()
@@ -121,20 +120,59 @@ impl TrainingController for CliTrainingController {
 
         let losses = losses.into_inner().unwrap();
         let mean_loss = mean_loss(&losses);
+
+        self.epoch_progress_bar.inc(1);
         self.epoch_progress_bar
             .set_message(format!("loss={:.5}", mean_loss));
-        gradient_sets
-    }
-
-    fn begin_of_batch(&mut self) -> Result<(), Self::Error> {
-        trace!("Start of batch #{}", self.current_batch);
-        Ok(())
-    }
-
-    fn end_of_batch(&mut self) -> Result<(), Self::Error> {
         trace!("End of batch #{}", self.current_batch);
-        self.epoch_progress_bar.inc(1);
         self.current_batch += 1;
+
+        Ok(gradient_sets)
+    }
+
+    fn run_evaluation<I>(
+        &mut self,
+        samples: I,
+        nr_samples: usize,
+        eval_fn: impl Fn(SampleOwned) -> f32 + Send + Sync,
+    ) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = SampleOwned>,
+        I::IntoIter: Send,
+    {
+        trace!("Begin of evaluation");
+        if nr_samples == 0 {
+            trace!("Skipping evaluation.");
+            return Ok(());
+        }
+
+        self.eval_progress_bar.set_message("");
+        self.eval_progress_bar.set_position(0);
+        self.eval_progress_bar.set_length(nr_samples as u64);
+
+        let mean_cost = samples
+            .into_iter()
+            .par_bridge()
+            .map(|sample| {
+                let cost = eval_fn(sample);
+                self.eval_progress_bar.inc(1);
+                cost / nr_samples as f32
+            })
+            .reduce_with(Add::add)
+            .unwrap();
+
+        //FIXME This can always happen (after a longer training, mainly
+        //      if training with inadequate data or parameters). Still
+        //      we want to handle this better in the future.
+        if mean_cost.is_nan() {
+            panic!("evaluation KL-Divergence cost is NaN");
+        }
+
+        self.eval_progress_bar
+            .set_message(format!("cost={:.5}", mean_cost));
+        self.train_progress_bar
+            .println(format!("Evaluation Cost: {}", mean_cost));
+        trace!("End of evaluation, cost={}", mean_cost);
         Ok(())
     }
 
@@ -145,8 +183,7 @@ impl TrainingController for CliTrainingController {
         );
         self.current_batch = 0;
         self.epoch_progress_bar.set_position(0);
-        self.epoch_progress_bar
-            .set_length(nr_batches as u64);
+        self.epoch_progress_bar.set_length(nr_batches as u64);
         self.eval_progress_bar.set_position(0);
         Ok(())
     }
@@ -163,39 +200,6 @@ impl TrainingController for CliTrainingController {
 
         self.train_progress_bar.inc(1);
         self.current_epoch += 1;
-        Ok(())
-    }
-
-    fn begin_of_evaluation(&mut self, nr_samples: usize) -> Result<(), Self::Error> {
-        self.current_mean_evaluation_cost_and_len = Some((0.0, nr_samples));
-        self.eval_progress_bar.set_message("");
-        self.eval_progress_bar.set_position(0);
-        self.eval_progress_bar
-            .set_length(nr_samples as u64);
-        Ok(())
-    }
-
-    fn evaluation_result(&mut self, cost: f32) -> Result<(), Self::Error> {
-        //FIXME This can always happen (after a longer training, mainly
-        //      if training with inadequate data or parameters). Still
-        //      we want to handle this better in the future.
-        if cost.is_nan() {
-            panic!("evaluation KL-Divergence cost is NaN");
-        }
-
-        let (mean, len) = self.current_mean_evaluation_cost_and_len.as_mut().unwrap();
-        *mean += cost / *len as f32;
-
-        self.eval_progress_bar.inc(1);
-        Ok(())
-    }
-
-    fn end_of_evaluation(&mut self) -> Result<(), Self::Error> {
-        let (cost, _) = self.current_mean_evaluation_cost_and_len.take().unwrap();
-        self.eval_progress_bar
-            .set_message(format!("cost={:.5}", cost));
-        self.train_progress_bar
-            .println(format!("Evaluation Cost: {}", cost));
         Ok(())
     }
 
@@ -218,8 +222,7 @@ impl TrainingController for CliTrainingController {
         // Needed or else bars won't print to the screen.
         std::thread::spawn(move || multi_bar.join());
 
-        self.train_progress_bar
-            .set_length(nr_epochs as u64);
+        self.train_progress_bar.set_length(nr_epochs as u64);
 
         self.train_progress_bar.enable_steady_tick(100);
         self.epoch_progress_bar.tick();
