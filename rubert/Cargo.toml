@@ -39,9 +39,11 @@ required-features = ["validate"]
 [[bench]]
 name = "mbert"
 harness = false
+bench = false
 required-features = ["bench"]
 
 [[bench]]
 name = "matmul"
 harness = false
+bench = false
 required-features = ["bench"]
