@@ -24,6 +24,9 @@ pub(crate) struct CliTrainingControllerBuilder {
     /// The ListNet will be written to the output folder in the form of
     /// `list_net_{epoch}.binparams`.
     pub(crate) dump_every: Option<usize>,
+
+    /// If true a progress bar for the current batch is shown
+    pub(crate) show_sample_progress: bool,
 }
 
 impl CliTrainingControllerBuilder {
@@ -43,6 +46,17 @@ impl CliTrainingControllerBuilder {
                 .template("Batches: [{bar:30.green}] {percent:>3}% ({pos:>5}/{len:>5}) {msg}")
                 .progress_chars("=> "),
         );
+        let sample_progress_bar = if self.show_sample_progress {
+            let bar = ProgressBar::new(0);
+            bar.set_style(
+                ProgressStyle::default_bar()
+                    .template("Samples: [{bar:30.green}] {percent:>3}% ({pos:>5}/{len:>5})")
+                    .progress_chars("=> "),
+            );
+            bar
+        } else {
+            ProgressBar::hidden()
+        };
         let eval_progress_bar = ProgressBar::new(0);
         eval_progress_bar.set_style(
             ProgressStyle::default_bar()
@@ -55,6 +69,7 @@ impl CliTrainingControllerBuilder {
             current_epoch: 0,
             current_batch: 0,
             start_time: None,
+            sample_progress_bar,
             epoch_progress_bar,
             train_progress_bar,
             eval_progress_bar,
@@ -72,6 +87,8 @@ pub(crate) struct CliTrainingController {
     current_batch: usize,
     /// The time at which the training did start.
     start_time: Option<Instant>,
+    /// A (CLI) progress bar used to track the progress of the current batch.
+    sample_progress_bar: ProgressBar,
     /// A (CLI) progress bar used to track the progress of the current training.
     train_progress_bar: ProgressBar,
     /// A (CLI) progress bar used to track the progress of the current epoch.
@@ -105,6 +122,8 @@ impl TrainingController for CliTrainingController {
         map_fn: impl Fn(SampleView) -> (GradientSet, f32) + Send + Sync,
     ) -> Result<Vec<GradientSet>, Self::Error> {
         trace!("Start of batch #{}", self.current_batch);
+        self.sample_progress_bar.set_position(0);
+        self.sample_progress_bar.set_length(batch.len() as u64);
 
         let losses = Mutex::new(Vec::new());
         let gradient_sets = batch
@@ -114,6 +133,7 @@ impl TrainingController for CliTrainingController {
                 let (gradient_set, loss) = map_fn(sample);
                 let mut losses = losses.lock().unwrap();
                 losses.push(loss);
+                self.sample_progress_bar.inc(1);
                 gradient_set
             })
             .collect();
@@ -218,6 +238,7 @@ impl TrainingController for CliTrainingController {
         let multi_bar = MultiProgress::new();
         multi_bar.add(self.train_progress_bar.clone());
         multi_bar.add(self.epoch_progress_bar.clone());
+        multi_bar.add(self.sample_progress_bar.clone());
         multi_bar.add(self.eval_progress_bar.clone());
         // Needed or else bars won't print to the screen.
         std::thread::spawn(move || multi_bar.join());

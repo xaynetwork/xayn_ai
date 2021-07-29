@@ -24,6 +24,14 @@ pub struct TrainCmd {
     epochs: usize,
 
     /// The batch size to use.
+    ///
+    /// Setting the `batch-size` to `0` will automatically
+    /// set it to the number of training samples. I.e. there
+    /// will only be one batch per epoch.
+    ///
+    /// WARNING: This is not optimized for a `0` `batch-size`
+    /// with huge number of samples in the batch. It's mainly
+    /// meant to be used with XaynNet emulation modes.
     #[structopt(long, default_value = "32")]
     batch_size: usize,
 
@@ -84,6 +92,7 @@ impl TrainCmd {
             out_dir,
             dump_initial_parameters,
             dump_every,
+            show_sample_progress: data_source.batch_size() >= 256
         }
         .build();
 

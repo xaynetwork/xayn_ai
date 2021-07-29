@@ -52,13 +52,10 @@ where
     pub(crate) fn new(
         storage: S,
         evaluation_split: f32,
-        batch_size: usize,
+        mut batch_size: usize,
     ) -> Result<Self, DataSourceError<S::Error>> {
         if evaluation_split < 0. || !evaluation_split.is_normal() {
             return Err(DataSourceError::BadEvaluationSplit(evaluation_split));
-        }
-        if batch_size == 0 {
-            return Err(DataSourceError::BatchSize0);
         }
         let nr_all_samples = storage.data_ids().map_err(DataSourceError::Storage)?.end;
         if nr_all_samples == 0 {
@@ -77,6 +74,8 @@ where
                 batch_size,
                 nr_training_samples,
             });
+        } else if batch_size == 0 {
+            batch_size = nr_training_samples;
         }
         let evaluation_ids = (nr_training_samples..nr_all_samples).collect();
         let training_ids = (0..nr_training_samples).collect();
@@ -87,6 +86,10 @@ where
             training_data_order: DataLookupOrder::new(training_ids),
             evaluation_data_order: DataLookupOrder::new(evaluation_ids),
         })
+    }
+
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
     }
 }
 
@@ -101,8 +104,6 @@ where
     ToLargeEvaluationSplit(f32),
     /// Unusable evaluation split: Assertion `nr_evaluation_samples > 0 || split == 0` failed (split = {0}).
     NoEvaluationSamples(f32),
-    /// A batch size of 0 is not usable for training.
-    BatchSize0,
     /// The batch size ({batch_size}) is larger then the number of training samples ({nr_training_samples}).
     ToLargeBatchSize {
         batch_size: usize,
