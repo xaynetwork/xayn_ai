@@ -12,7 +12,7 @@ use crate::embedding::utils::Embedding;
 #[derive(
     Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize, From,
 )]
-pub struct CoiId(pub Uuid);
+pub struct CoiId(Uuid);
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone, Serialize, Deserialize)]

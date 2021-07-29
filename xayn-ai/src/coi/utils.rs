@@ -141,12 +141,11 @@ pub(super) mod tests {
                 QAMBertComponent,
                 SMBertComponent,
             },
-            CoiId,
             CoiPoint,
             NegativeCoi,
         },
         to_vec_of_ref_of,
-        utils::mock_uuid,
+        utils::{mock_coiid, mock_uuid},
     };
 
     pub(crate) struct MockCoiDoc {
@@ -177,7 +176,7 @@ pub(super) mod tests {
                     embedding: arr1(&[]).into(),
                 },
                 coi: Some(CoiComponent {
-                    id: CoiId(*id),
+                    id: (*id).into(),
                     pos_distance: 1.,
                     neg_distance: 1.,
                 }),
@@ -189,7 +188,7 @@ pub(super) mod tests {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| CP::new(mock_uuid(id).into(), arr1(point.as_init_slice()).into()))
+            .map(|(id, point)| CP::new(mock_coiid(id), arr1(point.as_init_slice()).into()))
             .collect()
     }
 

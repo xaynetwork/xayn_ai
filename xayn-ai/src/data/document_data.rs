@@ -259,7 +259,7 @@ impl CoiSystemData for DocumentDataWithMab {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::mock_uuid;
+    use crate::utils::mock_coiid;
 
     use super::*;
     use ndarray::arr1;
@@ -297,7 +297,7 @@ mod tests {
         assert_eq!(document_data.qambert, qambert);
 
         let coi = CoiComponent {
-            id: mock_uuid(9).into(),
+            id: mock_coiid(9),
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
