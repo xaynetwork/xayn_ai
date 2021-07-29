@@ -227,13 +227,12 @@ where
         self.common_systems.database().serialize(&self.data)
     }
 
-    #[allow(dead_code)] // TEMP
     /// Create a byte representation of the synchronizable data.
-    pub(crate) fn sync_bytes(&self) -> Result<Vec<u8>, Error> {
+    pub(crate) fn syncdata_bytes(&self) -> Result<Vec<u8>, Error> {
         self.data.sync_data.serialize()
     }
 
-    #[allow(dead_code)] // TEMP
+    /// Synchronizes internal data with the `SyncData` given in serialized form.
     pub(crate) fn synchronize(&mut self, bytes: &[u8]) -> Result<(), Error> {
         let remote_data = SyncData::deserialize(bytes)?;
         self.data.sync_data.synchronize(remote_data);

@@ -98,6 +98,14 @@ impl Reranker {
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
         self.0.serialize()
     }
+
+    pub fn syncdata_bytes(&self) -> Result<Vec<u8>, Error> {
+        self.0.syncdata_bytes()
+    }
+
+    pub fn synchronize(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.0.synchronize(bytes)
+    }
 }
 
 pub struct Builder<SV, SM, QAV, QAM, DM> {
