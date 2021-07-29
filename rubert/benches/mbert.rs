@@ -15,7 +15,7 @@ use rubert::{
 use rubert_tokenizer::{Builder as TokenizerBuilder, Padding, Truncation};
 
 const TOKEN_SIZE: usize = 64;
-const SEQUENCE: &'static str = "This is a sequence.";
+const SEQUENCE: &str = "This is a sequence.";
 
 macro_rules! bench_tract {
     (
@@ -94,7 +94,7 @@ fn bench_tract_smbert_nonquant(manager: &mut Criterion) {
     );
 }
 
-fn bench_tract_smbert_quant(manager: &mut Criterion) {
+fn bench_tract_smbert_dynquant(manager: &mut Criterion) {
     bench_tract!(
         manager,
         "Tract SMBert Quantized" => SMBert,
@@ -122,7 +122,7 @@ fn bench_tract_qambert_nonquant(manager: &mut Criterion) {
     );
 }
 
-fn bench_tract_qambert_quant(manager: &mut Criterion) {
+fn bench_tract_qambert_dynquant(manager: &mut Criterion) {
     bench_tract!(
         manager,
         "Tract QAMBert Quantized" => QAMBert,
@@ -145,7 +145,7 @@ fn bench_onnx_smbert_nonquant(manager: &mut Criterion) {
     );
 }
 
-fn bench_onnx_smbert_quant(manager: &mut Criterion) {
+fn bench_onnx_smbert_dynquant(manager: &mut Criterion) {
     bench_onnx!(
         manager,
         "Onnx SMBert Quantized",
@@ -163,7 +163,7 @@ fn bench_onnx_qambert_nonquant(manager: &mut Criterion) {
     );
 }
 
-fn bench_onnx_qambert_quant(manager: &mut Criterion) {
+fn bench_onnx_qambert_dynquant(manager: &mut Criterion) {
     bench_onnx!(
         manager,
         "Onnx QAMBert Quantized",
@@ -175,25 +175,33 @@ fn bench_onnx_qambert_quant(manager: &mut Criterion) {
 criterion_group! {
     name = bench_tract_smbert;
     config = Criterion::default();
-    targets = bench_tract_smbert_nonquant, bench_tract_smbert_quant,
+    targets =
+        bench_tract_smbert_nonquant,
+        bench_tract_smbert_dynquant,
 }
 
 criterion_group! {
     name = bench_tract_qambert;
     config = Criterion::default();
-    targets = bench_tract_qambert_nonquant, bench_tract_qambert_quant,
+    targets =
+        bench_tract_qambert_nonquant,
+        bench_tract_qambert_dynquant,
 }
 
 criterion_group! {
     name = bench_onnx_smbert;
     config = Criterion::default();
-    targets = bench_onnx_smbert_nonquant, bench_onnx_smbert_quant,
+    targets =
+        bench_onnx_smbert_nonquant,
+        bench_onnx_smbert_dynquant,
 }
 
 criterion_group! {
     name = bench_onnx_qambert;
     config = Criterion::default();
-    targets = bench_onnx_qambert_nonquant, bench_onnx_qambert_quant,
+    targets =
+        bench_onnx_qambert_nonquant,
+        bench_onnx_qambert_dynquant,
 }
 
 criterion_main! {

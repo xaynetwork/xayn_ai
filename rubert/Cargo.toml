@@ -40,3 +40,8 @@ required-features = ["validate"]
 name = "mbert"
 harness = false
 required-features = ["bench"]
+
+[[bench]]
+name = "matmul"
+harness = false
+required-features = ["bench"]
