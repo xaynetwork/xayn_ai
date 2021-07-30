@@ -365,7 +365,7 @@ mod tests {
         // wrt. the truncating of values outside of +-2std. We accept this
         // to be true if the found percentage is around +-5% of the expected
         // percentage.
-        assert_approx_eq!(f32, prob_1std, 0.713_389_1, epsilon = 0.05);
-        assert_approx_eq!(f32, prob_2std, 0.284_518_84, epsilon = 0.05);
+        assert_approx_eq!(f32, prob_1std, 0.715_232_8, epsilon = 0.05);
+        assert_approx_eq!(f32, prob_2std, 0.284_767_2, epsilon = 0.05);
     }
 }
