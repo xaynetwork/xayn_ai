@@ -1,5 +1,7 @@
 //! Run as `cargo bench --bench mbert --features bench`.
 
+use std::path::Path;
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ndarray::{s, Array1, Axis};
 use onnxruntime::{environment::Environment, GraphOptimizationLevel};
@@ -43,41 +45,39 @@ macro_rules! bench_tract {
     };
 }
 
-macro_rules! bench_onnx {
-    ($manager:expr, $name:expr, $vocab:expr, $model:expr $(,)?) => {
-        let tokenizer = TokenizerBuilder::from_file($vocab)
-            .unwrap()
-            .with_normalizer(true, false, false, true)
-            .with_model("[UNK]", "##", 100)
-            .with_post_tokenizer("[CLS]", "[SEP]")
-            .with_truncation(Truncation::fixed(TOKEN_SIZE, 0))
-            .with_padding(Padding::fixed(TOKEN_SIZE, "[PAD]"))
-            .build()
-            .unwrap();
-        let environment = Environment::builder().build().unwrap();
-        let mut session = environment
-            .new_session_builder()
-            .unwrap()
-            .with_optimization_level(GraphOptimizationLevel::DisableAll)
-            .unwrap()
-            .with_model_from_file($model)
-            .unwrap();
+fn bench_onnx(manager: &mut Criterion, name: &str, vocab: AsRef<Path>, model: AsRef<Path>) {
+    let tokenizer = TokenizerBuilder::from_file(vocab)
+        .unwrap()
+        .with_normalizer(true, false, false, true)
+        .with_model("[UNK]", "##", 100)
+        .with_post_tokenizer("[CLS]", "[SEP]")
+        .with_truncation(Truncation::fixed(TOKEN_SIZE, 0))
+        .with_padding(Padding::fixed(TOKEN_SIZE, "[PAD]"))
+        .build()
+        .unwrap();
+    let environment = Environment::builder().build().unwrap();
+    let mut session = environment
+        .new_session_builder()
+        .unwrap()
+        .with_optimization_level(GraphOptimizationLevel::DisableAll)
+        .unwrap()
+        .with_model_from_file(model)
+        .unwrap();
 
-        $manager.bench_function($name, |bencher| {
-            bencher.iter(|| {
-                let encoding = tokenizer.encode(black_box(SEQUENCE));
-                let (token_ids, type_ids, _, _, _, _, attention_mask, _) = encoding.into();
-                let inputs = vec![
-                    Array1::<i64>::from(token_ids).insert_axis(Axis(0)),
-                    Array1::<i64>::from(attention_mask).insert_axis(Axis(0)),
-                    Array1::<i64>::from(type_ids).insert_axis(Axis(0)),
-                ];
-                let outputs = session.run(inputs).unwrap();
+    manager.bench_function(name, |bencher| {
+        bencher.iter(|| {
+            let encoding = tokenizer.encode(black_box(SEQUENCE));
+            let (token_ids, type_ids, _, _, _, _, attention_mask, _) = encoding.into();
+            let inputs = vec![
+                Array1::<i64>::from(token_ids).insert_axis(Axis(0)),
+                Array1::<i64>::from(attention_mask).insert_axis(Axis(0)),
+                Array1::<i64>::from(type_ids).insert_axis(Axis(0)),
+            ];
+            let outputs = session.run(inputs).unwrap();
 
-                Embedding2::from(outputs[0].slice(s![0, .., ..]).to_owned());
-            })
-        });
-    };
+            Embedding2::from(outputs[0].slice(s![0, .., ..]).to_owned());
+        })
+    });
 }
 
 fn bench_tract_smbert_nonquant(manager: &mut Criterion) {
@@ -137,7 +137,7 @@ fn bench_tract_qambert_dynquant(manager: &mut Criterion) {
 }
 
 fn bench_onnx_smbert_nonquant(manager: &mut Criterion) {
-    bench_onnx!(
+    bench_onnx(
         manager,
         "Onnx SMBert",
         "../data/smbert_v0000/vocab.txt",
@@ -146,7 +146,7 @@ fn bench_onnx_smbert_nonquant(manager: &mut Criterion) {
 }
 
 fn bench_onnx_smbert_dynquant(manager: &mut Criterion) {
-    bench_onnx!(
+    bench_onnx(
         manager,
         "Onnx SMBert Quantized",
         "../data/smbert_v0000/vocab.txt",
@@ -155,7 +155,7 @@ fn bench_onnx_smbert_dynquant(manager: &mut Criterion) {
 }
 
 fn bench_onnx_qambert_nonquant(manager: &mut Criterion) {
-    bench_onnx!(
+    bench_onnx(
         manager,
         "Onnx QAMBert",
         "../data/qambert_v0001/vocab.txt",
@@ -164,7 +164,7 @@ fn bench_onnx_qambert_nonquant(manager: &mut Criterion) {
 }
 
 fn bench_onnx_qambert_dynquant(manager: &mut Criterion) {
-    bench_onnx!(
+    bench_onnx(
         manager,
         "Onnx QAMBert Quantized",
         "../data/qambert_v0001/vocab.txt",
