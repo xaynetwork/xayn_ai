@@ -700,7 +700,7 @@ pub struct SampleView<'a> {
 }
 
 impl<'a> SampleView<'a> {
-    pub fn to_owned(self) -> SampleOwned {
+    pub fn to_owned(&self) -> SampleOwned {
         SampleOwned {
             inputs: self.inputs.to_owned(),
             target_prob_dist: self.target_prob_dist.to_owned(),
