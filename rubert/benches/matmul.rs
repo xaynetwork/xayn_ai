@@ -48,14 +48,18 @@ fn bench_onnx(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
 }
 
 fn bench_tract_matmul_nonquant(manager: &mut Criterion) {
-    bench_tract(manager, "Tract Matmul", "benches/matmul/matmul.onnx");
+    bench_tract(
+        manager,
+        "Tract Matmul",
+        "../data/bench_matmul_v0000/matmul.onnx",
+    );
 }
 
 fn bench_tract_matmul_dynquant(manager: &mut Criterion) {
     bench_tract(
         manager,
         "Tract Matmul Quantized",
-        "benches/matmul/matmul-dynquant.onnx",
+        "../data/bench_matmul_v0000/matmul-dynquant.onnx",
     );
 }
 
@@ -63,19 +67,23 @@ fn bench_tract_dynquant_overhead(manager: &mut Criterion) {
     bench_tract(
         manager,
         "Tract Quantization Overhead",
-        "benches/matmul/dynquant-overhead.onnx",
+        "../data/bench_matmul_v0000/dynquant-overhead.onnx",
     );
 }
 
 fn bench_onnx_matmul_nonquant(manager: &mut Criterion) {
-    bench_onnx(manager, "Onnx Matmul", "benches/matmul/matmul.onnx");
+    bench_onnx(
+        manager,
+        "Onnx Matmul",
+        "../data/bench_matmul_v0000/matmul.onnx",
+    );
 }
 
 fn bench_onnx_matmul_dynquant(manager: &mut Criterion) {
     bench_onnx(
         manager,
         "Onnx Matmul Quantized",
-        "benches/matmul/matmul-dynquant.onnx",
+        "../data/bench_matmul_v0000/matmul-dynquant.onnx",
     );
 }
 
@@ -83,7 +91,7 @@ fn bench_onnx_dynquant_overhead(manager: &mut Criterion) {
     bench_onnx(
         manager,
         "Onnx Quantization Overhead",
-        "benches/matmul/dynquant-overhead.onnx",
+        "../data/bench_matmul_v0000/dynquant-overhead.onnx",
     );
 }
 

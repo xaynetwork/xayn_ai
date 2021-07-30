@@ -45,7 +45,12 @@ macro_rules! bench_tract {
     };
 }
 
-fn bench_onnx(manager: &mut Criterion, name: &str, vocab: AsRef<Path>, model: AsRef<Path>) {
+fn bench_onnx(
+    manager: &mut Criterion,
+    name: &str,
+    vocab: impl AsRef<Path>,
+    model: impl AsRef<Path>,
+) {
     let tokenizer = TokenizerBuilder::from_file(vocab)
         .unwrap()
         .with_normalizer(true, false, false, true)
