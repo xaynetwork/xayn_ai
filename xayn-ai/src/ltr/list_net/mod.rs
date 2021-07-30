@@ -1277,12 +1277,16 @@ mod tests {
             Ok(gradient_sets)
         }
 
-        fn run_evaluation(
+        fn run_evaluation<I>(
             &mut self,
-            samples: impl IntoIterator<Item = SampleOwned>,
+            samples: I,
             nr_samples: usize,
             eval_fn: impl Fn(SampleOwned) -> f32,
-        ) -> Result<(), Self::Error> {
+        ) -> Result<(), Self::Error>
+        where
+            I: IntoIterator<Item = SampleOwned>,
+            I::IntoIter: Send,
+        {
             eprintln!("Begin of evaluation.");
             let mean_cost = samples
                 .into_iter()

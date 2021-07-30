@@ -92,7 +92,7 @@ impl TrainCmd {
             out_dir,
             dump_initial_parameters,
             dump_every,
-            show_sample_progress: data_source.batch_size() >= 256
+            show_sample_progress: data_source.batch_size() >= 256,
         }
         .build();
 
