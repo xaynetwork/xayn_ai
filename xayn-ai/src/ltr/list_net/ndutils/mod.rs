@@ -1,4 +1,4 @@
-use ndarray::{ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
+use ndarray::{ArrayBase, ArrayView1, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
 pub mod io;
 
@@ -26,6 +26,30 @@ where
     let sum = array.sum_axis(axis).insert_axis(axis);
     array /= &sum;
     array
+}
+
+/// Computes the Kullback-Leibler Divergence between a "good" distribution and one we want to evaluate.
+///
+/// Returns a result based on `nats`, i.e. it uses `ln` (instead of `log2` which
+/// would produce a result based on `bits`).
+///
+/// All values are clamped/clipped to the range `f32::EPSILON..=1.`.
+///
+/// For the eval distribution this makes sense as we should never predict `0` but at most
+/// a value so close to it, that it ends up as `0` due to the limited precision of
+/// `f32`.
+///
+/// For the good distribution we could argue similarly. An alternative choice
+/// is to return `0` if the good distributions probability is `0`.)
+pub fn kl_divergence(good_dist: ArrayView1<f32>, eval_dist: ArrayView1<f32>) -> f32 {
+    good_dist.into_iter().zip(eval_dist.into_iter()).fold(
+        0f32,
+        |acc, (good_dist_prob, eval_dist_prob)| {
+            let good_dist_prob = good_dist_prob.clamp(f32::EPSILON, 1.);
+            let eval_dist_prob = eval_dist_prob.clamp(f32::EPSILON, 1.);
+            acc + good_dist_prob * (good_dist_prob / eval_dist_prob).ln()
+        },
+    )
 }
 
 #[cfg(test)]
@@ -213,5 +237,25 @@ mod tests {
         let arr = arr3(&[[[-1_f32], [9.], [1.]], [[1.], [2.], [3.]]]);
         let res = arr3(&[[[1_f32], [1.], [1.]], [[1.], [1.], [1.]]]);
         assert_approx_eq!(f32, softmax(arr, Axis(2)), res);
+    }
+
+    #[test]
+    fn test_kl_divergence_calculation() {
+        let good_dist = arr1(&[0.5, 0.1, 0.025, 0.3, 0.075]);
+        let eval_dist = arr1(&[0.3, 0.2, 0.15, 0.2, 0.15]);
+
+        let cost = kl_divergence(good_dist.view(), eval_dist.view());
+
+        assert_approx_eq!(f32, cost, 0.210_957_6);
+    }
+
+    #[test]
+    fn test_kl_divergence_calculation_handles_zeros() {
+        let good_dist = arr1(&[0.0, 0.1, 0.0, 0.3, 0.075]);
+        let eval_dist = arr1(&[0.0, 0.2, 0.15, 0.0, 0.15]);
+
+        let cost = kl_divergence(good_dist.view(), eval_dist.view());
+
+        assert_approx_eq!(f32, cost, 4.300_221_4);
     }
 }

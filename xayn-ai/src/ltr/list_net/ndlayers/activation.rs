@@ -1,10 +1,11 @@
-use ndarray::{ArrayBase, Axis, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
+use ndarray::{Array, ArrayBase, Axis, Data, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
 use super::super::ndutils::softmax;
 
 use super::ActivationFunction;
 
 /// reLu activation function.
+#[cfg_attr(test, derive(Clone))]
 pub(crate) struct Relu;
 
 impl<A> ActivationFunction<A> for Relu
@@ -21,6 +22,20 @@ where
     }
 }
 
+impl Relu {
+    /// Calculates the partial derivatives of reLU at given input.
+    ///
+    /// I.e. it returns an array where for all values in the input an 1 is included
+    /// if the value is positive or a 0 is included else wise.
+    pub(crate) fn partial_derivatives_at<S, D>(input: &ArrayBase<S, D>) -> Array<f32, D>
+    where
+        S: Data<Elem = f32>,
+        D: Dimension,
+    {
+        input.mapv(|v| if v.is_sign_positive() { 1. } else { 0. })
+    }
+}
+
 /// Softmax activation function.
 ///
 /// # Panics on usage
@@ -31,6 +46,7 @@ where
 /// with an relative axis index of 10 on an array which
 /// is 2-dimensional (and as such only has support the
 /// relative axis indices 0,1,-1,-2).
+#[cfg_attr(test, derive(Clone))]
 pub(crate) struct Softmax {
     rel_axis_idx: isize,
 }
@@ -82,6 +98,7 @@ where
 ///
 /// Like common this is a identity function used
 /// in cases where there no activation function is needed.
+#[cfg_attr(test, derive(Clone))]
 pub(crate) struct Linear;
 
 impl<A> ActivationFunction<A> for Linear {
