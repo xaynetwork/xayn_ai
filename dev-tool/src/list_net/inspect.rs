@@ -36,8 +36,7 @@ pub struct InspectCmd {
 
     /// If set only skip arrays which names are not in the filter.
     ///
-    /// This accepts comma separated lists.
-    /// As well as including the option multiple times.
+    /// This accepts comma separated lists, as well as including the option multiple times.
     #[structopt(short, long)]
     filter: Option<Vec<String>>,
 
@@ -200,7 +199,8 @@ fn bin_params_to_matrices_iter(bin_params: BinParams) -> MatricesIter {
 
 /// Turns an [`InMemorySamples`] instance into a iterator over all it's matrices and their names.
 ///
-/// - Matrices are returned in sample order, and in the sample sorted by their name.
+/// - Matrices are returned in order of the samples, and for each the sample it's matrices are
+///   returned sorted by their name.
 /// - The name is created in the form of `{index}.{matrix_name}` the `index` will be
 ///   formatted with leading `0` chars appropriate for the number of samples.
 fn samples_to_matrices_iter(mut samples: InMemorySamples) -> Result<MatricesIter, Error> {
@@ -287,11 +287,11 @@ struct Stats {
     mean: f32,
     /// The standard derivation (ddof=0) of the elements in the matrix.
     std: f32,
-    /// Is `true` if the matrix contains `NaN` elements.
+    /// Is `true`, if the matrix contains `NaN` elements.
     has_nans: bool,
-    /// Is `true` if the matrix contains `Inf` elements (independent of sign).
+    /// Is `true`, if the matrix contains `Inf` elements (independent of sign).
     has_infs: bool,
-    /// Is `true` if the matrix contains subnormal elements.
+    /// Is `true`, if the matrix contains subnormal elements.
     has_subnormals: bool,
     /// True if any element is not normal.
     normal_checks_failed: bool,

@@ -67,7 +67,7 @@ impl ConvertCmd {
         }
 
         debug!("Write output file.");
-        storage.write_to_file(to_samples)?;
+        storage.serialize_into_file(to_samples)?;
 
         Ok(NO_ERROR)
     }
@@ -110,17 +110,19 @@ fn load_history(path: impl AsRef<Path>) -> Result<Vec<DocumentHistory>, Error> {
 /// Struct to load a soundgarden user data-frame csv file record into.
 #[derive(Deserialize)]
 struct SoundgardenUserDfRecord {
-    /// Session Id, is a incremental usize in soundgarden.
+    /// Session Id, is an incremental unsigned integer in soundgarden.
     session_id: u64,
-    /// Query Id, same for all queries using the same parameter.
+    /// Query Id, same for all queries using the same parameters.
     query_id: u64,
-    /// User Id, arbitrary usize.
+    /// User Id, arbitrary unsigned integer.
     ///
     /// We treat all data as if it's from the same user, so we
-    /// don't really need it but we use it to infer a appropriate
+    /// don't really need it but we use it to infer an appropriate
     /// deterministic document id.
     user_id: u64,
-    /// Day since the start of the training but starting as `Tue == 1`.
+    /// Number of days since the start of the soundgarden history.
+    ///
+    /// Starting with `Tue == 1`.
     ///
     /// As such `Mon` is `0`, `Wed` is `2` etc.
     ///
@@ -128,18 +130,18 @@ struct SoundgardenUserDfRecord {
     day: usize,
     /// The words of the query as *comma* separated string.
     ///
-    /// This are not actual words but word id's as string encoded,
-    /// e.g. `"2142,53423"` but treating `2142` as a word is not
+    /// This are not actual words but string encoded word ids.
+    /// E.g. `"2142,53423"` but treating `2142` as a word is not
     /// a problem for our use-case.
     query_words: String,
     /// The url of the document.
     ///
-    /// Theoretically this is also an "arbitrary" usize id, but
+    /// Theoretically this is also an "arbitrary" unsigned integer id, but
     /// practically it's simpler to just treat it as a string.
     url: String,
     /// The domain of the document.
     ///
-    /// Theoretically this is also an "arbitrary" usize id, but
+    /// Theoretically this is also an "arbitrary" unsigned integer id, but
     /// practically it's simpler to just treat it as a string.
     domain: String,
     /// The relevance of the document.
@@ -155,8 +157,8 @@ impl SoundgardenUserDfRecord {
     ///
     /// The `user_action` field *will* be incorrect and
     /// needs to be fixed separately. This is the case
-    /// as the following documents need to be known to
-    /// infer it correctly.
+    /// as the other documents need to be known to
+    /// infer the [`UserAction`] correctly.
     fn into_document_history_with_bad_user_action(
         self,
         per_user_result_counter: u32,
@@ -197,7 +199,7 @@ impl SoundgardenUserDfRecord {
 ///
 /// This uses the same approach as in soundgarden.
 fn fix_user_actions_in_history(histories: &mut [DocumentHistory]) {
-    // Soundgarden User Df are already grouped query in order past to present.
+    // Soundgarden User Df are already grouped by query and sorted, ordered from past to present.
     // (There is a FIXME for this above.)
     histories
         .iter_mut()
@@ -207,10 +209,9 @@ fn fix_user_actions_in_history(histories: &mut [DocumentHistory]) {
         .for_each(|(_, query)| fix_user_actions_in_query_reverse_order(query))
 }
 
-/// Split out from [`fix_user_actions_in_history`] **do not reuse elsewhere**.
+/// Function Split out from [`fix_user_actions_in_history`] **do not reuse elsewhere**.
 ///
-/// The iterator must iterate over queries from last to first, and fixes
-/// user actions.
+/// The iterator must iterate over queries from last to first.
 fn fix_user_actions_in_query_reverse_order<'a>(
     query: impl IntoIterator<Item = &'a mut DocumentHistory>,
 ) {
@@ -232,7 +233,7 @@ fn fix_user_actions_in_query_reverse_order<'a>(
     }
 }
 
-/// Crate a DayOfWeek from the offset.
+/// Crate a [`DayOfWeek`] instance from an offset.
 fn day_from_day_offset(day: usize) -> DayOfWeek {
     use DayOfWeek::*;
     static DAYS: &[DayOfWeek] = &[Mon, Tue, Wed, Thu, Fri, Sat, Sun];

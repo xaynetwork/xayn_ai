@@ -65,8 +65,7 @@ impl QAMBertSystem for NeutralQAMBert {
 }
 
 #[cfg(test)]
-//FIXME[follow up PR] temporary public to allow access to `qambert()` for triggering the NaN bug easier.
-pub mod tests {
+mod tests {
     use rubert::{AveragePooler, QAMBertBuilder};
 
     use crate::tests::documents_with_embeddings_from_snippet_and_query;
@@ -76,8 +75,7 @@ pub mod tests {
     const VOCAB: &str = "../data/qambert_v0001/vocab.txt";
     const QAMBERT_MODEL: &str = "../data/qambert_v0001/qambert.onnx";
 
-    //FIXME[follow up PR] see above
-    pub fn qambert() -> QAMBert {
+    fn qambert() -> QAMBert {
         QAMBertBuilder::from_files(VOCAB, QAMBERT_MODEL)
             .unwrap()
             .with_token_size(90)

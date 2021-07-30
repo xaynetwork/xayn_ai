@@ -28,8 +28,12 @@ pub struct TrainCmd {
 
     /// The percent of samples to use for evaluation.
     ///
-    /// The percentage of evaluation samples will be taken
-    /// from the back.
+    /// The evaluation samples will be taken
+    /// from the back of the data source. This
+    /// means the same split used with the same
+    /// samples file will yield the exact same
+    /// training and evaluation samples every
+    /// time.
     #[structopt(long, default_value = "0.2")]
     evaluation_split: f32,
 

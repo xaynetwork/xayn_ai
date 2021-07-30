@@ -88,7 +88,7 @@ where
     BadEvaluationSplit(f32),
     /// Unusable evaluation split: With evaluation split {0} no samples are left for training.
     ToLargeEvaluationSplit(f32),
-    /// Unusable evaluation split: Assertion `nr_evaluation_samples > 0 || split == 0` failed (split = {0})
+    /// Unusable evaluation split: Assertion `nr_evaluation_samples > 0 || split == 0` failed (split = {0}).
     NoEvaluationSamples(f32),
     /// A batch size of 0 is not usable for training.
     BatchSize0,
@@ -153,10 +153,10 @@ where
 pub(crate) trait Storage {
     type Error: StdError + 'static;
 
-    /// Return the id's of samples.
+    /// Return the all sample ids.
     ///
-    /// For now this is a range from `0..nr_of_samples`, we might need
-    /// to change this in the future.
+    /// For now this is a range. I.e. `0..nr_of_samples`. We might need
+    /// to change this in the future, but for now this is simpler.
     fn data_ids(&self) -> Result<RangeTo<usize>, Self::Error>;
 
     /// Loads a sample and returns a reference to it.
@@ -167,17 +167,22 @@ pub(crate) trait Storage {
     /// called again.
     fn load_sample(&mut self, id: DataId) -> Result<Sample, Self::Error>;
 
-    /// Loads a batch of samples and returns a reference to it.
+    /// Loads a batch of samples and returns a vector of references to them.
     ///
     /// See [`Storage.load_batch()`] about why this is `&mut self`.
     fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<Sample<'a>>, Self::Error>;
 }
 
+/// For now samples id's are always incremental integers form `0..nr_samples`.
+///
+/// Given that this is just used to handle shuffling and similar it's unlikely to
+/// ever change, we do explicitly not care about any consistency of the id to
+/// sample mapping between trainings.
 type DataId = usize;
 
 /// Helper to randomize sample order.
 struct DataLookupOrder {
-    /// Id's (indices) of all samples in this set.
+    /// Ids of all samples in this lookup order.
     data_ids: Vec<DataId>,
     /// The offset splitting already used samples from not yet used samples.
     data_ids_offset: usize,
@@ -217,7 +222,7 @@ impl DataLookupOrder {
         }
     }
 
-    /// Returns the next batch size many sample ids.
+    /// Returns the next `batch_size` many sample ids.
     fn next_batch(&mut self, batch_size: usize) -> Vec<DataId> {
         let end_idx = self.data_ids_offset + batch_size;
         if end_idx <= self.data_ids.len() {
@@ -234,16 +239,16 @@ impl DataLookupOrder {
 /// A "in-memory" sample storage.
 ///
 /// It also can be portably stored to disk using bincode serialization.
-// If necessary a future implementation could use memory mapped I/O
-// and chunked storage or even remote chunks to support larger datasets,
-// through I don't think we will ever need it.
+///
+/// The storage is reasonably compact as ~5.3GiB of soundgarden user
+/// data-frames will produce a less then 975MiB serialized `.samples` file.
+// While there are many ways to improve on this (e.g. memory-mapped I/O), they are not relevant for our
+// use-case for now.
 #[derive(Serialize, Deserialize, Default)]
 pub(crate) struct InMemorySamples {
-    // When using this with some dataset we have quite a bit of data (a few GiB)
-    // so we want to at least slightly optimize the storage (size and locality),
-    // by storing the inputs and target prob. dist. into one large memory allocation
-    // which we then can create views into. This is especially useful wrt. bincode
-    // serialization as ndarray::Array has no long term stable serialization format.
+    /// Vector of concatenated `inputs` and `target_prob_dist`, this slightly improves memory size and
+    /// cache locality, we can derive the number of document from the vectors length as the vectors length
+    /// is `nr_document * INPUT_NR_FEATURES + nr_document*1`, i.e. `nr_documents * 51`.
     data: Vec<Vec<f32>>,
 }
 
@@ -254,20 +259,26 @@ pub enum StorageError {
 }
 
 impl InMemorySamples {
-    pub(crate) fn write_to_file(&self, file: impl AsRef<Path>) -> Result<(), Error> {
+    /// Serializes this instance into a file, preferably use the `.samples` file ending.
+    //FIXME[follow-up PR] version the file format, it's used to persist data and it's not
+    //                    unlikely to slightly change in the future.
+    pub(crate) fn serialize_into_file(&self, file: impl AsRef<Path>) -> Result<(), Error> {
         self.serialize_into(BufWriter::new(File::create(file)?))
     }
 
+    /// Serializes this instance into given writer.
     fn serialize_into(&self, writer: impl Write) -> Result<(), Error> {
         bincode::DefaultOptions::new()
             .serialize_into(writer, self)
             .map_err(Into::into)
     }
 
+    /// Deserialize a instance from given file.
     pub(crate) fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
         Self::deserialize_from(BufReader::new(File::open(file)?))
     }
 
+    /// Deserialize a instance from given reader, preferably pass in a buffered reader.
     fn deserialize_from(reader: impl Read) -> Result<Self, Error> {
         let self_: Self = bincode::DefaultOptions::new().deserialize_from(reader)?;
         debug!("Loaded {} samples.", self_.data.len());
@@ -301,7 +312,7 @@ impl InMemorySamples {
     ///
     /// # Panics
     ///
-    /// - If number of documents in `inputs` doesn't match the number of probabilities in
+    /// - If the number of documents in `inputs` doesn't match the number of probabilities in
     /// `target_prob_dist`.
     /// - If the number of features per document is not equal to `[ListNet::INPUT_NR_FEATURES]`.
     pub(crate) fn add_sample(
