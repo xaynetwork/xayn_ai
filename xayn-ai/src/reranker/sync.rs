@@ -4,7 +4,6 @@ use crate::{
     error::Error,
 };
 use anyhow::bail;
-use itertools::izip;
 use serde::{Deserialize, Serialize};
 
 const CURRENT_SCHEMA_VERSION: u8 = 0;
@@ -51,41 +50,21 @@ impl SyncData {
 
         reduce_cois(&mut self.user_interests.positive);
         reduce_cois(&mut self.user_interests.negative);
-
-        self.user_interests.reassign_ids();
     }
 }
 
 impl UserInterests {
     /// Moves all user interests of `other` into `Self`.
     pub(crate) fn append(&mut self, mut other: Self) {
-        // TODO drop dupes in other
         append_cois(&mut self.positive, &mut other.positive);
         append_cois(&mut self.negative, &mut other.negative);
     }
-
-    /// Re-assigns CoI ids for normalization.
-    pub(crate) fn reassign_ids(&mut self) {
-        reassign_coi_ids(&mut self.positive);
-        reassign_coi_ids(&mut self.negative);
-    }
 }
 
-fn append_cois<C>(locals: &mut Vec<C>, remotes: &mut Vec<C>)
-where
-    C: CoiPoint,
-{
-    // shift remote ids to avoid clashes with local ids
-    let max_local_id = locals.iter().map(|coi| coi.id().0).max().unwrap_or(0);
-    remotes
-        .iter_mut()
-        .for_each(|coi| coi.set_id(max_local_id + coi.id().0));
-
+/// Appends `remotes` to `locals`.
+///
+/// Remote CoIs with ids clashing with any of the local CoIs are removed.
+fn append_cois<C: CoiPoint>(locals: &mut Vec<C>, remotes: &mut Vec<C>) {
+    remotes.retain(|rem| !locals.iter().any(|loc| loc.id() == rem.id()));
     locals.append(remotes);
-}
-
-fn reassign_coi_ids(cois: &mut Vec<impl CoiPoint>) {
-    for (id, coi) in izip!(1..cois.len() + 1, cois) {
-        coi.set_id(id)
-    }
 }
