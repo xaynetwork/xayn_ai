@@ -1,7 +1,7 @@
 use std::{convert::TryInto, path::PathBuf, time::Instant};
 
 use bincode::Error;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 use log::{debug, info, trace};
 use xayn_ai::list_net::{ListNet, TrainingController};
 
@@ -179,12 +179,8 @@ impl TrainingController for CliTrainingController {
     }
 
     fn end_of_training(&mut self) -> Result<(), Self::Error> {
-        let elapsed_seconds = self.start_time.map(|t| t.elapsed().as_secs()).unwrap_or(0);
-        let (hours, minutes, seconds) = seconds_to_hms(elapsed_seconds);
-        info!(
-            "End of training. Duration: {}h{}m{}s",
-            hours, minutes, seconds
-        );
+        let elapsed = self.start_time.map(|t| t.elapsed()).unwrap_or_default();
+        info!("End of training. Duration: {}", FormattedDuration(elapsed));
         Ok(())
     }
 
@@ -207,28 +203,11 @@ fn mean_loss(losses: &[f32]) -> f32 {
     losses.iter().fold(0f32, |acc, v| acc + v / count)
 }
 
-/// Converts seconds to hours, remaining minutes and remaining seconds.
-fn seconds_to_hms(total_seconds: u64) -> (u64, u8, u8) {
-    let total_minutes = total_seconds / 60;
-    let seconds = total_seconds % 60;
-    let hours = total_minutes / 60;
-    let minutes = total_minutes % 60;
-    (hours, minutes as u8, seconds as u8)
-}
-
 #[cfg(test)]
 mod tests {
     use xayn_ai::assert_approx_eq;
 
     use super::*;
-
-    #[test]
-    fn test_seconds_to_hms() {
-        assert_eq!(seconds_to_hms(0), (0, 0, 0));
-        assert_eq!(seconds_to_hms(60), (0, 1, 0));
-        assert_eq!(seconds_to_hms(63), (0, 1, 3));
-        assert_eq!(seconds_to_hms(866204), (240, 36, 44))
-    }
 
     #[test]
     fn test_mean_loss() {
