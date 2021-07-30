@@ -80,7 +80,7 @@ pub(crate) fn mock_uuid(sub_id: usize) -> uuid::Uuid {
 
 /// Creates a CoI id from a mock UUID.
 #[cfg(test)]
-pub(crate) fn mock_coiid(sub_id: usize) -> crate::CoiId {
+pub(crate) fn mock_coi_id(sub_id: usize) -> crate::CoiId {
     mock_uuid(sub_id).into()
 }
 

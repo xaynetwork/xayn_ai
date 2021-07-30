@@ -132,7 +132,7 @@ mod tests {
                 SMBertComponent,
             },
         },
-        utils::mock_coiid,
+        utils::mock_coi_id,
     };
 
     #[test]
@@ -140,7 +140,7 @@ mod tests {
         let id = DocumentId::from_u128(0);
         let embedding = arr1(&[1., 2., 3., 4.]).into();
         let coi = CoiComponent {
-            id: mock_coiid(9),
+            id: mock_coi_id(9),
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
@@ -160,7 +160,7 @@ mod tests {
         let id = DocumentId::from_u128(1);
         let embedding = arr1(&[5., 6., 7.]).into();
         let coi = CoiComponent {
-            id: mock_coiid(5),
+            id: mock_coi_id(5),
             pos_distance: 0.3,
             neg_distance: 0.9,
         };

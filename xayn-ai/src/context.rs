@@ -81,7 +81,7 @@ mod tests {
                 SMBertComponent,
             },
         },
-        utils::mock_coiid,
+        utils::mock_coi_id,
     };
 
     struct LtrDocBuilder {
@@ -111,7 +111,7 @@ mod tests {
                 smbert: SMBertComponent { embedding },
                 qambert: QAMBertComponent { similarity },
                 coi: CoiComponent {
-                    id: mock_coiid(0),
+                    id: mock_coi_id(0),
                     pos_distance,
                     neg_distance,
                 },

@@ -145,7 +145,7 @@ pub(super) mod tests {
             NegativeCoi,
         },
         to_vec_of_ref_of,
-        utils::{mock_coiid, mock_uuid},
+        utils::{mock_coi_id, mock_uuid},
     };
 
     pub(crate) struct MockCoiDoc {
@@ -188,7 +188,7 @@ pub(super) mod tests {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| CP::new(mock_coiid(id), arr1(point.as_init_slice()).into()))
+            .map(|(id, point)| CP::new(mock_coi_id(id), arr1(point.as_init_slice()).into()))
             .collect()
     }
 
