@@ -126,8 +126,6 @@ impl ListNet {
     ///
     /// The weights are initialized using the He-Normal weight
     /// initializer, the biases are initialized to 0.
-    //TODO[maybe] run some tests to see weather or not Glorot or He
-    //            Uniform/Normal initialization works better for us.
     #[allow(dead_code)] //FIXME
     pub fn new_with_random_weights() -> Self {
         let mut rng = rand::thread_rng();
