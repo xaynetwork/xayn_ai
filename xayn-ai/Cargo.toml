@@ -21,7 +21,7 @@ serde = { version = "1.0.126", features = ["derive"] }
 serde_repr = "0.1.7"
 smallvec = "1.6.1"
 thiserror = "1.0.25"
-uuid = { version = "0.8.2", features = ["serde", "wasm-bindgen"] }
+uuid = { version = "0.8.2", features = ["serde", "wasm-bindgen", "v4"] }
 
 [dev-dependencies]
 csv = "1.1.6"

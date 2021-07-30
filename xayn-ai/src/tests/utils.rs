@@ -18,13 +18,13 @@ use crate::{
             QAMBertComponent,
             SMBertComponent,
         },
-        CoiId,
         CoiPoint,
         NegativeCoi,
         PositiveCoi,
     },
     embedding::utils::Embedding,
     reranker::systems::{CoiSystemData, SMBertSystem},
+    utils::mock_coi_id,
     Document,
     DocumentHistory,
     DocumentId,
@@ -76,7 +76,7 @@ fn cois_from_words<CP: CoiPoint>(titles: &[&str], smbert: impl SMBertSystem) -> 
         .unwrap()
         .into_iter()
         .enumerate()
-        .map(|(id, doc)| CP::new(id, doc.smbert.embedding))
+        .map(|(id, doc)| CP::new(mock_coi_id(id), doc.smbert.embedding))
         .collect()
 }
 
@@ -116,7 +116,7 @@ pub(crate) fn data_with_mab(
             smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {
-                id: CoiId(1),
+                id: mock_coi_id(1),
                 pos_distance: 0.1,
                 neg_distance: 0.1,
             },
