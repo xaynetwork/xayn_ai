@@ -8,7 +8,8 @@ use ndarray::{
     DataMut,
     DataOwned,
     Dimension,
-    Ix,
+    IntoDimension,
+    Ix2,
     NdFloat,
     RemoveAxis,
 };
@@ -85,20 +86,23 @@ pub fn kl_divergence(good_dist: ArrayView1<f32>, eval_dist: ArrayView1<f32>) -> 
 ///
 /// - Website: https://www.cv-foundation.org/openaccess/content_iccv_2015/html/He_Delving_Deep_into_ICCV_2015_paper.html
 /// - Pdf: https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf
-pub fn he_normal_weights_init<R>(rng: &mut R, nr_rows: Ix, nr_columns: Ix) -> Array2<f32>
+pub fn he_normal_weights_init<R>(rng: &mut R, dim: impl IntoDimension<Dim = Ix2>) -> Array2<f32>
 where
     R: Rng + ?Sized,
 {
+    let dim = dim.into_dimension();
+    let nr_rows = dim[0];
+
     // Avoids panic due to invalid σ which can only happen with empty weight matrices.
-    if nr_rows == 0 || nr_columns == 0 {
-        return Array2::zeros((nr_rows, nr_columns));
+    if nr_rows == 0 {
+        return Array2::zeros(dim);
     }
 
     let std_dev = SQRT_2 / (nr_rows as f32).sqrt();
     let dist = Normal::new(0., std_dev).unwrap();
     let limit = 2. * std_dev;
 
-    Array2::from_shape_simple_fn((nr_rows, nr_columns), || loop {
+    Array2::from_shape_simple_fn(dim, || loop {
         let res = dist.sample(rng);
         if -limit <= res && res <= limit {
             break res;
@@ -314,9 +318,23 @@ mod tests {
     }
 
     #[test]
+    fn test_he_normal_weight_init_zero_dimensions() {
+        let mut rng = rand::thread_rng();
+        assert_eq!(
+            he_normal_weights_init(&mut rng, (0, 200)).shape(),
+            &[0, 200]
+        );
+        assert_eq!(
+            he_normal_weights_init(&mut rng, (300, 0)).shape(),
+            &[300, 0]
+        );
+        assert_eq!(he_normal_weights_init(&mut rng, (0, 0)).shape(), &[0, 0]);
+    }
+
+    #[test]
     fn test_he_normal_weight_init() {
         let mut rng = rand::thread_rng();
-        let weights = he_normal_weights_init(&mut rng, 300, 200);
+        let weights = he_normal_weights_init(&mut rng, (300, 200));
 
         assert_eq!(weights.shape(), &[300, 200]);
 

@@ -133,28 +133,31 @@ impl ListNet {
         let mut rng = rand::thread_rng();
 
         let dense1 = Dense::new(
-            he_normal_weights_init(&mut rng, Self::INPUT_NR_FEATURES, 48),
+            he_normal_weights_init(&mut rng, (Self::INPUT_NR_FEATURES, 48)),
             Array1::zeros((48,)),
             Relu,
         )
         .unwrap();
 
         let dense2 = Dense::new(
-            he_normal_weights_init(&mut rng, 48, 8),
+            he_normal_weights_init(&mut rng, (48, 8)),
             Array1::zeros((8,)),
             Relu,
         )
         .unwrap();
 
         let scores = Dense::new(
-            he_normal_weights_init(&mut rng, 8, 1),
+            he_normal_weights_init(&mut rng, (8, 1)),
             Array1::zeros((1,)),
             Linear,
         )
         .unwrap();
 
         let prob_dist = Dense::new(
-            he_normal_weights_init(&mut rng, Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_DOCUMENTS),
+            he_normal_weights_init(
+                &mut rng,
+                (Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_DOCUMENTS),
+            ),
             Array1::zeros((Self::INPUT_NR_DOCUMENTS,)),
             Softmax::default(),
         )
