@@ -85,7 +85,8 @@ impl ListNet {
         Self::load(params)
     }
 
-    fn create_bin_params(self) -> BinParams {
+    /// Turns this `ListNet` instance into a `BinParams` instance.
+    fn into_bin_params(self) -> BinParams {
         let mut params = BinParams::default();
         self.dense1.store_params(params.with_scope("dense_1"));
         self.dense2.store_params(params.with_scope("dense_2"));
@@ -97,7 +98,7 @@ impl ListNet {
 
     /// Serializes the ListNet into given writer.
     pub fn serialize_into(self, writer: impl Write) -> Result<(), Box<bincode::ErrorKind>> {
-        self.create_bin_params().serialize_into(writer)
+        self.into_bin_params().serialize_into(writer)
     }
 
     /// Serializes the ListNet into given file.
@@ -105,7 +106,7 @@ impl ListNet {
         self,
         path: impl AsRef<Path>,
     ) -> Result<(), Box<bincode::ErrorKind>> {
-        self.create_bin_params().serialize_into_file(path)
+        self.into_bin_params().serialize_into_file(path)
     }
 
     /// Load ListNet from `BinParams`.
@@ -610,8 +611,8 @@ where
 
     /// Trains on next batch of samples.
     ///
-    /// If there where no more batches to train on this return false, else this
-    /// returns true.
+    /// If there where no more batches to train on this returns `false`, else this
+    /// returns `true`.
     fn train_next_batch(&mut self) -> Result<bool, TrainingError<D::Error, C::Error>> {
         let ListNetTrainer {
             list_net,
@@ -1259,8 +1260,7 @@ mod tests {
 
     #[test]
     fn test_training_list_net_is_reproducible_for_same_inputs_and_state() {
-        //FIXME remove once we know why it did cause failures.
-        drop(crate::embedding::qambert::tests::qambert());
+        // drop(crate::embedding::qambert::tests::qambert());
 
         use Relevance::{High, Low, Medium};
         let list_net = LIST_NET.clone();
@@ -1429,8 +1429,7 @@ mod tests {
 
     #[test]
     fn test_training_with_preset_initial_state_and_input_produces_expected_results() {
-        //FIXME remove once it no longer causes failure
-        drop(crate::embedding::qambert::tests::qambert());
+        // drop(crate::embedding::qambert::tests::qambert());
 
         use Relevance::{High, Low, Medium};
 
