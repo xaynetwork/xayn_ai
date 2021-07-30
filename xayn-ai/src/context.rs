@@ -70,16 +70,18 @@ mod tests {
     use ndarray::arr1;
 
     use super::*;
-    use crate::data::{
-        document::DocumentId,
-        document_data::{
-            CoiComponent,
-            DocumentBaseComponent,
-            LtrComponent,
-            QAMBertComponent,
-            SMBertComponent,
+    use crate::{
+        data::{
+            document::DocumentId,
+            document_data::{
+                CoiComponent,
+                DocumentBaseComponent,
+                LtrComponent,
+                QAMBertComponent,
+                SMBertComponent,
+            },
         },
-        CoiId,
+        utils::mock_coi_id,
     };
 
     struct LtrDocBuilder {
@@ -109,7 +111,7 @@ mod tests {
                 smbert: SMBertComponent { embedding },
                 qambert: QAMBertComponent { similarity },
                 coi: CoiComponent {
-                    id: CoiId(0),
+                    id: mock_coi_id(0),
                     pos_distance,
                     neg_distance,
                 },

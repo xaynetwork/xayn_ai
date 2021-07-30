@@ -6,6 +6,7 @@ use crate::{
         PositiveCoi,
     },
     reranker::systems::CoiSystemData,
+    CoiId,
     DocumentHistory,
     DocumentId,
 };
@@ -73,7 +74,7 @@ where
 {
     let counts = count_coi_ids(docs);
     for coi in cois.iter_mut() {
-        if let Some(count) = counts.get(&coi.id.0) {
+        if let Some(count) = counts.get(&coi.id) {
             let adjustment = 1.1f32.powi(*count as i32);
             f(coi, adjustment);
         }
@@ -108,7 +109,7 @@ pub(super) fn update_beta(
 /// documents = [d_1(coi_id_1), d_2(coi_id_2), d_3(coi_id_1)]
 /// count_coi_ids(documents) -> {coi_id_1: 2, coi_id_2: 1}
 /// ```
-fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
+fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<CoiId, u16> {
     documents
         .iter()
         .filter_map(|doc| doc.coi().map(|coi| coi.id))
@@ -116,7 +117,7 @@ fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
             HashMap::with_capacity(documents.len()),
             |mut counts, coi_id| {
                 counts
-                    .entry(coi_id.0)
+                    .entry(coi_id)
                     .and_modify(|count| *count += 1)
                     .or_insert(1);
                 counts
@@ -127,6 +128,7 @@ fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<usize, u16> {
 #[cfg(test)]
 pub(super) mod tests {
     use ndarray::{arr1, FixedInitializer};
+    use uuid::Uuid;
 
     use super::*;
     use crate::{
@@ -139,11 +141,11 @@ pub(super) mod tests {
                 QAMBertComponent,
                 SMBertComponent,
             },
-            CoiId,
             CoiPoint,
             NegativeCoi,
         },
         to_vec_of_ref_of,
+        utils::{mock_coi_id, mock_uuid},
     };
 
     pub(crate) struct MockCoiDoc {
@@ -166,7 +168,7 @@ pub(super) mod tests {
         }
     }
 
-    fn create_docs_from_coi_id(ids: &[usize]) -> Vec<MockCoiDoc> {
+    fn create_docs_from_coi_id(ids: &[Uuid]) -> Vec<MockCoiDoc> {
         ids.iter()
             .map(|id| MockCoiDoc {
                 id: DocumentId::from_u128(0),
@@ -174,7 +176,7 @@ pub(super) mod tests {
                     embedding: arr1(&[]).into(),
                 },
                 coi: Some(CoiComponent {
-                    id: CoiId(*id),
+                    id: (*id).into(),
                     pos_distance: 1.,
                     neg_distance: 1.,
                 }),
@@ -186,7 +188,7 @@ pub(super) mod tests {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| CP::new(id, arr1(point.as_init_slice()).into()))
+            .map(|(id, point)| CP::new(mock_coi_id(id), arr1(point.as_init_slice()).into()))
             .collect()
     }
 
@@ -252,7 +254,7 @@ pub(super) mod tests {
     #[test]
     fn test_update_alpha_and_beta() {
         let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.]]);
-        let docs = create_docs_from_coi_id(&[0, 1, 1]);
+        let docs = create_docs_from_coi_id(&[mock_uuid(0), mock_uuid(1), mock_uuid(1)]);
         let docs = to_vec_of_ref_of!(docs, &dyn CoiSystemData);
 
         let updated_cois = update_alpha(&docs, cois.clone());
@@ -271,7 +273,7 @@ pub(super) mod tests {
     #[test]
     fn test_update_alpha_or_beta() {
         let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.], [1., 0., 0.]]);
-        let docs = create_docs_from_coi_id(&[0, 1, 1]);
+        let docs = create_docs_from_coi_id(&[mock_uuid(0), mock_uuid(1), mock_uuid(1)]);
         let docs = to_vec_of_ref_of!(docs, &dyn CoiSystemData);
 
         // only update the alpha of coi_id 1 and 2

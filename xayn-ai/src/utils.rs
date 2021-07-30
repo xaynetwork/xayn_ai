@@ -78,6 +78,12 @@ pub(crate) fn mock_uuid(sub_id: usize) -> uuid::Uuid {
     uuid::Uuid::from_u128(BASE_UUID | (sub_id as u128))
 }
 
+/// Creates a CoI id from a mock UUID.
+#[cfg(test)]
+pub(crate) fn mock_coi_id(sub_id: usize) -> crate::CoiId {
+    mock_uuid(sub_id).into()
+}
+
 /// Compares two "things" with approximate equality.
 ///
 /// # Examples

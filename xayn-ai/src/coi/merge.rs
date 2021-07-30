@@ -12,11 +12,11 @@ use crate::{
 const MERGE_THRESHOLD_DIST: f32 = 4.5;
 
 impl PositiveCoi {
-    pub fn merge(self, other: Self, id: usize) -> Self {
+    pub fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
         let (alpha, beta) = merge_params(self.alpha, self.beta, other.alpha, other.beta);
         Self {
-            id: CoiId(id),
+            id,
             point,
             alpha,
             beta,
@@ -25,12 +25,9 @@ impl PositiveCoi {
 }
 
 impl NegativeCoi {
-    pub fn merge(self, other: Self, id: usize) -> Self {
+    pub fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
-        Self {
-            id: CoiId(id),
-            point,
-        }
+        Self { id, point }
     }
 }
 
@@ -38,10 +35,7 @@ impl NegativeCoi {
 #[derive(Clone)]
 struct CoiPair<C>(C, C);
 
-impl<C> CoiPair<C>
-where
-    C: CoiPoint,
-{
+impl<C: CoiPoint> CoiPair<C> {
     /// Creates a new CoI pair.
     ///
     /// The CoI with the smaller id (or `coi0` if the ids are equal) occupies position 0.
@@ -55,7 +49,7 @@ where
 
     /// Merges the CoI pair, assigning it the smaller of the two ids.
     fn merge_min(self) -> C {
-        let CoiId(min_id) = self.0.id();
+        let min_id = self.0.id();
         self.0.merge(self.1, min_id)
     }
 
@@ -87,10 +81,7 @@ struct Coiple<C> {
     dist: f32,
 }
 
-impl<C> Coiple<C>
-where
-    C: CoiPoint,
-{
+impl<C: CoiPoint> Coiple<C> {
     /// Creates a new coiple.
     fn new(coi1: C, coi2: C, dist: f32) -> Self {
         let cois = CoiPair::new(coi1, coi2);
@@ -109,10 +100,7 @@ where
 }
 
 /// Computes the l2 distance between two CoI points.
-fn dist<C>(coi1: &C, coi2: &C) -> f32
-where
-    C: CoiPoint,
-{
+fn dist<C: CoiPoint>(coi1: &C, coi2: &C) -> f32 {
     l2_distance(coi1.point(), coi2.point())
 }
 
@@ -131,7 +119,7 @@ where
         .clone()
         .cartesian_product(cois_iter)
         .filter(|(coi1, coi2)| coi1.id() < coi2.id())
-        .filter_map(|(coi1, coi2)| -> Option<Coiple<C>> {
+        .filter_map(|(coi1, coi2)| {
             let dist = dist(coi1, coi2);
             (dist < MERGE_THRESHOLD_DIST).then(|| Coiple::new(coi1.clone(), coi2.clone(), dist))
         })
