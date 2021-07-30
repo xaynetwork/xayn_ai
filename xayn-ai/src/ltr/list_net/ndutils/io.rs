@@ -4,10 +4,12 @@ use bincode::Options;
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
-    fs::File,
-    io::{self, BufReader, Read},
-    path::Path,
+    io::{self, Read},
 };
+
+#[cfg(test)]
+use std::{fs::File, io::BufReader, path::Path};
+
 use thiserror::Error;
 
 use ndarray::{ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
@@ -150,6 +152,7 @@ pub(crate) struct BinParams {
 }
 
 impl BinParams {
+    #[cfg(test)]
     pub(crate) fn load_from_file(file: impl AsRef<Path>) -> Result<Self, LoadingBinParamsFailed> {
         let file = File::open(file)?;
         let source = BufReader::new(file);
