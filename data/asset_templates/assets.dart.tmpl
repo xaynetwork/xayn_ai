@@ -8,7 +8,7 @@ part of 'data_provider.dart';
 /// To calculate the checksum run 'shasum -a 256 vocab.txt'.
 final baseAssets = <AssetType, Asset>{
   {{- range (ds "assets").assets }}
-  AssetType.{{.name}}: Asset('{{.suffix}}', '{{.checksum}}'),
+  AssetType.{{.name}}: Asset('{{.suffix}}', Checksum('{{.checksum}}'), [Fragment('{{.suffix}}', Checksum('{{.checksum}}'))]),
   {{- end}}
 };
 
