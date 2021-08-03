@@ -80,6 +80,8 @@ pub enum CCode {
     SyncDataSerialization,
     /// Synchronization error.
     Synchronization,
+    /// Sync data bytes null pointer error.
+    SyncDataBytesPointer,
 }
 
 impl CCode {

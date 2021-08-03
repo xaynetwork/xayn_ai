@@ -159,9 +159,14 @@ impl CXaynAi {
     }
 
     /// See [`xaynai_synchronize()`] for more.
-    unsafe fn synchronize(xaynai: Option<&mut Self>, bytes: CBytes) -> Result<(), Error> {
+    unsafe fn synchronize(xaynai: Option<&mut Self>, bytes: Option<&CBytes>) -> Result<(), Error> {
         let xaynai = xaynai.ok_or_else(|| {
             CCode::AiPointer.with_context("Failed to synchronize data: The ai pointer is null")
+        })?;
+
+        let bytes = bytes.ok_or_else(|| {
+            CCode::SyncDataBytesPointer
+                .with_context("Failed to synchronize data: The bytes pointer is null")
         })?;
 
         xaynai.0.synchronize(bytes.as_ref()).map_err(|cause| {
@@ -368,7 +373,7 @@ pub unsafe extern "C" fn xaynai_syncdata_bytes(
 ///
 /// # Errors
 /// - The `xaynai` is null.
-/// - The serialized data `bytes` is invalid.
+/// - The serialized data `bytes` is null or invalid.
 /// - The synchronization failed.
 /// - An unexpected panic happened.
 ///
@@ -379,11 +384,12 @@ pub unsafe extern "C" fn xaynai_syncdata_bytes(
 /// # Safety
 /// The behavior is undefined if:
 /// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
+/// - The safety constraints of [`CBoxedSlice`] are violated.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_synchronize(
     xaynai: Option<&mut CXaynAi>,
-    bytes: CBytes,
+    bytes: Option<&CBytes>,
     error: Option<&mut CError>,
 ) {
     let synchronize = AssertUnwindSafe(|| unsafe { CXaynAi::synchronize(xaynai, bytes) });
@@ -653,7 +659,7 @@ mod tests {
         assert_eq!(error.code, CCode::None);
 
         // TODO test separately
-        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), *sync_data, error.as_mut_ptr()) };
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), Some(&*sync_data), error.as_mut_ptr()) };
         assert_eq!(error.code, CCode::None);
 
         unsafe { xaynai_drop(xaynai.into_ptr()) };
@@ -1276,7 +1282,7 @@ mod tests {
         assert_eq!(error.code, CCode::AiPointer);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            "Failed to serialize sync data: The ai pointer is null"
+            "Failed to serialize sync data: The ai pointer is null",
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };
@@ -1463,7 +1469,7 @@ mod tests {
 
         let version = u8::MAX;
         let invalid = Bytes(vec![version]).into_raw().unwrap();
-        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), *invalid, error.as_mut_ptr()) };
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), Some(&*invalid), error.as_mut_ptr()) };
         assert_eq!(error.code, CCode::Synchronization);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
