@@ -434,6 +434,7 @@ dependencies = [
  "displaydoc",
  "env_logger",
  "float-cmp",
+ "indicatif",
  "itertools",
  "log",
  "ndarray",
