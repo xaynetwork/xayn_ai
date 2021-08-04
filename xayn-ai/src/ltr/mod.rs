@@ -1,5 +1,7 @@
 mod features;
-mod list_net;
+
+#[doc(hidden)]
+pub mod list_net;
 
 use std::{
     fs::File,
@@ -8,6 +10,7 @@ use std::{
 };
 
 use itertools::{izip, Itertools};
+use ndarray::{Array1, Array2};
 
 use crate::{
     data::{
@@ -21,7 +24,7 @@ use crate::{
 use features::{build_features, features_to_ndarray};
 use list_net::ListNet;
 
-use self::features::Features;
+use self::features::{DocSearchResult, Features, HistSearchResult};
 
 /// Domain reranker consisting of a ListNet model trained on engineered features.
 pub(crate) struct DomainReranker {
@@ -80,7 +83,7 @@ impl<M> DomainRerankerBuilder<M> {
     where
         M: Read,
     {
-        let model = ListNet::load_from_source(self.model_params)?;
+        let model = ListNet::deserialize_from(self.model_params)?;
         Ok(DomainReranker { model })
     }
 }
@@ -114,6 +117,86 @@ impl LtrSystem for ConstLtr {
             .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { ltr_score }))
             .collect())
     }
+}
+
+pub type OwnedSample = (Array2<f32>, Array1<f32>);
+
+/// Creates training data for ListNet from a users history.
+pub fn list_net_training_data_from_history(
+    mut history: &[DocumentHistory],
+) -> Result<Vec<OwnedSample>, Error> {
+    // FIXME[follow up PR] We have a few ways to do this:
+    // 1: Create a single sample based on the last query in the history as it's done in soundgarden.
+    // 2: Create samples for the last n unique queries in history (or based on percentage of queries).
+    // 3: Go through the history and create a query for each query in history but discount sample relevance (weights)
+    //    for older queries. (Discount == given the gradient based on the sample a smaller weight when averaging the gradients)
+    // ...
+    // For now we will go with 1. but this is like not the best choice.
+    loop {
+        // History has no relevant query and as such no samples.
+        if history.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let last_query_results_id = {
+            let last = history.last().unwrap();
+            (last.session, last.query_count)
+        };
+        let start_of_last_query = history
+            .iter()
+            .rposition(|doc| (doc.session, doc.query_count) != last_query_results_id)
+            .map(|last_before_last_query_idx| last_before_last_query_idx + 1)
+            .unwrap_or_default();
+
+        let mut sorted_last_query = history[start_of_last_query..].iter().collect_vec();
+        sorted_last_query.sort_by_key(|doc| doc.rank);
+
+        let relevances = sorted_last_query
+            .iter()
+            .map(|doc| doc.relevance)
+            .collect_vec();
+        let relevances =
+            if let Some(relevances) = self::list_net::prepare_target_prob_dist(&relevances) {
+                relevances
+            } else {
+                // The last query is irrelevant so ignore pretend it doesn't exist.
+                history = &history[..start_of_last_query];
+                continue;
+            };
+
+        let pseudo_current =
+            create_pseudo_current_query_from_historic_query(sorted_last_query.iter().copied());
+        let history = history[..start_of_last_query]
+            .iter()
+            .map_into()
+            .collect_vec();
+        let features = build_features(history, pseudo_current)?;
+        let features = features_to_ndarray(&features);
+        return Ok(vec![(features, relevances)]);
+    }
+}
+
+fn create_pseudo_current_query_from_historic_query<'a>(
+    historic_query: impl IntoIterator<Item = &'a DocumentHistory>,
+) -> Vec<DocSearchResult> {
+    historic_query
+        .into_iter()
+        .map(|doc| {
+            let HistSearchResult {
+                query,
+                url,
+                domain,
+                final_rank,
+                ..
+            } = HistSearchResult::from(doc);
+            DocSearchResult {
+                query,
+                url,
+                domain,
+                initial_rank: final_rank,
+            }
+        })
+        .collect_vec()
 }
 
 #[cfg(test)]

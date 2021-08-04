@@ -4,45 +4,41 @@ use bincode::Options;
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
-    io::{self, Read},
+    fs::File,
+    io::{self, BufReader, BufWriter, Read, Write},
+    path::Path,
 };
-
-#[cfg(test)]
-use std::{fs::File, io::BufReader, path::Path};
 
 use thiserror::Error;
 
-use ndarray::{ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
+use ndarray::{Array, ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
 use serde::{Deserialize, Serialize};
-
-#[cfg(test)]
-use ndarray::Array;
 
 /// Deserialization helper representing a flattened array.
 ///
 /// The flattened array is in row-major order.
 #[derive(Serialize)]
 #[cfg_attr(test, derive(Debug, Default, PartialEq))]
-pub(crate) struct FlattenedArray<A> {
+pub struct FlattenedArray<A> {
     shape: Vec<Ix>,
     /// There is a invariant that the length of data is
     /// equal to the product of all values in shape.
     data: Vec<A>,
 }
 
-#[cfg(test)]
 impl<A, D> From<Array<A, D>> for FlattenedArray<A>
 where
     A: Copy,
     D: Dimension,
 {
     fn from(array: Array<A, D>) -> Self {
-        //only used in tests so we don't care about the
-        //unnecessary addition allocation, if used outside
-        //of tests consider using `is_standard_layout()` and
-        //`.into_raw_vec()`.
         let shape = array.shape().to_owned();
-        let data = array.iter().copied().collect();
+
+        let data = if array.is_standard_layout() {
+            array.into_raw_vec()
+        } else {
+            array.iter().copied().collect()
+        };
 
         FlattenedArray { shape, data }
     }
@@ -122,7 +118,7 @@ where
 /// so we must deserialize it as a `Vec<usize>` (or similar) and then convert
 /// it. But `ndarray` only ships with conversion methods from `Vec<Ix>`/`&[Ix]`
 /// to `IxDyn` but not to the various specific dims.
-pub(crate) trait TryIntoDimension: Sized {
+pub trait TryIntoDimension: Sized {
     fn try_from(slice: &[Ix]) -> Result<Self, UnexpectedNumberOfDimensions>;
 }
 
@@ -145,23 +141,36 @@ impl TryIntoDimension for IxDyn {
         Ok(slice.into_dimension())
     }
 }
-#[derive(Serialize, Deserialize)]
-#[cfg_attr(test, derive(Debug, Default, PartialEq))]
-pub(crate) struct BinParams {
+#[derive(Default, Serialize, Deserialize)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct BinParams {
     params: HashMap<String, FlattenedArray<f32>>,
 }
 
 impl BinParams {
-    #[cfg(test)]
-    pub(crate) fn load_from_file(file: impl AsRef<Path>) -> Result<Self, LoadingBinParamsFailed> {
+    pub fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, LoadingBinParamsFailed> {
         let file = File::open(file)?;
         let source = BufReader::new(file);
-        Self::load(source)
+        Self::deserialize_from(source)
     }
 
-    pub(crate) fn load(source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
+    pub fn deserialize_from(source: impl Read) -> Result<Self, LoadingBinParamsFailed> {
         let bincode = Self::setup_bincode();
         bincode.deserialize_from(source).map_err(Into::into)
+    }
+
+    pub fn serialize_into_file(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<(), Box<bincode::ErrorKind>> {
+        let file = File::create(path)?;
+        let writer = BufWriter::new(file);
+        self.serialize_into(writer)
+    }
+
+    pub fn serialize_into(&self, writer: impl Write) -> Result<(), Box<bincode::ErrorKind>> {
+        let bincode = Self::setup_bincode();
+        bincode.serialize_into(writer, self)
     }
 
     fn setup_bincode() -> impl bincode::Options {
@@ -174,16 +183,16 @@ impl BinParams {
     }
 
     /// True if this instance is empty.
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.params.is_empty()
     }
 
     /// List the keys contained in this instance.
-    pub(crate) fn keys(&self) -> impl Iterator<Item = &str> {
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
         self.params.keys().map(|s| &**s)
     }
 
-    pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
+    pub fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
     {
@@ -196,15 +205,43 @@ impl BinParams {
             .map_err(Into::into)
     }
 
+    /// Insert a array under given name (replacing any array previously set for that name).
+    pub fn insert<A>(&mut self, name: impl Into<String>, array: A)
+    where
+        FlattenedArray<f32>: From<A>,
+    {
+        self.params.insert(name.into(), array.into());
+    }
+
     /// Creates a new `BinParamsWithScope` instance.
     ///
     /// The name prefix will be  scope + '/'. Passing a empty
     /// scope in is possible.
-    pub(crate) fn with_scope<'b>(&'b mut self, scope: &str) -> BinParamsWithScope<'b> {
+    pub fn with_scope<'b>(&'b mut self, scope: &str) -> BinParamsWithScope<'b> {
         BinParamsWithScope {
             params: self,
             prefix: scope.to_owned() + "/",
         }
+    }
+}
+
+impl IntoIterator for BinParams {
+    type Item = (String, FlattenedArray<f32>);
+
+    type IntoIter = BinParamsIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BinParamsIntoIter(self.params.into_iter())
+    }
+}
+
+pub struct BinParamsIntoIter(std::collections::hash_map::IntoIter<String, FlattenedArray<f32>>);
+
+impl Iterator for BinParamsIntoIter {
+    type Item = (String, FlattenedArray<f32>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
     }
 }
 
@@ -221,24 +258,49 @@ pub enum LoadingBinParamsFailed {
 //Note: In the future we might have some Loader trait but given
 //that we currently only use it at one place that would be
 //overkill
-pub(crate) struct BinParamsWithScope<'a> {
+pub struct BinParamsWithScope<'a> {
     params: &'a mut BinParams,
     prefix: String,
 }
 
 impl<'a> BinParamsWithScope<'a> {
-    pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
+    pub fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
     {
-        let name = self.prefix.clone() + name;
+        let name = self.create_name(name);
         self.params.take(&name)
+    }
+
+    /// Insert a array under given name combined with the current prefix (replacing any array previously set for that name).
+    pub fn insert<A>(&mut self, name: &str, array: A)
+    where
+        FlattenedArray<f32>: From<A>,
+    {
+        let name = self.create_name(name);
+        self.params.insert(name, array);
+    }
+
+    /// Create a name based on a suffix and the current prefix.
+    pub fn create_name(&self, suffix: &str) -> String {
+        self.prefix.clone() + suffix
+    }
+
+    #[cfg(test)]
+    pub fn with_scope(&mut self, scope: &str) -> BinParamsWithScope {
+        BinParamsWithScope {
+            params: &mut *self.params,
+            prefix: self.prefix.clone() + scope + "/",
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use ndarray::{arr1, arr2, Array1, Array2};
+    use rand::{thread_rng, Rng};
+
+    use super::super::he_normal_weights_init;
 
     use super::*;
 
@@ -286,17 +348,42 @@ mod tests {
 
     #[test]
     fn bin_params_can_load_bin_params() {
-        let loaded = BinParams::load(BIN_PARAMS_MOCK_DATA_1).unwrap();
+        let loaded = BinParams::deserialize_from(BIN_PARAMS_MOCK_DATA_1).unwrap();
         assert_eq!(loaded, bin_params_mock_outcome_1());
     }
 
     #[test]
     fn bin_params_can_load_arrays_of_specific_dimensions() {
-        let mut loaded = BinParams::load(BIN_PARAMS_MOCK_DATA_1).unwrap();
+        let mut loaded = BinParams::deserialize_from(BIN_PARAMS_MOCK_DATA_1).unwrap();
         let array1 = loaded.take::<Array2<f32>>("a").unwrap();
         let array2 = loaded.take::<Array1<f32>>("b").unwrap();
 
         assert_eq!(array1, arr2(&[[1.0f32, 2.], [3., 4.]]));
         assert_eq!(array2, arr1(&[3.0f32, 2., 1., 4.]));
+    }
+
+    #[test]
+    fn serialize_deserialize_random_bin_params() {
+        let mut rng = thread_rng();
+        for nr_params in 0..4 {
+            let mut bin_params = BinParams::default();
+
+            let name = format!("{}", nr_params);
+            let nr_rows = rng.gen_range(0..100);
+            let nr_columns = rng.gen_range(0..100);
+            let matrix = he_normal_weights_init(&mut rng, (nr_rows, nr_columns));
+
+            bin_params.params.insert(name, matrix.into());
+
+            let mut buffer = Vec::new();
+            bin_params.serialize_into(&mut buffer).unwrap();
+            let bin_params2 = BinParams::deserialize_from(&*buffer).unwrap();
+
+            for (key, fla1) in bin_params.params.iter() {
+                let fla2 = bin_params2.params.get(key).unwrap();
+                assert_eq!(fla1.shape, fla2.shape);
+                assert_approx_eq!(f32, &fla1.data, &fla2.data, ulps = 0);
+            }
+        }
     }
 }

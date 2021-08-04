@@ -104,7 +104,7 @@ pub struct Document {
 
 /// Represents a historical result from a query.
 #[cfg_attr(test, derive(Default))]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct DocumentHistory {
     /// Unique identifier of the document
     pub id: DocumentId,

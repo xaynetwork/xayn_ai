@@ -1538,7 +1538,7 @@ mod tests {
         }
     }
 
-    const TEST_DATA_DIR: &str = "../data/ltr_feature_extraction_tests_v0000";
+    const TEST_DATA_DIR: &str = "../data/ltr_test_data_v0000/feature_extraction";
     const TEST_HISTORY_FILE_NAME: &str = "history.csv";
     const TEST_CURRENT_QUERY_FILE_NAME: &str = "current_query.csv";
     const TEST_FEATURES_FILE_NAME: &str = "features.csv";

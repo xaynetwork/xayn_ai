@@ -1,9 +1,10 @@
 //! ListNet implementation using the NdArray crate.
 
 use std::{
-    io::Read,
-    iter,
+    error::Error as StdError,
+    io::{Read, Write},
     ops::{Add, Div, MulAssign},
+    path::Path,
 };
 
 use thiserror::Error;
@@ -30,7 +31,8 @@ use self::{
 };
 
 mod ndlayers;
-mod ndutils;
+//Pub for dev-tool
+pub mod ndutils;
 
 pub mod optimizer;
 
@@ -48,7 +50,7 @@ pub mod optimizer;
 /// 3. Dense layer with 1 unit, bias and linear activation function (out shape: `(10, 1)`)
 /// 4. Flattening to the number of input documents. (out shape `(10,)`)
 /// 5. Dense with `nr_of_input_documents` (10) units, bias and softmax activation function (out shape `(10,)`)
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 pub struct ListNet {
     dense1: Dense<Relu>,
     dense2: Dense<Relu>,
@@ -66,22 +68,45 @@ impl ListNet {
     const CHUNK_SIZE: Ix = Self::INPUT_NR_DOCUMENTS / 2;
 
     /// Number of features per document
-    const INPUT_NR_FEATURES: Ix = 50;
+    pub const INPUT_NR_FEATURES: Ix = 50;
 
     /// Shape of input: `INPUT_NR_DOCUMENTS` x `INPUT_NR_FEATURES`
     const INPUT_SHAPE: [Ix; 2] = [Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_FEATURES];
 
     /// Load ListNet from file at given path.
-    #[cfg(test)]
-    pub fn load_from_file(path: impl AsRef<std::path::Path>) -> Result<Self, LoadingListNetFailed> {
-        let params = BinParams::load_from_file(path)?;
+    pub fn deserialize_from_file(path: impl AsRef<Path>) -> Result<Self, LoadingListNetFailed> {
+        let params = BinParams::deserialize_from_file(path)?;
         Self::load(params)
     }
 
     /// Load ListNet from byte reader.
-    pub fn load_from_source(params_source: impl Read) -> Result<Self, LoadingListNetFailed> {
-        let params = BinParams::load(params_source)?;
+    pub fn deserialize_from(params_source: impl Read) -> Result<Self, LoadingListNetFailed> {
+        let params = BinParams::deserialize_from(params_source)?;
         Self::load(params)
+    }
+
+    /// Turns this `ListNet` instance into a `BinParams` instance.
+    fn into_bin_params(self) -> BinParams {
+        let mut params = BinParams::default();
+        self.dense1.store_params(params.with_scope("dense_1"));
+        self.dense2.store_params(params.with_scope("dense_2"));
+        self.scores.store_params(params.with_scope("scores"));
+        self.prob_dist
+            .store_params(params.with_scope("scores_prob_dist"));
+        params
+    }
+
+    /// Serializes the ListNet into given writer.
+    pub fn serialize_into(self, writer: impl Write) -> Result<(), Box<bincode::ErrorKind>> {
+        self.into_bin_params().serialize_into(writer)
+    }
+
+    /// Serializes the ListNet into given file.
+    pub fn serialize_into_file(
+        self,
+        path: impl AsRef<Path>,
+    ) -> Result<(), Box<bincode::ErrorKind>> {
+        self.into_bin_params().serialize_into_file(path)
     }
 
     /// Load ListNet from `BinParams`.
@@ -126,7 +151,6 @@ impl ListNet {
     ///
     /// The weights are initialized using the He-Normal weight
     /// initializer, the biases are initialized to 0.
-    #[allow(dead_code)] //FIXME
     pub fn new_with_random_weights() -> Self {
         let mut rng = rand::thread_rng();
 
@@ -305,7 +329,10 @@ impl ListNet {
         let results = self.forward_pass(inputs);
         //FIXME[followup PR] if we don't track loss in XaynNet when used in the app we don't need to calculate it.
         let loss = kl_divergence(target_prob_dist.view(), results.prob_dist_y.view());
-        let gradients = self.back_propagation(inputs, target_prob_dist, results);
+        //UNWRAP_SAFE: Document are not empty.
+        let gradients = self
+            .back_propagation(inputs, target_prob_dist, results)
+            .unwrap();
         (gradients, loss)
     }
 
@@ -327,7 +354,7 @@ impl ListNet {
         inputs: ArrayView2<f32>,
         target_prob_dist: ArrayView1<f32>,
         forward_pass: ForwardPassData,
-    ) -> GradientSet {
+    ) -> Option<GradientSet> {
         let ForwardPassData {
             partial_forward_pass:
                 PartialForwardPassData {
@@ -341,6 +368,10 @@ impl ListNet {
         } = forward_pass;
 
         let nr_documents = inputs.shape()[0];
+        if nr_documents == 0 {
+            return None;
+        }
+
         let derivatives_of_clipping =
             prob_dist_y.mapv(|v| (f32::EPSILON..=1.).contains(&v) as u8 as f32);
         let p_cost_and_prob_dist = (prob_dist_y - target_prob_dist) * derivatives_of_clipping;
@@ -353,9 +384,9 @@ impl ListNet {
         // it's gradient is 1 at all inputs and we can omit it.
         let p_scores = self.prob_dist.weights().dot(&p_cost_and_prob_dist);
 
-        let mut d_scores = DenseGradientSet::zero_gradients_for(&self.scores);
-        let mut d_dense2 = DenseGradientSet::zero_gradients_for(&self.dense2);
-        let mut d_dense1 = DenseGradientSet::zero_gradients_for(&self.dense1);
+        let mut d_scores = Vec::with_capacity(nr_documents);
+        let mut d_dense2 = Vec::with_capacity(nr_documents);
+        let mut d_dense1 = Vec::with_capacity(nr_documents);
 
         for row in 0..nr_documents {
             // From here on training is "split" into multiple parallel "path" using
@@ -365,29 +396,33 @@ impl ListNet {
             let d_scores_part = self
                 .scores
                 .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
-            d_scores += d_scores_part;
+            d_scores.push(d_scores_part);
 
             let p_dense2 = self.scores.weights().dot(&p_scores)
                 * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
             let d_dense2_part = self
                 .dense2
                 .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
-            d_dense2 += d_dense2_part;
+            d_dense2.push(d_dense2_part);
 
             let p_dense1 = self.dense2.weights().dot(&p_dense2)
                 * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
             let d_dense1_part = self
                 .dense1
                 .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
-            d_dense1 += d_dense1_part;
+            d_dense1.push(d_dense1_part);
         }
 
-        GradientSet {
+        let d_scores = DenseGradientSet::merge_shared(d_scores).unwrap();
+        let d_dense2 = DenseGradientSet::merge_shared(d_dense2).unwrap();
+        let d_dense1 = DenseGradientSet::merge_shared(d_dense1).unwrap();
+
+        Some(GradientSet {
             dense1: d_dense1,
             dense2: d_dense2,
             scores: d_scores,
             prob_dist: d_prob_dist,
-        }
+        })
     }
 
     /// Adds gradients to this `ListNet`.
@@ -511,7 +546,7 @@ impl MulAssign<f32> for GradientSet {
 pub struct ListNetTrainer<D, C, O>
 where
     D: DataSource,
-    C: Callbacks,
+    C: TrainingController,
     O: Optimizer,
 {
     list_net: ListNet,
@@ -523,11 +558,10 @@ where
 impl<D, C, O> ListNetTrainer<D, C, O>
 where
     D: DataSource,
-    C: Callbacks,
+    C: TrainingController,
     O: Optimizer,
 {
     /// Creates a new `ListNetTrainer` instance.
-    #[allow(dead_code)] //FIXME
     pub fn new(list_net: ListNet, data_source: D, callbacks: C, optimizer: O) -> Self {
         Self {
             list_net,
@@ -541,30 +575,45 @@ where
     ///
     /// This will use the `list_net`, `data_source`, `callbacks` and `optimizer` used
     /// to create this `ListNetTrainer`.
-    //FIXME[followup PR?] remove dead code annotation
-    #[allow(dead_code)]
-    pub fn train(&mut self, epochs: usize, batch_size: usize) {
-        self.callbacks.begin_of_training(&self.list_net);
+    pub fn train(
+        mut self,
+        epochs: usize,
+        batch_size: usize,
+    ) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
+        self.callbacks
+            .begin_of_training(epochs, &self.list_net)
+            .map_err(TrainingError::Control)?;
 
         for _ in 0..epochs {
-            self.data_source.reset();
-            self.callbacks.begin_of_epoch(&self.list_net);
+            let nr_batches = self
+                .data_source
+                .reset(batch_size)
+                .map_err(TrainingError::Data)?;
+            self.callbacks
+                .begin_of_epoch(nr_batches, &self.list_net)
+                .map_err(TrainingError::Control)?;
 
-            while self.train_next_batch(batch_size) {}
-            let evaluation_results = self.evaluate_epoch(kl_divergence);
+            while self.train_next_batch()? {}
+            let evaluation_results = self.evaluate_epoch(kl_divergence)?;
 
             self.callbacks
-                .end_of_epoch(&self.list_net, evaluation_results);
+                .end_of_epoch(&self.list_net, evaluation_results)
+                .map_err(TrainingError::Control)?;
         }
 
-        self.callbacks.end_of_training(&self.list_net);
+        self.callbacks
+            .end_of_training()
+            .map_err(TrainingError::Control)?;
+        self.callbacks
+            .training_result(self.list_net)
+            .map_err(TrainingError::Control)
     }
 
     /// Trains on next batch of samples.
     ///
-    /// If there where no more batches to train on this return false, else this
-    /// returns true.
-    fn train_next_batch(&mut self, batch_size: usize) -> bool {
+    /// If there where no more batches to train on this returns `false`, else this
+    /// returns `true`.
+    fn train_next_batch(&mut self) -> Result<bool, TrainingError<D::Error, C::Error>> {
         let ListNetTrainer {
             list_net,
             data_source,
@@ -572,12 +621,14 @@ where
             optimizer,
         } = self;
 
-        let batch = data_source.next_training_batch(batch_size);
+        let batch = data_source
+            .next_training_batch()
+            .map_err(TrainingError::Data)?;
         if batch.is_empty() {
-            return false;
+            return Ok(false);
         }
 
-        callbacks.begin_of_batch();
+        callbacks.begin_of_batch().map_err(TrainingError::Control)?;
 
         let mut losses = Vec::new();
         let gradient_sets = batch
@@ -591,32 +642,37 @@ where
 
         optimizer.apply_gradients(list_net, gradient_sets);
 
-        callbacks.end_of_batch(losses);
+        callbacks
+            .end_of_batch(losses)
+            .map_err(TrainingError::Control)?;
 
-        true
+        Ok(true)
     }
 
     /// Returns the mean cost over all samples of the evaluation dataset using the given cost function.
     fn evaluate_epoch(
         &mut self,
         cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
-    ) -> Option<f32> {
-        let (acc, count) = iter::from_fn(|| {
-            let list_net = &self.list_net;
-            self.data_source.next_evaluation_sample().map(
-                |Sample {
-                     inputs,
-                     target_prob_dist,
-                 }| {
-                    let (scores_y, _) = list_net.calculate_intermediate_scores(inputs, false);
-                    let prob_dist_y = list_net.calculate_final_scores(&scores_y);
-                    cost_function(target_prob_dist, prob_dist_y.view())
-                },
-            )
-        })
-        .fold((0f32, 0), |(acc, count), cost| (acc + cost, count + 1));
+    ) -> Result<Option<f32>, TrainingError<D::Error, C::Error>> {
+        let list_net = &self.list_net;
+        let mut costs = Vec::new();
+        while let Some(Sample {
+            inputs,
+            target_prob_dist,
+        }) = self
+            .data_source
+            .next_evaluation_sample()
+            .map_err(TrainingError::Data)?
+        {
+            let (scores_y, _) = list_net.calculate_intermediate_scores(inputs, false);
+            let prob_dist_y = list_net.calculate_final_scores(&scores_y);
+            costs.push(cost_function(target_prob_dist, prob_dist_y.view()));
+        }
 
-        (count > 0).then(|| acc / count as f32)
+        let count = costs.len() as f32;
+        let mean =
+            (count > 0.).then(|| costs.into_iter().fold(0f32, |acc, cost| acc + cost / count));
+        Ok(mean)
     }
 }
 
@@ -636,53 +692,91 @@ pub struct Sample<'a> {
 
 /// A source of training and evaluation data.
 pub trait DataSource {
-    /// Resets the "iteration" of training and evaluation samples.
+    type Error: StdError + 'static;
+
+    /// Resets/initializes the "iteration" of training and evaluation samples.
+    ///
+    /// This returns the expected number of batches in the next epoch.
     ///
     /// This is allowed to also *change* the training and evaluation
     /// samples and/or their order. E.g. this could shuffle them
     /// before every epoch.
     ///
     /// This is called at the *begin* of every epoch.
-    fn reset(&mut self);
+    fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error>;
 
-    /// Returns the next `batch_size` number of training samples.
+    /// Returns the next batch of training samples.
+    ///
+    /// The batch will have the size last set when calling reset.
     ///
     /// Returns a empty vector once all training samples have been returned.
+    ///
+    /// If reset wasn't called before this should return a error.
     ///
     /// # Panics
     ///
     /// A batch size of 0 is not valid. And implementors are allowed to
     /// panic if it's passed in.
-    fn next_training_batch(&mut self, batch_size: usize) -> Vec<Sample>;
+    fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error>;
 
     /// Returns the next evaluation sample.
     ///
     /// Returns `None` once all training sample have been returned.
-    fn next_evaluation_sample(&mut self) -> Option<Sample>;
+    fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error>;
 }
 
 /// A trait providing various callbacks used during training.
-pub trait Callbacks {
+pub trait TrainingController {
+    type Error: StdError + 'static;
+    type Outcome;
+
     /// Called before started training a batch.
-    fn begin_of_batch(&mut self);
+    fn begin_of_batch(&mut self) -> Result<(), Self::Error>;
 
     /// Called after training a batch, the loss for each sample will be passed in.
-    fn end_of_batch(&mut self, losses: Vec<f32>);
+    fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error>;
 
     /// Called at the begin of each epoch.
-    fn begin_of_epoch(&mut self, list_net: &ListNet);
+    fn begin_of_epoch(&mut self, nr_batches: usize, list_net: &ListNet) -> Result<(), Self::Error>;
 
     /// Called at the end of each epoch with the mean of running the evaluation with KL-Divergence.
     ///
     /// The passed in reference to `list_net` can be used to e.g. bump the intermediate training
     /// result every 10 epochs.
-    fn end_of_epoch(&mut self, list_net: &ListNet, mean_kv_divergence_evaluation: Option<f32>);
+    fn end_of_epoch(
+        &mut self,
+        list_net: &ListNet,
+        mean_kl_divergence_evaluation: Option<f32>,
+    ) -> Result<(), Self::Error>;
 
     /// Called at the begin of training.
-    fn begin_of_training(&mut self, list_net: &ListNet);
+    fn begin_of_training(
+        &mut self,
+        nr_epochs: usize,
+        list_net: &ListNet,
+    ) -> Result<(), Self::Error>;
 
     /// Called after training finished.
-    fn end_of_training(&mut self, list_net: &ListNet);
+    fn end_of_training(&mut self) -> Result<(), Self::Error>;
+
+    /// Returns the result of the training.
+    fn training_result(self, list_net: ListNet) -> Result<Self::Outcome, Self::Error>;
+}
+
+/// Error produced while training.
+///
+/// This is either a error from the `DataSource` or
+/// the `TrainingController`.
+#[derive(Error, Debug)]
+pub enum TrainingError<DE, CE>
+where
+    DE: StdError + 'static,
+    CE: StdError + 'static,
+{
+    #[error("Retrieving training/evaluation samples failed: {0}")]
+    Data(#[source] DE),
+    #[error("Training controller produced an error: {0}")]
+    Control(#[source] CE),
 }
 
 /// Prepares the inputs for training.
@@ -694,20 +788,11 @@ pub trait Callbacks {
 ///
 /// - returns `None` if there are less then 10 documents
 /// - truncates inputs and relevances to 10 documents
-/// - returns `None` if there are no relevant documents (after truncating)
-/// - calculates the target distribution based on the relevances
-#[allow(dead_code)]
-pub fn prepare_inputs_for_training<'a>(
-    inputs: &'a Array2<f32>,
-    relevances: &'a [Relevance],
-) -> Option<(ArrayView2<'a, f32>, Array1<f32>)> {
+pub fn prepare_inputs(inputs: &Array2<f32>) -> Option<ArrayView2<f32>> {
     if inputs.shape()[0] < ListNet::INPUT_NR_DOCUMENTS {
         None
     } else {
-        Some((
-            inputs.slice(s![..ListNet::INPUT_NR_DOCUMENTS, ..]),
-            prepare_target_prob_dist(&relevances[..ListNet::INPUT_NR_DOCUMENTS])?,
-        ))
+        Some(inputs.slice(s![..ListNet::INPUT_NR_DOCUMENTS, ..]))
     }
 }
 
@@ -717,7 +802,7 @@ pub fn prepare_inputs_for_training<'a>(
 /// implementations to filter and prepare inputs.
 ///
 /// If there is no relevant document in the inputs `None` is returned.
-fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
+pub fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
     if !relevance.iter().any(|r| match *r {
         Relevance::Low => false,
         Relevance::High | Relevance::Medium => true,
@@ -744,19 +829,30 @@ fn prepare_target_prob_dist(relevance: &[Relevance]) -> Option<Array1<f32>> {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashSet, f32::consts::SQRT_2};
+    use std::{
+        collections::HashSet,
+        convert::{Infallible, TryInto},
+        env,
+        f32::consts::SQRT_2,
+        ffi::OsString,
+        path::PathBuf,
+    };
 
     use ndarray::{arr1, arr2, Array, IxDyn};
     use once_cell::sync::Lazy;
 
-    use super::{ndlayers::ActivationFunction, optimizer::MiniBatchSgd};
+    use super::{
+        ndlayers::ActivationFunction,
+        ndutils::io::{FlattenedArray, UnexpectedNumberOfDimensions},
+        optimizer::MiniBatchSgd,
+    };
 
     use super::*;
 
     const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
 
     static LIST_NET: Lazy<ListNet> =
-        Lazy::new(|| ListNet::load_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap());
+        Lazy::new(|| ListNet::deserialize_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap());
 
     /// A single ListNet Input, cast to shape (10, 50).
     ///
@@ -992,10 +1088,10 @@ mod tests {
 
     #[test]
     fn test_is_empty() {
-        let params = BinParams::load(EMPTY_BIN_PARAMS).unwrap();
+        let params = BinParams::deserialize_from(EMPTY_BIN_PARAMS).unwrap();
         assert!(params.is_empty());
 
-        let mut params = BinParams::load(BIN_PARAMS_WITH_EMPTY_ARRAY_AND_KEY).unwrap();
+        let mut params = BinParams::deserialize_from(BIN_PARAMS_WITH_EMPTY_ARRAY_AND_KEY).unwrap();
         assert!(!params.is_empty());
 
         let array: Array<f32, IxDyn> = params.take("").unwrap();
@@ -1004,7 +1100,7 @@ mod tests {
 
     #[test]
     fn test_keys() {
-        let params = BinParams::load(BIN_PARAMS_WITH_SOME_KEYS).unwrap();
+        let params = BinParams::deserialize_from(BIN_PARAMS_WITH_SOME_KEYS).unwrap();
         let mut expected = HashSet::default();
         expected.insert("foo");
         expected.insert("bar");
@@ -1017,6 +1113,7 @@ mod tests {
     }
 
     struct VecDataSource {
+        batch_size: usize,
         training_data_idx: usize,
         training_data: Vec<(Array2<f32>, Array1<f32>)>,
         evaluation_data_idx: usize,
@@ -1029,6 +1126,7 @@ mod tests {
             evaluation_data: Vec<(Array2<f32>, Array1<f32>)>,
         ) -> Self {
             Self {
+                batch_size: 0,
                 training_data_idx: 0,
                 training_data,
                 evaluation_data_idx: 0,
@@ -1037,52 +1135,67 @@ mod tests {
         }
     }
 
+    #[derive(Error, Debug)]
+    #[error("Batch Size 0 is not supported (or reset was not called)")]
+    struct BatchSize0Error;
+
     impl DataSource for VecDataSource {
-        fn reset(&mut self) {
+        type Error = BatchSize0Error;
+
+        fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error> {
+            if batch_size == 0 {
+                return Err(BatchSize0Error);
+            }
+            self.batch_size = batch_size;
             self.training_data_idx = 0;
             self.evaluation_data_idx = 0;
+            Ok(self.training_data.len() / batch_size)
         }
 
-        fn next_training_batch(&mut self, batch_size: usize) -> Vec<Sample> {
-            assert!(batch_size > 0);
-            let end_idx = self.training_data_idx + batch_size;
+        fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
+            if self.batch_size == 0 {
+                return Err(BatchSize0Error);
+            }
+
+            let end_idx = self.training_data_idx + self.batch_size;
             if end_idx <= self.training_data.len() {
                 let start_idx = self.training_data_idx;
                 self.training_data_idx = end_idx;
 
-                self.training_data[start_idx..end_idx]
+                let samples = self.training_data[start_idx..end_idx]
                     .iter()
                     .map(|(inputs, target_prop_dist)| Sample {
                         inputs: inputs.view(),
                         target_prob_dist: target_prop_dist.view(),
                     })
-                    .collect()
+                    .collect();
+                Ok(samples)
             } else {
-                Vec::new()
+                Ok(Vec::new())
             }
         }
 
-        fn next_evaluation_sample(&mut self) -> Option<Sample> {
+        fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error> {
             if self.evaluation_data_idx < self.evaluation_data.len() {
                 let idx = self.evaluation_data_idx;
                 self.evaluation_data_idx += 1;
 
                 let data = &self.evaluation_data[idx];
-                Some(Sample {
+                Ok(Some(Sample {
                     inputs: data.0.view(),
                     target_prob_dist: data.1.view(),
-                })
+                }))
             } else {
-                None
+                Ok(None)
             }
         }
     }
 
-    struct TestCallbacks {
+    struct TestController {
         evaluation_results: Vec<Option<f32>>,
     }
 
-    impl TestCallbacks {
+    impl TestController {
         fn new() -> Self {
             Self {
                 evaluation_results: Vec::new(),
@@ -1090,41 +1203,65 @@ mod tests {
         }
     }
 
-    impl Callbacks for TestCallbacks {
-        fn begin_of_batch(&mut self) {
-            dbg!("begin batch");
+    impl TrainingController for TestController {
+        type Error = Infallible;
+
+        type Outcome = (Self, ListNet);
+
+        fn begin_of_batch(&mut self) -> Result<(), Self::Error> {
+            eprintln!("begin batch");
+            Ok(())
         }
 
-        fn end_of_batch(&mut self, losses: Vec<f32>) {
+        fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error> {
+            eprintln!("end of batch");
             dbg!(losses);
+            Ok(())
         }
 
-        fn begin_of_epoch(&mut self, _list_net: &ListNet) {
-            dbg!("begin epoch");
+        fn begin_of_epoch(
+            &mut self,
+            _nr_batches: usize,
+            _list_net: &ListNet,
+        ) -> Result<(), Self::Error> {
+            eprintln!("begin of epoch");
+            Ok(())
         }
 
         fn end_of_epoch(
             &mut self,
             _list_net: &ListNet,
             mean_kv_divergence_evaluation: Option<f32>,
-        ) {
+        ) -> Result<(), Self::Error> {
+            eprintln!("end of epoch");
             dbg!(mean_kv_divergence_evaluation);
             self.evaluation_results.push(mean_kv_divergence_evaluation);
+            Ok(())
         }
 
-        fn begin_of_training(&mut self, _list_net: &ListNet) {
-            dbg!("begin of training");
+        fn begin_of_training(
+            &mut self,
+            _nr_epochs: usize,
+            _list_net: &ListNet,
+        ) -> Result<(), Self::Error> {
+            eprintln!("begin of training");
+            Ok(())
         }
 
-        fn end_of_training(&mut self, _list_net: &ListNet) {
-            dbg!("end of training");
+        fn end_of_training(&mut self) -> Result<(), Self::Error> {
+            eprintln!("end of training");
+            Ok(())
+        }
+
+        fn training_result(self, list_net: ListNet) -> Result<Self::Outcome, Self::Error> {
+            Ok((self, list_net))
         }
     }
 
-    //FIXME[follow up PR] create better tests
-    #[ignore = "fails on android unclear reasons, fixed in followup PR"]
     #[test]
-    fn test_training_list_net_does_not_panic() {
+    fn test_training_list_net_is_reproducible_for_same_inputs_and_state() {
+        // drop(crate::embedding::qambert::tests::qambert());
+
         use Relevance::{High, Low, Medium};
         let list_net = LIST_NET.clone();
 
@@ -1137,15 +1274,352 @@ mod tests {
 
         let training_data = vec![data_frame.clone(), data_frame.clone(), data_frame.clone()];
         let test_data = vec![data_frame];
+        let nr_epochs = 5;
+        let batch_size = 1;
+
+        // The NaN bug somehow only appear on the first execution so uncommenting this
+        // makes the test pass even if the bug has not been fixed.
+        // let (ctrl0, ln0) = {
+        //     let data_source = VecDataSource::new(training_data.clone(), test_data.clone());
+        //     let callbacks = TestController::new();
+        //     let optimizer = MiniBatchSgd { learning_rate: 0.1 };
+        //     let trainer = ListNetTrainer::new(list_net.clone(), data_source, callbacks, optimizer);
+        //     trainer.train(nr_epochs, batch_size).unwrap()
+        // };
+        let (ctrl1, ln1) = {
+            let data_source = VecDataSource::new(training_data.clone(), test_data.clone());
+            let callbacks = TestController::new();
+            let optimizer = MiniBatchSgd { learning_rate: 0.1 };
+            let trainer = ListNetTrainer::new(list_net.clone(), data_source, callbacks, optimizer);
+            trainer.train(nr_epochs, batch_size).unwrap()
+        };
+        let (ctrl2, ln2) = {
+            let data_source = VecDataSource::new(training_data, test_data);
+            let callbacks = TestController::new();
+            let optimizer = MiniBatchSgd { learning_rate: 0.1 };
+            let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
+            trainer.train(nr_epochs, batch_size).unwrap()
+        };
+
+        assert_approx_eq!(f32, ln1.dense1.weights(), ln2.dense1.weights());
+        assert_approx_eq!(f32, ln1.dense1.bias(), ln2.dense1.bias());
+        assert_approx_eq!(f32, ln1.dense2.weights(), ln2.dense2.weights());
+        assert_approx_eq!(f32, ln1.dense2.bias(), ln2.dense2.bias());
+        assert_approx_eq!(f32, ln1.scores.weights(), ln2.scores.weights());
+        assert_approx_eq!(f32, ln1.scores.bias(), ln2.scores.bias());
+        assert_approx_eq!(f32, ln1.prob_dist.weights(), ln2.prob_dist.weights());
+        assert_approx_eq!(f32, ln1.prob_dist.bias(), ln2.prob_dist.bias());
+
+        assert_approx_eq!(f32, &ctrl1.evaluation_results, &ctrl2.evaluation_results);
+
+        assert!(
+            ctrl1
+                .evaluation_results
+                .iter()
+                .all(|v| !v.unwrap().is_nan()),
+            "contains NaN values {:?}",
+            ctrl1.evaluation_results
+        );
+    }
+
+    struct BinParamsEqTestGuard {
+        params: BinParams,
+        write_to_path_on_normal_drop: Option<PathBuf>,
+        nr_epochs: usize,
+        next_epoch: usize,
+        epsilon: f32,
+        ulps: i32,
+    }
+
+    impl BinParamsEqTestGuard {
+        fn setup(path: impl AsRef<Path>, nr_epochs: usize, epsilon: f32, ulps: i32) -> Self {
+            let rewrite_instead_of_test =
+                env::var_os("LTR_LIST_NET_TRAINING_INTERMEDIATES_REWRITE")
+                    == Some(OsString::from("1"));
+            if dbg!(rewrite_instead_of_test) {
+                Self {
+                    params: BinParams::default(),
+                    write_to_path_on_normal_drop: Some(path.as_ref().to_owned()),
+                    nr_epochs,
+                    next_epoch: 0,
+                    epsilon,
+                    ulps,
+                }
+            } else {
+                Self {
+                    params: BinParams::deserialize_from_file(path).unwrap(),
+                    write_to_path_on_normal_drop: None,
+                    nr_epochs,
+                    next_epoch: 0,
+                    epsilon,
+                    ulps,
+                }
+            }
+        }
+
+        fn next_iteration(&mut self) -> bool {
+            if self.next_epoch < self.nr_epochs {
+                self.next_epoch += 1;
+                dbg!(self.next_epoch);
+                true
+            } else {
+                false
+            }
+        }
+
+        fn do_rewrite(&self) -> bool {
+            self.write_to_path_on_normal_drop.is_some()
+        }
+
+        fn assert_array_eq<D>(&mut self, prefix: Option<&str>, name: &str, array: &Array<f32, D>)
+        where
+            FlattenedArray<f32>:
+                TryInto<Array<f32, D>, Error = UnexpectedNumberOfDimensions> + From<Array<f32, D>>,
+            D: Dimension,
+        {
+            let do_rewrite = self.do_rewrite();
+            let mut params = self
+                .params
+                .with_scope(&format!("{}", self.next_epoch.saturating_sub(1)));
+
+            let mut params = if let Some(prefix) = prefix {
+                params.with_scope(prefix)
+            } else {
+                params
+            };
+
+            if do_rewrite {
+                params.insert(name, array.clone());
+            } else {
+                dbg!(params.create_name(name));
+                let expected = params.take::<Array<f32, D>>(name).unwrap();
+                assert_approx_eq!(
+                    f32,
+                    array,
+                    expected,
+                    epsilon = self.epsilon,
+                    ulps = self.ulps
+                );
+            }
+        }
+    }
+
+    impl Drop for BinParamsEqTestGuard {
+        fn drop(&mut self) {
+            if std::thread::panicking() {
+                return;
+            }
+
+            if let Some(path) = self.write_to_path_on_normal_drop.take() {
+                self.params.serialize_into_file(path).unwrap();
+            }
+        }
+    }
+
+    macro_rules! assert_trace_array {
+        ($inout:ident =?= $($array:ident),+) => ($(
+            $inout.assert_array_eq(None, stringify!($array), &$array);
+        )*);
+
+        ($inout:ident [$($idx:expr),+] =?= $($array:expr),+) => ({
+            let prefix = [$($idx.to_string()),*].join("/");
+            $($inout.assert_array_eq(Some(&prefix), stringify!($array), &$array);)*
+        });
+    }
+
+    #[test]
+    fn test_training_with_preset_initial_state_and_input_produces_expected_results() {
+        // drop(crate::embedding::qambert::tests::qambert());
+
+        use Relevance::{High, Low, Medium};
+
+        let mut list_net = LIST_NET.clone();
+        let mut reference_list_net = LIST_NET.clone();
+
+        let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
+            .into_shape((10, 50))
+            .unwrap();
+
+        let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
+
+        let mut test_guard = BinParamsEqTestGuard::setup(
+            "../data/ltr_test_data_v0000/check_training_intermediates.binparams",
+            4,
+            0.0001,
+            8,
+        );
+
+        while test_guard.next_iteration() {
+            // Inlined all functions involved into training to get *all* intermediates.
+            // FIXME: Doing it this way is useful for analysis of the NaN bug, but not
+            //        very maintainable.
+            let target_prob_dist = prepare_target_prob_dist(&relevances).unwrap();
+            assert_trace_array!(test_guard =?= target_prob_dist);
+            let (dense1_y, dense1_z) = list_net.dense1.run(&inputs, true);
+            let dense1_z = dense1_z.unwrap();
+            assert_trace_array!(test_guard =?= dense1_y, dense1_z);
+            let (dense2_y, dense2_z) = list_net.dense2.run(&dense1_y, true);
+            let dense2_z = dense2_z.unwrap();
+            assert_trace_array!(test_guard =?= dense2_y, dense2_z);
+            let (scores_y, scores_z) = list_net.scores.run(&dense2_y, true);
+            let scores_z = scores_z.unwrap();
+            assert_trace_array!(test_guard =?= scores_y, scores_z);
+
+            let scores_y = scores_y.index_axis_move(Axis(1), 0);
+
+            let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(&scores_y, true);
+            let prob_dist_z = prob_dist_z.unwrap();
+            assert_trace_array!(test_guard =?= prob_dist_y, prob_dist_z);
+
+            let nr_documents = inputs.shape()[0];
+            let p_cost_and_prob_dist = prob_dist_y - &target_prob_dist;
+
+            let d_prob_dist = list_net
+                .prob_dist
+                .gradients_from_partials_1d(scores_y.view(), p_cost_and_prob_dist.view());
+
+            let p_scores = list_net.prob_dist.weights().dot(&p_cost_and_prob_dist);
+
+            let mut d_scores = Vec::new();
+            let mut d_dense2 = Vec::new();
+            let mut d_dense1 = Vec::new();
+
+            for row in 0..nr_documents {
+                // From here on training is "split" into multiple parallel "path" using
+                // shared weights (hence why we add up the gradients).
+                let p_scores = p_scores.slice(s![row..row + 1]);
+                assert_trace_array!(test_guard [row] =?= p_scores.to_owned());
+
+                let d_scores_part = list_net
+                    .scores
+                    .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
+                assert_trace_array!(test_guard [row] =?= d_scores_part.weight_gradients, d_scores_part.bias_gradients);
+                d_scores.push(d_scores_part);
+
+                let p_dense2 = list_net.scores.weights().dot(&p_scores)
+                    * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
+                assert_trace_array!(test_guard [row] =?= p_dense2);
+                let d_dense2_part = list_net
+                    .dense2
+                    .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
+                assert_trace_array!(test_guard [row] =?= d_dense2_part.weight_gradients, d_dense2_part.bias_gradients);
+                d_dense2.push(d_dense2_part);
+
+                let p_dense1 = list_net.dense2.weights().dot(&p_dense2)
+                    * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
+                assert_trace_array!(test_guard [row] =?= p_dense1);
+                let d_dense1_part = list_net
+                    .dense1
+                    .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
+                assert_trace_array!(test_guard [row] =?= d_dense1_part.weight_gradients, d_dense1_part.bias_gradients);
+                d_dense1.push(d_dense1_part);
+
+                let d_scores = d_scores.last().unwrap();
+                assert_trace_array!(test_guard [row, "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
+                let d_dense2 = d_dense2.last().unwrap();
+                assert_trace_array!(test_guard [row, "gradients"] =?= d_dense2.weight_gradients, d_dense2.bias_gradients);
+                let d_dense1 = d_dense1.last().unwrap();
+                assert_trace_array!(test_guard [row, "gradients"] =?= d_dense1.weight_gradients, d_dense1.bias_gradients);
+            }
+
+            let d_scores = DenseGradientSet::merge_shared(d_scores).unwrap();
+            let d_dense2 = DenseGradientSet::merge_shared(d_dense2).unwrap();
+            let d_dense1 = DenseGradientSet::merge_shared(d_dense1).unwrap();
+
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_prob_dist.weight_gradients, d_prob_dist.bias_gradients);
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_dense2.weight_gradients, d_dense2.bias_gradients);
+            assert_trace_array!(test_guard ["final", "gradients"] =?= d_dense1.weight_gradients, d_dense1.bias_gradients);
+
+            let mut gradients = GradientSet {
+                dense1: d_dense1,
+                dense2: d_dense2,
+                scores: d_scores,
+                prob_dist: d_prob_dist,
+            };
+
+            gradients *= -0.1;
+            list_net.add_gradients(gradients);
+
+            // Check if our implementation diverged from the inlined and extended code above.
+            let (mut gradients, _) = reference_list_net.gradients_for_query(Sample {
+                inputs: inputs.view(),
+                target_prob_dist: target_prob_dist.view(),
+            });
+            gradients *= -0.1;
+            reference_list_net.add_gradients(gradients);
+
+            assert_approx_eq!(
+                f32,
+                list_net.prob_dist.weights(),
+                reference_list_net.prob_dist.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.prob_dist.bias(),
+                reference_list_net.prob_dist.bias()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.scores.weights(),
+                reference_list_net.scores.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.scores.bias(),
+                reference_list_net.scores.bias()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense2.weights(),
+                reference_list_net.dense2.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense2.bias(),
+                reference_list_net.dense2.bias()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense1.weights(),
+                reference_list_net.dense1.weights()
+            );
+            assert_approx_eq!(
+                f32,
+                list_net.dense1.bias(),
+                reference_list_net.dense1.bias()
+            );
+        }
+    }
+
+    #[test]
+    fn test_training_list_net_does_not_panic() {
+        use Relevance::{High, Low, Medium};
+
+        let list_net = LIST_NET.clone();
+
+        let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
+            .into_shape((10, 50))
+            .unwrap();
+
+        // Not very good checksum :-) (sanity check)
+        let sum: f32 = inputs.iter().sum();
+        assert_approx_eq!(f32, sum, 1666.1575);
+
+        let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
+        let data_frame = (inputs, prepare_target_prob_dist(&relevances).unwrap());
+
+        let training_data = vec![data_frame.clone(), data_frame.clone(), data_frame.clone()];
+        let test_data = vec![data_frame];
 
         let nr_epochs = 5;
         let data_source = VecDataSource::new(training_data, test_data);
-        let callbacks = TestCallbacks::new();
+        let callbacks = TestController::new();
         let optimizer = MiniBatchSgd { learning_rate: 0.1 };
-        let mut trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
-        trainer.train(nr_epochs, 3);
+        let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
+        let (controller, _list_net) = trainer.train(nr_epochs, 3).unwrap();
+        let evaluation_results = controller.evaluation_results;
 
-        let evaluation_results = trainer.callbacks.evaluation_results;
         assert_eq!(evaluation_results.len(), nr_epochs);
         assert!(
             evaluation_results.iter().all(|v| !v.unwrap().is_nan()),
@@ -1271,42 +1745,20 @@ mod tests {
     }
 
     #[test]
-    fn test_prepare_inputs_for_training() {
-        use Relevance::{High, Low, Medium};
-
-        let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
+    fn test_prepare_inputs() {
         let inputs = Array1::from(SAMPLE_INPUTS.to_vec())
             .into_shape((10, 50))
             .unwrap();
 
-        let (processed_inputs, dist) = prepare_inputs_for_training(&inputs, &relevances).unwrap();
+        let processed_inputs = prepare_inputs(&inputs).unwrap();
 
         assert_approx_eq!(f32, &inputs, processed_inputs);
-
-        assert_approx_eq!(
-            f32,
-            dist,
-            [
-                0.051_708_337,
-                0.046_787_64,
-                0.115_079_02,
-                0.104_127_81,
-                0.034_661_137,
-                0.085_252_635,
-                0.209_687_65,
-                0.025_677_6,
-                0.171_677_72,
-                0.155_340_43,
-            ]
-        );
-
-        assert!(prepare_inputs_for_training(&inputs, &[Low; 10]).is_none());
 
         let few_inputs = Array1::from(SAMPLE_INPUTS_TO_FEW.to_vec())
             .into_shape((3, 50))
             .unwrap();
 
-        assert!(prepare_inputs_for_training(&few_inputs, &relevances).is_none());
+        assert!(prepare_inputs(&few_inputs).is_none());
     }
 
     #[test]
@@ -1340,5 +1792,25 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_serialize_deserialize_list_net() {
+        let list_net = ListNet::new_with_random_weights();
+        let mut buffer = Vec::new();
+        list_net.clone().serialize_into(&mut buffer).unwrap();
+        let list_net2 = ListNet::deserialize_from(&*buffer).unwrap();
+        assert_approx_eq!(f32, list_net.dense1.weights(), list_net2.dense1.weights());
+        assert_approx_eq!(f32, list_net.dense1.bias(), list_net2.dense1.bias());
+        assert_approx_eq!(f32, list_net.dense2.weights(), list_net2.dense2.weights());
+        assert_approx_eq!(f32, list_net.dense2.bias(), list_net2.dense2.bias());
+        assert_approx_eq!(f32, list_net.scores.weights(), list_net2.scores.weights());
+        assert_approx_eq!(f32, list_net.scores.bias(), list_net2.scores.bias());
+        assert_approx_eq!(
+            f32,
+            list_net.prob_dist.weights(),
+            list_net2.prob_dist.weights()
+        );
+        assert_approx_eq!(f32, list_net.prob_dist.bias(), list_net2.prob_dist.bias());
     }
 }
