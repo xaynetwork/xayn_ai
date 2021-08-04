@@ -50,7 +50,6 @@ where
     /// - If there are no evaluation samples with the given `evaluation_split`,
     ///   but the split is not `0`.
     /// - If calling `storage.data_ids()` failed.
-    #[allow(dead_code)] //FIXME is used by training (added in part 3 of this PR)
     pub(crate) fn new(
         storage: S,
         evaluation_split: f32,
@@ -277,13 +276,11 @@ impl InMemorySamples {
     }
 
     /// Deserialize a instance from given file.
-    #[allow(dead_code)] //FIXME is used by training (added in part 3 of this PR)
     pub(crate) fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
         Self::deserialize_from(BufReader::new(File::open(file)?))
     }
 
     /// Deserialize a instance from given reader, preferably pass in a buffered reader.
-    #[allow(dead_code)] //FIXME is used by training (added in part 3 of this PR)
     fn deserialize_from(reader: impl Read) -> Result<Self, Error> {
         let self_: Self = bincode::DefaultOptions::new().deserialize_from(reader)?;
         debug!("Loaded {} samples.", self_.data.len());
