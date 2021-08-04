@@ -334,16 +334,6 @@ pub unsafe extern "C" fn xaynai_analytics(
     call_with_result(analytics, error)
 }
 
-/// Frees the memory of the Xayn AI.
-///
-/// # Safety
-/// The behavior is undefined if:
-/// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
-/// - A non-null `xaynai` is freed more than once.
-/// - A non-null `xaynai` is accessed after being freed.
-#[no_mangle]
-pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
-
 /// Serializes the synchronizable data of the reranker.
 ///
 /// # Errors
@@ -396,6 +386,16 @@ pub unsafe extern "C" fn xaynai_synchronize(
 
     call_with_result(synchronize, error);
 }
+
+/// Frees the memory of the Xayn AI.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null `xaynai` is freed more than once.
+/// - A non-null `xaynai` is accessed after being freed.
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
 
 #[cfg(test)]
 mod tests {

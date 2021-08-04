@@ -65,6 +65,13 @@ class XaynAi {
   /// Retrieves the analytics which were collected in the penultimate reranking.
   Analytics? analytics() => throw UnsupportedError('Unsupported platform.');
 
+  /// Serializes the synchronizable data of the reranker.
+  Uint8List syncdataBytes() => throw UnsupportedError('Unsupported platform.');
+
+  /// Synchronizes the internal data of the reranker with another.
+  void synchronize([Uint8List? serialized]) =>
+      throw UnsupportedError('Unsupported platform');
+
   /// Frees the memory.
   void free() => throw UnsupportedError('Unsupported platform.');
 }
