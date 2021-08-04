@@ -9,10 +9,10 @@ use std::{
     sync::Mutex,
 };
 
+use rand::prelude::ThreadRng;
 use thiserror::Error;
 
 use ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis, Dimension, IntoDimension, Ix};
-use ndutils::he_normal_weights_init;
 
 use crate::Relevance;
 
@@ -153,32 +153,34 @@ impl ListNet {
     ///
     /// The weights are initialized using the He-Normal weight
     /// initializer, the biases are initialized to 0.
-    pub fn new_with_random_weights() -> Self {
+    pub fn new_with_random_weights(
+        weight_initializer: fn(&mut ThreadRng, (usize, usize)) -> Array2<f32>,
+    ) -> Self {
         let mut rng = rand::thread_rng();
 
         let dense1 = Dense::new(
-            he_normal_weights_init(&mut rng, (Self::INPUT_NR_FEATURES, 48)),
+            weight_initializer(&mut rng, (Self::INPUT_NR_FEATURES, 48)),
             Array1::zeros((48,)),
             Relu,
         )
         .unwrap();
 
         let dense2 = Dense::new(
-            he_normal_weights_init(&mut rng, (48, 8)),
+            weight_initializer(&mut rng, (48, 8)),
             Array1::zeros((8,)),
             Relu,
         )
         .unwrap();
 
         let scores = Dense::new(
-            he_normal_weights_init(&mut rng, (8, 1)),
+            weight_initializer(&mut rng, (8, 1)),
             Array1::zeros((1,)),
             Linear,
         )
         .unwrap();
 
         let prob_dist = Dense::new(
-            he_normal_weights_init(
+            weight_initializer(
                 &mut rng,
                 (Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_DOCUMENTS),
             ),
@@ -1841,7 +1843,7 @@ mod tests {
             dense2,
             scores,
             prob_dist,
-        } = ListNet::new_with_random_weights();
+        } = ListNet::new_with_random_weights(he_normal_weights_init);
 
         test_layer(&dense1);
         test_layer(&dense2);
@@ -1869,7 +1871,7 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize_list_net() {
-        let list_net = ListNet::new_with_random_weights();
+        let list_net = ListNet::new_with_random_weights(he_normal_weights_init);
         let mut buffer = Vec::new();
         list_net.clone().serialize_into(&mut buffer).unwrap();
         let list_net2 = ListNet::deserialize_from(&*buffer).unwrap();

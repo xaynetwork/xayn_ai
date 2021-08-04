@@ -1,9 +1,21 @@
 #![cfg(not(tarpaulin))]
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{Context, Error};
+use anyhow::{bail, Context, Error};
+use ndarray::Array2;
+use rand::prelude::ThreadRng;
 use structopt::StructOpt;
-use xayn_ai::list_net::{optimizer::MiniBatchSgd, ListNet, ListNetTrainer};
+use xayn_ai::list_net::{
+    ndutils::initializer::{
+        glorot_normal_weights_init,
+        glorot_uniform_weights_init,
+        he_normal_weights_init,
+        he_uniform_weights_init,
+    },
+    optimizer::MiniBatchSgd,
+    ListNet,
+    ListNetTrainer,
+};
 
 use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 
@@ -65,6 +77,12 @@ pub struct TrainCmd {
     /// Dumps the initial parameters before any training was done.
     #[structopt(long)]
     dump_initial_parameters: bool,
+
+    /// Selects the weight initializer.
+    ///
+    /// Is ignored if `use_initial_parameters` is used.
+    #[structopt(long, default_value = "he-normal", parse(try_from_str))]
+    initializer: WeightInitializer,
 }
 
 impl TrainCmd {
@@ -79,6 +97,7 @@ impl TrainCmd {
             out_dir,
             dump_every,
             dump_initial_parameters,
+            initializer,
         } = self;
 
         let data_source = progress_spin_until_done("Loading samples", || {
@@ -92,7 +111,6 @@ impl TrainCmd {
             out_dir,
             dump_initial_parameters,
             dump_every,
-            show_sample_progress: data_source.batch_size() >= 256,
         }
         .build();
 
@@ -101,11 +119,55 @@ impl TrainCmd {
         let list_net = if let Some(initial_params_file) = use_initial_parameters {
             ListNet::deserialize_from_file(initial_params_file)?
         } else {
-            ListNet::new_with_random_weights()
+            ListNet::new_with_random_weights(initializer.as_fn())
         };
 
         let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
         trainer.train(epochs)?;
         Ok(NO_ERROR)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum WeightInitializer {
+    HeNormal,
+    HeUniform,
+    GlorotNormal,
+    GlorotUniform,
+}
+
+impl WeightInitializer {
+    fn as_fn(self) -> for<'r> fn(&'r mut ThreadRng, (usize, usize)) -> Array2<f32> {
+        use WeightInitializer::*;
+
+        match self {
+            HeNormal => he_normal_weights_init,
+            HeUniform => he_uniform_weights_init,
+            GlorotNormal => glorot_normal_weights_init,
+            GlorotUniform => glorot_uniform_weights_init,
+        }
+    }
+}
+
+impl FromStr for WeightInitializer {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use WeightInitializer::*;
+
+        let res = match s.trim() {
+            "he-normal" => HeNormal,
+            "he-uniform" => HeUniform,
+            "glorot-normal" => GlorotNormal,
+            "glorot-uniform" => GlorotUniform,
+            _ => bail!("Unexpected weight initializer use he/glorot-uniform/normal."),
+        };
+        Ok(res)
+    }
+}
+
+impl Default for WeightInitializer {
+    fn default() -> Self {
+        Self::HeNormal
     }
 }

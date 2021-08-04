@@ -24,9 +24,6 @@ pub(crate) struct CliTrainingControllerBuilder {
     /// The ListNet will be written to the output folder in the form of
     /// `list_net_{epoch}.binparams`.
     pub(crate) dump_every: Option<usize>,
-
-    /// If true a progress bar for the current batch is shown
-    pub(crate) show_sample_progress: bool,
 }
 
 impl CliTrainingControllerBuilder {
@@ -40,29 +37,31 @@ impl CliTrainingControllerBuilder {
                 )
                 .progress_chars("=> "),
         );
+        train_progress_bar.set_draw_delta(5);
+
         let epoch_progress_bar = ProgressBar::new(0);
         epoch_progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template("Batches: [{bar:30.green}] {percent:>3}% ({pos:>5}/{len:>5}) {msg}")
                 .progress_chars("=> "),
         );
-        let sample_progress_bar = if self.show_sample_progress {
-            let bar = ProgressBar::new(0);
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("Samples: [{bar:30.green}] {percent:>3}% ({pos:>5}/{len:>5})")
-                    .progress_chars("=> "),
-            );
-            bar
-        } else {
-            ProgressBar::hidden()
-        };
+        epoch_progress_bar.set_draw_delta(5);
+
+        let sample_progress_bar = ProgressBar::new(0);
+        sample_progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("Samples: [{bar:30.green}] {percent:>3}% ({pos:>5}/{len:>5})")
+                .progress_chars("=> "),
+        );
+        sample_progress_bar.set_draw_delta(5);
+
         let eval_progress_bar = ProgressBar::new(0);
         eval_progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template("Evaluation: [{bar:27.green}] {percent:>3}% ({pos:>5}/{len:>5}) {msg}")
                 .progress_chars("=> "),
         );
+        eval_progress_bar.set_draw_delta(5);
 
         CliTrainingController {
             setting: self,

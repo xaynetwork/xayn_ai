@@ -87,10 +87,6 @@ where
             evaluation_data_order: DataLookupOrder::new(evaluation_ids),
         })
     }
-
-    pub fn batch_size(&self) -> usize {
-        self.batch_size
-    }
 }
 
 #[derive(Error, Debug, Display)]
