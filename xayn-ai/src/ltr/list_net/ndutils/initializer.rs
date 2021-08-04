@@ -246,12 +246,10 @@ mod tests {
                 } else {
                     1
                 }
+            } else if w >= -half_limit {
+                2
             } else {
-                if w >= -half_limit {
-                    2
-                } else {
-                    3
-                }
+                3
             };
             buckets[bucket_idx] += 1;
         }
@@ -355,12 +353,10 @@ mod tests {
                 } else {
                     1
                 }
+            } else if w >= -half_limit {
+                2
             } else {
-                if w >= -half_limit {
-                    2
-                } else {
-                    3
-                }
+                3
             };
             buckets[bucket_idx] += 1;
         }
