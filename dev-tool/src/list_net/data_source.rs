@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin))]
+
 //FIXME[follow up PR]: Move modified parts of this module into the `ltr::list_net` module to re-use them for in-app training.
 use std::{
     error::Error as StdError,

@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin))]
+
 use std::path::PathBuf;
 
 use anyhow::{Context, Error};
