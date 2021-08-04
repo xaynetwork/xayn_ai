@@ -300,7 +300,7 @@ mod tests {
     use ndarray::{arr1, arr2, Array1, Array2};
     use rand::{thread_rng, Rng};
 
-    use super::super::he_normal_weights_init;
+    use super::super::initializer::he_normal_weights_init;
 
     use super::*;
 
