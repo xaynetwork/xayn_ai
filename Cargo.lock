@@ -1477,6 +1477,7 @@ dependencies = [
  "indicatif",
  "ndarray",
  "onnxruntime",
+ "rayon",
  "rubert-tokenizer",
  "serde",
  "thiserror",
