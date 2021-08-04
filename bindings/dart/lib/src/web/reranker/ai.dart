@@ -55,7 +55,7 @@ class _XaynAi {
 
   external Uint8List syncdataBytes();
 
-  external void synchronize([Uint8List? serialized]);
+  external void synchronize(Uint8List serialized);
 
   external void free();
 }
@@ -209,7 +209,7 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  void synchronize([Uint8List? serialized]) {
+  void synchronize(Uint8List serialized) {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }

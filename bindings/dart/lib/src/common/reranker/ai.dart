@@ -69,7 +69,7 @@ class XaynAi {
   Uint8List syncdataBytes() => throw UnsupportedError('Unsupported platform.');
 
   /// Synchronizes the internal data of the reranker with another.
-  void synchronize([Uint8List? serialized]) =>
+  void synchronize(Uint8List serialized) =>
       throw UnsupportedError('Unsupported platform');
 
   /// Frees the memory.

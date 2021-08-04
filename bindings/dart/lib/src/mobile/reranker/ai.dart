@@ -182,12 +182,12 @@ class XaynAi implements common.XaynAi {
 
   /// Synchronizes the internal data of the reranker with another.
   @override
-  void synchronize([Uint8List? serialized]) {
+  void synchronize(Uint8List serialized) {
     Bytes? bytes;
     final error = XaynAiError();
 
     try {
-      bytes = Bytes.fromList(serialized ?? Uint8List(0));
+      bytes = Bytes.fromList(serialized);
       ffi.xaynai_synchronize(_ai, bytes.ptr, error.ptr);
       if (error.isError()) {
         throw error.toException();
