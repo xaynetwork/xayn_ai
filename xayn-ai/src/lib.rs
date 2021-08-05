@@ -49,3 +49,7 @@ pub(crate) use rstest_reuse as rstest_reuse;
 // Reexport for assert_approx_eq for usage in FFI crates.
 #[doc(hidden)]
 pub use self::utils::ApproxAssertIterHelper;
+
+// Reexport for the dev-tool
+#[doc(hidden)]
+pub use crate::ltr::{list_net, list_net_training_data_from_history};
