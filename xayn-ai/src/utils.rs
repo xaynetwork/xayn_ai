@@ -19,7 +19,7 @@ macro_rules! to_vec_of_ref_of {
 /// `NaN` is treated as the lowest possible value if `nan_min`, similar to what [`f32::max`] does.
 /// Otherwise it is treated as the highest possible value, similar to what [`f32::min`] does.
 pub(crate) fn nan_safe_f32_cmp_base(a: &f32, b: &f32, nan_min: bool) -> Ordering {
-    a.partial_cmp(&b).unwrap_or_else(|| {
+    a.partial_cmp(b).unwrap_or_else(|| {
         // if `partial_cmp` returns None we have at least one `NaN`,
         let cmp = match (a.is_nan(), b.is_nan()) {
             (true, true) => Ordering::Equal,
