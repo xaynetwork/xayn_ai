@@ -7,10 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-derive_more = { version = "0.99.14", default-features = false, features = ["display"] }
-serde = { version = "1.0.126", features = ["derive"] }
+derive_more = { version = "0.99.16", default-features = false, features = ["display"] }
+serde = { version = "1.0.127", features = ["derive"] }
 serde_repr = "0.1.7"
 xayn-ai = { path = "../xayn-ai" }
 
 [build-dependencies]
-cbindgen = "=0.19.0"
+cbindgen = "=0.20.0"
