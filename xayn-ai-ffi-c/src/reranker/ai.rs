@@ -466,7 +466,7 @@ mod tests {
         }
     }
 
-    pub struct TestDb(CBytes);
+    struct TestDb(CBytes);
 
     impl TestDb {
         #[allow(clippy::unnecessary_wraps)]
@@ -478,6 +478,20 @@ mod tests {
     impl Default for TestDb {
         fn default() -> Self {
             Self(Vec::new().into_boxed_slice().into())
+        }
+    }
+
+    struct TestSyncdata(CBytes);
+
+    impl Default for TestSyncdata {
+        fn default() -> Self {
+            Self(vec![0; 17].into_boxed_slice().into())
+        }
+    }
+
+    impl TestSyncdata {
+        fn as_ptr(&self) -> Option<&CBytes> {
+            Some(&self.0)
         }
     }
 
@@ -655,17 +669,44 @@ mod tests {
         .unwrap();
         assert_eq!(error.code, CCode::None);
 
-        let sync_data = unsafe { xaynai_syncdata_bytes(xaynai.as_ptr(), error.as_mut_ptr()) };
+        let syncdata = unsafe { xaynai_syncdata_bytes(xaynai.as_ptr(), error.as_mut_ptr()) };
         assert_eq!(error.code, CCode::None);
-        assert!(sync_data.is_some());
-        assert!(!sync_data.as_ref().unwrap().is_empty());
+        assert!(syncdata.is_some());
+        assert!(!syncdata.as_ref().unwrap().is_empty());
 
-        unsafe { bytes_drop(sync_data) };
+        unsafe { bytes_drop(syncdata) };
         unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
 
-    fn _test_synchronize() {
-        todo!("mock up a minimal serialized bytes");
+    #[test]
+    fn test_synchronize() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let mut xaynai = unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.code, CCode::None);
+
+        let syncdata = TestSyncdata::default();
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), syncdata.as_ptr(), error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::None);
+
+        unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
 
     #[test]
@@ -1291,8 +1332,20 @@ mod tests {
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
-    fn _test_ai_null_synchronize() {
-        todo!("mock up a minimal serialized bytes");
+    #[test]
+    fn test_ai_null_synchronize() {
+        let mut error = CError::default();
+        let syncdata = TestSyncdata::default();
+
+        let null = None;
+        unsafe { xaynai_synchronize(null, syncdata.as_ptr(), error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::AiPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "Failed to synchronize data: The ai pointer is null",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
     #[test]
@@ -1450,8 +1503,40 @@ mod tests {
         unsafe { error_message_drop(error.as_mut_ptr()) };
     }
 
-    fn _test_bytes_null_synchronize() {
-        todo!("mock up a minimal serialized bytes");
+    #[test]
+    fn test_bytes_null_synchronize() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let mut xaynai = unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.code, CCode::None);
+
+        let null = None;
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), null, error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::SyncDataBytesPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "Failed to synchronize data: The bytes pointer is null",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
 
     #[test]
