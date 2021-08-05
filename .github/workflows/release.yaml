@@ -339,7 +339,7 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     outputs:
-      dir-name: ${{ steps.wasm-lib.outputs.dir-name }}
+      version: ${{ steps.wasm-lib.outputs.version }}
       upload-name: ${{ steps.wasm-lib.outputs.upload-name }}
       upload-path: ${{ steps.wasm-lib.outputs.upload-path }}
     steps:
@@ -383,7 +383,7 @@ jobs:
         id: wasm-lib
         run: |
           WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
-          echo "::set-output name=dir-name::$(echo wasm_$WASM_ARTIFACTS_VERSION)"
+          echo "::set-output name=version::$(echo wasm_$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-name::$(echo build-wasm-release-$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-path::$(echo out/wasm_$WASM_ARTIFACTS_VERSION)"
       - run: mv out/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
@@ -403,7 +403,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       upload-name: ${{ steps.asset-artifacts.outputs.upload-name }}
-      json-manifest: ${{ steps.asset-paths.outputs.json-manifest }}
+      json-metadata: ${{ steps.asset-paths.outputs.json-metadata }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
@@ -436,9 +436,8 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-suffix: ${{ needs.build-wasm-lib-release.outputs.dir-name }}
-          wasm-rel-path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
-          release: "true"
+          wasm-version: ${{ needs.build-wasm-lib-release.outputs.version }}
+          wasm-out-dir-path: ${{ needs.build-wasm-lib-release.outputs.upload-path }}
 
       - name: Generate asset artifacts name
         id: asset-artifacts
@@ -451,8 +450,9 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           path: |
-            ${{ steps.asset-paths.outputs.dart-manifest }}
-            ${{ steps.asset-paths.outputs.json-manifest }}
+            ${{ steps.asset-paths.outputs.dart-metadata }}
+            ${{ steps.asset-paths.outputs.json-metadata }}
+            ${{ steps.asset-paths.outputs.chunks-dir }}
 
   publish-asset-artifacts:
     name: publish-asset-artifacts
@@ -492,10 +492,20 @@ jobs:
           BUCKET_URL: s3://xayn_ai_staging_assets
         run: |
           set -e
-          for asset in $(cat ${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
-            ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
-            ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
-            s3cmd sync --acl-public --guess-mime-type $ASSET_REL_PATH $ASSET_REL_PATH ${{ env.BUCKET_URL }}/$ASSET_SUFFIX
+
+          for ASSET in $(cat ${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.assets[]'); do
+              FRAGMENTS_LEN=$(echo $ASSET | jq -r '.fragments | length')
+              if [ "$FRAGMENTS_LEN" = "0" ]; then
+                  ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
+                  ASSET_PATH=$(echo $ASSET | jq -r '.path')
+                  s3cmd sync --acl-public --guess-mime-type $ASSET_PATH $ASSET_PATH ${{ env.BUCKET_URL }}/$ASSET_URL_SUFFIX
+              else
+                  for FRAGMENT in $(echo $ASSET | jq -c '.fragments[]'); do
+                      FRAGMENT_URL_SUFFIX=$(echo $FRAGMENT | jq -r '.url_suffix')
+                      FRAGMENT_PATH=$(echo $FRAGMENT | jq -r '.path')
+                      s3cmd sync --acl-public --guess-mime-type $FRAGMENT_PATH $FRAGMENT_PATH ${{ env.BUCKET_URL }}/$FRAGMENT_URL_SUFFIX
+                  done
+              fi
           done
 
       - name: Install KeyCDN SSH privkey
@@ -518,20 +528,52 @@ jobs:
       - name: Upload assets (KeyCDN)
         if: github.ref == 'refs/heads/release'
         env:
+          PREPARE_LOCAL_ASSETS_DIR: ${{ runner.temp }}/prepare_local_assets
           PREPARE_ASSETS_DIR: ${{ runner.temp }}/prepare_assets
         run: |
           set -e
+
+          mkdir -p $PREPARE_LOCAL_ASSETS_DIR
+          cd $PREPARE_LOCAL_ASSETS_DIR
+
+          for ASSET in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.assets[]'); do
+              ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
+              ASSET_VERSION=$(dirname $ASSET_URL_SUFFIX)
+
+              FRAGMENTS_LEN=$(echo $ASSET | jq -r '.fragments | length')
+              if [ "$FRAGMENTS_LEN" = "0" ]; then
+                  ASSET_PATH=$(echo $ASSET | jq -r '.path')
+                  mkdir -p $ASSET_VERSION
+                  cp -r ${{ github.workspace }}/$ASSET_PATH $ASSET_URL_SUFFIX
+
+                  ASSET_CHECKSUM=$(echo $ASSET | jq -r '.checksum')
+                  echo "$ASSET_CHECKSUM *$ASSET_URL_SUFFIX" | shasum -c -
+              else
+                  for FRAGMENT in $(echo $ASSET | jq -c '.fragments[]'); do
+                      FRAGMENT_URL_SUFFIX=$(echo $FRAGMENT | jq -r '.url_suffix')
+                      FRAGMENT_PATH=$(echo $FRAGMENT | jq -r '.path')
+                      mkdir -p $ASSET_VERSION
+                      cp -r ${{ github.workspace }}/$FRAGMENT_PATH $FRAGMENT_URL_SUFFIX
+
+                      FRAGMENT_CHECKSUM=$(echo $FRAGMENT | jq -r '.checksum')
+                      echo "$FRAGMENT_CHECKSUM *$FRAGMENT_URL_SUFFIX" | shasum -c -
+                  done
+              fi
+          done
+
           mkdir -p $PREPARE_ASSETS_DIR
           cd $PREPARE_ASSETS_DIR
 
-          for asset in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
-            ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
-            ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
-            ASSET_SUFFIX_DIR=$(dirname $ASSET_SUFFIX)
-            mkdir -p $ASSET_SUFFIX_DIR
-            cp -r ${{ github.workspace }}/$ASSET_REL_PATH $ASSET_SUFFIX
+          # Download the remote asset (if it exists) of the local asset that we want to upload.
+          for ASSET_VERSION in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c -r '.assets[].url_suffix' | awk -F "/" '{print $1}'| sort -n  | uniq ); do
+              rsync -rtzv keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/$ASSET_VERSION . || true
           done
 
+          # In order to not accidentally override remote assets we sync the local and remote assets
+          # with the `--ignore-existing` flag. This way we only add new local assets.
+          rsync -avv --ignore-existing $PREPARE_LOCAL_ASSETS_DIR/ .
+
+          # Sync with KeyCDN
           rsync -rtzv --chmod=D2755,F644 . keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/
 
   release:
