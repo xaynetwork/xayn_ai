@@ -480,9 +480,10 @@ jobs:
 
       - name: Install s3cmd
         if: github.ref != 'refs/heads/release'
-        env:
-          S3CMD_VERSION: 2.1.0
-        run: pip install s3cmd==${{ env.S3CMD_VERSION }}
+        uses: ./.ci/install-s3cmd
+        with:
+          access-key: ${{ secrets.STAGING_ASSETS_BUCKET_ACCESS_KEY }}
+          secret-key: ${{ secrets.STAGING_ASSETS_BUCKET_SECRET_KEY }}
 
       - name: Upload assets to S3
         if: github.ref != 'refs/heads/release'
@@ -491,8 +492,6 @@ jobs:
           BUCKET_URL: s3://xayn_ai_staging_assets
         run: |
           set -e
-          echo -e ${{ secrets.STAGING_ASSETS_S3CFG }} | base64 -d > $HOME/.s3cfg
-
           for asset in $(cat ${{ needs.build-asset-artifacts.outputs.json-manifest }} | jq -c '.assets[]'); do
             ASSET_SUFFIX=$(echo ${asset} | jq -r '.suffix')
             ASSET_REL_PATH=$(echo ${asset} | jq -r '.path')
