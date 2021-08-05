@@ -47,7 +47,7 @@ pub enum LoadingDenseFailed {
 ///
 /// This can be used for both 1D and 2D inputs depending
 /// on the activation function.
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 pub(crate) struct Dense<AF>
 where
     AF: ActivationFunction<f32>,
@@ -68,6 +68,11 @@ where
         let weights = params.take("weights")?;
         let bias = params.take("bias")?;
         Ok(Self::new(weights, bias, activation_function)?)
+    }
+
+    pub(crate) fn store_params(self, mut params: BinParamsWithScope) {
+        params.insert("weights", self.weights);
+        params.insert("bias", self.bias);
     }
 
     pub(crate) fn new(
@@ -214,17 +219,37 @@ pub(crate) struct DenseGradientSet {
 }
 
 impl DenseGradientSet {
-    /// Creates a gradient set with 0 gradients for given dense layer.
-    pub(crate) fn zero_gradients_for(dense: &Dense<impl ActivationFunction<f32>>) -> Self {
-        Self {
-            weight_gradients: Array::zeros(dense.weights.dim()),
-            bias_gradients: Array::zeros(dense.bias.dim()),
-        }
+    /// Merge multiple gradients for the same shared weights.
+    ///
+    /// This will just sum them up.
+    pub(crate) fn merge_shared(
+        gradients_for_shared_weights: impl IntoIterator<Item = Self>,
+    ) -> Option<Self> {
+        gradients_for_shared_weights.into_iter().reduce(|mut l, r| {
+            l += r;
+            l
+        })
     }
 }
 
 impl AddAssign for DenseGradientSet {
     fn add_assign(&mut self, rhs: Self) {
+        debug_assert_eq!(
+            (self.weight_gradients.shape(), self.bias_gradients.shape()),
+            (rhs.weight_gradients.shape(), rhs.bias_gradients.shape())
+        );
+        self.weight_gradients += &rhs.weight_gradients;
+        self.bias_gradients += &rhs.bias_gradients;
+    }
+}
+
+#[cfg(test)]
+impl<'a> AddAssign<&'a Self> for DenseGradientSet {
+    fn add_assign(&mut self, rhs: &Self) {
+        debug_assert_eq!(
+            (self.weight_gradients.shape(), self.bias_gradients.shape()),
+            (rhs.weight_gradients.shape(), rhs.bias_gradients.shape())
+        );
         self.weight_gradients += &rhs.weight_gradients;
         self.bias_gradients += &rhs.bias_gradients;
     }
