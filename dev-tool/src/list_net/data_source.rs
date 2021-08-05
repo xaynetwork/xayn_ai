@@ -5,7 +5,6 @@ use std::{
     error::Error as StdError,
     fs::File,
     io::{BufReader, BufWriter, Read, Write},
-    ops::RangeTo,
     path::Path,
     u64,
 };
@@ -13,6 +12,7 @@ use std::{
 use anyhow::{bail, Error};
 use bincode::Options;
 use displaydoc::Display;
+use itertools::Itertools;
 use log::debug;
 use ndarray::{Array1, Array2, ArrayBase, ArrayView, Data, Dimension};
 use rand::{prelude::SliceRandom, Rng};
@@ -44,32 +44,20 @@ where
     ///
     /// # Errors
     ///
-    /// - If `evaluation_split` is less than 0 or not a normal float.
-    /// - If there are no samples.
-    /// - If there are no training samples with the given `evaluation_split`.
-    /// - If there are no evaluation samples with the given `evaluation_split`,
+    /// - If `evaluation_split` is less than 0, greater then 1.0 or not a normal float.
+    /// - If there are no training samples with the given `evaluation_split`, which is not exactly 1.0.
+    /// - If there are no evaluation samples with the given `evaluation_split`, which is not exactly 0.0.
     ///   but the split is not `0`.
-    /// - If calling `storage.data_ids()` failed.
+    /// - If the `batch_size` is larger then the number of training samples.
     pub(crate) fn new(
         storage: S,
         evaluation_split: f32,
         mut batch_size: usize,
     ) -> Result<Self, DataSourceError<S::Error>> {
-        if evaluation_split < 0. || !evaluation_split.is_normal() {
-            return Err(DataSourceError::BadEvaluationSplit(evaluation_split));
-        }
-        let nr_all_samples = storage.data_ids().map_err(DataSourceError::Storage)?.end;
-        if nr_all_samples == 0 {
-            return Err(DataSourceError::EmptyDatabase);
-        }
-        let nr_evaluation_samples = (nr_all_samples as f32 * evaluation_split).round() as usize;
-        if nr_evaluation_samples >= nr_all_samples {
-            return Err(DataSourceError::TooLargeEvaluationSplit(evaluation_split));
-        }
-        if nr_evaluation_samples == 0 && evaluation_split > 0. {
-            return Err(DataSourceError::NoEvaluationSamples(evaluation_split));
-        }
-        let nr_training_samples = nr_all_samples - nr_evaluation_samples;
+        let nr_all_samples = storage.number_of_samples();
+        let (nr_training_samples, _nr_evaluation_samples) =
+            Self::calculate_evaluation_split(evaluation_split, nr_all_samples)?;
+
         if batch_size > nr_training_samples {
             return Err(DataSourceError::TooLargeBatchSize {
                 batch_size,
@@ -87,6 +75,65 @@ where
             training_data_order: DataLookupOrder::new(training_ids),
             evaluation_data_order: DataLookupOrder::new(evaluation_ids),
         })
+    }
+
+    /// Create multiple `DataSources` by splitting the storage into chunks.
+    ///
+    /// The `DataSources` in the `Vec` will only have training samples and
+    /// the additional `DataSource` only contains evaluation samples.
+    ///
+    /// This will first split the storage and then for each chunk create
+    /// a `DataSource`.
+    ///
+    /// # Errors
+    ///
+    /// Has the same errors as [`DataSource.new()`].
+    #[allow(dead_code, clippy::type_complexity)]
+    pub(crate) fn new_split(
+        storage: S,
+        evaluation_split: f32,
+        batch_size: usize,
+        chunk_size: usize,
+    ) -> Result<(Vec<Self>, Option<Self>), DataSourceError<S::Error>> {
+        let (_, nr_evaluation_samples) =
+            Self::calculate_evaluation_split(evaluation_split, storage.number_of_samples())?;
+
+        let (training_chunks, eval_storage) =
+            storage.split_storage_into_chunks(chunk_size, batch_size, nr_evaluation_samples)?;
+
+        let training_data_sources = training_chunks
+            .into_iter()
+            .map(|storage| Self::new(storage, 0.0, batch_size))
+            .collect::<Result<_, _>>()?;
+
+        let eval_data_source = (eval_storage.number_of_samples() > 0)
+            .then(|| Self::new(eval_storage, 1.0, 0))
+            .transpose()?;
+        Ok((training_data_sources, eval_data_source))
+    }
+
+    /// Calculates `(nr_training_samples, nr_evaluation_samples)` and checks for consistency/invariants.
+    fn calculate_evaluation_split(
+        evaluation_split: f32,
+        nr_all_samples: usize,
+    ) -> Result<(usize, usize), DataSourceError<S::Error>> {
+        if nr_all_samples == 0 {
+            return Err(DataSourceError::EmptyDatabase);
+        }
+        if !(0.0..=1.0).contains(&evaluation_split)
+            || (evaluation_split != 0.0 && !evaluation_split.is_normal())
+        {
+            return Err(DataSourceError::BadEvaluationSplit(evaluation_split));
+        }
+        let nr_evaluation_samples = (nr_all_samples as f32 * evaluation_split).round() as usize;
+        if nr_evaluation_samples == nr_all_samples && evaluation_split < 1. {
+            return Err(DataSourceError::TooLargeEvaluationSplit(evaluation_split));
+        }
+        if nr_all_samples > 0 && nr_evaluation_samples == 0 && evaluation_split > 0. {
+            return Err(DataSourceError::NoEvaluationSamples(evaluation_split));
+        }
+        let nr_training_samples = nr_all_samples - nr_evaluation_samples;
+        Ok((nr_training_samples, nr_evaluation_samples))
     }
 }
 
@@ -109,7 +156,7 @@ where
     /// Empty database cannot be used for training.
     EmptyDatabase,
     /// Fetching sample from storage failed: {0}.
-    Storage(SE),
+    Storage(#[from] SE),
 }
 
 impl<S> list_net::DataSource for DataSource<S>
@@ -155,14 +202,46 @@ where
     }
 }
 
+/// Abstraction over a storage of samples.
 pub(crate) trait Storage: Send {
     type Error: StdError + 'static + Send;
+
+    /// Splits this storage into multiple chunks.
+    ///
+    /// This will split the storage into multiple chunks by first splitting it
+    /// into two segments. The first will be chunked and the second will be a
+    /// single storage instance. The the second segment will have a size of
+    /// `tail_segment_size` and the first a size of `nr_all_samples-tail_segment_size`.
+    ///
+    /// (The first is used for chunked training samples, the second for non-chunked
+    /// evaluation samples.)
+    ///
+    /// The chunking of the first segment will be done by splitting it into
+    /// chunks with a size of `chunk_size`, through the last chunk might
+    /// have a smaller size. If a smaller last chunk has a size less then
+    /// `min_remainder_size` it will be discarded.
+    ///
+    /// # Errors
+    ///
+    /// An error should be returned if:
+    ///
+    /// - `chunk_size` is `0`
+    /// - `last_chunk_size` is greater then the number of all chunks
+    /// - `min_remainder_size` is greater then `chunk_size`
+    fn split_storage_into_chunks(
+        self,
+        chunk_size: usize,
+        min_remainder_size: usize,
+        tail_segment_size: usize,
+    ) -> Result<(Vec<Self>, Self), Self::Error>
+    where
+        Self: Sized;
 
     /// Return all sample ids.
     ///
     /// For now this is a range. I.e. `0..nr_of_samples`. We might need
     /// to change this in the future, but for now this is simpler.
-    fn data_ids(&self) -> Result<RangeTo<usize>, Self::Error>;
+    fn number_of_samples(&self) -> usize;
 
     /// Loads a sample and returns a reference to it.
     ///
@@ -273,6 +352,21 @@ pub struct InMemorySamples {
 pub enum StorageError {
     /// The database was parsed successfully but contains broken invariants at index {at_index}.
     BrokenInvariants { at_index: usize },
+
+    /// The `chunk_size` used to split the storage was `0`.
+    ChunkSize0,
+
+    /// The `min_remainder_size` ({min_remainder_size}) used to split the storage was larger then `chunk_size` ({chunk_size}).
+    ToLargeMinRemainderSize {
+        min_remainder_size: usize,
+        chunk_size: usize,
+    },
+
+    /// The `tail_segment_size` ({tail_segment_size}) was larger then the total number of samples ({nr_all_samples}).
+    ToLargeExtraChunkSize {
+        tail_segment_size: usize,
+        nr_all_samples: usize,
+    },
 }
 
 impl InMemorySamples {
@@ -415,8 +509,8 @@ fn extend_vec_with_ndarray<T: Clone>(
 impl Storage for InMemorySamples {
     type Error = StorageError;
 
-    fn data_ids(&self) -> Result<RangeTo<usize>, Self::Error> {
-        Ok(..self.data.len())
+    fn number_of_samples(&self) -> usize {
+        self.data.len()
     }
 
     fn load_sample(&mut self, id: DataId) -> Result<SampleView, Self::Error> {
@@ -430,6 +524,53 @@ impl Storage for InMemorySamples {
         }
         Ok(samples)
     }
+
+    fn split_storage_into_chunks(
+        self,
+        chunk_size: usize,
+        min_remainder_size: usize,
+        tail_segment_size: usize,
+    ) -> Result<(Vec<Self>, Self), Self::Error>
+    where
+        Self: Sized,
+    {
+        let Self { mut data } = self;
+        let nr_all_samples = data.len();
+
+        if chunk_size == 0 {
+            return Err(StorageError::ChunkSize0);
+        }
+        if min_remainder_size > chunk_size {
+            return Err(StorageError::ToLargeMinRemainderSize {
+                min_remainder_size,
+                chunk_size,
+            });
+        }
+        if tail_segment_size > nr_all_samples {
+            return Err(StorageError::ToLargeExtraChunkSize {
+                tail_segment_size,
+                nr_all_samples,
+            });
+        }
+
+        let nr_training_samples = nr_all_samples - tail_segment_size;
+        let last_chunk = InMemorySamples {
+            data: data.split_off(nr_training_samples),
+        };
+        let chunks = data
+            .into_iter()
+            .chunks(chunk_size)
+            .into_iter()
+            .filter_map(|chunk| {
+                let data = chunk.collect_vec();
+                let number_of_samples = data.len();
+                (number_of_samples == chunk_size || number_of_samples >= min_remainder_size)
+                    .then(|| InMemorySamples { data })
+            })
+            .collect_vec();
+
+        Ok((chunks, last_chunk))
+    }
 }
 
 #[cfg(test)]
@@ -437,7 +578,7 @@ mod tests {
     use itertools::Itertools;
     use ndarray::Array;
     use rand::{prelude::StdRng, SeedableRng};
-    use xayn_ai::assert_approx_eq;
+    use xayn_ai::{assert_approx_eq, list_net::DataSource as _};
 
     use super::*;
 
@@ -621,5 +762,190 @@ mod tests {
         assert_eq!(dlo.next(), Some(4));
         assert_eq!(dlo.next(), None);
         assert_eq!(dlo.next(), None);
+    }
+
+    fn mock_storage() -> (InMemorySamples, usize) {
+        let multiplier = ListNet::INPUT_NR_FEATURES + 1;
+        let storage = InMemorySamples {
+            // Invariant: len= (INPUT_NR_FEATURES+1)*nr_document
+            data: vec![
+                vec![0.0; multiplier * 10],
+                vec![1.2; multiplier * 3],
+                vec![2.0; multiplier],
+                vec![3.0; multiplier * 12],
+                vec![4.0; multiplier * 10],
+                vec![5.0; multiplier * 10],
+                vec![6.0; multiplier * 10],
+                vec![7.0; multiplier * 10],
+                vec![4.8; multiplier * 10],
+                vec![9.0; multiplier * 6],
+                vec![10.0; multiplier * 5],
+                vec![11.0; multiplier * 7],
+                vec![12.0; multiplier * 3],
+                vec![12.2; multiplier * 5],
+            ],
+        };
+        (storage, multiplier)
+    }
+
+    #[test]
+    fn test_storage_into_chunks() {
+        let (storage, multiplier) = mock_storage();
+        let (training_chunks, evaluation_chunk) =
+            storage.split_storage_into_chunks(3, 1, 4).unwrap();
+        assert_approx_eq!(
+            f32,
+            &training_chunks[0].data,
+            vec![
+                vec![0.0; multiplier * 10],
+                vec![1.2; multiplier * 3],
+                vec![2.0; multiplier],
+            ]
+        );
+        assert_approx_eq!(
+            f32,
+            &training_chunks[1].data,
+            vec![
+                vec![3.0; multiplier * 12],
+                vec![4.0; multiplier * 10],
+                vec![5.0; multiplier * 10],
+            ]
+        );
+        assert_approx_eq!(
+            f32,
+            &training_chunks[2].data,
+            vec![
+                vec![6.0; multiplier * 10],
+                vec![7.0; multiplier * 10],
+                vec![4.8; multiplier * 10],
+            ]
+        );
+        assert_approx_eq!(
+            f32,
+            &training_chunks[3].data,
+            vec![vec![9.0; multiplier * 6],]
+        );
+        assert_eq!(training_chunks.len(), 4);
+
+        assert_approx_eq!(
+            f32,
+            &evaluation_chunk.data,
+            vec![
+                vec![10.0; multiplier * 5],
+                vec![11.0; multiplier * 7],
+                vec![12.0; multiplier * 3],
+                vec![12.2; multiplier * 5],
+            ]
+        );
+        assert_eq!(evaluation_chunk.number_of_samples(), 4);
+    }
+
+    #[test]
+    fn test_storage_into_chunks_error_cases() {
+        assert!(mock_storage().0.split_storage_into_chunks(0, 1, 4).is_err());
+        assert!(mock_storage().0.split_storage_into_chunks(1, 2, 4).is_err());
+        assert!(mock_storage()
+            .0
+            .split_storage_into_chunks(2, 2, 15)
+            .is_err());
+        mock_storage()
+            .0
+            .split_storage_into_chunks(2, 1, 14)
+            .unwrap();
+        mock_storage().0.split_storage_into_chunks(1, 1, 4).unwrap();
+        mock_storage()
+            .0
+            .split_storage_into_chunks(2, 2, 10)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_storage_into_chunks_empty_chunks() {
+        let (chunked, extra) = mock_storage()
+            .0
+            .split_storage_into_chunks(2, 2, 14)
+            .unwrap();
+        assert_eq!(chunked.len(), 0);
+        assert_eq!(extra.number_of_samples(), 14);
+    }
+
+    #[test]
+    fn test_storage_into_chunks_empty_tail_segment() {
+        let (chunked, extra) = mock_storage().0.split_storage_into_chunks(3, 2, 0).unwrap();
+        assert_eq!(chunked.len(), 5);
+        assert_eq!(extra.number_of_samples(), 0);
+    }
+
+    #[test]
+    fn test_data_source_new_split_no_eval_samples() {
+        let (storage, _) = mock_storage();
+        let (train_sources, eval_source) = DataSource::new_split(storage, 0.0, 2, 5).unwrap();
+        assert!(eval_source.is_none());
+        assert_eq!(train_sources.len(), 3)
+    }
+
+    #[test]
+    fn test_data_source_new_split() {
+        let (storage, multiplier) = mock_storage();
+        let (mut train_sources, eval_source) = DataSource::new_split(storage, 0.286, 2, 3).unwrap();
+        let mut eval_source = eval_source.unwrap();
+
+        assert_approx_eq!(
+            f32,
+            &train_sources[0].storage.data,
+            vec![
+                vec![0.0; multiplier * 10],
+                vec![1.2; multiplier * 3],
+                vec![2.0; multiplier],
+            ]
+        );
+        train_sources[0].reset().unwrap();
+        assert_eq!(train_sources[0].next_training_batch().unwrap().len(), 2);
+        assert_eq!(train_sources[0].next_training_batch().unwrap().len(), 0);
+
+        assert_approx_eq!(
+            f32,
+            &train_sources[1].storage.data,
+            vec![
+                vec![3.0; multiplier * 12],
+                vec![4.0; multiplier * 10],
+                vec![5.0; multiplier * 10],
+            ]
+        );
+        train_sources[1].reset().unwrap();
+        assert_eq!(train_sources[1].next_training_batch().unwrap().len(), 2);
+        assert_eq!(train_sources[1].next_training_batch().unwrap().len(), 0);
+
+        assert_approx_eq!(
+            f32,
+            &train_sources[2].storage.data,
+            vec![
+                vec![6.0; multiplier * 10],
+                vec![7.0; multiplier * 10],
+                vec![4.8; multiplier * 10],
+            ]
+        );
+        train_sources[2].reset().unwrap();
+        assert_eq!(train_sources[2].next_training_batch().unwrap().len(), 2);
+        assert_eq!(train_sources[2].next_training_batch().unwrap().len(), 0);
+
+        assert_eq!(train_sources.len(), 3);
+
+        assert_approx_eq!(
+            f32,
+            &eval_source.storage.data,
+            vec![
+                vec![10.0; multiplier * 5],
+                vec![11.0; multiplier * 7],
+                vec![12.0; multiplier * 3],
+                vec![12.2; multiplier * 5],
+            ]
+        );
+        eval_source.reset().unwrap();
+        assert!(eval_source.next_evaluation_sample().unwrap().is_some());
+        assert!(eval_source.next_evaluation_sample().unwrap().is_some());
+        assert!(eval_source.next_evaluation_sample().unwrap().is_some());
+        assert!(eval_source.next_evaluation_sample().unwrap().is_some());
+        assert!(eval_source.next_evaluation_sample().unwrap().is_none());
     }
 }
