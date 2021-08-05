@@ -611,7 +611,7 @@ where
 
     /// Trains on next batch of samples.
     ///
-    /// If there where no more batches to train on this returns `false`, else this
+    /// If there are no more batches to train on this returns `false`, else this
     /// returns `true`.
     fn train_next_batch(&mut self) -> Result<bool, TrainingError<D::Error, C::Error>> {
         let ListNetTrainer {
@@ -763,9 +763,9 @@ pub trait TrainingController {
     fn training_result(self, list_net: ListNet) -> Result<Self::Outcome, Self::Error>;
 }
 
-/// Error produced while training.
+/// An error which can occur during training.
 ///
-/// This is either a error from the `DataSource` or
+/// This is either an error from the `DataSource` or
 /// the `TrainingController`.
 #[derive(Error, Debug)]
 pub enum TrainingError<DE, CE>
@@ -1260,8 +1260,6 @@ mod tests {
 
     #[test]
     fn test_training_list_net_is_reproducible_for_same_inputs_and_state() {
-        // drop(crate::embedding::qambert::tests::qambert());
-
         use Relevance::{High, Low, Medium};
         let list_net = LIST_NET.clone();
 
@@ -1277,15 +1275,6 @@ mod tests {
         let nr_epochs = 5;
         let batch_size = 1;
 
-        // The NaN bug somehow only appear on the first execution so uncommenting this
-        // makes the test pass even if the bug has not been fixed.
-        // let (ctrl0, ln0) = {
-        //     let data_source = VecDataSource::new(training_data.clone(), test_data.clone());
-        //     let callbacks = TestController::new();
-        //     let optimizer = MiniBatchSgd { learning_rate: 0.1 };
-        //     let trainer = ListNetTrainer::new(list_net.clone(), data_source, callbacks, optimizer);
-        //     trainer.train(nr_epochs, batch_size).unwrap()
-        // };
         let (ctrl1, ln1) = {
             let data_source = VecDataSource::new(training_data.clone(), test_data.clone());
             let callbacks = TestController::new();
@@ -1429,8 +1418,6 @@ mod tests {
 
     #[test]
     fn test_training_with_preset_initial_state_and_input_produces_expected_results() {
-        // drop(crate::embedding::qambert::tests::qambert());
-
         use Relevance::{High, Low, Medium};
 
         let mut list_net = LIST_NET.clone();
@@ -1451,8 +1438,6 @@ mod tests {
 
         while test_guard.next_iteration() {
             // Inlined all functions involved into training to get *all* intermediates.
-            // FIXME: Doing it this way is useful for analysis of the NaN bug, but not
-            //        very maintainable.
             let target_prob_dist = prepare_target_prob_dist(&relevances).unwrap();
             assert_trace_array!(test_guard =?= target_prob_dist);
             let (dense1_y, dense1_z) = list_net.dense1.run(&inputs, true);

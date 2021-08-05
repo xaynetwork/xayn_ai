@@ -121,7 +121,7 @@ impl LtrSystem for ConstLtr {
 
 pub type OwnedSample = (Array2<f32>, Array1<f32>);
 
-/// Creates training data for ListNet from a users history.
+/// Creates training data for ListNet from a user's history.
 pub fn list_net_training_data_from_history(
     mut history: &[DocumentHistory],
 ) -> Result<Vec<OwnedSample>, Error> {
@@ -131,20 +131,20 @@ pub fn list_net_training_data_from_history(
     // 3: Go through the history and create a query for each query in history but discount sample relevance (weights)
     //    for older queries. (Discount == given the gradient based on the sample a smaller weight when averaging the gradients)
     // ...
-    // For now we will go with 1. but this is like not the best choice.
+    // For now we will go with 1. but this is likely not the best choice.
     loop {
         // History has no relevant query and as such no samples.
         if history.is_empty() {
             return Ok(Vec::new());
         }
 
-        let last_query_results_id = {
+        let (last_session, last_query_count) = {
             let last = history.last().unwrap();
             (last.session, last.query_count)
         };
         let start_of_last_query = history
             .iter()
-            .rposition(|doc| (doc.session, doc.query_count) != last_query_results_id)
+            .rposition(|doc| doc.session != last_session && doc.query_count != last_query_count)
             .map(|last_before_last_query_idx| last_before_last_query_idx + 1)
             .unwrap_or_default();
 
@@ -164,8 +164,7 @@ pub fn list_net_training_data_from_history(
                 continue;
             };
 
-        let pseudo_current =
-            create_pseudo_current_query_from_historic_query(sorted_last_query.iter().copied());
+        let pseudo_current = create_pseudo_current_query_from_historic_query(sorted_last_query);
         let history = history[..start_of_last_query]
             .iter()
             .map_into()

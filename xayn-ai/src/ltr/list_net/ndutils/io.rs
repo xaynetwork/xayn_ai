@@ -205,7 +205,7 @@ impl BinParams {
             .map_err(Into::into)
     }
 
-    /// Insert a array under given name (replacing any array previously set for that name).
+    /// Insert an array of given name (replacing any array previously set for that name).
     pub fn insert<A>(&mut self, name: impl Into<String>, array: A)
     where
         FlattenedArray<f32>: From<A>,
