@@ -1,0 +1,41 @@
+{
+  "ai_assets": [
+    {
+      "dart_enum_name": "smbertVocab",
+      "url_suffix": "smbert_v0000/vocab.txt",
+      "path": "data/smbert_v0000/vocab.txt"
+    },
+    {
+      "dart_enum_name": "smbertModel",
+      "url_suffix": "smbert_v0000/smbert.onnx",
+      "path": "data/smbert_v0000/smbert.onnx",
+      "chunk_size": "10MB"
+    },
+    {
+      "dart_enum_name": "qambertVocab",
+      "url_suffix": "qambert_v0001/vocab.txt",
+      "path": "data/qambert_v0001/vocab.txt"
+    },
+    {
+      "dart_enum_name": "qambertModel",
+      "url_suffix": "qambert_v0001/qambert.onnx",
+      "path": "data/qambert_v0001/qambert.onnx",
+      "chunk_size": "10MB"
+    },
+    {
+      "dart_enum_name": "ltrModel",
+      "url_suffix": "ltr_v0000/ltr.binparams",
+      "path": "data/ltr_v0000/ltr.binparams"
+    }
+  ],
+  "wasm_assets" : [
+    {
+      "dart_enum_name": "wasmModule",
+      "filename": "genesis_bg.wasm"
+    },
+    {
+      "dart_enum_name": "wasmScript",
+      "filename": "genesis.js"
+    }
+  ]
+}
