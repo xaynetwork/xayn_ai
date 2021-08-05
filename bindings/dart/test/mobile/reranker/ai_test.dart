@@ -118,5 +118,36 @@ void main() {
         throwsXaynAiException(Code.rerankerDeserialization),
       );
     });
+
+    test('serialize syncdata', () async {
+      final ai = await XaynAi.create(mkSetupData(
+          smbertVocab, smbertModel, qambertVocab, qambertModel, ltrModel));
+
+      expect(ai.syncdataBytes(), isNot(isEmpty));
+
+      ai.free();
+    });
+
+    test('synchronize empty', () async {
+      final ai = await XaynAi.create(mkSetupData(
+          smbertVocab, smbertModel, qambertVocab, qambertModel, ltrModel));
+      expect(
+        () => ai.synchronize(Uint8List(0)),
+        throwsXaynAiException(Code.synchronization),
+      );
+
+      ai.free();
+    });
+
+    test('synchronize invalid', () async {
+      final ai = await XaynAi.create(mkSetupData(
+          smbertVocab, smbertModel, qambertVocab, qambertModel, ltrModel));
+      expect(
+        () => ai.synchronize(Uint8List.fromList([255])),
+        throwsXaynAiException(Code.synchronization),
+      );
+
+      ai.free();
+    });
   });
 }

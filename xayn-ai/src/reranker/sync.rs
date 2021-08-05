@@ -18,6 +18,10 @@ pub(crate) struct SyncData {
 impl SyncData {
     /// Deserializes a `SyncData` from `bytes`.
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.is_empty() {
+            bail!("Empty serialized data.");
+        }
+
         // version encoded in first byte
         let version = bytes[0];
         if version != CURRENT_SCHEMA_VERSION {
