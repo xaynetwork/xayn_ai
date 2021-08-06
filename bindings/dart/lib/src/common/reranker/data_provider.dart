@@ -17,7 +17,7 @@ part 'assets.dart';
 ///
 /// Implementation details for fetching assets:
 ///
-/// If the list of fragments is empty, the caller may use the URL suffix of the
+/// If the list of fragments is empty, the caller must use the URL suffix of the
 /// asset to fetch it.
 ///
 /// If the list of fragments is not empty, the caller must fetch each
