@@ -1475,6 +1475,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "csv",
+ "data",
  "derive_more",
  "displaydoc",
  "float-cmp 0.9.0",
@@ -2322,6 +2323,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "csv",
+ "data",
  "derive_more",
  "displaydoc",
  "float-cmp 0.9.0",
@@ -2359,6 +2361,7 @@ name = "xayn-ai-ffi-c"
 version = "0.1.0"
 dependencies = [
  "cbindgen",
+ "data",
  "float-cmp 0.9.0",
  "itertools",
  "tempfile",

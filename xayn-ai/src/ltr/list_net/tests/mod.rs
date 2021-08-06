@@ -2,17 +2,15 @@ use std::f32::consts::SQRT_2;
 
 use once_cell::sync::Lazy;
 
-use super::ndlayers::ActivationFunction;
+use data::ltr::model;
 
-use super::*;
+use super::{ndlayers::ActivationFunction, *};
 
 mod inference;
 mod training;
 
-const LIST_NET_BIN_PARAMS_PATH: &str = "../data/ltr_v0000/ltr.binparams";
-
 static LIST_NET: Lazy<ListNet> =
-    Lazy::new(|| ListNet::deserialize_from_file(LIST_NET_BIN_PARAMS_PATH).unwrap());
+    Lazy::new(|| ListNet::deserialize_from_file(model().unwrap()).unwrap());
 
 #[test]
 fn test_chunk_size_is_valid() {

@@ -8,3 +8,8 @@ const ARCHIVE: &str = "ltr_test_data_v0000";
 pub fn data() -> Result<PathBuf> {
     resolve_path(PathBuf::from(ARCHIVE).join("feature_extraction"), "")
 }
+
+/// Resolves the path to the intermediate LTR test model.
+pub fn intermediate() -> Result<PathBuf> {
+    resolve_path(ARCHIVE, "check_training_intermediates.binparams")
+}
