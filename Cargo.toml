@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "data",
     "dev-tool",
     "rubert",
     "rubert-tokenizer",
