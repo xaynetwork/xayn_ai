@@ -399,9 +399,11 @@ pub unsafe extern "C" fn xaynai_drop(_xaynai: Option<Box<CXaynAi>>) {}
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::CString, marker::PhantomPinned, mem, pin::Pin};
+    use std::{ffi::CString, marker::PhantomPinned, mem, path::PathBuf, pin::Pin};
 
     use tempfile::Builder as TempBuilder;
+
+    use data::{ltr, qambert, smbert};
 
     use super::*;
     use crate::{
@@ -412,7 +414,6 @@ mod tests {
         },
         reranker::{analytics::analytics_drop, bytes::bytes_drop},
         result::{error::error_message_drop, fault::faults_drop},
-        tests::{LTR_MODEL, QAMBERT_MODEL, QAMBERT_VOCAB, SMBERT_MODEL, SMBERT_VOCAB},
         utils::tests::AsPtr,
     };
 
@@ -425,9 +426,9 @@ mod tests {
     }
 
     impl<'a> TestFile<'a> {
-        fn uninitialized(file: &str) -> Pin<Box<Self>> {
+        fn uninitialized(file: PathBuf) -> Pin<Box<Self>> {
             Box::pin(Self {
-                file: CString::new(file).unwrap(),
+                file: CString::new(file.into_os_string().into_string().unwrap()).unwrap(),
                 ptr: None,
                 _pinned: PhantomPinned,
             })
@@ -441,23 +442,23 @@ mod tests {
         }
 
         fn smbert_vocab() -> Pin<Box<Self>> {
-            Self::uninitialized(SMBERT_VOCAB).initialize()
+            Self::uninitialized(smbert::vocab().unwrap()).initialize()
         }
 
         fn smbert_model() -> Pin<Box<Self>> {
-            Self::uninitialized(SMBERT_MODEL).initialize()
+            Self::uninitialized(smbert::model().unwrap()).initialize()
         }
 
         fn qambert_vocab() -> Pin<Box<Self>> {
-            Self::uninitialized(QAMBERT_VOCAB).initialize()
+            Self::uninitialized(qambert::vocab().unwrap()).initialize()
         }
 
         fn qambert_model() -> Pin<Box<Self>> {
-            Self::uninitialized(QAMBERT_MODEL).initialize()
+            Self::uninitialized(qambert::model().unwrap()).initialize()
         }
 
         fn ltr_model() -> Pin<Box<Self>> {
-            Self::uninitialized(LTR_MODEL).initialize()
+            Self::uninitialized(ltr::model().unwrap()).initialize()
         }
 
         #[allow(clippy::wrong_self_convention)] // false positive
