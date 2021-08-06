@@ -65,7 +65,7 @@ pub(crate) struct DomainRerankerBuilder<M> {
 }
 
 impl DomainRerankerBuilder<BufReader<File>> {
-    /// Creates a [`LtrBuilder`] from a model params file.
+    /// Creates a [`DomainRerankerBuilder`] from a model params file.
     pub(crate) fn from_file(model_params: impl AsRef<Path>) -> Result<Self, Error> {
         let model_params = BufReader::new(File::open(model_params)?);
         Ok(Self::new(model_params))

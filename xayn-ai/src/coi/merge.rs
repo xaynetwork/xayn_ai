@@ -130,7 +130,7 @@ where
         let min_pair = coiples
             .iter()
             .cloned()
-            .min_by(|cpl1, cpl2| cpl1.compare(&cpl2))
+            .min_by(|cpl1, cpl2| cpl1.compare(cpl2))
             .unwrap() // safe: nonempty coiples
             .cois;
 

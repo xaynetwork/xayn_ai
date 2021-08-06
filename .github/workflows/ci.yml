@@ -20,7 +20,7 @@ permissions:
 env:
   RUST_STABLE: 1.51
   RUST_NIGHTLY: nightly-2021-05-10
-  CARGO_NDK: 2.3.0
+  CARGO_NDK: 2.4.1
   ANDROID_PLATFORM_VERSION: 21
   CARGO_LIPO: 3.1.1
   # cmd: `shasum -a 256 cross`
@@ -29,7 +29,7 @@ env:
   # takes a considerable amount of time if it is compiled with the default opt-level
   # for tests. Therefore, we compile them with a higher opt-level to run them faster.
   OPT_TESTS_RUSTFLAGS: '-C opt-level=3 -C debug-assertions=yes -D warnings'
-  FLUTTER_VERSION: '2.2.1'
+  FLUTTER_VERSION: '2.2.3'
   JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   CARGO_INCREMENTAL: 0

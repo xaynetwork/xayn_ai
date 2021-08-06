@@ -225,7 +225,7 @@ impl ListNet {
     /// Calculates the final ListNet scores based on the intermediate scores.
     ///
     /// The input must be based on the output of [`ListNet.calculate_intermediate_scores()`],
-    /// but only supports a size of exactly [`Self::INPUT_NR_DOCUMENT`].
+    /// but only supports a size of exactly [`Self::INPUT_NR_DOCUMENTS`].
     fn calculate_final_scores(&self, scores: &Array1<f32>) -> Array1<f32> {
         debug_assert_eq!(scores.shape()[0], Self::INPUT_NR_DOCUMENTS);
         let (prob_dist_y, _) = self.prob_dist.run(scores, false);

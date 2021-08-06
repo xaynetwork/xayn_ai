@@ -87,7 +87,7 @@ pub(super) fn update_alpha(
     cois: Vec<PositiveCoi>,
 ) -> Vec<PositiveCoi> {
     update_alpha_or_beta(
-        &positive_docs,
+        positive_docs,
         cois,
         |PositiveCoi { ref mut alpha, .. }, adj| *alpha *= adj,
     )
@@ -98,7 +98,7 @@ pub(super) fn update_beta(
     cois: Vec<PositiveCoi>,
 ) -> Vec<PositiveCoi> {
     update_alpha_or_beta(
-        &negative_docs,
+        negative_docs,
         cois,
         |PositiveCoi { ref mut beta, .. }, adj| *beta *= adj,
     )
