@@ -124,7 +124,7 @@ impl CoiSystem {
     fn update_coi<CP: CoiPoint>(&self, embedding: &Embedding, mut cois: Vec<CP>) -> Vec<CP> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
             Some((coi, distance)) if distance < self.config.threshold => {
-                coi.set_point(self.shift_coi_point(embedding, &coi.point()));
+                coi.set_point(self.shift_coi_point(embedding, coi.point()));
                 coi.set_id(Uuid::new_v4().into());
             }
             _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone())),
@@ -390,7 +390,7 @@ mod tests {
             ..Default::default()
         };
 
-        let cois = CoiSystem::new(config).update_cois(&documents.as_slice(), cois);
+        let cois = CoiSystem::new(config).update_cois(documents.as_slice(), cois);
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]

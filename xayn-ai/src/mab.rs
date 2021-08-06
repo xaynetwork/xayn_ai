@@ -140,7 +140,7 @@ fn pull_arms(
     mut documents_by_coi: DocumentsByCoi,
 ) -> Result<(DocumentsByCoi, DocumentDataWithContext), MabError> {
     let sample_from_coi = |coi_id: &CoiId| {
-        let coi = cois.get(&coi_id).ok_or(MabError::DocumentCoiDoesNotExist)?;
+        let coi = cois.get(coi_id).ok_or(MabError::DocumentCoiDoesNotExist)?;
         beta_sampler.sample(coi.alpha, coi.beta)
     };
 

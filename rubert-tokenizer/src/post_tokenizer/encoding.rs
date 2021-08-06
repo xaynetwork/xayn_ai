@@ -82,7 +82,7 @@ where
                 let Split { normalized, tokens } = split;
                 tokens.iter().map(move |token| {
                     Range::Normalized(token.offsets.0..token.offsets.1)
-                        .convert(&normalized)
+                        .convert(normalized)
                         .map_or(token.offsets, |range| {
                             Offsets(
                                 normalized.offset + range.start,
