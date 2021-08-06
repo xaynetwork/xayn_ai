@@ -145,6 +145,34 @@ impl CXaynAi {
 
         Ok(Analytics(xaynai.0.analytics().cloned()))
     }
+
+    /// See [`xaynai_syncdata_bytes()`] for more.
+    unsafe fn syncdata_bytes(xaynai: Option<&Self>) -> Result<Bytes, Error> {
+        let xaynai = xaynai.ok_or_else(|| {
+            CCode::AiPointer.with_context("Failed to serialize sync data: The ai pointer is null")
+        })?;
+
+        xaynai.0.syncdata_bytes().map(Bytes).map_err(|cause| {
+            CCode::SyncDataSerialization
+                .with_context(format!("Failed to serialize sync data: {}", cause))
+        })
+    }
+
+    /// See [`xaynai_synchronize()`] for more.
+    unsafe fn synchronize(xaynai: Option<&mut Self>, bytes: Option<&CBytes>) -> Result<(), Error> {
+        let xaynai = xaynai.ok_or_else(|| {
+            CCode::AiPointer.with_context("Failed to synchronize data: The ai pointer is null")
+        })?;
+
+        let bytes = bytes.ok_or_else(|| {
+            CCode::SyncDataBytesPointer
+                .with_context("Failed to synchronize data: The bytes pointer is null")
+        })?;
+
+        xaynai.0.synchronize(bytes.as_ref()).map_err(|cause| {
+            CCode::Synchronization.with_context(format!("Failed to synchronize data: {}", cause))
+        })
+    }
 }
 
 /// Creates and initializes the Xayn AI.
@@ -306,6 +334,59 @@ pub unsafe extern "C" fn xaynai_analytics(
     call_with_result(analytics, error)
 }
 
+/// Serializes the synchronizable data of the reranker.
+///
+/// # Errors
+/// Returns a null pointer if:
+/// - The xaynai is null.
+/// - The serialization fails.
+/// - An unexpected panic happened.
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null xaynai doesn't point to memory allocated by [`xaynai_new()`].
+/// - A non-null error doesn't point to an aligned, contiguous area of memory with a [`CError`].
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_syncdata_bytes(
+    xaynai: Option<&CXaynAi>,
+    error: Option<&mut CError>,
+) -> Option<Box<CBytes>> {
+    let sync_bytes = AssertUnwindSafe(
+        // Safety: The mutable memory is not accessed in this call.
+        || unsafe { CXaynAi::syncdata_bytes(xaynai) },
+    );
+
+    call_with_result(sync_bytes, error)
+}
+
+/// Synchronizes the internal data of the reranker with another.
+///
+/// # Errors
+/// - The `xaynai` is null.
+/// - The serialized data `bytes` is null or invalid.
+/// - The synchronization failed.
+/// - An unexpected panic happened.
+///
+/// In case of a [`CCode::Panic`] the Xayn AI must not be accessed anymore and should be dropped via
+/// [`xaynai_drop()`]. The last known valid state can be restored by the caller via [`xaynai_new()`]
+/// with a previously serialized reranker database obtained from [`xaynai_serialize()`].
+///
+/// # Safety
+/// The behavior is undefined if:
+/// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
+/// - The safety constraints of [`CBoxedSlice`] are violated.
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_synchronize(
+    xaynai: Option<&mut CXaynAi>,
+    bytes: Option<&CBytes>,
+    error: Option<&mut CError>,
+) {
+    let synchronize = AssertUnwindSafe(|| unsafe { CXaynAi::synchronize(xaynai, bytes) });
+
+    call_with_result(synchronize, error);
+}
+
 /// Frees the memory of the Xayn AI.
 ///
 /// # Safety
@@ -385,7 +466,7 @@ mod tests {
         }
     }
 
-    pub struct TestDb(CBytes);
+    struct TestDb(CBytes);
 
     impl TestDb {
         #[allow(clippy::unnecessary_wraps)]
@@ -397,6 +478,21 @@ mod tests {
     impl Default for TestDb {
         fn default() -> Self {
             Self(Vec::new().into_boxed_slice().into())
+        }
+    }
+
+    struct TestSyncdata(CBytes);
+
+    impl Default for TestSyncdata {
+        fn default() -> Self {
+            Self(vec![0; 17].into_boxed_slice().into())
+        }
+    }
+
+    impl TestSyncdata {
+        #[allow(clippy::unnecessary_wraps)]
+        fn as_ptr(&self) -> Option<&CBytes> {
+            Some(&self.0)
         }
     }
 
@@ -547,6 +643,70 @@ mod tests {
         assert_eq!(error.code, CCode::None);
 
         unsafe { analytics_drop(analytics) };
+        unsafe { xaynai_drop(xaynai.into_ptr()) };
+    }
+
+    #[test]
+    fn test_syncdata_bytes() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let xaynai = unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.code, CCode::None);
+
+        let syncdata = unsafe { xaynai_syncdata_bytes(xaynai.as_ptr(), error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::None);
+        assert!(syncdata.is_some());
+        assert!(!syncdata.as_ref().unwrap().is_empty());
+
+        unsafe { bytes_drop(syncdata) };
+        unsafe { xaynai_drop(xaynai.into_ptr()) };
+    }
+
+    #[test]
+    fn test_synchronize() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let mut xaynai = unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.code, CCode::None);
+
+        let syncdata = TestSyncdata::default();
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), syncdata.as_ptr(), error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::None);
+
         unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
 
@@ -1159,7 +1319,38 @@ mod tests {
     }
 
     #[test]
-    fn test_history_null() {
+    fn test_ai_null_sync_bytes() {
+        let mut error = CError::default();
+
+        let invalid = None;
+        assert!(unsafe { xaynai_syncdata_bytes(invalid, error.as_mut_ptr()) }.is_none());
+        assert_eq!(error.code, CCode::AiPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "Failed to serialize sync data: The ai pointer is null",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_ai_null_synchronize() {
+        let mut error = CError::default();
+        let syncdata = TestSyncdata::default();
+
+        let null = None;
+        unsafe { xaynai_synchronize(null, syncdata.as_ptr(), error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::AiPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "Failed to synchronize data: The ai pointer is null",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_history_null_rerank() {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::smbert_vocab();
@@ -1205,7 +1396,7 @@ mod tests {
     }
 
     #[test]
-    fn test_documents_null() {
+    fn test_documents_null_rerank() {
         let smbert_vocab = TestFile::smbert_vocab();
         let smbert_model = TestFile::smbert_model();
         let qambert_vocab = TestFile::qambert_vocab();
@@ -1311,5 +1502,117 @@ mod tests {
 
         unsafe { bytes_drop(Some(invalid)) }
         unsafe { error_message_drop(error.as_mut_ptr()) };
+    }
+
+    #[test]
+    fn test_bytes_null_synchronize() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let mut xaynai = unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.code, CCode::None);
+
+        let null = None;
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), null, error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::SyncDataBytesPointer);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "Failed to synchronize data: The bytes pointer is null",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai.into_ptr()) };
+    }
+
+    #[test]
+    fn test_bytes_empty_synchronize() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let mut xaynai = unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.code, CCode::None);
+
+        let empty: CBytes = Vec::new().into_boxed_slice().into();
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), Some(&empty), error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::Synchronization);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            "Failed to synchronize data: Empty serialized data.",
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai.into_ptr()) };
+    }
+
+    #[test]
+    fn test_bytes_invalid_synchronize() {
+        let smbert_vocab = TestFile::smbert_vocab();
+        let smbert_model = TestFile::smbert_model();
+        let qambert_vocab = TestFile::qambert_vocab();
+        let qambert_model = TestFile::qambert_model();
+        let ltr_model = TestFile::ltr_model();
+        let db = TestDb::default();
+        let mut error = CError::default();
+
+        let mut xaynai = unsafe {
+            xaynai_new(
+                smbert_vocab.as_ptr(),
+                smbert_model.as_ptr(),
+                qambert_vocab.as_ptr(),
+                qambert_model.as_ptr(),
+                ltr_model.as_ptr(),
+                db.as_ptr(),
+                error.as_mut_ptr(),
+            )
+        }
+        .unwrap();
+        assert_eq!(error.code, CCode::None);
+
+        let version = u8::MAX;
+        let invalid = Bytes(vec![version]).into_raw().unwrap();
+        unsafe { xaynai_synchronize(xaynai.as_mut_ptr(), Some(&*invalid), error.as_mut_ptr()) };
+        assert_eq!(error.code, CCode::Synchronization);
+        assert_eq!(
+            error.message.as_ref().unwrap().as_str(),
+            format!(
+                "Failed to synchronize data: Unsupported serialized data. Found version {} expected 0.",
+                version,
+            ),
+        );
+
+        unsafe { error_message_drop(error.as_mut_ptr()) };
+        unsafe { xaynai_drop(xaynai.into_ptr()) };
     }
 }

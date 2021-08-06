@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- AI data is synchronizable between devices via the new functions `syncdata_bytes` and `synchronize`.
 - Outsourcing of ai assets. The assets are no longer part of the library. See [#94](https://github.com/xaynetwork/xayn_ai/pull/94) for more information about the API changes.
 - `XaynAi.rerank` takes as parameter `RerankMode` that allows to specify if we are reranking news or results from a search.
 - Assets for releases on the `staging` branch are uploaded to a S3 bucket (`https://xayn_ai_staging_assets.s3-de-central.profitbricks.com`).
