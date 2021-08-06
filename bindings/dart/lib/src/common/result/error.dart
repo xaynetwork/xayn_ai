@@ -93,6 +93,18 @@ enum Code {
 
   /// Deserialization of document collection error.
   documentsDeserialization,
+
+  /// Deserialization of rerank mode error.
+  rerankModeDeserialization,
+
+  /// Serialization of sync data error.
+  syncDataSerialization,
+
+  /// Synchronization error.
+  synchronization,
+
+  /// Sync data bytes null pointer error.
+  syncDataBytesPointer,
 }
 
 extension CodeToInt on Code {
@@ -159,6 +171,14 @@ extension CodeToInt on Code {
         return CCode.HistoriesDeserialization;
       case Code.documentsDeserialization:
         return CCode.DocumentsDeserialization;
+      case Code.rerankModeDeserialization:
+        return CCode.RerankModeDeserialization;
+      case Code.syncDataSerialization:
+        return CCode.SyncDataSerialization;
+      case Code.synchronization:
+        return CCode.Synchronization;
+      case Code.syncDataBytesPointer:
+        return CCode.SyncDataBytesPointer;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -229,6 +249,14 @@ extension IntToCode on int {
         return Code.historiesDeserialization;
       case CCode.DocumentsDeserialization:
         return Code.documentsDeserialization;
+      case CCode.RerankModeDeserialization:
+        return Code.rerankModeDeserialization;
+      case CCode.SyncDataSerialization:
+        return Code.syncDataSerialization;
+      case CCode.Synchronization:
+        return Code.synchronization;
+      case CCode.SyncDataBytesPointer:
+        return Code.syncDataBytesPointer;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }

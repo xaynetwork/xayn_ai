@@ -76,6 +76,12 @@ pub enum CCode {
     DocumentsDeserialization,
     /// Deserialization of rerank mode error.
     RerankModeDeserialization,
+    /// Serialization of sync data error.
+    SyncDataSerialization,
+    /// Synchronization error.
+    Synchronization,
+    /// Sync data bytes null pointer error.
+    SyncDataBytesPointer,
 }
 
 impl CCode {
