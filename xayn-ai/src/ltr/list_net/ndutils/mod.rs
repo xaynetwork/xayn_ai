@@ -84,8 +84,8 @@ pub fn kl_divergence(good_dist: ArrayView1<f32>, eval_dist: ArrayView1<f32>) -> 
 ///
 /// Source:
 ///
-/// - Website: https://www.cv-foundation.org/openaccess/content_iccv_2015/html/He_Delving_Deep_into_ICCV_2015_paper.html
-/// - Pdf: https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf
+/// - [Website](https://www.cv-foundation.org/openaccess/content_iccv_2015/html/He_Delving_Deep_into_ICCV_2015_paper.html)
+/// - [Pdf](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf)
 pub fn he_normal_weights_init<R>(rng: &mut R, dim: impl IntoDimension<Dim = Ix2>) -> Array2<f32>
 where
     R: Rng + ?Sized,

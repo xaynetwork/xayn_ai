@@ -58,7 +58,7 @@ rustup target add \
 Also `cargo-ndk` is needed:
 
 ```
-cargo install --version 2.3.0 cargo-ndk
+cargo install --version 2.4.1 cargo-ndk
 ```
 
 You also need to install android ndk and might need to set the `ANDROID_NDK_HOME` variable.
@@ -89,7 +89,7 @@ cargo install --version 3.1.1 cargo-lipo
 - wasm-pack
 
 ```
-cargo install --version 0.9.1 wasm-pack
+cargo install --version 0.10.0 wasm-pack
 ```
 
 - `rustup target add wasm32-unknown-unknown`

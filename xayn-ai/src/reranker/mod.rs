@@ -42,7 +42,7 @@ where
 {
     common_systems
         .coi()
-        .update_user_interests(history, &prev_documents, user_interests)
+        .update_user_interests(history, prev_documents, user_interests)
 }
 
 /// Compute and save analytics
@@ -266,7 +266,7 @@ where
             };
 
             if let PreviousDocuments::Mab(ref prev_documents) = self.data.prev_documents {
-                self.analytics = collect_analytics(&self.common_systems, history, &prev_documents)
+                self.analytics = collect_analytics(&self.common_systems, history, prev_documents)
                     .map_err(|e| self.errors.push(e))
                     .ok();
             }
