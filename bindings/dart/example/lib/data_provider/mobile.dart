@@ -21,8 +21,8 @@ Future<SetupData> getInputData() async {
 
   final paths = <AssetType, String>{};
   for (var asset in getAssets().entries) {
-    final path = await _getData(
-        baseDiskPath.path, asset.value.suffix, asset.value.checksumAsHex);
+    final path = await _getData(baseDiskPath.path, asset.value.urlSuffix,
+        asset.value.checksum.checksumAsHex);
     paths.putIfAbsent(asset.key, () => path);
   }
 

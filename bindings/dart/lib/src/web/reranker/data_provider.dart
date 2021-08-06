@@ -8,7 +8,7 @@ Map<common.AssetType, common.Asset> getAssets() {
   return common.baseAssets;
 }
 
-/// Data that can be used to initialize [`XaynAi`].
+/// Data that is required to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
   late Uint8List smbertVocab;
   late Uint8List smbertModel;
