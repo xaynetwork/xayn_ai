@@ -53,6 +53,10 @@ class _XaynAi {
 
   external JsAnalytics? analytics();
 
+  external Uint8List syncdataBytes();
+
+  external void synchronize(Uint8List serialized);
+
   external void free();
 }
 
@@ -172,6 +176,48 @@ class XaynAi implements common.XaynAi {
 
     try {
       return _ai!.analytics()?.toAnalytics();
+    } on RuntimeError catch (error) {
+      _ai = null;
+      throw error.toException();
+    }
+  }
+
+  /// Serializes the synchronizable data of the reranker.
+  ///
+  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// valid state can be restored with a previously serialized reranker database obtained from
+  /// [`serialize()`].
+  @override
+  Uint8List syncdataBytes() {
+    if (_ai == null) {
+      throw StateError('XaynAi was already freed');
+    }
+
+    try {
+      return _ai!.syncdataBytes();
+    } on XaynAiError catch (error) {
+      throw error.toException();
+    } on RuntimeError catch (error) {
+      _ai = null;
+      throw error.toException();
+    }
+  }
+
+  /// Synchronizes the internal data of the reranker with another.
+  ///
+  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// valid state can be restored with a previously serialized reranker database obtained from
+  /// [`serialize()`].
+  @override
+  void synchronize(Uint8List serialized) {
+    if (_ai == null) {
+      throw StateError('XaynAi was already freed');
+    }
+
+    try {
+      _ai!.synchronize(serialized);
+    } on XaynAiError catch (error) {
+      throw error.toException();
     } on RuntimeError catch (error) {
       _ai = null;
       throw error.toException();

@@ -131,6 +131,38 @@ impl WXaynAi {
     pub fn analytics(&self) -> JsValue {
         JsValue::from_serde(&self.0.analytics()).expect("Failed to serialize the analytics")
     }
+
+    /// Serializes the synchronizable data of the reranker.
+    ///
+    /// # Errors
+    ///
+    /// - The serialization of the synchronizable data fails.
+    pub fn syncdata_bytes(&self) -> Result<Uint8Array, JsValue> {
+        self.0
+            .syncdata_bytes()
+            .map(|bytes| bytes.as_slice().into())
+            .map_err(|cause| {
+                CCode::SyncDataSerialization
+                    .with_context(format!("Failed to serialize sync data: {}", cause))
+            })
+            .into_js_result()
+    }
+
+    /// Synchronizes the internal data of the reranker with another.
+    ///
+    /// # Errors
+    ///
+    /// - The serialized data `bytes` is invalid.
+    /// - The synchronization failed.
+    pub fn synchronize(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        self.0
+            .synchronize(bytes)
+            .map_err(|cause| {
+                CCode::Synchronization
+                    .with_context(format!("Failed to synchronize data: {}", cause))
+            })
+            .into_js_result()
+    }
 }
 
 #[cfg(all(test, target_arch = "wasm32"))]
@@ -373,6 +405,77 @@ mod tests {
         .unwrap();
         let analytics = xaynai.analytics();
         assert!(analytics.is_null());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_syncdata_bytes() {
+        let xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap();
+        let syncdata = xaynai.syncdata_bytes();
+        assert!(syncdata.is_ok());
+        assert!(!syncdata.unwrap().to_vec().is_empty());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_synchronize() {
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap();
+        let syncdata = &[0; 17];
+        assert!(xaynai.synchronize(syncdata).is_ok());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_bytes_empty_synchronize() {
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap();
+        let synchronized = xaynai.synchronize(&[]);
+        assert!(synchronized.is_err());
+        let error = synchronized.unwrap_err().into_serde::<Error>().unwrap();
+        assert_eq!(error.code(), CCode::Synchronization);
+        assert!(error
+            .message()
+            .contains("Failed to synchronize data: Empty serialized data."));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_bytes_invalid_synchronize() {
+        let mut xaynai = WXaynAi::new(
+            SMBERT_VOCAB,
+            SMBERT_MODEL,
+            QAMBERT_VOCAB,
+            QAMBERT_MODEL,
+            LTR_MODEL,
+            None,
+        )
+        .unwrap();
+        let synchronized = xaynai.synchronize(&[u8::MAX]);
+        assert!(synchronized.is_err());
+        let error = synchronized.unwrap_err().into_serde::<Error>().unwrap();
+        assert_eq!(error.code(), CCode::Synchronization);
+        assert!(error
+            .message()
+            .contains("Failed to synchronize data: Unsupported serialized data."));
     }
 
     #[wasm_bindgen_test]
@@ -648,7 +751,7 @@ mod tests {
             QAMBERT_VOCAB,
             QAMBERT_MODEL,
             LTR_MODEL,
-            Some(Box::new([2, 3, 4])),
+            Some(Box::new([u8::MAX])),
         )
         .unwrap_err()
         .into_serde::<Error>()
