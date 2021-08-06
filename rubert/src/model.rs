@@ -143,8 +143,9 @@ mod tests {
     use ndarray::Array2;
     use std::{fs::File, io::BufReader};
 
+    use data::smbert::model;
+
     use super::*;
-    use crate::tests::SMBERT_MODEL;
 
     #[test]
     fn test_model_empty() {
@@ -164,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_token_size_invalid() {
-        let model = BufReader::new(File::open(SMBERT_MODEL).unwrap());
+        let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             Model::<kinds::SMBert>::new(model, 0).unwrap_err(),
             ModelError::Tract(_),
@@ -174,7 +175,7 @@ mod tests {
     #[test]
     fn test_predict() {
         let shape = (1, 64);
-        let model = BufReader::new(File::open(SMBERT_MODEL).unwrap());
+        let model = BufReader::new(File::open(model().unwrap()).unwrap());
         let model = Model::<kinds::SMBert>::new(model, shape.1).unwrap();
 
         let encoding = Encoding {

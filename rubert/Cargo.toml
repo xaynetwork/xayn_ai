@@ -24,6 +24,9 @@ indicatif = { version = "0.16.2", optional = true }
 onnxruntime = { version = "0.0.13", optional = true }
 rayon = { version = "1.5.1", optional = true }
 
+[dev-dependencies]
+data = { path = "../data" }
+
 [features]
 bench = ["criterion", "onnxruntime", "rayon"]
 validate = ["csv", "indicatif", "onnxruntime"]
@@ -31,20 +34,18 @@ validate = ["csv", "indicatif", "onnxruntime"]
 [[example]]
 name = "mbert"
 
-[[bin]]
+[[example]]
 name = "validate"
-test = false
-bench = false
 required-features = ["validate"]
 
 [[bench]]
-name = "mbert"
+name = "matmul"
 harness = false
 bench = false
 required-features = ["bench"]
 
 [[bench]]
-name = "matmul"
+name = "mbert"
 harness = false
 bench = false
 required-features = ["bench"]

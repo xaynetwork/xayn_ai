@@ -1,11 +1,12 @@
 //! Run as `cargo bench --bench mbert --features bench`.
 
-use std::path::Path;
+use std::{io::Result, path::Path};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ndarray::{s, Array1, Axis};
 use onnxruntime::{environment::Environment, GraphOptimizationLevel};
 
+use data::{qambert, smbert};
 use rubert::{
     kinds::{QAMBert, SMBert},
     AveragePooler,
@@ -29,7 +30,7 @@ macro_rules! bench_tract {
     ) => {
         let mut group = $manager.benchmark_group(format!("{} {}", $group, TOKEN_SIZE));
         $(
-            let pipeline = Builder::<_, _, $kind, _>::from_files($vocab, $model)
+            let pipeline = Builder::<_, _, $kind, _>::from_files($vocab.unwrap(), $model.unwrap())
                 .unwrap()
                 .with_accents(false)
                 .with_lowercase(true)
@@ -48,10 +49,10 @@ macro_rules! bench_tract {
 fn bench_onnx(
     manager: &mut Criterion,
     name: &str,
-    vocab: impl AsRef<Path>,
-    model: impl AsRef<Path>,
+    vocab: Result<impl AsRef<Path>>,
+    model: Result<impl AsRef<Path>>,
 ) {
-    let tokenizer = TokenizerBuilder::from_file(vocab)
+    let tokenizer = TokenizerBuilder::from_file(vocab.unwrap())
         .unwrap()
         .with_normalizer(true, false, false, true)
         .with_model("[UNK]", "##", 100)
@@ -66,7 +67,7 @@ fn bench_onnx(
         .unwrap()
         .with_optimization_level(GraphOptimizationLevel::DisableAll)
         .unwrap()
-        .with_model_from_file(model)
+        .with_model_from_file(model.unwrap())
         .unwrap();
 
     manager.bench_function(name, |bencher| {
@@ -89,8 +90,8 @@ fn bench_tract_smbert_nonquant(manager: &mut Criterion) {
     bench_tract!(
         manager,
         "Tract SMBert" => SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
+        smbert::vocab(),
+        smbert::model(),
         [
             "None Pooler" => NonePooler,
             "First Pooler" => FirstPooler,
@@ -103,8 +104,8 @@ fn bench_tract_smbert_dynquant(manager: &mut Criterion) {
     bench_tract!(
         manager,
         "Tract SMBert Quantized" => SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert-quant.onnx",
+        smbert::vocab(),
+        smbert::model_quant(),
         [
             "None Pooler" => NonePooler,
             "First Pooler" => FirstPooler,
@@ -117,8 +118,8 @@ fn bench_tract_qambert_nonquant(manager: &mut Criterion) {
     bench_tract!(
         manager,
         "Tract QAMBert" => QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
+        qambert::vocab(),
+        qambert::model(),
         [
             "None Pooler" => NonePooler,
             "First Pooler" => FirstPooler,
@@ -131,8 +132,8 @@ fn bench_tract_qambert_dynquant(manager: &mut Criterion) {
     bench_tract!(
         manager,
         "Tract QAMBert Quantized" => QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert-quant.onnx",
+        qambert::vocab(),
+        qambert::model_quant(),
         [
             "None Pooler" => NonePooler,
             "First Pooler" => FirstPooler,
@@ -142,38 +143,28 @@ fn bench_tract_qambert_dynquant(manager: &mut Criterion) {
 }
 
 fn bench_onnx_smbert_nonquant(manager: &mut Criterion) {
-    bench_onnx(
-        manager,
-        "Onnx SMBert",
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
-    );
+    bench_onnx(manager, "Onnx SMBert", smbert::vocab(), smbert::model());
 }
 
 fn bench_onnx_smbert_dynquant(manager: &mut Criterion) {
     bench_onnx(
         manager,
         "Onnx SMBert Quantized",
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert-quant.onnx",
+        smbert::vocab(),
+        smbert::model_quant(),
     );
 }
 
 fn bench_onnx_qambert_nonquant(manager: &mut Criterion) {
-    bench_onnx(
-        manager,
-        "Onnx QAMBert",
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
-    );
+    bench_onnx(manager, "Onnx QAMBert", qambert::vocab(), qambert::model());
 }
 
 fn bench_onnx_qambert_dynquant(manager: &mut Criterion) {
     bench_onnx(
         manager,
         "Onnx QAMBert Quantized",
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert-quant.onnx",
+        qambert::vocab(),
+        qambert::model_quant(),
     );
 }
 
