@@ -490,6 +490,7 @@ mod tests {
     }
 
     impl TestSyncdata {
+        #[allow(clippy::unnecessary_wraps)]
         fn as_ptr(&self) -> Option<&CBytes> {
             Some(&self.0)
         }
