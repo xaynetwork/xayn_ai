@@ -64,7 +64,7 @@ where
         }
         let nr_evaluation_samples = (nr_all_samples as f32 * evaluation_split).round() as usize;
         if nr_evaluation_samples >= nr_all_samples {
-            return Err(DataSourceError::ToLargeEvaluationSplit(evaluation_split));
+            return Err(DataSourceError::TooLargeEvaluationSplit(evaluation_split));
         }
         if nr_evaluation_samples == 0 && evaluation_split > 0. {
             return Err(DataSourceError::NoEvaluationSamples(evaluation_split));
@@ -90,16 +90,16 @@ where
     /// Unusable evaluation split: Assertion `split >= 0 && split.is_normal()` failed (split = {0}).
     BadEvaluationSplit(f32),
     /// Unusable evaluation split: With evaluation split {0} no samples are left for training.
-    ToLargeEvaluationSplit(f32),
+    TooLargeEvaluationSplit(f32),
     /// Unusable evaluation split: Assertion `nr_evaluation_samples > 0 || split == 0` failed (split = {0}).
     NoEvaluationSamples(f32),
     /// A batch size of 0 is not usable for training.
     BatchSize0,
     /// The batch size is larger then the number of samples.
-    ToLargeBatchSize(usize),
+    TooLargeBatchSize(usize),
     /// Not reset/initialized.
     ResetWasNotCalledBeforeTraining,
-    /// Empty database can not be used for training.
+    /// Empty database cannot be used for training.
     EmptyDatabase,
     /// Fetching sample from storage failed: {0}.
     Storage(SE),
@@ -122,7 +122,7 @@ where
 
         let nr_batches = self.training_data_order.number_of_batches(batch_size);
         if nr_batches == 0 {
-            return Err(DataSourceError::ToLargeBatchSize(nr_batches));
+            return Err(DataSourceError::TooLargeBatchSize(nr_batches));
         }
         Ok(nr_batches)
     }
@@ -156,7 +156,7 @@ where
 pub(crate) trait Storage {
     type Error: StdError + 'static;
 
-    /// Return the all sample ids.
+    /// Return all sample ids.
     ///
     /// For now this is a range. I.e. `0..nr_of_samples`. We might need
     /// to change this in the future, but for now this is simpler.
@@ -176,18 +176,25 @@ pub(crate) trait Storage {
     fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<Sample<'a>>, Self::Error>;
 }
 
-/// For now samples id's are always incremental integers form `0..nr_samples`.
+/// For now samples ids are always incremental integers form `0..nr_samples`.
 ///
-/// Given that this is just used to handle shuffling and similar it's unlikely to
-/// ever change, we do explicitly not care about any consistency of the id to
-/// sample mapping between trainings.
+/// - This is only used to handle shuffling and retrieving the samples from the
+///   storage.
+/// - This is unlikely to ever change.
+/// - We do not care about the consistency of the id-to-sample mapping between
+///   trainings.
+///     - Through we do care about a deterministic evaluation split, as such
+///       we currently need some degree of determinism in practice. But that is
+///       an implementation detail of the splitting unrelated to the rest of
+///       the code.
 type DataId = usize;
 
 /// Helper to randomize sample order.
 struct DataLookupOrder {
     /// Ids of all samples in this lookup order.
     data_ids: Vec<DataId>,
-    /// The offset splitting already used samples from not yet used samples.
+    /// The offset into `data_ids` at which we should continue returning ids
+    /// when `next`/`next_batch` is called.
     data_ids_offset: usize,
 }
 
@@ -199,7 +206,7 @@ impl DataLookupOrder {
         }
     }
 
-    /// Returns the number of batches which will be produced with given batch size.
+    /// Returns the number of batches which will be produced with the given batch size.
     fn number_of_batches(&self, batch_size: usize) -> usize {
         self.data_ids.len() / batch_size
     }
@@ -239,12 +246,12 @@ impl DataLookupOrder {
     }
 }
 
-/// A "in-memory" sample storage.
+/// An "in-memory" sample storage.
 ///
-/// It also can be portably stored to disk using bincode serialization.
+/// It can also be portably stored to disk using bincode serialization.
 ///
 /// The storage is reasonably compact as ~5.3GiB of soundgarden user
-/// data-frames will produce a less then 975MiB serialized `.samples` file.
+/// data-frames will produce a less than 975MiB serialized `.samples` file.
 // While there are many ways to improve on this (e.g. memory-mapped I/O), they are not relevant for our
 // use-case for now.
 #[derive(Serialize, Deserialize, Default)]
@@ -262,27 +269,27 @@ pub enum StorageError {
 }
 
 impl InMemorySamples {
-    /// Serializes this instance into a file, preferably use the `.samples` file ending.
+    /// Serializes this instance into a file, preferably using the `.samples` file ending.
     //FIXME[follow-up PR] version the file format, it's used to persist data and it's not
     //                    unlikely to slightly change in the future.
     pub(crate) fn serialize_into_file(&self, file: impl AsRef<Path>) -> Result<(), Error> {
         self.serialize_into(BufWriter::new(File::create(file)?))
     }
 
-    /// Serializes this instance into given writer.
+    /// Serializes this instance into the given writer.
     fn serialize_into(&self, writer: impl Write) -> Result<(), Error> {
         bincode::DefaultOptions::new()
             .serialize_into(writer, self)
             .map_err(Into::into)
     }
 
-    /// Deserialize a instance from given file.
+    /// Deserialize an instance from the given file.
     #[allow(dead_code)] //FIXME is used by training (added in part 3 of this PR)
     pub(crate) fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
         Self::deserialize_from(BufReader::new(File::open(file)?))
     }
 
-    /// Deserialize a instance from given reader, preferably pass in a buffered reader.
+    /// Deserialize an instance from the given reader, using a buffered reader is preferred.
     #[allow(dead_code)] //FIXME is used by training (added in part 3 of this PR)
     fn deserialize_from(reader: impl Read) -> Result<Self, Error> {
         let self_: Self = bincode::DefaultOptions::new().deserialize_from(reader)?;
@@ -326,22 +333,26 @@ impl InMemorySamples {
         target_prob_dist: ArrayView1<f32>,
     ) -> Result<(), Error> {
         if inputs.shape() != [target_prob_dist.len(), ListNet::INPUT_NR_FEATURES] {
-            bail!("Sample with bad array shapes. Expected shapes [{nr_docs}, {nr_feats}] & [{nr_docs}] but got shapes {inputs_shape:?} & {prob_dist_shape:?}",
+            bail!("Sample with bad array shapes. Expected shapes [{nr_docs}, {nr_feats}] & [{nr_docs}] but got shapes {inputs_shape:?} & {prob_dist_shape:?}.",
                 nr_docs=inputs.shape()[0],
                 nr_feats=ListNet::INPUT_NR_FEATURES,
                 inputs_shape=inputs.shape(),
                 prob_dist_shape=target_prob_dist.shape(),
             );
         }
-        let mut data = Vec::with_capacity(inputs.len() + target_prob_dist.len());
-        extend_vec_with_ndarray(&mut data, inputs);
-        extend_vec_with_ndarray(&mut data, target_prob_dist);
-        self.data.push(data);
+        let mut datum = Vec::with_capacity(inputs.len() + target_prob_dist.len());
+        extend_vec_with_ndarray(&mut datum, inputs);
+        extend_vec_with_ndarray(&mut datum, target_prob_dist);
+        self.data.push(datum);
         Ok(())
     }
 }
 
-/// Extend a vec with the elements of given array in logical order.
+/// Extend a vec with the elements of the given array.
+///
+/// Elements are added in logical order independent of storage order,
+/// i.e. elements are added as if `data` was continuos and in standard
+/// storage order (terms are used the way they are defined by ndarray).
 fn extend_vec_with_ndarray<T: Clone>(
     data: &mut Vec<T>,
     array: ArrayBase<impl Data<Elem = T>, impl Dimension>,
@@ -410,15 +421,19 @@ mod tests {
         let mut storage = InMemorySamples::default();
         let inputs = Array::zeros((10, 48));
         let target_prob_dist = Array::ones((10,));
-        storage
+        let err = storage
             .add_sample(inputs.view(), target_prob_dist.view())
             .unwrap_err();
 
-        let inputs = Array::zeros((10, 50));
-        let target_prob_dist = Array::ones((12,));
-        storage
+        assert_eq!(&format!("{}", err), "Sample with bad array shapes. Expected shapes [10, 50] & [10] but got shapes [10, 48] & [10]." );
+
+        let inputs = Array::zeros((8, 50));
+        let target_prob_dist = Array::ones((11,));
+        let err = storage
             .add_sample(inputs.view(), target_prob_dist.view())
             .unwrap_err();
+
+        assert_eq!(&format!("{}", err), "Sample with bad array shapes. Expected shapes [8, 50] & [8] but got shapes [8, 50] & [11]." );
 
         assert!(storage.data.is_empty());
     }

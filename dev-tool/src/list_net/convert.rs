@@ -54,8 +54,7 @@ impl ConvertCmd {
         let mut storage = InMemorySamples::default();
 
         for entry in fs::read_dir(&from_soundgarden)? {
-            let entry = entry?;
-            let path = entry.path();
+            let path = entry?.path();
             if path.extension() != Some(OsStr::new("csv")) {
                 continue;
             }
@@ -211,7 +210,7 @@ fn fix_user_actions_in_history(histories: &mut [DocumentHistory]) {
         .for_each(|(_, query)| fix_user_actions_in_query_reverse_order(query))
 }
 
-/// Function Split out from [`fix_user_actions_in_history`] **do not reuse elsewhere**.
+/// Function split out from [`fix_user_actions_in_history`] **do not reuse elsewhere**.
 ///
 /// The iterator must iterate over queries from last to first.
 fn fix_user_actions_in_query_reverse_order<'a>(
@@ -396,7 +395,7 @@ mod tests {
                 rank: 4,
                 user_action: UserAction::Miss,
             },
-            /* ---- */
+            /* -- next seq of query results (unique by `(session_id, query_count)`) -- */
             DocumentHistory {
                 id: DocumentId(id2uuid(12, Some(5))),
                 relevance: Relevance::Low,
@@ -425,7 +424,7 @@ mod tests {
                 rank: 1,
                 user_action: UserAction::Miss,
             },
-            /* ---- */
+            /* -- next seq of query results (unique by `(session_id, query_count)`) -- */
             DocumentHistory {
                 id: DocumentId(id2uuid(12, Some(7))),
                 relevance: Relevance::High,
@@ -468,7 +467,7 @@ mod tests {
                 rank: 2,
                 user_action: UserAction::Miss,
             },
-            /* ---- */
+            /* -- next seq of query results (unique by `(session_id, query_count)`) -- */
             DocumentHistory {
                 id: DocumentId(id2uuid(12, Some(10))),
                 relevance: Relevance::Low,
@@ -490,10 +489,10 @@ mod tests {
             doc_with_action(&history[2], UserAction::Skip),
             doc_with_action(&history[3], UserAction::Click),
             doc_with_action(&history[4], UserAction::Miss),
-            /* ---- */
+            /* -- next seq of query results (unique by `(session_id, query_count)`) -- */
             doc_with_action(&history[5], UserAction::Miss),
             doc_with_action(&history[6], UserAction::Miss),
-            /* ---- */
+            /* -- next seq of query results (unique by `(session_id, query_count)`) -- */
             doc_with_action(&history[7], UserAction::Click),
             doc_with_action(&history[8], UserAction::Miss),
             doc_with_action(&history[9], UserAction::Miss),
