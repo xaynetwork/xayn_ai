@@ -405,7 +405,7 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
 
         let outcome = reranker.rerank(mode, &[], &[]);
-        assert_eq!(outcome.final_ranking, []);
+        assert!(outcome.final_ranking.is_empty());
     }
 
     /// A user performs the very first search that returns results/`Document`s.

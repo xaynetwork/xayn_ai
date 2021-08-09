@@ -1,20 +1,39 @@
-use std::{io::Result, path::PathBuf};
+use std::{
+    io::{Error, ErrorKind, Result},
+    path::PathBuf,
+};
 
-use crate::resolve_path;
+use crate::resolve_asset;
 
-const ARCHIVE: &str = "qambert_v0001";
+/// Resolves the path to the QAMBert vocabulary.
+pub fn vocab() -> Result<PathBuf> {
+    resolve_asset("qambertVocab")
+}
 
 /// Resolves the path to the QAMBert model.
 pub fn model() -> Result<PathBuf> {
-    resolve_path(ARCHIVE, "qambert.onnx")
+    resolve_asset("qambertModel")
 }
 
 /// Resolves the path to the quantized QAMBert model.
 pub fn model_quant() -> Result<PathBuf> {
-    resolve_path(ARCHIVE, "qambert-quant.onnx")
+    Ok(resolve_asset("qambertModel")?
+        .parent()
+        .ok_or_else(|| Error::new(ErrorKind::NotFound, "missing asset 'qambert'"))?
+        .join("qambert-quant.onnx"))
 }
 
-/// Resolves the path to the QAMBert vocabulary.
-pub fn vocab() -> Result<PathBuf> {
-    resolve_path(ARCHIVE, "vocab.txt")
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vocab() {
+        assert!(vocab().is_ok());
+    }
+
+    #[test]
+    fn test_model() {
+        assert!(model().is_ok());
+    }
 }

@@ -1,10 +1,18 @@
 use std::{io::Result, path::PathBuf};
 
-use crate::resolve_path;
-
-const ARCHIVE: &str = "ltr_v0000";
+use crate::resolve_asset;
 
 /// Resolves the path to the LTR model.
 pub fn model() -> Result<PathBuf> {
-    resolve_path(ARCHIVE, "ltr.binparams")
+    resolve_asset("ltrModel")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_model() {
+        assert!(model().is_ok());
+    }
 }
