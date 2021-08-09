@@ -10,6 +10,8 @@
 # Usage:
 # ./generate_assets_metadata <path of assets_manifest.json> [<wasm version>] [<path of the wasm output directory>]
 
+set -e
+
 OUT_DIR="out"
 ASSETS_METADATA_PATH=$OUT_DIR/assets_metadata.json
 
@@ -26,7 +28,6 @@ if [ -z ${GITHUB_ACTIONS} ]; then
     fi
 else
     if [ $RUNNER_OS == "macOS" ]; then
-        brew install coreutils
         if command gsplit --version /dev/null; then
             SPLIT="gsplit"
         else
@@ -71,7 +72,7 @@ calc_checksum() {
 
 gen_ai_assets_metadata() {
     local ASSET_MANIFEST=$1
-    local TMP_FILE=$OUT_DIR/tmp_file
+    local TMP_FILE=$(mktemp)
     local CHUNKS_DIR=$OUT_DIR/chunks
 
     $(rm -rf $CHUNKS_DIR || true) && mkdir $CHUNKS_DIR
@@ -116,7 +117,7 @@ gen_wasm_assets_metadata() {
     local ASSET_MANIFEST=$1
     local WASM_VERSION=$2
     local WASM_OUT_DIR_PATH=$3
-    local TMP_FILE=$OUT_DIR/tmp_file
+    local TMP_FILE=$(mktemp)
 
     for WASM_ASSET in $(cat $ASSET_MANIFEST | jq -c '.wasm_assets[]'); do
         local ASSET_FILENAME=$(echo $WASM_ASSET | jq -r '.filename')

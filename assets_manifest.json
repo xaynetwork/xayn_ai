@@ -9,7 +9,7 @@
       "dart_enum_name": "smbertModel",
       "url_suffix": "smbert_v0000/smbert.onnx",
       "path": "data/smbert_v0000/smbert.onnx",
-      "chunk_size": "10MB"
+      "chunk_size": "11MB"
     },
     {
       "dart_enum_name": "qambertVocab",
@@ -20,7 +20,7 @@
       "dart_enum_name": "qambertModel",
       "url_suffix": "qambert_v0001/qambert.onnx",
       "path": "data/qambert_v0001/qambert.onnx",
-      "chunk_size": "10MB"
+      "chunk_size": "11MB"
     },
     {
       "dart_enum_name": "ltrModel",
