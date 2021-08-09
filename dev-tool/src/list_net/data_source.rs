@@ -22,6 +22,7 @@ use thiserror::Error;
 use xayn_ai::list_net::{self, ListNet, SampleOwned, SampleView};
 
 /// A [`xayn_ai::list_net::DataSource`] implementation.
+#[derive(Clone)]
 pub(crate) struct DataSource {
     /// The storage containing all samples.
     storage: Arc<InMemoryStorage>,
@@ -77,7 +78,6 @@ impl DataSource {
     ///
     /// - Failure if the `chunk_size` is `0`.
     /// - Failure if the `batch_size` is greater than the `chunk_size`.
-    #[allow(dead_code)]
     pub(crate) fn new_split(
         storage: Arc<InMemoryStorage>,
         evaluation_split: f32,
@@ -100,14 +100,18 @@ impl DataSource {
             .into_iter()
             .filter_map(|chunk| {
                 let ids = chunk.collect_vec();
-                (batch_size < ids.len()).then(|| Self {
+                (batch_size <= ids.len()).then(|| Self {
                     storage: storage.clone(),
                     batch_size,
                     training_data_order: DataLookupOrder::new(ids),
                     evaluation_data_order: DataLookupOrder::empty(),
                 })
             })
-            .collect();
+            .collect_vec();
+
+        if training_only_sources.is_empty() {
+            return Err(DataSourceError::EmptyDatabase);
+        }
 
         let evaluation_only_source = (nr_evaluation_samples > 0).then(|| Self {
             storage,
@@ -168,9 +172,7 @@ impl DataSource {
 
 /// Ok result of [`DataSource.new_split()`].
 pub(crate) struct SplitDataSource {
-    #[allow(dead_code)] //FIXME
     pub(crate) training_only_sources: Vec<DataSource>,
-    #[allow(dead_code)] //FIXME
     pub(crate) evaluation_only_source: Option<DataSource>,
 }
 
@@ -251,6 +253,7 @@ impl list_net::DataSource for DataSource {
 type DataId = usize;
 
 /// Helper to randomize sample order.
+#[derive(Clone)]
 struct DataLookupOrder {
     /// Ids of all samples in this lookup order.
     data_ids: Vec<DataId>,
@@ -741,17 +744,10 @@ mod tests {
     #[test]
     fn test_data_source_new_split_only_eval_samples() {
         let storage = mock_storage();
-        let SplitDataSource {
-            training_only_sources,
-            evaluation_only_source,
-        } = DataSource::new_split(storage, 1.0, 2, 5).unwrap();
-        assert_eq!(training_only_sources.len(), 0);
-        assert_eq!(
-            evaluation_only_source
-                .unwrap()
-                .number_of_evaluation_samples(),
-            14
-        );
+        if let Err(DataSourceError::EmptyDatabase) = DataSource::new_split(storage, 1.0, 2, 5) {
+        } else {
+            panic!("Expected EmptyDatabase error");
+        }
     }
 
     #[test]
@@ -857,5 +853,30 @@ mod tests {
             .next_evaluation_sample()
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn test_data_source_new_split_too_small_tailing_chunks_get_truncated() {
+        let storage = mock_storage();
+        let SplitDataSource {
+            training_only_sources,
+            evaluation_only_source,
+        } = DataSource::new_split(storage, 0.0, 3, 3).unwrap();
+        assert_eq!(training_only_sources.len(), 4);
+        assert!(evaluation_only_source.is_none());
+    }
+
+    #[test]
+    fn test_data_source_new_split_small_but_not_too_small_tailing_chunks_do_not_get_truncated() {
+        let storage = mock_storage();
+        let SplitDataSource {
+            training_only_sources,
+            evaluation_only_source,
+        } = DataSource::new_split(storage, 0.0, 2, 6).unwrap();
+        assert_eq!(training_only_sources[0].number_of_training_batches(), 3);
+        assert_eq!(training_only_sources[1].number_of_training_batches(), 3);
+        assert_eq!(training_only_sources[2].number_of_training_batches(), 1);
+        assert_eq!(training_only_sources.len(), 3);
+        assert!(evaluation_only_source.is_none());
     }
 }
