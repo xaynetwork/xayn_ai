@@ -225,6 +225,9 @@ jobs:
       - name: Download data
         run: sh download_data.sh
 
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
+
       - name: Build asset artifacts
         uses: ./.ci/build-asset-artifacts
         with:
@@ -273,6 +276,9 @@ jobs:
 
       - name: Download data
         run: sh download_data.sh
+
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
 
       - name: Build asset artifacts
         uses: ./.ci/build-asset-artifacts
@@ -350,6 +356,9 @@ jobs:
 
       - name: Download data
         run: sh download_data.sh
+
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
 
       - name: Build asset artifacts
         uses: ./.ci/build-asset-artifacts
