@@ -36,7 +36,7 @@ runs:
         mkdir -p out
         gomplate -f data/asset_templates/assets.json.tmpl -o ${{ steps.artifact-paths.outputs.json-manifest }}
         gomplate -d assets=${{ steps.artifact-paths.outputs.json-manifest }} -f data/asset_templates/assets.dart.tmpl -o ${{ steps.artifact-paths.outputs.dart-manifest }}
-        flutter format ${{ steps.artifact-paths.outputs.dart-manifest }}
+        if [ -x "$(command -v flutter)"]; then flutter format ${{ steps.artifact-paths.outputs.dart-manifest }} fi
         echo "::group::Dart manifest"
         cat ${{ steps.artifact-paths.outputs.dart-manifest }}
         echo "::endgroup::"
