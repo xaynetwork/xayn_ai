@@ -245,7 +245,7 @@ jobs:
     name: cargo-tarpaulin
     needs: [cargo-registry-cache, cargo-test]
     runs-on: ubuntu-20.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
