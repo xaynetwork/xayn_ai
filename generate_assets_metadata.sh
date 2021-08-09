@@ -98,7 +98,7 @@ gen_ai_assets_metadata() {
                 if [ -z "${FRAGMENTS}" ]; then
                     FRAGMENTS="$FRAGMENT"
                 else
-                    FRAGMENTS="$FRAGMENTS, $FRAGMENT"
+                    FRAGMENTS+=", $FRAGMENT"
                 fi
             done
 
