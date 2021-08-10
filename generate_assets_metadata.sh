@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Generates the metadata of the assets (ai and wasm). If an asset of the `ai_assets` array
+# Generates the metadata of the assets (ai and wasm). If an asset of the `data_assets` array
 # contains a `chunk_size` key, the script splits the asset into chunks where each chunk has
 # a maximum size of `chunk_size`. The format of the `chunk_size` value is equivalent to the
 # `SIZE` argument in `split` or `gsplit` on macOS. See `split`/`gsplit` man page for more details.
@@ -17,7 +17,7 @@ ASSETS_METADATA_PATH=$OUT_DIR/assets_metadata.json
 
 if [ -z ${GITHUB_ACTIONS} ]; then
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        if [ -x  "$(command -v gsplit)" ]; then
+        if [ -x "$(command -v gsplit)" ]; then
             SPLIT="gsplit"
         else
             echo "Requires the GNU version of 'split'. Use 'brew install coreutils' to install it."
@@ -28,7 +28,7 @@ if [ -z ${GITHUB_ACTIONS} ]; then
     fi
 else
     if [ $RUNNER_OS == "macOS" ]; then
-        if command gsplit --version /dev/null; then
+        if [ -x "$(command -v gsplit)" ]; then
             SPLIT="gsplit"
         else
             echo "Cannot find 'gsplit'."
@@ -39,12 +39,12 @@ else
     fi
 fi
 
-if ! command gomplate -v /dev/null; then
+if ! [ -x "$(command -v gomplate)" ]; then
     echo "Cannot find 'gomplate'."
     exit 1
 fi
 
-if ! command jq --version /dev/null; then
+if ! [ -x "$(command -v jq)" ]; then
     echo "Cannot find 'jq'."
     exit 1
 fi
@@ -70,22 +70,23 @@ calc_checksum() {
     echo $(shasum -a 256 $1 | awk '{ print $1 }')
 }
 
-gen_ai_assets_metadata() {
+gen_data_assets_metadata() {
     local ASSET_MANIFEST=$1
+    local DATA_DIR="data"
+    local CHUNKS_DIR=$DATA_DIR/chunks
     local TMP_FILE=$(mktemp)
-    local CHUNKS_DIR=$OUT_DIR/chunks
 
     $(rm -rf $CHUNKS_DIR || true) && mkdir $CHUNKS_DIR
 
-    for ASSET in $(cat $ASSET_MANIFEST | jq -c '.ai_assets[]'); do
-        local ASSET_PATH=$(echo $ASSET | jq -r '.path')
+    for ASSET in $(cat $ASSET_MANIFEST | jq -c '.data_assets[]'); do
+        local ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
+        local ASSET_PATH="$DATA_DIR/$ASSET_URL_SUFFIX"
         local ASSET_CHECKSUM=$(calc_checksum $ASSET_PATH)
-        local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
+        local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM --arg path $ASSET_PATH '. |= .+ {"checksum": $checksum, "path": $path}')
 
         local UPDATED_ASSET=$ASSET_WITH_CHECKSUM
         local ASSET_CHUNK_SIZE=$(echo $ASSET | jq -r '.chunk_size')
         if [ "$ASSET_CHUNK_SIZE" != "null" ]; then
-            local ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
             local ASSET_FILENAME=$(basename $ASSET_URL_SUFFIX)
             local ASSET_VERSION=$(dirname $ASSET_URL_SUFFIX)
 
@@ -147,7 +148,7 @@ gen_assets_metadata() {
     mkdir -p $OUT_DIR
     echo "{\"assets\": []}" > $ASSETS_METADATA_PATH
 
-    gen_ai_assets_metadata $ASSET_MANIFEST
+    gen_data_assets_metadata $ASSET_MANIFEST
     gen_wasm_assets_metadata $ASSET_MANIFEST $WASM_VERSION $WASM_OUT_DIR_PATH
 }
 
