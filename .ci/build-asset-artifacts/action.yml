@@ -18,7 +18,7 @@ outputs:
     description: "The relative path (wrt the repository root) of the JSON manifest."
     value: ${{ steps.artifact-paths.outputs.json-metadata }}
   chunks-dir:
-    description: "The relative path (wrt the repository root) of the directory where the chunks are stored."
+    description: "The relative path (wrt the repository root) of the directory where the chunks of the data assets are stored."
     value: ${{ steps.artifact-paths.outputs.chunks-dir }}
 runs:
   using: "composite"
@@ -28,7 +28,7 @@ runs:
       run: |
         echo "::set-output name=dart-metadata::$(echo ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart)"
         echo "::set-output name=json-metadata::out/assets_metadata.json"
-        echo "::set-output name=chunks-dir::out/chunks"
+        echo "::set-output name=chunks-dir::data/chunks"
 
     - shell: bash
       run: |
