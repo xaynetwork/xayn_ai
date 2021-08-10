@@ -320,7 +320,7 @@ jobs:
     name: test-android-libs
     needs: [cargo-registry-cache, cargo-test]
     runs-on: ubuntu-20.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
