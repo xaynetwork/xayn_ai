@@ -17,7 +17,7 @@ ASSETS_METADATA_PATH=$OUT_DIR/assets_metadata.json
 
 if [ -z ${GITHUB_ACTIONS} ]; then
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        if command gsplit --version /dev/null; then
+        if [ -x  "$(command -v gsplit)" ]; then
             SPLIT="gsplit"
         else
             echo "Requires the GNU version of 'split'. Use 'brew install coreutils' to install it."
