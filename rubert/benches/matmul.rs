@@ -7,8 +7,10 @@ use ndarray::Array2;
 use onnxruntime::{environment::Environment, GraphOptimizationLevel, LoggingLevel};
 use tract_onnx::prelude::{tvec, Datum, Framework, InferenceFact, InferenceModelExt};
 
+use test_utils::bench::matmul::data_dir;
+
 fn bench_tract(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
-    let mut model = BufReader::new(File::open(model).unwrap());
+    let mut model = BufReader::new(File::open(data_dir().unwrap().join(model)).unwrap());
     let plan = tract_onnx::onnx()
         .model_for_read(&mut model)
         .unwrap()
@@ -36,7 +38,7 @@ fn bench_onnx(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
         .unwrap()
         .with_optimization_level(GraphOptimizationLevel::DisableAll)
         .unwrap()
-        .with_model_from_file(model)
+        .with_model_from_file(data_dir().unwrap().join(model))
         .unwrap();
     manager.bench_function(name, |bencher| {
         bencher.iter(|| {
@@ -48,50 +50,34 @@ fn bench_onnx(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
 }
 
 fn bench_tract_matmul_nonquant(manager: &mut Criterion) {
-    bench_tract(
-        manager,
-        "Tract Matmul",
-        "../data/bench_matmul_v0000/matmul.onnx",
-    );
+    bench_tract(manager, "Tract Matmul", "matmul.onnx");
 }
 
 fn bench_tract_matmul_dynquant(manager: &mut Criterion) {
-    bench_tract(
-        manager,
-        "Tract Matmul Quantized",
-        "../data/bench_matmul_v0000/matmul-dynquant.onnx",
-    );
+    bench_tract(manager, "Tract Matmul Quantized", "matmul-dynquant.onnx");
 }
 
 fn bench_tract_dynquant_overhead(manager: &mut Criterion) {
     bench_tract(
         manager,
         "Tract Quantization Overhead",
-        "../data/bench_matmul_v0000/dynquant-overhead.onnx",
+        "dynquant-overhead.onnx",
     );
 }
 
 fn bench_onnx_matmul_nonquant(manager: &mut Criterion) {
-    bench_onnx(
-        manager,
-        "Onnx Matmul",
-        "../data/bench_matmul_v0000/matmul.onnx",
-    );
+    bench_onnx(manager, "Onnx Matmul", "matmul.onnx");
 }
 
 fn bench_onnx_matmul_dynquant(manager: &mut Criterion) {
-    bench_onnx(
-        manager,
-        "Onnx Matmul Quantized",
-        "../data/bench_matmul_v0000/matmul-dynquant.onnx",
-    );
+    bench_onnx(manager, "Onnx Matmul Quantized", "matmul-dynquant.onnx");
 }
 
 fn bench_onnx_dynquant_overhead(manager: &mut Criterion) {
     bench_onnx(
         manager,
         "Onnx Quantization Overhead",
-        "../data/bench_matmul_v0000/dynquant-overhead.onnx",
+        "dynquant-overhead.onnx",
     );
 }
 

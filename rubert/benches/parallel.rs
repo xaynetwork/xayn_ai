@@ -11,6 +11,7 @@ use rubert::{
     AveragePooler,
     Builder,
 };
+use test_utils::{qambert, smbert};
 
 const BATCH_SIZE: usize = 16;
 const TOKEN_SIZE: usize = 64;
@@ -25,7 +26,7 @@ fn sequences(n: usize) -> Vec<String> {
 /// Builds a MBert pipeline of the given kind with the corresponding vocabulary and model files.
 macro_rules! mbert {
     ($kind:ty, $vocab:expr, $model:expr $(,)?) => {
-        Builder::<_, _, $kind, _>::from_files($vocab, $model)
+        Builder::<_, _, $kind, _>::from_files($vocab.unwrap(), $model.unwrap())
             .unwrap()
             .with_accents(false)
             .with_lowercase(true)
@@ -39,11 +40,7 @@ macro_rules! mbert {
 
 /// Benches the SMBert pipeline sequentially.
 fn bench_smbert_sequential(manager: &mut Criterion) {
-    let smbert = mbert!(
-        SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
-    );
+    let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("SMBert Sequential", |bencher| {
@@ -58,11 +55,7 @@ fn bench_smbert_sequential(manager: &mut Criterion) {
 
 /// Benches the SMBert pipeline parallelly.
 fn bench_smbert_parallel(manager: &mut Criterion) {
-    let smbert = mbert!(
-        SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
-    );
+    let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("SMBert Parallel", |bencher| {
@@ -77,11 +70,7 @@ fn bench_smbert_parallel(manager: &mut Criterion) {
 
 /// Benches the QAMBert pipeline sequentially.
 fn bench_qambert_sequential(manager: &mut Criterion) {
-    let qambert = mbert!(
-        QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
-    );
+    let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("QAMBert Sequential", |bencher| {
@@ -96,11 +85,7 @@ fn bench_qambert_sequential(manager: &mut Criterion) {
 
 /// Benches the QAMBert pipeline parallelly.
 fn bench_qambert_parallel(manager: &mut Criterion) {
-    let qambert = mbert!(
-        QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
-    );
+    let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("QAMBert Parallel", |bencher| {
@@ -115,16 +100,8 @@ fn bench_qambert_parallel(manager: &mut Criterion) {
 
 /// Benches both MBert pipelines fully sequentially.
 fn bench_mberts_sequential(manager: &mut Criterion) {
-    let smbert = mbert!(
-        SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
-    );
-    let qambert = mbert!(
-        QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
-    );
+    let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
+    let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("SMBert & QAMBert Sequential", |bencher| {
@@ -144,16 +121,8 @@ fn bench_mberts_sequential(manager: &mut Criterion) {
 
 /// Benches both MBert pipelines parallelly, while within each pipeline it runs sequentially.
 fn bench_mberts_join(manager: &mut Criterion) {
-    let smbert = mbert!(
-        SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
-    );
-    let qambert = mbert!(
-        QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
-    );
+    let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
+    let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("SMBert & QAMBert Join", |bencher| {
@@ -179,16 +148,8 @@ fn bench_mberts_join(manager: &mut Criterion) {
 
 /// Benches both MBert pipelines sequentially, while within each pipeline it runs parallely.
 fn bench_mberts_parallel(manager: &mut Criterion) {
-    let smbert = mbert!(
-        SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
-    );
-    let qambert = mbert!(
-        QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
-    );
+    let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
+    let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("SMBert & QAMBert Parallel", |bencher| {
@@ -208,16 +169,8 @@ fn bench_mberts_parallel(manager: &mut Criterion) {
 
 /// Benches both Mbert pipelines fully parallelly.
 fn bench_mberts_join_parallel(manager: &mut Criterion) {
-    let smbert = mbert!(
-        SMBert,
-        "../data/smbert_v0000/vocab.txt",
-        "../data/smbert_v0000/smbert.onnx",
-    );
-    let qambert = mbert!(
-        QAMBert,
-        "../data/qambert_v0001/vocab.txt",
-        "../data/qambert_v0001/qambert.onnx",
-    );
+    let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
+    let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
     manager.bench_function("SMBert & QAMBert Join Parallel", |bencher| {

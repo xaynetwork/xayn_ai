@@ -320,9 +320,8 @@ mod tests {
         assert_eq!(slice.as_ref(), [1, 2, 4]);
         assert!(!slice.is_none());
 
-        let none: Option<Vec<u8>> = None;
-        let slice = CBoxedSlice::from(none);
-        assert_eq!(slice.as_ref(), &[]);
+        let slice = CBoxedSlice::from(Option::<Vec<u8>>::None);
+        assert!(slice.as_ref().is_empty());
         assert!(slice.is_none());
     }
 }
