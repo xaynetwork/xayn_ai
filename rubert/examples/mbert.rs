@@ -2,8 +2,8 @@
 //! - `s` for SMBert
 //! - `qa` for QAMBert
 
-use test_utils::{qambert, smbert};
 use rubert::{FirstPooler, QAMBertBuilder, SMBertBuilder};
+use test_utils::{qambert, smbert};
 
 macro_rules! build_and_run {
     ($builder:expr) => {{
