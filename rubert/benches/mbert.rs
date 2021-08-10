@@ -6,7 +6,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ndarray::{s, Array1, Axis};
 use onnxruntime::{environment::Environment, GraphOptimizationLevel};
 
-use data::{qambert, smbert};
 use rubert::{
     kinds::{QAMBert, SMBert},
     AveragePooler,
@@ -16,6 +15,7 @@ use rubert::{
     NonePooler,
 };
 use rubert_tokenizer::{Builder as TokenizerBuilder, Padding, Truncation};
+use test_utils::{qambert, smbert};
 
 const TOKEN_SIZE: usize = 64;
 const SEQUENCE: &str = "This is a sequence.";

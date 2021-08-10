@@ -7,10 +7,10 @@ use ndarray::Array2;
 use onnxruntime::{environment::Environment, GraphOptimizationLevel, LoggingLevel};
 use tract_onnx::prelude::{tvec, Datum, Framework, InferenceFact, InferenceModelExt};
 
-use data::bench::matmul::data;
+use test_utils::bench::matmul::data_dir;
 
 fn bench_tract(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
-    let mut model = BufReader::new(File::open(data().unwrap().join(model)).unwrap());
+    let mut model = BufReader::new(File::open(data_dir().unwrap().join(model)).unwrap());
     let plan = tract_onnx::onnx()
         .model_for_read(&mut model)
         .unwrap()
@@ -38,7 +38,7 @@ fn bench_onnx(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
         .unwrap()
         .with_optimization_level(GraphOptimizationLevel::DisableAll)
         .unwrap()
-        .with_model_from_file(data().unwrap().join(model))
+        .with_model_from_file(data_dir().unwrap().join(model))
         .unwrap();
     manager.bench_function(name, |bencher| {
         bencher.iter(|| {

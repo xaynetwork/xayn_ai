@@ -779,7 +779,7 @@ mod tests {
     use once_cell::sync::Lazy;
     use serde::Deserialize;
 
-    use test_utils::test::ltr::data;
+    use test_utils::test::ltr::feature_extraction_test_cases;
 
     use super::*;
     use crate::utils::mock_uuid;
@@ -1661,7 +1661,7 @@ mod tests {
     #[test]
     fn test_full_feature_extraction() {
         let mut did_run = false;
-        for test in data()
+        for test in feature_extraction_test_cases()
             .unwrap()
             .read_dir()
             .unwrap()

@@ -7,7 +7,7 @@ use std::{
 
 use ndarray::{arr1, arr2, Array};
 
-use test_utils::test::ltr::intermediate;
+use test_utils::test::ltr::training_intermediates;
 
 use super::{
     super::{
@@ -334,7 +334,8 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
 
     let relevances = vec![Low, Low, Medium, Medium, Low, Medium, High, Low, High, High];
 
-    let mut test_guard = BinParamsEqTestGuard::setup(intermediate().unwrap(), 4, 0.0001, 8);
+    let mut test_guard =
+        BinParamsEqTestGuard::setup(training_intermediates().unwrap(), 4, 0.0001, 8);
 
     while test_guard.next_iteration() {
         // Inlined all functions involved into training to get *all* intermediates.

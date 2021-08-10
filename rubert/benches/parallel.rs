@@ -6,12 +6,12 @@ use rayon::{
     join,
 };
 
-use data::{qambert, smbert};
 use rubert::{
     kinds::{QAMBert, SMBert},
     AveragePooler,
     Builder,
 };
+use test_utils::{qambert, smbert};
 
 const BATCH_SIZE: usize = 16;
 const TOKEN_SIZE: usize = 64;

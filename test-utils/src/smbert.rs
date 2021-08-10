@@ -1,7 +1,4 @@
-use std::{
-    io::{Error, ErrorKind, Result},
-    path::PathBuf,
-};
+use std::{io::Result, path::PathBuf};
 
 use crate::resolve_asset;
 
@@ -17,10 +14,7 @@ pub fn model() -> Result<PathBuf> {
 
 /// Resolves the path to the quantized SMBert model.
 pub fn model_quant() -> Result<PathBuf> {
-    Ok(resolve_asset("smbertModel")?
-        .parent()
-        .ok_or_else(|| Error::new(ErrorKind::NotFound, "missing asset 'smbert'"))?
-        .join("smbert-quant.onnx"))
+    Ok(resolve_asset("smbertModel")?.with_file_name("smbert-quant.onnx"))
 }
 
 #[cfg(test)]
