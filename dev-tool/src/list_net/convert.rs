@@ -29,7 +29,7 @@ use xayn_ai::{
     UserFeedback,
 };
 
-use super::data_source::InMemorySamples;
+use super::data_source::InMemoryStorage;
 use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 
 /// Converts different file formats.
@@ -65,7 +65,7 @@ impl ConvertCmd {
             )
         })?;
 
-        let storage = Arc::new(Mutex::new(InMemorySamples::with_sample_capacity(nr_users)));
+        let storage = Arc::new(Mutex::new(InMemoryStorage::with_sample_capacity(nr_users)));
 
         let progress_bar = ProgressBar::new(nr_users.try_into().unwrap()).with_style(
             ProgressStyle::default_bar()
@@ -86,7 +86,7 @@ impl ConvertCmd {
                                 path.display()
                             )
                         })?;
-                    let new_samples = InMemorySamples::prepare_samples(new_samples)?;
+                    let new_samples = InMemoryStorage::prepare_samples(new_samples)?;
                     let mut storage = storage.lock().unwrap();
                     storage.add_prepared_samples(new_samples);
                     drop(storage);
