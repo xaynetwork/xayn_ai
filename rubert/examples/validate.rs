@@ -14,8 +14,6 @@ use indicatif::ProgressBar;
 use ndarray::{s, Array1, Array2, ArrayView1, Axis};
 use onnxruntime::{environment::Environment, session::Session, GraphOptimizationLevel};
 
-#[allow(unused_imports)]
-use data::{example::validate::transcripts, qambert, smbert};
 use rubert::{
     kinds::{QAMBert, SMBert},
     Builder as BertBuilder,
@@ -24,6 +22,8 @@ use rubert::{
     Pipeline as BertPipeline,
 };
 use rubert_tokenizer::{Builder as TokenizerBuilder, Padding, Tokenizer, Truncation};
+#[allow(unused_imports)]
+use test_utils::{example::validate::transcripts, qambert, smbert};
 
 fn main() {
     ValidatorConfig {

@@ -143,7 +143,7 @@ mod tests {
     use ndarray::Array2;
     use std::{fs::File, io::BufReader};
 
-    use data::smbert::model;
+    use test_utils::smbert::model;
 
     use super::*;
 

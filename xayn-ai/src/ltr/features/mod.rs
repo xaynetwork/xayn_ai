@@ -779,7 +779,7 @@ mod tests {
     use once_cell::sync::Lazy;
     use serde::Deserialize;
 
-    use data::test::ltr::data;
+    use test_utils::test::ltr::data;
 
     use super::*;
     use crate::utils::mock_uuid;

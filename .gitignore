@@ -6,8 +6,6 @@ __pycache__
 # Data
 /data/*
 !/data/asset_templates
-!/data/Cargo.toml
-!/data/src/
 
 # MacOS files
 .DS_Store

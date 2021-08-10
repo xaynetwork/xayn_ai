@@ -91,8 +91,8 @@ mod tests {
     use ndarray::ArrayView;
     use std::{fs::File, io::BufReader};
 
-    use data::smbert::vocab;
     use rubert_tokenizer::{ModelError, PaddingError, PostTokenizerError};
+    use test_utils::smbert::vocab;
 
     use super::*;
 

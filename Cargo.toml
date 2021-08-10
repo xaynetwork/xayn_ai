@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "data",
     "dev-tool",
     "rubert",
     "rubert-tokenizer",
+    "test-utils",
     "xayn-ai",
     "xayn-ai-ffi",
     "xayn-ai-ffi-c",

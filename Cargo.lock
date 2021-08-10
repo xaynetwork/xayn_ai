@@ -402,14 +402,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "derive-new"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1479,7 +1471,6 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "csv",
- "data",
  "derive_more",
  "displaydoc",
  "float-cmp 0.9.0",
@@ -1489,6 +1480,7 @@ dependencies = [
  "rayon",
  "rubert-tokenizer",
  "serde",
+ "test-utils",
  "thiserror",
  "tract-onnx",
 ]
@@ -1770,6 +1762,14 @@ checksum = "633c1a546cee861a1a6d0dc69ebeca693bf4296661ba7852b9d21d159e0506df"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "test-utils"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2327,7 +2327,6 @@ dependencies = [
  "anyhow",
  "bincode",
  "csv",
- "data",
  "derive_more",
  "displaydoc",
  "float-cmp 0.9.0",
@@ -2345,6 +2344,7 @@ dependencies = [
  "serde",
  "serde_repr",
  "smallvec",
+ "test-utils",
  "thiserror",
  "uuid",
 ]
@@ -2365,10 +2365,10 @@ name = "xayn-ai-ffi-c"
 version = "0.1.0"
 dependencies = [
  "cbindgen",
- "data",
  "float-cmp 0.9.0",
  "itertools",
  "tempfile",
+ "test-utils",
  "uuid",
  "xayn-ai",
  "xayn-ai-ffi",

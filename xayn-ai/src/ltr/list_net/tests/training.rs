@@ -7,7 +7,7 @@ use std::{
 
 use ndarray::{arr1, arr2, Array};
 
-use data::test::ltr::intermediate;
+use test_utils::test::ltr::intermediate;
 
 use super::{
     super::{

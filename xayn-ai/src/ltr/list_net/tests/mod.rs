@@ -2,7 +2,7 @@ use std::f32::consts::SQRT_2;
 
 use once_cell::sync::Lazy;
 
-use data::ltr::model;
+use test_utils::ltr::model;
 
 use super::{ndlayers::ActivationFunction, *};
 

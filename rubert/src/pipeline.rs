@@ -76,7 +76,7 @@ impl<K, P> Pipeline<K, P> {
 
 #[cfg(test)]
 mod tests {
-    use data::smbert::{model, vocab};
+    use test_utils::smbert::{model, vocab};
 
     use super::*;
     use crate::{

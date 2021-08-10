@@ -403,7 +403,7 @@ mod tests {
 
     use tempfile::Builder as TempBuilder;
 
-    use data::{ltr, qambert, smbert};
+    use test_utils::{ltr, qambert, smbert};
 
     use super::*;
     use crate::{

@@ -2,7 +2,7 @@
 //! - `s` for SMBert
 //! - `qa` for QAMBert
 
-use data::{qambert, smbert};
+use test_utils::{qambert, smbert};
 use rubert::{FirstPooler, QAMBertBuilder, SMBertBuilder};
 
 macro_rules! build_and_run {
