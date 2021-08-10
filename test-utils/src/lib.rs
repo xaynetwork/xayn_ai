@@ -11,7 +11,7 @@ pub mod test;
 
 use std::{
     collections::HashMap,
-    env::{current_dir, var_os},
+    env::var_os,
     fs::File,
     io::{BufReader, Error, ErrorKind, Result},
     path::{Path, PathBuf},
@@ -20,23 +20,14 @@ use std::{
 use serde::Deserialize;
 use serde_json::{from_reader, from_value, Value};
 
-/// Resolves the path to the requested data.
+/// Resolves the path to the requested data relative to the workspace directory.
 fn resolve_path(path: &[impl AsRef<Path>]) -> Result<PathBuf> {
     let manifest = var_os("CARGO_MANIFEST_DIR")
         .ok_or_else(|| Error::new(ErrorKind::NotFound, "missing CARGO_MANIFEST_DIR"))?;
-    let manifest = PathBuf::from(manifest).canonicalize()?;
-    let current = current_dir()?.canonicalize()?;
-
-    let workspace = if current == manifest {
-        current
-            .parent()
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "missing workspace"))?
-            .to_path_buf()
-    } else if Some(current.as_path()) == manifest.parent() {
-        current
-    } else {
-        return Err(Error::new(ErrorKind::NotFound, "missing workspace"));
-    };
+    let workspace = PathBuf::from(manifest)
+        .parent()
+        .ok_or_else(|| Error::new(ErrorKind::NotFound, "missing cargo workspace dir"))?
+        .to_path_buf();
 
     path.iter()
         .fold(workspace, |path, component| path.join(component))
@@ -54,7 +45,7 @@ struct Assets {
     assets: Vec<Value>,
 }
 
-/// Reads the asset paths.
+/// Reads the asset paths from the static assets file.
 fn read_assets() -> Result<HashMap<String, PathBuf>> {
     from_reader::<_, Assets>(BufReader::new(File::open(resolve_path(&[
         "out",
@@ -74,7 +65,7 @@ fn read_assets() -> Result<HashMap<String, PathBuf>> {
     .map_err(|error| Error::new(ErrorKind::InvalidData, error.to_string()))
 }
 
-/// Resolves the path to the requested asset.
+/// Resolves the path to the requested asset relative to the workspace directory.
 fn resolve_asset(asset: &str) -> Result<PathBuf> {
     resolve_path(&[read_assets()?
         .get(asset)
