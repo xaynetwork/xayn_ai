@@ -1,10 +1,11 @@
 //! Compares MBert models evaluated by the onnx or the tract runtime.
 //!
-//! Run as `cargo run --release --bin validate --features validate`.
+//! Run as `cargo run --release --example validate --features validate`.
 
 use std::{
     marker::PhantomPinned,
     ops::{Bound, Deref, RangeBounds},
+    path::{Path, PathBuf},
     pin::Pin,
 };
 
@@ -21,6 +22,8 @@ use rubert::{
     Pipeline as BertPipeline,
 };
 use rubert_tokenizer::{Builder as TokenizerBuilder, Padding, Tokenizer, Truncation};
+#[allow(unused_imports)]
+use test_utils::{example::validate::transcripts, qambert, smbert};
 
 fn main() {
     ValidatorConfig {
@@ -31,16 +34,16 @@ fn main() {
         },
         source: ModelConfig {
             kind: ModelKind::OnnxMBert,
-            vocab: "../data/smbert_v0000/vocab.txt",
-            model: "../data/smbert_v0000/smbert.onnx",
+            vocab: smbert::vocab().unwrap(),
+            model: smbert::model().unwrap(),
         },
         target: ModelConfig {
             kind: ModelKind::TractSMBert,
-            vocab: "../data/smbert_v0000/vocab.txt",
-            model: "../data/smbert_v0000/smbert.onnx",
+            vocab: smbert::vocab().unwrap(),
+            model: smbert::model().unwrap(),
         },
         data: DataConfig {
-            talks: "../data/ted_talk_transcripts.csv",
+            talks: transcripts().unwrap(),
             range: ..100,
         },
     }
@@ -75,15 +78,15 @@ struct ModelConfig {
     /// The model kind.
     kind: ModelKind,
     /// The path to the vocabulary.
-    vocab: &'static str,
+    vocab: PathBuf,
     /// The path to the model.
-    model: &'static str,
+    model: PathBuf,
 }
 
 /// Ted talks data configurations.
 struct DataConfig<R: RangeBounds<usize>> {
     /// The path to the talks.
-    talks: &'static str,
+    talks: PathBuf,
     /// The range of talks to use for validation.
     range: R,
 }
@@ -98,7 +101,7 @@ struct ValidatorConfig<R: RangeBounds<usize>> {
 
 impl<R: RangeBounds<usize>> ValidatorConfig<R> {
     /// Builds a validator from this configuration.
-    fn build(&self) -> Validator {
+    fn build(self) -> Validator {
         Validator::build(self)
     }
 }
@@ -128,7 +131,7 @@ impl Pipeline {
     fn build(tokenizer: &TokenizerConfig, model: &ModelConfig) -> Self {
         match model.kind {
             ModelKind::OnnxMBert => {
-                let tokenizer = TokenizerBuilder::from_file(model.vocab)
+                let tokenizer = TokenizerBuilder::from_file(model.vocab.as_path())
                     .unwrap()
                     .with_normalizer(true, false, tokenizer.accents, tokenizer.lowercase)
                     .with_model("[UNK]", "##", 100)
@@ -147,7 +150,12 @@ impl Pipeline {
                     .unwrap()
                     .with_optimization_level(GraphOptimizationLevel::DisableAll)
                     .unwrap()
-                    .with_model_from_file(model.model)
+                    // Safety:
+                    // - the path becomes owned in the function before the pathbuf gets dropped here
+                    // - the file behind the path is valid at least for the duration of the program
+                    .with_model_from_file(unsafe {
+                        std::mem::transmute::<_, &'static Path>(model.model.as_path())
+                    })
                     .unwrap();
 
                 Self::OnnxMBert {
@@ -157,28 +165,30 @@ impl Pipeline {
                 }
             }
             ModelKind::TractSMBert => {
-                let pipeline = BertBuilder::from_files(model.vocab, model.model)
-                    .unwrap()
-                    .with_accents(tokenizer.accents)
-                    .with_lowercase(tokenizer.lowercase)
-                    .with_token_size(tokenizer.token_size)
-                    .unwrap()
-                    .with_pooling(NonePooler)
-                    .build()
-                    .unwrap();
+                let pipeline =
+                    BertBuilder::from_files(model.vocab.as_path(), model.model.as_path())
+                        .unwrap()
+                        .with_accents(tokenizer.accents)
+                        .with_lowercase(tokenizer.lowercase)
+                        .with_token_size(tokenizer.token_size)
+                        .unwrap()
+                        .with_pooling(NonePooler)
+                        .build()
+                        .unwrap();
 
                 Self::TractSMBert(pipeline)
             }
             ModelKind::TractQAMBert => {
-                let pipeline = BertBuilder::from_files(model.vocab, model.model)
-                    .unwrap()
-                    .with_accents(tokenizer.accents)
-                    .with_lowercase(tokenizer.lowercase)
-                    .with_token_size(tokenizer.token_size)
-                    .unwrap()
-                    .with_pooling(NonePooler)
-                    .build()
-                    .unwrap();
+                let pipeline =
+                    BertBuilder::from_files(model.vocab.as_path(), model.model.as_path())
+                        .unwrap()
+                        .with_accents(tokenizer.accents)
+                        .with_lowercase(tokenizer.lowercase)
+                        .with_token_size(tokenizer.token_size)
+                        .unwrap()
+                        .with_pooling(NonePooler)
+                        .build()
+                        .unwrap();
 
                 Self::TractQAMBert(pipeline)
             }
@@ -210,7 +220,7 @@ impl Pipeline {
 
 /// A validator to compare two models based on a set of Ted talks.
 struct Validator {
-    talks: &'static str,
+    talks: PathBuf,
     skip: usize,
     take: usize,
     source: Pipeline,
@@ -220,7 +230,7 @@ struct Validator {
 
 impl Validator {
     /// Builds a validator from a configuration.
-    fn build<R: RangeBounds<usize>>(config: &ValidatorConfig<R>) -> Self {
+    fn build<R: RangeBounds<usize>>(config: ValidatorConfig<R>) -> Self {
         let talks = config.data.talks;
         let skip = match config.data.range.start_bound() {
             Bound::Included(start) => *start,
@@ -291,7 +301,7 @@ impl Validator {
 
     /// Computes various errors between source and target embeddings based on the chosen ted talks.
     fn validate(&mut self) -> &mut Self {
-        let mut reader = Reader::from_path(self.talks).unwrap();
+        let mut reader = Reader::from_path(self.talks.as_path()).unwrap();
         let progress = ProgressBar::new(self.take as u64);
         let mut errors = Array2::<f32>::zeros((330644, 5)); // total #sentences
         let mut idx = 0;

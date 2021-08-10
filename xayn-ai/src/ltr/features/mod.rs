@@ -779,9 +779,10 @@ mod tests {
     use once_cell::sync::Lazy;
     use serde::Deserialize;
 
-    use crate::utils::mock_uuid;
+    use test_utils::test::ltr::feature_extraction_test_cases;
 
     use super::*;
+    use crate::utils::mock_uuid;
 
     fn history_by_url<'a>(
         iter: impl IntoIterator<Item = &'a (Action, &'a str)>,
@@ -1538,7 +1539,6 @@ mod tests {
         }
     }
 
-    const TEST_DATA_DIR: &str = "../data/ltr_test_data_v0000/feature_extraction";
     const TEST_HISTORY_FILE_NAME: &str = "history.csv";
     const TEST_CURRENT_QUERY_FILE_NAME: &str = "current_query.csv";
     const TEST_FEATURES_FILE_NAME: &str = "features.csv";
@@ -1661,7 +1661,8 @@ mod tests {
     #[test]
     fn test_full_feature_extraction() {
         let mut did_run = false;
-        for test in Path::new(TEST_DATA_DIR)
+        for test in feature_extraction_test_cases()
+            .unwrap()
             .read_dir()
             .unwrap()
             .map(|d| d.unwrap().path())
