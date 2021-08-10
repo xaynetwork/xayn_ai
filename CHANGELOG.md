@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Use keyword arguments for `Document`/`History` constructors.
 - `XainAi` is initialized with an additional parameter to support the domain reranker.
 - Assets for releases on the `release` branch are uploaded to KeyCDN.
+- The token size of smbert has been decreased to `52`.
 
 ## 1.0.0 - 2021/05/18
 
