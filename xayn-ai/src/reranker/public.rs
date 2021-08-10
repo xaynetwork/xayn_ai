@@ -210,7 +210,7 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
         let database = self.database;
         let smbert = self
             .smbert
-            .with_token_size(90)?
+            .with_token_size(52)?
             .with_accents(false)
             .with_lowercase(true)
             .with_pooling(AveragePooler)
