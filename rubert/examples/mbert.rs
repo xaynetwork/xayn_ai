@@ -3,6 +3,7 @@
 //! - `qa` for QAMBert
 
 use rubert::{FirstPooler, QAMBertBuilder, SMBertBuilder};
+use test_utils::{qambert, smbert};
 
 macro_rules! build_and_run {
     ($builder:expr) => {{
@@ -26,14 +27,14 @@ fn main() {
     let (embedding, size) = match std::env::args().nth(1).unwrap().as_str() {
         "s" => {
             build_and_run!(SMBertBuilder::from_files(
-                "../data/smbert_v0000/vocab.txt",
-                "../data/smbert_v0000/smbert.onnx",
+                smbert::vocab().unwrap(),
+                smbert::model().unwrap(),
             ))
         }
         "qa" => {
             build_and_run!(QAMBertBuilder::from_files(
-                "../data/qambert_v0001/vocab.txt",
-                "../data/qambert_v0001/qambert.onnx",
+                qambert::vocab().unwrap(),
+                qambert::model().unwrap(),
             ))
         }
         _ => panic!("unknown MBert kind"),

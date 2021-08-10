@@ -57,12 +57,3 @@ pub use crate::{
     pooler::{Embedding, PoolerError},
     tokenizer::TokenizerError,
 };
-
-#[cfg(test)]
-pub(crate) mod tests {
-    /// Path to the current smbert vocabulary file.
-    pub const SMBERT_VOCAB: &str = "../data/smbert_v0000/vocab.txt";
-
-    /// Path to the current smbert onnx model file.
-    pub const SMBERT_MODEL: &str = "../data/smbert_v0000/smbert.onnx";
-}

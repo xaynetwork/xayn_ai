@@ -1,9 +1,11 @@
-/data/*
-!/data/asset_templates
 /target/
 /out/*
 /.vscode/
 __pycache__
+
+# Data
+/data/*
+!/data/asset_templates
 
 # MacOS files
 .DS_Store

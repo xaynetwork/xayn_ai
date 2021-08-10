@@ -76,16 +76,17 @@ impl<K, P> Pipeline<K, P> {
 
 #[cfg(test)]
 mod tests {
+    use test_utils::smbert::{model, vocab};
+
     use super::*;
     use crate::{
         builder::Builder,
         model::kinds::SMBert,
         pooler::{AveragePooler, FirstPooler, NonePooler},
-        tests::{SMBERT_MODEL, SMBERT_VOCAB},
     };
 
     fn pipeline<P>(pooler: P) -> Pipeline<SMBert, P> {
-        Builder::from_files(SMBERT_VOCAB, SMBERT_MODEL)
+        Builder::from_files(vocab().unwrap(), model().unwrap())
             .unwrap()
             .with_accents(false)
             .with_lowercase(true)

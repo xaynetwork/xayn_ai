@@ -25,6 +25,7 @@ uuid = { version = "0.8.2", features = ["serde", "wasm-bindgen", "v4"] }
 
 [dev-dependencies]
 csv = "1.1.6"
+test-utils = { path = "../test-utils" }
 float-cmp = "0.9.0"
 maplit = "1.0.2"
 mockall = "0.10.2"
