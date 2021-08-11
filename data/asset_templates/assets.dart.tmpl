@@ -7,13 +7,17 @@ part of 'data_provider.dart';
 /// The checksum is the sha256 hash of the asset.
 /// To calculate the checksum run 'shasum -a 256 vocab.txt'.
 final baseAssets = <AssetType, Asset>{
-  {{- range (ds "assets").assets }}
-  AssetType.{{.name}}: Asset('{{.suffix}}', Checksum('{{.checksum}}'), [Fragment('{{.suffix}}', Checksum('{{.checksum}}'))]),
+  {{- range (ds "assets_manifest").assets }}
+  AssetType.{{.dart_enum_name}}: Asset('{{.url_suffix}}', Checksum('{{.checksum}}'), [
+    {{ range .fragments }}
+      Fragment('{{.url_suffix}}', Checksum('{{.checksum}}')),
+    {{ end }}
+    ]),
   {{- end}}
 };
 
 enum AssetType {
-  {{- range (ds "assets").assets }}
-  {{.name}},
+  {{- range (ds "assets_manifest").assets }}
+  {{.dart_enum_name}},
   {{- end}}
 }
