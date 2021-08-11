@@ -6,5 +6,7 @@ mod ai;
 #[cfg(not(tarpaulin))]
 mod error;
 
+pub use wasm_bindgen_rayon::init_thread_pool;
+
 #[cfg(all(not(tarpaulin), doc))]
 pub use crate::ai::WXaynAi;

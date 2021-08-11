@@ -8,6 +8,7 @@ use crate::{
 };
 
 impl QAMBertSystem for QAMBert {
+    #[cfg(not(feature = "parallel"))]
     fn compute_similarity(
         &self,
         documents: Vec<DocumentDataWithSMBert>,
@@ -17,6 +18,43 @@ impl QAMBertSystem for QAMBert {
             let query = self.run(query)?;
             documents
                 .into_iter()
+                .map(|document| {
+                    let snippet = &document.document_content.snippet;
+                    // not all documents have a snippet, if snippet is empty we use the title
+                    let data = if snippet.is_empty() {
+                        &document.document_content.title
+                    } else {
+                        snippet
+                    };
+
+                    self.run(&data)
+                        .map(|embedding| {
+                            let similarity = l2_distance(&query, &embedding);
+                            DocumentDataWithQAMBert::from_document(
+                                document,
+                                QAMBertComponent { similarity },
+                            )
+                        })
+                        .map_err(Into::into)
+                })
+                .collect()
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    #[cfg(feature = "parallel")]
+    fn compute_similarity(
+        &self,
+        documents: Vec<DocumentDataWithSMBert>,
+    ) -> Result<Vec<DocumentDataWithQAMBert>, Error> {
+        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+        if let Some(document) = documents.first() {
+            let query = &document.document_content.query_words;
+            let query = self.run(query)?;
+            documents
+                .into_par_iter()
                 .map(|document| {
                     let snippet = &document.document_content.snippet;
                     // not all documents have a snippet, if snippet is empty we use the title

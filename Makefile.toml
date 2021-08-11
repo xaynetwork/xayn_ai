@@ -22,7 +22,7 @@ dependencies = ["build-dart"]
 # builds xayn-ai library that can be used to run flutter tests locally
 [tasks.build-local]
 script = ["""
-  cargo build
+  cargo build --workspace --exclude xayn-ai-ffi-wasm
 """]
 
 [tasks.build-mobile.linux]
@@ -34,7 +34,7 @@ dependencies = ["build-android", "build-ios"]
 [tasks.build-android]
 dependencies = ["build-dart"]
 script = ["""
-  cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release
+  cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release --workspace --exclude xayn-ai-ffi-wasm
 """]
 
 [tasks.build-ios]

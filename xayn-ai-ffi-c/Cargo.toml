@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 uuid = "0.8.2"
-xayn-ai = { path = "../xayn-ai" }
+xayn-ai = { path = "../xayn-ai", features = ["parallel"] }
 xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 
 [dev-dependencies]

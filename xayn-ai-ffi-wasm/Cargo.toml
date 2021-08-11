@@ -10,9 +10,12 @@ edition = "2018"
 console_error_panic_hook = "0.1.6"
 getrandom = { version = "0.2.3", features = ["js"] }
 js-sys = "0.3.52"
+rayon = "1.5.1"
 serde = { version = "1.0.127", features = ["derive"] }
 wasm-bindgen = { version = "=0.2.75", features = ["serde-serialize"] }
-xayn-ai = { path = "../xayn-ai" }
+wasm-bindgen-rayon = {  version = "1.0.3" }
+# wasm-bindgen-rayon = {  version = "1.0.3",  features = ["no-bundler"] }
+xayn-ai = { path = "../xayn-ai", features = ["parallel"] }
 xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 
 [dev-dependencies]
@@ -27,7 +30,7 @@ crate-type = ["cdylib"]
 wasm-opt = ['-O', '-g']
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ['-Oz']
+wasm-opt = ['-Oz', '-g']
 
 [features]
 default = ["browser"]
