@@ -15,28 +15,15 @@ set -e
 OUT_DIR="out"
 ASSETS_METADATA_PATH=$OUT_DIR/assets_metadata.json
 
-if [ -z ${GITHUB_ACTIONS} ]; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
+if [[ "$OSTYPE" == "darwin"*  || $RUNNER_OS == "macOS" ]]; then
         if [ -x "$(command -v gsplit)" ]; then
             SPLIT="gsplit"
         else
             echo "Requires the GNU version of 'split'. Use 'brew install coreutils' to install it."
             exit 1
         fi
-    else
-        SPLIT="split"
-    fi
 else
-    if [ $RUNNER_OS == "macOS" ]; then
-        if [ -x "$(command -v gsplit)" ]; then
-            SPLIT="gsplit"
-        else
-            echo "Cannot find 'gsplit'."
-            exit 1
-        fi
-    else
         SPLIT="split"
-    fi
 fi
 
 if ! [ -x "$(command -v gomplate)" ]; then
