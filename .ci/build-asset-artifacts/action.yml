@@ -4,42 +4,44 @@ inputs:
   dart-ws:
     description: 'The Dart workspace'
     required: true
-  wasm-suffix:
-    description: 'The WASM suffix.'
-  wasm-rel-path:
+  wasm-version:
+    description: 'The version of the WASM artifacts.'
+    required: false
+  wasm-out-dir-path:
     description: 'The relative path (wrt the repository root) of the WASM artifacts.'
-  release:
-    description: 'Flag that controls if the asset artifacts are generated for release.'
-    required: true
-    default: 'false'
+    required: false
 outputs:
-  dart-manifest:
+  dart-metadata:
     description: "The relative path (wrt the repository root) of the Dart manifest."
-    value: ${{ steps.artifact-paths.outputs.dart-manifest }}
-  json-manifest:
+    value: ${{ steps.artifact-paths.outputs.dart-metadata }}
+  json-metadata:
     description: "The relative path (wrt the repository root) of the JSON manifest."
-    value: ${{ steps.artifact-paths.outputs.json-manifest }}
+    value: ${{ steps.artifact-paths.outputs.json-metadata }}
+  chunks-dir:
+    description: "The relative path (wrt the repository root) of the directory where the chunks of the data assets are stored."
+    value: ${{ steps.artifact-paths.outputs.chunks-dir }}
 runs:
   using: "composite"
   steps:
     - id: artifact-paths
       shell: bash
       run: |
-        echo "::set-output name=dart-manifest::$(echo ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart)"
-        echo "::set-output name=json-manifest::out/assets.json"
+        echo "::set-output name=dart-metadata::$(echo ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart)"
+        echo "::set-output name=json-metadata::out/assets_metadata.json"
+        echo "::set-output name=chunks-dir::data/chunks"
 
     - shell: bash
-      env:
-        WASM_SUFFIX: ${{ inputs.wasm-suffix }}
-        WASM_REL_PATH: ${{ inputs.wasm-rel-path }}
       run: |
-        mkdir -p out
-        gomplate -f data/asset_templates/assets.json.tmpl -o ${{ steps.artifact-paths.outputs.json-manifest }}
-        gomplate -d assets=${{ steps.artifact-paths.outputs.json-manifest }} -f data/asset_templates/assets.dart.tmpl -o ${{ steps.artifact-paths.outputs.dart-manifest }}
-        flutter format ${{ steps.artifact-paths.outputs.dart-manifest }}
-        echo "::group::Dart manifest"
-        cat ${{ steps.artifact-paths.outputs.dart-manifest }}
+        if [ ${{ runner.os }} == "macOS" ]; then
+          # installs gsplit
+          brew install coreutils
+        fi
+
+        bash generate_assets_metadata.sh assets_manifest.json ${{ inputs.wasm-version }} ${{ inputs.wasm-out-dir-path }}
+
+        echo "::group::Dart metadata"
+        cat ${{ steps.artifact-paths.outputs.dart-metadata }}
         echo "::endgroup::"
-        echo "::group::JSON manifest"
-        cat ${{ steps.artifact-paths.outputs.json-manifest }}
+        echo "::group::JSON metadata"
+        cat ${{ steps.artifact-paths.outputs.json-metadata }}
         echo "::endgroup::"
