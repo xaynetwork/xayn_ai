@@ -51,7 +51,7 @@ pub struct TrainCmd {
     #[structopt(short, long, default_value = "./")]
     out_dir: PathBuf,
 
-    /// After how many epochs a intermediate result should be dumped (if at all).
+    /// After how many epochs an intermediate result should be dumped (if at all).
     #[structopt(long)]
     dump_every: Option<usize>,
 

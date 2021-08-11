@@ -14,7 +14,7 @@ pub(crate) struct CliTrainingControllerBuilder {
 
     /// If true dumps the initial parameters.
     ///
-    /// This is can be useful if the initial parameters
+    /// This can be useful if the initial parameters
     /// have been freshly created using some random
     /// initializer.
     pub(crate) dump_initial_parameters: bool,
