@@ -176,14 +176,14 @@ pub(crate) trait Storage {
     fn load_batch<'a>(&'a mut self, ids: &'_ [DataId]) -> Result<Vec<Sample<'a>>, Self::Error>;
 }
 
-/// For now samples ids are always incremental integers form `0..nr_samples`.
+/// For now samples ids are always incremental integers from `0` to `nr_samples`.
 ///
 /// - This is only used to handle shuffling and retrieving the samples from the
 ///   storage.
 /// - This is unlikely to ever change.
 /// - We do not care about the consistency of the id-to-sample mapping between
 ///   trainings.
-///     - Through we do care about a deterministic evaluation split, as such
+///     - Though we do care about a deterministic evaluation split, as such
 ///       we currently need some degree of determinism in practice. But that is
 ///       an implementation detail of the splitting unrelated to the rest of
 ///       the code.
@@ -289,7 +289,7 @@ impl InMemorySamples {
         Self::deserialize_from(BufReader::new(File::open(file)?))
     }
 
-    /// Deserialize an instance from the given reader, using a buffered reader is preferred.
+    /// Deserialize an instance from the given (preferably buffered) reader.
     #[allow(dead_code)] //FIXME is used by training (added in part 3 of this PR)
     fn deserialize_from(reader: impl Read) -> Result<Self, Error> {
         let self_: Self = bincode::DefaultOptions::new().deserialize_from(reader)?;
@@ -351,7 +351,7 @@ impl InMemorySamples {
 /// Extend a vec with the elements of the given array.
 ///
 /// Elements are added in logical order independent of storage order,
-/// i.e. elements are added as if `data` was continuos and in standard
+/// i.e. elements are added as if `data` was continuous and in standard
 /// storage order (terms are used the way they are defined by ndarray).
 fn extend_vec_with_ndarray<T: Clone>(
     data: &mut Vec<T>,

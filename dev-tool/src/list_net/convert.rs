@@ -496,6 +496,7 @@ mod tests {
             doc_with_action(&history[7], UserAction::Click),
             doc_with_action(&history[8], UserAction::Miss),
             doc_with_action(&history[9], UserAction::Miss),
+            /* -- next seq of query results (unique by `(session_id, query_count)`) -- */
             doc_with_action(&history[10], UserAction::Miss),
         ];
 
