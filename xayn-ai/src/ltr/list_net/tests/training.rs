@@ -49,10 +49,9 @@ struct BatchSize0Error;
 impl DataSource for VecDataSource {
     type Error = BatchSize0Error;
 
-    fn reset(&mut self) -> Result<(), Self::Error> {
+    fn reset(&mut self) {
         self.training_data_idx = 0;
         self.evaluation_data_idx = 0;
-        Ok(())
     }
 
     fn number_of_training_batches(&self) -> usize {

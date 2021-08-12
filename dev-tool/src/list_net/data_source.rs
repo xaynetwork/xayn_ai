@@ -202,11 +202,10 @@ pub enum DataSourceError {
 impl list_net::DataSource for DataSource {
     type Error = DataSourceError;
 
-    fn reset(&mut self) -> Result<(), Self::Error> {
+    fn reset(&mut self) {
         let mut rng = rand::thread_rng();
         self.training_data_order.reset(&mut rng);
         self.evaluation_data_order.reset(&mut rng);
-        Ok(())
     }
 
     fn number_of_training_batches(&self) -> usize {
@@ -341,6 +340,12 @@ pub struct InMemoryStorage {
 pub enum StorageError {
     /// The database was parsed successfully but contains broken invariants at index {at_index}.
     BrokenInvariants { at_index: usize },
+
+    /// A out-of-bounds DataId (failed: {id} < {exclusive_id_upper_bound}) was used with the storage, this is most likely a bug.
+    OutOfBoundsId {
+        id: DataId,
+        exclusive_id_upper_bound: DataId,
+    },
 }
 
 impl InMemoryStorage {
@@ -400,8 +405,13 @@ impl InMemoryStorage {
     }
 
     fn load_sample_helper(&self, id: DataId) -> Result<SampleView, StorageError> {
-        //FIXME do not panic.
-        let raw = &self.data[id];
+        let raw = &self
+            .data
+            .get(id)
+            .ok_or_else(|| StorageError::OutOfBoundsId {
+                id,
+                exclusive_id_upper_bound: self.data.len(),
+            })?;
 
         // len == nr_document * nr_features + nr_documents * 1
         let nr_documents = raw.len() / (ListNet::INPUT_NR_FEATURES + 1);
