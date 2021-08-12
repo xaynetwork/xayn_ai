@@ -16,7 +16,9 @@ pub(crate) use self::{
         from_ids,
         history_for_prev_docs,
         neg_cois_from_words,
+        neg_cois_from_words_with_ids,
         pos_cois_from_words,
+        pos_cois_from_words_with_ids,
     },
 };
 
