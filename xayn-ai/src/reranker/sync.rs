@@ -79,11 +79,17 @@ mod tests {
         pos_cois_from_words_with_ids,
     };
 
-    impl SyncData {
+    impl UserInterests {
         fn from_words(words: &[&str], start_id: usize) -> Self {
             let positive = pos_cois_from_words_with_ids(words, mocked_smbert_system(), start_id);
             let negative = neg_cois_from_words_with_ids(words, mocked_smbert_system(), start_id);
-            let user_interests = UserInterests { positive, negative };
+            Self { positive, negative }
+        }
+    }
+
+    impl SyncData {
+        fn from_words(words: &[&str], start_id: usize) -> Self {
+            let user_interests = UserInterests::from_words(words, start_id);
             Self { user_interests }
         }
 
@@ -105,6 +111,17 @@ mod tests {
         fn eq_up_to_reordering(&self, other: &SyncData) -> bool {
             self.contains(other) && other.contains(self)
         }
+    }
+
+    #[test]
+    fn test_append_user_interests() {
+        let mut cois = UserInterests::from_words(&["a", "b", "c"], 0); // ids 0, 1, 2
+        let extra = UserInterests::from_words(&["b", "c", "d"], 1); // ids 1, 2, 3
+
+        cois.append(extra);
+
+        let expected = UserInterests::from_words(&["a", "b", "c", "d"], 0);
+        assert_eq!(cois, expected);
     }
 
     #[test]
