@@ -26,10 +26,10 @@ script = ["""
 """]
 
 [tasks.build-mobile.linux]
-dependencies = ["build-android"]
+dependencies = ["build-android", "generate_assets_metadata"]
 
 [tasks.build-mobile.mac]
-dependencies = ["build-android", "build-ios"]
+dependencies = ["build-android", "build-ios", "generate_assets_metadata"]
 
 [tasks.build-android]
 dependencies = ["build-dart"]
@@ -45,7 +45,7 @@ script = ["""
 """]
 
 [tasks.build-dart]
-dependencies = ["build-bindgen-dart", "build-codegen-dart", "gen-assets"]
+dependencies = ["build-bindgen-dart", "build-codegen-dart"]
 
 [tasks.build-bindgen-dart]
 workspace = false
@@ -77,33 +77,21 @@ script = ["""
   flutter pub get
 """]
 
-[tasks.gen-assets]
+[tasks.generate_assets_metadata]
 script = ["""
-  mkdir -p out
-  gomplate -f data/asset_templates/assets.json.tmpl -o out/assets.json
-  gomplate -d assets=out/assets.json -f data/asset_templates/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
-  flutter format bindings/dart/lib/src/common/reranker/assets.dart
+  ./generate_assets_metadata.sh assets_manifest.json $WASM_VERION $WASM_OUT_DIR_PATH
 """]
 
 [tasks.build-web]
-# This will run build-local "unnecessarily" it will
-# also run gen-assets for non-wasm before then later
-# overwriting it. This will be fixed in a later PR.
-dependencies = [ "build-dart" ]
-script_runner = "@duckscript"
-env = { WASM_SUFFIX="wasm_bindings" }
-script = ["""
-  wasm_rel_path = set "bindings/dart/example/assets/${WASM_SUFFIX}"
-  set_env WASM_REL_PATH "${wasm_rel_path}"
-  cm_run_task build-wasm
-  cm_run_task gen-assets
-"""]
+# This will run build-local "unnecessarily". This will be fixed in a later PR.
+env = { WASM_VERION="wasm_bindings", WASM_OUT_DIR_PATH="bindings/dart/example/assets/wasm_bindings" }
+run_task = { name = [ "build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
 script = ["""
-  wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../$WASM_REL_PATH --out-name genesis --target web --release
+  wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../$WASM_OUT_DIR_PATH --out-name genesis --target web --release
   # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
-  rm $WASM_REL_PATH/.gitignore
+  rm $WASM_OUT_DIR_PATH/.gitignore
 """]
 
 [tasks.test-wasm]
