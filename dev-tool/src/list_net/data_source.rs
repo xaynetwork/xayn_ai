@@ -50,7 +50,6 @@ where
     /// - If there are no evaluation samples with the given `evaluation_split`,
     ///   but the split is not `0`.
     /// - If calling `storage.data_ids()` failed.
-    #[allow(dead_code)] //FIXME is used by training (added in part 3 of this PR)
     pub(crate) fn new(
         storage: S,
         evaluation_split: f32,

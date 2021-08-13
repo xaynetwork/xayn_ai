@@ -590,7 +590,7 @@ where
                 .reset(batch_size)
                 .map_err(TrainingError::Data)?;
             self.callbacks
-                .begin_of_epoch(nr_batches, &self.list_net)
+                .begin_of_epoch(nr_batches)
                 .map_err(TrainingError::Control)?;
 
             while self.train_next_batch()? {}
@@ -737,7 +737,7 @@ pub trait TrainingController {
     fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error>;
 
     /// Called at the begin of each epoch.
-    fn begin_of_epoch(&mut self, nr_batches: usize, list_net: &ListNet) -> Result<(), Self::Error>;
+    fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error>;
 
     /// Called at the end of each epoch with the mean of running the evaluation with KL-Divergence.
     ///
