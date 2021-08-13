@@ -1,11 +1,11 @@
-import * as Comlink from 'comlink';
+import * as Comlink from "comlink";
 
 async function init_ai() {
   let multiThread = await import("./pkg/xayn_ai_ffi_wasm.js");
   await multiThread.default();
   await multiThread.initThreadPool(navigator.hardwareConcurrency);
 
-  console.log(navigator.hardwareConcurrency)
+  console.log(navigator.hardwareConcurrency);
 
   console.time("load_data");
   let smbert_vocab = await fetch("../data/smbert_v0000/vocab.txt");
