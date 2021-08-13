@@ -125,12 +125,8 @@ impl TrainingController for TestController {
         Ok(())
     }
 
-    fn begin_of_epoch(
-        &mut self,
-        _nr_batches: usize,
-        _list_net: &ListNet,
-    ) -> Result<(), Self::Error> {
-        eprintln!("begin of epoch");
+    fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error> {
+        eprintln!("begin of epoch ({} batches)", nr_batches);
         Ok(())
     }
 
