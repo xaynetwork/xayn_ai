@@ -571,9 +571,9 @@ where
         }
     }
 
-    /// Trains for the given number of epochs with given batch size.
+    /// Trains for the given number of epochs.
     ///
-    /// This will use the `list_net`, `data_source`, `callbacks` and `optimizer` used
+    /// This will use the `list_net`, `data_source`, `callbacks`, `optimizer` and `batch_size` used
     /// to create this `ListNetTrainer`.
     pub fn train(mut self, epochs: usize) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
         self.callbacks
@@ -663,6 +663,7 @@ where
         self.callbacks
             .end_of_evaluation()
             .map_err(TrainingError::Control)?;
+
         Ok(())
     }
 }
@@ -737,7 +738,7 @@ pub trait TrainingController {
     /// Called at the begin of each epoch.
     fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error>;
 
-    /// Called at the end of each epoch with the mean of running the evaluation with KL-Divergence.
+    /// Called at the end of each epoch.
     ///
     /// The passed in reference to `list_net` can be used to e.g. bump the intermediate training
     /// result every 10 epochs.

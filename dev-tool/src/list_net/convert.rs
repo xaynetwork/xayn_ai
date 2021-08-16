@@ -54,8 +54,8 @@ impl ConvertCmd {
             to_samples,
         } = self;
 
-        // Estimate Number of samples based on the number of users.
-        let nr_users = progress_spin_until_done("Estimating number of samples", || {
+        // Estimate the number of samples based on the number of users.
+        let nr_users = progress_spin_until_done("Estimating the number of samples", || {
             list_csv_files(&from_soundgarden)?.fold(
                 Ok(0),
                 |acc, entry_res| -> Result<usize, Error> {
@@ -144,7 +144,7 @@ fn list_csv_files(
                 Ok(None)
             }
         })
-        .flat_map(|res| res.transpose())
+        .flat_map(move |res| res.context(err_msg).transpose())
         .take_while(the_first_error_has_not_been_returned_predicate());
 
     Ok(iter)

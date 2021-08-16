@@ -44,7 +44,7 @@ where
     ///
     /// # Errors
     ///
-    /// - If `evaluation_split` is less then 0 or not a normal float.
+    /// - If `evaluation_split` is less than 0 or not a normal float.
     /// - If there are no samples.
     /// - If there are no training samples with the given `evaluation_split`.
     /// - If there are no evaluation samples with the given `evaluation_split`,
@@ -104,7 +104,7 @@ where
     NoEvaluationSamples(f32),
     /// A batch size of 0 is not usable for training.
     BatchSize0,
-    /// The batch size ({batch_size}) is larger then the number of samples ({nr_training_samples}).
+    /// The batch size ({batch_size}) is larger than the number of samples ({nr_training_samples}).
     TooLargeBatchSize {
         batch_size: usize,
         nr_training_samples: usize,
@@ -337,9 +337,10 @@ impl InMemorySamples {
 
     /// Prepares samples to be added to this storage.
     ///
-    /// This is split out from adding samples so that the preparation
-    /// can be parallelized while the adding is synchronized using a lock
-    /// or similar.
+    /// The result should then be passed to [`DataSource.add_prepared_samples()`].
+    ///
+    /// The reason this is not a single function is that it allows the preparation
+    /// of the samples to be part of the parallel pipeline creating the samples.
     ///
     /// # Errors
     ///

@@ -110,8 +110,7 @@ impl TrainingController for CliTrainingController {
     ) -> Vec<GradientSet> {
         let losses = Mutex::new(Vec::new());
         let gradient_sets = batch
-            .into_iter()
-            .par_bridge()
+            .into_par_iter()
             .map(|sample| {
                 let (gradient_set, loss) = map_fn(sample);
                 let mut losses = losses.lock().unwrap();
