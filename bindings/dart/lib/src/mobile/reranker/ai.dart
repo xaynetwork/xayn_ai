@@ -7,16 +7,14 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
-    show RerankMode, RerankModeToInt;
+    show RerankMode, RerankModeToInt, selectThreadPoolSize;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
     show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
-import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
-import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
-    show RerankingOutcomesBuilder;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/document.dart' show Documents;
 import 'package:xayn_ai_ffi_dart/src/mobile/data/history.dart' show Histories;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart' show CXaynAi;
@@ -28,6 +26,8 @@ import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
     show SetupData;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/error.dart' show XaynAiError;
 import 'package:xayn_ai_ffi_dart/src/mobile/result/fault.dart' show Faults;
+import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
+    show RerankingOutcomesBuilder;
 
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
@@ -217,18 +217,5 @@ class XaynAi implements common.XaynAi {
       ffi.xaynai_drop(_ai);
       _ai = nullptr;
     }
-  }
-}
-
-/// Selects the number of threads used by the [`XaynAi`] thread pool.
-///
-/// On a single core system the thread pool consists of only one thread.
-/// On a multicore system the thread pool consists of
-/// (the number of logical cores - 1) threads.
-int selectThreadPoolSize(int numberOfProcessors) {
-  if (numberOfProcessors > 1) {
-    return numberOfProcessors - 1;
-  } else {
-    return numberOfProcessors;
   }
 }

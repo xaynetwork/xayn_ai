@@ -7,6 +7,9 @@ ANDROID_TARGETS = "arm64-v8a x86_64 x86"
 
 IOS_TARGETS = "aarch64-apple-ios x86_64-apple-ios"
 
+DART_WORKSPACE = "bindings/dart"
+DART_EXAMPLE_WORKSPACE = "bindings/dart/example"
+
 [config]
 skip_core_tasks = true
 # this avoids cargo make to run these tasks for each crate
@@ -51,7 +54,7 @@ dependencies = ["build-bindgen-dart", "build-codegen-dart"]
 workspace = false
 dependencies = ["build-local", "flutter-pub-get"]
 script = ["""
-  cd bindings/dart
+  cd "${DART_WORKSPACE}"
   flutter pub run ffigen --config ffigen_common.yaml
   flutter pub run ffigen --config ffigen_mobile.yaml
 
@@ -66,14 +69,14 @@ script = ["""
 workspace = false
 dependencies = ["flutter-pub-get"]
 script = ["""
-  cd bindings/dart
+  cd "${DART_WORKSPACE}"
   flutter pub run build_runner build
 """]
 
 [tasks.flutter-pub-get]
 workspace = false
 script = ["""
-  cd bindings/dart
+  cd "${DART_WORKSPACE}"
   flutter pub get
 """]
 
@@ -82,14 +85,62 @@ script = ["""
   ./generate_assets_metadata.sh assets_manifest.json $WASM_VERION $WASM_OUT_DIR_PATH
 """]
 
+[tasks.run-web]
+script = ["""
+    # We don't call build web as we want to be able to not re-build rust/wasm
+    # every time we change dart code, for the same reason we don't run
+    # `flutter pub get`.
+    echo WARNING: 'THIS DOES NOT CALL "build-web" or "flutter pub get"' >&2
+    ${DART_EXAMPLE_WORKSPACE}/flutter_run_web.sh
+"""]
+
 [tasks.build-web]
 # This will run build-local "unnecessarily". This will be fixed in a later PR.
 env = { WASM_VERION="wasm_bindings", WASM_OUT_DIR_PATH="bindings/dart/example/assets/wasm_bindings" }
 run_task = { name = [ "build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
+dependencies = ["build-wasm-parallel", "build-wasm-sequential"]
+
+[tasks.build-wasm-parallel]
+condition_script = ["""
+  # We can't use env_false as it requires the variable to be set
+  # and trying to set a default value for it in `tasks.build-wasm`
+  # seems to not work well either.
+  if [ "${DISABLE_WASM_THREADS:-0}" = 0 ]; then
+    exit 0
+  else
+    exit 1
+  fi
+"""]
 script = ["""
-  wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../$WASM_OUT_DIR_PATH --out-name genesis --target web --release
+  if ! [ "$(wasm-opt --version | grep -oE "version [0-9]+" | grep -oE "[0-9]+" )" -ge 101 ]; then
+      echo "Make sure wasm-opt is in the PATH and has version >= 101" >&2
+      echo "Download Url: https://github.com/WebAssembly/binaryen/releases/tag/version_101" >&2
+      exit 1
+  fi
+  echo "build parallel wasm"
+  RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
+    rustup run nightly \
+    wasm-pack build xayn-ai-ffi-wasm \
+      --no-typescript \
+      --target web \
+      --release \
+      --out-dir ../$WASM_OUT_DIR_PATH --out-name genesis \
+      -- \
+      -Z build-std=panic_abort,std
+  rm $WASM_OUT_DIR_PATH/.gitignore
+"""]
+
+[tasks.build-wasm-sequential]
+condition = { env_true = ["DISABLE_WASM_THREADS"] }
+script = ["""
+  echo "build sequential wasm"
+  wasm-pack build xayn-ai-ffi-wasm \
+    --no-typescript \
+    --out-dir ../$WASM_OUT_DIR_PATH --out-name genesis \
+    --target web \
+    --release
   # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
   rm $WASM_OUT_DIR_PATH/.gitignore
 """]
@@ -104,7 +155,7 @@ script = ["""
 
 [tasks.clean-bindgen]
 script = ["""
-  cd bindings/dart
+  cd "${DART_WORKSPACE}"
   rm -f ios/Classes/XaynAiFFiCommon.h
   rm -f ios/Classes/XaynAiFFiDart.h
   rm -f lib/src/common/ffi/genesis.dart
@@ -112,9 +163,17 @@ script = ["""
   rm -f example/assets/wasm_bindings/genesis_bg.wasm
   rm -f example/assets/wasm_bindings/genesis.js
   rm -f example/assets/wasm_bindings/package.json
+  rm -rf example/assets/wasm_bindings/snippets/
+"""]
+
+[tasks.clean-flutter-build]
+script = ["""
+    cd "${DART_WORKSPACE}"
+    rm -rf build
+    rm -rf example/build
 """]
 
 [tasks.clean-codegen]
 script = ["""
-  find ./bindings/dart -type f -regex '.*\\.g\\.dart' -exec rm {} \\;
+  find "${DART_WORKSPACE}" -type f -regex '.*\\.g\\.dart' -exec rm {} \\;
 """]

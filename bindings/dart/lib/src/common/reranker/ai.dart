@@ -75,3 +75,16 @@ class XaynAi {
   /// Frees the memory.
   void free() => throw UnsupportedError('Unsupported platform.');
 }
+
+/// Selects the number of threads used by the [`XaynAi`] thread pool.
+///
+/// On a single core system the thread pool consists of only one thread.
+/// On a multicore system the thread pool consists of
+/// (the number of logical cores - 1) threads.
+int selectThreadPoolSize(int numberOfProcessors) {
+  if (numberOfProcessors > 1) {
+    return numberOfProcessors - 1;
+  } else {
+    return numberOfProcessors;
+  }
+}
