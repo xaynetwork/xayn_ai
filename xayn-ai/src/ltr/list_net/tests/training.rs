@@ -30,9 +30,10 @@ impl VecDataSource {
     fn new(
         training_data: Vec<(Array2<f32>, Array1<f32>)>,
         evaluation_data: Vec<(Array2<f32>, Array1<f32>)>,
+        batch_size: usize,
     ) -> Self {
         Self {
-            batch_size: 0,
+            batch_size,
             training_data_idx: 0,
             training_data,
             evaluation_data_idx: 0,
@@ -48,14 +49,14 @@ struct BatchSize0Error;
 impl DataSource for VecDataSource {
     type Error = BatchSize0Error;
 
-    fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error> {
-        if batch_size == 0 {
-            return Err(BatchSize0Error);
-        }
-        self.batch_size = batch_size;
+    fn reset(&mut self) -> Result<(), Self::Error> {
         self.training_data_idx = 0;
         self.evaluation_data_idx = 0;
-        Ok(self.training_data.len() / batch_size)
+        Ok(())
+    }
+
+    fn number_of_training_batches(&self) -> usize {
+        self.training_data.len()
     }
 
     fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
@@ -81,6 +82,10 @@ impl DataSource for VecDataSource {
         }
     }
 
+    fn number_of_evaluation_samples(&self) -> usize {
+        self.evaluation_data.len()
+    }
+
     fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error> {
         if self.evaluation_data_idx < self.evaluation_data.len() {
             let idx = self.evaluation_data_idx;
@@ -98,13 +103,17 @@ impl DataSource for VecDataSource {
 }
 
 struct TestController {
-    evaluation_results: Vec<Option<f32>>,
+    mean_evaluation_results: Vec<f32>,
+    current_mean_evaluation_result: f32,
+    current_nr_evaluation_samples: usize,
 }
 
 impl TestController {
     fn new() -> Self {
         Self {
-            evaluation_results: Vec::new(),
+            mean_evaluation_results: Vec::new(),
+            current_mean_evaluation_result: 0.0,
+            current_nr_evaluation_samples: 0,
         }
     }
 }
@@ -114,14 +123,31 @@ impl TrainingController for TestController {
 
     type Outcome = (Self, ListNet);
 
+    fn run_batch(
+        &mut self,
+        batch: Vec<Sample>,
+        map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
+    ) -> Vec<GradientSet> {
+        let mut losses = Vec::new();
+        let gradient_sets = batch
+            .into_iter()
+            .map(|sample| {
+                let (gradient_set, loss) = map_fn(sample);
+                losses.push(loss);
+                gradient_set
+            })
+            .collect();
+        dbg!(losses);
+        gradient_sets
+    }
+
     fn begin_of_batch(&mut self) -> Result<(), Self::Error> {
         eprintln!("begin batch");
         Ok(())
     }
 
-    fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error> {
+    fn end_of_batch(&mut self) -> Result<(), Self::Error> {
         eprintln!("end of batch");
-        dbg!(losses);
         Ok(())
     }
 
@@ -130,14 +156,28 @@ impl TrainingController for TestController {
         Ok(())
     }
 
-    fn end_of_epoch(
-        &mut self,
-        _list_net: &ListNet,
-        mean_kv_divergence_evaluation: Option<f32>,
-    ) -> Result<(), Self::Error> {
+    fn end_of_epoch(&mut self, _list_net: &ListNet) -> Result<(), Self::Error> {
         eprintln!("end of epoch");
-        dbg!(mean_kv_divergence_evaluation);
-        self.evaluation_results.push(mean_kv_divergence_evaluation);
+        Ok(())
+    }
+
+    fn begin_of_evaluation(&mut self, nr_samples: usize) -> Result<(), Self::Error> {
+        eprintln!("begin of evaluation");
+        self.current_mean_evaluation_result = 0.0;
+        self.current_nr_evaluation_samples = nr_samples;
+        Ok(())
+    }
+
+    fn evaluation_result(&mut self, cost: f32) -> Result<(), Self::Error> {
+        self.current_mean_evaluation_result += cost / self.current_nr_evaluation_samples as f32;
+        Ok(())
+    }
+
+    fn end_of_evaluation(&mut self) -> Result<(), Self::Error> {
+        eprintln!("end of evaluation");
+        dbg!(self.current_mean_evaluation_result);
+        self.mean_evaluation_results
+            .push(self.current_mean_evaluation_result);
         Ok(())
     }
 
@@ -178,18 +218,18 @@ fn test_training_list_net_is_reproducible_for_same_inputs_and_state() {
     let batch_size = 1;
 
     let (ctrl1, ln1) = {
-        let data_source = VecDataSource::new(training_data.clone(), test_data.clone());
+        let data_source = VecDataSource::new(training_data.clone(), test_data.clone(), batch_size);
         let callbacks = TestController::new();
         let optimizer = MiniBatchSgd { learning_rate: 0.1 };
         let trainer = ListNetTrainer::new(list_net.clone(), data_source, callbacks, optimizer);
-        trainer.train(nr_epochs, batch_size).unwrap()
+        trainer.train(nr_epochs).unwrap()
     };
     let (ctrl2, ln2) = {
-        let data_source = VecDataSource::new(training_data, test_data);
+        let data_source = VecDataSource::new(training_data, test_data, batch_size);
         let callbacks = TestController::new();
         let optimizer = MiniBatchSgd { learning_rate: 0.1 };
         let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
-        trainer.train(nr_epochs, batch_size).unwrap()
+        trainer.train(nr_epochs).unwrap()
     };
 
     assert_approx_eq!(f32, ln1.dense1.weights(), ln2.dense1.weights());
@@ -201,15 +241,16 @@ fn test_training_list_net_is_reproducible_for_same_inputs_and_state() {
     assert_approx_eq!(f32, ln1.prob_dist.weights(), ln2.prob_dist.weights());
     assert_approx_eq!(f32, ln1.prob_dist.bias(), ln2.prob_dist.bias());
 
-    assert_approx_eq!(f32, &ctrl1.evaluation_results, &ctrl2.evaluation_results);
+    assert_approx_eq!(
+        f32,
+        &ctrl1.mean_evaluation_results,
+        &ctrl2.mean_evaluation_results
+    );
 
     assert!(
-        ctrl1
-            .evaluation_results
-            .iter()
-            .all(|v| !v.unwrap().is_nan()),
+        ctrl1.mean_evaluation_results.iter().all(|v| !v.is_nan()),
         "contains NaN values {:?}",
-        ctrl1.evaluation_results
+        ctrl1.mean_evaluation_results
     );
 }
 
@@ -495,16 +536,17 @@ fn test_training_list_net_does_not_panic() {
     let test_data = vec![data_frame];
 
     let nr_epochs = 5;
-    let data_source = VecDataSource::new(training_data, test_data);
+    let batch_size = 3;
+    let data_source = VecDataSource::new(training_data, test_data, batch_size);
     let callbacks = TestController::new();
     let optimizer = MiniBatchSgd { learning_rate: 0.1 };
     let trainer = ListNetTrainer::new(list_net, data_source, callbacks, optimizer);
-    let (controller, _list_net) = trainer.train(nr_epochs, 3).unwrap();
-    let evaluation_results = controller.evaluation_results;
+    let (controller, _list_net) = trainer.train(nr_epochs).unwrap();
+    let evaluation_results = controller.mean_evaluation_results;
 
     assert_eq!(evaluation_results.len(), nr_epochs);
     assert!(
-        evaluation_results.iter().all(|v| !v.unwrap().is_nan()),
+        evaluation_results.iter().all(|v| !v.is_nan()),
         "contains NaN values {:?}",
         evaluation_results
     );

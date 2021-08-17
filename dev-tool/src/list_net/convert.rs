@@ -5,11 +5,14 @@ use std::{
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
-use anyhow::Error;
+use anyhow::{bail, Context, Error};
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use log::debug;
+use log::trace;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use serde::Deserialize;
 use structopt::StructOpt;
 use uuid::Uuid;
@@ -27,7 +30,7 @@ use xayn_ai::{
 };
 
 use super::data_source::InMemorySamples;
-use crate::exit_code::NO_ERROR;
+use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 
 /// Converts different file formats.
 ///
@@ -51,27 +54,100 @@ impl ConvertCmd {
             to_samples,
         } = self;
 
-        let mut storage = InMemorySamples::default();
+        // Estimate the number of samples based on the number of users.
+        let nr_users = progress_spin_until_done("Estimating the number of samples", || {
+            list_csv_files(&from_soundgarden)?.fold(
+                Ok(0),
+                |acc, entry_res| -> Result<usize, Error> {
+                    entry_res?;
+                    acc.map(|acc| acc + 1)
+                },
+            )
+        })?;
 
-        for entry in fs::read_dir(&from_soundgarden)? {
-            let path = entry?.path();
-            if path.extension() != Some(OsStr::new("csv")) {
-                continue;
-            }
+        let storage = Arc::new(Mutex::new(InMemorySamples::with_sample_capacity(nr_users)));
 
-            debug!("Loading history for {:?}.", path.file_name().unwrap());
-            let history = load_history(path)?;
-            debug!("Processing history");
-            for (inputs, target_prob_dist) in list_net_training_data_from_history(&history)? {
-                storage.add_sample(inputs.view(), target_prob_dist.view())?;
-            }
-        }
+        let progress_bar = ProgressBar::new(nr_users.try_into().unwrap()).with_style(
+            ProgressStyle::default_bar()
+                .template("Creating Storage: [{bar:43.green}] {percent:>3}% ({pos:>5}/{len:>5})")
+                .progress_chars("=> "),
+        );
+        let bar = progress_bar.clone();
+        list_csv_files(&from_soundgarden)?
+            .par_bridge()
+            .try_for_each_with(storage.clone(), move |storage, res| {
+                res.map_err(Error::from).and_then(|path| {
+                    trace!("Processing {:?}.", path.file_name().unwrap());
+                    let history = load_history(&path)?;
+                    let new_samples =
+                        list_net_training_data_from_history(&history).with_context(|| {
+                            format!(
+                                "Invariants in soundgarden user-df broken for input file: {}",
+                                path.display()
+                            )
+                        })?;
+                    let new_samples = InMemorySamples::prepare_samples(new_samples)?;
+                    let mut storage = storage.lock().unwrap();
+                    storage.add_prepared_samples(new_samples);
+                    drop(storage);
+                    bar.inc(1);
+                    Ok(())
+                })
+            })?;
 
-        debug!("Write output file.");
-        storage.serialize_into_file(to_samples)?;
+        progress_bar.finish();
 
+        let storage = storage
+            .try_lock()
+            .expect("Lock was leaked by rayon or poisoned.");
+
+        progress_spin_until_done("Writing storage to disk", || {
+            storage.serialize_into_file(to_samples)
+        })?;
         Ok(NO_ERROR)
     }
+}
+
+fn the_first_error_has_not_been_returned_predicate<T, E>() -> impl FnMut(&Result<T, E>) -> bool {
+    let mut exit_next = false;
+    move |val| {
+        if exit_next {
+            false
+        } else {
+            exit_next = val.is_err();
+            true
+        }
+    }
+}
+
+fn list_csv_files(
+    dir: impl AsRef<Path>,
+) -> Result<impl Iterator<Item = Result<PathBuf, Error>>, Error> {
+    let err_msg = "Reading dir with user data-frames failed.";
+    let iter = fs::read_dir(&dir)
+        .context(err_msg)?
+        .map(move |entry| {
+            let entry = entry?;
+            let file_type = entry.file_type()?;
+            let path = entry.path();
+            if path.extension() == Some(OsStr::new("csv")) {
+                if file_type.is_file() {
+                    Ok(Some(path))
+                } else {
+                    bail!(
+                        "Dir entry with .csv ending is not a file: {} (type={:?})",
+                        path.display(),
+                        file_type
+                    );
+                }
+            } else {
+                Ok(None)
+            }
+        })
+        .flat_map(move |res| res.context(err_msg).transpose())
+        .take_while(the_first_error_has_not_been_returned_predicate());
+
+    Ok(iter)
 }
 
 //FIXME[follow up PR]: Change ltr feature extraction tests to share code with
