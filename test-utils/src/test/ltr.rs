@@ -1,17 +1,17 @@
 use std::{io::Result, path::PathBuf};
 
-use crate::resolve_path;
+use crate::{resolve_path, DATA_DIR};
 
 const ASSET: &str = "ltr_test_data_v0000";
 
 /// Resolves the path to the LTR feature extraction test data.
 pub fn feature_extraction_test_cases() -> Result<PathBuf> {
-    resolve_path(&["data", ASSET, "feature_extraction"])
+    resolve_path(&[DATA_DIR, ASSET, "feature_extraction"])
 }
 
 /// Resolves the path to the intermediate LTR test model.
 pub fn training_intermediates() -> Result<PathBuf> {
-    resolve_path(&["data", ASSET, "check_training_intermediates.binparams"])
+    resolve_path(&[DATA_DIR, ASSET, "check_training_intermediates.binparams"])
 }
 
 #[cfg(test)]

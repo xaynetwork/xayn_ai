@@ -12,7 +12,7 @@ import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
 SetupData mkSetupData() {
   return SetupData({
     for (final asset in getAssets().entries)
-      asset.key: '../../data/' + asset.value.suffix
+      asset.key: '../../data/' + asset.value.urlSuffix
   });
 }
 
