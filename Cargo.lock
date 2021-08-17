@@ -439,6 +439,7 @@ dependencies = [
  "log",
  "ndarray",
  "rand",
+ "rayon",
  "serde",
  "serde_json",
  "structopt",
