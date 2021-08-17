@@ -571,33 +571,28 @@ where
         }
     }
 
-    /// Trains for the given number of epochs with given batch size.
+    /// Trains for the given number of epochs.
     ///
-    /// This will use the `list_net`, `data_source`, `callbacks` and `optimizer` used
+    /// This will use the `list_net`, `data_source`, `callbacks`, `optimizer` and `batch_size` used
     /// to create this `ListNetTrainer`.
-    pub fn train(
-        mut self,
-        epochs: usize,
-        batch_size: usize,
-    ) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
+    pub fn train(mut self, epochs: usize) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
         self.callbacks
             .begin_of_training(epochs, &self.list_net)
             .map_err(TrainingError::Control)?;
 
         for _ in 0..epochs {
-            let nr_batches = self
-                .data_source
-                .reset(batch_size)
-                .map_err(TrainingError::Data)?;
+            self.data_source.reset().map_err(TrainingError::Data)?;
+
             self.callbacks
-                .begin_of_epoch(nr_batches)
+                .begin_of_epoch(self.data_source.number_of_training_batches())
                 .map_err(TrainingError::Control)?;
 
             while self.train_next_batch()? {}
-            let evaluation_results = self.evaluate_epoch(kl_divergence)?;
+
+            self.evaluate_epoch(kl_divergence)?;
 
             self.callbacks
-                .end_of_epoch(&self.list_net, evaluation_results)
+                .end_of_epoch(&self.list_net)
                 .map_err(TrainingError::Control)?;
         }
 
@@ -630,21 +625,12 @@ where
 
         callbacks.begin_of_batch().map_err(TrainingError::Control)?;
 
-        let mut losses = Vec::new();
-        let gradient_sets = batch
-            .into_iter()
-            .map(|sample| {
-                let (gradients, loss) = list_net.gradients_for_query(sample);
-                losses.push(loss);
-                gradients
-            })
-            .collect();
+        let gradient_sets =
+            callbacks.run_batch(batch, |sample| list_net.gradients_for_query(sample));
 
         optimizer.apply_gradients(list_net, gradient_sets);
 
-        callbacks
-            .end_of_batch(losses)
-            .map_err(TrainingError::Control)?;
+        callbacks.end_of_batch().map_err(TrainingError::Control)?;
 
         Ok(true)
     }
@@ -653,9 +639,11 @@ where
     fn evaluate_epoch(
         &mut self,
         cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
-    ) -> Result<Option<f32>, TrainingError<D::Error, C::Error>> {
-        let list_net = &self.list_net;
-        let mut costs = Vec::new();
+    ) -> Result<(), TrainingError<D::Error, C::Error>> {
+        self.callbacks
+            .begin_of_evaluation(self.data_source.number_of_evaluation_samples())
+            .map_err(TrainingError::Control)?;
+
         while let Some(Sample {
             inputs,
             target_prob_dist,
@@ -664,15 +652,19 @@ where
             .next_evaluation_sample()
             .map_err(TrainingError::Data)?
         {
-            let (scores_y, _) = list_net.calculate_intermediate_scores(inputs, false);
-            let prob_dist_y = list_net.calculate_final_scores(&scores_y);
-            costs.push(cost_function(target_prob_dist, prob_dist_y.view()));
+            let (scores_y, _) = self.list_net.calculate_intermediate_scores(inputs, false);
+            let prob_dist_y = self.list_net.calculate_final_scores(&scores_y);
+            let cost = cost_function(target_prob_dist, prob_dist_y.view());
+            self.callbacks
+                .evaluation_result(cost)
+                .map_err(TrainingError::Control)?;
         }
 
-        let count = costs.len() as f32;
-        let mean =
-            (count > 0.).then(|| costs.into_iter().fold(0f32, |acc, cost| acc + cost / count));
-        Ok(mean)
+        self.callbacks
+            .end_of_evaluation()
+            .map_err(TrainingError::Control)?;
+
+        Ok(())
     }
 }
 
@@ -691,33 +683,31 @@ pub struct Sample<'a> {
 }
 
 /// A source of training and evaluation data.
+///
+/// Settings like the batch size or evaluation split need
+/// to be handled when creating this instance.
 pub trait DataSource {
     type Error: StdError + 'static;
 
     /// Resets/initializes the "iteration" of training and evaluation samples.
-    ///
-    /// This returns the expected number of batches in the next epoch.
     ///
     /// This is allowed to also *change* the training and evaluation
     /// samples and/or their order. E.g. this could shuffle them
     /// before every epoch.
     ///
     /// This is called at the *begin* of every epoch.
-    fn reset(&mut self, batch_size: usize) -> Result<usize, Self::Error>;
+    fn reset(&mut self) -> Result<(), Self::Error>;
+
+    /// Returns the expected number of training batches.
+    fn number_of_training_batches(&self) -> usize;
 
     /// Returns the next batch of training samples.
     ///
-    /// The batch will have the size last set when calling reset.
-    ///
     /// Returns a empty vector once all training samples have been returned.
-    ///
-    /// If reset wasn't called before this should return a error.
-    ///
-    /// # Panics
-    ///
-    /// A batch size of 0 is not valid. And implementors are allowed to
-    /// panic if it's passed in.
     fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error>;
+
+    /// Returns the expected number of evaluation samples.
+    fn number_of_evaluation_samples(&self) -> usize;
 
     /// Returns the next evaluation sample.
     ///
@@ -730,24 +720,35 @@ pub trait TrainingController {
     type Error: StdError + 'static;
     type Outcome;
 
+    /// Runs a batch of training steps.
+    ///
+    /// Implementations can be both sequential or parallel.
+    fn run_batch(
+        &mut self,
+        batch: Vec<Sample>,
+        map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
+    ) -> Vec<GradientSet>;
+
     /// Called before started training a batch.
     fn begin_of_batch(&mut self) -> Result<(), Self::Error>;
 
     /// Called after training a batch, the loss for each sample will be passed in.
-    fn end_of_batch(&mut self, losses: Vec<f32>) -> Result<(), Self::Error>;
+    fn end_of_batch(&mut self) -> Result<(), Self::Error>;
 
     /// Called at the begin of each epoch.
     fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error>;
 
-    /// Called at the end of each epoch with the mean of running the evaluation with KL-Divergence.
+    /// Called at the end of each epoch.
     ///
     /// The passed in reference to `list_net` can be used to e.g. bump the intermediate training
     /// result every 10 epochs.
-    fn end_of_epoch(
-        &mut self,
-        list_net: &ListNet,
-        mean_kl_divergence_evaluation: Option<f32>,
-    ) -> Result<(), Self::Error>;
+    fn end_of_epoch(&mut self, list_net: &ListNet) -> Result<(), Self::Error>;
+
+    fn begin_of_evaluation(&mut self, nr_samples: usize) -> Result<(), Self::Error>;
+
+    fn evaluation_result(&mut self, cost: f32) -> Result<(), Self::Error>;
+
+    fn end_of_evaluation(&mut self) -> Result<(), Self::Error>;
 
     /// Called at the begin of training.
     fn begin_of_training(
