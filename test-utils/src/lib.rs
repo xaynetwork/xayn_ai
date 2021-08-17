@@ -1,6 +1,4 @@
 //! The single source of truth for all data paths.
-//!
-//! Run `cargo make gen-assets` before using this!
 
 pub mod bench;
 pub mod example;
@@ -18,7 +16,9 @@ use std::{
 };
 
 use serde::Deserialize;
-use serde_json::{from_reader, from_value, Value};
+use serde_json::from_reader;
+
+pub const DATA_DIR: &str = "data";
 
 /// Resolves the path to the requested data relative to the workspace directory.
 fn resolve_path(path: &[impl AsRef<Path>]) -> Result<PathBuf> {
@@ -36,30 +36,26 @@ fn resolve_path(path: &[impl AsRef<Path>]) -> Result<PathBuf> {
 
 #[derive(Deserialize)]
 struct Asset {
+    #[serde(rename(deserialize = "dart_enum_name"))]
     name: String,
-    path: String,
+    url_suffix: String,
 }
 
 #[derive(Deserialize)]
 struct Assets {
-    assets: Vec<Value>,
+    data_assets: Vec<Asset>,
 }
 
 /// Reads the asset paths from the static assets file.
 fn read_assets() -> Result<HashMap<String, PathBuf>> {
     from_reader::<_, Assets>(BufReader::new(File::open(resolve_path(&[
-        "out",
-        "assets.json",
+        "assets_manifest.json",
     ])?)?))
     .map(|assets| {
         assets
-            .assets
+            .data_assets
             .into_iter()
-            .filter_map(|asset| {
-                from_value::<Asset>(asset)
-                    .map(|asset| (asset.name, asset.path.into()))
-                    .ok()
-            })
+            .map(|asset| (asset.name, [DATA_DIR, &asset.url_suffix].iter().collect()))
             .collect()
     })
     .map_err(|error| Error::new(ErrorKind::InvalidData, error.to_string()))

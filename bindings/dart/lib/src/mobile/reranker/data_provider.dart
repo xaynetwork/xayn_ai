@@ -8,7 +8,7 @@ Map<common.AssetType, common.Asset> getAssets() {
       .where((asset) => wasmAssets.contains(asset.key) == false));
 }
 
-/// Data that can be used to initialize [`XaynAi`].
+/// Data that is required to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
   late String smbertVocab;
   late String smbertModel;

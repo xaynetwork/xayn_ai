@@ -14,8 +14,8 @@ Future<SetupData> getInputData() async {
   final fetched = <AssetType, Uint8List>{};
 
   for (var asset in getAssets().entries) {
-    final path = joinPaths([_baseAssetUrl, asset.value.suffix]);
-    final data = await _fetchAsset(path, asset.value.checksumSri);
+    final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
+    final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
     fetched.putIfAbsent(asset.key, () => data);
   }
 
