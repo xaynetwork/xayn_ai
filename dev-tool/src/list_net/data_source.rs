@@ -438,6 +438,7 @@ impl Storage for InMemorySamples {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
     use ndarray::Array;
     use rand::thread_rng;
     use xayn_ai::assert_approx_eq;
@@ -594,7 +595,9 @@ mod tests {
     #[test]
     fn test_data_lookup_order_changes_on_reset() {
         let mut rng = thread_rng();
-        let mut dlo = DataLookupOrder::new(vec![0, 1, 2, 3, 4]);
+        // There is a ~1.2e-46% chance that this test randomly fails
+        // (assuming all shuffled results are equally likely).
+        let mut dlo = DataLookupOrder::new((0..40).collect_vec());
 
         dlo.reset(&mut rng);
         let all = dlo.next_batch(5);
