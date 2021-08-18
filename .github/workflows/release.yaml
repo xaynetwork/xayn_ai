@@ -258,7 +258,7 @@ jobs:
             -t ${{ matrix.target }} \
             -p ${{ env.ANDROID_PLATFORM_VERSION }} \
             -o ${{ env.ANDROID_LIBS_DIR }} \
-            build --release --workspace --exclude xayn-ai-ffi-wasm
+            build --release -p xayn-ai-ffi-c
 
       - name: Upload artifact
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
@@ -314,7 +314,7 @@ jobs:
       - name: Build iOS library
         env:
           RUSTFLAGS: ${{ env.PRODUCTION_RUSTFLAGS }}
-        run: cargo lipo --targets ${{ matrix.target }} --release
+        run: cargo lipo --targets ${{ matrix.target }} --release -p xayn-ai-ffi-c
 
       - name: Strip symbols
         run: |
