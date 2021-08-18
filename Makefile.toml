@@ -34,13 +34,13 @@ dependencies = ["build-android", "build-ios", "generate_assets_metadata"]
 [tasks.build-android]
 dependencies = ["build-dart"]
 script = ["""
-  cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release
+  cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release -p xayn-ai-ffi-c
 """]
 
 [tasks.build-ios]
 dependencies = ["build-dart"]
 script = ["""
-  cargo lipo --targets $IOS_TARGETS --release
+  cargo lipo --targets $IOS_TARGETS --release -p xayn-ai-ffi-c
   cp target/universal/release/libxayn_ai_ffi_c.a bindings/dart/ios
 """]
 

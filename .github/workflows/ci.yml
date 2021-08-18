@@ -399,7 +399,7 @@ jobs:
 
       - name: Build iOS library ${{ matrix.target }}
         working-directory: ./xayn-ai-ffi-c
-        run: cargo lipo --targets ${{ matrix.target }}
+        run: cargo lipo --targets ${{ matrix.target }} -p xayn-ai-ffi-c
 
       - name: Prepare lib for upload
         run: |
