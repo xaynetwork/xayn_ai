@@ -28,7 +28,7 @@ pub struct EvaluateCmd {
     /// The percent of samples to use for evaluation.
     ///
     /// The percentage of evaluation samples will be taken
-    /// from the back.
+    /// from the end of the sample set.
     #[structopt(long, default_value = "0.2")]
     evaluation_split: f32,
 }

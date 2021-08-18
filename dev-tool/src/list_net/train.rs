@@ -32,7 +32,7 @@ pub struct TrainCmd {
     ///
     /// WARNING: This is not optimized for a `0` `batch-size`
     /// with huge number of samples in the batch. It's mainly
-    /// meant to be used with XaynNet emulation modes.
+    /// meant to be used with XayNet emulation modes.
     #[structopt(long, default_value = "32")]
     batch_size: usize,
 
@@ -93,7 +93,6 @@ impl TrainCmd {
             out_dir,
             dump_initial_parameters,
             dump_every,
-            show_sample_progress: data_source.batch_size() >= 256,
         }
         .build();
 

@@ -315,7 +315,7 @@ impl ListNet {
         scores
     }
 
-    /// Evaluates the ListNet on given sample using given cost function.
+    /// Evaluates the ListNet on a given sample using the given cost function.
     pub fn evaluate(
         &self,
         cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
@@ -344,7 +344,7 @@ impl ListNet {
         assert_eq!(inputs.shape()[0], ListNet::INPUT_NR_DOCUMENTS);
         assert_eq!(target_prob_dist.len(), ListNet::INPUT_NR_DOCUMENTS);
         let results = self.forward_pass(inputs);
-        //FIXME[followup PR] if we don't track loss in XaynNet when used in the app we don't need to calculate it.
+        //FIXME[followup PR] if we don't track loss in XayNet when used in the app we don't need to calculate it.
         let loss = kl_divergence(target_prob_dist.view(), results.prob_dist_y.view());
         //UNWRAP_SAFE: Document are not empty.
         let gradients = self
@@ -778,7 +778,7 @@ pub trait TrainingController {
         map_fn: impl Fn(SampleView) -> (GradientSet, f32) + Send + Sync,
     ) -> Result<Vec<GradientSet>, Self::Error>;
 
-    /// Runs the processing of sample evaluation.
+    /// Runs the processing of the sample evaluation.
     fn run_evaluation<I>(
         &mut self,
         samples: I,
