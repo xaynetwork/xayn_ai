@@ -7,6 +7,9 @@ use crate::{
     reranker::systems::QAMBertSystem,
 };
 
+#[cfg(feature = "parallel")]
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 impl QAMBertSystem for QAMBert {
     fn compute_similarity(
         &self,
@@ -15,8 +18,13 @@ impl QAMBertSystem for QAMBert {
         if let Some(document) = documents.first() {
             let query = &document.document_content.query_words;
             let query = self.run(query)?;
+
+            #[cfg(not(feature = "parallel"))]
+            let documents = documents.into_iter();
+            #[cfg(feature = "parallel")]
+            let documents = documents.into_par_iter();
+
             documents
-                .into_iter()
                 .map(|document| {
                     let snippet = &document.document_content.snippet;
                     // not all documents have a snippet, if snippet is empty we use the title
