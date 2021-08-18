@@ -2409,6 +2409,7 @@ dependencies = [
  "cbindgen",
  "float-cmp 0.9.0",
  "itertools",
+ "rayon",
  "tempfile",
  "test-utils",
  "uuid",

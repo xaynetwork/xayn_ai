@@ -82,6 +82,8 @@ pub enum CCode {
     Synchronization,
     /// Sync data bytes null pointer error.
     SyncDataBytesPointer,
+    /// A global thread pool initialization error.
+    InitGlobalThreadPool,
 }
 
 impl CCode {

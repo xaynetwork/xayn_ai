@@ -1,9 +1,11 @@
 //! Utilities.
 
-use std::{ffi::CStr, fmt::Display};
+use std::{ffi::CStr, fmt::Display, sync::Once};
 
+use rayon::{ThreadPoolBuildError, ThreadPoolBuilder};
 use xayn_ai_ffi::{CCode, Error};
 
+use crate::result::{call_with_result, error::CError};
 #[cfg(doc)]
 pub use crate::slice::CBoxedSlice;
 
@@ -57,6 +59,55 @@ unsafe impl IntoRaw for () {
     fn into_raw(self) -> Self::Value {}
 }
 
+/// Initializes the global thread pool. The thread pool is used by the AI to
+/// parallel some of its tasks.
+///
+/// The number of threads used by the pool depends on `num_cpus`:
+///
+/// On a single core system the thread pool consists of only one thread.
+/// On a multicore system the thread pool consists of (the number of logical cores - 1) threads.
+///
+/// # Error
+/// - If the initialization of the thread pool has failed.
+/// - An unexpected panic happened during the initialization of the thread pool.
+///
+/// # Safety
+///
+/// It is safe to call this function multiple times but it must be invoked
+/// before calling anything else of this library.
+///
+/// The behavior is undefined if:
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
+#[no_mangle]
+pub unsafe extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&mut CError>) {
+    static mut INIT_ERROR: Result<(), ThreadPoolBuildError> = Ok(());
+    static INIT: Once = Once::new();
+
+    let init_pool = || unsafe {
+        INIT.call_once(|| {
+            INIT_ERROR = init_thread_pool(num_cpus as usize);
+        });
+
+        if let Err(cause) = INIT_ERROR.as_ref() {
+            Err(CCode::InitGlobalThreadPool
+                .with_context(format!("Failed to initialize thread pool: {}", cause)))
+        } else {
+            Ok(())
+        }
+    };
+
+    call_with_result(init_pool, error)
+}
+
+/// See [`xaynai_init_thread_pool()`] for more.
+fn init_thread_pool(num_cpus: usize) -> Result<(), ThreadPoolBuildError> {
+    let num_threads = if num_cpus > 1 { num_cpus - 1 } else { num_cpus };
+
+    ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -102,5 +153,13 @@ pub(crate) mod tests {
         fn into_ptr(self: Box<Self>) -> Option<Box<Self>> {
             Some(self)
         }
+    }
+
+    #[test]
+    fn test_call_init_thread_pool_twice() {
+        let mut error = CError::default();
+        unsafe { xaynai_init_thread_pool(1, Some(&mut error)) };
+        unsafe { xaynai_init_thread_pool(1, Some(&mut error)) };
+        assert_eq!(error.code, CCode::None)
     }
 }
