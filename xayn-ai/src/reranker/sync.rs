@@ -207,22 +207,47 @@ mod tests {
 
     #[test]
     fn test_synchronize_commutative_merge() {
-        let mut data1 = SyncData::from_words(&["a", "g", "m"], 0); // ids 0, 1, 2
+        let mut data1 = SyncData::from_words(&["g", "a", "m"], 0); // ids 0, 1, 2
         let data1_before = data1.clone();
-        let mut data2 = SyncData::from_words(&["s", "f", "b"], 3); // ids 3, 4, 5
+        let mut data2 = SyncData::from_words(&["s", "f", "a"], 3); // ids 3, 4, 5
 
-        // data1 becomes: { merge(a, b), merge(g, f), m, s }
+        // data1.a & data2.a are close; data1.g & data2.f are close
+        // data1 should become: { merge(a, a), merge(g, f), m, s }
         data1.synchronize(data2.clone());
         assert_eq!(data1.user_interests.positive.len(), 4);
         assert_eq!(data1.user_interests.negative.len(), 4);
-        assert!(!data1.contains(&data1_before)); // no longer contains a, g
-        assert!(!data1.contains(&data2)); // doesn't contain f, b
 
-        // a is close to b, g is close to f, leaving m and s intact
-        let data_unmerged = SyncData::from_words(&["m", "s"], 2); // ids 2, 3
-        assert!(data1.contains(&data_unmerged)); // does contain m, s
+        // check data1 contains merge(a1, a5) = a1
+        // and leftovers m, s
+        let expected_123 = SyncData::from_words(&["a", "m", "s"], 1); // ids 1, 2, 3
+        assert!(data1.contains(&expected_123));
+
+        // check data1 contains merge(g, f)
+        let mut expected_0 = SyncData::from_words(&["g"], 0);
+        expected_0.synchronize(SyncData::from_words(&["f"], 4));
+        assert_eq!(expected_0.user_interests.positive.len(), 1);
+        assert_eq!(expected_0.user_interests.negative.len(), 1);
+        assert!(data1.contains(&expected_0));
 
         data2.synchronize(data1_before);
         assert!(data2.eq_up_to_reordering(&data1));
+    }
+
+    #[test]
+    fn test_synchronize_noncommutative_collision() {
+        let mut data1 = SyncData::from_words(&["a", "g"], 0); // ids 0, 1
+        let data1_before = data1.clone();
+        let mut data2 = SyncData::from_words(&["m", "s"], 1); // ids 1, 2
+
+        data1.synchronize(data2.clone());
+        // m is removed: id clashes with g's
+        let expected = SyncData::from_words(&["a", "g", "s"], 0);
+        assert_eq!(data1, expected);
+
+        data2.synchronize(data1_before);
+        assert!(!data2.eq_up_to_reordering(&data1));
+        // g is removed: id clashes with m's
+        let expected = SyncData::from_words(&["a", "m", "s"], 0);
+        assert!(data2.eq_up_to_reordering(&expected));
     }
 }

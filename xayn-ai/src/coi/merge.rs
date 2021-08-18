@@ -193,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn test_coipair_distinct() {
+    fn test_coipair_new_distinct() {
         let cois = pos_cois_from_words(&["a", "b"], mocked_smbert_system());
         assert_eq!(cois.len(), 2);
 
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_coipair_dupes() {
+    fn test_coipair_new_dupes() {
         let coi_a = PositiveCoi::from_word("a", 0);
         let coi_b = PositiveCoi::from_word("b", 0);
 
@@ -295,14 +295,14 @@ mod tests {
     }
 
     #[test]
-    fn test_reduce_cois_empty() {
+    fn test_reduce_empty() {
         let mut empty: Vec<PositiveCoi> = vec![];
         reduce_cois(&mut empty);
         assert!(empty.is_empty())
     }
 
     #[test]
-    fn test_reduce_cois_distant() {
+    fn test_reduce_distant() {
         let coi_a = PositiveCoi::from_word("a", 0);
         let coi_m = PositiveCoi::from_word("m", 1);
         let coi_z = PositiveCoi::from_word("z", 2);
@@ -314,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reduce_cois_coiples() {
+    fn test_reduce_coiples_idempotent() {
         let coi_a = PositiveCoi::from_word("a", 0);
         let coi_k = PositiveCoi::from_word("k", 1);
         let coi_m = PositiveCoi::from_word("m", 2);
@@ -336,5 +336,9 @@ mod tests {
         let coi_mn = CoiPair::new(coi_m, coi_n).merge_min();
         let coi_k_mn = CoiPair::new(coi_k, coi_mn).merge_min();
         assert!(cois.contains(&coi_k_mn));
+
+        let cois_after = cois.clone();
+        reduce_cois(&mut cois);
+        assert_eq!(cois, cois_after);
     }
 }
