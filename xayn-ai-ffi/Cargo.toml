@@ -14,3 +14,6 @@ xayn-ai = { path = "../xayn-ai" }
 
 [build-dependencies]
 cbindgen = "=0.20.0"
+
+[features]
+parallel = ["xayn-ai/parallel"]
