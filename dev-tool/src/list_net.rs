@@ -10,7 +10,7 @@ mod data_source;
 mod evaluate;
 mod train;
 
-/// Commands related to training ListNet (train, convert, inspect).
+/// Commands related to training ListNet (train, convert, evaluate).
 #[derive(StructOpt, Debug)]
 pub enum ListNetCmd {
     Convert(ConvertCmd),

@@ -79,7 +79,7 @@ pub(crate) struct CliTrainingController {
     current_epoch: usize,
     /// The current active (or just ended) batch.
     current_batch: usize,
-    /// The time at which the training did start.
+    /// The time at which the training started.
     start_time: Option<Instant>,
     /// A (CLI) progress bar used to track the progress of the current batch.
     sample_progress_bar: ProgressBar,
@@ -92,7 +92,7 @@ pub(crate) struct CliTrainingController {
 }
 
 impl CliTrainingController {
-    /// Safe the current ListNet parameters to the output dir using the given suffix.
+    /// Save the current ListNet parameters to the output dir using the given suffix.
     ///
     /// The file path will be:
     ///
@@ -153,7 +153,7 @@ impl TrainingController for CliTrainingController {
         I: IntoIterator<Item = SampleOwned>,
         I::IntoIter: Send,
     {
-        trace!("Begin of evaluation");
+        trace!("Beginning of evaluation");
         if nr_samples == 0 {
             trace!("Skipping evaluation.");
             return Ok(());
@@ -191,7 +191,7 @@ impl TrainingController for CliTrainingController {
 
     fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error> {
         debug!(
-            "Begin of epoch #{:0>4} (#batch {})",
+            "Beginning of epoch #{:0>4} (#batch {})",
             self.current_epoch, nr_batches
         );
         self.current_batch = 0;
@@ -222,7 +222,7 @@ impl TrainingController for CliTrainingController {
         list_net: &ListNet,
     ) -> Result<(), Self::Error> {
         self.start_time = Some(Instant::now());
-        info!("Begin of training for {}", nr_epochs);
+        info!("Beginning of training for {}", nr_epochs);
         if self.setting.dump_initial_parameters {
             trace!("Dumping initial parameters.");
             self.save_parameters(list_net.clone(), "initial")?;

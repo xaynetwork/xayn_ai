@@ -708,7 +708,7 @@ impl<'a> SampleView<'a> {
     }
 }
 
-/// A owned version of [`SampleRef`]
+/// An owned version of [`SampleRef`]
 pub struct SampleOwned {
     /// Inputs used for training.
     ///
@@ -744,7 +744,7 @@ pub trait DataSource: Send {
     /// samples and/or their order. E.g. this could shuffle them
     /// before every epoch.
     ///
-    /// This is called at the *begin* of every epoch.
+    /// This is called at the *beginning* of every epoch.
     fn reset(&mut self) -> Result<(), Self::Error>;
 
     /// Returns the expected number of training batches.
@@ -752,7 +752,7 @@ pub trait DataSource: Send {
 
     /// Returns the next batch of training samples.
     ///
-    /// Returns a empty vector once all training samples have been returned.
+    /// Returns an empty vector once all training samples have been returned.
     fn next_training_batch(&mut self) -> Result<Vec<SampleView>, Self::Error>;
 
     /// Returns the expected number of evaluation samples.
@@ -760,7 +760,7 @@ pub trait DataSource: Send {
 
     /// Returns the next evaluation sample.
     ///
-    /// Returns `None` once all training sample have been returned.
+    /// Returns `None` once all training samples have been returned.
     fn next_evaluation_sample(&mut self) -> Result<Option<SampleOwned>, Self::Error>;
 }
 
@@ -789,7 +789,7 @@ pub trait TrainingController {
         I: IntoIterator<Item = SampleOwned>,
         I::IntoIter: Send;
 
-    /// Called at the begin of each epoch.
+    /// Called at the beginning of each epoch.
     fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error>;
 
     /// Called at the end of each epoch.
@@ -798,7 +798,7 @@ pub trait TrainingController {
     /// result every 10 epochs.
     fn end_of_epoch(&mut self, list_net: &ListNet) -> Result<(), Self::Error>;
 
-    /// Called at the begin of training.
+    /// Called at the beginning of training.
     fn begin_of_training(
         &mut self,
         nr_epochs: usize,

@@ -25,7 +25,7 @@ pub struct EvaluateCmd {
     #[structopt(long)]
     parameters: PathBuf,
 
-    /// The percent of samples to use for evaluation.
+    /// The percentage of samples to use for evaluation.
     ///
     /// The percentage of evaluation samples will be taken
     /// from the end of the sample set.

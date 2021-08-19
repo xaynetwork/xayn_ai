@@ -436,7 +436,7 @@ impl Storage for InMemorySamples {
 mod tests {
     use itertools::Itertools;
     use ndarray::Array;
-    use rand::thread_rng;
+    use rand::{prelude::StdRng, SeedableRng};
     use xayn_ai::assert_approx_eq;
 
     use super::*;
@@ -590,9 +590,11 @@ mod tests {
 
     #[test]
     fn test_data_lookup_order_changes_on_reset() {
-        let mut rng = thread_rng();
-        // There is a ~1.2e-46% chance that this test randomly fails
-        // (assuming all shuffled results are equally likely).
+        // If we don't seed it, than the test might randomly fail as
+        // the two shuffles could randomly yield the same result. The
+        // `Rng` algorithm might change with updates to "rand" if this
+        // happens this test could still fail, but it would be reproducible.
+        let mut rng = StdRng::from_seed([2u8; 32]);
         let mut dlo = DataLookupOrder::new((0..40).collect_vec());
 
         dlo.reset(&mut rng);
