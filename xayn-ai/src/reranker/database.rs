@@ -2,7 +2,7 @@ use anyhow::bail;
 use serde::Deserialize;
 use std::cell::RefCell;
 
-use crate::{data::UserInterests, error::Error};
+use crate::{data::UserInterests, error::Error, utils::serialize_with_version};
 
 use super::{sync::SyncData, PreviousDocuments, RerankerData};
 
@@ -19,6 +19,7 @@ const CURRENT_SCHEMA_VERSION: u8 = 1;
 pub(super) struct Db(RefCell<Option<RerankerData>>);
 
 /// Version 0 of `RerankerData` for backwards compatibility.
+#[cfg_attr(test, derive(serde::Serialize))]
 #[derive(Deserialize)]
 struct RerankerData0 {
     user_interests: UserInterests,
@@ -64,16 +65,6 @@ impl Db {
 
         Ok(Self(RefCell::new(Some(data))))
     }
-
-    fn serialize(data: &RerankerData) -> Result<Vec<u8>, Error> {
-        let size = bincode::serialized_size(data)? + 1;
-        let mut serialized = Vec::with_capacity(size as usize);
-        // version is encoded in the first byte
-        serialized.push(CURRENT_SCHEMA_VERSION);
-        bincode::serialize_into(&mut serialized, data)?;
-
-        Ok(serialized)
-    }
 }
 
 impl Database for Db {
@@ -82,7 +73,7 @@ impl Database for Db {
     }
 
     fn serialize(&self, data: &RerankerData) -> Result<Vec<u8>, Error> {
-        Db::serialize(data)
+        serialize_with_version(data, CURRENT_SCHEMA_VERSION)
     }
 }
 
@@ -90,7 +81,7 @@ impl Database for Db {
 mod tests {
     use super::*;
     use crate::{
-        data::UserInterests,
+        data::{document_data::DocumentDataWithMab, UserInterests},
         tests::{
             data_with_mab,
             from_ids,
@@ -99,6 +90,19 @@ mod tests {
             pos_cois_from_words,
         },
     };
+
+    impl RerankerData0 {
+        pub(crate) fn new_with_mab(
+            user_interests: UserInterests,
+            prev_documents: Vec<DocumentDataWithMab>,
+        ) -> Self {
+            let prev_documents = PreviousDocuments::Mab(prev_documents);
+            Self {
+                user_interests,
+                prev_documents,
+            }
+        }
+    }
 
     #[test]
     fn test_database_serialize_load() {
@@ -111,8 +115,9 @@ mod tests {
         };
         let docs = data_with_mab(from_ids(0..1));
         let data = RerankerData::new_with_mab(user_interests, docs);
+        let serialized =
+            serialize_with_version(&data, CURRENT_SCHEMA_VERSION).expect("serialized data");
 
-        let serialized = Db::serialize(&data).expect("serialized data");
         let database = Db::deserialize(&serialized).expect("load data from serialized");
         let loaded_data = database
             .load_data()
@@ -120,5 +125,24 @@ mod tests {
             .expect("loaded data");
 
         assert_eq!(data, loaded_data);
+    }
+
+    #[test]
+    fn test_database_migration_from_v0() {
+        let words = &["a", "b", "c"];
+        let positive = pos_cois_from_words(words, mocked_smbert_system());
+        let negative = neg_cois_from_words(words, mocked_smbert_system());
+        let user_interests = UserInterests { positive, negative };
+        let docs = data_with_mab(from_ids(0..1));
+        let data = RerankerData0::new_with_mab(user_interests, docs);
+        let serialized = serialize_with_version(&data, 0).expect("serialized data");
+
+        let database = Db::deserialize(&serialized).expect("load data from serialized");
+        let loaded_data = database
+            .load_data()
+            .expect("load data")
+            .expect("loaded data");
+
+        assert_eq!(RerankerData::from(data), loaded_data);
     }
 }
