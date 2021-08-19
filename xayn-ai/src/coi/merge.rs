@@ -32,6 +32,7 @@ impl NegativeCoi {
 }
 
 /// A pair of CoIs.
+#[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(Clone)]
 struct CoiPair<C>(C, C);
 
@@ -169,4 +170,175 @@ fn merge_params(a1: f32, b1: f32, a2: f32, b2: f32) -> (f32, f32) {
 
     let factor = avg_mean * (1. - avg_mean) / avg_var - 1.;
     (avg_mean * factor, (1. - avg_mean) * factor)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        tests::{mocked_smbert_system, pos_cois_from_words, pos_cois_from_words_with_ids},
+        utils::mock_coi_id,
+    };
+
+    impl PositiveCoi {
+        fn from_word(word: &str, id: usize) -> Self {
+            pos_cois_from_words_with_ids(&[word], mocked_smbert_system(), id)
+                .pop()
+                .unwrap()
+        }
+
+        fn mock() -> Self {
+            Self::from_word("", 0)
+        }
+    }
+
+    #[test]
+    fn test_coipair_new_distinct() {
+        let cois = pos_cois_from_words(&["a", "b"], mocked_smbert_system());
+        assert_eq!(cois.len(), 2);
+
+        let pair = CoiPair::new(cois[0].clone(), cois[1].clone());
+        assert_eq!(pair.0, cois[0]);
+        assert_eq!(pair.1, cois[1]);
+
+        let pair_rev = CoiPair::new(cois[1].clone(), cois[0].clone());
+        assert_eq!(pair_rev, pair);
+    }
+
+    #[test]
+    fn test_coipair_new_dupes() {
+        let coi_a = PositiveCoi::from_word("a", 0);
+        let coi_b = PositiveCoi::from_word("b", 0);
+
+        let pair = CoiPair::new(coi_a.clone(), coi_b.clone());
+        assert_eq!(pair.0, coi_a);
+        assert_eq!(pair.1, coi_b);
+
+        let pair_rev = CoiPair::new(coi_b.clone(), coi_a.clone());
+        assert_eq!(pair_rev.0, coi_b);
+        assert_eq!(pair_rev.1, coi_a);
+    }
+
+    #[test]
+    fn test_coipair_contains() {
+        let coi_a = PositiveCoi::from_word("a", 0);
+        let coi_b = PositiveCoi::from_word("b", 1);
+        let coi_c = PositiveCoi::from_word("c", 2);
+        let coi_d = PositiveCoi::from_word("d", 3);
+
+        let pair_ab = CoiPair::new(coi_a.clone(), coi_b.clone());
+        let pair_ac = CoiPair::new(coi_a, coi_c.clone());
+        let pair_bc = CoiPair::new(coi_b, coi_c.clone());
+        let pair_cd = CoiPair::new(coi_c, coi_d);
+
+        assert!(pair_ab.contains(mock_coi_id(0)));
+        assert!(pair_ab.contains(mock_coi_id(1)));
+        assert!(!pair_ab.contains(mock_coi_id(2)));
+        assert!(!pair_ab.contains(mock_coi_id(3)));
+
+        assert!(pair_ab.contains_any(&pair_ab));
+        assert!(pair_ab.contains_any(&pair_ac));
+        assert!(pair_ab.contains_any(&pair_bc));
+        assert!(!pair_ab.contains_any(&pair_cd));
+    }
+
+    #[test]
+    fn test_merge() {
+        let coi_a = PositiveCoi::from_word("a", 0);
+        let coi_z = PositiveCoi::from_word("z", 1);
+        let pair_az = CoiPair::new(coi_a.clone(), coi_z.clone());
+        let merged = pair_az.merge_min();
+        assert_eq!(merged.id, coi_a.id);
+
+        let dist_az = dist(&coi_a, &coi_z);
+        assert!(dist(&coi_a, &merged) < dist_az);
+        assert!(dist(&merged, &coi_z) < dist_az);
+        // TODO check merged beta params once refactoring is done
+    }
+
+    #[test]
+    fn test_coipair_compare() {
+        let coi_a = PositiveCoi::from_word("a", 0);
+        let coi_b = PositiveCoi::from_word("b", 1);
+        let coi_c = PositiveCoi::from_word("c", 2);
+        let coi_d = PositiveCoi::from_word("d", 3);
+
+        let pair_ac = CoiPair::new(coi_a, coi_c.clone());
+        let pair_bc = CoiPair::new(coi_b.clone(), coi_c.clone());
+        let pair_cd = CoiPair::new(coi_c, coi_d.clone());
+        let pair_bd = CoiPair::new(coi_b, coi_d);
+
+        assert_eq!(pair_bc.compare(&pair_bc), Ordering::Equal);
+        assert_eq!(pair_bc.compare(&pair_ac), Ordering::Greater);
+        assert_eq!(pair_bc.compare(&pair_cd), Ordering::Less);
+        assert_eq!(pair_bc.compare(&pair_bd), Ordering::Less);
+    }
+
+    #[test]
+    fn test_coiple_compare() {
+        let coi_a = PositiveCoi::from_word("a", 0);
+        let coi_b = PositiveCoi::from_word("b", 1);
+        let coi_c = PositiveCoi::from_word("c", 2);
+        let coi_d = PositiveCoi::from_word("d", 3);
+        let coiple_bc = Coiple::new(coi_b, coi_c, 5.);
+
+        assert_eq!(coiple_bc.compare(&coiple_bc), Ordering::Equal);
+        let close = Coiple::new(PositiveCoi::mock(), PositiveCoi::mock(), 1.);
+        assert_eq!(coiple_bc.compare(&close), Ordering::Greater);
+        let far = Coiple::new(PositiveCoi::mock(), PositiveCoi::mock(), 10.);
+        assert_eq!(coiple_bc.compare(&far), Ordering::Less);
+
+        let coiple_aa = Coiple::new(coi_a.clone(), coi_a, 5.);
+        let coiple_dd = Coiple::new(coi_d.clone(), coi_d, 5.);
+        assert_eq!(coiple_bc.compare(&coiple_aa), Ordering::Greater);
+        assert_eq!(coiple_bc.compare(&coiple_dd), Ordering::Less);
+    }
+
+    #[test]
+    fn test_reduce_empty() {
+        let mut empty: Vec<PositiveCoi> = vec![];
+        reduce_cois(&mut empty);
+        assert!(empty.is_empty())
+    }
+
+    #[test]
+    fn test_reduce_distant() {
+        let coi_a = PositiveCoi::from_word("a", 0);
+        let coi_m = PositiveCoi::from_word("m", 1);
+        let coi_z = PositiveCoi::from_word("z", 2);
+        let mut cois = vec![coi_a, coi_m, coi_z];
+        let cois_before = cois.clone();
+
+        reduce_cois(&mut cois);
+        assert_eq!(cois, cois_before);
+    }
+
+    #[test]
+    fn test_reduce_coiples_idempotent() {
+        let coi_a = PositiveCoi::from_word("a", 0);
+        let coi_k = PositiveCoi::from_word("k", 1);
+        let coi_m = PositiveCoi::from_word("m", 2);
+        let coi_n = PositiveCoi::from_word("n", 3);
+        let coi_z = PositiveCoi::from_word("z", 4);
+        let mut cois = vec![
+            coi_a.clone(),
+            coi_k.clone(),
+            coi_m.clone(),
+            coi_n.clone(),
+            coi_z.clone(),
+        ];
+
+        reduce_cois(&mut cois);
+        assert_eq!(cois.len(), 3);
+        assert!(cois.contains(&coi_a));
+        assert!(cois.contains(&coi_z));
+
+        let coi_mn = CoiPair::new(coi_m, coi_n).merge_min();
+        let coi_k_mn = CoiPair::new(coi_k, coi_mn).merge_min();
+        assert!(cois.contains(&coi_k_mn));
+
+        let cois_after = cois.clone();
+        reduce_cois(&mut cois);
+        assert_eq!(cois, cois_after);
+    }
 }
