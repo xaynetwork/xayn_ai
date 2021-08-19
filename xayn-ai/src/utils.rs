@@ -1,6 +1,9 @@
 use std::cmp::Ordering;
 
 use ndarray::{ArrayBase, Data, Dimension, IntoDimension, Ix};
+use serde::Serialize;
+
+use crate::Error;
 
 #[macro_export]
 macro_rules! to_vec_of_ref_of {
@@ -82,6 +85,17 @@ pub(crate) fn mock_uuid(sub_id: usize) -> uuid::Uuid {
 #[cfg(test)]
 pub(crate) fn mock_coi_id(sub_id: usize) -> crate::CoiId {
     mock_uuid(sub_id).into()
+}
+
+/// Serializes the given data, tagged with the given version number.
+pub(crate) fn serialize_with_version(data: &impl Serialize, version: u8) -> Result<Vec<u8>, Error> {
+    let size = bincode::serialized_size(data)? + 1;
+    let mut serialized = Vec::with_capacity(size as usize);
+    // version is encoded in the first byte
+    serialized.push(version);
+    bincode::serialize_into(&mut serialized, data)?;
+
+    Ok(serialized)
 }
 
 /// Compares two "things" with approximate equality.

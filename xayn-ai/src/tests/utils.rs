@@ -53,7 +53,11 @@ pub(crate) fn documents_from_words(
     .collect()
 }
 
-fn cois_from_words<CP: CoiPoint>(titles: &[&str], smbert: impl SMBertSystem) -> Vec<CP> {
+fn cois_from_words<CP: CoiPoint>(
+    titles: &[&str],
+    smbert: impl SMBertSystem,
+    start_id: usize,
+) -> Vec<CP> {
     let documents = titles
         .iter()
         .enumerate()
@@ -76,16 +80,32 @@ fn cois_from_words<CP: CoiPoint>(titles: &[&str], smbert: impl SMBertSystem) -> 
         .unwrap()
         .into_iter()
         .enumerate()
-        .map(|(id, doc)| CP::new(mock_coi_id(id), doc.smbert.embedding))
+        .map(|(offset, doc)| CP::new(mock_coi_id(start_id + offset), doc.smbert.embedding))
         .collect()
 }
 
 pub(crate) fn pos_cois_from_words(titles: &[&str], smbert: impl SMBertSystem) -> Vec<PositiveCoi> {
-    cois_from_words(titles, smbert)
+    cois_from_words(titles, smbert, 0)
 }
 
 pub(crate) fn neg_cois_from_words(titles: &[&str], smbert: impl SMBertSystem) -> Vec<NegativeCoi> {
-    cois_from_words(titles, smbert)
+    cois_from_words(titles, smbert, 0)
+}
+
+pub(crate) fn pos_cois_from_words_with_ids(
+    titles: &[&str],
+    smbert: impl SMBertSystem,
+    start_id: usize,
+) -> Vec<PositiveCoi> {
+    cois_from_words(titles, smbert, start_id)
+}
+
+pub(crate) fn neg_cois_from_words_with_ids(
+    titles: &[&str],
+    smbert: impl SMBertSystem,
+    start_id: usize,
+) -> Vec<NegativeCoi> {
+    cois_from_words(titles, smbert, start_id)
 }
 
 pub(crate) fn history_for_prev_docs(
