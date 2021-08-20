@@ -59,7 +59,7 @@ impl DataSource for VecDataSource {
         self.training_data.len()
     }
 
-    fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error> {
+    fn next_training_batch(&mut self) -> Result<Vec<SampleView>, Self::Error> {
         if self.batch_size == 0 {
             return Err(BatchSize0Error);
         }
@@ -71,7 +71,7 @@ impl DataSource for VecDataSource {
 
             let samples = self.training_data[start_idx..end_idx]
                 .iter()
-                .map(|(inputs, target_prop_dist)| Sample {
+                .map(|(inputs, target_prop_dist)| SampleView {
                     inputs: inputs.view(),
                     target_prob_dist: target_prop_dist.view(),
                 })
@@ -86,15 +86,15 @@ impl DataSource for VecDataSource {
         self.evaluation_data.len()
     }
 
-    fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error> {
+    fn next_evaluation_sample(&mut self) -> Result<Option<SampleOwned>, Self::Error> {
         if self.evaluation_data_idx < self.evaluation_data.len() {
             let idx = self.evaluation_data_idx;
             self.evaluation_data_idx += 1;
 
             let data = &self.evaluation_data[idx];
-            Ok(Some(Sample {
-                inputs: data.0.view(),
-                target_prob_dist: data.1.view(),
+            Ok(Some(SampleOwned {
+                inputs: data.0.clone(),
+                target_prob_dist: data.1.clone(),
             }))
         } else {
             Ok(None)
@@ -104,16 +104,12 @@ impl DataSource for VecDataSource {
 
 struct TestController {
     mean_evaluation_results: Vec<f32>,
-    current_mean_evaluation_result: f32,
-    current_nr_evaluation_samples: usize,
 }
 
 impl TestController {
     fn new() -> Self {
         Self {
             mean_evaluation_results: Vec::new(),
-            current_mean_evaluation_result: 0.0,
-            current_nr_evaluation_samples: 0,
         }
     }
 }
@@ -125,9 +121,10 @@ impl TrainingController for TestController {
 
     fn run_batch(
         &mut self,
-        batch: Vec<Sample>,
-        map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
-    ) -> Vec<GradientSet> {
+        batch: Vec<SampleView>,
+        map_fn: impl Fn(SampleView) -> (GradientSet, f32) + Send + Sync,
+    ) -> Result<Vec<GradientSet>, Self::Error> {
+        eprintln!("Begin of batch.");
         let mut losses = Vec::new();
         let gradient_sets = batch
             .into_iter()
@@ -138,16 +135,28 @@ impl TrainingController for TestController {
             })
             .collect();
         dbg!(losses);
-        gradient_sets
+        eprintln!("End of batch.");
+        Ok(gradient_sets)
     }
 
-    fn begin_of_batch(&mut self) -> Result<(), Self::Error> {
-        eprintln!("begin batch");
-        Ok(())
-    }
-
-    fn end_of_batch(&mut self) -> Result<(), Self::Error> {
-        eprintln!("end of batch");
+    fn run_evaluation<I>(
+        &mut self,
+        samples: I,
+        nr_samples: usize,
+        eval_fn: impl Fn(SampleOwned) -> f32,
+    ) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = SampleOwned>,
+        I::IntoIter: Send,
+    {
+        eprintln!("Begin of evaluation.");
+        let mean_cost = samples
+            .into_iter()
+            .map(eval_fn)
+            .fold(0.0, |acc, cost| acc + cost / nr_samples as f32);
+        dbg!(mean_cost);
+        self.mean_evaluation_results.push(mean_cost);
+        eprintln!("End of evaluation.");
         Ok(())
     }
 
@@ -158,26 +167,6 @@ impl TrainingController for TestController {
 
     fn end_of_epoch(&mut self, _list_net: &ListNet) -> Result<(), Self::Error> {
         eprintln!("end of epoch");
-        Ok(())
-    }
-
-    fn begin_of_evaluation(&mut self, nr_samples: usize) -> Result<(), Self::Error> {
-        eprintln!("begin of evaluation");
-        self.current_mean_evaluation_result = 0.0;
-        self.current_nr_evaluation_samples = nr_samples;
-        Ok(())
-    }
-
-    fn evaluation_result(&mut self, cost: f32) -> Result<(), Self::Error> {
-        self.current_mean_evaluation_result += cost / self.current_nr_evaluation_samples as f32;
-        Ok(())
-    }
-
-    fn end_of_evaluation(&mut self) -> Result<(), Self::Error> {
-        eprintln!("end of evaluation");
-        dbg!(self.current_mean_evaluation_result);
-        self.mean_evaluation_results
-            .push(self.current_mean_evaluation_result);
         Ok(())
     }
 
@@ -465,7 +454,7 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
         list_net.add_gradients(gradients);
 
         // Check if our implementation diverged from the inlined and extended code above.
-        let (mut gradients, _) = reference_list_net.gradients_for_query(Sample {
+        let (mut gradients, _) = reference_list_net.gradients_for_query(SampleView {
             inputs: inputs.view(),
             target_prob_dist: target_prob_dist.view(),
         });

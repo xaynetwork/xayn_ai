@@ -3,8 +3,10 @@
 use std::{
     error::Error as StdError,
     io::{Read, Write},
+    iter,
     ops::{Add, Div, MulAssign},
     path::Path,
+    sync::Mutex,
 };
 
 use thiserror::Error;
@@ -313,21 +315,36 @@ impl ListNet {
         scores
     }
 
+    /// Evaluates the ListNet on a given sample using the given cost function.
+    pub fn evaluate(
+        &self,
+        cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
+        sample: SampleView,
+    ) -> f32 {
+        let SampleView {
+            inputs,
+            target_prob_dist,
+        } = sample;
+        let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
+        let prob_dist_y = self.calculate_final_scores(&scores_y);
+        cost_function(target_prob_dist, prob_dist_y.view())
+    }
+
     /// Computes the gradients and loss for given inputs and target prob. dist.
     ///
     /// # Panics
     ///
     /// If inputs and relevances are not for exactly [`Self::INPUT_NR_DOCUMENTS`]
     /// documents.
-    fn gradients_for_query(&self, sample: Sample) -> (GradientSet, f32) {
-        let Sample {
+    fn gradients_for_query(&self, sample: SampleView) -> (GradientSet, f32) {
+        let SampleView {
             inputs,
             target_prob_dist,
         } = sample;
         assert_eq!(inputs.shape()[0], ListNet::INPUT_NR_DOCUMENTS);
         assert_eq!(target_prob_dist.len(), ListNet::INPUT_NR_DOCUMENTS);
         let results = self.forward_pass(inputs);
-        //FIXME[followup PR] if we don't track loss in XaynNet when used in the app we don't need to calculate it.
+        //FIXME[followup PR] if we don't track loss in XayNet when used in the app we don't need to calculate it.
         let loss = kl_divergence(target_prob_dist.view(), results.prob_dist_y.view());
         //UNWRAP_SAFE: Document are not empty.
         let gradients = self
@@ -623,15 +640,11 @@ where
             return Ok(false);
         }
 
-        callbacks.begin_of_batch().map_err(TrainingError::Control)?;
-
-        let gradient_sets =
-            callbacks.run_batch(batch, |sample| list_net.gradients_for_query(sample));
+        let gradient_sets = callbacks
+            .run_batch(batch, |sample| list_net.gradients_for_query(sample))
+            .map_err(TrainingError::Control)?;
 
         optimizer.apply_gradients(list_net, gradient_sets);
-
-        callbacks.end_of_batch().map_err(TrainingError::Control)?;
-
         Ok(true)
     }
 
@@ -640,37 +653,41 @@ where
         &mut self,
         cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
     ) -> Result<(), TrainingError<D::Error, C::Error>> {
-        self.callbacks
-            .begin_of_evaluation(self.data_source.number_of_evaluation_samples())
+        let Self {
+            data_source,
+            callbacks,
+            list_net,
+            ..
+        } = self;
+
+        let nr_samples = data_source.number_of_evaluation_samples();
+        let error_slot = Mutex::new(None);
+        let sample_iter = iter::from_fn(|| match data_source.next_evaluation_sample() {
+            Ok(v) => v,
+            Err(err) => {
+                let mut error_slot = error_slot.lock().unwrap();
+                *error_slot = Some(err);
+                None
+            }
+        });
+
+        callbacks
+            .run_evaluation(sample_iter, nr_samples, |sample| {
+                list_net.evaluate(cost_function, sample.as_view())
+            })
             .map_err(TrainingError::Control)?;
 
-        while let Some(Sample {
-            inputs,
-            target_prob_dist,
-        }) = self
-            .data_source
-            .next_evaluation_sample()
-            .map_err(TrainingError::Data)?
-        {
-            let (scores_y, _) = self.list_net.calculate_intermediate_scores(inputs, false);
-            let prob_dist_y = self.list_net.calculate_final_scores(&scores_y);
-            let cost = cost_function(target_prob_dist, prob_dist_y.view());
-            self.callbacks
-                .evaluation_result(cost)
-                .map_err(TrainingError::Control)?;
+        if let Some(error) = error_slot.into_inner().unwrap() {
+            Err(TrainingError::Data(error))
+        } else {
+            Ok(())
         }
-
-        self.callbacks
-            .end_of_evaluation()
-            .map_err(TrainingError::Control)?;
-
-        Ok(())
     }
 }
 
 /// A single sample you can train on.
-pub struct Sample<'a> {
-    /// Input used for training.
+pub struct SampleView<'a> {
+    /// Inputs used for training.
     ///
     /// (At least for now) this must be a `(10, 50)` array
     /// view.
@@ -682,12 +699,44 @@ pub struct Sample<'a> {
     pub target_prob_dist: ArrayView1<'a, f32>,
 }
 
+impl<'a> SampleView<'a> {
+    pub fn to_owned(&self) -> SampleOwned {
+        SampleOwned {
+            inputs: self.inputs.to_owned(),
+            target_prob_dist: self.target_prob_dist.to_owned(),
+        }
+    }
+}
+
+/// An owned version of [`SampleRef`]
+pub struct SampleOwned {
+    /// Inputs used for training.
+    ///
+    /// (At least for now) this must be a `(10, 50)` array
+    /// view.
+    pub inputs: Array2<f32>,
+
+    /// Target probability distribution.
+    ///
+    /// Needs to have the same length as `inputs.shape()[0]`.
+    pub target_prob_dist: Array1<f32>,
+}
+
+impl SampleOwned {
+    pub fn as_view(&self) -> SampleView {
+        SampleView {
+            inputs: self.inputs.view(),
+            target_prob_dist: self.target_prob_dist.view(),
+        }
+    }
+}
+
 /// A source of training and evaluation data.
 ///
 /// Settings like the batch size or evaluation split need
 /// to be handled when creating this instance.
-pub trait DataSource {
-    type Error: StdError + 'static;
+pub trait DataSource: Send {
+    type Error: StdError + 'static + Send;
 
     /// Resets/initializes the "iteration" of training and evaluation samples.
     ///
@@ -695,7 +744,7 @@ pub trait DataSource {
     /// samples and/or their order. E.g. this could shuffle them
     /// before every epoch.
     ///
-    /// This is called at the *begin* of every epoch.
+    /// This is called at the *beginning* of every epoch.
     fn reset(&mut self) -> Result<(), Self::Error>;
 
     /// Returns the expected number of training batches.
@@ -703,16 +752,16 @@ pub trait DataSource {
 
     /// Returns the next batch of training samples.
     ///
-    /// Returns a empty vector once all training samples have been returned.
-    fn next_training_batch(&mut self) -> Result<Vec<Sample>, Self::Error>;
+    /// Returns an empty vector once all training samples have been returned.
+    fn next_training_batch(&mut self) -> Result<Vec<SampleView>, Self::Error>;
 
     /// Returns the expected number of evaluation samples.
     fn number_of_evaluation_samples(&self) -> usize;
 
     /// Returns the next evaluation sample.
     ///
-    /// Returns `None` once all training sample have been returned.
-    fn next_evaluation_sample(&mut self) -> Result<Option<Sample>, Self::Error>;
+    /// Returns `None` once all training samples have been returned.
+    fn next_evaluation_sample(&mut self) -> Result<Option<SampleOwned>, Self::Error>;
 }
 
 /// A trait providing various callbacks used during training.
@@ -725,17 +774,22 @@ pub trait TrainingController {
     /// Implementations can be both sequential or parallel.
     fn run_batch(
         &mut self,
-        batch: Vec<Sample>,
-        map_fn: impl Fn(Sample) -> (GradientSet, f32) + Send + Sync,
-    ) -> Vec<GradientSet>;
+        batch: Vec<SampleView>,
+        map_fn: impl Fn(SampleView) -> (GradientSet, f32) + Send + Sync,
+    ) -> Result<Vec<GradientSet>, Self::Error>;
 
-    /// Called before started training a batch.
-    fn begin_of_batch(&mut self) -> Result<(), Self::Error>;
+    /// Runs the processing of the sample evaluation.
+    fn run_evaluation<I>(
+        &mut self,
+        samples: I,
+        nr_samples: usize,
+        eval_fn: impl Fn(SampleOwned) -> f32 + Send + Sync,
+    ) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = SampleOwned>,
+        I::IntoIter: Send;
 
-    /// Called after training a batch, the loss for each sample will be passed in.
-    fn end_of_batch(&mut self) -> Result<(), Self::Error>;
-
-    /// Called at the begin of each epoch.
+    /// Called at the beginning of each epoch.
     fn begin_of_epoch(&mut self, nr_batches: usize) -> Result<(), Self::Error>;
 
     /// Called at the end of each epoch.
@@ -744,13 +798,7 @@ pub trait TrainingController {
     /// result every 10 epochs.
     fn end_of_epoch(&mut self, list_net: &ListNet) -> Result<(), Self::Error>;
 
-    fn begin_of_evaluation(&mut self, nr_samples: usize) -> Result<(), Self::Error>;
-
-    fn evaluation_result(&mut self, cost: f32) -> Result<(), Self::Error>;
-
-    fn end_of_evaluation(&mut self) -> Result<(), Self::Error>;
-
-    /// Called at the begin of training.
+    /// Called at the beginning of training.
     fn begin_of_training(
         &mut self,
         nr_epochs: usize,
