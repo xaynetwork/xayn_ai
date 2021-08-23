@@ -1,6 +1,6 @@
 #![cfg(not(tarpaulin))]
 
-use std::{iter, ops::Add, path::PathBuf};
+use std::{iter, ops::Add, path::PathBuf, sync::Arc};
 
 use anyhow::{bail, Context, Error};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -9,7 +9,7 @@ use structopt::StructOpt;
 
 use xayn_ai::list_net::{ndutils::kl_divergence, DataSource as _, ListNet};
 
-use super::data_source::{DataSource, InMemorySamples};
+use super::data_source::{DataSource, InMemoryStorage};
 use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 
 /// Runs a single evaluation pass on a ListNet.
@@ -42,9 +42,10 @@ impl EvaluateCmd {
         } = self;
 
         let mut data_source = progress_spin_until_done("Loading samples", || {
-            let storage = InMemorySamples::deserialize_from_file(samples)
+            let storage = InMemoryStorage::deserialize_from_file(samples)
                 .context("Loading training & evaluation samples failed.")?;
-            DataSource::new(storage, evaluation_split, 1).context("Creating DataSource failed.")
+            DataSource::new(Arc::new(storage), evaluation_split, 1)
+                .context("Creating DataSource failed.")
         })?;
 
         let list_net = ListNet::deserialize_from_file(parameters)?;
