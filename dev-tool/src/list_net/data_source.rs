@@ -38,11 +38,10 @@ impl DataSource {
     ///
     /// # Errors
     ///
-    /// - If `evaluation_split` is less than 0, greater then 1.0 or not a normal float.
-    /// - If there are no training samples with the given `evaluation_split`, which is not exactly 1.0.
-    /// - If there are no evaluation samples with the given `evaluation_split`, which is not exactly 0.0.
-    ///   but the split is not `0`.
-    /// - If the `batch_size` is larger then the number of training samples.
+    /// - If `evaluation_split` is less than 0, greater then 1.0, NaN, Inf or subnormal.
+    /// - If there are no training samples with the given `evaluation_split` and the split is not exactly 1.0.
+    /// - If there are no evaluation samples with the given `evaluation_split` and the split is not exactly 0.0.
+    /// - If the `batch_size` is greater than the number of training samples.
     pub(crate) fn new(
         storage: Arc<InMemoryStorage>,
         evaluation_split: f32,
@@ -65,7 +64,7 @@ impl DataSource {
         })
     }
 
-    /// Create multiple `DataSources` from one storage instance..
+    /// Creates multiple `DataSources` from one storage instance.
     ///
     /// This will create multiple training only data sources based
     /// on chunking the training samples with the given `chunk_size`,
@@ -77,7 +76,7 @@ impl DataSource {
     /// Has the same errors as [`DataSource.new()`] as well as:
     ///
     /// - Failure if the `chunk_size` is `0`.
-    /// - Failure if the `batch_size` is greater then the `chunk_size`.
+    /// - Failure if the `batch_size` is greater than the `chunk_size`.
     #[allow(dead_code)]
     pub(crate) fn new_split(
         storage: Arc<InMemoryStorage>,
@@ -125,7 +124,7 @@ impl DataSource {
         })
     }
 
-    /// Calculates `(nr_training_samples, nr_evaluation_samples)` and checks for consistency/invariants.
+    /// Calculates `(nr_training_samples, nr_evaluation_samples)` and checks for invariants.
     fn calculate_evaluation_split(
         evaluation_split: f32,
         nr_all_samples: usize,
@@ -188,7 +187,7 @@ pub enum DataSourceError {
         batch_size: usize,
         /// Number of training samples.
         ///
-        /// In XaynNet emulation mode this is the number of samples per user.
+        /// In XayNet the emulation mode this is the number of samples per user.
         nr_training_samples: usize,
     },
     /// Empty database cannot be used for training.
@@ -341,7 +340,7 @@ pub enum StorageError {
     /// The database was parsed successfully but contains broken invariants at index {at_index}.
     BrokenInvariants { at_index: usize },
 
-    /// A out-of-bounds DataId (failed: {id} < {exclusive_id_upper_bound}) was used with the storage, this is most likely a bug.
+    /// An out-of-bounds DataId (failed: {id} < {exclusive_id_upper_bound}) was used in the storage, this is most likely a bug.
     OutOfBoundsId {
         id: DataId,
         exclusive_id_upper_bound: DataId,
@@ -382,7 +381,7 @@ impl InMemoryStorage {
         Ok(self_)
     }
 
-    /// Returns the number of samples in the storages.
+    /// Returns the number of samples in the storage.
     ///
     /// The samples can be referred to by usize ids from
     /// `0` to `number_of_samples`.
@@ -707,7 +706,7 @@ mod tests {
     fn mock_storage() -> Arc<InMemoryStorage> {
         let multiplier = ListNet::INPUT_NR_FEATURES + 1;
         let storage = InMemoryStorage {
-            // Invariant: len= (INPUT_NR_FEATURES+1)*nr_document
+            // Invariant: len = (INPUT_NR_FEATURES + 1) * nr_document
             data: vec![
                 vec![0.0; multiplier * 10],
                 vec![1.2; multiplier * 3],
