@@ -154,12 +154,4 @@ pub(crate) mod tests {
             Some(self)
         }
     }
-
-    #[test]
-    fn test_call_init_thread_pool_twice() {
-        let mut error = CError::default();
-        unsafe { xaynai_init_thread_pool(1, Some(&mut error)) };
-        unsafe { xaynai_init_thread_pool(1, Some(&mut error)) };
-        assert_eq!(error.code, CCode::None)
-    }
 }
