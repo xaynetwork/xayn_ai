@@ -74,7 +74,7 @@ unsafe impl IntoRaw for () {
 /// # Safety
 ///
 /// It is safe to call this function multiple times but it must be invoked
-/// before calling anything else of this library.
+/// before calling any of the `xaynai_*` functions.
 ///
 /// The behavior is undefined if:
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
