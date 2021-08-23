@@ -598,7 +598,7 @@ where
             .map_err(TrainingError::Control)?;
 
         for _ in 0..epochs {
-            self.data_source.reset().map_err(TrainingError::Data)?;
+            self.data_source.reset();
 
             self.callbacks
                 .begin_of_epoch(self.data_source.number_of_training_batches())
@@ -745,7 +745,7 @@ pub trait DataSource: Send {
     /// before every epoch.
     ///
     /// This is called at the *beginning* of every epoch.
-    fn reset(&mut self) -> Result<(), Self::Error>;
+    fn reset(&mut self);
 
     /// Returns the expected number of training batches.
     fn number_of_training_batches(&self) -> usize;
