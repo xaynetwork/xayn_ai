@@ -1,6 +1,5 @@
 #![cfg(not(tarpaulin))]
-
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
 use structopt::StructOpt;
@@ -10,7 +9,7 @@ use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 
 use super::{
     cli_callbacks::CliTrainingControllerBuilder,
-    data_source::{DataSource, InMemorySamples},
+    data_source::{DataSource, InMemoryStorage},
 };
 
 /// Trains a ListNet.
@@ -83,9 +82,9 @@ impl TrainCmd {
         } = self;
 
         let data_source = progress_spin_until_done("Loading samples", || {
-            let storage = InMemorySamples::deserialize_from_file(samples)
+            let storage = InMemoryStorage::deserialize_from_file(samples)
                 .context("Loading training & evaluation samples failed.")?;
-            DataSource::new(storage, evaluation_split, batch_size)
+            DataSource::new(Arc::new(storage), evaluation_split, batch_size)
                 .context("Creating DataSource failed.")
         })?;
 
