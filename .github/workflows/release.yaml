@@ -33,7 +33,7 @@ jobs:
       # When you git push, this GitHub Action will capture the current Branch and SHA.
       # It will query GitHub's API to find previous workflow runs that match the Branch
       # but do not match the SHA. These in-progress runs will be canceled leaving only the latest run.
-      - uses: styfle/cancel-workflow-action@a40b8845c0683271d9f53dfcb887a7e181d3918b # v0.9.0
+      - uses: styfle/cancel-workflow-action@a40b8845c0683271d9f53dfcb887a7e181d3918b # v0.9.1
         with:
           all_but_latest: true
           access_token: ${{ github.token }}
