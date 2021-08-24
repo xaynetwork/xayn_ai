@@ -510,7 +510,7 @@ jobs:
 
       - name: Install KeyCDN SSH privkey
         if: github.ref == 'refs/heads/release'
-        uses: shimataro/ssh-key-action@3c9b0fc6f2d223b8450b02a0445f526350fc73e0 # v2.3.0
+        uses: shimataro/ssh-key-action@3c9b0fc6f2d223b8450b02a0445f526350fc73e0 # v2.3.1
         with:
           key: ${{ secrets.KEYCDN_RSYNC_PRIVKEY }}
           name: keycdn-publisher
@@ -588,7 +588,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Install SSH key
-        uses: shimataro/ssh-key-action@3c9b0fc6f2d223b8450b02a0445f526350fc73e0 # v2.3.0
+        uses: shimataro/ssh-key-action@3c9b0fc6f2d223b8450b02a0445f526350fc73e0 # v2.3.1
         with:
           key: ${{ secrets.SSH }}
           known_hosts: ${{ secrets.KNOWN_HOSTS }}
