@@ -1,11 +1,9 @@
 //! Utilities.
 
-use std::{ffi::CStr, fmt::Display, sync::Once};
+use std::{ffi::CStr, fmt::Display};
 
-use rayon::{ThreadPoolBuildError, ThreadPoolBuilder};
 use xayn_ai_ffi::{CCode, Error};
 
-use crate::result::{call_with_result, error::CError};
 #[cfg(doc)]
 pub use crate::slice::CBoxedSlice;
 
@@ -57,55 +55,6 @@ unsafe impl IntoRaw for () {
 
     #[inline]
     fn into_raw(self) -> Self::Value {}
-}
-
-/// Initializes the global thread pool. The thread pool is used by the AI to
-/// parallel some of its tasks.
-///
-/// The number of threads used by the pool depends on `num_cpus`:
-///
-/// On a single core system the thread pool consists of only one thread.
-/// On a multicore system the thread pool consists of (the number of logical cores - 1) threads.
-///
-/// # Error
-/// - If the initialization of the thread pool has failed.
-/// - An unexpected panic happened during the initialization of the thread pool.
-///
-/// # Safety
-///
-/// It is safe to call this function multiple times but it must be invoked
-/// before calling any of the `xaynai_*` functions.
-///
-/// The behavior is undefined if:
-/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
-#[no_mangle]
-pub unsafe extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&mut CError>) {
-    static mut INIT_ERROR: Result<(), ThreadPoolBuildError> = Ok(());
-    static INIT: Once = Once::new();
-
-    let init_pool = || unsafe {
-        INIT.call_once(|| {
-            INIT_ERROR = init_thread_pool(num_cpus as usize);
-        });
-
-        if let Err(cause) = INIT_ERROR.as_ref() {
-            Err(CCode::InitGlobalThreadPool
-                .with_context(format!("Failed to initialize thread pool: {}", cause)))
-        } else {
-            Ok(())
-        }
-    };
-
-    call_with_result(init_pool, error)
-}
-
-/// See [`xaynai_init_thread_pool()`] for more.
-fn init_thread_pool(num_cpus: usize) -> Result<(), ThreadPoolBuildError> {
-    let num_threads = if num_cpus > 1 { num_cpus - 1 } else { num_cpus };
-
-    ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build_global()
 }
 
 #[cfg(test)]
