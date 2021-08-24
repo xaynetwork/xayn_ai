@@ -734,7 +734,7 @@ jobs:
     steps:
       - name: Notify failure
         if: needs.one-leaf.result != 'success'
-        uses: 8398a7/action-slack@e74cd4e48f4452e8158dc4f8bcfc780ae6203364 # v3.9.1
+        uses: 8398a7/action-slack@e74cd4e48f4452e8158dc4f8bcfc780ae6203364 # v3.9.2
         with:
           status: custom
           fields: workflow, repo
