@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+### Changed
+
+- AI data is synchronizable between devices via the new functions `syncdata_bytes` and `synchronize`.
+
 ## 2.0.0 - 2021/06/28
 
 ### Changed
