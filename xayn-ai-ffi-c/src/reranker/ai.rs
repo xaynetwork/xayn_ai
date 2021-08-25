@@ -1,8 +1,12 @@
-use std::{panic::AssertUnwindSafe, sync::Once};
+use std::panic::AssertUnwindSafe;
 
-use rayon::{ThreadPoolBuildError, ThreadPoolBuilder};
 use xayn_ai::{Builder, RerankMode, Reranker};
 use xayn_ai_ffi::{CCode, Error};
+
+#[cfg(feature = "parallel")]
+use rayon::{ThreadPoolBuildError, ThreadPoolBuilder};
+#[cfg(feature = "parallel")]
+use std::sync::Once;
 
 use crate::{
     data::{
@@ -195,6 +199,7 @@ impl CXaynAi {
 ///
 /// The behavior is undefined if:
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
+#[cfg(feature = "parallel")]
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&mut CError>) {
     static mut INIT_ERROR: Result<(), ThreadPoolBuildError> = Ok(());
@@ -217,6 +222,7 @@ pub unsafe extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&m
 }
 
 /// See [`xaynai_init_thread_pool()`] for more.
+#[cfg(feature = "parallel")]
 fn init_thread_pool(num_cpus: usize) -> Result<(), ThreadPoolBuildError> {
     let num_threads = if num_cpus > 1 { num_cpus - 1 } else { num_cpus };
 

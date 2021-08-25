@@ -8,9 +8,9 @@ edition = "2018"
 
 [dependencies]
 uuid = "0.8.2"
-rayon = "1.5.1"
-xayn-ai = { path = "../xayn-ai", features = ["parallel"] }
-xayn-ai-ffi = { path = "../xayn-ai-ffi", features = ["parallel"] }
+rayon = { version = "1.5.1", optional = true }
+xayn-ai = { path = "../xayn-ai" }
+xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 
 [dev-dependencies]
 test-utils = { path = "../test-utils" }
@@ -23,3 +23,7 @@ cbindgen = "=0.20.0"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
+
+[features]
+default = ["parallel"]
+parallel = ["rayon", "xayn-ai/parallel"]
