@@ -19,9 +19,9 @@ where
     F: TrainingFeedback,
 {
     /// The output used to store files (e.g. ListNet parameter).
-    pub(crate) file_output: FileOutput,
+    pub(crate) file_output: OutputDir,
 
-    /// Implementation used to hint training progress to the user.
+    /// Implementation used to hint the training progress to the user.
     pub(crate) training_feedback: F,
 
     /// If included dumps the current ListNet parameters every `n` epochs.
@@ -230,7 +230,7 @@ pub(crate) trait TrainingFeedback: Sync + Send {
 
 /// Gives no feedback.
 ///
-/// When emulating XaynNet we run multiple trainings in parallel and as such we
+/// When emulating XayNet we run multiple trainings in parallel and as such we
 /// can't give a progress bar like feedback on the CLI.
 pub(crate) struct NoFeedback;
 
@@ -258,7 +258,7 @@ impl TrainingFeedback for NoFeedback {
     fn println(&self, _line: &str) {}
 }
 
-/// Training Feedback
+/// Training feedback
 pub(crate) struct ProgressBarTrainingFeedback {
     /// A (CLI) progress bar used to track the progress of the current batch.
     sample_progress_bar: ProgressBar,
@@ -392,22 +392,22 @@ impl TrainingFeedback for ProgressBarTrainingFeedback {
 /// To be more specific it stores the `ListNet` parameters
 /// not the ListNets structure.
 #[derive(Clone)]
-pub(crate) struct FileOutput {
+pub(crate) struct OutputDir {
     out_dir: Arc<Path>,
 }
 
-impl FileOutput {
+impl OutputDir {
     pub const SUFFIX_FINAL_LIST_NET: &'static str = "final";
     pub const SUFFIX_INITIAL_LIST_NET: &'static str = "initial";
 
-    /// Create a new instance using given output dir.
+    /// Creates a new instance using given output dir.
     pub(crate) fn new(out_dir: impl AsRef<Path>) -> Self {
         Self {
             out_dir: out_dir.as_ref().into(),
         }
     }
 
-    /// Safe the current ListNet parameters to the output dir using the given suffix.
+    /// Saves the current ListNet parameters to the output dir using the given suffix.
     ///
     /// The file path will be:
     ///

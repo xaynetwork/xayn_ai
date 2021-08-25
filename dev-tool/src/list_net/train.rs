@@ -17,8 +17,8 @@ use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 use super::{
     cli_callbacks::{
         CliTrainingControllerBuilder,
-        FileOutput,
         NoFeedback,
+        OutputDir,
         ProgressBarTrainingFeedback,
     },
     data_source::{DataSource, InMemoryStorage, SplitDataSource},
@@ -73,8 +73,8 @@ pub struct TrainCmd {
 
     /// After how many epochs an intermediate result should be dumped (if at all).
     ///
-    /// If used with XaynNet emulation this determines after how many XaynNet
-    /// iterations this should dump the current parameters.
+    /// If used with XayNet emulation, `dump_every` determines after how many XayNet
+    /// iterations the emulator should dump the current parameters.
     #[structopt(long)]
     dump_every: Option<usize>,
 
@@ -82,16 +82,16 @@ pub struct TrainCmd {
     #[structopt(long)]
     dump_initial_parameters: bool,
 
-    /// Enables XaynNet Emulation mode.
+    /// Enables XayNet Emulation mode.
     ///
-    /// In this mode the list net is distributed to N users which
-    /// each train it using the given parameters and then the
-    /// separately trained list nets are merged. This is then
+    /// In this mode the ListNet is distributed to N users. Each user
+    /// trains it using the given parameters. Then the
+    /// separately trained ListNets are merged. This is then
     /// repeated for a number of times leading to the final
     /// trained ListNet.
     ///
     /// Requires: --xne-steps, --xne-users-per-step and --xne-merge-users
-    #[structopt(long, requires_all(&["xne-steps","xne-users-per-step", "xne-merge-users"]))]
+    #[structopt(long, requires_all(&["xne-steps", "xne-users-per-step", "xne-merge-users"]))]
     xayn_net_emulation: bool,
 
     /// The number of fork-join training steps, similar to epoch for normal training.
@@ -109,7 +109,7 @@ pub struct TrainCmd {
     xne_merge_users: Option<usize>,
 }
 
-struct XaynNetEmulationSettings {
+struct XayNetEmulationSettings {
     steps: usize,
     users_per_step: usize,
     merge_users: usize,
@@ -124,11 +124,11 @@ impl TrainCmd {
         } else {
             shared_setup.soundgarden_classic_training()?
         };
-        file_output.save_list_net_parameters(list_net, FileOutput::SUFFIX_FINAL_LIST_NET)?;
+        file_output.save_list_net_parameters(list_net, OutputDir::SUFFIX_FINAL_LIST_NET)?;
         Ok(NO_ERROR)
     }
 
-    fn shared_setup(self) -> Result<(SharedSetup, Option<XaynNetEmulationSettings>), Error> {
+    fn shared_setup(self) -> Result<(SharedSetup, Option<XayNetEmulationSettings>), Error> {
         let TrainCmd {
             samples,
             epochs,
@@ -146,15 +146,15 @@ impl TrainCmd {
         } = self;
 
         let storage = load_sample(samples)?;
-        let file_output = FileOutput::new(out_dir);
+        let file_output = OutputDir::new(out_dir);
         let list_net = create_initial_list_net(use_initial_parameters)?;
         let optimizer = MiniBatchSgd { learning_rate };
         if dump_initial_parameters {
             file_output
-                .save_list_net_parameters(list_net.clone(), FileOutput::SUFFIX_INITIAL_LIST_NET)?;
+                .save_list_net_parameters(list_net.clone(), OutputDir::SUFFIX_INITIAL_LIST_NET)?;
         }
 
-        let xayn_net_emulation = xayn_net_emulation.then(|| XaynNetEmulationSettings {
+        let xayn_net_emulation = xayn_net_emulation.then(|| XayNetEmulationSettings {
             steps: xne_steps.unwrap(),
             users_per_step: xne_users_per_step.unwrap(),
             merge_users: xne_merge_users.unwrap(),
@@ -177,7 +177,7 @@ impl TrainCmd {
 
 struct SharedSetup {
     storage: Arc<InMemoryStorage>,
-    file_output: FileOutput,
+    file_output: OutputDir,
     list_net: ListNet,
     optimizer: MiniBatchSgd,
     evaluation_split: f32,
@@ -211,14 +211,13 @@ impl SharedSetup {
 
         let trainer = ListNetTrainer::new(list_net, data_source, controller, optimizer);
         let list_net = trainer.train(epochs)?;
-        file_output
-            .save_list_net_parameters(list_net.clone(), FileOutput::SUFFIX_FINAL_LIST_NET)?;
+        file_output.save_list_net_parameters(list_net.clone(), OutputDir::SUFFIX_FINAL_LIST_NET)?;
         Ok(list_net)
     }
 
     fn soundgarden_xayn_net_emulation_training(
         self,
-        xayn_net_emu_setup: XaynNetEmulationSettings,
+        xayn_net_emu_setup: XayNetEmulationSettings,
     ) -> Result<ListNet, Error> {
         let Self {
             storage,
@@ -231,7 +230,7 @@ impl SharedSetup {
             dump_every,
         } = self;
 
-        let XaynNetEmulationSettings {
+        let XayNetEmulationSettings {
             steps,
             users_per_step,
             merge_users,
@@ -326,8 +325,7 @@ impl SharedSetup {
         users_bar.finish_at_current_pos();
         eval_bar.finish_at_current_pos();
 
-        file_output
-            .save_list_net_parameters(list_net.clone(), FileOutput::SUFFIX_FINAL_LIST_NET)?;
+        file_output.save_list_net_parameters(list_net.clone(), OutputDir::SUFFIX_FINAL_LIST_NET)?;
         Ok(list_net)
     }
 }

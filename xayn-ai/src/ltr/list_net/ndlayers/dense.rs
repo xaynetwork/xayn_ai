@@ -207,13 +207,13 @@ where
         &self.bias
     }
 
-    /// Devices all parameters (weights,bias) of this dense layer in place.
+    /// Divides all parameters (weights, bias) of this dense layer in place.
     pub(crate) fn div_parameters_by(&mut self, denominator: f32) {
         self.weights /= denominator;
         self.bias /= denominator;
     }
 
-    /// Add for all parameters add the ones from other to the ones from self.
+    /// Adds all parameters of `other` to `self`.
     pub(crate) fn add_parameters_of(&mut self, other: Self) {
         let Dense {
             weights,
