@@ -206,6 +206,23 @@ where
     pub(crate) fn bias(&self) -> &Array1<f32> {
         &self.bias
     }
+
+    /// Divides all parameters (weights, bias) of this dense layer in place.
+    pub(crate) fn div_parameters_by(&mut self, denominator: f32) {
+        self.weights /= denominator;
+        self.bias /= denominator;
+    }
+
+    /// Adds all parameters of `other` to `self`.
+    pub(crate) fn add_parameters_of(&mut self, other: Self) {
+        let Dense {
+            weights,
+            bias,
+            activation_function: _,
+        } = other;
+        self.weights += &weights;
+        self.bias += &bias;
+    }
 }
 
 /// A gradient set containing gradients for all parameters in a dense layer.

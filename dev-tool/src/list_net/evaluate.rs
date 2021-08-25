@@ -51,11 +51,6 @@ impl EvaluateCmd {
         let list_net = ListNet::deserialize_from_file(parameters)?;
 
         let nr_samples = data_source.number_of_evaluation_samples();
-
-        if nr_samples == 0 {
-            bail!("No evaluation samples with given data source and evaluation split");
-        }
-
         let progress_bar = ProgressBar::new(nr_samples as u64);
         progress_bar.set_style(
             ProgressStyle::default_bar()
@@ -64,33 +59,53 @@ impl EvaluateCmd {
         );
         progress_bar.tick();
 
-        let mut error_slot = None;
-        let iter = iter::from_fn(|| match data_source.next_evaluation_sample() {
-            Ok(v) => v,
-            Err(err) => {
-                error_slot = Some(err);
-                None
-            }
-        });
-
-        let nr_samples = nr_samples as f32;
-        let mean_cost = iter
-            .par_bridge()
-            .map(|sample| {
-                let cost = list_net.evaluate(kl_divergence, sample.as_view());
-                progress_bar.inc(1);
-                cost
-            })
-            .fold(|| 0.0, |acc, cost| acc + cost / nr_samples)
-            .reduce_with(Add::add)
-            .unwrap();
-
-        if let Some(error) = error_slot {
-            return Err(error.into());
-        }
+        let mean_cost = run_evaluation(&list_net, &mut data_source, || progress_bar.inc(1))?;
 
         progress_bar.finish();
         println!("mean_evaluation_cost={}", mean_cost);
         Ok(NO_ERROR)
+    }
+}
+
+pub(crate) fn run_evaluation(
+    list_net: &ListNet,
+    data_source: &mut DataSource,
+    progress_hint: impl Fn() + Sync + Send,
+) -> Result<f32, Error> {
+    let nr_samples = data_source.number_of_evaluation_samples();
+
+    if nr_samples == 0 {
+        bail!("No evaluation samples with given data source and evaluation split");
+    }
+
+    // Make sure we always iterate over all evaluation samples.
+    data_source.reset();
+
+    let mut error_slot = None;
+
+    let iter = iter::from_fn(|| match data_source.next_evaluation_sample() {
+        Ok(v) => v,
+        Err(err) => {
+            error_slot = Some(err);
+            None
+        }
+    });
+
+    let nr_samples = nr_samples as f32;
+    let mean_cost = iter
+        .par_bridge()
+        .map(|sample| {
+            let cost = list_net.evaluate(kl_divergence, sample.as_view());
+            progress_hint();
+            cost
+        })
+        .fold(|| 0.0, |acc, cost| acc + cost / nr_samples)
+        .reduce_with(Add::add)
+        .unwrap();
+
+    if let Some(error) = error_slot {
+        Err(error.into())
+    } else {
+        Ok(mean_cost)
     }
 }

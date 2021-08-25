@@ -169,11 +169,7 @@ impl TrainingController for TestController {
         Ok(())
     }
 
-    fn begin_of_training(
-        &mut self,
-        _nr_epochs: usize,
-        _list_net: &ListNet,
-    ) -> Result<(), Self::Error> {
+    fn begin_of_training(&mut self, _nr_epochs: usize) -> Result<(), Self::Error> {
         eprintln!("begin of training");
         Ok(())
     }
