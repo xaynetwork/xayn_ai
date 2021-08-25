@@ -177,7 +177,7 @@ impl CXaynAi {
 }
 
 /// Initializes the global thread pool. The thread pool is used by the AI to
-/// parallel some of its tasks.
+/// parallelize some of its tasks.
 ///
 /// The number of threads used by the pool depends on `num_cpus`:
 ///
