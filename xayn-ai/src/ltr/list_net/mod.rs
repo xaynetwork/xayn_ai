@@ -456,6 +456,41 @@ impl ListNet {
         self.dense2.add_gradients(&dense2);
         self.dense1.add_gradients(&dense1);
     }
+
+    /// Merges multiple `ListNet`'s into one.
+    pub fn merge_nets(list_nets: Vec<ListNet>) -> Option<ListNet> {
+        let count = list_nets.len();
+
+        // FIXME we might really want to improve numeric stability.
+        //    Also if we don't add batch normalization as part of the
+        //    training we probably still want to normalize here.
+        list_nets
+            .into_iter()
+            .map(|net| net.div_parameters_by(count as f32))
+            .reduce(|l, r| l.add_parameters_of(r))
+    }
+
+    fn div_parameters_by(mut self, denominator: f32) -> Self {
+        self.dense1.div_parameters_by(denominator);
+        self.dense2.div_parameters_by(denominator);
+        self.scores.div_parameters_by(denominator);
+        self.prob_dist.div_parameters_by(denominator);
+        self
+    }
+
+    fn add_parameters_of(mut self, other: Self) -> Self {
+        let Self {
+            dense1,
+            dense2,
+            scores,
+            prob_dist,
+        } = other;
+        self.dense1.add_parameters_of(dense1);
+        self.dense2.add_parameters_of(dense2);
+        self.scores.add_parameters_of(scores);
+        self.prob_dist.add_parameters_of(prob_dist);
+        self
+    }
 }
 
 /// ListNet load failure.
@@ -594,7 +629,7 @@ where
     /// to create this `ListNetTrainer`.
     pub fn train(mut self, epochs: usize) -> Result<C::Outcome, TrainingError<D::Error, C::Error>> {
         self.callbacks
-            .begin_of_training(epochs, &self.list_net)
+            .begin_of_training(epochs)
             .map_err(TrainingError::Control)?;
 
         for _ in 0..epochs {
@@ -799,11 +834,7 @@ pub trait TrainingController {
     fn end_of_epoch(&mut self, list_net: &ListNet) -> Result<(), Self::Error>;
 
     /// Called at the beginning of training.
-    fn begin_of_training(
-        &mut self,
-        nr_epochs: usize,
-        list_net: &ListNet,
-    ) -> Result<(), Self::Error>;
+    fn begin_of_training(&mut self, nr_epochs: usize) -> Result<(), Self::Error>;
 
     /// Called after training finished.
     fn end_of_training(&mut self) -> Result<(), Self::Error>;
