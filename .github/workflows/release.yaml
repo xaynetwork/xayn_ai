@@ -13,7 +13,6 @@ env:
   ANDROID_PLATFORM_VERSION: 21
   CARGO_LIPO: 3.1.1
   FLUTTER_VERSION: '2.2.3'
-  JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
   PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
@@ -135,12 +134,6 @@ jobs:
 
       - name: Install libclang-10-dev
         run: sudo apt-get install libclang-10-dev
-
-      - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@3bc31aaf88e8fc94dc1e632d48af61be5ca8721c # v2.1.0
-        with:
-          distribution: 'zulu'
-          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Install flutter
         uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
@@ -407,12 +400,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
-
-      - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@3bc31aaf88e8fc94dc1e632d48af61be5ca8721c # v2.1.0
-        with:
-          distribution: 'zulu'
-          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Install flutter
         uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
