@@ -30,7 +30,6 @@ env:
   # for tests. Therefore, we compile them with a higher opt-level to run them faster.
   OPT_TESTS_RUSTFLAGS: '-C opt-level=3 -C debug-assertions=yes -D warnings'
   FLUTTER_VERSION: '2.2.3'
-  JAVA_VERSION: '12.x'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   CARGO_INCREMENTAL: 0
 
@@ -519,12 +518,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
-      - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78 # v2.1.0
-        with:
-          distribution: 'zulu'
-          java-version: ${{ env.JAVA_VERSION }}
-
       - name: Install flutter
         uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
         with:
@@ -553,12 +546,6 @@ jobs:
 
       - name: Install gomplate
         uses: ./.ci/install-gomplate
-
-      - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78 # v2.1.0
-        with:
-          distribution: 'zulu'
-          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Install flutter
         uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
@@ -625,12 +612,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
-
-      - name: Setup java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@d9126d7df2f1b080b603441eaf5810ced3614e78 # v2.1.0
-        with:
-          distribution: 'zulu'
-          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Install libclang-10-dev
         if: matrix.os == 'ubuntu-20.04'
