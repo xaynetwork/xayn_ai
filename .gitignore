@@ -6,6 +6,7 @@ __pycache__
 # Data
 /data/*
 !/data/asset_templates
+!/data/example_gen_snippets.json
 
 # MacOS files
 .DS_Store

@@ -255,6 +255,15 @@ pub enum DayOfWeek {
     Sun = 6,
 }
 
+impl DayOfWeek {
+    /// Crates a `DayOfWeek` based on a wrap-around offset from `Mon`.
+    pub fn from_day_offset(day_offset: usize) -> DayOfWeek {
+        use DayOfWeek::*;
+        static DAYS: &[DayOfWeek] = &[Mon, Tue, Wed, Thu, Fri, Sat, Sun];
+        DAYS[day_offset % 7]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

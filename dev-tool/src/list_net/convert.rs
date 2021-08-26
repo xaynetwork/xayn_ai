@@ -263,7 +263,7 @@ impl SoundgardenUserDfRecord {
             query_count: query_counter,
             query_id: QueryId(id2uuid(query_id, None)),
             query_words: query_words.replace(",", " "),
-            day: day_from_day_offset(day),
+            day: DayOfWeek::from_day_offset(day),
             url,
             domain,
             rank: position.checked_sub(1).unwrap(),
@@ -310,13 +310,6 @@ fn fix_user_actions_in_query_reverse_order<'a>(
     }
 }
 
-/// Crate a [`DayOfWeek`] instance from an offset.
-fn day_from_day_offset(day: usize) -> DayOfWeek {
-    use DayOfWeek::*;
-    static DAYS: &[DayOfWeek] = &[Mon, Tue, Wed, Thu, Fri, Sat, Sun];
-    DAYS[day % 7]
-}
-
 /// Creates an UUID by combining `YYYYYYYY-eb92-4d36-XXXX-XXXXXXXXXXXX` with given `sub_id`(s).
 ///
 /// - `X..` is replaced with the `sub_id`.
@@ -353,15 +346,15 @@ mod tests {
 
     #[test]
     fn test_day_from_offset() {
-        assert_eq!(day_from_day_offset(0), DayOfWeek::Mon);
-        assert_eq!(day_from_day_offset(1), DayOfWeek::Tue);
-        assert_eq!(day_from_day_offset(2), DayOfWeek::Wed);
-        assert_eq!(day_from_day_offset(3), DayOfWeek::Thu);
-        assert_eq!(day_from_day_offset(4), DayOfWeek::Fri);
-        assert_eq!(day_from_day_offset(5), DayOfWeek::Sat);
-        assert_eq!(day_from_day_offset(6), DayOfWeek::Sun);
-        assert_eq!(day_from_day_offset(7), DayOfWeek::Mon);
-        assert_eq!(day_from_day_offset(8), DayOfWeek::Tue);
+        assert_eq!(DayOfWeek::from_day_offset(0), DayOfWeek::Mon);
+        assert_eq!(DayOfWeek::from_day_offset(1), DayOfWeek::Tue);
+        assert_eq!(DayOfWeek::from_day_offset(2), DayOfWeek::Wed);
+        assert_eq!(DayOfWeek::from_day_offset(3), DayOfWeek::Thu);
+        assert_eq!(DayOfWeek::from_day_offset(4), DayOfWeek::Fri);
+        assert_eq!(DayOfWeek::from_day_offset(5), DayOfWeek::Sat);
+        assert_eq!(DayOfWeek::from_day_offset(6), DayOfWeek::Sun);
+        assert_eq!(DayOfWeek::from_day_offset(7), DayOfWeek::Mon);
+        assert_eq!(DayOfWeek::from_day_offset(8), DayOfWeek::Tue);
     }
 
     #[test]
