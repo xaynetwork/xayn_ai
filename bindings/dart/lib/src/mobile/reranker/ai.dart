@@ -40,7 +40,8 @@ class XaynAi implements common.XaynAi {
   /// new one.
   static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
     final error = XaynAiError();
-    ffi.xaynai_init_thread_pool(Platform.numberOfProcessors, error.ptr);
+    ffi.xaynai_init_thread_pool(
+        selectThreadPoolSize(Platform.numberOfProcessors), error.ptr);
 
     try {
       if (error.isError()) {
@@ -216,5 +217,13 @@ class XaynAi implements common.XaynAi {
       ffi.xaynai_drop(_ai);
       _ai = nullptr;
     }
+  }
+}
+
+int selectThreadPoolSize(int numberOfHardwareThreads) {
+  if (numberOfHardwareThreads > 1) {
+    return numberOfHardwareThreads - 1;
+  } else {
+    return numberOfHardwareThreads;
   }
 }

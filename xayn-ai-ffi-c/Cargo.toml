@@ -8,9 +8,11 @@ edition = "2018"
 
 [dependencies]
 uuid = "0.8.2"
-rayon = { version = "1.5.1", optional = true }
 xayn-ai = { path = "../xayn-ai" }
 xayn-ai-ffi = { path = "../xayn-ai-ffi" }
+
+# parallel feature
+rayon = { version = "1.5.1", optional = true }
 
 [dev-dependencies]
 test-utils = { path = "../test-utils" }

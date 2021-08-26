@@ -183,12 +183,11 @@ impl CXaynAi {
 /// Initializes the global thread pool. The thread pool is used by the AI to
 /// parallelize some of its tasks.
 ///
-/// The number of threads used by the pool depends on `num_cpus`:
+/// The number of threads spawned by the pool corresponds to the value of `num_cpus`.
+/// If the value of `num_cpus` is `0`, the number of spawned threads corresponds to
+/// the number of logical CPUs.
 ///
-/// On a single core system the thread pool consists of only one thread.
-/// On a multicore system the thread pool consists of (the number of logical cores - 1) threads.
-///
-/// # Error
+/// # Errors
 /// - If the initialization of the thread pool has failed.
 /// - An unexpected panic happened during the initialization of the thread pool.
 ///
@@ -201,13 +200,15 @@ impl CXaynAi {
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
 #[cfg(feature = "parallel")]
 #[no_mangle]
-pub unsafe extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&mut CError>) {
+pub extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&mut CError>) {
     static mut INIT_ERROR: Result<(), ThreadPoolBuildError> = Ok(());
     static INIT: Once = Once::new();
 
     let init_pool = || unsafe {
         INIT.call_once(|| {
-            INIT_ERROR = init_thread_pool(num_cpus as usize);
+            INIT_ERROR = ThreadPoolBuilder::new()
+                .num_threads(num_cpus as usize)
+                .build_global();
         });
 
         if let Err(cause) = INIT_ERROR.as_ref() {
@@ -219,16 +220,6 @@ pub unsafe extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&m
     };
 
     call_with_result(init_pool, error)
-}
-
-/// See [`xaynai_init_thread_pool()`] for more.
-#[cfg(feature = "parallel")]
-fn init_thread_pool(num_cpus: usize) -> Result<(), ThreadPoolBuildError> {
-    let num_threads = if num_cpus > 1 { num_cpus - 1 } else { num_cpus };
-
-    ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build_global()
 }
 
 /// Creates and initializes the Xayn AI.
