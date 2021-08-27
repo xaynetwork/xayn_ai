@@ -56,6 +56,19 @@ pub struct GenerateCallDataCmd {
     /// Each query will randomly have between 5 and 30 documents.
     #[structopt(short = "h", long)]
     number_of_historic_queries: usize,
+
+    /// Extend domains and urls.
+    ///
+    /// Normally urls will be generated using following
+    /// schema: `url://dom_{domain_id}/{url_id}`.
+    ///
+    /// This uses more or less incremental ids but this
+    /// means that domains and urls are unrealistic short.
+    ///
+    /// Using this option will make the domains and URLs
+    /// longer.
+    #[structopt(short = "l", parse(from_occurrences))]
+    lengthen_urls: usize,
 }
 
 const MIN_QUERY_NR_DOCS: usize = 5;
@@ -68,6 +81,7 @@ impl GenerateCallDataCmd {
             snippets,
             number_of_documents,
             number_of_historic_queries,
+            lengthen_urls,
         } = self;
 
         if !(MIN_QUERY_NR_DOCS..=MAX_QUERY_NR_DOCS).contains(&number_of_documents) {
@@ -79,7 +93,7 @@ impl GenerateCallDataCmd {
         }
 
         let snippets = parse_snippets(snippets)?;
-        let mut gen_state = GenState::new(snippets);
+        let mut gen_state = GenState::new(snippets, lengthen_urls);
         let (documents, last_session) = gen_current_query_results(
             number_of_documents,
             number_of_historic_queries,
@@ -117,11 +131,26 @@ struct QueryWordsAndSnippets {
 
 /// "Fake" domain.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-struct Domain(usize);
+struct Domain {
+    id: usize,
+    lengthen_urls: usize,
+}
+
+impl Domain {
+    fn with_id(&self, id: usize) -> Self {
+        Self {
+            id,
+            lengthen_urls: self.lengthen_urls,
+        }
+    }
+}
 
 impl fmt::Display for Domain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "dom_{}", self.0)
+        for _ in 0..self.lengthen_urls {
+            write!(f, "foo")?;
+        }
+        write!(f, "dom_{}.test", self.id)
     }
 }
 
@@ -130,7 +159,11 @@ struct Url(Domain, usize);
 
 impl fmt::Display for Url {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "url://{}/{}", self.0, self.1)
+        write!(f, "url://{}/{}", self.0, self.1)?;
+        for _ in 0..self.0.lengthen_urls {
+            write!(f, "/foobarbaz")?;
+        }
+        Ok(())
     }
 }
 
@@ -144,7 +177,7 @@ struct GenState {
 }
 
 impl GenState {
-    fn new(snippets: Snippets) -> Self {
+    fn new(snippets: Snippets, lengthen_urls: usize) -> Self {
         let queries = snippets
             .into_iter()
             .map(|(query_words, snippets)| {
@@ -164,7 +197,10 @@ impl GenState {
             rng,
             queries,
             used_urls_in_query: HashMap::new(),
-            next_unused_domain: Domain(0),
+            next_unused_domain: Domain {
+                id: 0,
+                lengthen_urls,
+            },
             used_domains_in_query: Default::default(),
             last_day,
         }
@@ -222,13 +258,14 @@ impl GenState {
 
     fn new_unused_domain(&mut self) -> Domain {
         let domain = self.next_unused_domain;
-        self.next_unused_domain = Domain(domain.0 + 1);
+        self.next_unused_domain = domain.with_id(domain.id + 1);
         domain
     }
 
     fn pick_used_domain(&mut self) -> Option<Domain> {
-        let id = self.next_unused_domain.0;
-        (id != 0).then(|| Domain(self.rng.gen_range(0..id)))
+        let next_unused_domain = self.next_unused_domain;
+        let id = next_unused_domain.id;
+        (id != 0).then(|| next_unused_domain.with_id(self.rng.gen_range(0..id)))
     }
 
     fn pick_in_query_used_domain(&mut self) -> Option<Domain> {
