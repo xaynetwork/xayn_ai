@@ -147,7 +147,10 @@ impl Domain {
 
 impl fmt::Display for Domain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for _ in 0..self.lengthen_urls {
+        // We do not want to accidentally generate invalid domains.
+        // (And we care more about longer urls then domains, with 4
+        // domains already 20+ characters long which is enough).
+        for _ in 0..min(self.lengthen_urls, 4) {
             write!(f, "foo")?;
         }
         write!(f, "dom_{}.test", self.id)
