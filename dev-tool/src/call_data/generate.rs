@@ -49,7 +49,7 @@ pub struct GenerateCallDataCmd {
     /// I.e. the number of documents the result of query we
     /// pretend to run in the example app has.
     #[structopt(short = "q", long)]
-    number_of_documents: usize,
+    number_of_current_documents: usize,
 
     /// Number of queries in the users history.
     ///
@@ -79,16 +79,22 @@ impl GenerateCallDataCmd {
         let GenerateCallDataCmd {
             out,
             snippets,
-            number_of_documents: number_of_current_documents,
+            number_of_current_documents,
             number_of_historic_queries,
             lengthen_urls,
         } = self;
 
         if !(MIN_QUERY_NR_DOCS..=MAX_QUERY_NR_DOCS).contains(&number_of_current_documents) {
             bail!(
-                "number_of_documents needs to be in range {}..={}",
+                "Number_of_documents needs to be in range {}..={}.",
                 MIN_QUERY_NR_DOCS,
                 MAX_QUERY_NR_DOCS
+            );
+        }
+
+        if number_of_historic_queries < 1 {
+            bail!(
+                "At least 1 historic query is needed as the current documents are based on the last historic query."
             );
         }
 
@@ -346,6 +352,13 @@ impl GenState {
     }
 }
 
+
+/// We generate the current query from the history.
+///
+/// This is needed as the examples doesn't update the history and
+/// in turn wouldn't have a feedback loop otherwise. This also
+/// means it would not have or get any CoIs, which would make it
+/// unsuited for testing and benchmarking.
 fn gen_current_query_from_history(
     histories: &[DocumentHistory],
     gen_state: &mut GenState,
