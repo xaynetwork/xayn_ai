@@ -15,7 +15,7 @@ use super::document_data::DocumentDataWithMab;
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Default))]
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, Display)]
 #[serde(transparent)]
 pub struct DocumentId(pub Uuid);
 

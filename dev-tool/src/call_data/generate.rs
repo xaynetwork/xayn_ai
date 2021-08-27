@@ -1,5 +1,5 @@
 use std::{
-    cmp::{min, Ordering},
+    cmp::min,
     collections::{HashMap, HashSet},
     fmt,
     fs::File,
@@ -79,12 +79,12 @@ impl GenerateCallDataCmd {
         let GenerateCallDataCmd {
             out,
             snippets,
-            number_of_documents,
+            number_of_documents: number_of_current_documents,
             number_of_historic_queries,
             lengthen_urls,
         } = self;
 
-        if !(MIN_QUERY_NR_DOCS..=MAX_QUERY_NR_DOCS).contains(&number_of_documents) {
+        if !(MIN_QUERY_NR_DOCS..=MAX_QUERY_NR_DOCS).contains(&number_of_current_documents) {
             bail!(
                 "number_of_documents needs to be in range {}..={}",
                 MIN_QUERY_NR_DOCS,
@@ -94,12 +94,13 @@ impl GenerateCallDataCmd {
 
         let snippets = parse_snippets(snippets)?;
         let mut gen_state = GenState::new(snippets, lengthen_urls);
-        let (documents, last_session) = gen_current_query_results(
-            number_of_documents,
+        let histories = gen_histories(
             number_of_historic_queries,
+            number_of_current_documents,
             &mut gen_state,
         );
-        let histories = gen_histories(number_of_historic_queries, last_session, &mut gen_state);
+        let start_of_last_query = histories.len() - number_of_current_documents;
+        let documents = gen_current_query_from_history(&histories[start_of_last_query..], &mut gen_state);
 
         let call_data = CallData {
             rerank_mode: RerankMode::Search,
@@ -345,78 +346,72 @@ impl GenState {
     }
 }
 
-struct LastSessionInfo {
-    id: SessionId,
-    nr_of_historic_queries: usize,
-}
-
-fn gen_current_query_results(
-    number_of_docs: usize,
-    number_of_historic_queries: usize,
+fn gen_current_query_from_history(
+    histories: &[DocumentHistory],
     gen_state: &mut GenState,
-) -> (Vec<Document>, LastSessionInfo) {
+) -> Vec<Document> {
     gen_state.clear_query_state();
 
-    let session = gen_state.gen_session();
-    let query_count = gen_state
-        .rng
-        .gen_range(0..min(10, number_of_historic_queries));
-    let (query_id, query_words) = gen_state.pick_query();
-
-    let documents = (0..number_of_docs)
-        .map(|rank| {
-            let (title, snippet) = gen_state.pick_title_and_snippet(query_id);
-            let domain = gen_state.pick_domain_in_query();
-            let url = gen_state.pick_url_in_query(domain);
-            Document {
-                id: DocumentId(Uuid::new_v4()),
-                rank,
-                title,
-                snippet,
+    histories
+        .iter()
+        .map(|hist_doc| {
+            let DocumentHistory {
+                id,
                 session,
                 query_count,
                 query_id,
-                query_words: query_words.to_owned(),
-                url: url.to_string(),
-                domain: domain.to_string(),
+                query_words,
+                url,
+                domain,
+                rank,
+                ..
+            } = hist_doc;
+
+            let (title, snippet) = gen_state.pick_title_and_snippet(*query_id);
+            Document {
+                id: *id,
+                rank: *rank,
+                title,
+                snippet,
+                session: *session,
+                query_count: *query_count,
+                query_id: *query_id,
+                query_words: query_words.clone(),
+                url: url.clone(),
+                domain: domain.clone(),
             }
         })
-        .collect();
-
-    (
-        documents,
-        LastSessionInfo {
-            id: session,
-            nr_of_historic_queries: query_count,
-        },
-    )
+        .collect()
 }
 
 fn gen_histories(
     number_of_queries: usize,
-    last_session: LastSessionInfo,
+    number_of_documents_in_last_query: usize,
     gen_state: &mut GenState,
 ) -> Vec<DocumentHistory> {
     let mut histories = Vec::new();
     let mut current_session = gen_state.gen_session();
     let mut query_count = 0;
 
-    let start_last_session = number_of_queries - last_session.nr_of_historic_queries;
     for total_id in 0..number_of_queries {
-        match total_id.cmp(&start_last_session) {
-            Ordering::Less => {
-                if gen_state.rng.gen_bool(0.2) {
-                    current_session = gen_state.gen_session();
-                    query_count = 0;
-                }
-            }
-            Ordering::Equal => {
-                current_session = last_session.id;
-                query_count = 0;
-            }
-            Ordering::Greater => { /*nothing to do, we are already in the last session*/ }
+        if gen_state.rng.gen_bool(0.15) {
+            current_session = gen_state.gen_session();
+            query_count = 0;
         }
-        gen_historic_query(current_session, query_count, &mut histories, gen_state);
+
+        let number_of_documents = if total_id == number_of_queries - 1 {
+            number_of_documents_in_last_query
+        } else {
+            gen_state.pick_number_of_documents_in_query()
+        };
+
+        gen_historic_query(
+            current_session,
+            query_count,
+            number_of_documents,
+            &mut histories,
+            gen_state,
+        );
         query_count += 1;
     }
 
@@ -426,12 +421,12 @@ fn gen_histories(
 fn gen_historic_query(
     session: SessionId,
     query_count: usize,
+    number_of_documents: usize,
     out: &mut Vec<DocumentHistory>,
     gen_state: &mut GenState,
 ) {
     gen_state.clear_query_state();
 
-    let number_of_documents = gen_state.pick_number_of_documents_in_query();
     let (query_id, query_words) = gen_state.pick_query();
     let day = gen_state.pick_day_relative_to_last_pick(query_count == 0);
 
@@ -444,7 +439,7 @@ fn gen_historic_query(
 
     for rank in 0..number_of_documents {
         let id = DocumentId(Uuid::new_v4());
-        let domain = gen_state.pick_domain();
+        let domain = gen_state.pick_domain_in_query();
         let url = gen_state.pick_url_in_query(domain);
         let user_feedback = gen_state.pick_user_feedback();
 
