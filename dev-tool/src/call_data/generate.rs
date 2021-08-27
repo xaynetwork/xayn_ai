@@ -1,5 +1,5 @@
 use std::{
-    cmp::min,
+    cmp::{min, Ordering},
     collections::{HashMap, HashSet},
     fmt,
     fs::File,
@@ -363,16 +363,19 @@ fn gen_histories(
 
     let start_last_session = number_of_queries - last_session.nr_of_historic_queries;
     for total_id in 0..number_of_queries {
-        if total_id < start_last_session {
-            if gen_state.rng.gen_bool(0.2) {
-                current_session = gen_state.gen_session();
+        match total_id.cmp(&start_last_session) {
+            Ordering::Less => {
+                if gen_state.rng.gen_bool(0.2) {
+                    current_session = gen_state.gen_session();
+                    query_count = 0;
+                }
+            }
+            Ordering::Equal => {
+                current_session = last_session.id;
                 query_count = 0;
             }
-        } else if total_id == start_last_session {
-            current_session = last_session.id;
-            query_count = 0;
+            Ordering::Greater => { /*nothing to do, we are already in the last session*/ }
         }
-
         gen_historic_query(current_session, query_count, &mut histories, gen_state);
         query_count += 1;
     }

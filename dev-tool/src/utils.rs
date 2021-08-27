@@ -10,7 +10,6 @@ pub(crate) fn progress_spin_until_done<R>(msg: &'static str, func: impl FnOnce()
     res
 }
 
-
 /// Provides functionality to (de-)serialize optional bytes as base64 string.
 ///
 /// Use it with the `#[serde(with=serde_opt_bytes_as_base64)]` annotation.

@@ -10,8 +10,8 @@ use structopt::StructOpt;
 
 use xayn_ai::{Document, DocumentHistory, RerankMode};
 
-use crate::utils::serde_opt_bytes_as_base64;
 use self::{generate::GenerateCallDataCmd, run::RunCallDataCmd};
+use crate::utils::serde_opt_bytes_as_base64;
 
 mod generate;
 mod run;
