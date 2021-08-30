@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin))]
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},

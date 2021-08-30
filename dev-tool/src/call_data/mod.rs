@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin))]
 use std::{
     fs::File,
     io::{self, BufReader, BufWriter},
