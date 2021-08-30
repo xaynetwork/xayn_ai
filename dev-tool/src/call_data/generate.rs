@@ -33,7 +33,7 @@ use crate::exit_code::NO_ERROR;
 
 use super::CallData;
 
-/// Run a debug call data dump.
+/// Generate call data for the example.
 #[derive(StructOpt, Debug)]
 pub struct GenerateCallDataCmd {
     /// Json file to write the generate call data to.
@@ -46,8 +46,8 @@ pub struct GenerateCallDataCmd {
 
     /// Number of documents in current query.
     ///
-    /// I.e. the number of documents the result of query we
-    /// pretend to run in the example app has.
+    /// I.e. the number of documents the result of query (we
+    /// pretend to run) in the example app has.
     #[structopt(short = "q", long)]
     number_of_current_documents: usize,
 
@@ -66,7 +66,7 @@ pub struct GenerateCallDataCmd {
     /// means that domains and urls are unrealistic short.
     ///
     /// Using this option will make the domains and URLs
-    /// longer.
+    /// longer. You can use it multiple times.
     #[structopt(short = "l", parse(from_occurrences))]
     lengthen_urls: usize,
 }
@@ -106,7 +106,8 @@ impl GenerateCallDataCmd {
             &mut gen_state,
         );
         let start_of_last_query = histories.len() - number_of_current_documents;
-        let documents = gen_current_query_from_history(&histories[start_of_last_query..], &mut gen_state);
+        let documents =
+            gen_current_query_from_history(&histories[start_of_last_query..], &mut gen_state);
 
         let call_data = CallData {
             rerank_mode: RerankMode::Search,
@@ -144,6 +145,7 @@ struct Domain {
 }
 
 impl Domain {
+    /// Returns a new Domain new-type with a different id.
     fn with_id(&self, id: usize) -> Self {
         Self {
             id,
@@ -156,7 +158,7 @@ impl fmt::Display for Domain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // We do not want to accidentally generate invalid domains.
         // (And we care more about longer urls then domains, with 4
-        // domains already 20+ characters long which is enough).
+        // domains are 20+ characters long, which is enough).
         for _ in 0..min(self.lengthen_urls, 4) {
             write!(f, "foo")?;
         }
@@ -243,7 +245,7 @@ impl GenState {
     ///
     /// - With a 20% chance pick (if possible) a domain which already appeared in this query.
     /// - Else with a 30%  chance pick (if possible) a domain which already appeared in *any* query.
-    /// - ELse pick a domain not yet used anywhere
+    /// - Else pick a domain not yet used anywhere
     fn pick_domain_in_query(&mut self) -> Domain {
         let domain = self.pick_domain();
         self.used_domains_in_query.insert(domain);
@@ -289,7 +291,7 @@ impl GenState {
     ///
     /// This makes sure no url appears twice in the same query, but
     /// makes it likely that the url appeared in a different query *iff*
-    /// the domain appears in a different query.
+    /// the domain appeared in a different query.
     fn pick_url_in_query(&mut self, domain: Domain) -> Url {
         let count_ref = self.used_urls_in_query.entry(domain).or_insert(0);
         let next_url = Url(domain, *count_ref);
@@ -351,7 +353,6 @@ impl GenState {
         .1
     }
 }
-
 
 /// We generate the current query from the history.
 ///

@@ -70,7 +70,7 @@ where
         .iter()
         .map(|document| DocumentDataWithDocument {
             document_base: DocumentBaseComponent {
-                id: document.id.clone(),
+                id: document.id,
                 initial_ranking: document.rank,
             },
             document_content: DocumentContentComponent {
