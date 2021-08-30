@@ -10,7 +10,7 @@ edition = "2018"
 console_error_panic_hook = "0.1.6"
 getrandom = { version = "0.2.3", features = ["js"] }
 js-sys = "0.3.52"
-serde = { version = "1.0.127", features = ["derive"] }
+serde = { version = "1.0.130", features = ["derive"] }
 wasm-bindgen = { version = "=0.2.76", features = ["serde-serialize"] }
 xayn-ai = { path = "../xayn-ai" }
 xayn-ai-ffi = { path = "../xayn-ai-ffi" }
