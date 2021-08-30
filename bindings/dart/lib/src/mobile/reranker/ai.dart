@@ -220,10 +220,15 @@ class XaynAi implements common.XaynAi {
   }
 }
 
-int selectThreadPoolSize(int numberOfHardwareThreads) {
-  if (numberOfHardwareThreads > 1) {
-    return numberOfHardwareThreads - 1;
+/// Selects the number of threads used by the [`XaynAi`] thread pool.
+///
+/// On a single core system the thread pool consists of only one thread.
+/// On a multicore system the thread pool consists of
+/// (the number of logical cores - 1) threads.
+int selectThreadPoolSize(int numberOfProcessors) {
+  if (numberOfProcessors > 1) {
+    return numberOfProcessors - 1;
   } else {
-    return numberOfHardwareThreads;
+    return numberOfProcessors;
   }
 }
