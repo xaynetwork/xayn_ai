@@ -3,6 +3,11 @@ use std::panic::AssertUnwindSafe;
 use xayn_ai::{Builder, RerankMode, Reranker};
 use xayn_ai_ffi::{CCode, Error};
 
+#[cfg(feature = "parallel")]
+use rayon::{ThreadPoolBuildError, ThreadPoolBuilder};
+#[cfg(feature = "parallel")]
+use std::sync::Once;
+
 use crate::{
     data::{
         document::CDocuments,
@@ -173,6 +178,48 @@ impl CXaynAi {
             CCode::Synchronization.with_context(format!("Failed to synchronize data: {}", cause))
         })
     }
+}
+
+/// Initializes the global thread pool. The thread pool is used by the AI to
+/// parallelize some of its tasks.
+///
+/// The number of threads spawned by the pool corresponds to the value of `num_cpus`.
+/// If the value of `num_cpus` is `0`, the number of spawned threads corresponds to
+/// the number of logical CPUs.
+///
+/// # Errors
+/// - If the initialization of the thread pool has failed.
+/// - An unexpected panic happened during the initialization of the thread pool.
+///
+/// # Safety
+///
+/// It is safe to call this function multiple times but it must be invoked
+/// before calling any of the `xaynai_*` functions.
+///
+/// The behavior is undefined if:
+/// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
+#[cfg(feature = "parallel")]
+#[no_mangle]
+pub extern "C" fn xaynai_init_thread_pool(num_cpus: u64, error: Option<&mut CError>) {
+    static mut INIT_ERROR: Result<(), ThreadPoolBuildError> = Ok(());
+    static INIT: Once = Once::new();
+
+    let init_pool = || unsafe {
+        INIT.call_once(|| {
+            INIT_ERROR = ThreadPoolBuilder::new()
+                .num_threads(num_cpus as usize)
+                .build_global();
+        });
+
+        if let Err(cause) = INIT_ERROR.as_ref() {
+            Err(CCode::InitGlobalThreadPool
+                .with_context(format!("Failed to initialize thread pool: {}", cause)))
+        } else {
+            Ok(())
+        }
+    };
+
+    call_with_result(init_pool, error)
 }
 
 /// Creates and initializes the Xayn AI.

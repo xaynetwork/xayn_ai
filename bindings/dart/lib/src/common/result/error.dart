@@ -105,6 +105,9 @@ enum Code {
 
   /// Sync data bytes null pointer error.
   syncDataBytesPointer,
+
+  /// A global thread pool initialization error.
+  initGlobalThreadPool,
 }
 
 extension CodeToInt on Code {
@@ -179,6 +182,8 @@ extension CodeToInt on Code {
         return CCode.Synchronization;
       case Code.syncDataBytesPointer:
         return CCode.SyncDataBytesPointer;
+      case Code.initGlobalThreadPool:
+        return CCode.InitGlobalThreadPool;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
@@ -257,6 +262,8 @@ extension IntToCode on int {
         return Code.synchronization;
       case CCode.SyncDataBytesPointer:
         return Code.syncDataBytesPointer;
+      case CCode.InitGlobalThreadPool:
+        return Code.initGlobalThreadPool;
       default:
         throw UnsupportedError('Undefined enum variant.');
     }
