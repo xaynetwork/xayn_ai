@@ -1,4 +1,5 @@
 import 'dart:ffi' show nullptr, Pointer, Uint8;
+import 'dart:io' show Platform;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
@@ -38,8 +39,19 @@ class XaynAi implements common.XaynAi {
   /// Optionally accepts the serialized reranker database, otherwise creates a
   /// new one.
   static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
-    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-        data.qambertModel, data.ltrModel, serialized);
+    final error = XaynAiError();
+    ffi.xaynai_init_thread_pool(
+        selectThreadPoolSize(Platform.numberOfProcessors), error.ptr);
+
+    try {
+      if (error.isError()) {
+        throw error.toException();
+      }
+      return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
+          data.qambertModel, data.ltrModel, serialized);
+    } finally {
+      error.free();
+    }
   }
 
   /// Creates and initializes the Xayn AI.
@@ -205,5 +217,18 @@ class XaynAi implements common.XaynAi {
       ffi.xaynai_drop(_ai);
       _ai = nullptr;
     }
+  }
+}
+
+/// Selects the number of threads used by the [`XaynAi`] thread pool.
+///
+/// On a single core system the thread pool consists of only one thread.
+/// On a multicore system the thread pool consists of
+/// (the number of logical cores - 1) threads.
+int selectThreadPoolSize(int numberOfProcessors) {
+  if (numberOfProcessors > 1) {
+    return numberOfProcessors - 1;
+  } else {
+    return numberOfProcessors;
   }
 }

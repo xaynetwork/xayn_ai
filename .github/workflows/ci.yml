@@ -350,7 +350,7 @@ jobs:
       - name: Test Android library ${{ matrix.target }}
         env:
           RUSTFLAGS: ${{ env.OPT_TESTS_RUSTFLAGS }}
-        run: cross test --target ${{ matrix.target }} --all-targets -- -Z unstable-options --report-time
+        run: cross test --target ${{ matrix.target }} --all-targets --no-default-features -- -Z unstable-options --report-time
 
   build-ios-libs:
     name: build-ios-libs
