@@ -327,11 +327,10 @@ jobs:
           path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
   build-release-wasm-libs:
-    # we use the latest stable rustc + cargo version that is already installed on the image
-    # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
     name: build-release-wasm-libs
+    needs: cargo-registry-cache
     runs-on: ubuntu-20.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       matrix:
         wasm_feature: [none, threads]
@@ -341,6 +340,9 @@ jobs:
             RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory,+mutable-globals'
     env:
       OUT_DIR: ${{ github.workspace }}/out
+      # corresponds to the release date of 1.51.0
+      # https://github.com/rust-lang/rust/blob/master/RELEASES.md#version-1510-2021-03-25
+      RUST_NIGHTLY: nightly-2021-03-25
     outputs:
       out-dir: ${{ env.OUT_DIR }}
       none-version: ${{ steps.wasm-lib.outputs.none-version }}
@@ -405,9 +407,8 @@ jobs:
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
         run: |
-          echo "$RUSTFLAGS"
-          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.OUT_DIR }}/wasm/ --out-name genesis --target web --release ${{ matrix.cargo_args }}
-          rm out/wasm/.gitignore out/wasm/package.json
+          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.OUT_DIR }}/wasm --out-name genesis --target web --release ${{ matrix.cargo_args }}
+          rm ${{ env.OUT_DIR }}/wasm/.gitignore ${{ env.OUT_DIR }}/wasm/package.json
 
       - name: Generate WASM library version key
         id: wasm-lib
@@ -416,7 +417,6 @@ jobs:
           WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
           WASM_VERSION=wasm_${{ matrix.wasm_feature }}_$WASM_ARTIFACTS_VERSION
           echo "::set-output name=${{ matrix.wasm_feature }}-version::$(echo $WASM_VERSION)"
-
           echo "::set-output name=upload-name::$(echo build-wasm-${{ matrix.wasm_feature }}-release-$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-path::$(echo ${{ env.OUT_DIR }}/$WASM_VERSION)"
       - run: mv ${{ env.OUT_DIR }}/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
