@@ -42,7 +42,6 @@ jobs:
             RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory,+mutable-globals'
     env:
       OUT_DIR: ${{ github.workspace }}/out
-      WASM_OUT_DIR: ${{ env.OUT_DIR }}/wasm
     outputs:
       out-dir: ${{ env.OUT_DIR }}
       none-version: ${{ steps.wasm-lib.outputs.none-version }}
@@ -108,7 +107,7 @@ jobs:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
         run: |
           echo "$RUSTFLAGS"
-          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.WASM_OUT_DIR }} --out-name genesis --target web --release ${{ matrix.cargo_args }}
+          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.OUT_DIR }}/wasm/ --out-name genesis --target web --release ${{ matrix.cargo_args }}
           rm out/wasm/.gitignore out/wasm/package.json
 
       - name: Generate WASM library version key
@@ -151,7 +150,7 @@ jobs:
           mkdir -p ${{ needs.build-release-wasm-libs.outputs.out-dir }}
           cd ${{ runner.temp }}/wasm_assets
           ls -R
-          cp -R build-wasm_*/* ${{ needs.build-release-wasm-libs.outputs.out-dir }}
+          cp -R build-wasm-*/* ${{ needs.build-release-wasm-libs.outputs.out-dir }}
           ls -R
           echo ${{ needs.build-release-wasm-libs.outputs.none-version }}
           echo ${{ needs.build-release-wasm-libs.outputs.threads-version }}
