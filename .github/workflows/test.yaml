@@ -41,9 +41,10 @@ jobs:
             cargo_args: -- -Z build-std=panic_abort,std
             RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory,+mutable-globals'
     env:
-      WASM_OUT_DIR: ${{ github.workspace }}/out
+      OUT_DIR: ${{ github.workspace }}/out
+      WASM_OUT_DIR: ${{ env.OUT_DIR }}/wasm
     outputs:
-      out-dir: ${{ env.WASM_OUT_DIR }}
+      out-dir: ${{ env.OUT_DIR }}
       none-version: ${{ steps.wasm-lib.outputs.none-version }}
       threads-version: ${{ steps.wasm-lib.outputs.threads-version }}
 
@@ -107,23 +108,23 @@ jobs:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
         run: |
           echo "$RUSTFLAGS"
-          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../out/wasm --out-name genesis --target web --release ${{ matrix.cargo_args }}
+          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.WASM_OUT_DIR }} --out-name genesis --target web --release ${{ matrix.cargo_args }}
           rm out/wasm/.gitignore out/wasm/package.json
 
       - name: Generate WASM library version key
         id: wasm-lib
         run: |
-          # don't forget to update the path when changing `WASM_OUT_DIR`
+          # don't forget to update the path when changing `OUT_DIR` or `WASM_OUT_DIR`
           WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
           WASM_VERSION=wasm_${{ matrix.wasm_feature }}_$WASM_ARTIFACTS_VERSION
           echo "::set-output name=${{ matrix.wasm_feature }}-version::$(echo $WASM_VERSION)"
 
-          WASM_ARTIFACTS_PATH=${{ env.WASM_OUT_DIR }}/$WASM_VERSION
+          WASM_ARTIFACTS_PATH=${{ env.OUT_DIR }}/$WASM_VERSION
           echo "::set-output name=${{ matrix.wasm_feature }}-path::$(echo $WASM_ARTIFACTS_PATH)"
 
           echo "::set-output name=upload-name::$(echo build-wasm-${{ matrix.wasm_feature }}-release-$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-path::$(echo $WASM_ARTIFACTS_PATH)"
-      - run: mv ${{ env.WASM_OUT_DIR }}/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
+      - run: mv ${{ env.OUT_DIR }}/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
 
       - name: Upload WASM library
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
@@ -131,7 +132,7 @@ jobs:
           name: ${{ steps.wasm-lib.outputs.upload-name }}
           retention-days: 1
           if-no-files-found: error
-          path: ${{ env.WASM_OUT_DIR }}
+          path: ${{ env.OUT_DIR }}
 
   build:
     needs: build-release-wasm-libs
