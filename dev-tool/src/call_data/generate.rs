@@ -42,14 +42,14 @@ pub struct GenerateCallDataCmd {
     out: PathBuf,
 
     /// File with snippets to use.
-    #[structopt(long)]
+    #[structopt(long, default_value="data/snippets_for_example_data_generation.json")]
     snippets: PathBuf,
 
     /// Number of documents in current query.
     ///
     /// I.e. the number of documents the result of query (we
     /// pretend to run) in the example app has.
-    #[structopt(short = "q", long)]
+    #[structopt(short = "q", long, default_value="30")]
     number_of_current_documents: usize,
 
     /// Number of queries in the users history.
@@ -85,11 +85,9 @@ impl GenerateCallDataCmd {
             lengthen_urls,
         } = self;
 
-        if !(MIN_QUERY_NR_DOCS..=MAX_QUERY_NR_DOCS).contains(&number_of_current_documents) {
+        if number_of_current_documents < 1 {
             bail!(
-                "Number_of_documents needs to be in range {}..={}.",
-                MIN_QUERY_NR_DOCS,
-                MAX_QUERY_NR_DOCS
+                "The number_of_current_documents argument needs to be greater than 0."
             );
         }
 
