@@ -135,8 +135,8 @@ class History {
     if (session.isEmpty) {
       throw ArgumentError('empty session id');
     }
-    if (queryCount < 1) {
-      throw ArgumentError('non-positive query count');
+    if (queryCount < 0) {
+      throw ArgumentError('negative query count');
     }
     if (queryId.isEmpty) {
       throw ArgumentError('empty query id');

@@ -64,7 +64,7 @@ void main() {
           snippet: 'snippet',
           rank: 0,
           session: id,
-          queryCount: 0, // non-positive query count
+          queryCount: -1, // negative query count
           queryId: id,
           queryWords: 'query words',
           url: 'url',
