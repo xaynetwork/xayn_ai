@@ -119,10 +119,11 @@ script = ["""
       --no-typescript \
       --target web \
       --release \
-      --out-dir ../${WASM_OUT_DIR_PATH:?WASM_OUT_DIR_PATH needs to be set} --out-name genesis \
+      --out-dir ../${WASM_OUT_DIR_PATH/$WASM_VERION:?WASM_OUT_DIR_PATH needs to be set} \
+      --out-name genesis \
       -- \
       -Z build-std=panic_abort,std
-  rm $WASM_OUT_DIR_PATH/.gitignore
+  rm $WASM_OUT_DIR_PATH/$WASM_VERION/.gitignore
 """]
 
 [tasks.build-wasm-sequential]
@@ -131,11 +132,12 @@ script = ["""
   echo "build sequential wasm"
   wasm-pack build xayn-ai-ffi-wasm \
     --no-typescript \
-    --out-dir ../${WASM_OUT_DIR_PATH:?WASM_OUT_DIR_PATH needs to be set} --out-name genesis \
+    --out-dir ../${WASM_OUT_DIR_PATH/$WASM_VERION:?WASM_OUT_DIR_PATH needs to be set} \
+    --out-name genesis \
     --target web \
     --release
   # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
-  rm $WASM_OUT_DIR_PATH/.gitignore
+  rm $WASM_OUT_DIR_PATH/$WASM_VERION/.gitignore
 """]
 
 [tasks.test-wasm]
