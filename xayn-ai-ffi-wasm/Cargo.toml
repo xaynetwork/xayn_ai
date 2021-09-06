@@ -38,8 +38,7 @@ crate-type = ["cdylib"]
 wasm-opt = ['-O', '-g']
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-# ['-Oz']
+wasm-opt = ['-Oz']
 
 [features]
 default = ["browser"]
