@@ -447,8 +447,9 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
           wasm-out-dir-path: ${{ needs.build-release-wasm-libs.outputs.out-dir }}
+          wasm-sequential-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
+          wasm-parallel-version: ${{ needs.build-release-wasm-libs.outputs.parallel-version }}
 
       - name: Generate asset artifacts name
         id: asset-artifacts

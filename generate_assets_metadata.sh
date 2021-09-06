@@ -8,7 +8,7 @@
 # The script needs to be executed in the root of the repository.
 #
 # Usage:
-# ./generate_assets_metadata <path of assets_manifest.json> [<wasm version>] [<path of the wasm output directory>]
+# ./generate_assets_metadata <path of assets_manifest.json> [<path of the wasm output directory>] [<wasm sequential features version>] [<wasm parallel feature version>]
 
 set -e
 
@@ -101,43 +101,58 @@ gen_data_assets_metadata() {
     done
 }
 
-gen_wasm_assets_metadata() {
-    local ASSET_MANIFEST=$1
+gen_wasm_asset_metadata() {
+    local DART_ENUM_NAME=$1
     local WASM_VERSION=$2
-    local WASM_OUT_DIR_PATH=$3
+    local ASSET_FILENAME=$3
+    local ASSET_PATH=$4
+
     local TMP_FILE=$(mktemp)
 
-    for WASM_ASSET in $(cat $ASSET_MANIFEST | jq -c '.wasm_assets[]'); do
-        local ASSET_FILENAME=$(echo $WASM_ASSET | jq -r '.filename')
-        local ASSET_PATH=${WASM_OUT_DIR_PATH}/${ASSET_FILENAME}
+    local ASSET="{\"dart_enum_name\": \"$DART_ENUM_NAME\", \"fragments\": []}"
 
-        if [ -f "$ASSET_PATH" ]; then
-            local ASSET_CHECKSUM=$(calc_checksum $ASSET_PATH)
-            local ASSET_WITH_CHECKSUM=$(echo $WASM_ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
-            local ASSET_URL_SUFFIX=${WASM_VERSION}/${ASSET_FILENAME}
-            ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg path $ASSET_PATH --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"path": $path, "url_suffix": $url_suffix}')
-        else
-            ASSET=$(echo $WASM_ASSET | jq -c '. |= .+ {"url_suffix": "", "checksum": ""}')
-        fi
+    if [ -f "$ASSET_PATH" ]; then
+        local ASSET_CHECKSUM=$(calc_checksum $ASSET_PATH)
+        local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
+        local ASSET_URL_SUFFIX=${WASM_VERSION}/${ASSET_FILENAME}
+        ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg path $ASSET_PATH --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"path": $path, "url_suffix": $url_suffix}')
+    else
+        ASSET=$(echo $ASSET | jq -c '. |= .+ {"url_suffix": "", "checksum": ""}')
+    fi
 
-        local UPDATED_ASSET=$(echo $ASSET | jq -c '. |= .+ {"fragments": []}' | jq -c 'del(.filename)')
+    jq --argjson wasm_asset $ASSET '.assets |= .+ [$wasm_asset]' $ASSETS_METADATA_PATH > $TMP_FILE
+    mv $TMP_FILE $ASSETS_METADATA_PATH
+}
 
-        jq --argjson wasm_asset $UPDATED_ASSET '.assets |= .+ [$wasm_asset]' $ASSETS_METADATA_PATH > $TMP_FILE
-        mv $TMP_FILE $ASSETS_METADATA_PATH
-    done
+gen_wasm_assets_metadata() {
+    local WASM_FEATURE=$1
+    local WASM_VERSION=$2
+    local WASM_OUT_DIR_PATH=$3
+
+    local WASM_JS_NAME="genesis.js"
+    local WASM_MODULE_NAME="genesis_bg.wasm"
+
+    local ASSET_JS_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_JS_NAME}
+    local ASSET_WASM_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_MODULE_NAME}
+
+    gen_wasm_asset_metadata wasm${WASM_FEATURE}Script $WASM_VERSION $WASM_JS_NAME $ASSET_JS_PATH
+    gen_wasm_asset_metadata wasm${WASM_FEATURE}Module $WASM_VERSION $WASM_MODULE_NAME $ASSET_WASM_PATH
 }
 
 gen_assets_metadata() {
     local ASSET_MANIFEST=$1
-    local WASM_VERSION=$2
-    local WASM_OUT_DIR_PATH=$3
+
+    local WASM_OUT_DIR_PATH=$2
+    local WASM_SEQUENTIAL_VERSION=$3
+    local WASM_PARALLEL_VERSION=$4
 
     mkdir -p $OUT_DIR
     echo "{\"assets\": []}" > $ASSETS_METADATA_PATH
 
     gen_data_assets_metadata $ASSET_MANIFEST
-    gen_wasm_assets_metadata $ASSET_MANIFEST $WASM_VERSION $WASM_OUT_DIR_PATH
+    gen_wasm_assets_metadata "Sequential" $WASM_SEQUENTIAL_VERSION $WASM_OUT_DIR_PATH
+    gen_wasm_assets_metadata "Parallel" $WASM_PARALLEL_VERSION $WASM_OUT_DIR_PATH
 }
 
-gen_assets_metadata $1 $2 $3
+gen_assets_metadata $1 $2 $3 $4
 generate_dart_assets_manifest

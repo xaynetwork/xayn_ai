@@ -82,7 +82,7 @@ script = ["""
 
 [tasks.generate_assets_metadata]
 script = ["""
-  ./generate_assets_metadata.sh assets_manifest.json $WASM_VERION $WASM_OUT_DIR_PATH
+  ./generate_assets_metadata.sh assets_manifest.json $WASM_OUT_DIR_PATH $WASM_VERION
 """]
 
 [tasks.run-web]
@@ -96,7 +96,7 @@ script = ["""
 
 [tasks.build-web]
 # This will run build-local "unnecessarily". This will be fixed in a later PR.
-env = { WASM_VERION="wasm_bindings", WASM_OUT_DIR_PATH="bindings/dart/example/assets/wasm_bindings" }
+env = { WASM_VERION="wasm_bindings", WASM_OUT_DIR_PATH="bindings/dart/example/assets" }
 run_task = { name = [ "build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
