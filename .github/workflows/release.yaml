@@ -337,12 +337,10 @@ jobs:
         include:
           - wasm_feature: parallel
             cargo_args: -- -Z build-std=panic_abort,std
-            RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory,+mutable-globals'
+            RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
+            RUSTC_BOOTSTRAP: true
     env:
       OUT_DIR: ${{ github.workspace }}/out
-      # corresponds to the release date of 1.51.0
-      # https://github.com/rust-lang/rust/blob/master/RELEASES.md#version-1510-2021-03-25
-      RUST_NIGHTLY: nightly-2021-03-25
     outputs:
       out-dir: ${{ env.OUT_DIR }}
       sequential-version: ${{ steps.wasm-lib.outputs.sequential-version }}
@@ -353,33 +351,13 @@ jobs:
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
-        if: matrix.wasm_feature == 'sequential'
-        id: rust-toolchain-stable
+        id: rust-toolchain
         uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
           target: wasm32-unknown-unknown
           default: true
-
-      - name: Install ${{ env.RUST_NIGHTLY }} toolchain
-        if: matrix.wasm_feature == 'parallel'
-        id: rust-toolchain-nightly
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
-        with:
-          profile: minimal
-          toolchain: ${{ env.RUST_NIGHTLY }}
-          target: wasm32-unknown-unknown
-          components: rust-src
-          default: true
-
-      - id: rust-toolchain
-        run: |
-          if [ ${{ matrix.wasm_feature }} == "sequential" ]; then
-            echo "::set-output name=rustc::$(echo "${{ steps.rust-toolchain-stable.outputs.rustc }}")"
-          else
-            echo "::set-output name=rustc::$(echo "${{ steps.rust-toolchain-nightly.outputs.rustc }}")"
-          fi
 
       - name: Install wasm-opt
         uses: ./.ci/install-wasm-opt
@@ -406,6 +384,7 @@ jobs:
       - name: Build WASM library
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
+          RUSTC_BOOTSTRAP: ${{ matrix.RUSTC_BOOTSTRAP }}
         run: |
           wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.OUT_DIR }}/wasm --out-name genesis --target web --release ${{ matrix.cargo_args }}
           rm ${{ env.OUT_DIR }}/wasm/.gitignore ${{ env.OUT_DIR }}/wasm/package.json
