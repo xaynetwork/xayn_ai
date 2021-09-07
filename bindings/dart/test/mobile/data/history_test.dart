@@ -62,7 +62,7 @@ void main() {
           relevance: Relevance.low,
           userFeedback: UserFeedback.irrelevant,
           session: id,
-          queryCount: 0, // non-positive query count
+          queryCount: -10, // negative query count
           queryId: id,
           queryWords: 'query words',
           day: DayOfWeek.mon,
