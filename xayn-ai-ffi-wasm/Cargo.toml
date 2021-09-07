@@ -21,7 +21,7 @@ xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 # setups represents fairly well.
 [target.'cfg(all(target_arch="wasm32", target_feature = "atomics"))'.dependencies]
 wasm-bindgen-rayon = {  version = "=1.0.3",  features = ["no-bundler"] }
-xayn-ai = { path = "../xayn-ai", features=["parallel"] }
+xayn-ai = { path = "../xayn-ai", features = ["parallel"] }
 
 [target.'cfg(not(all(target_arch="wasm32", target_feature = "atomics")))'.dependencies]
 xayn-ai = { path = "../xayn-ai" }

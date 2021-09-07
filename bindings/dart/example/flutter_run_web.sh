@@ -81,5 +81,5 @@ if [ -d  "$SNIPPET_SOURCE_DIR" ]; then
     cp -R "$SNIPPET_SOURCE_DIR"/* "$SNIPPETS_DIR"
 fi
 
-echo "Running Sever"
+echo "Running Server"
 /usr/bin/env python3 "./server.py" "$BUILD_OUT"
