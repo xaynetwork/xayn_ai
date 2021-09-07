@@ -339,6 +339,7 @@ jobs:
             cargo_args: -- -Z build-std=panic_abort,std
             RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
             RUSTC_BOOTSTRAP: 1
+            compontents: rust-src
     env:
       OUT_DIR: ${{ github.workspace }}/out
     outputs:
@@ -357,6 +358,7 @@ jobs:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
           target: wasm32-unknown-unknown
+          components: ${{ matrix.components }}
           default: true
 
       - name: Install wasm-opt
