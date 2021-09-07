@@ -25,10 +25,10 @@ import 'package:flutter_test/flutter_test.dart'
 
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
-import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
-    show RerankingOutcomesBuilder;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
     show CRerankingOutcomes;
+import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
+    show RerankingOutcomesBuilder;
 
 class Delayed {
   final List<void Function()> _toClean;

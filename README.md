@@ -43,6 +43,15 @@ To build the library for web you can use:
 cargo make build-web
 ```
 
+or
+
+```
+DISABLE_WASM_THREADS=1 cargo make build-web
+```
+
+to build a version which doesn't require the browser to
+support `SharedArrayBuffer` and `Atomics`.
+
 ### Android
 
 To build for Android the following targets are needed:
