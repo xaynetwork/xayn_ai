@@ -2,10 +2,11 @@ import 'dart:convert' show base64Decode, base64Encode, jsonDecode, jsonEncode;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:json_annotation/json_annotation.dart'
-    show JsonSerializable, JsonKey;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
+    show JsonKey, JsonSerializable;
+
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
 
 part 'debug.g.dart';
 

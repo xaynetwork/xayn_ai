@@ -1,12 +1,12 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer;
 
-import 'package:xayn_ai_ffi_dart/src/mobile/result/slice.dart'
-    show BoxedSliceF32List, BoxedSliceU16List;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
     show CRerankingOutcomes;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/library.dart' show ffi;
+import 'package:xayn_ai_ffi_dart/src/mobile/result/slice.dart'
+    show BoxedSliceF32List, BoxedSliceU16List;
 
 class RerankingOutcomesBuilder {
   final Pointer<CRerankingOutcomes> _cOutcomes;

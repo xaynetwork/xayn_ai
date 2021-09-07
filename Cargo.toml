@@ -9,6 +9,7 @@ members = [
     "xayn-ai-ffi-c",
     "xayn-ai-ffi-wasm",
 ]
+resolver = "2"
 
 [workspace.metadata]
 # minimum supported rust version

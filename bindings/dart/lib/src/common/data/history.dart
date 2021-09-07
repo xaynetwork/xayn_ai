@@ -1,6 +1,6 @@
-import 'package:meta/meta.dart' show immutable;
 import 'package:json_annotation/json_annotation.dart'
     show JsonSerializable, JsonValue;
+import 'package:meta/meta.dart' show immutable;
 import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' as ffi
     show Relevance, UserFeedback, DayOfWeek, UserAction;
 
