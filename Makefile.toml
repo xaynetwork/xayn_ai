@@ -100,20 +100,13 @@ env = { WASM_VERION="wasm_bindings", WASM_OUT_DIR_PATH="bindings/dart/example/as
 run_task = { name = [ "build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
-dependencies = ["build-wasm-parallel", "build-wasm-sequential"]
+env = { DISABLE_WASM_THREADS = { value = "0", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
+run_task = { name= ["build-wasm-parallel", "build-wasm-sequential"] }
+
 
 [tasks.build-wasm-parallel]
 env = { RUSTC_BOOTSTRAP=1 }
-condition_script = ["""
-  # We can't use env_false as it requires the variable to be set
-  # and trying to set a default value for it in `tasks.build-wasm`
-  # seems to not work well either.
-  if [ "${DISABLE_WASM_THREADS:-0}" = 0 ]; then
-    exit 0
-  else
-    exit 1
-  fi
-"""]
+condition = { env_false = ["DISABLE_WASM_THREADS"] }
 script = ["""
   if ! [ "$(wasm-opt --version | grep -oE "version [0-9]+" | grep -oE "[0-9]+" )" -ge 101 ]; then
       echo "Make sure wasm-opt is in the PATH and has version >= 101" >&2
@@ -126,7 +119,7 @@ script = ["""
       --no-typescript \
       --target web \
       --release \
-      --out-dir ../$WASM_OUT_DIR_PATH --out-name genesis \
+      --out-dir ../${WASM_OUT_DIR_PATH:?WASM_OUT_DIR_PATH needs to be set} --out-name genesis \
       -- \
       -Z build-std=panic_abort,std
   rm $WASM_OUT_DIR_PATH/.gitignore
@@ -138,7 +131,7 @@ script = ["""
   echo "build sequential wasm"
   wasm-pack build xayn-ai-ffi-wasm \
     --no-typescript \
-    --out-dir ../$WASM_OUT_DIR_PATH --out-name genesis \
+    --out-dir ../${WASM_OUT_DIR_PATH:?WASM_OUT_DIR_PATH needs to be set} --out-name genesis \
     --target web \
     --release
   # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
