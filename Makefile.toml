@@ -103,6 +103,7 @@ run_task = { name = [ "build-dart", "build-wasm", "generate_assets_metadata"] }
 dependencies = ["build-wasm-parallel", "build-wasm-sequential"]
 
 [tasks.build-wasm-parallel]
+env = { RUSTC_BOOTSTRAP=1 }
 condition_script = ["""
   # We can't use env_false as it requires the variable to be set
   # and trying to set a default value for it in `tasks.build-wasm`
@@ -121,7 +122,6 @@ script = ["""
   fi
   echo "build parallel wasm"
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
-    rustup run nightly \
     wasm-pack build xayn-ai-ffi-wasm \
       --no-typescript \
       --target web \
