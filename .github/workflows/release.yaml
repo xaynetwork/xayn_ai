@@ -339,7 +339,7 @@ jobs:
             cargo_args: -- -Z build-std=panic_abort,std
             RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
             RUSTC_BOOTSTRAP: 1
-            compontents: rust-src
+            components: rust-src
     env:
       OUT_DIR: ${{ github.workspace }}/out
     outputs:
