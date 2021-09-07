@@ -12,8 +12,19 @@ getrandom = { version = "0.2.3", features = ["js"] }
 js-sys = "0.3.53"
 serde = { version = "1.0.130", features = ["derive"] }
 wasm-bindgen = { version = "=0.2.76", features = ["serde-serialize"] }
-xayn-ai = { path = "../xayn-ai" }
 xayn-ai-ffi = { path = "../xayn-ai-ffi" }
+
+# We use the "atomics" `target_feature` to enable parallelism instead of a
+# crate feature. This is necessary, as using a "normal" feature will break
+# "cargo clippy --all-targets --all-features" and similar. Furthermore we
+# always want to use parallelism if our target supports it, which this
+# setups represents fairly well.
+[target.'cfg(all(target_arch="wasm32", target_feature = "atomics"))'.dependencies]
+wasm-bindgen-rayon = {  version = "=1.0.3",  features = ["no-bundler"] }
+xayn-ai = { path = "../xayn-ai", features = ["parallel"] }
+
+[target.'cfg(not(all(target_arch="wasm32", target_feature = "atomics")))'.dependencies]
+xayn-ai = { path = "../xayn-ai" }
 
 [dev-dependencies]
 itertools = "0.10.1"
