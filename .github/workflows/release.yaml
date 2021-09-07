@@ -333,9 +333,9 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        wasm_feature: [none, threads]
+        wasm_feature: [sequential, parallel]
         include:
-          - wasm_feature: threads
+          - wasm_feature: parallel
             cargo_args: -- -Z build-std=panic_abort,std
             RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory,+mutable-globals'
     env:
@@ -345,15 +345,15 @@ jobs:
       RUST_NIGHTLY: nightly-2021-03-25
     outputs:
       out-dir: ${{ env.OUT_DIR }}
-      none-version: ${{ steps.wasm-lib.outputs.none-version }}
-      threads-version: ${{ steps.wasm-lib.outputs.threads-version }}
+      sequential-version: ${{ steps.wasm-lib.outputs.sequential-version }}
+      parallel-version: ${{ steps.wasm-lib.outputs.parallel-version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
-        if: matrix.wasm_feature == 'none'
+        if: matrix.wasm_feature == 'sequential'
         id: rust-toolchain-stable
         uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
@@ -363,7 +363,7 @@ jobs:
           default: true
 
       - name: Install ${{ env.RUST_NIGHTLY }} toolchain
-        if: matrix.wasm_feature == 'threads'
+        if: matrix.wasm_feature == 'parallel'
         id: rust-toolchain-nightly
         uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
         with:
@@ -375,7 +375,7 @@ jobs:
 
       - id: rust-toolchain
         run: |
-          if [ ${{ matrix.wasm_feature }} == "none" ]; then
+          if [ ${{ matrix.wasm_feature }} == "sequential" ]; then
             echo "::set-output name=rustc::$(echo "${{ steps.rust-toolchain-stable.outputs.rustc }}")"
           else
             echo "::set-output name=rustc::$(echo "${{ steps.rust-toolchain-nightly.outputs.rustc }}")"
@@ -467,7 +467,7 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-version: ${{ needs.build-release-wasm-libs.outputs.none-version }}
+          wasm-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
           wasm-out-dir-path: ${{ needs.build-release-wasm-libs.outputs.out-dir }}
 
       - name: Generate asset artifacts name
