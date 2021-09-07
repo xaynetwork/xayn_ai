@@ -338,7 +338,7 @@ jobs:
           - wasm_feature: parallel
             cargo_args: -- -Z build-std=panic_abort,std
             RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
-            RUSTC_BOOTSTRAP: true
+            RUSTC_BOOTSTRAP: 1
     env:
       OUT_DIR: ${{ github.workspace }}/out
     outputs:
