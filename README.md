@@ -23,7 +23,7 @@ The project provides a `Makefile.toml` that can be run with `cargo make`.
 You can install cargo make with:
 
 ```
-cargo install --version 0.32.17 cargo-make
+cargo install --version 0.35.0 cargo-make
 ```
 
 All of the above can be automatically done by `cargo make build`.
@@ -98,7 +98,7 @@ cargo install --version 3.1.1 cargo-lipo
 - wasm-pack
 
 ```
-cargo install --version 0.10.0 wasm-pack
+cargo install --version 0.10.1 wasm-pack
 ```
 
 - `rustup target add wasm32-unknown-unknown`
@@ -129,15 +129,6 @@ via `safaridriver --enable`, before you can run tests.
 
 ```
 wasm-pack test --node -- --no-default-features --features=node
-```
-
-#### Running the example
-
-```shell
-cd xayn-ai-ffi-wasm
-wasm-pack build --target web --release --no-typescript --out-dir example/pkg
-cd example
-python3 -m http.server
 ```
 
 ### Flutter example
