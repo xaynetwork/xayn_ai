@@ -37,7 +37,7 @@ runs:
           brew install coreutils
         fi
 
-        bash generate_assets_metadata.sh assets_manifest.json ${{ inputs.wasm-version }} ${{ inputs.wasm-out-dir-path }}
+        bash generate_assets_metadata.sh assets_manifest.json ${{ inputs.wasm-version }} ${{ inputs.wasm-out-dir-path }}/${{ inputs.wasm-version }}
 
         echo "::group::Dart metadata"
         cat ${{ steps.artifact-paths.outputs.dart-metadata }}

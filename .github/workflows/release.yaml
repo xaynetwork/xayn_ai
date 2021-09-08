@@ -331,10 +331,21 @@ jobs:
     needs: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 30
+    strategy:
+      matrix:
+        wasm_feature: [sequential, parallel]
+        include:
+          - wasm_feature: parallel
+            cargo_args: -- -Z build-std=panic_abort,std
+            RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
+            RUSTC_BOOTSTRAP: 1
+    env:
+      OUT_DIR: ${{ github.workspace }}/out
     outputs:
-      version: ${{ steps.wasm-lib.outputs.version }}
-      upload-name: ${{ steps.wasm-lib.outputs.upload-name }}
-      upload-path: ${{ steps.wasm-lib.outputs.upload-path }}
+      out-dir: ${{ env.OUT_DIR }}
+      sequential-version: ${{ steps.wasm-lib.outputs.sequential-version }}
+      parallel-version: ${{ steps.wasm-lib.outputs.parallel-version }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
@@ -346,7 +357,11 @@ jobs:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
           target: wasm32-unknown-unknown
+          components: rust-src
           default: true
+
+      - name: Install wasm-opt
+        uses: ./.ci/install-wasm-opt
 
       - name: Install wasm-pack
         uses: ./.ci/install-wasm-pack
@@ -364,22 +379,27 @@ jobs:
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
           path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
       - name: Build WASM library
+        env:
+          RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
+          RUSTC_BOOTSTRAP: ${{ matrix.RUSTC_BOOTSTRAP }}
         run: |
-          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ../out/wasm --out-name genesis --target web --release
-          rm out/wasm/.gitignore out/wasm/package.json
+          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.OUT_DIR }}/wasm --out-name genesis --target web --release ${{ matrix.cargo_args }}
+          rm ${{ env.OUT_DIR }}/wasm/.gitignore ${{ env.OUT_DIR }}/wasm/package.json
 
       - name: Generate WASM library version key
         id: wasm-lib
         run: |
+          # don't forget to update the path when changing `OUT_DIR`
           WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
-          echo "::set-output name=version::$(echo wasm_$WASM_ARTIFACTS_VERSION)"
-          echo "::set-output name=upload-name::$(echo build-wasm-release-$WASM_ARTIFACTS_VERSION)"
-          echo "::set-output name=upload-path::$(echo out/wasm_$WASM_ARTIFACTS_VERSION)"
-      - run: mv out/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
+          WASM_VERSION=wasm_${{ matrix.wasm_feature }}_$WASM_ARTIFACTS_VERSION
+          echo "::set-output name=${{ matrix.wasm_feature }}-version::$(echo $WASM_VERSION)"
+          echo "::set-output name=upload-name::$(echo build-wasm-${{ matrix.wasm_feature }}-release-$WASM_ARTIFACTS_VERSION)"
+          echo "::set-output name=upload-path::$(echo ${{ env.OUT_DIR }}/$WASM_VERSION)"
+      - run: mv ${{ env.OUT_DIR }}/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
 
       - name: Upload WASM library
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
@@ -387,7 +407,7 @@ jobs:
           name: ${{ steps.wasm-lib.outputs.upload-name }}
           retention-days: 1
           if-no-files-found: error
-          path: ${{ steps.wasm-lib.outputs.upload-path }}
+          path: ${{ env.OUT_DIR }}
 
   build-asset-artifacts:
     name: build-asset-artifacts
@@ -412,8 +432,12 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-release-wasm-libs.outputs.upload-name }}
-          path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
+          path: ${{ runner.temp }}/wasm_assets
+
+      - run: |
+          mkdir -p ${{ needs.build-release-wasm-libs.outputs.out-dir }}
+          cd ${{ runner.temp }}/wasm_assets
+          cp -R build-wasm-*/* ${{ needs.build-release-wasm-libs.outputs.out-dir }}
 
       - name: Download data
         run: sh download_data.sh
@@ -423,8 +447,8 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-version: ${{ needs.build-release-wasm-libs.outputs.version }}
-          wasm-out-dir-path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
+          wasm-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
+          wasm-out-dir-path: ${{ needs.build-release-wasm-libs.outputs.out-dir }}
 
       - name: Generate asset artifacts name
         id: asset-artifacts
@@ -459,8 +483,12 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-release-wasm-libs.outputs.upload-name }}
-          path: ${{ needs.build-release-wasm-libs.outputs.upload-path }}
+          path: ${{ runner.temp }}/wasm_assets
+
+      - run: |
+          mkdir -p ${{ needs.build-release-wasm-libs.outputs.out-dir }}
+          cd ${{ runner.temp }}/wasm_assets
+          cp -R build-wasm-*/* ${{ needs.build-release-wasm-libs.outputs.out-dir }}
 
       - name: Download data
         run: sh download_data.sh
