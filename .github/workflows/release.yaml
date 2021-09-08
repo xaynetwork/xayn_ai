@@ -466,102 +466,38 @@ jobs:
         run: sh download_data.sh
 
       - name: Install s3cmd
-        if: github.ref != 'refs/heads/release'
         uses: ./.ci/install-s3cmd
         with:
-          access-key: ${{ secrets.STAGING_ASSETS_BUCKET_ACCESS_KEY }}
-          secret-key: ${{ secrets.STAGING_ASSETS_BUCKET_SECRET_KEY }}
+          access-key: ${{ secrets.AI_ASSETS_BUCKET_ACCESS_KEY }}
+          secret-key: ${{ secrets.AI_ASSETS_BUCKET_SECRET_KEY }}
 
       - name: Upload assets to S3
-        if: github.ref != 'refs/heads/release'
+        id: s3-upload
         shell: bash
-        env:
-          BUCKET_URL: s3://xayn_ai_staging_assets
         run: |
           set -e
+
+          if [[ "${{ github.ref }}" = "refs/heads/release" ]]
+            then
+              export BUCKET_URL="s3://${{ secrets.AI_ASSETS_BUCKET_PROD }}"
+          else
+              export BUCKET_URL="s3://${{ secrets.AI_ASSETS_BUCKET_STG }}"
+          fi
 
           for ASSET in $(cat ${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.assets[]'); do
               FRAGMENTS_LEN=$(echo $ASSET | jq -r '.fragments | length')
               if [ "$FRAGMENTS_LEN" = "0" ]; then
                   ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
                   ASSET_PATH=$(echo $ASSET | jq -r '.path')
-                  s3cmd sync --acl-public --guess-mime-type $ASSET_PATH $ASSET_PATH ${{ env.BUCKET_URL }}/$ASSET_URL_SUFFIX
+                  s3cmd sync --acl-public --guess-mime-type $ASSET_PATH $ASSET_PATH ${BUCKET_URL}/$ASSET_URL_SUFFIX
               else
                   for FRAGMENT in $(echo $ASSET | jq -c '.fragments[]'); do
                       FRAGMENT_URL_SUFFIX=$(echo $FRAGMENT | jq -r '.url_suffix')
                       FRAGMENT_PATH=$(echo $FRAGMENT | jq -r '.path')
-                      s3cmd sync --acl-public --guess-mime-type $FRAGMENT_PATH $FRAGMENT_PATH ${{ env.BUCKET_URL }}/$FRAGMENT_URL_SUFFIX
+                      s3cmd sync --acl-public --guess-mime-type $FRAGMENT_PATH $FRAGMENT_PATH ${BUCKET_URL}/$FRAGMENT_URL_SUFFIX
                   done
               fi
           done
-
-      - name: Install KeyCDN SSH privkey
-        if: github.ref == 'refs/heads/release'
-        uses: shimataro/ssh-key-action@3c9b0fc6f2d223b8450b02a0445f526350fc73e0 # v2.3.1
-        with:
-          key: ${{ secrets.KEYCDN_RSYNC_PRIVKEY }}
-          name: keycdn-publisher
-          known_hosts: 'placeholder'
-          config: |
-            Host keycdn
-              HostName rsync.keycdn.com
-              User ${{ secrets.KEYCDN_RSYNC_USERNAME }}
-              IdentityFile ~/.ssh/keycdn-publisher
-
-      - name: Dynamically add KeyCDN to known_hosts
-        if: github.ref == 'refs/heads/release'
-        run: ssh-keyscan -H rsync.keycdn.com | tee -a ~/.ssh/known_hosts
-
-      - name: Upload assets (KeyCDN)
-        if: github.ref == 'refs/heads/release'
-        env:
-          PREPARE_LOCAL_ASSETS_DIR: ${{ runner.temp }}/prepare_local_assets
-          PREPARE_ASSETS_DIR: ${{ runner.temp }}/prepare_assets
-        run: |
-          set -e
-
-          mkdir -p $PREPARE_LOCAL_ASSETS_DIR
-          cd $PREPARE_LOCAL_ASSETS_DIR
-
-          for ASSET in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.assets[]'); do
-              ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
-              ASSET_VERSION=$(dirname $ASSET_URL_SUFFIX)
-
-              FRAGMENTS_LEN=$(echo $ASSET | jq -r '.fragments | length')
-              if [ "$FRAGMENTS_LEN" = "0" ]; then
-                  ASSET_PATH=$(echo $ASSET | jq -r '.path')
-                  mkdir -p $ASSET_VERSION
-                  cp -r ${{ github.workspace }}/$ASSET_PATH $ASSET_URL_SUFFIX
-
-                  ASSET_CHECKSUM=$(echo $ASSET | jq -r '.checksum')
-                  echo "$ASSET_CHECKSUM *$ASSET_URL_SUFFIX" | shasum -c -
-              else
-                  for FRAGMENT in $(echo $ASSET | jq -c '.fragments[]'); do
-                      FRAGMENT_URL_SUFFIX=$(echo $FRAGMENT | jq -r '.url_suffix')
-                      FRAGMENT_PATH=$(echo $FRAGMENT | jq -r '.path')
-                      mkdir -p $ASSET_VERSION
-                      cp -r ${{ github.workspace }}/$FRAGMENT_PATH $FRAGMENT_URL_SUFFIX
-
-                      FRAGMENT_CHECKSUM=$(echo $FRAGMENT | jq -r '.checksum')
-                      echo "$FRAGMENT_CHECKSUM *$FRAGMENT_URL_SUFFIX" | shasum -c -
-                  done
-              fi
-          done
-
-          mkdir -p $PREPARE_ASSETS_DIR
-          cd $PREPARE_ASSETS_DIR
-
-          # Download the remote asset (if it exists) of the local asset that we want to upload.
-          for ASSET_VERSION in $(cat ${{ github.workspace }}/${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c -r '.assets[].url_suffix' | awk -F "/" '{print $1}'| sort -n  | uniq ); do
-              rsync -rtzv keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/$ASSET_VERSION . || true
-          done
-
-          # In order to not accidentally override remote assets we sync the local and remote assets
-          # with the `--ignore-existing` flag. This way we only add new local assets.
-          rsync -avv --ignore-existing $PREPARE_LOCAL_ASSETS_DIR/ .
-
-          # Sync with KeyCDN
-          rsync -rtzv --chmod=D2755,F644 . keycdn:${{ secrets.KEYCDN_RSYNC_ZONE }}/
 
   release:
     name: release
