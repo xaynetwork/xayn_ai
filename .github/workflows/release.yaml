@@ -465,11 +465,19 @@ jobs:
       - name: Download data
         run: sh download_data.sh
 
-      - name: Install s3cmd
+      - name: Install s3cmd (staging)
+        if: github.ref != 'refs/heads/release'
         uses: ./.ci/install-s3cmd
         with:
-          access-key: ${{ secrets.AI_ASSETS_BUCKET_ACCESS_KEY }}
-          secret-key: ${{ secrets.AI_ASSETS_BUCKET_SECRET_KEY }}
+          access-key: ${{ secrets.AI_ASSETS_STG_BUCKET_ACCESS_KEY }}
+          secret-key: ${{ secrets.AI_ASSETS_STG_BUCKET_SECRET_KEY }}
+
+      - name: Install s3cmd (production)
+        if: github.ref = 'refs/heads/release'
+        uses: ./.ci/install-s3cmd
+        with:
+          access-key: ${{ secrets.AI_ASSETS_PROD_BUCKET_ACCESS_KEY }}
+          secret-key: ${{ secrets.AI_ASSETS_PROD_BUCKET_SECRET_KEY }}
 
       - name: Upload assets to S3
         id: s3-upload
