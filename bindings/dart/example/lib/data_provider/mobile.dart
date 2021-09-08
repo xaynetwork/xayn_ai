@@ -16,7 +16,7 @@ const _baseAssetsPath = 'assets';
 ///
 /// This function needs to be called in the main thread because it will not be allowed
 /// to access the assets from an isolate.
-Future<SetupData> getInputData([FeatureHint? hint]) async {
+Future<SetupData> getInputData(FeatureHint hint) async {
   final baseDiskPath = await getApplicationDocumentsDirectory();
 
   final paths = <AssetType, String>{};
@@ -26,7 +26,7 @@ Future<SetupData> getInputData([FeatureHint? hint]) async {
     paths.putIfAbsent(asset.key, () => path);
   }
 
-  return SetupData(paths);
+  return SetupData(paths, hint);
 }
 
 /// Returns the path to the data, if the data is not on disk yet

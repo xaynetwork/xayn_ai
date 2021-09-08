@@ -53,7 +53,7 @@ class Logic {
   /// This normally should be called with the `rootBundle`,
   /// as it expects an `AssetManifest.json` asset.
   ///
-  static Future<Logic> load(AssetBundle bundle, [FeatureHint? hint]) async {
+  static Future<Logic> load(AssetBundle bundle, FeatureHint hint) async {
     final manifest = jsonDecode(await bundle.loadString('AssetManifest.json'))
         as Map<String, dynamic>;
 

@@ -58,19 +58,24 @@ class Checksum {
 
 /// The feature hints to pick platform dependent assets.
 enum FeatureHint {
-  /// Wasm standard features.
-  wasmSequential,
+  /// Mobile multi-threading features.
+  mobileParallel,
 
-  /// Wasm multi-threading features.
-  wasmParallel,
+  /// Web standard features.
+  webSequential,
+
+  /// Web multi-threading features.
+  webParallel,
 }
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
-Map<AssetType, Asset> getAssets([FeatureHint? hint]) {
+Map<AssetType, Asset> getAssets(FeatureHint hint) {
   throw UnsupportedError('Unsupported platform.');
 }
 
 /// Data that is required to initialize [`XaynAi`].
 class SetupData {
-  SetupData(Map<AssetType, dynamic> assets, [FeatureHint? hint]);
+  SetupData(Map<AssetType, dynamic> assets, FeatureHint hint) {
+    throw UnsupportedError('Unsupported platform.');
+  }
 }

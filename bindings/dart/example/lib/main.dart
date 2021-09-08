@@ -59,7 +59,8 @@ class _MyAppState extends State<MyApp> {
     super.initState();
 
     // mobile is always loaded with multi-threading features, web only optionally
-    final hint = kIsWeb ? FeatureHint.wasmSequential : null;
+    final hint =
+        kIsWeb ? FeatureHint.webSequential : FeatureHint.mobileParallel;
 
     debugPrint('start loading assets');
     Logic.load(rootBundle, hint).then((logic) {
