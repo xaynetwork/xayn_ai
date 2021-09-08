@@ -19,16 +19,16 @@ xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 # "cargo clippy --all-targets --all-features" and similar. Furthermore we
 # always want to use parallelism if our target supports it, which this
 # setups represents fairly well.
-[target.'cfg(all(target_arch="wasm32", target_feature = "atomics"))'.dependencies]
-wasm-bindgen-rayon = {  version = "=1.0.3",  features = ["no-bundler"] }
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+wasm-bindgen-rayon = { version = "=1.0.3", features = ["no-bundler"] }
 xayn-ai = { path = "../xayn-ai", features = ["parallel"] }
 
-[target.'cfg(not(all(target_arch="wasm32", target_feature = "atomics")))'.dependencies]
+[target.'cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))'.dependencies]
 xayn-ai = { path = "../xayn-ai" }
 
 [dev-dependencies]
 itertools = "0.10.1"
-wasm-bindgen-test = "0.3.25"
+wasm-bindgen-test = "0.3.26"
 
 [lib]
 crate-type = ["cdylib"]
@@ -42,5 +42,5 @@ wasm-opt = ['-Oz']
 
 [features]
 default = ["browser"]
-browser =[]
+browser = []
 node = []
