@@ -1,0 +1,26 @@
+name: 'wasm-opt'
+description: 'Installs wasm-opt'
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        LINUX_URL: https://github.com/WebAssembly/binaryen/releases/download/version_101/binaryen-version_101-x86_64-linux.tar.gz
+        # https://github.com/WebAssembly/binaryen/releases/download/version_101/binaryen-version_101-x86_64-linux.tar.gz.sha256
+        LINUX_CHECKSUM: 20d0b19ca716c51d927f181802125f04d5685250c8a22ec3022ac28bf4f20c57
+      run: |
+        if [ ${{ runner.os }} == "Linux" ]; then
+          URL=${{ env.LINUX_URL }}
+          CHECKSUM=${{ env.LINUX_CHECKSUM }}
+          INSTALL_PATH=$HOME/.local/bin
+        else
+          echo "::error wasm-opt for ${{ runner.os }} is not supported"
+          exit 1
+        fi
+
+        wget -q -O binaryen.tar.gz $URL
+        echo "$CHECKSUM *binaryen.tar.gz" | shasum -c -
+        tar xvzf binaryen.tar.gz --strip-components 1
+        mkdir -p $INSTALL_PATH
+        mv bin/wasm-opt $INSTALL_PATH
