@@ -502,7 +502,7 @@ jobs:
           secret-key: ${{ secrets.AI_ASSETS_STG_BUCKET_SECRET_KEY }}
 
       - name: Install s3cmd (production)
-        if: github.ref = 'refs/heads/release'
+        if: github.ref == 'refs/heads/release'
         uses: ./.ci/install-s3cmd
         with:
           access-key: ${{ secrets.AI_ASSETS_PROD_BUCKET_ACCESS_KEY }}
