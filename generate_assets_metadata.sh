@@ -131,12 +131,17 @@ gen_wasm_assets_metadata() {
 
     local WASM_JS_NAME="genesis.js"
     local WASM_MODULE_NAME="genesis_bg.wasm"
+    local WASM_SNIPPET_NAME="snippets/wasm-bindgen-rayon-7afa899f36665473/src/workerHelpers.no-bundler.js"
 
     local ASSET_JS_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_JS_NAME}
     local ASSET_WASM_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_MODULE_NAME}
+    local ASSET_SNIPPET_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_SNIPPET_NAME}
 
     gen_wasm_asset_metadata wasm${WASM_FEATURE}Script $WASM_VERSION $WASM_JS_NAME $ASSET_JS_PATH
     gen_wasm_asset_metadata wasm${WASM_FEATURE}Module $WASM_VERSION $WASM_MODULE_NAME $ASSET_WASM_PATH
+    if [ "${WASM_FEATURE}" = "Parallel" ]; then
+        gen_wasm_asset_metadata wasm${WASM_FEATURE}Snippet $WASM_VERSION $WASM_SNIPPET_NAME $ASSET_SNIPPET_PATH
+    fi
 }
 
 gen_assets_metadata() {

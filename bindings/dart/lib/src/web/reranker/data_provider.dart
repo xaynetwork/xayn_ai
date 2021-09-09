@@ -10,6 +10,7 @@ Map<common.AssetType, common.Asset> getAssets(common.FeatureHint hint) {
       final wasmNonSequentialAssets = [
         common.AssetType.wasmParallelModule,
         common.AssetType.wasmParallelScript,
+        common.AssetType.wasmParallelSnippet,
       ];
       return Map.fromEntries(common.baseAssets.entries.where(
           (asset) => wasmNonSequentialAssets.contains(asset.key) == false));

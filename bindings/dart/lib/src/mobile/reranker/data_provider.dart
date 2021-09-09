@@ -12,6 +12,7 @@ Map<common.AssetType, common.Asset> getAssets(common.FeatureHint hint) {
     common.AssetType.wasmSequentialScript,
     common.AssetType.wasmParallelModule,
     common.AssetType.wasmParallelScript,
+    common.AssetType.wasmParallelSnippet,
   ];
   return Map.fromEntries(common.baseAssets.entries
       .where((asset) => wasmAssets.contains(asset.key) == false));
