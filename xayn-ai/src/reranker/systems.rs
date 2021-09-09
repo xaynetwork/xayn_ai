@@ -41,7 +41,7 @@ pub(crate) trait QAMBertSystem {
 }
 
 pub(crate) trait CoiSystemData {
-    fn id(&self) -> &DocumentId;
+    fn id(&self) -> DocumentId;
     fn smbert(&self) -> &SMBertComponent;
     fn coi(&self) -> Option<&CoiComponent>;
 }

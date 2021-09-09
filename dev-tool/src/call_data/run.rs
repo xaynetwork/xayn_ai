@@ -1,29 +1,25 @@
 #![cfg(not(tarpaulin))]
 use std::{
     env::current_dir,
-    fs::File,
-    io::{self, BufReader},
     path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Context, Error};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::Serialize;
 use structopt::StructOpt;
 
-use xayn_ai::{
-    Analytics,
-    Builder as AiBuilder,
-    Document,
-    DocumentHistory,
-    RerankMode,
-    RerankingOutcomes,
+use xayn_ai::{Analytics, Builder as AiBuilder, RerankingOutcomes};
+
+use crate::{
+    exit_code::{NON_FATAL_ERROR, NO_ERROR},
+    utils::serde_opt_bytes_as_base64,
 };
 
-use crate::exit_code::{NON_FATAL_ERROR, NO_ERROR};
+use super::CallData;
 
 /// Run a debug call data dump.
 #[derive(StructOpt, Debug)]
-pub struct CallDataCmd {
+pub struct RunCallDataCmd {
     /// The directory with the model data.
     #[structopt(long)]
     pub data_dir: Option<PathBuf>,
@@ -43,7 +39,7 @@ pub struct CallDataCmd {
     pub call_data: PathBuf,
 }
 
-impl CallDataCmd {
+impl RunCallDataCmd {
     const QAMBERT_MODEL_PATH: &'static str = "qambert_v0001/qambert.onnx";
     const QAMBERT_VOCAB_PATH: &'static str = "qambert_v0001/vocab.txt";
     const SMBERT_MODEL_PATH: &'static str = "smbert_v0000/smbert.onnx";
@@ -51,7 +47,7 @@ impl CallDataCmd {
     const LTR_MODEL_PATH: &'static str = "ltr_v0000/ltr.binparams";
 
     pub fn run(self) -> Result<i32, Error> {
-        let CallDataCmd {
+        let RunCallDataCmd {
             data_dir,
             pre_run,
             return_serialized_state,
@@ -175,49 +171,11 @@ fn find_data_dir() -> Result<PathBuf, Error> {
     ));
 }
 
-#[derive(Deserialize)]
-struct CallData {
-    rerank_mode: RerankMode,
-    histories: Vec<DocumentHistory>,
-    documents: Vec<Document>,
-    #[serde(deserialize_with = "deser_opt_bytes_from_base64")]
-    serialized_state: Option<Vec<u8>>,
-}
-
-impl CallData {
-    fn load_from_file(path: &Path) -> Result<Self, io::Error> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader).map_err(Into::into)
-    }
-}
-
 #[derive(Serialize)]
 struct CallDataCmdResult {
     outcomes: RerankingOutcomes,
     analytics: Option<Analytics>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(serialize_with = "ser_opt_bytes_to_base64")]
+    #[serde(with = "serde_opt_bytes_as_base64")]
     new_serialized_state: Option<Vec<u8>>,
-}
-
-fn ser_opt_bytes_to_base64<S>(bytes: &Option<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let encoded = bytes.as_ref().map(base64::encode);
-    encoded.serialize(serializer)
-}
-
-fn deser_opt_bytes_from_base64<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    if let Some(encoded) = Option::<String>::deserialize(deserializer)? {
-        base64::decode(encoded)
-            .map(Some)
-            .map_err(<D::Error as serde::de::Error>::custom)
-    } else {
-        Ok(None)
-    }
 }

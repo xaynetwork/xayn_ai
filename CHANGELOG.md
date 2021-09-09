@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - AI data is synchronizable between devices via the new functions `syncdata_bytes` and `synchronize`.
 
+## 2.0.1 - 2021/09/07
+
+### Changed
+
+- Allow `query_count`s starting with 0, if possible they now also should start with 0.
+
 ## 2.0.0 - 2021/06/28
 
 ### Changed

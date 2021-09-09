@@ -17,7 +17,7 @@ mod utils;
 /// Tooling for the developers of XaynAi.
 #[derive(StructOpt, Debug)]
 enum CommandArgs {
-    RunCallData(call_data::CallDataCmd),
+    CallData(call_data::CallDataCmd),
     ListNet(list_net::ListNetCmd),
 }
 
@@ -26,7 +26,7 @@ impl CommandArgs {
         use CommandArgs::*;
 
         match self {
-            RunCallData(cmd) => cmd.run(),
+            CallData(cmd) => cmd.run(),
             ListNet(cmd) => cmd.run(),
         }
     }
