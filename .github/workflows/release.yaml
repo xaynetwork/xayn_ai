@@ -487,9 +487,9 @@ jobs:
 
           if [[ "${{ github.ref }}" = "refs/heads/release" ]]
             then
-              export BUCKET_URL="s3://${{ secrets.AI_ASSETS_BUCKET_PROD }}"
+              export BUCKET_URL="s3://${{ secrets.AI_ASSETS_PROD_BUCKET }}"
           else
-              export BUCKET_URL="s3://${{ secrets.AI_ASSETS_BUCKET_STG }}"
+              export BUCKET_URL="s3://${{ secrets.AI_ASSETS_STG_BUCKET }}"
           fi
 
           for ASSET in $(cat ${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.assets[]'); do
