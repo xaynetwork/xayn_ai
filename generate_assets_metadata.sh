@@ -154,5 +154,5 @@ gen_assets_metadata() {
     gen_wasm_assets_metadata "Parallel" $WASM_PARALLEL_VERSION $WASM_OUT_DIR_PATH
 }
 
-gen_assets_metadata $1 $2 $3 $4
+gen_assets_metadata "$1" "$2" "$3" "$4"
 generate_dart_assets_manifest
