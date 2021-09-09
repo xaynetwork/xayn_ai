@@ -116,7 +116,7 @@ pub(crate) fn history_for_prev_docs(
         .iter()
         .zip(relevance)
         .map(|(doc, (relevance, user_feedback))| DocumentHistory {
-            id: doc.id().clone(),
+            id: doc.id(),
             relevance,
             user_feedback,
             ..Default::default()

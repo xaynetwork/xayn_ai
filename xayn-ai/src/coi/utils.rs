@@ -28,7 +28,7 @@ pub(super) fn collect_matching_documents<'hist, 'doc>(
     documents
         .iter()
         .filter_map(|doc| {
-            let dh = *history.get(doc.id())?;
+            let dh = *history.get(&doc.id())?;
             Some((dh, *doc))
         })
         .collect()
@@ -155,8 +155,8 @@ pub(super) mod tests {
     }
 
     impl CoiSystemData for MockCoiDoc {
-        fn id(&self) -> &DocumentId {
-            &self.id
+        fn id(&self) -> DocumentId {
+            self.id
         }
 
         fn smbert(&self) -> &SMBertComponent {
@@ -431,9 +431,9 @@ pub(super) mod tests {
 
         assert_eq!(matching_documents.len(), 2);
         assert_eq!(matching_documents[0].0.id, DocumentId::from_u128(0));
-        assert_eq!(*matching_documents[0].1.id(), DocumentId::from_u128(0));
+        assert_eq!(matching_documents[0].1.id(), DocumentId::from_u128(0));
 
         assert_eq!(matching_documents[1].0.id, DocumentId::from_u128(1));
-        assert_eq!(*matching_documents[1].1.id(), DocumentId::from_u128(1));
+        assert_eq!(matching_documents[1].1.id(), DocumentId::from_u128(1));
     }
 }
