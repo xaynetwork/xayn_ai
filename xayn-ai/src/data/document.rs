@@ -15,7 +15,7 @@ use super::document_data::DocumentDataWithMab;
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Default))]
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, Display)]
 #[serde(transparent)]
 pub struct DocumentId(pub Uuid);
 
@@ -253,6 +253,15 @@ pub enum DayOfWeek {
     Fri = 4,
     Sat = 5,
     Sun = 6,
+}
+
+impl DayOfWeek {
+    /// Crates a `DayOfWeek` based on a wrap-around offset from `Mon`.
+    pub fn from_day_offset(day_offset: usize) -> DayOfWeek {
+        use DayOfWeek::*;
+        static DAYS: &[DayOfWeek] = &[Mon, Tue, Wed, Thu, Fri, Sat, Sun];
+        DAYS[day_offset % 7]
+    }
 }
 
 #[cfg(test)]

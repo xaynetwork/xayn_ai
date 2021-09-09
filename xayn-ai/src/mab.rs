@@ -344,21 +344,19 @@ mod tests {
         let doc_id_4 = DocumentId::from_u128(4);
 
         let group = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(0), 0.),
-            with_ctx(doc_id_1.clone(), mock_coi_id(4), 0.),
-            with_ctx(doc_id_2.clone(), mock_coi_id(9), 0.),
-            with_ctx(doc_id_3.clone(), mock_coi_id(4), 0.),
-            with_ctx(doc_id_4.clone(), mock_coi_id(9), 0.),
+            with_ctx(doc_id_0, mock_coi_id(0), 0.),
+            with_ctx(doc_id_1, mock_coi_id(4), 0.),
+            with_ctx(doc_id_2, mock_coi_id(9), 0.),
+            with_ctx(doc_id_3, mock_coi_id(4), 0.),
+            with_ctx(doc_id_4, mock_coi_id(9), 0.),
         ]);
 
         let check_contains = |coi_id: CoiId, docs_id_ok: Vec<DocumentId>| {
             let docs = group
                 .get(&coi_id)
                 .unwrap_or_else(|| panic!("document from coi id {:?}", coi_id));
-            let docs_id: HashSet<DocumentId> = docs
-                .iter()
-                .map(|doc| doc.0.document_base.id.clone())
-                .collect();
+            let docs_id: HashSet<DocumentId> =
+                docs.iter().map(|doc| doc.0.document_base.id).collect();
 
             assert_eq!(docs_id.len(), docs_id_ok.len());
             for doc_id in docs_id_ok {
@@ -380,11 +378,11 @@ mod tests {
         let doc_id_4 = DocumentId::from_u128(4);
 
         let mut group = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(0), 0.4),
-            with_ctx(doc_id_1.clone(), mock_coi_id(0), 0.8),
-            with_ctx(doc_id_2.clone(), mock_coi_id(0), 0.2),
-            with_ctx(doc_id_3.clone(), mock_coi_id(0), 0.9),
-            with_ctx(doc_id_4.clone(), mock_coi_id(0), 0.6),
+            with_ctx(doc_id_0, mock_coi_id(0), 0.4),
+            with_ctx(doc_id_1, mock_coi_id(0), 0.8),
+            with_ctx(doc_id_2, mock_coi_id(0), 0.2),
+            with_ctx(doc_id_3, mock_coi_id(0), 0.9),
+            with_ctx(doc_id_4, mock_coi_id(0), 0.6),
         ]);
 
         let docs = group.remove(&mock_coi_id(0)).expect("document from coi id");
@@ -409,9 +407,9 @@ mod tests {
         let doc_id_2 = DocumentId::from_u128(2);
 
         let mut group = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(0), 0.2),
-            with_ctx(doc_id_1.clone(), mock_coi_id(0), f32::NAN),
-            with_ctx(doc_id_2.clone(), mock_coi_id(0), 0.8),
+            with_ctx(doc_id_0, mock_coi_id(0), 0.2),
+            with_ctx(doc_id_1, mock_coi_id(0), f32::NAN),
+            with_ctx(doc_id_2, mock_coi_id(0), 0.8),
         ]);
 
         let docs = group.remove(&mock_coi_id(0)).expect("document from coi id");
@@ -633,12 +631,12 @@ mod tests {
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(0), 0.2),
-            with_ctx(doc_id_1.clone(), mock_coi_id(0), 0.5),
-            with_ctx(doc_id_2.clone(), mock_coi_id(0), 0.7),
-            with_ctx(doc_id_3.clone(), mock_coi_id(4), 0.4),
-            with_ctx(doc_id_4.clone(), mock_coi_id(4), 0.7),
-            with_ctx(doc_id_5.clone(), mock_coi_id(7), 0.2),
+            with_ctx(doc_id_0, mock_coi_id(0), 0.2),
+            with_ctx(doc_id_1, mock_coi_id(0), 0.5),
+            with_ctx(doc_id_2, mock_coi_id(0), 0.7),
+            with_ctx(doc_id_3, mock_coi_id(4), 0.4),
+            with_ctx(doc_id_4, mock_coi_id(4), 0.7),
+            with_ctx(doc_id_5, mock_coi_id(7), 0.2),
         ]);
 
         let mut beta_sampler = MockBetaSample::new();
@@ -682,12 +680,12 @@ mod tests {
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(1), 0.2),
-            with_ctx(doc_id_1.clone(), mock_coi_id(1), 0.5),
-            with_ctx(doc_id_2.clone(), mock_coi_id(1), 0.7),
-            with_ctx(doc_id_3.clone(), mock_coi_id(4), 0.4),
-            with_ctx(doc_id_4.clone(), mock_coi_id(4), 0.7),
-            with_ctx(doc_id_5.clone(), mock_coi_id(7), 0.2),
+            with_ctx(doc_id_0, mock_coi_id(1), 0.2),
+            with_ctx(doc_id_1, mock_coi_id(1), 0.5),
+            with_ctx(doc_id_2, mock_coi_id(1), 0.7),
+            with_ctx(doc_id_3, mock_coi_id(4), 0.4),
+            with_ctx(doc_id_4, mock_coi_id(4), 0.7),
+            with_ctx(doc_id_5, mock_coi_id(7), 0.2),
         ]);
 
         let mut coi_counter = 0;
@@ -766,11 +764,11 @@ mod tests {
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(0), 0.2),
-            with_ctx(doc_id_1.clone(), mock_coi_id(0), 0.5),
-            with_ctx(doc_id_2.clone(), mock_coi_id(0), 0.7),
-            with_ctx(doc_id_3.clone(), mock_coi_id(4), 0.4),
-            with_ctx(doc_id_4.clone(), mock_coi_id(4), 0.7),
+            with_ctx(doc_id_0, mock_coi_id(0), 0.2),
+            with_ctx(doc_id_1, mock_coi_id(0), 0.5),
+            with_ctx(doc_id_2, mock_coi_id(0), 0.7),
+            with_ctx(doc_id_3, mock_coi_id(4), 0.4),
+            with_ctx(doc_id_4, mock_coi_id(4), 0.7),
         ]);
 
         let beta_sampler = BetaSampler;
@@ -780,13 +778,7 @@ mod tests {
 
         // we test multiple time since we have a random component in the test
         for _ in 0..n {
-            let documents_id = vec![
-                doc_id_4.clone(),
-                doc_id_3.clone(),
-                doc_id_2.clone(),
-                doc_id_1.clone(),
-                doc_id_0.clone(),
-            ];
+            let documents_id = vec![doc_id_4, doc_id_3, doc_id_2, doc_id_1, doc_id_0];
 
             let (ok, documents_by_coi) = documents_id.into_iter().fold(
                 (true, documents_by_coi.clone()),
@@ -825,12 +817,12 @@ mod tests {
         };
 
         let documents_by_coi = group_by_coi(vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(0), 0.2),
-            with_ctx(doc_id_1.clone(), mock_coi_id(0), 0.5),
-            with_ctx(doc_id_2.clone(), mock_coi_id(0), 0.7),
-            with_ctx(doc_id_3.clone(), mock_coi_id(4), 0.4),
-            with_ctx(doc_id_4.clone(), mock_coi_id(4), 0.7),
-            with_ctx(doc_id_5.clone(), mock_coi_id(7), 0.2),
+            with_ctx(doc_id_0, mock_coi_id(0), 0.2),
+            with_ctx(doc_id_1, mock_coi_id(0), 0.5),
+            with_ctx(doc_id_2, mock_coi_id(0), 0.7),
+            with_ctx(doc_id_3, mock_coi_id(4), 0.4),
+            with_ctx(doc_id_4, mock_coi_id(4), 0.7),
+            with_ctx(doc_id_5, mock_coi_id(7), 0.2),
         ]);
 
         let mut beta_sampler = MockBetaSample::new();
@@ -911,12 +903,12 @@ mod tests {
 
         // we use a small context_value to avoid changing alpha and beta too much
         let documents = vec![
-            with_ctx(doc_id_0.clone(), mock_coi_id(0), 0.01),
-            with_ctx(doc_id_1.clone(), mock_coi_id(0), 0.02),
-            with_ctx(doc_id_2.clone(), mock_coi_id(0), 0.03),
-            with_ctx(doc_id_3.clone(), mock_coi_id(4), 0.01),
-            with_ctx(doc_id_4.clone(), mock_coi_id(4), 0.02),
-            with_ctx(doc_id_5.clone(), mock_coi_id(7), 0.01),
+            with_ctx(doc_id_0, mock_coi_id(0), 0.01),
+            with_ctx(doc_id_1, mock_coi_id(0), 0.02),
+            with_ctx(doc_id_2, mock_coi_id(0), 0.03),
+            with_ctx(doc_id_3, mock_coi_id(4), 0.01),
+            with_ctx(doc_id_4, mock_coi_id(4), 0.02),
+            with_ctx(doc_id_5, mock_coi_id(7), 0.01),
         ];
 
         let mut beta_sampler = MockBetaSample::new();

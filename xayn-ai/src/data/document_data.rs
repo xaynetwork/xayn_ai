@@ -76,8 +76,8 @@ pub(crate) struct MabComponent {
 macro_rules! impl_coi_system_data_no_coi {
     ($type:ty) => {
         impl CoiSystemData for $type {
-            fn id(&self) -> &DocumentId {
-                &self.document_base.id
+            fn id(&self) -> DocumentId {
+                self.document_base.id
             }
 
             fn smbert(&self) -> &SMBertComponent {
@@ -244,8 +244,8 @@ impl DocumentDataWithMab {
 }
 
 impl CoiSystemData for DocumentDataWithMab {
-    fn id(&self) -> &DocumentId {
-        &self.document_base.id
+    fn id(&self) -> DocumentId {
+        self.document_base.id
     }
 
     fn smbert(&self) -> &SMBertComponent {
