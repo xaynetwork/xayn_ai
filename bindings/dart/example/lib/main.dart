@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart'
     show
         AppBar,
@@ -32,7 +31,6 @@ import 'package:flutter/material.dart'
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:stats/stats.dart' show Stats;
 
-import 'package:xayn_ai_ffi_dart/package.dart' show FeatureHint;
 import 'package:xayn_ai_ffi_dart_example/debug/print.dart'
     if (dart.library.io) 'package:xayn_ai_ffi_dart_example/debug/mobile/print.dart'
     show debugPrintLongText;
@@ -59,11 +57,8 @@ class _MyAppState extends State<MyApp> {
     super.initState();
 
     // mobile is always loaded with multi-threading features, web only optionally
-    final hint =
-        kIsWeb ? FeatureHint.webSequential : FeatureHint.mobileParallel;
-
     debugPrint('start loading assets');
-    Logic.load(rootBundle, hint).then((logic) {
+    Logic.load(rootBundle, features: []).then((logic) {
       debugPrint('loaded assets');
       // Calling `setState` after it was disposed is considered an error.
       if (mounted) {

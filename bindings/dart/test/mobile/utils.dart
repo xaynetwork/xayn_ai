@@ -6,19 +6,14 @@ import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show UserFeedback, History, Relevance, DayOfWeek, UserAction;
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
     show Code, XaynAiException;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
-    show FeatureHint;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/data_provider.dart'
     show getAssets, SetupData;
 
 SetupData mkSetupData() {
-  return SetupData(
-    {
-      for (final asset in getAssets(FeatureHint.mobileParallel).entries)
-        asset.key: '../../data/' + asset.value.urlSuffix
-    },
-    FeatureHint.mobileParallel,
-  );
+  return SetupData({
+    for (final asset in getAssets().entries)
+      asset.key: '../../data/' + asset.value.urlSuffix
+  });
 }
 
 Document mkTestDoc(String id, String title, int rank) => Document(

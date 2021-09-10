@@ -1,12 +1,9 @@
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
-    as common show Asset, AssetType, baseAssets, FeatureHint, SetupData;
+    as common show Asset, AssetType, baseAssets, SetupData;
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
-Map<common.AssetType, common.Asset> getAssets(common.FeatureHint hint) {
-  if (hint != common.FeatureHint.mobileParallel) {
-    throw ArgumentError('unsupported feature hint for mobile: $hint');
-  }
-
+Map<common.AssetType, common.Asset> getAssets(
+    {List<String> features = const []}) {
   final wasmAssets = [
     common.AssetType.wasmSequentialModule,
     common.AssetType.wasmSequentialScript,
@@ -26,11 +23,8 @@ class SetupData implements common.SetupData {
   late String qambertModel;
   late String ltrModel;
 
-  SetupData(Map<common.AssetType, String> assets, common.FeatureHint hint) {
-    if (hint != common.FeatureHint.mobileParallel) {
-      throw ArgumentError('unsupported feature hint for mobile: $hint');
-    }
-
+  SetupData(Map<common.AssetType, String> assets,
+      {List<String> features = const []}) {
     smbertVocab = assets[common.AssetType.smbertVocab]!;
     smbertModel = assets[common.AssetType.smbertModel]!;
     qambertVocab = assets[common.AssetType.qambertVocab]!;
