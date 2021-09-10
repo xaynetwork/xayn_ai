@@ -1,3 +1,4 @@
+import 'dart:math' show max, min;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:json_annotation/json_annotation.dart' show JsonValue;
@@ -76,15 +77,14 @@ class XaynAi {
   void free() => throw UnsupportedError('Unsupported platform.');
 }
 
+/// Maximum number of threads to be used for parallel features.
+const int maxNumberOfThreads = 16;
+
 /// Selects the number of threads used by the [`XaynAi`] thread pool.
 ///
 /// On a single core system the thread pool consists of only one thread.
 /// On a multicore system the thread pool consists of
-/// (the number of logical cores - 1) threads.
-int selectThreadPoolSize(int numberOfProcessors) {
-  if (numberOfProcessors > 1) {
-    return numberOfProcessors - 1;
-  } else {
-    return numberOfProcessors;
-  }
-}
+/// (the number of logical cores - 1) threads, but at most [`maxNumberOfThreads`]
+/// threads and at least one thread.
+int selectThreadPoolSize(int numberOfProcessors) =>
+    min(max(numberOfProcessors - 1, 1), maxNumberOfThreads);
