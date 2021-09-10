@@ -19,6 +19,7 @@ xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 # "cargo clippy --all-targets --all-features" and similar. Furthermore we
 # always want to use parallelism if our target supports it, which this
 # setups represents fairly well.
+# NOTE: the `generate_asset_metadata.sh` script must be updated if this version gets changed!
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 wasm-bindgen-rayon = { version = "=1.0.3", features = ["no-bundler"] }
 xayn-ai = { path = "../xayn-ai", features = ["parallel"] }
