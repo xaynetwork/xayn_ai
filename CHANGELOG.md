@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 
 - AI data is synchronizable between devices via the new functions `syncdata_bytes` and `synchronize`.
-- Add multi-threading support: Parallelism is always enabled for mobile targets and can optionally be enabled for web targets. An optional list of features is introduced to pick the assets for the chosen target during the setup (see `getInputData()`), currently the only available feature is `webParallel` (sequential by default). The asset generation and publishing has been updated accordingly.
+- Add multi-threading support: Parallelism is always enabled for mobile targets and can optionally be enabled for web targets. An optional set of `Feature`s is introduced to pick the assets for the chosen target during the setup (see `getInputData()`), currently the only available `Feature` is `webParallel` (sequential by default). The asset generation and publishing has been updated accordingly.
 
 ## 2.0.1 - 2021/09/07
 
