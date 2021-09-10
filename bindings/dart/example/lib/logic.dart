@@ -53,8 +53,8 @@ class Logic {
   /// This normally should be called with the `rootBundle`,
   /// as it expects an `AssetManifest.json` asset.
   ///
-  /// Optionally accepts a list of the following features:
-  /// - 'webParallel': enables multi-threading for the web targets
+  /// Optionally accepts a set of the following features:
+  /// - `webParallel`: enables multi-threading for the web targets
   static Future<Logic> load(AssetBundle bundle,
       {Set<Feature> features = const {}}) async {
     final manifest = jsonDecode(await bundle.loadString('AssetManifest.json'))

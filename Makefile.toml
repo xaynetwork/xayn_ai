@@ -108,7 +108,7 @@ env = { WASM_VERSION = "wasm_bindings", WASM_OUT_DIR_PATH = "bindings/dart/examp
 run_task = { name = ["build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
-run_task = { name= ["build-wasm-parallel", "build-wasm-sequential"] }
+dependencies = ["build-wasm-parallel", "build-wasm-sequential"]
 
 [tasks.build-wasm-parallel]
 env = { RUSTC_BOOTSTRAP=1 }
