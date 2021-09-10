@@ -58,7 +58,7 @@ class _MyAppState extends State<MyApp> {
 
     // mobile is always loaded with multi-threading features, web only optionally
     debugPrint('start loading assets');
-    Logic.load(rootBundle, features: []).then((logic) {
+    Logic.load(rootBundle).then((logic) {
       debugPrint('loaded assets');
       // Calling `setState` after it was disposed is considered an error.
       if (mounted) {

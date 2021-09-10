@@ -1,9 +1,9 @@
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
-    as common show Asset, AssetType, baseAssets, SetupData;
+    as common show Asset, AssetType, baseAssets, Feature, SetupData;
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
 Map<common.AssetType, common.Asset> getAssets(
-    {List<String> features = const []}) {
+    {Set<common.Feature> features = const {}}) {
   final wasmAssets = [
     common.AssetType.wasmSequentialModule,
     common.AssetType.wasmSequentialScript,
@@ -24,7 +24,7 @@ class SetupData implements common.SetupData {
   late String ltrModel;
 
   SetupData(Map<common.AssetType, String> assets,
-      {List<String> features = const []}) {
+      {Set<common.Feature> features = const {}}) {
     smbertVocab = assets[common.AssetType.smbertVocab]!;
     smbertModel = assets[common.AssetType.smbertModel]!;
     qambertVocab = assets[common.AssetType.qambertVocab]!;
