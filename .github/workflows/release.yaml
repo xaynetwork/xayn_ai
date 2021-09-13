@@ -447,8 +447,9 @@ jobs:
         uses: ./.ci/build-asset-artifacts
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
-          wasm-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
           wasm-out-dir-path: ${{ needs.build-release-wasm-libs.outputs.out-dir }}
+          wasm-sequential-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
+          wasm-parallel-version: ${{ needs.build-release-wasm-libs.outputs.parallel-version }}
 
       - name: Generate asset artifacts name
         id: asset-artifacts
@@ -501,7 +502,7 @@ jobs:
           secret-key: ${{ secrets.AI_ASSETS_STG_BUCKET_SECRET_KEY }}
 
       - name: Install s3cmd (production)
-        if: github.ref = 'refs/heads/release'
+        if: github.ref == 'refs/heads/release'
         uses: ./.ci/install-s3cmd
         with:
           access-key: ${{ secrets.AI_ASSETS_PROD_BUCKET_ACCESS_KEY }}

@@ -34,7 +34,6 @@ import 'package:stats/stats.dart' show Stats;
 import 'package:xayn_ai_ffi_dart_example/debug/print.dart'
     if (dart.library.io) 'package:xayn_ai_ffi_dart_example/debug/mobile/print.dart'
     show debugPrintLongText;
-
 import 'package:xayn_ai_ffi_dart_example/logic.dart' show Logic, Outcome;
 
 void main() {
@@ -57,6 +56,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
+    // mobile is always loaded with multi-threading features, web only optionally
     debugPrint('start loading assets');
     Logic.load(rootBundle).then((logic) {
       debugPrint('loaded assets');
