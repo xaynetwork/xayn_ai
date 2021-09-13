@@ -56,12 +56,21 @@ class Checksum {
   String get checksumSri => 'sha256-' + base64.encode(HEX.decode(_checksum));
 }
 
+/// The optional features to be enabled by picking platform dependent assets.
+enum Feature {
+  /// Web multi-threading features.
+  webParallel,
+}
+
 /// Returns a map of all assets required for initializing [`XaynAi`].
-Map<AssetType, Asset> getAssets() {
+Map<AssetType, Asset> getAssets({Set<Feature> features = const {}}) {
   throw UnsupportedError('Unsupported platform.');
 }
 
 /// Data that is required to initialize [`XaynAi`].
 class SetupData {
-  SetupData(Map<AssetType, dynamic> assets);
+  SetupData(Map<AssetType, dynamic> assets,
+      {Set<Feature> features = const {}}) {
+    throw UnsupportedError('Unsupported platform.');
+  }
 }

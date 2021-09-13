@@ -5,7 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart'
     show getApplicationDocumentsDirectory;
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show AssetType, getAssets, SetupData;
+    show AssetType, getAssets, Feature, SetupData;
 
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     show joinPaths;
@@ -16,17 +16,17 @@ const _baseAssetsPath = 'assets';
 ///
 /// This function needs to be called in the main thread because it will not be allowed
 /// to access the assets from an isolate.
-Future<SetupData> getInputData() async {
+Future<SetupData> getInputData({Set<Feature> features = const {}}) async {
   final baseDiskPath = await getApplicationDocumentsDirectory();
 
   final paths = <AssetType, String>{};
-  for (var asset in getAssets().entries) {
+  for (var asset in getAssets(features: features).entries) {
     final path = await _getData(baseDiskPath.path, asset.value.urlSuffix,
         asset.value.checksum.checksumAsHex);
     paths.putIfAbsent(asset.key, () => path);
   }
 
-  return SetupData(paths);
+  return SetupData(paths, features: features);
 }
 
 /// Returns the path to the data, if the data is not on disk yet
