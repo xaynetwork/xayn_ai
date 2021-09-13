@@ -222,10 +222,10 @@ mod tests {
             document_data::{
                 ContextComponent,
                 DocumentBaseComponent,
-                DocumentDataWithMab,
+                DocumentDataWithRank,
                 LtrComponent,
-                MabComponent,
                 QAMBertComponent,
+                RankComponent,
                 SMBertComponent,
             },
             PositiveCoi,
@@ -235,13 +235,13 @@ mod tests {
         utils::mock_coi_id,
     };
 
-    pub(crate) fn create_data_with_mab(
+    pub(crate) fn create_data_with_rank(
         embeddings: &[impl FixedInitializer<Elem = f32>],
-    ) -> Vec<DocumentDataWithMab> {
+    ) -> Vec<DocumentDataWithRank> {
         embeddings
             .iter()
             .enumerate()
-            .map(|(id, embedding)| DocumentDataWithMab {
+            .map(|(id, embedding)| DocumentDataWithRank {
                 document_base: DocumentBaseComponent {
                     id: DocumentId::from_u128(id as u128),
                     initial_ranking: id,
@@ -257,7 +257,7 @@ mod tests {
                 },
                 ltr: LtrComponent { ltr_score: 0.5 },
                 context: ContextComponent { context_value: 0.5 },
-                mab: MabComponent { rank: 0 },
+                rank: RankComponent { rank: 0 },
             })
             .collect()
     }
@@ -382,7 +382,7 @@ mod tests {
     fn test_update_cois_update_the_same_point_twice() {
         // checks that an updated coi is used in the next iteration
         let cois = create_pos_cois(&[[0., 0., 0.]]);
-        let documents = create_data_with_mab(&[[0., 0., 4.9], [0., 0., 5.]]);
+        let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
         let config = Configuration {
@@ -485,7 +485,7 @@ mod tests {
             (Relevance::Low, UserFeedback::Relevant),
             (Relevance::Low, UserFeedback::Relevant),
         ]);
-        let documents = create_data_with_mab(&[[1., 4., 4.], [3., 6., 6.], [1., 1., 1.]]);
+        let documents = create_data_with_rank(&[[1., 4., 4.], [3., 6., 6.], [1., 1., 1.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
         let coi_system = CoiSystem::new(Configuration {

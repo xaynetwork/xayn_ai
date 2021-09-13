@@ -69,7 +69,7 @@ pub(crate) struct ContextComponent {
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
-pub(crate) struct MabComponent {
+pub(crate) struct RankComponent {
     pub rank: usize,
 }
 
@@ -97,7 +97,7 @@ macro_rules! impl_coi_system_data_no_coi {
 /// -> [`DocumentDataWithCoi`]
 /// -> [`DocumentDataWithLtr`]
 /// -> [`DocumentDataWithContext`]
-/// -> [`DocumentDataWithMab`]
+/// -> [`DocumentDataWithRank`]
 pub(crate) struct DocumentDataWithDocument {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) document_content: DocumentContentComponent,
@@ -219,18 +219,18 @@ impl DocumentDataWithContext {
 
 #[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 #[derive(Serialize, Deserialize)]
-pub(crate) struct DocumentDataWithMab {
+pub(crate) struct DocumentDataWithRank {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
     pub(crate) ltr: LtrComponent,
     pub(crate) context: ContextComponent,
-    pub(crate) mab: MabComponent,
+    pub(crate) rank: RankComponent,
 }
 
-impl DocumentDataWithMab {
-    pub(crate) fn from_document(document: DocumentDataWithContext, mab: MabComponent) -> Self {
+impl DocumentDataWithRank {
+    pub(crate) fn from_document(document: DocumentDataWithContext, rank: RankComponent) -> Self {
         Self {
             document_base: document.document_base,
             smbert: document.smbert,
@@ -238,12 +238,12 @@ impl DocumentDataWithMab {
             coi: document.coi,
             ltr: document.ltr,
             context: document.context,
-            mab,
+            rank,
         }
     }
 }
 
-impl CoiSystemData for DocumentDataWithMab {
+impl CoiSystemData for DocumentDataWithRank {
     fn id(&self) -> DocumentId {
         self.document_base.id
     }
@@ -326,14 +326,14 @@ mod tests {
         assert_eq!(document_data.ltr, ltr);
         assert_eq!(document_data.context, context);
 
-        let mab = MabComponent { rank: 3 };
-        let document_data = DocumentDataWithMab::from_document(document_data, mab.clone());
+        let rank = RankComponent { rank: 3 };
+        let document_data = DocumentDataWithRank::from_document(document_data, rank.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
         assert_eq!(document_data.coi, coi);
         assert_eq!(document_data.ltr, ltr);
         assert_eq!(document_data.context, context);
-        assert_eq!(document_data.mab, mab);
+        assert_eq!(document_data.rank, rank);
     }
 }

@@ -11,7 +11,7 @@ use crate::{
     Error,
 };
 
-use super::document_data::DocumentDataWithMab;
+use super::document_data::DocumentDataWithRank;
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Default))]
@@ -191,12 +191,12 @@ pub struct RerankingOutcomes {
 
 impl RerankingOutcomes {
     /// Creates a `RerankingOutcome` which contains all information.
-    pub(crate) fn from_mab(
+    pub(crate) fn from_rank(
         mode: RerankMode,
         docs: &[Document],
-        docs_with_mab: &[DocumentDataWithMab],
+        docs_with_rank: &[DocumentDataWithRank],
     ) -> Self {
-        let docs_with_mab = docs_with_mab
+        let docs_with_rank = docs_with_rank
             .iter()
             .map(|doc| (doc.id(), doc))
             .collect::<HashMap<_, _>>();
@@ -208,8 +208,8 @@ impl RerankingOutcomes {
             matches!(mode, RerankMode::Search).then(|| Vec::with_capacity(docs_len));
 
         for doc in docs {
-            let data = docs_with_mab[&doc.id];
-            final_ranking.push(data.mab.rank as u16);
+            let data = docs_with_rank[&doc.id];
+            final_ranking.push(data.rank.rank as u16);
             context_scores.push(data.context.context_value);
             if let Some(vs) = qambert_similarities.as_mut() {
                 vs.push(data.qambert.similarity)

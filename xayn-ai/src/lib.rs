@@ -8,7 +8,6 @@ mod data;
 mod embedding;
 mod error;
 mod ltr;
-mod mab;
 mod reranker;
 
 pub use crate::{
