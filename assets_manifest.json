@@ -22,15 +22,5 @@
       "dart_enum_name": "ltrModel",
       "url_suffix": "ltr_v0000/ltr.binparams"
     }
-  ],
-  "wasm_assets" : [
-    {
-      "dart_enum_name": "wasmModule",
-      "filename": "genesis_bg.wasm"
-    },
-    {
-      "dart_enum_name": "wasmScript",
-      "filename": "genesis.js"
-    }
   ]
 }
