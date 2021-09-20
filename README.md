@@ -145,20 +145,24 @@ flutter run
 
 ```shell
 cargo make build-web
-cd bindings/dart/example
-flutter run -d chrome
+cargo make serve-web
+# Then open http://localhost:8000/ in a browser.
 ```
 
-#### Running in a web browser other than Chrome
+`flutter run` can not be used as it doesn't set the
+right headers, and even with the right headers it
+doesn't provide the right files in the right way.
 
-```shell
-cargo make build-web
-cd bindings/dart/example
-flutter build web
-cd build/web/
-python3 -m http.server
-# open the url http://localhost:8000/ in our browser
-```
+(At least for now `flutter run` can still be used
+with `DISABLE_WASM_THREADS=1`, this is not guaranteed
+in the future but can be useful as `flutter run` provides
+hot reloading and better debug-ability.)
+
+**Hint:** There had been some cases where for some reason
+`genesis.js` wasn't updated when switching from `DISABLE_WASM_THREADS=0`
+to `DISABLE_WASM_THREADS=1` it's not clear what causes it as
+it's not reproducible but it was observed by different dev.
+If that happens run `cargo make clean-non-rust`.
 
 #### Running with a branch of the release repository
 
@@ -179,6 +183,11 @@ python3 -m http.server
 + const _baseAssetUrl =
 +   'https://xayn_ai_staging_assets.s3-de-central.profitbricks.com';
 ```
+
+Then use `cargo make build-web` and `cargo make serve-web` like above.
+
+This only works if the interface of `xayn_ai_ffi_dart` has not changed
+between release and this branch.
 
 ## License
 
