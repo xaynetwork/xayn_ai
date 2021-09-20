@@ -93,7 +93,7 @@ script = ["""
   fi
 """]
 
-[tasks.run-web]
+[tasks.serve-web]
 script = ["""
   # We don't call build web as we want to be able to not re-build rust/wasm
   # every time we change dart code, for the same reason we don't run
@@ -154,6 +154,9 @@ script = ["""
     CARGO_PROFILE_TEST_OPT_LEVEL="2" \
     wasm-pack test --firefox --headless xayn-ai-ffi-wasm
 """]
+
+[tasks.clean-non-rust]
+dependencies = ["clean-bindgen", "clean-flutter-build", "clean-codegen"]
 
 [tasks.clean-bindgen]
 script = ["""
