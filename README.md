@@ -173,7 +173,7 @@ If that happens run `cargo make clean-non-rust`.
 -   path: '../'
 +   git:
 +       url: git@github.com:xaynetwork/xayn_ai_release.git
-+       ref: master
++       ref: staging
 ```
 
 **bindings/dart/example/lib/data_provider/web.dart**
@@ -186,8 +186,9 @@ If that happens run `cargo make clean-non-rust`.
 
 Then use `cargo make build-web` and `cargo make serve-web` like above.
 
-This only works if the interface of `xayn_ai_ffi_dart` has not changed
-between release and this branch.
+This only works if the the release repos branch and this branch are in sync
+(or at least still have the same interface).
+E.g `staging` of `xayn_ai_release.git` for `staging` on `xayn_ai.git`.
 
 ## License
 
