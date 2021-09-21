@@ -57,9 +57,8 @@ class Checksum {
 }
 
 /// The optional features to be enabled by picking platform dependent assets.
-enum Feature {
-  /// Web multi-threading features.
-  webParallel,
+class Feature {
+  Feature._();
 }
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
@@ -69,8 +68,7 @@ Map<AssetType, Asset> getAssets({Set<Feature> features = const {}}) {
 
 /// Data that is required to initialize [`XaynAi`].
 class SetupData {
-  SetupData(Map<AssetType, dynamic> assets,
-      {Set<Feature> features = const {}}) {
+  SetupData(Map<AssetType, dynamic> assets) {
     throw UnsupportedError('Unsupported platform.');
   }
 }

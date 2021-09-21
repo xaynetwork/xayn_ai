@@ -20,4 +20,14 @@ enum AssetType {
   {{- range (ds "assets_manifest").assets }}
   {{.dart_enum_name}},
   {{- end}}
+  wasmModule,
+  wasmScript,
 }
+
+{{range (ds "assets_manifest").wasm_assets }}
+final wasm{{.feature}} = <AssetType, Asset>{
+  AssetType.wasmModule: Asset('{{.module.url_suffix}}', Checksum('{{.module.checksum}}'), []),
+  AssetType.wasmScript: Asset('{{.script.url_suffix}}', Checksum('{{.script.checksum}}'), []),
+};
+
+{{end}}

@@ -10,8 +10,19 @@ import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
 const _baseAssetUrl = 'assets/assets';
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
-Future<SetupData> getInputData({Set<Feature> features = const {}}) async {
+Future<SetupData> getInputData() async {
   final fetched = <AssetType, Uint8List>{};
+  final features = <Feature>{};
+
+  // uncomment the following section to load the parallel version
+  // final features = <Feature>{
+  //   // ignore: undefined_getter, set_element_type_not_assignable
+  //   Feature.bulkMemory,
+  //   // ignore: undefined_getter, set_element_type_not_assignable
+  //   Feature.mutableGlobals,
+  //   // ignore: undefined_getter, set_element_type_not_assignable
+  //   Feature.threads
+  // };
 
   for (var asset in getAssets(features: features).entries) {
     final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
@@ -19,7 +30,7 @@ Future<SetupData> getInputData({Set<Feature> features = const {}}) async {
     fetched.putIfAbsent(asset.key, () => data);
   }
 
-  return SetupData(fetched, features: features);
+  return SetupData(fetched);
 }
 
 Future<Uint8List> _fetchAsset(String url, String checksum) async {
