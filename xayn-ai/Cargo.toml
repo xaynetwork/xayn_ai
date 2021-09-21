@@ -15,7 +15,7 @@ itertools = "0.10.1"
 # to be kept in sync with rubert
 ndarray = "=0.15.3"
 rand = "0.8.4"
-rand_distr = "0.4.1"
+rand_distr = "0.4.2"
 rubert = { path = "../rubert" }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_repr = "0.1.7"
