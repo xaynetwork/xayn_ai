@@ -155,7 +155,7 @@ gen_assets_metadata() {
     echo "{\"assets\": []}" > $ASSETS_METADATA_PATH
 
     gen_data_assets_metadata $ASSET_MANIFEST
-    gen_wasm_assets_metadata "Sequential" $WASM_SEQUENTIAL_VERSION $WASM_OUT_DIR_PATH
+    gen_wasm_assets_metadata "" $WASM_SEQUENTIAL_VERSION $WASM_OUT_DIR_PATH
     gen_wasm_assets_metadata "Parallel" $WASM_PARALLEL_VERSION $WASM_OUT_DIR_PATH
 }
 
