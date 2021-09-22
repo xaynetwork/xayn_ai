@@ -92,7 +92,7 @@ mod tests {
     };
 
     impl RerankerData0 {
-        pub(crate) fn new_with_mab(
+        pub(crate) fn new_with_rank(
             user_interests: UserInterests,
             prev_documents: Vec<DocumentDataWithRank>,
         ) -> Self {
@@ -134,7 +134,7 @@ mod tests {
         let negative = neg_cois_from_words(words, mocked_smbert_system());
         let user_interests = UserInterests { positive, negative };
         let docs = data_with_rank(from_ids(0..1));
-        let data = RerankerData0::new_with_mab(user_interests, docs);
+        let data = RerankerData0::new_with_rank(user_interests, docs);
         let serialized = serialize_with_version(&data, 0).expect("serialized data");
 
         let database = Db::deserialize(&serialized).expect("load data from serialized");
