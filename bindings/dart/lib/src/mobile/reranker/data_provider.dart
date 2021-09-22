@@ -5,8 +5,8 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 Map<common.AssetType, common.Asset> getAssets(
     {Set<common.Feature> features = const {}}) {
   final wasmAssets = [
-    common.AssetType.wasmSequentialModule,
-    common.AssetType.wasmSequentialScript,
+    common.AssetType.wasmModule,
+    common.AssetType.wasmScript,
     common.AssetType.wasmParallelModule,
     common.AssetType.wasmParallelScript,
     common.AssetType.wasmParallelSnippet,
