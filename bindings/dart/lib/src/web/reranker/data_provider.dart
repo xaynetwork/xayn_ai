@@ -8,8 +8,8 @@ Map<common.AssetType, common.Asset> getAssets(
     {Set<common.Feature> features = const {}}) {
   final redundantAssets = features.contains(common.Feature.webParallel)
       ? [
-          common.AssetType.wasmSequentialModule,
-          common.AssetType.wasmSequentialScript,
+          common.AssetType.wasmModule,
+          common.AssetType.wasmScript,
         ]
       : [
           common.AssetType.wasmParallelModule,
@@ -38,6 +38,6 @@ class SetupData implements common.SetupData {
     ltrModel = assets[common.AssetType.ltrModel]!;
     wasmModule = features.contains(common.Feature.webParallel)
         ? assets[common.AssetType.wasmParallelModule]!
-        : assets[common.AssetType.wasmSequentialModule]!;
+        : assets[common.AssetType.wasmModule]!;
   }
 }
