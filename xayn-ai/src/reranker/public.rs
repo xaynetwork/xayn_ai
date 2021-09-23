@@ -11,7 +11,6 @@ use crate::{
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
     ltr::{DomainReranker, DomainRerankerBuilder},
-    mab::{BetaSampler, MabRanking},
     Error,
 };
 
@@ -23,7 +22,6 @@ use super::{
         CommonSystems,
         ContextSystem,
         LtrSystem,
-        MabSystem,
         QAMBertSystem,
         SMBertSystem,
     },
@@ -37,7 +35,6 @@ pub struct Systems {
     coi: CoiSystemImpl,
     domain: DomainReranker,
     context: Context,
-    mab: MabRanking<BetaSampler>,
     analytics: AnalyticsSystemImpl,
 }
 
@@ -64,10 +61,6 @@ impl CommonSystems for Systems {
 
     fn context(&self) -> &dyn ContextSystem {
         &self.context
-    }
-
-    fn mab(&self) -> &dyn MabSystem {
-        &self.mab
     }
 
     fn analytics(&self) -> &dyn AnalyticsSystem {
@@ -233,7 +226,6 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
         let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
         let domain = self.domain.build()?;
         let context = Context;
-        let mab = MabRanking::new(BetaSampler);
         let analytics = AnalyticsSystemImpl;
 
         super::Reranker::new(Systems {
@@ -243,7 +235,6 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
             coi,
             domain,
             context,
-            mab,
             analytics,
         })
         .map(Reranker)

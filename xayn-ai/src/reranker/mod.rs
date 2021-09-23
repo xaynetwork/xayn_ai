@@ -3,6 +3,7 @@ pub mod public;
 pub(crate) mod sync;
 pub(crate) mod systems;
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sync::SyncData;
@@ -15,9 +16,11 @@ use crate::{
         document_data::{
             DocumentBaseComponent,
             DocumentContentComponent,
+            DocumentDataWithContext,
             DocumentDataWithDocument,
-            DocumentDataWithMab,
+            DocumentDataWithRank,
             DocumentDataWithSMBert,
+            RankComponent,
         },
         UserInterests,
     },
@@ -25,6 +28,7 @@ use crate::{
     error::Error,
     reranker::systems::{CoiSystemData, CommonSystems},
     to_vec_of_ref_of,
+    utils::nan_safe_f32_cmp,
 };
 
 #[cfg(test)]
@@ -49,7 +53,7 @@ where
 fn collect_analytics<CS>(
     common_systems: &CS,
     history: &[DocumentHistory],
-    prev_documents: &[DocumentDataWithMab],
+    prev_documents: &[DocumentDataWithRank],
 ) -> Result<Analytics, Error>
 where
     CS: CommonSystems,
@@ -95,7 +99,7 @@ fn rerank<CS>(
     history: &[DocumentHistory],
     documents: &[Document],
     user_interests: UserInterests,
-) -> Result<(Vec<DocumentDataWithMab>, UserInterests), Error>
+) -> Result<Vec<DocumentDataWithRank>, Error>
 where
     CS: CommonSystems,
 {
@@ -109,18 +113,16 @@ where
         .compute_coi(documents, &user_interests)?;
     let documents = common_systems.ltr().compute_ltr(history, documents)?;
     let documents = common_systems.context().compute_context(documents)?;
-    let (documents, user_interests) = common_systems
-        .mab()
-        .compute_mab(documents, user_interests)?;
+    let documents = rank_by_context(documents);
 
-    Ok((documents, user_interests))
+    Ok(documents)
 }
 
 #[cfg_attr(test, derive(Clone, From, Debug, PartialEq))]
 #[derive(Serialize, Deserialize)]
 enum PreviousDocuments {
     Embedding(Vec<DocumentDataWithSMBert>),
-    Mab(Vec<DocumentDataWithMab>),
+    Final(Vec<DocumentDataWithRank>),
 }
 
 impl Default for PreviousDocuments {
@@ -135,7 +137,7 @@ impl PreviousDocuments {
             PreviousDocuments::Embedding(documents) => {
                 to_vec_of_ref_of!(documents, &dyn CoiSystemData)
             }
-            PreviousDocuments::Mab(documents) => {
+            PreviousDocuments::Final(documents) => {
                 to_vec_of_ref_of!(documents, &dyn CoiSystemData)
             }
         }
@@ -145,7 +147,7 @@ impl PreviousDocuments {
     fn len(&self) -> usize {
         match self {
             PreviousDocuments::Embedding(documents) => documents.len(),
-            PreviousDocuments::Mab(documents) => documents.len(),
+            PreviousDocuments::Final(documents) => documents.len(),
         }
     }
 }
@@ -159,12 +161,12 @@ pub(crate) struct RerankerData {
 
 #[cfg(test)]
 impl RerankerData {
-    pub(crate) fn new_with_mab(
+    pub(crate) fn new_with_rank(
         user_interests: UserInterests,
-        prev_documents: Vec<DocumentDataWithMab>,
+        prev_documents: Vec<DocumentDataWithRank>,
     ) -> Self {
         let sync_data = SyncData { user_interests };
-        let prev_documents = PreviousDocuments::Mab(prev_documents);
+        let prev_documents = PreviousDocuments::Final(prev_documents);
         Self {
             sync_data,
             prev_documents,
@@ -264,7 +266,7 @@ where
                 Err(e) => self.errors.push(e),
             };
 
-            if let PreviousDocuments::Mab(ref prev_documents) = self.data.prev_documents {
+            if let PreviousDocuments::Final(ref prev_documents) = self.data.prev_documents {
                 self.analytics = collect_analytics(&self.common_systems, history, prev_documents)
                     .map_err(|e| self.errors.push(e))
                     .ok();
@@ -280,11 +282,10 @@ where
             documents,
             user_interests,
         )
-        .map(|(documents_with_mab, user_interests)| {
-            let outcome = RerankingOutcomes::from_mab(mode, documents, &documents_with_mab);
+        .map(|documents_with_rank| {
+            let outcome = RerankingOutcomes::from_rank(mode, documents, &documents_with_rank);
 
-            self.data.prev_documents = PreviousDocuments::Mab(documents_with_mab);
-            self.data.sync_data.user_interests = user_interests;
+            self.data.prev_documents = PreviousDocuments::Final(documents_with_rank);
 
             outcome
         })
@@ -298,6 +299,17 @@ where
             RerankingOutcomes::from_initial_ranking(documents)
         })
     }
+}
+
+fn rank_by_context(mut docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWithRank> {
+    docs.sort_unstable_by(|a, b| {
+        nan_safe_f32_cmp(&b.context.context_value, &a.context.context_value)
+    });
+
+    docs.into_iter()
+        .enumerate()
+        .map(|(rank, doc)| DocumentDataWithRank::from_document(doc, RankComponent { rank }))
+        .collect_vec()
 }
 
 #[cfg(test)]
@@ -323,7 +335,6 @@ mod tests {
             MockContextSystem,
             MockDatabase,
             MockLtrSystem,
-            MockMabSystem,
             MockSMBertSystem,
         },
     };
@@ -351,7 +362,7 @@ mod tests {
             },
             reranker::{PreviousDocuments, RerankerData},
             tests::{
-                data_with_mab,
+                data_with_rank,
                 documents_from_words,
                 mocked_smbert_system,
                 pos_cois_from_words,
@@ -359,8 +370,8 @@ mod tests {
         };
         use std::ops::Range;
 
-        pub(super) fn reranker_data_with_mab_from_ids(ids: Range<u32>) -> RerankerData {
-            let docs = data_with_mab(from_ids(ids));
+        pub(super) fn reranker_data_with_rank_from_ids(ids: Range<u32>) -> RerankerData {
+            let docs = data_with_rank(from_ids(ids));
             reranker_data(docs)
         }
 
@@ -478,7 +489,9 @@ mod tests {
     #[apply(tmpl_rerank_mode_cases)]
     fn test_rerank_no_history(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
-            MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..10))
+            MemDb::from_data(car_interest_example::reranker_data_with_rank_from_ids(
+                0..10,
+            ))
         });
         let mut reranker = Reranker::new(cs).unwrap();
 
@@ -504,7 +517,9 @@ mod tests {
     #[apply(tmpl_rerank_mode_cases)]
     fn test_rerank_no_matching_documents(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
-            MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..10))
+            MemDb::from_data(car_interest_example::reranker_data_with_rank_from_ids(
+                0..10,
+            ))
         });
         let mut reranker = Reranker::new(cs).unwrap();
 
@@ -600,7 +615,7 @@ mod tests {
                         // `rerank` will fail with `CoiSystemError::NoCoi` and
                         // the systems that come after the `CoiSystem` will never
                         // be executed.
-                        MemDb::from_data(car_interest_example::reranker_data_with_mab_from_ids(0..1))
+                        MemDb::from_data(car_interest_example::reranker_data_with_rank_from_ids(0..1))
                     });
                 cs
             }}
@@ -650,7 +665,6 @@ mod tests {
     test_system_failure!(smbert, MockSMBertSystem, compute_embedding, |_|, false);
     test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
     test_system_failure!(context, MockContextSystem, compute_context, |_|);
-    test_system_failure!(mab, MockMabSystem, compute_mab, |_,_|);
 
     /// An analytics system error should not prevent the documents from
     /// being reranked using the learned user interests. However, the error
@@ -667,12 +681,7 @@ mod tests {
             ndcg_final_ranking: 0.,
         });
         let documents = car_interest_example::documents();
-        let history = history_for_prev_docs(
-            &reranker.data.prev_documents.to_coi_system_data(),
-            vec![(Relevance::Low, UserFeedback::Relevant)],
-        );
-
-        let outcome = reranker.rerank(mode, &history, &documents);
+        let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(
             outcome.final_ranking,
