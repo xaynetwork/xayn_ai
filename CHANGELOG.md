@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+### Changed
+
+- MAB system is not executed anymore. Only the context value is used instead to rank the documents.
+
 ## 2.1 - 2021/09/15
 
 ### Added

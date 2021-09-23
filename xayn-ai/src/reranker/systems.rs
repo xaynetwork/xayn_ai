@@ -8,8 +8,8 @@ use crate::{
             DocumentDataWithContext,
             DocumentDataWithDocument,
             DocumentDataWithLtr,
-            DocumentDataWithMab,
             DocumentDataWithQAMBert,
+            DocumentDataWithRank,
             DocumentDataWithSMBert,
             SMBertComponent,
         },
@@ -82,20 +82,11 @@ pub(crate) trait ContextSystem {
 }
 
 #[cfg_attr(test, automock)]
-pub(crate) trait MabSystem {
-    fn compute_mab(
-        &self,
-        documents: Vec<DocumentDataWithContext>,
-        user_interests: UserInterests,
-    ) -> Result<(Vec<DocumentDataWithMab>, UserInterests), Error>;
-}
-
-#[cfg_attr(test, automock)]
 pub(crate) trait AnalyticsSystem {
     fn compute_analytics(
         &self,
         history: &[DocumentHistory],
-        documents: &[DocumentDataWithMab],
+        documents: &[DocumentDataWithRank],
     ) -> Result<Analytics, Error>;
 }
 
@@ -108,6 +99,5 @@ pub(crate) trait CommonSystems {
     fn coi(&self) -> &dyn CoiSystem;
     fn ltr(&self) -> &dyn LtrSystem;
     fn context(&self) -> &dyn ContextSystem;
-    fn mab(&self) -> &dyn MabSystem;
     fn analytics(&self) -> &dyn AnalyticsSystem;
 }

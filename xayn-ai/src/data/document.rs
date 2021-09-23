@@ -11,7 +11,7 @@ use crate::{
     Error,
 };
 
-use super::document_data::DocumentDataWithMab;
+use super::document_data::DocumentDataWithRank;
 
 #[repr(transparent)]
 #[cfg_attr(test, derive(Default))]
@@ -167,36 +167,28 @@ pub enum Relevance {
 /// information to the input documents by their index.
 #[derive(Serialize, Deserialize)]
 pub struct RerankingOutcomes {
-    /// The final ranking.
-    ///
-    /// If everything succeeds this is based on the result of the
-    /// `MAB` step (which is based on the merged ranking scores
-    /// of the other parts in the pipeline).
-    ///
-    /// But if various steps fail this might be based on something
-    /// else, in the extreme case this is just the initial ranking.
-    ///
-    /// Make sure to check for the errors from the `Reranker`.
+    /// The final ranking computed by the AI.
+    /// If the AI cannot run till having a final rank for each document the
+    /// initial rank will be used here.
     pub final_ranking: Vec<u16>,
 
     /// The QA-mBERT outcomes (similarities)
     pub qambert_similarities: Option<Vec<f32>>,
 
-    /// The context score(s) which where feet into `MAB`.
+    /// The context score of each document.
     ///
-    /// If due to errors no context scores are produced this
-    /// is `None`.
+    /// It can be `None` if it was impossible to compute them.
     pub context_scores: Option<Vec<f32>>,
 }
 
 impl RerankingOutcomes {
     /// Creates a `RerankingOutcome` which contains all information.
-    pub(crate) fn from_mab(
+    pub(crate) fn from_rank(
         mode: RerankMode,
         docs: &[Document],
-        docs_with_mab: &[DocumentDataWithMab],
+        docs_with_rank: &[DocumentDataWithRank],
     ) -> Self {
-        let docs_with_mab = docs_with_mab
+        let docs_with_rank = docs_with_rank
             .iter()
             .map(|doc| (doc.id(), doc))
             .collect::<HashMap<_, _>>();
@@ -208,8 +200,8 @@ impl RerankingOutcomes {
             matches!(mode, RerankMode::Search).then(|| Vec::with_capacity(docs_len));
 
         for doc in docs {
-            let data = docs_with_mab[&doc.id];
-            final_ranking.push(data.mab.rank as u16);
+            let data = docs_with_rank[&doc.id];
+            final_ranking.push(data.rank.rank as u16);
             context_scores.push(data.context.context_value);
             if let Some(vs) = qambert_similarities.as_mut() {
                 vs.push(data.qambert.similarity)

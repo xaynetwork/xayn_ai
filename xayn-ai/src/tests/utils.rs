@@ -11,11 +11,11 @@ use crate::{
             DocumentBaseComponent,
             DocumentContentComponent,
             DocumentDataWithDocument,
-            DocumentDataWithMab,
+            DocumentDataWithRank,
             DocumentDataWithSMBert,
             LtrComponent,
-            MabComponent,
             QAMBertComponent,
+            RankComponent,
             SMBertComponent,
         },
         CoiPoint,
@@ -124,11 +124,11 @@ pub(crate) fn history_for_prev_docs(
         .collect()
 }
 
-pub(crate) fn data_with_mab(
+pub(crate) fn data_with_rank(
     ids_and_embeddings: impl Iterator<Item = (DocumentId, usize, Embedding)>,
-) -> Vec<DocumentDataWithMab> {
+) -> Vec<DocumentDataWithRank> {
     ids_and_embeddings
-        .map(|(id, initial_ranking, embedding)| DocumentDataWithMab {
+        .map(|(id, initial_ranking, embedding)| DocumentDataWithRank {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking,
@@ -142,7 +142,7 @@ pub(crate) fn data_with_mab(
             },
             ltr: LtrComponent { ltr_score: 0.5 },
             context: ContextComponent { context_value: 0.5 },
-            mab: MabComponent { rank: 0 },
+            rank: RankComponent { rank: 0 },
         })
         .collect()
 }
