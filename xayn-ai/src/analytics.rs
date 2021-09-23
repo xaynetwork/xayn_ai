@@ -8,7 +8,7 @@ use thiserror::Error;
 use crate::{
     data::{
         document::{DocumentHistory, Relevance},
-        document_data::DocumentDataWithMab,
+        document_data::DocumentDataWithRank,
     },
     error::Error,
     reranker::systems,
@@ -40,7 +40,7 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
     fn compute_analytics(
         &self,
         history: &[DocumentHistory],
-        documents: &[DocumentDataWithMab],
+        documents: &[DocumentDataWithRank],
     ) -> Result<Analytics, Error> {
         // We need to be able to lookup relevances by document id.
         // and linear search is most likely a bad idea. So we create
@@ -63,7 +63,7 @@ impl systems::AnalyticsSystem for AnalyticsSystem {
                 // nDCG expects higher scores to be better but for the ranking
                 // it's the oposite, the solution carried over from the dart impl
                 // is to multiply by -1.
-                let final_ranking_desc = -(document.mab.rank as f32);
+                let final_ranking_desc = -(document.rank.rank as f32);
                 paired_final_ranking_scores.push((relevance, final_ranking_desc));
 
                 let intial_ranking_desc = -(document.document_base.initial_ranking as f32);
@@ -202,18 +202,18 @@ mod tests {
             (10, Relevance::Low, UserFeedback::NotGiven),
         ]);
 
-        let mut documents = tests::data_with_mab(tests::from_ids(0..3));
+        let mut documents = tests::data_with_rank(tests::from_ids(0..3));
         documents[0].ltr.ltr_score = 3.;
         documents[0].context.context_value = 3.5;
-        documents[0].mab.rank = 1;
+        documents[0].rank.rank = 1;
 
         documents[1].ltr.ltr_score = 2.;
         documents[1].context.context_value = 7.;
-        documents[1].mab.rank = 0;
+        documents[1].rank.rank = 0;
 
         documents[2].ltr.ltr_score = 7.;
         documents[2].context.context_value = 6.;
-        documents[2].mab.rank = 2;
+        documents[2].rank.rank = 2;
 
         let Analytics {
             ndcg_ltr,
