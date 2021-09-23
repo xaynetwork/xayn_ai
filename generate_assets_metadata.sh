@@ -147,7 +147,7 @@ gen_wasm_assets_metadata() {
 
     local WASM_PACKAGE="{\"feature\": \"$WASM_FEATURE\"}"
     local ASSET_JS=$(gen_wasm_asset_metadata $WASM_VERSION $ASSET_JS_PATH)
-    WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson script $ASSET_JS '. |= .+ {"script": $script}')
+    WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_script $ASSET_JS '. |= .+ {"script": $wasm_script}')
     local ASSET_WASM=$(gen_wasm_asset_metadata $WASM_VERSION $ASSET_WASM_PATH)
     WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_module $ASSET_WASM '. |= .+ {"module": $wasm_module}')
 
