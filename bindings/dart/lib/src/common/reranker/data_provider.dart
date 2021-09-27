@@ -58,7 +58,30 @@ class Checksum {
 
 /// The optional features to be enabled by picking platform dependent assets.
 class Feature {
+  // The constructor is private and is only callable within this file.
+  // We use the constructor only for creating the unique `WebFeature`/`WasmFeature`s.
   Feature._();
+}
+
+class MobileFeature extends Feature {
+  MobileFeature._() : super._() {
+    // make sure no instance of this class can exists
+    throw UnimplementedError('This class cannot be instantiated');
+  }
+}
+
+class WebFeature extends Feature {
+  WebFeature._() : super._();
+}
+
+// When we compare `WasmFeature`s with each other, we rely on their object identity.
+// To avoid unexpected results when comparing them, we have to make sure that a
+// `WebFeature` cannot be created by a user but that the user only uses
+// `WasmFeature`.
+class WasmFeature {
+  static final bulkMemory = WebFeature._();
+  static final mutableGlobals = WebFeature._();
+  static final threads = WebFeature._();
 }
 
 /// Returns a map of all assets required for initializing [`XaynAi`].

@@ -1,17 +1,27 @@
 import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
-    as common show Asset, AssetType, baseAssets, Checksum, SetupData;
+    as common
+    show
+        Asset,
+        AssetType,
+        baseAssets,
+        Checksum,
+        SetupData,
+        WebFeature,
+        WasmFeature;
 
 part 'assets.dart';
 
-/// The optional features to be enabled by picking platform dependent assets.
-enum Feature { bulkMemory, mutableGlobals, threads }
-
-const _parallel = {Feature.bulkMemory, Feature.mutableGlobals, Feature.threads};
+final _parallel = {
+  common.WasmFeature.bulkMemory,
+  common.WasmFeature.mutableGlobals,
+  common.WasmFeature.threads
+};
 
 /// Returns the most suitable wasm assets for the given features.
-Map<common.AssetType, common.Asset> getWasmAssets(Set<Feature> features) {
+Map<common.AssetType, common.Asset> getWasmAssets(
+    Set<common.WebFeature> features) {
   if (features.containsAll(_parallel)) {
     return wasmParallel;
   } else {
@@ -21,7 +31,7 @@ Map<common.AssetType, common.Asset> getWasmAssets(Set<Feature> features) {
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
 Map<common.AssetType, common.Asset> getAssets(
-        {Set<Feature> features = const {}}) =>
+        {Set<common.WebFeature> features = const {}}) =>
     {...common.baseAssets, ...getWasmAssets(features)};
 
 /// Data that is required to initialize [`XaynAi`].

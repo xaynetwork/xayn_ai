@@ -2,7 +2,7 @@ import 'dart:html' show window;
 import 'dart:typed_data' show Uint8List, ByteBuffer;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show AssetType, getAssets, Feature, SetupData;
+    show AssetType, getAssets, SetupData, Feature;
 
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     show joinPaths;
@@ -16,12 +16,9 @@ Future<SetupData> getInputData() async {
 
   // uncomment the following section to load the parallel version
   // final features = <Feature>{
-  //   // ignore: undefined_getter, set_element_type_not_assignable
-  //   Feature.bulkMemory,
-  //   // ignore: undefined_getter, set_element_type_not_assignable
-  //   Feature.mutableGlobals,
-  //   // ignore: undefined_getter, set_element_type_not_assignable
-  //   Feature.threads
+  //   WasmFeature.bulkMemory,
+  //   WasmFeature.mutableGlobals,
+  //   WasmFeature.threads
   // };
 
   for (var asset in getAssets(features: features).entries) {
