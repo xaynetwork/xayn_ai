@@ -179,5 +179,6 @@ script = ["""
 script = ["""
   find "${DART_WORKSPACE}" -type f -regex '.*\\.g\\.dart' -exec rm {} \\;
   rm -f "${DART_WORKSPACE}"/lib/src/common/reranker/assets.dart
+  rm -f "${DART_WORKSPACE}"/lib/src/web/reranker/assets.dart
   rm -f out/assets_metadata.json
 """]

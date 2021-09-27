@@ -462,7 +462,8 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           path: |
-            ${{ steps.asset-paths.outputs.dart-metadata }}
+            ${{ steps.asset-paths.outputs.dart-base-assets }}
+            ${{ steps.asset-paths.outputs.dart-web-assets }}
             ${{ steps.asset-paths.outputs.json-metadata }}
             ${{ steps.asset-paths.outputs.chunks-dir }}
 

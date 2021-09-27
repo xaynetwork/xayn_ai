@@ -1,8 +1,9 @@
 import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
-    as common
-    show Asset, AssetType, wasmParallel, wasmSequential, baseAssets, SetupData;
+    as common show Asset, AssetType, baseAssets, Checksum, SetupData;
+
+part 'assets.dart';
 
 /// The optional features to be enabled by picking platform dependent assets.
 enum Feature { bulkMemory, mutableGlobals, threads }
@@ -12,9 +13,9 @@ const _parallel = {Feature.bulkMemory, Feature.mutableGlobals, Feature.threads};
 /// Returns the most suitable wasm assets for the given features.
 Map<common.AssetType, common.Asset> getWasmAssets(Set<Feature> features) {
   if (features.containsAll(_parallel)) {
-    return common.wasmParallel;
+    return wasmParallel;
   } else {
-    return common.wasmSequential;
+    return wasmSequential;
   }
 }
 
