@@ -20,8 +20,7 @@ Map<common.AssetType, common.Asset> getWasmAssets(Set<Feature> features) {
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
 Map<common.AssetType, common.Asset> getAssets(
-    {Set<Feature> features = const {}}) {
-  return {...common.baseAssets, ...getWasmAssets(features)};
+    {Set<Feature> features = const {}}) => {...common.baseAssets, ...getWasmAssets(features)};
 }
 
 /// Data that is required to initialize [`XaynAi`].
