@@ -7,7 +7,7 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 /// The optional features to be enabled by picking platform dependent assets.
 enum Feature { bulkMemory, mutableGlobals, threads }
 
-final parallel = {Feature.bulkMemory, Feature.mutableGlobals, Feature.threads};
+const _parallel = {Feature.bulkMemory, Feature.mutableGlobals, Feature.threads};
 
 /// Returns the most suitable wasm assets for the given features.
 Map<common.AssetType, common.Asset> getWasmAssets(Set<Feature> features) {
