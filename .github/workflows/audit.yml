@@ -28,7 +28,7 @@ jobs:
           exit $OUTCOME
 
       - name: Notify on Slack
-        uses: 8398a7/action-slack@047b09b154480ed39076984b64f324fff010d703 # v3.9.2
+        uses: 8398a7/action-slack@c84a35cfa82a01f3733a3cbf5d5260123e55c2f9 # v3.9.2
         if: steps.cargo-audit.outcome != 'success'
         with:
           status: custom
