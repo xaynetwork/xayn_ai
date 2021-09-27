@@ -3,9 +3,8 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
 Map<common.AssetType, common.Asset> getAssets(
-    {Set<common.Feature> features = const {}}) {
-  return common.baseAssets;
-}
+        {Set<common.Feature> features = const {}}) =>
+    common.baseAssets;
 
 /// Data that is required to initialize [`XaynAi`].
 class SetupData implements common.SetupData {
