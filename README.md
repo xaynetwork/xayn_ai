@@ -173,7 +173,7 @@ If that happens run `cargo make clean-non-rust`.
 -   path: '../'
 +   git:
 +       url: git@github.com:xaynetwork/xayn_ai_release.git
-+       ref: staging
++       ref: <branch>
 ```
 
 **bindings/dart/example/lib/data_provider/web.dart**
@@ -181,14 +181,13 @@ If that happens run `cargo make clean-non-rust`.
 ```diff
 - const _baseAssetUrl = 'assets';
 + const _baseAssetUrl =
-+   'https://xayn_ai_staging_assets.s3-de-central.profitbricks.com';
++   'https://ai-assets.xaynet.dev'
 ```
 
 Then use `cargo make build-web` and `cargo make serve-web` like above.
 
-This only works if the the release repos branch and this branch are in sync
-(or at least still have the same interface).
-E.g `staging` of `xayn_ai_release.git` for `staging` on `xayn_ai.git`.
+If flutter analyze fails there is a good chance that the local version
+and the used branch in the release repo are not compatible.
 
 ## License
 

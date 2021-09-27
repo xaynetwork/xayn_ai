@@ -95,16 +95,12 @@ script = ["""
 
 [tasks.serve-web]
 script = ["""
-  # We don't call build web as we want to be able to not re-build rust/wasm
-  # every time we change dart code, for the same reason we don't run
-  # `flutter pub get`.
-  echo WARNING: 'THIS DOES NOT CALL "build-web" or "flutter pub get"' >&2
   ${DART_EXAMPLE_WORKSPACE}/flutter_run_web.sh
 """]
 
 [tasks.build-web]
 # This will run build-local "unnecessarily". This will be fixed in a later PR.
-env = { WASM_VERSION = "wasm_bindings", WASM_OUT_DIR_PATH = "bindings/dart/example/assets", DISABLE_WASM_THREADS = { value = "0", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
+env = { WASM_VERSION = "wasm_bindings", WASM_OUT_DIR_PATH = "bindings/dart/example/assets", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
 run_task = { name = ["build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
