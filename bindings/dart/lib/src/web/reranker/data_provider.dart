@@ -2,21 +2,14 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
     as common
-    show
-        Asset,
-        AssetType,
-        baseAssets,
-        Checksum,
-        SetupData,
-        WebFeature,
-        WasmFeature;
+    show Asset, AssetType, baseAssets, Checksum, SetupData, WebFeature;
 
 part 'assets.dart';
 
 final _parallel = {
-  common.WasmFeature.bulkMemory,
-  common.WasmFeature.mutableGlobals,
-  common.WasmFeature.threads
+  common.WebFeature.bulkMemory,
+  common.WebFeature.mutableGlobals,
+  common.WebFeature.threads
 };
 
 /// Returns the most suitable wasm assets for the given features.

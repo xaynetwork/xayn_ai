@@ -16,9 +16,9 @@ Future<SetupData> getInputData() async {
 
   // uncomment the following section to load the parallel version
   // final features = <WebFeature>{
-  //   WasmFeature.bulkMemory,
-  //   WasmFeature.mutableGlobals,
-  //   WasmFeature.threads
+  //   WebFeature.bulkMemory,
+  //   WebFeature.mutableGlobals,
+  //   WebFeature.threads
   // };
 
   for (var asset in getAssets(features: features).entries) {

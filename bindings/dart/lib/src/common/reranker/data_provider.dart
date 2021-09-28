@@ -59,7 +59,7 @@ class Checksum {
 /// The optional features to be enabled by picking platform dependent assets.
 class Feature {
   // The constructor is private and is only callable within this file.
-  // We use the constructor only for creating the unique `WebFeature`/`WasmFeature`s.
+  // We use the constructor only for creating the unique `WebFeature`s.
   Feature._();
 }
 
@@ -70,15 +70,13 @@ class MobileFeature extends Feature {
   }
 }
 
-class WebFeature extends Feature {
-  WebFeature._() : super._();
-}
-
-// When we compare `WasmFeature`s with each other, we rely on their object identity.
+// When we compare `WebFeature`s with each other, we rely on their object identity.
 // To avoid unexpected results when comparing them, we have to make sure that a
 // `WebFeature` cannot be created by a user but that the user only uses
-// `WasmFeature`.
-class WasmFeature {
+// predefined `WebFeature`s.
+class WebFeature extends Feature {
+  WebFeature._() : super._();
+
   static final bulkMemory = WebFeature._();
   static final mutableGlobals = WebFeature._();
   static final threads = WebFeature._();
