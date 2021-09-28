@@ -9,7 +9,7 @@ import 'package:xayn_ai_ffi_dart/package.dart'
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     show joinPaths;
 
-const _baseAssetUrl = 'assets/assets';
+const _baseAssetUrl = './assets/assets';
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 Future<SetupData> getInputData() async {
@@ -25,11 +25,13 @@ Future<SetupData> getInputData() async {
 
   for (var asset in getAssets(features: features).entries) {
     final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
+    // We also load the wasm script here in order to check its integrity/checksum.
+    // The browser keeps it in cache so `injectWasmScript` does not download it again.
+    final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
 
     if (asset.key == AssetType.wasmScript) {
       await injectWasmScript(path);
     } else {
-      final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
       fetched.putIfAbsent(asset.key, () => data);
     }
   }
