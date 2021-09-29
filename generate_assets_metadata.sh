@@ -49,8 +49,11 @@ split_asset_into_chunks(){
 }
 
 generate_dart_assets_manifest() {
-    gomplate -d assets_manifest=$ASSETS_METADATA_PATH -f data/asset_templates/assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
+    gomplate -d assets_manifest=$ASSETS_METADATA_PATH -f data/asset_templates/base_assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
     flutter format bindings/dart/lib/src/common/reranker/assets.dart
+
+    gomplate -d assets_manifest=$ASSETS_METADATA_PATH -f data/asset_templates/web_assets.dart.tmpl -o bindings/dart/lib/src/web/reranker/assets.dart
+    flutter format bindings/dart/lib/src/web/reranker/assets.dart
 }
 
 calc_checksum() {
@@ -69,7 +72,7 @@ gen_data_assets_metadata() {
         local ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
         local ASSET_PATH="$DATA_DIR/$ASSET_URL_SUFFIX"
         local ASSET_CHECKSUM=$(calc_checksum $ASSET_PATH)
-        local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM --arg path $ASSET_PATH '. |= .+ {"checksum": $checksum, "path": $path}')
+        local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
 
         local UPDATED_ASSET=$ASSET_WITH_CHECKSUM
         local ASSET_CHUNK_SIZE=$(echo $ASSET | jq -r '.chunk_size')
@@ -83,17 +86,19 @@ gen_data_assets_metadata() {
             for CHUNK_PATH in $(find ${CHUNKS_DIR}/${ASSET_VERSION} -name "${ASSET_FILENAME}_*" | sort -n); do
                 local FRAGMENT_CHECKSUM=$(calc_checksum $CHUNK_PATH)
                 local FRAGMENT_FILENAME=$(basename $CHUNK_PATH)
-                local FRAGMENT="{\"path\": \"$CHUNK_PATH\", \"url_suffix\": \"${ASSET_VERSION}/${FRAGMENT_FILENAME}\", \"checksum\": \"$FRAGMENT_CHECKSUM\"}"
+                local FRAGMENT="{\"url_suffix\": \"${ASSET_VERSION}/${FRAGMENT_FILENAME}\", \"checksum\": \"$FRAGMENT_CHECKSUM\"}"
                 if [ -z "${FRAGMENTS}" ]; then
                     FRAGMENTS="$FRAGMENT"
                 else
                     FRAGMENTS+=", $FRAGMENT"
                 fi
+                add_to_upload_list "$CHUNK_PATH" "$FRAGMENT"
             done
 
             local UPDATED_ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --argjson fragments "[$FRAGMENTS]" '. |= .+ {"fragments": $fragments}' | jq -c 'del(.chunk_size)')
         else
             local UPDATED_ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c '. |= .+ {"fragments": []}')
+            add_to_upload_list "$ASSET_PATH" "$UPDATED_ASSET"
         fi
 
         jq --argjson asset $UPDATED_ASSET '.assets |= .+ [$asset]' $ASSETS_METADATA_PATH > $TMP_FILE
@@ -102,45 +107,87 @@ gen_data_assets_metadata() {
 }
 
 gen_wasm_asset_metadata() {
-    local DART_ENUM_NAME=$1
-    local WASM_VERSION=$2
-    local ASSET_FILENAME=$3
-    local ASSET_PATH=$4
+    local WASM_VERSION=$1
+    local ASSET_PATH=$2
 
-    local TMP_FILE=$(mktemp)
-
-    local ASSET="{\"dart_enum_name\": \"$DART_ENUM_NAME\", \"fragments\": []}"
+    local ASSET="{}"
 
     if [ -f "$ASSET_PATH" ]; then
         local ASSET_CHECKSUM=$(calc_checksum $ASSET_PATH)
         local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
+        local ASSET_FILENAME=$(basename $ASSET_PATH)
         local ASSET_URL_SUFFIX=${WASM_VERSION}/${ASSET_FILENAME}
-        ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg path $ASSET_PATH --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"path": $path, "url_suffix": $url_suffix}')
+        ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"url_suffix": $url_suffix}')
     else
         ASSET=$(echo $ASSET | jq -c '. |= .+ {"url_suffix": "", "checksum": ""}')
     fi
 
-    jq --argjson wasm_asset $ASSET '.assets |= .+ [$wasm_asset]' $ASSETS_METADATA_PATH > $TMP_FILE
-    mv $TMP_FILE $ASSETS_METADATA_PATH
+    echo $ASSET
 }
 
+# Generates and adds the following object to the `wasm_assets` array.
+# Furthermore, any asset (script, module or snippets) will be added to
+# the `upload` list if it exists.
+#
+# {
+#   "feature": "<feature>",
+#   "script": {
+#     "checksum": "<checksum>",
+#     "url_suffix": "<version>/<filename>"
+#   },
+#   "module": {
+#     "checksum": "<checksum>",
+#     "url_suffix": "<version>/<filename>"
+#   }
+# },
 gen_wasm_assets_metadata() {
     local WASM_FEATURE=$1
     local WASM_VERSION=$2
     local WASM_OUT_DIR_PATH=$3
 
-    local WASM_JS_NAME="genesis.js"
-    local WASM_MODULE_NAME="genesis_bg.wasm"
-    local WASM_SNIPPET_NAME="snippets/wasm-bindgen-rayon-7afa899f36665473/src/workerHelpers.no-bundler.js"
+    local ASSET_JS_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/genesis.js
+    local ASSET_WASM_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/genesis_bg.wasm
 
-    local ASSET_JS_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_JS_NAME}
-    local ASSET_WASM_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_MODULE_NAME}
-    local ASSET_SNIPPET_PATH=${WASM_OUT_DIR_PATH}/${WASM_VERSION}/${WASM_SNIPPET_NAME}
+    local WASM_PACKAGE="{\"feature\": \"$WASM_FEATURE\"}"
+    local ASSET_JS=$(gen_wasm_asset_metadata $WASM_VERSION $ASSET_JS_PATH)
+    WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_script $ASSET_JS '. |= .+ {"script": $wasm_script}')
+    local ASSET_WASM=$(gen_wasm_asset_metadata $WASM_VERSION $ASSET_WASM_PATH)
+    WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_module $ASSET_WASM '. |= .+ {"module": $wasm_module}')
 
-    gen_wasm_asset_metadata wasm${WASM_FEATURE}Script $WASM_VERSION $WASM_JS_NAME $ASSET_JS_PATH
-    gen_wasm_asset_metadata wasm${WASM_FEATURE}Module $WASM_VERSION $WASM_MODULE_NAME $ASSET_WASM_PATH
-    if [ "${WASM_FEATURE}" = "Parallel" ]; then
-        gen_wasm_asset_metadata wasm${WASM_FEATURE}Snippet $WASM_VERSION $WASM_SNIPPET_NAME $ASSET_SNIPPET_PATH
+    local TMP_FILE=$(mktemp)
+    jq --argjson wasm_asset $WASM_PACKAGE '.wasm_assets |= .+ [$wasm_asset]' $ASSETS_METADATA_PATH > $TMP_FILE
+    mv $TMP_FILE $ASSETS_METADATA_PATH
+
+    add_to_upload_list "$ASSET_JS_PATH" "$ASSET_JS"
+    add_to_upload_list "$ASSET_WASM_PATH" "$ASSET_WASM"
+
+    # The S3 URI must end with '/' in order to upload a directory.
+    # We don't have to add the `snippets` folder name to the snippets url suffix
+    # because s3cmd will already take the name from the snippets path.
+    local SNIPPETS_URL_SUFFIX=$WASM_VERSION/
+    local SNIPPETS_PATH=$WASM_OUT_DIR_PATH/$WASM_VERSION/snippets
+
+    add_to_upload_list "$SNIPPETS_PATH" "{\"url_suffix\": \"$SNIPPETS_URL_SUFFIX\"}"
+}
+
+# If the given asset exists (file or directory), the function will generate the
+# following object for the asset and add it to the `upload` list.
+#
+# {
+#   "url_suffix": "<version>/<filename/dirname>",
+#   "path": "<path>"
+# },
+add_to_upload_list() {
+    local ASSET_PATH=$1
+    local ASSET_META=$2
+
+    if [ -f "$ASSET_PATH" ] || [ -d "$ASSET_PATH" ]; then
+        local TMP_FILE=$(mktemp)
+        local ASSET_URL_SUFFIX=$(echo $ASSET_META | jq -c '. | {"url_suffix": .url_suffix}')
+
+        local ASSET_URL_SUFFIX_PATH=$(echo $ASSET_URL_SUFFIX | jq -c --arg path $ASSET_PATH '. |= .+ {"path": $path}')
+        jq --argjson upload $ASSET_URL_SUFFIX_PATH '.upload |= .+ [$upload]' $ASSETS_METADATA_PATH > $TMP_FILE
+        mv $TMP_FILE $ASSETS_METADATA_PATH
     fi
 }
 
@@ -155,7 +202,7 @@ gen_assets_metadata() {
     echo "{\"assets\": []}" > $ASSETS_METADATA_PATH
 
     gen_data_assets_metadata $ASSET_MANIFEST
-    gen_wasm_assets_metadata "" $WASM_SEQUENTIAL_VERSION $WASM_OUT_DIR_PATH
+    gen_wasm_assets_metadata "Sequential" $WASM_SEQUENTIAL_VERSION $WASM_OUT_DIR_PATH
     gen_wasm_assets_metadata "Parallel" $WASM_PARALLEL_VERSION $WASM_OUT_DIR_PATH
 }
 

@@ -4,13 +4,7 @@ import 'package:flutter/material.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle;
 import 'package:stats/stats.dart' show Stats;
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show
-        Document,
-        Feature,
-        RerankDebugCallData,
-        RerankingOutcomes,
-        SetupData,
-        XaynAi;
+    show Document, RerankDebugCallData, RerankingOutcomes, SetupData, XaynAi;
 
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     if (dart.library.io) 'data_provider/mobile.dart'
@@ -52,11 +46,7 @@ class Logic {
   ///
   /// This normally should be called with the `rootBundle`,
   /// as it expects an `AssetManifest.json` asset.
-  ///
-  /// Optionally accepts a set of the following features:
-  /// - `webParallel`: enables multi-threading for the web targets
-  static Future<Logic> load(AssetBundle bundle,
-      {Set<Feature> features = const {}}) async {
+  static Future<Logic> load(AssetBundle bundle) async {
     final manifest = jsonDecode(await bundle.loadString('AssetManifest.json'))
         as Map<String, dynamic>;
 
@@ -75,7 +65,7 @@ class Logic {
       currentCallDataKey = availableCallData.keys.first;
     }
 
-    final setupData = await getInputData(features: features);
+    final setupData = await getInputData();
 
     final currentAi = await XaynAi.create(
         setupData, availableCallData[currentCallDataKey]?.serializedState);
