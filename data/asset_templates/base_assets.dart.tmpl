@@ -20,4 +20,6 @@ enum AssetType {
   {{- range (ds "assets_manifest").assets }}
   {{.dart_enum_name}},
   {{- end}}
+  wasmModule,
+  wasmScript,
 }

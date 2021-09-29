@@ -14,9 +14,12 @@ inputs:
     description: 'The version of the `parallel` WASM artifacts.'
     required: false
 outputs:
-  dart-metadata:
-    description: "The relative path (wrt the repository root) of the Dart manifest."
-    value: ${{ steps.artifact-paths.outputs.dart-metadata }}
+  dart-base-assets:
+    description: "The relative path (wrt the repository root) of the Dart base assets manifest."
+    value: ${{ steps.artifact-paths.outputs.dart-base-assets }}
+  dart-web-assets:
+    description: "The relative path (wrt the repository root) of the Dart web assets manifest."
+    value: ${{ steps.artifact-paths.outputs.dart-web-assets }}
   json-metadata:
     description: "The relative path (wrt the repository root) of the JSON manifest."
     value: ${{ steps.artifact-paths.outputs.json-metadata }}
@@ -29,7 +32,8 @@ runs:
     - id: artifact-paths
       shell: bash
       run: |
-        echo "::set-output name=dart-metadata::$(echo ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart)"
+        echo "::set-output name=dart-base-assets::$(echo ${{ inputs.dart-ws }}/lib/src/common/reranker/assets.dart)"
+        echo "::set-output name=dart-web-assets::$(echo ${{ inputs.dart-ws }}/lib/src/web/reranker/assets.dart)"
         echo "::set-output name=json-metadata::out/assets_metadata.json"
         echo "::set-output name=chunks-dir::data/chunks"
 
@@ -42,8 +46,11 @@ runs:
 
         bash generate_assets_metadata.sh assets_manifest.json ${{ inputs.wasm-out-dir-path }} ${{ inputs.wasm-sequential-version }} ${{ inputs.wasm-parallel-version }}
 
-        echo "::group::Dart metadata"
-        cat ${{ steps.artifact-paths.outputs.dart-metadata }}
+        echo "::group::Dart base assets manifest"
+        cat ${{ steps.artifact-paths.outputs.dart-base-assets }}
+        echo "::endgroup::"
+        echo "::group::Dart web assets manifest"
+        cat ${{ steps.artifact-paths.outputs.dart-web-assets }}
         echo "::endgroup::"
         echo "::group::JSON metadata"
         cat ${{ steps.artifact-paths.outputs.json-metadata }}
