@@ -57,9 +57,29 @@ class Checksum {
 }
 
 /// The optional features to be enabled by picking platform dependent assets.
-enum Feature {
-  /// Web multi-threading features.
-  webParallel,
+class Feature {
+  // The constructor is private and is only callable within this file.
+  // We use the constructor only for creating the unique `WebFeature`s.
+  Feature._();
+}
+
+class MobileFeature extends Feature {
+  MobileFeature._() : super._() {
+    // make sure no instance of this class can exists
+    throw UnimplementedError('This class cannot be instantiated');
+  }
+}
+
+// When we compare `WebFeature`s with each other, we rely on their object identity.
+// To avoid unexpected results when comparing them, we have to make sure that a
+// `WebFeature` cannot be created by a user but that the user only uses
+// predefined `WebFeature`s.
+class WebFeature extends Feature {
+  WebFeature._() : super._();
+
+  static final bulkMemory = WebFeature._();
+  static final mutableGlobals = WebFeature._();
+  static final threads = WebFeature._();
 }
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
@@ -69,8 +89,7 @@ Map<AssetType, Asset> getAssets({Set<Feature> features = const {}}) {
 
 /// Data that is required to initialize [`XaynAi`].
 class SetupData {
-  SetupData(Map<AssetType, dynamic> assets,
-      {Set<Feature> features = const {}}) {
+  SetupData(Map<AssetType, dynamic> assets) {
     throw UnsupportedError('Unsupported platform.');
   }
 }
