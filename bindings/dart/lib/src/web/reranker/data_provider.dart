@@ -12,16 +12,6 @@ final _parallel = {
   common.WebFeature.threads
 };
 
-/// Returns the most suitable wasm assets for the given features.
-Map<common.AssetType, common.Asset> getWasmAssets(
-    Set<common.WebFeature> features) {
-  if (features.containsAll(_parallel)) {
-    return wasmParallel;
-  } else {
-    return wasmSequential;
-  }
-}
-
 /// Returns a map of all assets required for initializing [`XaynAi`].
 Map<common.AssetType, common.Asset> getAssets(
         {Set<common.WebFeature> features = const {}}) =>
