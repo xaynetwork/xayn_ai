@@ -740,6 +740,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "kpe"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "displaydoc",
+ "ndarray",
+ "rubert-tokenizer",
+ "test-utils",
+ "thiserror",
+]
+
+[[package]]
 name = "kstring"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "dev-tool",
+    "kpe",
     "rubert",
     "rubert-tokenizer",
     "test-utils",
