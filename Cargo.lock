@@ -743,6 +743,7 @@ dependencies = [
 name = "kpe"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "derive_more",
  "displaydoc",
  "ndarray",
