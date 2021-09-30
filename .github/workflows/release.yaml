@@ -307,7 +307,7 @@ jobs:
         wasm_feature: [sequential, parallel]
         include:
           - wasm_feature: parallel
-            cargo_args: -- -Z build-std=panic_abort,std
+            cargo_args: -Z build-std=panic_abort,std
             RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
             RUSTC_BOOTSTRAP: 1
     env:
@@ -357,9 +357,7 @@ jobs:
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
           RUSTC_BOOTSTRAP: ${{ matrix.RUSTC_BOOTSTRAP }}
-        run: |
-          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.OUT_DIR }}/wasm --out-name genesis --target web --release ${{ matrix.cargo_args }}
-          rm ${{ env.OUT_DIR }}/wasm/.gitignore ${{ env.OUT_DIR }}/wasm/package.json
+        run: ./build_wasm.sh out/wasm ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
 
       - name: Generate WASM library version key
         id: wasm-lib
@@ -419,8 +417,6 @@ jobs:
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
           wasm-out-dir-path: ${{ needs.build-release-wasm-libs.outputs.out-dir }}
-          wasm-sequential-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
-          wasm-parallel-version: ${{ needs.build-release-wasm-libs.outputs.parallel-version }}
 
       - name: Generate asset artifacts name
         id: asset-artifacts

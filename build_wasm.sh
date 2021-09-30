@@ -7,7 +7,7 @@ build_wasm() {
     local WASM_FEATURE=$2
     local CARGO_ARGS=${@:3}
 
-    local PACKAGE=$WASM_OUT_DIR/package.json
+    local PACKAGE="$WASM_OUT_DIR/package.json"
 
     wasm-pack build xayn-ai-ffi-wasm \
         --no-typescript \
@@ -20,7 +20,7 @@ build_wasm() {
     rm $WASM_OUT_DIR/.gitignore
 
     local TMP_FILE=$(mktemp)
-    jq --arg feature $WASM_FEATURE '. += {"feature": $feature}' "$PACKAGE" > $TMP_FILE
+    jq --arg feature $WASM_FEATURE '. += {"feature": $feature}' $PACKAGE > $TMP_FILE
     mv $TMP_FILE $PACKAGE
 }
 

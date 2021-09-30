@@ -2,10 +2,18 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
     as common
-    show Asset, AssetType, baseAssets, Checksum, SetupData, WebFeature;
+    show
+        Asset,
+        AssetType,
+        baseAssets,
+        // ignore: unused_shown_name
+        Checksum,
+        SetupData,
+        WebFeature;
 
 part 'assets.dart';
 
+// ignore: unused_element
 final _parallel = {
   common.WebFeature.bulkMemory,
   common.WebFeature.mutableGlobals,
