@@ -1,0 +1,151 @@
+use std::{
+    io::{Error as IoError, Read},
+    sync::Arc,
+};
+
+use derive_more::{Deref, From};
+use displaydoc::Display;
+use thiserror::Error;
+use tract_onnx::prelude::{
+    tvec,
+    Datum,
+    Framework,
+    InferenceFact,
+    InferenceModelExt,
+    Tensor,
+    TractError,
+    TypedModel,
+    TypedSimplePlan,
+};
+
+use crate::tokenizer::encoding::{AttentionMask, TokenIds, TypeIds};
+
+/// A Bert onnx model.
+#[derive(Debug)]
+pub struct BertModel {
+    plan: TypedSimplePlan<TypedModel>,
+    pub embedding_size: usize,
+}
+
+/// The potential errors of the Bert model.
+#[derive(Debug, Display, Error)]
+pub enum BertModelError {
+    /// Failed to read the onnx model: {0}
+    Read(#[from] IoError),
+    /// Failed to run a tract operation: {0}
+    Tract(#[from] TractError),
+    /// Invalid onnx model shapes
+    Shape,
+}
+
+/// The inferred embeddings.
+#[derive(Clone, Deref, From)]
+pub struct Embeddings(pub Arc<Tensor>);
+
+impl BertModel {
+    /// Creates a model from an onnx model file.
+    ///
+    /// Requires the maximum number of tokens per tokenized sequence.
+    ///
+    /// # Panics
+    /// Panics if the model is empty (due to the way tract implemented the onnx model parsing).
+    pub fn new(mut model: impl Read, token_size: usize) -> Result<Self, BertModelError> {
+        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
+        let plan = tract_onnx::onnx()
+            .model_for_read(&mut model)?
+            .with_input_fact(0, input_fact.clone())? // token ids
+            .with_input_fact(1, input_fact.clone())? // attention mask
+            .with_input_fact(2, input_fact)? // type ids
+            .into_optimized()?
+            .into_runnable()?;
+
+        let embedding_size = plan
+            .model()
+            .output_fact(0)?
+            .shape
+            .as_concrete()
+            .map(|shape| {
+                debug_assert_eq!([1, token_size], shape[0..2]);
+                shape.get(2).copied()
+            })
+            .flatten()
+            .ok_or(BertModelError::Shape)?;
+        debug_assert!(embedding_size > 0);
+
+        Ok(BertModel {
+            plan,
+            embedding_size,
+        })
+    }
+
+    /// Runs the model on the encoded sequence to compute the embeddings.
+    pub fn run(
+        &self,
+        token_ids: TokenIds,
+        attention_mask: AttentionMask,
+        type_ids: TypeIds,
+    ) -> Result<Embeddings, BertModelError> {
+        let inputs = tvec!(
+            token_ids.0.into(),
+            attention_mask.0.into(),
+            type_ids.0.into(),
+        );
+        let outputs = self.plan.run(inputs)?;
+        debug_assert!(outputs[0]
+            .to_array_view::<f32>()?
+            .iter()
+            .all(|v| !v.is_infinite() && !v.is_nan()));
+
+        Ok(outputs[0].clone().into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::BufReader};
+
+    use ndarray::Array2;
+
+    use super::*;
+    use test_utils::smbert::model;
+
+    #[test]
+    fn test_model_empty() {
+        assert!(matches!(
+            BertModel::new(Vec::new().as_slice(), 10).unwrap_err(),
+            BertModelError::Tract(_),
+        ));
+    }
+
+    #[test]
+    fn test_model_invalid() {
+        assert!(matches!(
+            BertModel::new([0].as_ref(), 10).unwrap_err(),
+            BertModelError::Tract(_),
+        ));
+    }
+
+    #[test]
+    #[ignore = "missing bert model asset"]
+    fn test_token_size_invalid() {
+        let model = BufReader::new(File::open(model().unwrap()).unwrap());
+        assert!(matches!(
+            BertModel::new(model, 0).unwrap_err(),
+            BertModelError::Tract(_),
+        ));
+    }
+
+    #[test]
+    #[ignore = "missing bert model asset"]
+    fn test_run() {
+        let token_size = 64;
+        let model = BufReader::new(File::open(model().unwrap()).unwrap());
+        let model = BertModel::new(model, token_size).unwrap();
+
+        let token_ids = Array2::from_elem((1, token_size), 0).into();
+        let attention_mask = Array2::from_elem((1, token_size), 1).into();
+        let type_ids = Array2::from_elem((1, token_size), 0).into();
+        let embeddings = model.run(token_ids, attention_mask, type_ids).unwrap();
+        assert_eq!(embeddings.shape(), [1, token_size, model.embedding_size]);
+    }
+}
