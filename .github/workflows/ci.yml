@@ -32,6 +32,9 @@ env:
   FLUTTER_VERSION: '2.5.0'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   CARGO_INCREMENTAL: 0
+  # TODO: remove once xcode 13.x is the default version
+  # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-11-Readme.md#xcode
+  DEVELOPER_DIR: /Applications/Xcode_13.0.app
 
 jobs:
   cargo-registry-cache:
@@ -276,9 +279,9 @@ jobs:
 
   install-cargo-lipo:
     # we use the latest stable rustc + cargo version that is already installed on the image
-    # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-10.15-Readme.md#rust-tools
+    # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-11-Readme.md#rust-tools
     name: install-cargo-lipo
-    runs-on: macos-10.15
+    runs-on: macos-11
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
     timeout-minutes: 15
@@ -355,7 +358,7 @@ jobs:
   build-ios-libs:
     name: build-ios-libs
     needs: [cargo-registry-cache, install-cargo-lipo, cargo-test]
-    runs-on: macos-10.15
+    runs-on: macos-11
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -604,7 +607,7 @@ jobs:
             os: ubuntu-20.04
             cmd: flutter build apk --debug --split-per-abi
           - target: ios
-            os: macos-10.15
+            os: macos-11
             cmd: flutter build ios --debug --no-codesign
           - target: web
             os: ubuntu-20.04
