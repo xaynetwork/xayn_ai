@@ -526,7 +526,7 @@ jobs:
           for ASSET in $(cat ${{ needs.build-asset-artifacts.outputs.json-metadata }} | jq -c '.upload[]'); do
             ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
             ASSET_PATH=$(echo $ASSET | jq -r '.path')
-            s3cmd sync -v --acl-public --guess-mime-type --no-mime-magic $ASSET_PATH ${BUCKET_URL}/$ASSET_URL_SUFFIX
+            s3cmd sync -v --acl-public --guess-mime-type --no-mime-magic --skip-existing $ASSET_PATH ${BUCKET_URL}/$ASSET_URL_SUFFIX
           done
 
   release:
