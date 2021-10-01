@@ -22,7 +22,6 @@ env:
   RUST_NIGHTLY: nightly-2021-05-10
   CARGO_NDK: 2.4.1
   ANDROID_PLATFORM_VERSION: 21
-  CARGO_LIPO: 3.1.1
   # cmd: `shasum -a 256 cross`
   CROSS_CHECKSUM: 18a3599273773a7d1e333b413751f0adc1a83ec8045d060fee4f0639bd6baaf0
   # On targets like `*-linux-android*` and `wasm32-unknown-unknown`, reading the model
@@ -277,31 +276,6 @@ jobs:
           version: '0.16.0'
           args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70 --workspace --exclude xayn-ai-ffi-wasm --exclude dev-tool --timeout 300'
 
-  install-cargo-lipo:
-    # we use the latest stable rustc + cargo version that is already installed on the image
-    # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-11-Readme.md#rust-tools
-    name: install-cargo-lipo
-    runs-on: macos-11
-    outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
-    timeout-minutes: 15
-    steps:
-      - name: Generate cargo-lipo cache key
-        id: cache-key
-        shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ env.CARGO_LIPO }})"
-
-      - name: Restore ${{ steps.cache-key.outputs.key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
-        id: cargo-lipo-cache
-        with:
-          path: ~/.cargo/bin/cargo-lipo
-          key: ${{ steps.cache-key.outputs.key }}
-
-      - name: Install cargo-lipo ${{ env.CARGO_LIPO }}
-        if: ${{ !steps.cargo-lipo-cache.outputs.cache-hit }}
-        run: cargo install cargo-lipo --version ${{ env.CARGO_LIPO }}
-
   test-android-libs:
     name: test-android-libs
     needs: [cargo-registry-cache, cargo-test]
@@ -357,7 +331,7 @@ jobs:
 
   build-ios-libs:
     name: build-ios-libs
-    needs: [cargo-registry-cache, install-cargo-lipo, cargo-test]
+    needs: [cargo-registry-cache, cargo-test]
     runs-on: macos-11
     timeout-minutes: 20
     strategy:
@@ -386,12 +360,6 @@ jobs:
             ~/.cargo/git/db
           key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
-      - name: Restore ${{ needs.install-cargo-lipo.outputs.cache-key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
-        with:
-          path: ~/.cargo/bin/cargo-lipo
-          key: ${{ needs.install-cargo-lipo.outputs.cache-key }}
-
       - name: Restore build artifacts
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
@@ -401,7 +369,7 @@ jobs:
 
       - name: Build iOS library ${{ matrix.target }}
         working-directory: ./xayn-ai-ffi-c
-        run: cargo lipo --targets ${{ matrix.target }} -p xayn-ai-ffi-c
+        run: cargo build --target ${{ matrix.target }} -p xayn-ai-ffi-c
 
       - name: Prepare lib for upload
         run: |
