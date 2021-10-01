@@ -16,14 +16,14 @@ OUT_DIR="out"
 ASSETS_METADATA_PATH=$OUT_DIR/assets_metadata.json
 
 if [[ "$OSTYPE" == "darwin"*  || $RUNNER_OS == "macOS" ]]; then
-        if [ -x "$(command -v gsplit)" ]; then
-            SPLIT="gsplit"
-        else
-            echo "Requires the GNU version of 'split'. Use 'brew install coreutils' to install it."
-            exit 1
-        fi
+    if [ -x "$(command -v gsplit)" ]; then
+        SPLIT="gsplit"
+    else
+        echo "Requires the GNU version of 'split'. Use 'brew install coreutils' to install it."
+        exit 1
+    fi
 else
-        SPLIT="split"
+    SPLIT="split"
 fi
 
 if ! [ -x "$(command -v gomplate)" ]; then
@@ -127,7 +127,7 @@ gen_wasm_asset_metadata() {
 
 # Generates and adds the following object to the `wasm_assets` object.
 # Furthermore, any asset (script, module or snippets) will be added to
-# the `upload` list if it exists.
+# the `upload` list.
 #
 # "<feature>": {
 #   "script": {
@@ -171,13 +171,15 @@ gen_wasm_assets_metadata() {
     fi
 }
 
-# If the given asset exists (file or directory), the function will generate the
-# following object for the asset and add it to the `upload` list.
+# Generates for the given asset the following object and adds it to the `upload` list.
 #
 # {
 #   "url_suffix": "<version>/<filename/dirname>",
 #   "path": "<path>"
 # },
+#
+# The asset can be a file or directory. If the asset does not exist, the script will
+# exit with an error.
 add_to_upload_list() {
     local ASSET_PATH=$1
     local ASSET_META=$2

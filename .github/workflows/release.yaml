@@ -314,8 +314,6 @@ jobs:
       OUT_DIR: ${{ github.workspace }}/out
     outputs:
       out-dir: ${{ env.OUT_DIR }}
-      sequential-version: ${{ steps.wasm-lib.outputs.sequential-version }}
-      parallel-version: ${{ steps.wasm-lib.outputs.parallel-version }}
 
     steps:
       - name: Checkout repository
@@ -357,7 +355,7 @@ jobs:
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
           RUSTC_BOOTSTRAP: ${{ matrix.RUSTC_BOOTSTRAP }}
-        run: ./build_wasm.sh out/wasm ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
+        run: ./build_wasm.sh ${{ env.OUT_DIR }} ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
 
       - name: Generate WASM library version key
         id: wasm-lib
@@ -365,7 +363,6 @@ jobs:
           # don't forget to update the path when changing `OUT_DIR`
           WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
           WASM_VERSION=wasm_${{ matrix.wasm_feature }}_$WASM_ARTIFACTS_VERSION
-          echo "::set-output name=${{ matrix.wasm_feature }}-version::$(echo $WASM_VERSION)"
           echo "::set-output name=upload-name::$(echo build-wasm-${{ matrix.wasm_feature }}-release-$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-path::$(echo ${{ env.OUT_DIR }}/$WASM_VERSION)"
       - run: mv ${{ env.OUT_DIR }}/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}

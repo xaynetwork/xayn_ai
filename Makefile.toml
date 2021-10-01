@@ -109,16 +109,14 @@ script = ["""
     echo "Download Url: https://github.com/WebAssembly/binaryen/releases/tag/version_101" >&2
     exit 1
   fi
-  echo "build parallel wasm"
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
-  ./build_wasm.sh $WASM_OUT_DIR_PATH/$WASM_VERSION parallel -Z build-std=panic_abort,std
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" parallel -Z build-std=panic_abort,std
 """]
 
 [tasks.build-wasm-sequential]
 condition = { env_true = ["DISABLE_WASM_THREADS"] }
 script = ["""
-  echo "build sequential wasm"
-  ./build_wasm.sh $WASM_OUT_DIR_PATH/$WASM_VERSION sequential
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" sequential
 """]
 
 [tasks.test-wasm]
