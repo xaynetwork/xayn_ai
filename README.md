@@ -85,12 +85,6 @@ rustup target add \
   x86_64-apple-ios
 ```
 
-Also `cargo-lipo` is needed:
-
-```
-cargo install --version 3.1.1 cargo-lipo
-```
-
 ### WASM
 
 #### Prerequisites
