@@ -355,7 +355,7 @@ jobs:
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
           RUSTC_BOOTSTRAP: ${{ matrix.RUSTC_BOOTSTRAP }}
-        run: ./build_wasm.sh ${{ env.OUT_DIR }} ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
+        run: ./build_wasm.sh ${{ env.OUT_DIR }}/wasm ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
 
       - name: Generate WASM library version key
         id: wasm-lib
