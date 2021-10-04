@@ -84,7 +84,7 @@ script = ["""
 
 [tasks.generate_assets_metadata]
 script = ["""
-  ./generate_assets_metadata.sh assets_manifest.json $WASM_OUT_DIR_PATH
+  ./generate_assets_metadata.sh assets_manifest.json "$WASM_OUT_DIR_PATH"
 """]
 
 [tasks.serve-web]

@@ -65,7 +65,7 @@ class Feature {
 
 class MobileFeature extends Feature {
   MobileFeature._() : super._() {
-    // make sure no instance of this class can exists
+    // make sure no instance of this class can exist
     throw UnimplementedError('This class cannot be instantiated');
   }
 }
