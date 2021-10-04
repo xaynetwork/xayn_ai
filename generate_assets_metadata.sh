@@ -154,7 +154,7 @@ gen_wasm_assets_metadata() {
     WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_module $ASSET_WASM '. |= .+ {"module": $wasm_module}')
 
     local TMP_FILE=$(mktemp)
-    jq --argjson wasm_asset $WASM_PACKAGE --arg feature $WASM_FEATURE '.wasm_assets |= .+ {($feature): $wasm_asset}' $ASSETS_METADATA_PATH > $TMP_FILE
+    jq --argjson wasm_asset $WASM_PACKAGE --arg feature "$WASM_FEATURE" '.wasm_assets |= .+ {($feature): $wasm_asset}' $ASSETS_METADATA_PATH > $TMP_FILE
     mv $TMP_FILE $ASSETS_METADATA_PATH
 
     add_to_upload_list "$ASSET_JS_PATH" "$ASSET_JS"
@@ -210,7 +210,7 @@ gen_assets_metadata() {
         for WASM_VERSION in $(find $WASM_OUT_DIR_PATH -type f -maxdepth 2 -name 'package.json' -exec sh -c "dirname {} | xargs basename" \;); do
             local PACKAGE=$WASM_OUT_DIR_PATH/$WASM_VERSION/package.json
             local WASM_FEATURE=$(cat $PACKAGE | jq -r '.feature')
-            gen_wasm_assets_metadata $WASM_OUT_DIR_PATH $WASM_VERSION $WASM_FEATURE
+            gen_wasm_assets_metadata $WASM_OUT_DIR_PATH $WASM_VERSION "$WASM_FEATURE"
         done
     fi
 }
