@@ -32,8 +32,8 @@ class Logic {
 
   /// Creates a call data instance with the histories and documents of the current
   /// call data and an updated serialized state.
-  RerankDebugCallData createUpdatedCallData() {
-    final serializedState = _currentAi.serialize();
+  Future<RerankDebugCallData> createUpdatedCallData() async {
+    final serializedState = await _currentAi.serialize();
     return RerankDebugCallData(
       rerankMode: _currentCallData.rerankMode,
       histories: _currentCallData.histories,
@@ -84,27 +84,26 @@ class Logic {
   }
 
   Future<void> resetXaynAiState() async {
-    _currentAi.free();
+    await _currentAi.free();
     _currentAi =
         await XaynAi.create(_setupData, _currentCallData.serializedState);
   }
 
-  List<Outcome> run() {
+  Future<List<Outcome>> run() async {
     print('Starting Single Reranking');
-    final results = _currentAi.rerank(_currentCallData.rerankMode,
+    final results = await _currentAi.rerank(_currentCallData.rerankMode,
         _currentCallData.histories, _currentCallData.documents);
-    _printFaults();
+    await _printFaults();
     print('Finished Single Reranking');
     return Outcome.fromXaynAiOutcomes(_currentCallData.documents, results);
   }
 
-  void _printFaults() {
-    _currentAi
-        .faults()
+  Future<void> _printFaults() async {
+    (await _currentAi.faults())
         .forEach((fault) => debugPrint('AI FAULT: $fault', wrapWidth: 1000));
   }
 
-  Stats benchmark() {
+  Future<Stats> benchmark() async {
     print('Starting Benchmark');
 
     const preBenchNum = 10;
@@ -115,8 +114,8 @@ class Logic {
     final histories = _currentCallData.histories;
 
     // Init state with feedback loop
-    _currentAi.rerank(mode, histories, documents);
-    _currentAi.rerank(mode, histories, documents);
+    await _currentAi.rerank(mode, histories, documents);
+    await _currentAi.rerank(mode, histories, documents);
 
     print('Warming Up');
     // Make sure we run "hot" code to have less benchmark variety.
@@ -124,17 +123,17 @@ class Logic {
     // given that it doesn't really involve JIT the main benefit
     // of this might be how it affects CPU frequencies.
     for (var i = 0; i < preBenchNum; i++) {
-      _currentAi.rerank(mode, histories, documents);
+      await _currentAi.rerank(mode, histories, documents);
     }
 
     final times = List<num>.empty(growable: true);
     for (var i = 0; i < benchNum; i++) {
       final start = DateTime.now().millisecondsSinceEpoch;
-      _currentAi.rerank(mode, histories, documents);
+      await _currentAi.rerank(mode, histories, documents);
       final end = DateTime.now().millisecondsSinceEpoch;
       times.add(end - start);
 
-      _printFaults();
+      await _printFaults();
       print('Iteration: $i');
     }
 
@@ -142,8 +141,8 @@ class Logic {
     return Stats.fromData(times).withPrecision(1);
   }
 
-  void free() {
-    _currentAi.free();
+  Future<void> free() async {
+    await _currentAi.free();
   }
 }
 

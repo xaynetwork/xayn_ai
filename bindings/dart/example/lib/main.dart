@@ -70,9 +70,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
-  void dispose() {
+  Future<void> dispose() async {
     super.dispose();
-    _logic?.free();
+    await _logic?.free();
   }
 
   Widget currentCallDataView(BuildContext context) {
@@ -194,31 +194,31 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  void singleRerank() {
-    final results = _logic!.run();
+  void singleRerank() async {
+    final results = await _logic!.run();
     setState(() {
       _lastResults = results;
     });
   }
 
-  void benchRerank() {
-    final stats = _logic!.benchmark();
+  Future<void> benchRerank() async {
+    final stats = await _logic!.benchmark();
 
     setState(() {
       _lastBenchmarkStats = stats;
     });
   }
 
-  void resetAi() {
-    _logic!.resetXaynAiState();
+  Future<void> resetAi() async {
+    await _logic!.resetXaynAiState();
     setState(() {
       _lastBenchmarkStats = null;
       _lastResults = null;
     });
   }
 
-  void printCallDataWithCurrentState() {
-    final jsonString = _logic!.createUpdatedCallData().toJsonString();
+  Future<void> printCallDataWithCurrentState() async {
+    final jsonString = (await _logic!.createUpdatedCallData()).toJsonString();
     debugPrintLongText(jsonString);
   }
 

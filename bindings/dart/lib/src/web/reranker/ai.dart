@@ -1,14 +1,16 @@
-@JS()
+@JS('xayn_ai_ffi_wasm')
 library ai;
 
 import 'dart:typed_data' show Uint8List;
+import 'dart:html' show WorkerGlobalScope;
 
 import 'package:js/js.dart' show JS;
+import 'package:js/js_util.dart' show promiseToFuture;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
-    show RerankMode, RerankModeToInt;
+    show RerankMode, RerankModeToInt, selectThreadPoolSize;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
     show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
@@ -19,7 +21,7 @@ import 'package:xayn_ai_ffi_dart/src/web/data/document.dart'
     show JsDocument, ToJsDocuments;
 import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
     show JsHistory, ToJsHistories;
-import 'package:xayn_ai_ffi_dart/src/web/ffi/library.dart' show init;
+import 'package:xayn_ai_ffi_dart/src/web/ffi/library.dart' show Promise;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
     show JsAnalytics, ToAnalytics;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/data_provider.dart'
@@ -35,29 +37,34 @@ import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
 import 'package:xayn_ai_ffi_dart/src/web/result/outcomes.dart'
     show JsRerankingOutcomes, ToRerankingOutcomes;
 
-@JS('xayn_ai_ffi_wasm.WXaynAi')
-class _XaynAi {
-  external _XaynAi(Uint8List smbertVocab, Uint8List smbertModel,
-      Uint8List qambertVocab, Uint8List qambertModel, Uint8List ltrModel,
-      [Uint8List? serialized]);
+@JS('create')
+external Promise<_XaynAi> _create(
+    int numberOfThreads,
+    Uint8List smbertVocab,
+    Uint8List smbertModel,
+    Uint8List qambertVocab,
+    Uint8List qambertModel,
+    Uint8List ltrModel,
+    [Uint8List? serialized]);
 
-  external JsRerankingOutcomes rerank(
-    int mode,
-    List<JsHistory> histories,
-    List<JsDocument> documents,
-  );
+@JS('WXaynAi')
+abstract class _XaynAi {
+  external factory _XaynAi(String ai);
 
-  external Uint8List serialize();
+  external Promise<JsRerankingOutcomes> rerank(
+      int mode, List<JsHistory> histories, List<JsDocument> documents);
 
-  external List<JsFault> faults();
+  external Promise<Uint8List> serialize();
 
-  external JsAnalytics? analytics();
+  external Promise<List<JsFault>> faults();
 
-  external Uint8List syncdataBytes();
+  external Promise<JsAnalytics?> analytics();
 
-  external void synchronize(Uint8List serialized);
+  external Promise<Uint8List> syncdataBytes();
 
-  external void free();
+  external Promise<void> synchronize(Uint8List serialized);
+
+  external Promise<void> free();
 }
 
 /// The Xayn AI.
@@ -70,21 +77,27 @@ class XaynAi implements common.XaynAi {
   /// module. Optionally accepts the serialized reranker database, otherwise
   /// creates a new one.
   static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
-    await init(data.wasmModule);
-    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-        data.qambertModel, data.ltrModel, serialized);
+    var hardwareThreads = selectThreadPoolSize(
+        WorkerGlobalScope.instance.navigator.hardwareConcurrency ?? 2);
+
+    final ai = await promiseToFuture<_XaynAi>(_create(
+        hardwareThreads,
+        data.smbertVocab,
+        data.smbertModel,
+        data.qambertVocab,
+        data.qambertModel,
+        data.ltrModel,
+        serialized));
+    return XaynAi._(ai);
   }
 
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi._(Uint8List smbertVocab, Uint8List smbertModel, Uint8List qambertVocab,
-      Uint8List qambertModel, Uint8List ltrModel,
-      [Uint8List? serialized]) {
+  XaynAi._(_XaynAi ai) {
     try {
-      _ai = _XaynAi(smbertVocab, smbertModel, qambertVocab, qambertModel,
-          ltrModel, serialized);
+      _ai = ai;
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
@@ -100,16 +113,17 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  RerankingOutcomes rerank(
-      RerankMode mode, List<History> histories, List<Document> documents) {
+  Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
+      List<Document> documents) async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai!
-          .rerank(mode.toInt(), histories.toJsHistories(),
-              documents.toJsDocuments())
+      return (await promiseToFuture<JsRerankingOutcomes>(_ai!.rerank(
+              mode.toInt(),
+              histories.toJsHistories(),
+              documents.toJsDocuments())))
           .toRerankingOutcomes();
     } on XaynAiError catch (error) {
       throw error.toException();
@@ -127,13 +141,13 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  Uint8List serialize() {
+  Future<Uint8List> serialize() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai!.serialize();
+      return await promiseToFuture<Uint8List>(_ai!.serialize());
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
@@ -150,13 +164,15 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  List<String> faults() {
+  Future<List<String>> faults() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai!.faults().toStrings();
+      return (await promiseToFuture<List<dynamic>>(_ai!.faults()))
+          .cast<JsFault>()
+          .toStrings();
     } on RuntimeError catch (error) {
       _ai = null;
       throw error.toException();
@@ -169,13 +185,14 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  Analytics? analytics() {
+  Future<Analytics?> analytics() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai!.analytics()?.toAnalytics();
+      return (await promiseToFuture<JsAnalytics>(_ai!.analytics()))
+          .toAnalytics();
     } on RuntimeError catch (error) {
       _ai = null;
       throw error.toException();
@@ -188,13 +205,13 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  Uint8List syncdataBytes() {
+  Future<Uint8List> syncdataBytes() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      return _ai!.syncdataBytes();
+      return await promiseToFuture<Uint8List>(_ai!.syncdataBytes());
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
@@ -209,13 +226,13 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  void synchronize(Uint8List serialized) {
+  Future<void> synchronize(Uint8List serialized) async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
 
     try {
-      _ai!.synchronize(serialized);
+      await promiseToFuture<void>(_ai!.synchronize(serialized));
     } on XaynAiError catch (error) {
       throw error.toException();
     } on RuntimeError catch (error) {
@@ -226,8 +243,8 @@ class XaynAi implements common.XaynAi {
 
   /// Frees the memory.
   @override
-  void free() {
-    _ai?.free();
+  Future<void> free() async {
+    await promiseToFuture<void>(_ai!.free());
     _ai = null;
   }
 }

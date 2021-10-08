@@ -30,7 +30,7 @@ Future<SetupData> getInputData() async {
     final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
 
     if (asset.key == AssetType.wasmScript) {
-      await injectWasmScript(path);
+      // await injectWasmScript(path);
     } else {
       fetched.putIfAbsent(asset.key, () => data);
     }
@@ -41,8 +41,7 @@ Future<SetupData> getInputData() async {
 
 Future<Uint8List> _fetchAsset(String url, String checksum) async {
   try {
-    final dynamic response =
-        await window.fetch(url, <String, String>{'integrity': checksum});
+    final dynamic response = await window.fetch(url);
     final arrayBuffer = await response.arrayBuffer() as ByteBuffer;
     return Uint8List.view(arrayBuffer);
   } catch (e) {
