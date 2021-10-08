@@ -38,6 +38,20 @@ extension RerankModeToInt on RerankMode {
   }
 }
 
+extension IntToRerankMode on int {
+  /// Gets the discriminant.
+  RerankMode toRerankMode() {
+    switch (this) {
+      case ffi.RerankMode.News:
+        return RerankMode.news;
+      case ffi.RerankMode.Search:
+        return RerankMode.search;
+      default:
+        throw UnsupportedError('Undefined enum variant.');
+    }
+  }
+}
+
 /// The Xayn AI.
 class XaynAi {
   /// Creates and initializes the Xayn AI.

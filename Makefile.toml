@@ -117,6 +117,10 @@ script = ["""
 condition = { env_true = ["DISABLE_WASM_THREADS"] }
 script = ["""
   ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" sequential
+  echo "self.wasm_bindgen = wasm_bindgen;" >> "$WASM_OUT_DIR_PATH/$WASM_VERSION/genesis.js"
+  cd "${DART_WORKSPACE}"
+
+  dart compile js -m -o example/web/worker.dart.js lib/src/web/worker/worker.dart
 """]
 
 [tasks.test-wasm]

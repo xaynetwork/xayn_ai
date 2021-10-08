@@ -1,3 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'outcomes.g.dart';
+
 /// Type containing all reranking outcomes.
 ///
 /// Some of the outcomes can be empty if they
@@ -8,6 +12,7 @@
 ///
 /// Note that `finalRanks` is empty if and only if there
 /// had been no input documents.
+@JsonSerializable()
 class RerankingOutcomes {
   /// The final ranking in order of the input documents.
   ///
@@ -24,6 +29,9 @@ class RerankingOutcomes {
   /// Can be empty if not calculated.
   final List<double>? contextScores;
 
+  RerankingOutcomes(
+      this.finalRanks, this.qaMBertSimilarities, this.contextScores);
+
   /// Create a new instance from its parts.
   ///
   /// Besides for testing this should ONLY be used by the `mobile/` and `web/`
@@ -37,6 +45,11 @@ class RerankingOutcomes {
     checkOutcomeLength(contextScores, finalRanks, 'contextScores');
     checkOutcomeLength(qaMBertSimilarities, finalRanks, 'qaMBertSimilarities');
   }
+
+  factory RerankingOutcomes.fromJson(Map json) =>
+      _$RerankingOutcomesFromJson(json);
+
+  Map<String, dynamic> toJson() => _$RerankingOutcomesToJson(this);
 }
 
 void checkOutcomeLength<T, E>(List<T>? outcome, List<E> base, String name) {
