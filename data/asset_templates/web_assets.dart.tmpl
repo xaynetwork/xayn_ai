@@ -12,9 +12,9 @@ final _{{ print "wasm " $key | strings.CamelCase}} = <common.AssetType, common.A
 /// Returns the most suitable wasm assets for the given features.
 Map<common.AssetType, common.Asset> getWasmAssets(
     Set<common.WebFeature> features) {
-  {{- if has (ds "assets_manifest").wasm_assets "parallel" }}
-  if (features.containsAll(_parallel)) {
-    return _wasmParallel;
+  {{- if has (ds "assets_manifest").wasm_assets "multithreaded" }}
+  if (features.containsAll(_multithreaded)) {
+    return _wasmMultithreaded;
   }
   {{- end }}
 
