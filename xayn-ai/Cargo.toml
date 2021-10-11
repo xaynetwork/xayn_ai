@@ -20,7 +20,7 @@ rubert = { path = "../rubert" }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_repr = "0.1.7"
 smallvec = "1.7.0"
-thiserror = "1.0.29"
+thiserror = "1.0.30"
 uuid = { version = "0.8.2", features = ["serde", "wasm-bindgen", "v4"] }
 
 # parallel feature
