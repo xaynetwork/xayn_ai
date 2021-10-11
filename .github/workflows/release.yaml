@@ -307,15 +307,13 @@ jobs:
         wasm_feature: [sequential, parallel]
         include:
           - wasm_feature: parallel
-            cargo_args: -- -Z build-std=panic_abort,std
+            cargo_args: -Z build-std=panic_abort,std
             RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
             RUSTC_BOOTSTRAP: 1
     env:
       OUT_DIR: ${{ github.workspace }}/out
     outputs:
       out-dir: ${{ env.OUT_DIR }}
-      sequential-version: ${{ steps.wasm-lib.outputs.sequential-version }}
-      parallel-version: ${{ steps.wasm-lib.outputs.parallel-version }}
 
     steps:
       - name: Checkout repository
@@ -357,9 +355,7 @@ jobs:
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
           RUSTC_BOOTSTRAP: ${{ matrix.RUSTC_BOOTSTRAP }}
-        run: |
-          wasm-pack build xayn-ai-ffi-wasm --no-typescript --out-dir ${{ env.OUT_DIR }}/wasm --out-name genesis --target web --release ${{ matrix.cargo_args }}
-          rm ${{ env.OUT_DIR }}/wasm/.gitignore ${{ env.OUT_DIR }}/wasm/package.json
+        run: ./build_wasm.sh ${{ env.OUT_DIR }}/wasm ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
 
       - name: Generate WASM library version key
         id: wasm-lib
@@ -367,7 +363,6 @@ jobs:
           # don't forget to update the path when changing `OUT_DIR`
           WASM_ARTIFACTS_VERSION=${{ hashFiles('out/wasm/*') }}
           WASM_VERSION=wasm_${{ matrix.wasm_feature }}_$WASM_ARTIFACTS_VERSION
-          echo "::set-output name=${{ matrix.wasm_feature }}-version::$(echo $WASM_VERSION)"
           echo "::set-output name=upload-name::$(echo build-wasm-${{ matrix.wasm_feature }}-release-$WASM_ARTIFACTS_VERSION)"
           echo "::set-output name=upload-path::$(echo ${{ env.OUT_DIR }}/$WASM_VERSION)"
       - run: mv ${{ env.OUT_DIR }}/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
@@ -419,8 +414,6 @@ jobs:
         with:
           dart-ws: ${{ env.DART_WORKSPACE }}
           wasm-out-dir-path: ${{ needs.build-release-wasm-libs.outputs.out-dir }}
-          wasm-sequential-version: ${{ needs.build-release-wasm-libs.outputs.sequential-version }}
-          wasm-parallel-version: ${{ needs.build-release-wasm-libs.outputs.parallel-version }}
 
       - name: Generate asset artifacts name
         id: asset-artifacts

@@ -2,10 +2,25 @@
 
 part of 'data_provider.dart';
 
-{{range (ds "assets_manifest").wasm_assets }}
-final wasm{{.feature}} = <common.AssetType, common.Asset>{
-  common.AssetType.wasmModule: common.Asset('{{.module.url_suffix}}', common.Checksum('{{.module.checksum}}'), []),
-  common.AssetType.wasmScript: common.Asset('{{.script.url_suffix}}', common.Checksum('{{.script.checksum}}'), []),
+{{ range  $key, $value := (ds "assets_manifest").wasm_assets }}
+final _{{ print "wasm " $key | strings.CamelCase}} = <common.AssetType, common.Asset>{
+  common.AssetType.wasmModule: common.Asset('{{$value.module.url_suffix}}', common.Checksum('{{$value.module.checksum}}'), []),
+  common.AssetType.wasmScript: common.Asset('{{$value.script.url_suffix}}', common.Checksum('{{$value.script.checksum}}'), []),
 };
+{{- end }}
 
-{{end}}
+/// Returns the most suitable wasm assets for the given features.
+Map<common.AssetType, common.Asset> getWasmAssets(
+    Set<common.WebFeature> features) {
+  {{- if has (ds "assets_manifest").wasm_assets "parallel" }}
+  if (features.containsAll(_parallel)) {
+    return _wasmParallel;
+  }
+  {{- end }}
+
+  {{- if has (ds "assets_manifest").wasm_assets "sequential" }}
+  return _wasmSequential;
+  {{- else }}
+  throw UnsupportedError('No suitable WASM assets are available');
+  {{- end }}
+}

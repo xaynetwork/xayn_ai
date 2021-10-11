@@ -2,25 +2,23 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
     as common
-    show Asset, AssetType, baseAssets, Checksum, SetupData, WebFeature;
+    show
+        Asset,
+        AssetType,
+        baseAssets,
+        // ignore: unused_shown_name
+        Checksum,
+        SetupData,
+        WebFeature;
 
 part 'assets.dart';
 
+// ignore: unused_element
 final _parallel = {
   common.WebFeature.bulkMemory,
   common.WebFeature.mutableGlobals,
   common.WebFeature.threads
 };
-
-/// Returns the most suitable wasm assets for the given features.
-Map<common.AssetType, common.Asset> getWasmAssets(
-    Set<common.WebFeature> features) {
-  if (features.containsAll(_parallel)) {
-    return wasmParallel;
-  } else {
-    return wasmSequential;
-  }
-}
 
 /// Returns a map of all assets required for initializing [`XaynAi`].
 Map<common.AssetType, common.Asset> getAssets(
