@@ -84,15 +84,7 @@ script = ["""
 
 [tasks.generate_assets_metadata]
 script = ["""
-  if [ "$DISABLE_WASM_THREADS" = "1" ]
-  then
-    ./generate_assets_metadata.sh assets_manifest.json $WASM_OUT_DIR_PATH $WASM_VERSION ""
-  elif [ "$DISABLE_WASM_THREADS" = "0" ]
-  then
-    ./generate_assets_metadata.sh assets_manifest.json $WASM_OUT_DIR_PATH "" $WASM_VERSION
-  else
-    ./generate_assets_metadata.sh assets_manifest.json "" "" ""
-  fi
+  ./generate_assets_metadata.sh assets_manifest.json "$WASM_OUT_DIR_PATH"
 """]
 
 [tasks.serve-web]
@@ -117,32 +109,14 @@ script = ["""
     echo "Download Url: https://github.com/WebAssembly/binaryen/releases/tag/version_101" >&2
     exit 1
   fi
-  echo "build parallel wasm"
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
-    wasm-pack build xayn-ai-ffi-wasm \
-      --no-typescript \
-      --target web \
-      --release \
-      --out-dir ../${WASM_OUT_DIR_PATH:?WASM_OUT_DIR_PATH needs to be set}/$WASM_VERSION \
-      --out-name genesis \
-      -- \
-      -Z build-std=panic_abort,std
-  # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
-  rm $WASM_OUT_DIR_PATH/$WASM_VERSION/.gitignore
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" parallel -Z build-std=panic_abort,std
 """]
 
 [tasks.build-wasm-sequential]
 condition = { env_true = ["DISABLE_WASM_THREADS"] }
 script = ["""
-  echo "build sequential wasm"
-  wasm-pack build xayn-ai-ffi-wasm \
-    --no-typescript \
-    --out-dir ../${WASM_OUT_DIR_PATH:?WASM_OUT_DIR_PATH needs to be set}/$WASM_VERSION \
-    --out-name genesis \
-    --target web \
-    --release
-  # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
-  rm $WASM_OUT_DIR_PATH/$WASM_VERSION/.gitignore
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" sequential
 """]
 
 [tasks.test-wasm]

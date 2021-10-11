@@ -7,12 +7,6 @@ inputs:
   wasm-out-dir-path:
     description: 'The relative path (wrt the repository root) of the WASM artifacts.'
     required: false
-  wasm-sequential-version:
-    description: 'The version of the `sequential` WASM artifacts.'
-    required: false
-  wasm-parallel-version:
-    description: 'The version of the `parallel` WASM artifacts.'
-    required: false
 outputs:
   dart-base-assets:
     description: "The relative path (wrt the repository root) of the Dart base assets manifest."
@@ -44,7 +38,7 @@ runs:
           brew install coreutils
         fi
 
-        bash generate_assets_metadata.sh assets_manifest.json ${{ inputs.wasm-out-dir-path }} ${{ inputs.wasm-sequential-version }} ${{ inputs.wasm-parallel-version }}
+        bash generate_assets_metadata.sh assets_manifest.json ${{ inputs.wasm-out-dir-path }}
 
         echo "::group::Dart base assets manifest"
         cat ${{ steps.artifact-paths.outputs.dart-base-assets }}
