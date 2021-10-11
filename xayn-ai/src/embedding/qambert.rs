@@ -7,7 +7,7 @@ use crate::{
     reranker::systems::QAMBertSystem,
 };
 
-#[cfg(feature = "parallel")]
+#[cfg(feature = "multithreaded")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 impl QAMBertSystem for QAMBert {
@@ -19,9 +19,9 @@ impl QAMBertSystem for QAMBert {
             let query = &document.document_content.query_words;
             let query = self.run(query)?;
 
-            #[cfg(not(feature = "parallel"))]
+            #[cfg(not(feature = "multithreaded"))]
             let documents = documents.into_iter();
-            #[cfg(feature = "parallel")]
+            #[cfg(feature = "multithreaded")]
             let documents = documents.into_par_iter();
 
             documents
