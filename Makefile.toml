@@ -98,9 +98,9 @@ env = { WASM_VERSION = "wasm_bindings", WASM_OUT_DIR_PATH = "bindings/dart/examp
 run_task = { name = ["build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
-dependencies = ["build-wasm-parallel", "build-wasm-sequential"]
+dependencies = ["build-wasm-multithreaded", "build-wasm-sequential"]
 
-[tasks.build-wasm-parallel]
+[tasks.build-wasm-multithreaded]
 env = { RUSTC_BOOTSTRAP=1 }
 condition = { env_false = ["DISABLE_WASM_THREADS"] }
 script = ["""
@@ -110,7 +110,7 @@ script = ["""
     exit 1
   fi
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
-  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" parallel -Z build-std=panic_abort,std
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" multithreaded -Z build-std=panic_abort,std
 """]
 
 [tasks.build-wasm-sequential]

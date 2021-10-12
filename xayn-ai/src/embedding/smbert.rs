@@ -6,7 +6,7 @@ use crate::{
     reranker::systems::SMBertSystem,
 };
 
-#[cfg(feature = "parallel")]
+#[cfg(feature = "multithreaded")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 impl SMBertSystem for SMBert {
@@ -14,9 +14,9 @@ impl SMBertSystem for SMBert {
         &self,
         documents: Vec<DocumentDataWithDocument>,
     ) -> Result<Vec<DocumentDataWithSMBert>, Error> {
-        #[cfg(not(feature = "parallel"))]
+        #[cfg(not(feature = "multithreaded"))]
         let documents = documents.into_iter();
-        #[cfg(feature = "parallel")]
+        #[cfg(feature = "multithreaded")]
         let documents = documents.into_par_iter();
 
         documents

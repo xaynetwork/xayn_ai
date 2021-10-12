@@ -4,7 +4,7 @@
 #
 # The script needs to be executed in the root of the repository.
 # The name of the feature can consists of multiple words separated by whitespaces.
-# For example: "parallel simd".
+# For example: "multithreaded simd".
 #
 # Usage:
 # ./build_wasm <absolute path of the wasm output directory> <name of the feature e.g. sequential> [<additional cargo args>]

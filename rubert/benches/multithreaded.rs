@@ -1,4 +1,4 @@
-//! Run as `cargo bench --bench parallel --features bench`.
+//! Run as `cargo bench --bench multithreaded --features bench`.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rayon::{
@@ -53,15 +53,15 @@ fn bench_smbert_sequential(manager: &mut Criterion) {
     });
 }
 
-/// Benches the SMBert pipeline parallelly.
-fn bench_smbert_parallel(manager: &mut Criterion) {
+/// Benches the SMBert pipeline multithreadedly.
+fn bench_smbert_multithreaded(manager: &mut Criterion) {
     let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
     let sequences = sequences(BATCH_SIZE);
 
-    manager.bench_function("SMBert Parallel", |bencher| {
+    manager.bench_function("SMBert Multithreaded", |bencher| {
         bencher.iter(|| {
             let _ = sequences
-                .par_iter() // runs each sequence parallelly
+                .par_iter() // runs each sequence multithreadedly
                 .map(|sequence| smbert.run(black_box(sequence)).unwrap())
                 .collect::<Vec<_>>();
         })
@@ -83,15 +83,15 @@ fn bench_qambert_sequential(manager: &mut Criterion) {
     });
 }
 
-/// Benches the QAMBert pipeline parallelly.
-fn bench_qambert_parallel(manager: &mut Criterion) {
+/// Benches the QAMBert pipeline multithreadedly.
+fn bench_qambert_multithreaded(manager: &mut Criterion) {
     let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
-    manager.bench_function("QAMBert Parallel", |bencher| {
+    manager.bench_function("QAMBert Multithreaded", |bencher| {
         bencher.iter(|| {
             let _ = sequences
-                .par_iter() // runs each sequence parallelly
+                .par_iter() // runs each sequence multithreadedly
                 .map(|sequence| qambert.run(black_box(sequence)).unwrap())
                 .collect::<Vec<_>>();
         })
@@ -119,7 +119,7 @@ fn bench_mberts_sequential(manager: &mut Criterion) {
     });
 }
 
-/// Benches both MBert pipelines parallelly, while within each pipeline it runs sequentially.
+/// Benches both MBert pipelines multithreadedly, while within each pipeline it runs sequentially.
 fn bench_mberts_join(manager: &mut Criterion) {
     let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
     let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
@@ -127,7 +127,7 @@ fn bench_mberts_join(manager: &mut Criterion) {
 
     manager.bench_function("SMBert & QAMBert Join", |bencher| {
         bencher.iter(|| {
-            // runs the SMBert & QAMBert pipelines parallelly
+            // runs the SMBert & QAMBert pipelines multithreadedly
             let _ = join(
                 || {
                     sequences
@@ -146,46 +146,46 @@ fn bench_mberts_join(manager: &mut Criterion) {
     });
 }
 
-/// Benches both MBert pipelines sequentially, while within each pipeline it runs parallely.
-fn bench_mberts_parallel(manager: &mut Criterion) {
+/// Benches both MBert pipelines sequentially, while within each pipeline it runs multithreadedly.
+fn bench_mberts_multithreaded(manager: &mut Criterion) {
     let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
     let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
-    manager.bench_function("SMBert & QAMBert Parallel", |bencher| {
+    manager.bench_function("SMBert & QAMBert Multithreaded", |bencher| {
         bencher.iter(|| {
             // runs the SMBert & QAMBert pipelines sequentially
             let _ = sequences
-                .par_iter() // runs each sequence parallelly within the SMBert pipeline
+                .par_iter() // runs each sequence multithreadedly within the SMBert pipeline
                 .map(|sequence| smbert.run(black_box(sequence)).unwrap())
                 .collect::<Vec<_>>();
             let _ = sequences
-                .par_iter() // runs each sequence parallelly within the QAMBert pipeline
+                .par_iter() // runs each sequence multithreadedly within the QAMBert pipeline
                 .map(|sequence| qambert.run(black_box(sequence)).unwrap())
                 .collect::<Vec<_>>();
         });
     });
 }
 
-/// Benches both Mbert pipelines fully parallelly.
-fn bench_mberts_join_parallel(manager: &mut Criterion) {
+/// Benches both Mbert pipelines fully multithreadedly.
+fn bench_mberts_join_multithreaded(manager: &mut Criterion) {
     let smbert = mbert!(SMBert, smbert::vocab(), smbert::model());
     let qambert = mbert!(QAMBert, qambert::vocab(), qambert::model());
     let sequences = sequences(BATCH_SIZE);
 
-    manager.bench_function("SMBert & QAMBert Join Parallel", |bencher| {
+    manager.bench_function("SMBert & QAMBert Join Multithreaded", |bencher| {
         bencher.iter(|| {
-            // runs the SMBert & QAMBert pipelines parallelly
+            // runs the SMBert & QAMBert pipelines multithreadedly
             let _ = join(
                 || {
                     sequences
-                        .par_iter() // runs each sequence parallelly within the SMBert pipeline
+                        .par_iter() // runs each sequence multithreadedly within the SMBert pipeline
                         .map(|sequence| smbert.run(black_box(sequence)).unwrap())
                         .collect::<Vec<_>>()
                 },
                 || {
                     sequences
-                        .par_iter() // runs each sequence parallelly within the QAMBert pipeline
+                        .par_iter() // runs each sequence multithreadedly within the QAMBert pipeline
                         .map(|sequence| qambert.run(black_box(sequence)).unwrap())
                         .collect::<Vec<_>>()
                 },
@@ -199,7 +199,7 @@ criterion_group! {
     config = Criterion::default();
     targets =
         bench_smbert_sequential,
-        bench_smbert_parallel,
+        bench_smbert_multithreaded,
 }
 
 criterion_group! {
@@ -207,7 +207,7 @@ criterion_group! {
     config = Criterion::default();
     targets =
         bench_qambert_sequential,
-        bench_qambert_parallel,
+        bench_qambert_multithreaded,
 }
 
 criterion_group! {
@@ -216,8 +216,8 @@ criterion_group! {
     targets =
         bench_mberts_sequential,
         bench_mberts_join,
-        bench_mberts_parallel,
-        bench_mberts_join_parallel,
+        bench_mberts_multithreaded,
+        bench_mberts_join_multithreaded,
 }
 
 criterion_main! {
