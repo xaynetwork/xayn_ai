@@ -51,7 +51,7 @@ bench = false
 required-features = ["bench"]
 
 [[bench]]
-name = "parallel"
+name = "multithreaded"
 harness = false
 bench = false
 required-features = ["bench"]

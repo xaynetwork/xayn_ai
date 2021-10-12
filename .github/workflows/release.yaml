@@ -304,9 +304,9 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        wasm_feature: [sequential, parallel]
+        wasm_feature: [sequential, multithreaded]
         include:
-          - wasm_feature: parallel
+          - wasm_feature: multithreaded
             cargo_args: -Z build-std=panic_abort,std
             RUSTFLAGS: -C target-feature=+atomics,+bulk-memory,+mutable-globals
             RUSTC_BOOTSTRAP: 1

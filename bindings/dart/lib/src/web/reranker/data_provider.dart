@@ -14,10 +14,10 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/data_provider.dart'
 part 'assets.dart';
 
 // ignore: unused_element
-final _parallel = {
+final _multithreaded = {
   common.WebFeature.bulkMemory,
   common.WebFeature.mutableGlobals,
-  common.WebFeature.threads
+  common.WebFeature.threads,
 };
 
 /// Returns a map of all assets required for initializing [`XaynAi`].

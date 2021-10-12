@@ -77,7 +77,7 @@ class XaynAi {
   void free() => throw UnsupportedError('Unsupported platform.');
 }
 
-/// Maximum number of threads to be used for parallel features.
+/// Maximum number of threads to be used for multithreaded features.
 const int maxNumberOfThreads = 16;
 
 /// Selects the number of threads used by the [`XaynAi`] thread pool.

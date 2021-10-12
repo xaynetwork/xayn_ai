@@ -19,7 +19,7 @@ pub use crate::ai::WXaynAi;
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
 pub use wasm_bindgen_rayon::init_thread_pool;
 
-/// Stub which is used when the wasm blob was compiled without the `parallel` feature.
+/// Stub which is used when the wasm blob was compiled without the `multithreaded` feature.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 #[wasm_bindgen(js_name = initThreadPool)]
 pub fn init_thread_pool(_num_threads: usize) -> Promise {
