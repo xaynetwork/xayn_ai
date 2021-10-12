@@ -16,11 +16,11 @@ Future<SetupData> getInputData() async {
   final fetched = <AssetType, Uint8List>{};
   final features = <WebFeature>{};
 
-  // uncomment the following section to load the parallel version
+  // uncomment the following section to load the multithreaded version
   // final features = <WebFeature>{
   //   WebFeature.bulkMemory,
   //   WebFeature.mutableGlobals,
-  //   WebFeature.threads
+  //   WebFeature.threads,
   // };
 
   for (var asset in getAssets(features: features).entries) {
