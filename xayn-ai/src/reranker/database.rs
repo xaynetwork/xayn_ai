@@ -1,10 +1,12 @@
-use anyhow::bail;
-use serde::Deserialize;
 use std::cell::RefCell;
 
-use crate::{data::UserInterests, error::Error, utils::serialize_with_version};
+use anyhow::bail;
 
-use super::{sync::SyncData, PreviousDocuments, RerankerData};
+use crate::{
+    error::Error,
+    reranker::{RerankerData, RerankerData_v0_0_0},
+    utils::serialize_with_version,
+};
 
 #[cfg_attr(test, mockall::automock)]
 pub(crate) trait Database {
@@ -18,49 +20,25 @@ const CURRENT_SCHEMA_VERSION: u8 = 1;
 #[derive(Default)]
 pub(super) struct Db(RefCell<Option<RerankerData>>);
 
-/// Version 0 of `RerankerData` for backwards compatibility.
-#[cfg_attr(test, derive(serde::Serialize))]
-#[derive(Deserialize)]
-struct RerankerData0 {
-    user_interests: UserInterests,
-    prev_documents: PreviousDocuments,
-}
-
-impl From<RerankerData0> for RerankerData {
-    fn from(data0: RerankerData0) -> Self {
-        let user_interests = data0.user_interests;
-        let sync_data = SyncData { user_interests };
-        Self {
-            sync_data,
-            prev_documents: data0.prev_documents,
-        }
-    }
-}
-
 impl Db {
-    /// If `bytes` is empty it will return an empty database,
-    /// otherwise it will try to deserialize the bytes and
-    /// return a database with that data.
+    /// Deserializes the bytes into a database.
+    ///
+    /// If `bytes` is empty, then an empty database is returned. If `bytes` represents an older
+    /// version, then the database is migrated.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.is_empty() {
             return Ok(Self::default());
         }
 
         // version is encoded in the first byte
-        let version = bytes[0];
-        if version > CURRENT_SCHEMA_VERSION {
-            bail!(
+        let data = match bytes[0] {
+            0 => bincode::deserialize::<RerankerData_v0_0_0>(&bytes[1..])?.into(),
+            CURRENT_SCHEMA_VERSION => bincode::deserialize(&bytes[1..])?,
+            version => bail!(
                 "Unsupported serialized data. Found version {} expected {}",
                 version,
                 CURRENT_SCHEMA_VERSION,
-            );
-        }
-
-        // migration from version 0 to current
-        let data = if version == 0 {
-            bincode::deserialize::<RerankerData0>(&bytes[1..])?.into()
-        } else {
-            bincode::deserialize(&bytes[1..])?
+            ),
         };
 
         Ok(Self(RefCell::new(Some(data))))
