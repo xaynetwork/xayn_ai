@@ -35,6 +35,12 @@ impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
     }
 }
 
+impl From<PositiveCoi_v0_0_0> for PositiveCoi {
+    fn from(coi: PositiveCoi_v0_0_0) -> Self {
+        PositiveCoi_v0_1_0::from(coi).into()
+    }
+}
+
 impl From<PositiveCoi_v0_1_0> for PositiveCoi {
     fn from(coi: PositiveCoi_v0_1_0) -> Self {
         Self {

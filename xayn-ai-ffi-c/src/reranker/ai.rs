@@ -1657,7 +1657,7 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to synchronize data: Unsupported serialized data. Found version {} expected 1.",
+                "Failed to synchronize data: Unsupported serialized data. Found version {} expected 2.",
                 version,
             ),
         );

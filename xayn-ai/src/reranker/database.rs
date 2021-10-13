@@ -4,7 +4,7 @@ use anyhow::bail;
 
 use crate::{
     error::Error,
-    reranker::{RerankerData, RerankerData_v0_0_0, RerankerData_v0_1_0},
+    reranker::{RerankerData, RerankerData_v0_0_0, RerankerData_v0_1_0, CURRENT_SCHEMA_VERSION},
     utils::serialize_with_version,
 };
 
@@ -14,8 +14,6 @@ pub(crate) trait Database {
 
     fn serialize(&self, data: &RerankerData) -> Result<Vec<u8>, Error>;
 }
-
-const CURRENT_SCHEMA_VERSION: u8 = 2;
 
 #[derive(Default)]
 pub(super) struct Db(RefCell<Option<RerankerData>>);

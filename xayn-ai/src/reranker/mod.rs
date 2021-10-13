@@ -155,6 +155,8 @@ impl PreviousDocuments {
     }
 }
 
+const CURRENT_SCHEMA_VERSION: u8 = 2;
+
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
