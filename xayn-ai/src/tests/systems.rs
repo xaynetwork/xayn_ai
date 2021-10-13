@@ -148,7 +148,7 @@ impl
             smbert: mocked_smbert_system(),
             qambert: mocked_qambert_system(),
             coi: CoiSys::default(),
-            ltr: ConstLtr::new(),
+            ltr: ConstLtr,
             context: Context,
             analytics: AnalyticsSys,
         }
