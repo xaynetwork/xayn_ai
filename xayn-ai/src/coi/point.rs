@@ -132,6 +132,28 @@ impl_coi_point_ext! {
 
 // generic types can't be versioned, but aliasing and propper naming in the proc macro call works
 #[allow(non_camel_case_types)]
-pub(crate) type PositiveCois_v0_0_0 = Vec<PositiveCoi_v0_0_0>;
+type PositiveCois_v0_0_0 = Vec<PositiveCoi_v0_0_0>;
 #[allow(non_camel_case_types)]
-pub(crate) type PositiveCois_v0_0_1 = Vec<PositiveCoi>;
+type PositiveCois_v0_0_1 = Vec<PositiveCoi>;
+
+#[obake::versioned]
+#[obake(version("0.0.0"))]
+#[obake(version("0.0.1"))]
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub(crate) struct UserInterests {
+    #[obake(inherit)]
+    #[obake(cfg(">=0.0.0"))]
+    pub positive: PositiveCois,
+    #[obake(cfg(">=0.0.0"))]
+    pub negative: Vec<NegativeCoi>,
+}
+
+impl From<UserInterests_v0_0_0> for UserInterests {
+    fn from(ui: UserInterests_v0_0_0) -> Self {
+        Self {
+            positive: ui.positive.into_iter().map(Into::into).collect(),
+            negative: ui.negative.into_iter().map(Into::into).collect(),
+        }
+    }
+}

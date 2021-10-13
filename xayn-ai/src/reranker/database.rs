@@ -59,7 +59,7 @@ impl Database for Db {
 mod tests {
     use super::*;
     use crate::{
-        data::{UserInterests, UserInterests_v0_0_0},
+        coi::point::{UserInterests, UserInterests_v0_0_0},
         reranker::{RerankerData, RerankerData_v0_0_0},
         tests::{
             data_with_rank,

@@ -1,5 +1,6 @@
 use crate::{
     analytics::Analytics,
+    coi::point::UserInterests,
     data::{
         document::{DocumentHistory, DocumentId},
         document_data::{
@@ -13,7 +14,6 @@ use crate::{
             DocumentDataWithSMBert,
             SMBertComponent,
         },
-        UserInterests,
     },
     error::Error,
     reranker::database::Database,

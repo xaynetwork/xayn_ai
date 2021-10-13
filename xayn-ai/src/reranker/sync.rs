@@ -1,6 +1,8 @@
 use crate::{
-    coi::{point::CoiPoint, reduce_cois},
-    data::{UserInterests, UserInterests_v0_0_1},
+    coi::{
+        point::{CoiPoint, UserInterests, UserInterests_v0_0_1},
+        reduce_cois,
+    },
     error::Error,
     utils::serialize_with_version,
 };

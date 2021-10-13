@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::CoiPoint,
+        point::{CoiPoint, UserInterests},
         utils::{
             classify_documents_based_on_user_feedback,
             collect_matching_documents,
@@ -15,10 +15,7 @@ use crate::{
             update_beta,
         },
     },
-    data::{
-        document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
-        UserInterests,
-    },
+    data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
     embedding::utils::{l2_distance, Embedding},
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
