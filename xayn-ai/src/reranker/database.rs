@@ -81,28 +81,17 @@ impl Database for Db {
 mod tests {
     use super::*;
     use crate::{
-        data::{document_data::DocumentDataWithRank, UserInterests},
+        data::{UserInterests, UserInterests_v0_0_0},
+        reranker::{RerankerData, RerankerData_v0_0_0},
         tests::{
             data_with_rank,
             from_ids,
             mocked_smbert_system,
             neg_cois_from_words,
             pos_cois_from_words,
+            pos_cois_from_words_v0,
         },
     };
-
-    impl RerankerData0 {
-        pub(crate) fn new_with_rank(
-            user_interests: UserInterests,
-            prev_documents: Vec<DocumentDataWithRank>,
-        ) -> Self {
-            let prev_documents = PreviousDocuments::Final(prev_documents);
-            Self {
-                user_interests,
-                prev_documents,
-            }
-        }
-    }
 
     #[test]
     fn test_database_serialize_load() {
@@ -130,11 +119,11 @@ mod tests {
     #[test]
     fn test_database_migration_from_v0() {
         let words = &["a", "b", "c"];
-        let positive = pos_cois_from_words(words, mocked_smbert_system());
+        let positive = pos_cois_from_words_v0(words, mocked_smbert_system());
         let negative = neg_cois_from_words(words, mocked_smbert_system());
-        let user_interests = UserInterests { positive, negative };
+        let user_interests = UserInterests_v0_0_0 { positive, negative };
         let docs = data_with_rank(from_ids(0..1));
-        let data = RerankerData0::new_with_rank(user_interests, docs);
+        let data = RerankerData_v0_0_0::new_with_rank(user_interests, docs);
         let serialized = serialize_with_version(&data, 0).expect("serialized data");
 
         let database = Db::deserialize(&serialized).expect("load data from serialized");

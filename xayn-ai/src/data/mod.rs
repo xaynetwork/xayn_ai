@@ -1,112 +1,28 @@
 pub mod document;
 pub(crate) mod document_data;
 
-use derive_more::From;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-use crate::embedding::utils::Embedding;
+use crate::coi::point::{NegativeCoi, PositiveCois_v0_0_0, PositiveCois_v0_0_1};
 
-// Hint: We use this id new-type in FFI so repr(transparent) needs to be kept
-#[repr(transparent)]
-#[derive(
-    Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize, From,
-)]
-pub struct CoiId(Uuid);
-
+#[obake::versioned]
+#[obake(version("0.0.0"))]
+#[obake(version("0.0.1"))]
+#[derive(Clone, Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
-#[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct PositiveCoi {
-    pub id: CoiId,
-    pub point: Embedding,
-    pub alpha: f32,
-    pub beta: f32,
-}
-
-#[cfg_attr(test, derive(Debug, PartialEq))]
-#[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct NegativeCoi {
-    pub id: CoiId,
-    pub point: Embedding,
-}
-
-impl PositiveCoi {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
-        Self {
-            id,
-            point,
-            alpha: 1.,
-            beta: 1.,
-        }
-    }
-}
-
-impl NegativeCoi {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
-        Self { id, point }
-    }
-}
-
-pub(crate) trait CoiPoint {
-    fn new(id: CoiId, embedding: Embedding) -> Self;
-    fn merge(self, other: Self, id: CoiId) -> Self;
-    fn id(&self) -> CoiId;
-    fn set_id(&mut self, id: CoiId);
-    fn point(&self) -> &Embedding;
-    fn set_point(&mut self, embedding: Embedding);
-}
-
-macro_rules! impl_coi_point {
-    ($type:ty) => {
-        impl CoiPoint for $type {
-            fn new(id: CoiId, embedding: Embedding) -> Self {
-                <$type>::new(id, embedding)
-            }
-
-            fn merge(self, other: Self, id: CoiId) -> Self {
-                self.merge(other, id)
-            }
-
-            fn id(&self) -> CoiId {
-                self.id
-            }
-
-            fn set_id(&mut self, id: CoiId) {
-                self.id = id;
-            }
-
-            fn point(&self) -> &Embedding {
-                &self.point
-            }
-
-            fn set_point(&mut self, embedding: Embedding) {
-                self.point = embedding;
-            }
-        }
-    };
-}
-
-impl_coi_point!(PositiveCoi);
-impl_coi_point!(NegativeCoi);
-
-#[cfg_attr(test, derive(Debug, PartialEq))]
-#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct UserInterests {
-    pub positive: Vec<PositiveCoi>,
+    #[obake(inherit)]
+    #[obake(cfg(">=0.0.0"))]
+    pub positive: PositiveCois,
+    #[obake(cfg(">=0.0.0"))]
     pub negative: Vec<NegativeCoi>,
 }
 
-impl UserInterests {
-    pub(crate) const fn new() -> Self {
+impl From<UserInterests_v0_0_0> for UserInterests {
+    fn from(ui: UserInterests_v0_0_0) -> Self {
         Self {
-            positive: Vec::new(),
-            negative: Vec::new(),
+            positive: ui.positive.into_iter().map(Into::into).collect(),
+            negative: ui.negative.into_iter().map(Into::into).collect(),
         }
-    }
-}
-
-impl Default for UserInterests {
-    fn default() -> Self {
-        UserInterests::new()
     }
 }

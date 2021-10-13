@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
+        point::CoiPoint,
         utils::{
             classify_documents_based_on_user_feedback,
             collect_matching_documents,
@@ -16,7 +17,6 @@ use crate::{
     },
     data::{
         document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
-        CoiPoint,
         UserInterests,
     },
     embedding::utils::{l2_distance, Embedding},
@@ -211,11 +211,14 @@ mod tests {
 
     use super::*;
     use crate::{
-        coi::utils::tests::{
-            create_data_with_embeddings,
-            create_document_history,
-            create_neg_cois,
-            create_pos_cois,
+        coi::{
+            point::PositiveCoi,
+            utils::tests::{
+                create_data_with_embeddings,
+                create_document_history,
+                create_neg_cois,
+                create_pos_cois,
+            },
         },
         data::{
             document::{DocumentId, Relevance, UserFeedback},
@@ -228,7 +231,6 @@ mod tests {
                 RankComponent,
                 SMBertComponent,
             },
-            PositiveCoi,
         },
         reranker::systems::CoiSystem as CoiSystemTrait,
         to_vec_of_ref_of,
@@ -517,7 +519,7 @@ mod tests {
     #[test]
     fn test_update_user_interests_no_matches() {
         let error = CoiSystem::default()
-            .update_user_interests(&Vec::new(), &Vec::new(), UserInterests::new())
+            .update_user_interests(&Vec::new(), &Vec::new(), UserInterests::default())
             .err()
             .unwrap();
         let error = error.downcast::<CoiSystemError>().unwrap();

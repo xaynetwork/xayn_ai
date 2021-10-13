@@ -6,7 +6,7 @@ pub(crate) mod systems;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sync::SyncData;
+use sync::{SyncData, SyncData_v0_0_1};
 use systems::QAMBertSystem;
 
 use crate::{
@@ -23,6 +23,7 @@ use crate::{
             RankComponent,
         },
         UserInterests,
+        UserInterests_v0_0_0,
     },
     embedding::qambert::NeutralQAMBert,
     error::Error,
@@ -152,24 +153,32 @@ impl PreviousDocuments {
     }
 }
 
-#[cfg_attr(test, derive(Clone, PartialEq, Debug))]
-#[derive(Default, Serialize, Deserialize)]
+#[obake::versioned]
+#[obake(version("0.0.0"))]
+#[obake(version("0.0.1"))]
+#[derive(Default, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct RerankerData {
+    // deprecated
+    #[obake(inherit)]
+    #[obake(cfg("0.0.0"))]
+    user_interests: UserInterests,
+
+    // contemporary
+    #[obake(inherit)]
+    #[obake(cfg(">=0.0.1"))]
     sync_data: SyncData,
+    #[obake(cfg(">=0.0.0"))]
     prev_documents: PreviousDocuments,
 }
 
-#[cfg(test)]
-impl RerankerData {
-    pub(crate) fn new_with_rank(
-        user_interests: UserInterests,
-        prev_documents: Vec<DocumentDataWithRank>,
-    ) -> Self {
-        let sync_data = SyncData { user_interests };
-        let prev_documents = PreviousDocuments::Final(prev_documents);
+impl From<RerankerData_v0_0_0> for RerankerData {
+    fn from(data: RerankerData_v0_0_0) -> Self {
         Self {
-            sync_data,
-            prev_documents,
+            sync_data: SyncData {
+                user_interests: data.user_interests.into(),
+            },
+            prev_documents: data.prev_documents,
         }
     }
 }
@@ -314,8 +323,12 @@ fn rank_by_context(mut docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWi
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use anyhow::bail;
+    use paste::paste;
+    use rstest::rstest;
+    use rstest_reuse::{apply, template};
 
+    use super::*;
     use crate::{
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
@@ -338,10 +351,30 @@ mod tests {
             MockSMBertSystem,
         },
     };
-    use anyhow::bail;
-    use paste::paste;
-    use rstest::rstest;
-    use rstest_reuse::{apply, template};
+
+    impl RerankerData_v0_0_0 {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests_v0_0_0,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                user_interests,
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
+
+    impl RerankerData {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                sync_data: SyncData { user_interests },
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
 
     macro_rules! check_error {
         ($reranker: expr, $error:pat) => {

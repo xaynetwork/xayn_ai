@@ -1,6 +1,6 @@
 use crate::{
-    coi::reduce_cois,
-    data::{CoiPoint, UserInterests},
+    coi::{point::CoiPoint, reduce_cois},
+    data::{UserInterests, UserInterests_v0_0_1},
     error::Error,
     utils::serialize_with_version,
 };
@@ -10,9 +10,13 @@ use serde::{Deserialize, Serialize};
 const CURRENT_SCHEMA_VERSION: u8 = 0;
 
 /// Synchronizable data of the reranker.
-#[cfg_attr(test, derive(Clone, PartialEq, Debug))]
-#[derive(Default, Serialize, Deserialize)]
+#[obake::versioned]
+#[obake(version("0.0.1"))]
+#[derive(Default, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct SyncData {
+    #[obake(inherit)]
+    #[obake(cfg(">=0.0.1"))]
     pub(crate) user_interests: UserInterests,
 }
 
