@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::{
-    coi::{point::PositiveCoi, CoiId},
     data::document::{Relevance, UserFeedback},
     reranker::systems::CoiSystemData,
     DocumentHistory,
@@ -60,76 +59,13 @@ fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
     }
 }
 
-// utils for `update_user_interests`
-fn update_alpha_or_beta<F>(
-    docs: &[&dyn CoiSystemData],
-    mut cois: Vec<PositiveCoi>,
-    mut f: F,
-) -> Vec<PositiveCoi>
-where
-    F: FnMut(&mut PositiveCoi, f32),
-{
-    let counts = count_coi_ids(docs);
-    for coi in cois.iter_mut() {
-        if let Some(count) = counts.get(&coi.id) {
-            let adjustment = 1.1f32.powi(*count as i32);
-            f(coi, adjustment);
-        }
-    }
-    cois
-}
-
-pub(super) fn update_alpha(
-    positive_docs: &[&dyn CoiSystemData],
-    cois: Vec<PositiveCoi>,
-) -> Vec<PositiveCoi> {
-    update_alpha_or_beta(
-        positive_docs,
-        cois,
-        |PositiveCoi { ref mut alpha, .. }, adj| *alpha *= adj,
-    )
-}
-
-pub(super) fn update_beta(
-    negative_docs: &[&dyn CoiSystemData],
-    cois: Vec<PositiveCoi>,
-) -> Vec<PositiveCoi> {
-    update_alpha_or_beta(
-        negative_docs,
-        cois,
-        |PositiveCoi { ref mut beta, .. }, adj| *beta *= adj,
-    )
-}
-
-/// Counts CoI Ids of the given documents.
-/// ```text
-/// documents = [d_1(coi_id_1), d_2(coi_id_2), d_3(coi_id_1)]
-/// count_coi_ids(documents) -> {coi_id_1: 2, coi_id_2: 1}
-/// ```
-fn count_coi_ids(documents: &[&dyn CoiSystemData]) -> HashMap<CoiId, u16> {
-    documents
-        .iter()
-        .filter_map(|doc| doc.coi().map(|coi| coi.id))
-        .fold(
-            HashMap::with_capacity(documents.len()),
-            |mut counts, coi_id| {
-                counts
-                    .entry(coi_id)
-                    .and_modify(|count| *count += 1)
-                    .or_insert(1);
-                counts
-            },
-        )
-}
-
 #[cfg(test)]
 pub(super) mod tests {
     use ndarray::{arr1, FixedInitializer};
-    use uuid::Uuid;
 
     use super::*;
     use crate::{
-        coi::point::{CoiPoint, NegativeCoi},
+        coi::point::{CoiPoint, NegativeCoi, PositiveCoi},
         data::document_data::{
             CoiComponent,
             DocumentBaseComponent,
@@ -139,7 +75,7 @@ pub(super) mod tests {
             SMBertComponent,
         },
         to_vec_of_ref_of,
-        utils::{mock_coi_id, mock_uuid},
+        utils::mock_coi_id,
     };
 
     pub(crate) struct MockCoiDoc {
@@ -160,22 +96,6 @@ pub(super) mod tests {
         fn coi(&self) -> Option<&CoiComponent> {
             self.coi.as_ref()
         }
-    }
-
-    fn create_docs_from_coi_id(ids: &[Uuid]) -> Vec<MockCoiDoc> {
-        ids.iter()
-            .map(|id| MockCoiDoc {
-                id: DocumentId::from_u128(0),
-                smbert: SMBertComponent {
-                    embedding: arr1(&[]).into(),
-                },
-                coi: Some(CoiComponent {
-                    id: (*id).into(),
-                    pos_distance: 1.,
-                    neg_distance: 1.,
-                }),
-            })
-            .collect()
     }
 
     fn create_cois<CP: CoiPoint>(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<CP> {
@@ -243,54 +163,6 @@ pub(super) mod tests {
                 ..Default::default()
             })
             .collect()
-    }
-
-    #[test]
-    fn test_update_alpha_and_beta() {
-        let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.]]);
-        let docs = create_docs_from_coi_id(&[mock_uuid(0), mock_uuid(1), mock_uuid(1)]);
-        let docs = to_vec_of_ref_of!(docs, &dyn CoiSystemData);
-
-        let updated_cois = update_alpha(&docs, cois.clone());
-        assert_approx_eq!(f32, updated_cois[0].alpha, 1.1);
-        assert_approx_eq!(f32, updated_cois[0].beta, 1.);
-        assert_approx_eq!(f32, updated_cois[1].alpha, 1.21);
-        assert_approx_eq!(f32, updated_cois[1].beta, 1.);
-
-        let updated_cois = update_beta(&docs, cois);
-        assert_approx_eq!(f32, updated_cois[0].alpha, 1.);
-        assert_approx_eq!(f32, updated_cois[0].beta, 1.1);
-        assert_approx_eq!(f32, updated_cois[1].alpha, 1.);
-        assert_approx_eq!(f32, updated_cois[1].beta, 1.21);
-    }
-
-    #[test]
-    fn test_update_alpha_or_beta() {
-        let cois = create_cois(&[[1., 0., 0.], [1., 0., 0.], [1., 0., 0.]]);
-        let docs = create_docs_from_coi_id(&[mock_uuid(0), mock_uuid(1), mock_uuid(1)]);
-        let docs = to_vec_of_ref_of!(docs, &dyn CoiSystemData);
-
-        // only update the alpha of coi_id 1 and 2
-        let updated_cois = update_alpha(&docs, cois.clone());
-
-        assert_approx_eq!(f32, updated_cois[0].alpha, 1.1);
-        assert_approx_eq!(f32, updated_cois[1].alpha, 1.21);
-        assert_approx_eq!(f32, updated_cois[2].alpha, 1.);
-
-        // same for beta
-        let updated_cois = update_beta(&docs, cois);
-        assert_approx_eq!(f32, updated_cois[0].beta, 1.1);
-        assert_approx_eq!(f32, updated_cois[1].beta, 1.21);
-        assert_approx_eq!(f32, updated_cois[2].beta, 1.);
-    }
-
-    #[test]
-    fn test_update_alpha_or_beta_empty_cois() {
-        let updated_cois = update_alpha(&Vec::new(), Vec::new());
-        assert!(updated_cois.is_empty());
-
-        let updated_cois = update_beta(&Vec::new(), Vec::new());
-        assert!(updated_cois.is_empty());
     }
 
     #[test]

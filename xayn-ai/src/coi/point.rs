@@ -5,6 +5,7 @@ use crate::{coi::CoiId, embedding::utils::Embedding};
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
+#[obake(version("0.2.0"))]
 #[derive(Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct PositiveCoi {
@@ -12,19 +13,30 @@ pub(crate) struct PositiveCoi {
     pub id: CoiId,
     #[obake(cfg(">=0.0"))]
     pub point: Embedding,
-    #[obake(cfg(">=0.0"))]
+
+    // removed fields go below this line
+    #[obake(cfg(">=0.0, <0.2"))]
     pub alpha: f32,
-    #[obake(cfg(">=0.0"))]
+    #[obake(cfg(">=0.0, <0.2"))]
     pub beta: f32,
 }
 
-impl From<PositiveCoi_v0_0_0> for PositiveCoi {
+impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
     fn from(coi: PositiveCoi_v0_0_0) -> Self {
         Self {
             id: coi.id,
             point: coi.point,
             alpha: coi.alpha,
             beta: coi.beta,
+        }
+    }
+}
+
+impl From<PositiveCoi_v0_1_0> for PositiveCoi {
+    fn from(coi: PositiveCoi_v0_1_0) -> Self {
+        Self {
+            id: coi.id,
+            point: coi.point,
         }
     }
 }
@@ -41,7 +53,8 @@ impl PositiveCoi_v0_0_0 {
     }
 }
 
-impl PositiveCoi {
+#[cfg(test)]
+impl PositiveCoi_v0_1_0 {
     pub fn new(id: CoiId, point: Embedding) -> Self {
         Self {
             id,
@@ -49,6 +62,12 @@ impl PositiveCoi {
             alpha: 1.,
             beta: 1.,
         }
+    }
+}
+
+impl PositiveCoi {
+    pub fn new(id: CoiId, point: Embedding) -> Self {
+        Self { id, point }
     }
 }
 
@@ -104,6 +123,7 @@ macro_rules! impl_coi_point {
 
 impl_coi_point! {
     #[cfg(test)] PositiveCoi_v0_0_0,
+    #[cfg(test)] PositiveCoi_v0_1_0,
     PositiveCoi,
     NegativeCoi,
 }
@@ -134,11 +154,14 @@ impl_coi_point_merge! {
 #[allow(non_camel_case_types)]
 type PositiveCois_v0_0_0 = Vec<PositiveCoi_v0_0_0>;
 #[allow(non_camel_case_types)]
-type PositiveCois_v0_1_0 = Vec<PositiveCoi>;
+type PositiveCois_v0_1_0 = Vec<PositiveCoi_v0_1_0>;
+#[allow(non_camel_case_types)]
+type PositiveCois_v0_2_0 = Vec<PositiveCoi>;
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
+#[obake(version("0.2.0"))]
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct UserInterests {
@@ -149,8 +172,23 @@ pub(crate) struct UserInterests {
     pub negative: Vec<NegativeCoi>,
 }
 
+impl From<UserInterests_v0_0_0> for UserInterests_v0_1_0 {
+    fn from(ui: UserInterests_v0_0_0) -> Self {
+        Self {
+            positive: ui.positive.into_iter().map(Into::into).collect(),
+            negative: ui.negative.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 impl From<UserInterests_v0_0_0> for UserInterests {
     fn from(ui: UserInterests_v0_0_0) -> Self {
+        UserInterests_v0_1_0::from(ui).into()
+    }
+}
+
+impl From<UserInterests_v0_1_0> for UserInterests {
+    fn from(ui: UserInterests_v0_1_0) -> Self {
         Self {
             positive: ui.positive.into_iter().map(Into::into).collect(),
             negative: ui.negative.into_iter().map(Into::into).collect(),

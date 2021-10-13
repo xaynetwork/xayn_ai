@@ -1,6 +1,6 @@
 use crate::{
     coi::{
-        point::{CoiPoint, UserInterests, UserInterests_v0_1_0},
+        point::{CoiPoint, UserInterests, UserInterests_v0_1_0, UserInterests_v0_2_0},
         reduce_cois,
     },
     error::Error,
@@ -9,17 +9,26 @@ use crate::{
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
 
-const CURRENT_SCHEMA_VERSION: u8 = 0;
+const CURRENT_SCHEMA_VERSION: u8 = 1;
 
 /// Synchronizable data of the reranker.
 #[obake::versioned]
 #[obake(version("0.1.0"))]
+#[obake(version("0.2.0"))]
 #[derive(Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct SyncData {
     #[obake(inherit)]
     #[obake(cfg(">=0.1"))]
     pub(crate) user_interests: UserInterests,
+}
+
+impl From<SyncData_v0_1_0> for SyncData {
+    fn from(data: SyncData_v0_1_0) -> Self {
+        Self {
+            user_interests: data.user_interests.into(),
+        }
+    }
 }
 
 impl SyncData {
@@ -30,16 +39,16 @@ impl SyncData {
         }
 
         // version encoded in first byte
-        let version = bytes[0];
-        if version != CURRENT_SCHEMA_VERSION {
-            bail!(
+        let data = match bytes[0] {
+            0 => bincode::deserialize::<SyncData_v0_1_0>(&bytes[1..])?.into(),
+            CURRENT_SCHEMA_VERSION => bincode::deserialize(&bytes[1..])?,
+            version => bail!(
                 "Unsupported serialized data. Found version {} expected {}.",
                 version,
                 CURRENT_SCHEMA_VERSION,
-            );
-        }
+            ),
+        };
 
-        let data = bincode::deserialize(&bytes[1..])?;
         Ok(data)
     }
 
