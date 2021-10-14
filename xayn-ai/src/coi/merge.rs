@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     coi::{
-        point::{CoiPoint, CoiPointExt, NegativeCoi, PositiveCoi},
+        point::{CoiPoint, CoiPointMerge, NegativeCoi, PositiveCoi},
         CoiId,
     },
     embedding::utils::{l2_distance, mean},
@@ -53,7 +53,7 @@ impl<C: CoiPoint> CoiPair<C> {
     /// Merges the CoI pair, assigning it the smaller of the two ids.
     fn merge_min(self) -> C
     where
-        C: CoiPointExt,
+        C: CoiPointMerge,
     {
         let min_id = self.0.id();
         self.0.merge(self.1, min_id)
@@ -117,7 +117,7 @@ fn dist<C: CoiPoint>(coi1: &C, coi2: &C) -> f32 {
 /// outlines the core of the algorithm.
 pub(crate) fn reduce_cois<C>(cois: &mut Vec<C>)
 where
-    C: CoiPoint + CoiPointExt + Clone,
+    C: CoiPoint + CoiPointMerge + Clone,
 {
     // initialize collection of close coiples
     let cois_iter = cois.iter();

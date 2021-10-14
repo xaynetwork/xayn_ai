@@ -108,15 +108,15 @@ impl_coi_point! {
     NegativeCoi,
 }
 
-pub(crate) trait CoiPointExt {
+pub(crate) trait CoiPointMerge {
     fn merge(self, other: Self, id: CoiId) -> Self;
 }
 
-macro_rules! impl_coi_point_ext {
+macro_rules! impl_coi_point_merge {
     ($($(#[$attribute:meta])* $type:ty),+ $(,)?) => {
         $(
             $(#[$attribute])*
-            impl CoiPointExt for $type {
+            impl CoiPointMerge for $type {
                 fn merge(self, other: Self, id: CoiId) -> Self {
                     self.merge(other, id)
                 }
@@ -125,12 +125,12 @@ macro_rules! impl_coi_point_ext {
     };
 }
 
-impl_coi_point_ext! {
+impl_coi_point_merge! {
     PositiveCoi,
     NegativeCoi,
 }
 
-// generic types can't be versioned, but aliasing and propper naming in the proc macro call works
+// generic types can't be versioned, but aliasing and proper naming in the proc macro call works
 #[allow(non_camel_case_types)]
 type PositiveCois_v0_0_0 = Vec<PositiveCoi_v0_0_0>;
 #[allow(non_camel_case_types)]

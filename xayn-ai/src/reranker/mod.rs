@@ -163,7 +163,7 @@ pub(crate) struct RerankerData {
     #[obake(cfg(">=0.0.0"))]
     prev_documents: PreviousDocuments,
 
-    // deprecated
+    // removed
     #[obake(inherit)]
     #[obake(cfg("0.0.0"))]
     user_interests: UserInterests,

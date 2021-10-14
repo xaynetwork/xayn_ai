@@ -14,8 +14,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-// Hint: We use this id new-type in FFI so repr(transparent) needs to be kept
-#[repr(transparent)]
+#[repr(transparent)] // needed for FFI
 #[derive(
     Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize, From,
 )]
