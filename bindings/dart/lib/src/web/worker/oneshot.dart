@@ -42,7 +42,9 @@ class Receiver {
   Receiver(this.port);
 
   Future<MessageEvent> recv() async {
-    return await port.onMessage.first;
+    final result = await port.onMessage.first;
+    port.close();
+    return result;
   }
 }
 
