@@ -8,11 +8,7 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    model::{
-        bert::{BertModel, BertModelError},
-        classifier::{ClassifierModel, ClassifierModelError},
-        cnn::{CnnModel, CnnModelError},
-    },
+    model::{bert::BertModel, classifier::ClassifierModel, cnn::CnnModel, ModelError},
     pipeline::Pipeline,
     tokenizer::{Tokenizer, TokenizerError},
 };
@@ -27,6 +23,8 @@ pub struct Builder<V, M> {
     lowercase: bool,
     token_size: usize,
     key_phrase_size: usize,
+    key_phrase_count: Option<usize>,
+    key_phrase_score: Option<f32>,
 }
 
 /// The potential errors of the builder.
@@ -35,17 +33,17 @@ pub enum BuilderError {
     /// The token size must be at least two to allow for special tokens
     TokenSize,
     /// The maximum key phrase words must be at least one
-    MaxKeyPhraseWords,
+    KeyPhraseSize,
+    /// The maximum number of returned key phrases must be at least one if given
+    KeyPhraseCount,
+    /// The minimum score of returned key phrases must be finite if given
+    KeyPhraseScore,
     /// Failed to load a data file: {0}
     DataFile(#[from] IoError),
     /// Failed to build the tokenizer: {0}
     Tokenizer(#[from] TokenizerError),
-    /// Failed to build the Bert model: {0}
-    BertModel(#[from] BertModelError),
-    /// Failed to build the CNN model: {0}
-    CnnModel(#[from] CnnModelError),
-    /// Failed to build the Classifier model: {0}
-    ClassifierModel(#[from] ClassifierModelError),
+    /// Failed to build the model: {0}
+    Model(#[from] ModelError),
 }
 
 impl Builder<BufReader<File>, BufReader<File>> {
@@ -76,6 +74,8 @@ impl<V, M> Builder<V, M> {
             lowercase: true,
             token_size: 1024,
             key_phrase_size: 5,
+            key_phrase_count: None,
+            key_phrase_score: None,
         }
     }
 
@@ -115,13 +115,45 @@ impl<V, M> Builder<V, M> {
     /// Defaults to `5`.
     ///
     /// # Errors
-    /// Fails if `words` is less than one.
-    pub fn with_key_phrase_size(mut self, words: usize) -> Result<Self, BuilderError> {
-        if words > 0 {
-            self.key_phrase_size = words;
+    /// Fails if `size` is less than one.
+    pub fn with_key_phrase_size(mut self, size: usize) -> Result<Self, BuilderError> {
+        if size > 0 {
+            self.key_phrase_size = size;
             Ok(self)
         } else {
-            Err(BuilderError::MaxKeyPhraseWords)
+            Err(BuilderError::KeyPhraseSize)
+        }
+    }
+
+    /// Sets the optional maximum number of returned ranked key phrases.
+    ///
+    /// Defaults to `None`. The actual returned number of ranked key phrases might be less than the
+    /// count depending on the lower threshold for the key phrase ranking scores.
+    ///
+    /// # Errors
+    /// Fails if `count` is given and less than one.
+    pub fn with_key_phrase_count(mut self, count: Option<usize>) -> Result<Self, BuilderError> {
+        if count.is_none() || count > Some(0) {
+            self.key_phrase_count = count;
+            Ok(self)
+        } else {
+            Err(BuilderError::KeyPhraseCount)
+        }
+    }
+
+    /// Sets the optional lower threshold for scores of returned ranked key phrases.
+    ///
+    /// Defaults to `None`. The actual returned number of ranked key phrases might be less than
+    /// indicated by the threshold depending on the upper count for the key phrases.
+    ///
+    /// # Errors
+    /// Fails if `score` is given and not finite.
+    pub fn with_key_phrase_score(mut self, score: Option<f32>) -> Result<Self, BuilderError> {
+        if score.is_none() || score.map(f32::is_finite).unwrap_or_default() {
+            self.key_phrase_score = score;
+            Ok(self)
+        } else {
+            Err(BuilderError::KeyPhraseScore)
         }
     }
 
@@ -140,6 +172,8 @@ impl<V, M> Builder<V, M> {
             self.lowercase,
             self.token_size,
             self.key_phrase_size,
+            self.key_phrase_count,
+            self.key_phrase_score,
         )?;
         let bert = BertModel::new(self.bert, self.token_size)?;
         let cnn = CnnModel::new(self.cnn, self.token_size, bert.embedding_size)?;

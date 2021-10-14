@@ -2,11 +2,7 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    model::{
-        bert::{BertModel, BertModelError},
-        classifier::{ClassifierModel, ClassifierModelError},
-        cnn::{CnnModel, CnnModelError},
-    },
+    model::{bert::BertModel, classifier::ClassifierModel, cnn::CnnModel, ModelError},
     tokenizer::{key_phrase::RankedKeyPhrases, Tokenizer, TokenizerError},
 };
 
@@ -28,18 +24,13 @@ pub struct Pipeline {
 pub enum PipelineError {
     /// Failed to run the tokenizer: {0}
     Tokenizer(#[from] TokenizerError),
-    /// Failed to run the Bert model: {0}
-    BertModel(#[from] BertModelError),
-    /// Failed to run the CNN model: {0}
-    CnnModel(#[from] CnnModelError),
-    /// Failed to run the Classifier model: {0}
-    ClassifierModel(#[from] ClassifierModelError),
+    /// Failed to run the model: {0}
+    Model(#[from] ModelError),
 }
 
 impl Pipeline {
     /// Extracts the key phrases from the sequence ranked in descending order.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<RankedKeyPhrases, PipelineError> {
-        // TODO: maybe add a parameter for the max key phrases to cut the returned list
         let (encoding, key_phrases) = self.tokenizer.encode(sequence);
         let embeddings = self.bert.run(
             encoding.token_ids,

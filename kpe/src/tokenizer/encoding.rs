@@ -47,7 +47,12 @@ impl Tokenizer {
 
         let valid_mask = valid_mask(&word_indices);
         let words = decode_words(tokens, word_indices, overflowing);
-        let key_phrases = KeyPhrases::collect(&words, self.key_phrase_size);
+        let key_phrases = KeyPhrases::collect(
+            &words,
+            self.key_phrase_size,
+            self.key_phrase_count,
+            self.key_phrase_score,
+        );
         let active_mask = key_phrases.active_mask();
 
         (
@@ -148,8 +153,19 @@ mod tests {
         let accents = false;
         let lowercase = true;
         let key_phrase_size = 3;
+        let key_phrase_count = None;
+        let key_phrase_score = None;
 
-        Tokenizer::new(vocab, accents, lowercase, token_size, key_phrase_size).unwrap()
+        Tokenizer::new(
+            vocab,
+            accents,
+            lowercase,
+            token_size,
+            key_phrase_size,
+            key_phrase_count,
+            key_phrase_score,
+        )
+        .unwrap()
     }
 
     #[test]

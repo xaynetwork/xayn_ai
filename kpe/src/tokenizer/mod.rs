@@ -13,6 +13,8 @@ pub struct Tokenizer {
     tokenizer: BertTokenizer<i64>,
     token_size: usize,
     key_phrase_size: usize,
+    key_phrase_count: Option<usize>,
+    key_phrase_score: Option<f32>,
 }
 
 /// The potential errors of the tokenizer.
@@ -27,13 +29,19 @@ impl Tokenizer {
     ///
     /// Can be set to keep accents and to lowercase the sequences. Requires the maximum number of
     /// tokens per tokenized sequence, which applies to padding and truncation and includes special
-    /// tokens as well. Also requires the maximum number of words per key phrase.
+    /// tokens as well.
+    ///
+    /// Also requires the maximum number of words per key phrase. Optionally takes
+    /// an upper count for the number of returned key phrases as well as a lower threshold for the
+    /// scores of returned key phrases.
     pub fn new(
         vocab: impl BufRead,
         accents: bool,
         lowercase: bool,
         token_size: usize,
         key_phrase_size: usize,
+        key_phrase_count: Option<usize>,
+        key_phrase_score: Option<f32>,
     ) -> Result<Self, TokenizerError> {
         let tokenizer = Builder::new(vocab)?
             .with_normalizer(true, false, accents, lowercase)
@@ -47,6 +55,8 @@ impl Tokenizer {
             tokenizer,
             token_size,
             key_phrase_size,
+            key_phrase_count,
+            key_phrase_score,
         })
     }
 }
