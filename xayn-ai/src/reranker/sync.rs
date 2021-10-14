@@ -1,6 +1,6 @@
 use crate::{
     coi::{
-        point::{CoiPoint, UserInterests, UserInterests_v0_0_1},
+        point::{CoiPoint, UserInterests, UserInterests_v0_1_0},
         reduce_cois,
     },
     error::Error,
@@ -13,12 +13,12 @@ const CURRENT_SCHEMA_VERSION: u8 = 0;
 
 /// Synchronizable data of the reranker.
 #[obake::versioned]
-#[obake(version("0.0.1"))]
+#[obake(version("0.1.0"))]
 #[derive(Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct SyncData {
     #[obake(inherit)]
-    #[obake(cfg(">=0.0.1"))]
+    #[obake(cfg(">=0.1"))]
     pub(crate) user_interests: UserInterests,
 }
 

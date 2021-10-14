@@ -4,7 +4,7 @@ use crate::{coi::CoiId, embedding::utils::Embedding};
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
-#[obake(version("0.0.1"))]
+#[obake(version("0.1.0"))]
 #[derive(Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct PositiveCoi {
@@ -134,18 +134,18 @@ impl_coi_point_merge! {
 #[allow(non_camel_case_types)]
 type PositiveCois_v0_0_0 = Vec<PositiveCoi_v0_0_0>;
 #[allow(non_camel_case_types)]
-type PositiveCois_v0_0_1 = Vec<PositiveCoi>;
+type PositiveCois_v0_1_0 = Vec<PositiveCoi>;
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
-#[obake(version("0.0.1"))]
+#[obake(version("0.1.0"))]
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct UserInterests {
     #[obake(inherit)]
-    #[obake(cfg(">=0.0.0"))]
+    #[obake(cfg(">=0.0"))]
     pub positive: PositiveCois,
-    #[obake(cfg(">=0.0.0"))]
+    #[obake(cfg(">=0.0"))]
     pub negative: Vec<NegativeCoi>,
 }
 

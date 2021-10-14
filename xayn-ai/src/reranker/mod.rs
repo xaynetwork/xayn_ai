@@ -8,7 +8,7 @@ use derive_more::From;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sync::{SyncData, SyncData_v0_0_1};
+use sync::{SyncData, SyncData_v0_1_0};
 use systems::QAMBertSystem;
 
 use crate::{
@@ -153,19 +153,19 @@ impl PreviousDocuments {
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
-#[obake(version("0.0.1"))]
+#[obake(version("0.1.0"))]
 #[derive(Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct RerankerData {
     #[obake(inherit)]
-    #[obake(cfg(">=0.0.1"))]
+    #[obake(cfg(">=0.1"))]
     sync_data: SyncData,
-    #[obake(cfg(">=0.0.0"))]
+    #[obake(cfg(">=0.0"))]
     prev_documents: PreviousDocuments,
 
     // removed
     #[obake(inherit)]
-    #[obake(cfg("0.0.0"))]
+    #[obake(cfg("0.0"))]
     user_interests: UserInterests,
 }
 
