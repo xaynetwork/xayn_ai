@@ -14,7 +14,8 @@ displaydoc = "0.2.3"
 itertools = "0.10.1"
 # to be kept in sync with rubert
 ndarray = "=0.15.3"
-obake = "1.0.4"
+# TODO: use original crate once the new version is released
+obake = { git = "https://github.com/xaynetwork/obake", branch = "clippy_lint" }
 rand = "0.8.4"
 rand_distr = "0.4.2"
 rubert = { path = "../rubert" }

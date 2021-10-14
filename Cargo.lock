@@ -1041,8 +1041,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 [[package]]
 name = "obake"
 version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eda26464437175aa4630c72b246b2a5c007c9019df9ae22fbfcac58d647e29fd"
+source = "git+https://github.com/xaynetwork/obake?branch=clippy_lint#951d8e5adbc234fc140c23456b271dc88733610c"
 dependencies = [
  "obake_macros",
 ]
@@ -1050,8 +1049,7 @@ dependencies = [
 [[package]]
 name = "obake_macros"
 version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349b6115190d08db083863068c6ac746af6742d1ea8172cfa6ed716fdefd918b"
+source = "git+https://github.com/xaynetwork/obake?branch=clippy_lint#951d8e5adbc234fc140c23456b271dc88733610c"
 dependencies = [
  "proc-macro2",
  "quote",

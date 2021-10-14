@@ -1,6 +1,3 @@
-// TODO: remove once the obake lint issues are resolved
-#![allow(clippy::enum_variant_names)]
-
 use serde::{Deserialize, Serialize};
 
 use crate::{coi::CoiId, embedding::utils::Embedding};

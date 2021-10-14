@@ -1,6 +1,3 @@
-// TODO: remove once the obake lint issues are resolved
-#![allow(clippy::enum_variant_names)]
-
 pub(crate) mod database;
 pub mod public;
 pub(crate) mod sync;
