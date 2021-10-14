@@ -6,6 +6,6 @@ mod tokenizer;
 
 #[cfg(doc)]
 pub use crate::{
-    model::{bert::BertModelError, classifier::ClassifierModelError, cnn::CnnModelError},
+    model::ModelError,
     tokenizer::{key_phrase::RankedKeyPhrases, TokenizerError},
 };

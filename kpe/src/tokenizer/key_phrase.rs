@@ -70,7 +70,9 @@ impl KeyPhrases {
             .into_iter()
             .zip(scores.0.into_iter())
             .collect::<Vec<_>>();
-        key_phrases.sort_unstable_by(|(_, s1), (_, s2)| s1.partial_cmp(s2).unwrap());
+        key_phrases.sort_unstable_by(
+            |(_, s1), (_, s2)| s1.partial_cmp(s2).unwrap(/* all scores must be finite */),
+        );
         let mut key_phrases = key_phrases.into_iter().map(|(p, _)| p).collect::<Vec<_>>();
         key_phrases.reverse();
 

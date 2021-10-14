@@ -1,12 +1,7 @@
-use std::{
-    io::{Error as IoError, Read},
-    sync::Arc,
-};
+use std::{io::Read, sync::Arc};
 
 use derive_more::{Deref, From};
-use displaydoc::Display;
 use ndarray::{s, Array3};
-use thiserror::Error;
 use tract_onnx::prelude::{
     tvec,
     Datum,
@@ -14,29 +9,20 @@ use tract_onnx::prelude::{
     InferenceFact,
     InferenceModelExt,
     Tensor,
-    TractError,
     TypedModel,
     TypedSimplePlan,
 };
 
-use crate::{model::bert::Embeddings, tokenizer::encoding::ValidMask};
+use crate::{
+    model::{bert::Embeddings, ModelError},
+    tokenizer::encoding::ValidMask,
+};
 
 /// A CNN onnx model.
 #[derive(Debug)]
 pub struct CnnModel {
     plan: TypedSimplePlan<TypedModel>,
     pub out_channel_size: usize,
-}
-
-/// The potential errors of the CNN model.
-#[derive(Debug, Display, Error)]
-pub enum CnnModelError {
-    /// Failed to read the onnx model: {0}
-    Read(#[from] IoError),
-    /// Failed to run a tract operation: {0}
-    Tract(#[from] TractError),
-    /// Invalid onnx model shapes
-    Shape,
 }
 
 /// The inferred features.
@@ -55,7 +41,7 @@ impl CnnModel {
         mut model: impl Read,
         token_size: usize,
         embedding_size: usize,
-    ) -> Result<Self, CnnModelError> {
+    ) -> Result<Self, ModelError> {
         let input_fact =
             InferenceFact::dt_shape(f32::datum_type(), &[1, token_size, embedding_size]);
         let plan = tract_onnx::onnx()
@@ -71,7 +57,7 @@ impl CnnModel {
             .as_concrete()
             .map(|shape| shape.get(1).copied())
             .flatten()
-            .ok_or(CnnModelError::Shape)?;
+            .ok_or(ModelError::Shape)?;
         debug_assert!(out_channel_size > 0);
 
         Ok(CnnModel {
@@ -85,7 +71,8 @@ impl CnnModel {
         &self,
         embeddings: Embeddings,
         valid_mask: ValidMask,
-    ) -> Result<Features, CnnModelError> {
+    ) -> Result<Features, ModelError> {
+        debug_assert_eq!(embeddings.shape()[1], valid_mask.len());
         // TODO: check if the zero padding gives the expected results from the cnn
         let inputs = tvec!(embeddings.collect(valid_mask)?.into());
         let outputs = self.plan.run(inputs)?;
@@ -100,22 +87,19 @@ impl CnnModel {
 
 impl Embeddings {
     /// Collects the valid embeddings according to the mask and pads with zeros.
-    fn collect(self, valid_mask: ValidMask) -> Result<Array3<f32>, CnnModelError> {
-        let mut idx = 0;
+    fn collect(self, valid_mask: ValidMask) -> Result<Array3<f32>, ModelError> {
         let mut valid_embeddings =
-            Array3::zeros([self.0.shape()[0], self.0.shape()[1], self.shape()[2]]);
-        for (valid, embedding) in valid_mask
-            .0
-            .into_iter()
-            .zip(self.0.to_array_view::<f32>()?.rows().into_iter())
-        {
-            if valid {
+            Array3::zeros([self.shape()[0], self.shape()[1], self.shape()[2]]);
+        valid_mask
+            .iter()
+            .zip(self.to_array_view::<f32>()?.rows())
+            .filter_map(|(valid, embedding)| valid.then(|| embedding))
+            .fold(0, |idx, embedding| {
                 valid_embeddings
                     .slice_mut(s![0, idx, ..])
                     .assign(&embedding);
-                idx += 1;
-            }
-        }
+                idx + 1
+            });
 
         Ok(valid_embeddings)
     }
@@ -199,7 +183,7 @@ mod tests {
     fn test_model_empty() {
         assert!(matches!(
             CnnModel::new(Vec::new().as_slice(), 10, 128).unwrap_err(),
-            CnnModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -207,7 +191,7 @@ mod tests {
     fn test_model_invalid() {
         assert!(matches!(
             CnnModel::new([0].as_ref(), 10, 128).unwrap_err(),
-            CnnModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -217,7 +201,7 @@ mod tests {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             CnnModel::new(model, 0, 128).unwrap_err(),
-            CnnModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -227,7 +211,7 @@ mod tests {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             CnnModel::new(model, 10, 0).unwrap_err(),
-            CnnModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 

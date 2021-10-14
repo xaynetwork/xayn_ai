@@ -1,9 +1,7 @@
-use std::io::{Error as IoError, Read};
+use std::io::Read;
 
 use derive_more::{Deref, From};
-use displaydoc::Display;
 use ndarray::s;
-use thiserror::Error;
 use tract_onnx::prelude::{
     tvec,
     Datum,
@@ -11,28 +9,19 @@ use tract_onnx::prelude::{
     InferenceFact,
     InferenceModelExt,
     IntoTensor,
-    TractError,
     TypedModel,
     TypedSimplePlan,
 };
 
-use crate::{model::cnn::Features, tokenizer::encoding::ActiveMask};
+use crate::{
+    model::{cnn::Features, ModelError},
+    tokenizer::encoding::ActiveMask,
+};
 
 /// A Classifier onnx model.
 #[derive(Debug)]
 pub struct ClassifierModel {
     plan: TypedSimplePlan<TypedModel>,
-}
-
-/// The potential errors of the Classifier model.
-#[derive(Debug, Display, Error)]
-pub enum ClassifierModelError {
-    /// Failed to read the onnx model: {0}
-    Read(#[from] IoError),
-    /// Failed to run a tract operation: {0}
-    Tract(#[from] TractError),
-    /// Invalid onnx model shapes
-    Shape,
 }
 
 /// The inferred scores.
@@ -51,7 +40,7 @@ impl ClassifierModel {
         mut model: impl Read,
         key_phrase_size: usize,
         cnn_out_channel_size: usize,
-    ) -> Result<Self, ClassifierModelError> {
+    ) -> Result<Self, ModelError> {
         let input_fact = InferenceFact::dt_shape(
             f32::datum_type(),
             &[1, key_phrase_size, cnn_out_channel_size],
@@ -66,11 +55,8 @@ impl ClassifierModel {
     }
 
     /// Runs the model on the convolved features to compute the scores.
-    pub fn run(
-        &self,
-        features: Features,
-        active_mask: ActiveMask,
-    ) -> Result<Scores, ClassifierModelError> {
+    pub fn run(&self, features: Features, active_mask: ActiveMask) -> Result<Scores, ModelError> {
+        debug_assert_eq!(features.shape()[1..], active_mask.shape()[..]);
         let inputs = tvec!(features.0.into_tensor());
         let outputs = self.plan.run(inputs)?;
         debug_assert!(outputs[0]
@@ -82,22 +68,19 @@ impl ClassifierModel {
         let scores = outputs[0].to_array_view::<f32>()?;
         let scores = scores.slice(s![0, .., 0]);
         let scores = active_mask
-            .0
             .rows()
             .into_iter()
             .map(|active| {
-                active.iter().zip(scores.iter()).fold(
-                    f32::NEG_INFINITY,
-                    |maximum, (active, score)| {
-                        if *active {
-                            maximum.max(*score)
-                        } else {
-                            maximum
-                        }
-                    },
-                )
+                active
+                    .iter()
+                    .zip(scores)
+                    .filter_map(|(active, score)| active.then(|| score))
+                    .copied()
+                    .reduce(f32::max)
+                    .unwrap(/* active mask must have entries in each row */)
             })
             .collect::<Vec<f32>>();
+        debug_assert!(scores.iter().all(|v| !v.is_infinite() && !v.is_nan()));
 
         Ok(scores.into())
     }
@@ -117,7 +100,7 @@ mod tests {
     fn test_model_empty() {
         assert!(matches!(
             ClassifierModel::new(Vec::new().as_slice(), 5, 128).unwrap_err(),
-            ClassifierModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -125,7 +108,7 @@ mod tests {
     fn test_model_invalid() {
         assert!(matches!(
             ClassifierModel::new([0].as_ref(), 5, 128).unwrap_err(),
-            ClassifierModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -135,7 +118,7 @@ mod tests {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             ClassifierModel::new(model, 0, 128).unwrap_err(),
-            ClassifierModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -145,7 +128,7 @@ mod tests {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             ClassifierModel::new(model, 5, 0).unwrap_err(),
-            ClassifierModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 

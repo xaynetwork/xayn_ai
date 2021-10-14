@@ -1,11 +1,6 @@
-use std::{
-    io::{Error as IoError, Read},
-    sync::Arc,
-};
+use std::{io::Read, sync::Arc};
 
 use derive_more::{Deref, From};
-use displaydoc::Display;
-use thiserror::Error;
 use tract_onnx::prelude::{
     tvec,
     Datum,
@@ -13,29 +8,20 @@ use tract_onnx::prelude::{
     InferenceFact,
     InferenceModelExt,
     Tensor,
-    TractError,
     TypedModel,
     TypedSimplePlan,
 };
 
-use crate::tokenizer::encoding::{AttentionMask, TokenIds, TypeIds};
+use crate::{
+    model::ModelError,
+    tokenizer::encoding::{AttentionMask, TokenIds, TypeIds},
+};
 
 /// A Bert onnx model.
 #[derive(Debug)]
 pub struct BertModel {
     plan: TypedSimplePlan<TypedModel>,
     pub embedding_size: usize,
-}
-
-/// The potential errors of the Bert model.
-#[derive(Debug, Display, Error)]
-pub enum BertModelError {
-    /// Failed to read the onnx model: {0}
-    Read(#[from] IoError),
-    /// Failed to run a tract operation: {0}
-    Tract(#[from] TractError),
-    /// Invalid onnx model shapes
-    Shape,
 }
 
 /// The inferred embeddings.
@@ -49,7 +35,7 @@ impl BertModel {
     ///
     /// # Panics
     /// Panics if the model is empty (due to the way tract implemented the onnx model parsing).
-    pub fn new(mut model: impl Read, token_size: usize) -> Result<Self, BertModelError> {
+    pub fn new(mut model: impl Read, token_size: usize) -> Result<Self, ModelError> {
         let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
@@ -69,7 +55,7 @@ impl BertModel {
                 shape.get(2).copied()
             })
             .flatten()
-            .ok_or(BertModelError::Shape)?;
+            .ok_or(ModelError::Shape)?;
         debug_assert!(embedding_size > 0);
 
         Ok(BertModel {
@@ -84,7 +70,9 @@ impl BertModel {
         token_ids: TokenIds,
         attention_mask: AttentionMask,
         type_ids: TypeIds,
-    ) -> Result<Embeddings, BertModelError> {
+    ) -> Result<Embeddings, ModelError> {
+        debug_assert_eq!(token_ids.shape(), attention_mask.shape());
+        debug_assert_eq!(token_ids.shape(), type_ids.shape());
         let inputs = tvec!(
             token_ids.0.into(),
             attention_mask.0.into(),
@@ -113,7 +101,7 @@ mod tests {
     fn test_model_empty() {
         assert!(matches!(
             BertModel::new(Vec::new().as_slice(), 10).unwrap_err(),
-            BertModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -121,7 +109,7 @@ mod tests {
     fn test_model_invalid() {
         assert!(matches!(
             BertModel::new([0].as_ref(), 10).unwrap_err(),
-            BertModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
@@ -131,7 +119,7 @@ mod tests {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             BertModel::new(model, 0).unwrap_err(),
-            BertModelError::Tract(_),
+            ModelError::Tract(_),
         ));
     }
 
