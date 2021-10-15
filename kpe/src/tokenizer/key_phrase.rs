@@ -3,7 +3,7 @@ use std::{borrow::Borrow, collections::HashMap};
 use derive_more::{Deref, From};
 use ndarray::Array2;
 
-use crate::tokenizer::encoding::ActiveMask;
+use crate::{model::classifier::Scores, tokenizer::encoding::ActiveMask};
 
 /// The collection of all potential key phrases.
 pub struct KeyPhrases {
@@ -60,6 +60,23 @@ impl KeyPhrases {
             i as i64 == self.mentions[j]
         })
         .into()
+    }
+
+    /// Ranks the key phrases in descending order according to the scores.
+    pub fn rank(self, scores: Scores) -> RankedKeyPhrases {
+        debug_assert_eq!(self.choices.len(), scores.0.len());
+        let mut key_phrases = self
+            .choices
+            .into_iter()
+            .zip(scores.0.into_iter())
+            .collect::<Vec<_>>();
+        key_phrases.sort_unstable_by(
+            |(_, s1), (_, s2)| s1.partial_cmp(s2).unwrap(/* all scores must be finite */),
+        );
+        let mut key_phrases = key_phrases.into_iter().map(|(p, _)| p).collect::<Vec<_>>();
+        key_phrases.reverse();
+
+        key_phrases.into()
     }
 }
 
@@ -280,5 +297,32 @@ mod tests {
             KeyPhrases::collect(&[] as &[&str], 3).active_mask().0,
             ArrayView2::from_shape((0, 0), &[] as &[bool]).unwrap(),
         );
+    }
+
+    #[test]
+    fn test_rank_full() {
+        let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
+        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3);
+        assert_eq!(
+            key_phrases.rank(scores).0,
+            [
+                "this embedding",
+                "fits perfectly",
+                "embedding fits",
+                "this embedding fits",
+                "embedding",
+                "embedding fits perfectly",
+                "fits",
+                "perfectly",
+                "this",
+            ],
+        );
+    }
+
+    #[test]
+    fn test_rank_empty() {
+        let scores = Scores(Vec::new());
+        let key_phrases = KeyPhrases::collect(&[] as &[&str], 3);
+        assert!(key_phrases.rank(scores).0.is_empty());
     }
 }
