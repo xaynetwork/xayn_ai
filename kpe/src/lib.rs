@@ -1,8 +1,33 @@
 #![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
-#![allow(dead_code)]
+//! The KPE pipeline extracts key phrases from a sequence.
+//!
+//! ```no_run
+//! use kpe::Builder;
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let kpe = Builder::from_files("vocab.txt", "bert.onnx", "cnn.onnx", "classifier.onnx")?
+//!         .with_accents(false)
+//!         .with_lowercase(true)
+//!         .with_token_size(64)?
+//!         .with_key_phrase_size(5)?
+//!         .build()?;
+//!
+//!     let key_phrases = kpe.run("This is a sequence.")?;
+//!     assert_eq!(key_phrases.len(), 12);
+//!
+//!     Ok(())
+//! }
+//! ```
 
+mod builder;
 mod model;
+mod pipeline;
 mod tokenizer;
+
+pub use crate::{
+    builder::{Builder, BuilderError},
+    pipeline::{Pipeline, PipelineError},
+};
 
 #[cfg(doc)]
 pub use crate::{
