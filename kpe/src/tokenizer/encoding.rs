@@ -50,8 +50,8 @@ impl Tokenizer {
         let key_phrases = KeyPhrases::collect(
             &words,
             self.key_phrase_size,
-            self.key_phrase_count,
-            self.key_phrase_score,
+            self.key_phrase_max_count,
+            self.key_phrase_min_score,
         );
         let active_mask = key_phrases.active_mask();
 

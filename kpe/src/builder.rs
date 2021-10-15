@@ -23,8 +23,8 @@ pub struct Builder<V, M> {
     lowercase: bool,
     token_size: usize,
     key_phrase_size: usize,
-    key_phrase_count: Option<usize>,
-    key_phrase_score: Option<f32>,
+    key_phrase_max_count: Option<usize>,
+    key_phrase_min_score: Option<f32>,
 }
 
 /// The potential errors of the builder.
@@ -35,9 +35,9 @@ pub enum BuilderError {
     /// The maximum key phrase words must be at least one
     KeyPhraseSize,
     /// The maximum number of returned key phrases must be at least one if given
-    KeyPhraseCount,
+    KeyPhraseMaxCount,
     /// The minimum score of returned key phrases must be finite if given
-    KeyPhraseScore,
+    KeyPhraseMinScore,
     /// Failed to load a data file: {0}
     DataFile(#[from] IoError),
     /// Failed to build the tokenizer: {0}
@@ -74,8 +74,8 @@ impl<V, M> Builder<V, M> {
             lowercase: true,
             token_size: 1024,
             key_phrase_size: 5,
-            key_phrase_count: None,
-            key_phrase_score: None,
+            key_phrase_max_count: None,
+            key_phrase_min_score: None,
         }
     }
 
@@ -132,12 +132,12 @@ impl<V, M> Builder<V, M> {
     ///
     /// # Errors
     /// Fails if `count` is given and less than one.
-    pub fn with_key_phrase_count(mut self, count: Option<usize>) -> Result<Self, BuilderError> {
+    pub fn with_key_phrase_max_count(mut self, count: Option<usize>) -> Result<Self, BuilderError> {
         if count.is_none() || count > Some(0) {
-            self.key_phrase_count = count;
+            self.key_phrase_max_count = count;
             Ok(self)
         } else {
-            Err(BuilderError::KeyPhraseCount)
+            Err(BuilderError::KeyPhraseMaxCount)
         }
     }
 
@@ -148,12 +148,12 @@ impl<V, M> Builder<V, M> {
     ///
     /// # Errors
     /// Fails if `score` is given and not finite.
-    pub fn with_key_phrase_score(mut self, score: Option<f32>) -> Result<Self, BuilderError> {
+    pub fn with_key_phrase_min_score(mut self, score: Option<f32>) -> Result<Self, BuilderError> {
         if score.is_none() || score.map(f32::is_finite).unwrap_or_default() {
-            self.key_phrase_score = score;
+            self.key_phrase_min_score = score;
             Ok(self)
         } else {
-            Err(BuilderError::KeyPhraseScore)
+            Err(BuilderError::KeyPhraseMinScore)
         }
     }
 
@@ -172,8 +172,8 @@ impl<V, M> Builder<V, M> {
             self.lowercase,
             self.token_size,
             self.key_phrase_size,
-            self.key_phrase_count,
-            self.key_phrase_score,
+            self.key_phrase_max_count,
+            self.key_phrase_min_score,
         )?;
         let bert = BertModel::new(self.bert, self.token_size)?;
         let cnn = CnnModel::new(self.cnn, self.token_size, bert.embedding_size)?;

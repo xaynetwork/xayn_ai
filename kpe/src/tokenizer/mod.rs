@@ -13,8 +13,8 @@ pub struct Tokenizer {
     tokenizer: BertTokenizer<i64>,
     token_size: usize,
     key_phrase_size: usize,
-    key_phrase_count: Option<usize>,
-    key_phrase_score: Option<f32>,
+    key_phrase_max_count: Option<usize>,
+    key_phrase_min_score: Option<f32>,
 }
 
 /// The potential errors of the tokenizer.
@@ -40,8 +40,8 @@ impl Tokenizer {
         lowercase: bool,
         token_size: usize,
         key_phrase_size: usize,
-        key_phrase_count: Option<usize>,
-        key_phrase_score: Option<f32>,
+        key_phrase_max_count: Option<usize>,
+        key_phrase_min_score: Option<f32>,
     ) -> Result<Self, TokenizerError> {
         let tokenizer = Builder::new(vocab)?
             .with_normalizer(true, false, accents, lowercase)
@@ -55,8 +55,8 @@ impl Tokenizer {
             tokenizer,
             token_size,
             key_phrase_size,
-            key_phrase_count,
-            key_phrase_score,
+            key_phrase_max_count,
+            key_phrase_min_score,
         })
     }
 }

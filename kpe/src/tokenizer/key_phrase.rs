@@ -10,8 +10,8 @@ use crate::{model::classifier::Scores, tokenizer::encoding::ActiveMask};
 pub struct KeyPhrases {
     choices: Vec<String>,
     mentions: Vec<i64>,
-    count: Option<usize>,
-    score: Option<f32>,
+    max_count: Option<usize>,
+    min_score: Option<f32>,
 }
 
 /// The ranked key phrases in descending order.
@@ -26,8 +26,8 @@ impl KeyPhrases {
     pub fn collect(
         words: &[impl Borrow<str>],
         size: usize,
-        count: Option<usize>,
-        score: Option<f32>,
+        max_count: Option<usize>,
+        min_score: Option<f32>,
     ) -> Self {
         if words.is_empty() {
             return Self::default();
@@ -60,8 +60,8 @@ impl KeyPhrases {
         Self {
             choices,
             mentions,
-            count,
-            score,
+            max_count,
+            min_score,
         }
     }
 
@@ -76,22 +76,22 @@ impl KeyPhrases {
     /// Ranks the key phrases in descending order according to the scores.
     pub fn rank(self, scores: Scores) -> RankedKeyPhrases {
         debug_assert_eq!(self.choices.len(), scores.len());
-        let threshold = self.score.as_ref();
+        let min_score = self.min_score.as_ref();
         let mut key_phrases = self
             .choices
             .into_iter()
             .zip(scores.0)
-            .filter(|(_, score)| Some(score) >= threshold)
+            .filter(|(_, score)| Some(score) >= min_score)
             .collect::<Vec<_>>();
         key_phrases.sort_unstable_by(
             |(_, s1), (_, s2)| s1.partial_cmp(s2).unwrap(/* all scores must be finite */),
         );
 
         let len = self
-            .count
-            .map(|threshold| {
+            .max_count
+            .map(|max_count| {
                 let len = key_phrases.len();
-                len - threshold.min(len)
+                len - max_count.min(len)
             })
             .unwrap_or_default();
         key_phrases
