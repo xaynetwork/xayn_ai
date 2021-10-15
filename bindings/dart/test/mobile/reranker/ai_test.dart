@@ -119,7 +119,7 @@ void main() {
     test('serialize syncdata', () async {
       final ai = await XaynAi.create(mkSetupData());
 
-      expect(ai.syncdataBytes(), isNot(isEmpty));
+      expect(await ai.syncdataBytes(), isNot(isEmpty));
 
       await ai.free();
     });
@@ -127,7 +127,7 @@ void main() {
     test('synchronize empty', () async {
       final ai = await XaynAi.create(mkSetupData());
       expect(
-        () => ai.synchronize(Uint8List(0)),
+        () async => await ai.synchronize(Uint8List(0)),
         throwsXaynAiException(Code.synchronization),
       );
 
@@ -137,7 +137,7 @@ void main() {
     test('synchronize invalid', () async {
       final ai = await XaynAi.create(mkSetupData());
       expect(
-        () => ai.synchronize(Uint8List.fromList([255])),
+        () async => await ai.synchronize(Uint8List.fromList([255])),
         throwsXaynAiException(Code.synchronization),
       );
 
