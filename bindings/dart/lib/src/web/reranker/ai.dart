@@ -100,8 +100,8 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  RerankingOutcomes rerank(
-      RerankMode mode, List<History> histories, List<Document> documents) {
+  Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
+      List<Document> documents) async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
@@ -127,7 +127,7 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  Uint8List serialize() {
+  Future<Uint8List> serialize() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
@@ -150,7 +150,7 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  List<String> faults() {
+  Future<List<String>> faults() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
@@ -169,7 +169,7 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  Analytics? analytics() {
+  Future<Analytics?> analytics() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
@@ -188,7 +188,7 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  Uint8List syncdataBytes() {
+  Future<Uint8List> syncdataBytes() async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
@@ -209,7 +209,7 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  void synchronize(Uint8List serialized) {
+  Future<void> synchronize(Uint8List serialized) async {
     if (_ai == null) {
       throw StateError('XaynAi was already freed');
     }
@@ -226,7 +226,7 @@ class XaynAi implements common.XaynAi {
 
   /// Frees the memory.
   @override
-  void free() {
+  Future<void> free() async {
     _ai?.free();
     _ai = null;
   }
