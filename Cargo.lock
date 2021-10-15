@@ -749,6 +749,7 @@ dependencies = [
  "rubert-tokenizer",
  "test-utils",
  "thiserror",
+ "tract-onnx",
 ]
 
 [[package]]
