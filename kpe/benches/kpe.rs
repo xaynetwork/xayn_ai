@@ -1,4 +1,4 @@
-//! Run as `cargo bench --bench mbert.
+//! Run as `cargo bench --bench kpe.
 
 use std::{io::Result, path::Path};
 
