@@ -5,6 +5,7 @@ pub mod cnn;
 use std::io::Error as IoError;
 
 use displaydoc::Display;
+use ndarray::ShapeError;
 use thiserror::Error;
 use tract_onnx::prelude::TractError;
 
@@ -15,6 +16,6 @@ pub enum ModelError {
     Read(#[from] IoError),
     /// Failed to run a tract operation: {0}
     Tract(#[from] TractError),
-    /// Invalid onnx model shapes
-    Shape,
+    /// Invalid array shapes: {0}
+    Shape(#[from] ShapeError),
 }
