@@ -16,4 +16,10 @@ thiserror = "1.0.29"
 tract-onnx = "0.15.3"
 
 [dev-dependencies]
+criterion = { version = "0.3.5", features = ["html_reports"] }
 test-utils = { path = "../test-utils" }
+
+[[bench]]
+name = "kpe"
+harness = false
+bench = false
