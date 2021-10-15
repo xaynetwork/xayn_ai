@@ -8,13 +8,13 @@ use crate::{coi::CoiId, embedding::utils::Embedding};
 #[derive(Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct PositiveCoi {
-    #[obake(cfg(">=0.0.0"))]
+    #[obake(cfg(">=0.0"))]
     pub id: CoiId,
-    #[obake(cfg(">=0.0.0"))]
+    #[obake(cfg(">=0.0"))]
     pub point: Embedding,
-    #[obake(cfg(">=0.0.0"))]
+    #[obake(cfg(">=0.0"))]
     pub alpha: f32,
-    #[obake(cfg(">=0.0.0"))]
+    #[obake(cfg(">=0.0"))]
     pub beta: f32,
 }
 

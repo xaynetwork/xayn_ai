@@ -163,9 +163,9 @@ pub(crate) struct RerankerData {
     #[obake(cfg(">=0.0"))]
     prev_documents: PreviousDocuments,
 
-    // removed
+    // removed fields go below this line
     #[obake(inherit)]
-    #[obake(cfg("0.0"))]
+    #[obake(cfg(">=0.0, <0.1"))]
     user_interests: UserInterests,
 }
 
