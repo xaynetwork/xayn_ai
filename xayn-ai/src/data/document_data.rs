@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::{
-        document::{DocumentId, QueryId, SessionId},
-        CoiId,
-    },
+    coi::CoiId,
+    data::document::{DocumentId, QueryId, SessionId},
     embedding::utils::Embedding,
     reranker::systems::CoiSystemData,
 };
