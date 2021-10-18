@@ -12,20 +12,18 @@ mod reranker;
 
 pub use crate::{
     analytics::Analytics,
-    data::{
-        document::{
-            DayOfWeek,
-            Document,
-            DocumentHistory,
-            DocumentId,
-            QueryId,
-            Relevance,
-            RerankingOutcomes,
-            SessionId,
-            UserAction,
-            UserFeedback,
-        },
-        CoiId,
+    coi::CoiId,
+    data::document::{
+        DayOfWeek,
+        Document,
+        DocumentHistory,
+        DocumentId,
+        QueryId,
+        Relevance,
+        RerankingOutcomes,
+        SessionId,
+        UserAction,
+        UserFeedback,
     },
     error::Error,
     reranker::{

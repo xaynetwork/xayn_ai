@@ -3,10 +3,12 @@ use std::cmp::Ordering;
 use itertools::Itertools;
 
 use crate::{
-    data::{CoiPoint, NegativeCoi, PositiveCoi},
+    coi::{
+        point::{CoiPoint, CoiPointMerge, NegativeCoi, PositiveCoi},
+        CoiId,
+    },
     embedding::utils::{l2_distance, mean},
     utils::nan_safe_f32_cmp_high,
-    CoiId,
 };
 
 const MERGE_THRESHOLD_DIST: f32 = 4.5;
@@ -49,7 +51,10 @@ impl<C: CoiPoint> CoiPair<C> {
     }
 
     /// Merges the CoI pair, assigning it the smaller of the two ids.
-    fn merge_min(self) -> C {
+    fn merge_min(self) -> C
+    where
+        C: CoiPointMerge,
+    {
         let min_id = self.0.id();
         self.0.merge(self.1, min_id)
     }
@@ -112,7 +117,7 @@ fn dist<C: CoiPoint>(coi1: &C, coi2: &C) -> f32 {
 /// outlines the core of the algorithm.
 pub(crate) fn reduce_cois<C>(cois: &mut Vec<C>)
 where
-    C: CoiPoint + Clone,
+    C: CoiPoint + CoiPointMerge + Clone,
 {
     // initialize collection of close coiples
     let cois_iter = cois.iter();

@@ -3,6 +3,7 @@ use std::ops::Range;
 use ndarray::arr1;
 
 use crate::{
+    coi::point::{CoiPoint, NegativeCoi, PositiveCoi, PositiveCoi_v0_0_0},
     data::{
         document::{Relevance, UserFeedback},
         document_data::{
@@ -18,9 +19,6 @@ use crate::{
             RankComponent,
             SMBertComponent,
         },
-        CoiPoint,
-        NegativeCoi,
-        PositiveCoi,
     },
     embedding::utils::Embedding,
     reranker::systems::{CoiSystemData, SMBertSystem},
@@ -82,6 +80,13 @@ fn cois_from_words<CP: CoiPoint>(
         .enumerate()
         .map(|(offset, doc)| CP::new(mock_coi_id(start_id + offset), doc.smbert.embedding))
         .collect()
+}
+
+pub(crate) fn pos_cois_from_words_v0(
+    titles: &[&str],
+    smbert: impl SMBertSystem,
+) -> Vec<PositiveCoi_v0_0_0> {
+    cois_from_words(titles, smbert, 0)
 }
 
 pub(crate) fn pos_cois_from_words(titles: &[&str], smbert: impl SMBertSystem) -> Vec<PositiveCoi> {

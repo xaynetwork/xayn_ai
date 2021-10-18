@@ -423,6 +423,8 @@ pub unsafe extern "C" fn xaynai_syncdata_bytes(
 /// - A non-null `xaynai` doesn't point to memory allocated by [`xaynai_new()`].
 /// - The safety constraints of [`CBoxedSlice`] are violated.
 /// - A non-null `error` doesn't point to an aligned, contiguous area of memory with a [`CError`].
+///
+/// [`CBoxedSlice`]: crate::utils::CBoxedSlice
 #[no_mangle]
 pub unsafe extern "C" fn xaynai_synchronize(
     xaynai: Option<&mut CXaynAi>,

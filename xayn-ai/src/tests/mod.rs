@@ -18,6 +18,7 @@ pub(crate) use self::{
         neg_cois_from_words,
         neg_cois_from_words_with_ids,
         pos_cois_from_words,
+        pos_cois_from_words_v0,
         pos_cois_from_words_with_ids,
     },
 };

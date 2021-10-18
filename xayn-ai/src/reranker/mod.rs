@@ -3,14 +3,17 @@ pub mod public;
 pub(crate) mod sync;
 pub(crate) mod systems;
 
+#[cfg(test)]
+use derive_more::From;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sync::SyncData;
+use sync::{SyncData, SyncData_v0_1_0};
 use systems::QAMBertSystem;
 
 use crate::{
     analytics::Analytics,
+    coi::point::{UserInterests, UserInterests_v0_0_0},
     data::{
         document::{Document, DocumentHistory, RerankingOutcomes},
         document_data::{
@@ -22,7 +25,6 @@ use crate::{
             DocumentDataWithSMBert,
             RankComponent,
         },
-        UserInterests,
     },
     embedding::qambert::NeutralQAMBert,
     error::Error,
@@ -30,9 +32,6 @@ use crate::{
     to_vec_of_ref_of,
     utils::nan_safe_f32_cmp,
 };
-
-#[cfg(test)]
-use derive_more::From;
 
 /// Update cois from user feedback
 fn learn_user_interests<CS>(
@@ -152,24 +151,31 @@ impl PreviousDocuments {
     }
 }
 
-#[cfg_attr(test, derive(Clone, PartialEq, Debug))]
-#[derive(Default, Serialize, Deserialize)]
+#[obake::versioned]
+#[obake(version("0.0.0"))]
+#[obake(version("0.1.0"))]
+#[derive(Default, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct RerankerData {
+    #[obake(inherit)]
+    #[obake(cfg(">=0.1"))]
     sync_data: SyncData,
+    #[obake(cfg(">=0.0"))]
     prev_documents: PreviousDocuments,
+
+    // removed fields go below this line
+    #[obake(inherit)]
+    #[obake(cfg(">=0.0, <0.1"))]
+    user_interests: UserInterests,
 }
 
-#[cfg(test)]
-impl RerankerData {
-    pub(crate) fn new_with_rank(
-        user_interests: UserInterests,
-        prev_documents: Vec<DocumentDataWithRank>,
-    ) -> Self {
-        let sync_data = SyncData { user_interests };
-        let prev_documents = PreviousDocuments::Final(prev_documents);
+impl From<RerankerData_v0_0_0> for RerankerData {
+    fn from(data: RerankerData_v0_0_0) -> Self {
         Self {
-            sync_data,
-            prev_documents,
+            sync_data: SyncData {
+                user_interests: data.user_interests.into(),
+            },
+            prev_documents: data.prev_documents,
         }
     }
 }
@@ -314,8 +320,12 @@ fn rank_by_context(mut docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWi
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use anyhow::bail;
+    use paste::paste;
+    use rstest::rstest;
+    use rstest_reuse::{apply, template};
 
+    use super::*;
     use crate::{
         coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
@@ -325,7 +335,6 @@ mod tests {
             documents_from_ids,
             documents_with_embeddings_from_ids,
             expected_rerank_unchanged,
-            from_ids,
             history_for_prev_docs,
             mocked_smbert_system,
             MemDb,
@@ -338,10 +347,30 @@ mod tests {
             MockSMBertSystem,
         },
     };
-    use anyhow::bail;
-    use paste::paste;
-    use rstest::rstest;
-    use rstest_reuse::{apply, template};
+
+    impl RerankerData_v0_0_0 {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests_v0_0_0,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                user_interests,
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
+
+    impl RerankerData {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                sync_data: SyncData { user_interests },
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
 
     macro_rules! check_error {
         ($reranker: expr, $error:pat) => {
@@ -353,22 +382,20 @@ mod tests {
     }
 
     mod car_interest_example {
-        use super::{from_ids, sync::SyncData};
+        use std::ops::Range;
 
         use crate::{
-            data::{
-                document::{Document, RerankingOutcomes},
-                UserInterests,
-            },
-            reranker::{PreviousDocuments, RerankerData},
+            coi::point::UserInterests,
+            data::document::{Document, RerankingOutcomes},
+            reranker::{sync::SyncData, PreviousDocuments, RerankerData},
             tests::{
                 data_with_rank,
                 documents_from_words,
+                from_ids,
                 mocked_smbert_system,
                 pos_cois_from_words,
             },
         };
-        use std::ops::Range;
 
         pub(super) fn reranker_data_with_rank_from_ids(ids: Range<u32>) -> RerankerData {
             let docs = data_with_rank(from_ids(ids));
