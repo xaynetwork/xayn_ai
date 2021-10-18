@@ -1,25 +1,26 @@
 import 'dart:typed_data' show Uint8List;
 
-import 'package:json_annotation/json_annotation.dart'
-    show JsonConverter, JsonSerializable;
+import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Sender;
+import 'package:xayn_ai_ffi_dart/src/web/worker/utils.dart'
+    show Uint8ListConverter, Uint8ListNullConverter;
 
 part 'message.g.dart';
 
 @JsonSerializable()
-class Message {
+class Request {
   final Method method;
-  final Map<String, dynamic> args;
+  final Map<String, dynamic>? params;
   final Sender sender;
 
-  Message(this.method, this.args, this.sender);
+  Request(this.method, this.params, this.sender);
 
-  factory Message.fromJson(Map json) => _$MessageFromJson(json);
+  factory Request.fromJson(Map json) => _$RequestFromJson(json);
 
-  Map<String, dynamic> toJson() => _$MessageToJson(this);
+  Map<String, dynamic> toJson() => _$RequestToJson(this);
 }
 
 enum Method {
@@ -31,7 +32,7 @@ enum Method {
 }
 
 @JsonSerializable()
-class CreateArgs {
+class CreateParams {
   @Uint8ListConverter()
   final Uint8List smbertVocab;
   @Uint8ListConverter()
@@ -44,81 +45,93 @@ class CreateArgs {
   final Uint8List ltrModel;
   @Uint8ListConverter()
   final Uint8List wasmModule;
-  // @Uint8ListNullConverter()
-  // late Uint8List? serialized;
+  @Uint8ListNullConverter()
+  late Uint8List? serialized;
 
   final String wasmScript;
 
-  CreateArgs(
-    this.smbertVocab,
-    this.smbertModel,
-    this.qambertVocab,
-    this.qambertModel,
-    this.ltrModel,
-    this.wasmModule,
-    this.wasmScript,
-    // [Uint8List? serialized]
-  );
+  CreateParams(this.smbertVocab, this.smbertModel, this.qambertVocab,
+      this.qambertModel, this.ltrModel, this.wasmModule, this.wasmScript,
+      [Uint8List? serialized]);
 
-  factory CreateArgs.fromJson(Map json) => _$CreateArgsFromJson(json);
+  factory CreateParams.fromJson(Map json) => _$CreateParamsFromJson(json);
 
-  Map<String, dynamic> toJson() => _$CreateArgsToJson(this);
-}
-
-class Uint8ListConverter implements JsonConverter<Uint8List, Uint8List> {
-  const Uint8ListConverter();
-
-  @override
-  Uint8List fromJson(Uint8List json) {
-    return json;
-  }
-
-  @override
-  Uint8List toJson(Uint8List object) {
-    return object;
-  }
+  Map<String, dynamic> toJson() => _$CreateParamsToJson(this);
 }
 
 @JsonSerializable()
-class RerankArgs {
+class RerankParams {
   final RerankMode mode;
   final List<History> histories;
   final List<Document> documents;
 
-  RerankArgs(
+  RerankParams(
     this.mode,
     this.histories,
     this.documents,
   );
 
-  factory RerankArgs.fromJson(Map json) => _$RerankArgsFromJson(json);
+  factory RerankParams.fromJson(Map json) => _$RerankParamsFromJson(json);
 
-  Map<String, dynamic> toJson() => _$RerankArgsToJson(this);
+  Map<String, dynamic> toJson() => _$RerankParamsToJson(this);
 }
 
 @JsonSerializable()
-class FaultsReturn {
+class Response {
+  final Map<String, dynamic>? result;
+  final XaynAiError? error;
+
+  static Response fromResult(Map<String, dynamic> result) =>
+      Response(result, null);
+  static Response fromError(XaynAiError error) => Response(null, error);
+  static final ok = Response(null, null);
+
+  Response(this.result, this.error);
+
+  bool isError() => error != null ? true : false;
+
+  factory Response.fromJson(Map json) => _$ResponseFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ResponseToJson(this);
+}
+
+@JsonSerializable()
+class XaynAiError {
+  final int code;
+
+  final String message;
+
+  XaynAiError(this.code, this.message);
+
+  factory XaynAiError.fromJson(Map json) => _$XaynAiErrorFromJson(json);
+
+  Map<String, dynamic> toJson() => _$XaynAiErrorToJson(this);
+}
+
+@JsonSerializable()
+class FaultsResponse {
   final List<String> faults;
 
-  FaultsReturn(
+  FaultsResponse(
     this.faults,
   );
 
-  factory FaultsReturn.fromJson(Map json) => _$FaultsReturnFromJson(json);
+  factory FaultsResponse.fromJson(Map json) => _$FaultsResponseFromJson(json);
 
-  Map<String, dynamic> toJson() => _$FaultsReturnToJson(this);
+  Map<String, dynamic> toJson() => _$FaultsResponseToJson(this);
 }
 
 @JsonSerializable()
-class SerializeReturn {
+class SerializeResponse {
   @Uint8ListConverter()
   final Uint8List data;
 
-  SerializeReturn(
+  SerializeResponse(
     this.data,
   );
 
-  factory SerializeReturn.fromJson(Map json) => _$SerializeReturnFromJson(json);
+  factory SerializeResponse.fromJson(Map json) =>
+      _$SerializeResponseFromJson(json);
 
-  Map<String, dynamic> toJson() => _$SerializeReturnToJson(this);
+  Map<String, dynamic> toJson() => _$SerializeResponseToJson(this);
 }

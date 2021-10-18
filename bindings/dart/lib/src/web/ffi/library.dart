@@ -40,7 +40,7 @@ class Wasm {}
 
 // in genesis.js we need to export to self.wasm_bindgen = wasm_bindgen
 @JS('wasm_bindgen')
-external Promise<Wasm> _wasm_bindgen([
+external Promise<Wasm> _wasmBindgen([
   // ignore: non_constant_identifier_names
   dynamic module_or_path,
 ]);
@@ -53,7 +53,7 @@ external Promise<void> _initThreadPool(int numberOfThreads);
 /// If `moduleOrPath` is a `RequestInfo` or `URL`, makes a request and
 /// for everything else, calls `WebAssembly.instantiate` directly.
 Future<Wasm> init([dynamic moduleOrPath]) async {
-  final wasm = await promiseToFuture<Wasm>(_wasm_bindgen(moduleOrPath));
+  final wasm = await promiseToFuture<Wasm>(_wasmBindgen(moduleOrPath));
 
   // Most devices have 4+ hardware threads, but if the browser doesn't support
   // the property it's probably old so we default to 2.

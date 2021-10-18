@@ -11,17 +11,11 @@ import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/data_provider.dart'
     show SetupData;
-import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
-    show
-        RuntimeError,
-        RuntimeErrorToException,
-        XaynAiError,
-        XaynAiErrorToException;
-import 'package:xayn_ai_ffi_dart/src/web/worker/proxy.dart' show XaynAiProxy;
+import 'package:xayn_ai_ffi_dart/src/web/worker/proxy.dart' show XaynAiWorker;
 
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
-  late XaynAiProxy? _ai;
+  final XaynAiWorker _ai;
 
   /// Creates and initializes the Xayn AI and initializes the WASM module.
   ///
@@ -29,7 +23,7 @@ class XaynAi implements common.XaynAi {
   /// module. Optionally accepts the serialized reranker database, otherwise
   /// creates a new one.
   static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
-    final ai = await XaynAiProxy.create(data, serialized);
+    final ai = await XaynAiWorker.create(data, serialized);
     return XaynAi._(ai);
   }
 
@@ -37,15 +31,7 @@ class XaynAi implements common.XaynAi {
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
   /// reranker database, otherwise creates a new one.
-  XaynAi._(XaynAiProxy ai) {
-    try {
-      _ai = ai;
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      throw error.toException();
-    }
-  }
+  XaynAi._(this._ai);
 
   /// Reranks the documents.
   ///
@@ -57,11 +43,7 @@ class XaynAi implements common.XaynAi {
   @override
   Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
       List<Document> documents) async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    return await _ai!.rerank(mode, histories, documents);
+    return await _ai.rerank(mode, histories, documents);
   }
 
   /// Serializes the current state of the reranker.
@@ -71,11 +53,7 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   Future<Uint8List> serialize() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    return await _ai!.serialize();
+    return await _ai.serialize();
   }
 
   /// Retrieves faults which might occur during reranking.
@@ -87,11 +65,7 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   Future<List<String>> faults() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    return await _ai!.faults();
+    return await _ai.faults();
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
@@ -101,11 +75,7 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   Future<Analytics?> analytics() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    throw UnimplementedError();
+    return await _ai.analytics();
   }
 
   /// Serializes the synchronizable data of the reranker.
@@ -115,11 +85,7 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   Future<Uint8List> syncdataBytes() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    throw UnimplementedError();
+    return await _ai.syncdataBytes();
   }
 
   /// Synchronizes the internal data of the reranker with another.
@@ -129,16 +95,12 @@ class XaynAi implements common.XaynAi {
   /// [`serialize()`].
   @override
   Future<void> synchronize(Uint8List serialized) async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    throw UnimplementedError();
+    await _ai.synchronize(serialized);
   }
 
   /// Frees the memory.
   @override
   Future<void> free() async {
-    await _ai!.free();
+    await _ai.free();
   }
 }

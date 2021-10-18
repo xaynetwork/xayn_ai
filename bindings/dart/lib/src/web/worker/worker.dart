@@ -1,86 +1,105 @@
 import 'dart:async' show StreamController;
 import 'dart:html' show DedicatedWorkerGlobalScope, WorkerGlobalScope;
 
-import 'package:xayn_ai_ffi_dart/src/web/ffi/library.dart';
+import 'package:xayn_ai_ffi_dart/src/web/ffi/library.dart' show JSXaynAi;
 import 'package:xayn_ai_ffi_dart/src/web/worker/message.dart'
-    show CreateArgs, FaultsReturn, Message, Method, RerankArgs, SerializeReturn;
+    show
+        CreateParams,
+        FaultsResponse,
+        Method,
+        Request,
+        RerankParams,
+        Response,
+        SerializeResponse,
+        XaynAiError;
+import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Sender;
 
 class MessageHandler<T> {
   final dws = DedicatedWorkerGlobalScope.instance;
-  final _incoming = StreamController<T>.broadcast();
-  final _outgoing = StreamController<T>.broadcast();
+  final _incoming = StreamController<T>();
 
-  Stream<T> get onMessage => _incoming.stream;
-  Sink<T> get postMessage => _outgoing.sink;
+  Stream<T> get incoming => _incoming.stream;
 
   MessageHandler() {
     dws.onMessage.listen((event) => _incoming.add(event.data as T));
-    _outgoing.stream.listen(dws.postMessage);
   }
 }
 
 void main() async {
-  try {
-    final messageHandler = MessageHandler<Map>();
-    JSXaynAi? ai;
+  final messageHandler = MessageHandler<Map>();
+  JSXaynAi? ai;
 
-    messageHandler.onMessage.listen((Map map) async {
-      final message = Message.fromJson(map);
+  await for (final json in messageHandler.incoming) {
+    try {
+      final request = Request.fromJson(json);
 
-      if (message.method == Method.create) {
-        ai = await create(message);
+      try {
+        switch (request.method) {
+          case Method.create:
+            ai = await create(request);
+            break;
+          case Method.rerank:
+            rerank(ai!, request);
+            break;
+          case Method.faults:
+            faults(ai!, request);
+            break;
+          case Method.serialize:
+            serialize(ai!, request);
+            break;
+          case Method.free:
+            ai!.free();
+            ai = null;
+            send(request.sender, Response.ok);
+            break;
+          default:
+            throw UnsupportedError('Undefined enum variant.');
+        }
+      } on XaynAiError catch (error) {
+        send(request.sender, Response.fromError(error));
+      } catch (other) {
+        send(request.sender,
+            Response.fromError(XaynAiError(0, other.toString())));
       }
-
-      if (message.method == Method.rerank) {
-        rerank(ai!, message);
-      }
-
-      if (message.method == Method.faults) {
-        final result = ai!.faults();
-        message.sender.send({
-          'return': FaultsReturn(result).toJson(),
-        });
-      }
-
-      if (message.method == Method.serialize) {
-        final result = ai!.serialize();
-        message.sender.send({
-          'return': SerializeReturn(result).toJson(),
-        });
-      }
-
-      if (message.method == Method.free) {
-        ai!.free();
-        ai = null;
-        message.sender.send({
-          'return': null,
-        });
-      }
-    });
-  } catch (e) {
-    print(e);
+    } catch (e) {
+      print(e);
+    }
   }
 }
 
-Future<JSXaynAi> create(Message message) async {
-  final args = CreateArgs.fromJson(message.args);
-  WorkerGlobalScope.instance.importScripts(args.wasmScript);
+Future<JSXaynAi> create(Request request) async {
+  final params = CreateParams.fromJson(request.params!);
+  WorkerGlobalScope.instance.importScripts(params.wasmScript);
 
-  final ai = await JSXaynAi.create(args.smbertVocab, args.smbertModel,
-      args.qambertVocab, args.qambertModel, args.ltrModel, args.wasmModule);
+  final ai = await JSXaynAi.create(
+      params.smbertVocab,
+      params.smbertModel,
+      params.qambertVocab,
+      params.qambertModel,
+      params.ltrModel,
+      params.wasmModule);
 
-  message.sender.send({
-    'return': null,
-  });
+  send(request.sender, Response.ok);
 
   return ai;
 }
 
-void rerank(JSXaynAi ai, Message message) {
-  final args = RerankArgs.fromJson(message.args);
-  final result = ai.rerank(args.mode, args.histories, args.documents);
+void rerank(JSXaynAi ai, Request request) {
+  final params = RerankParams.fromJson(request.params!);
+  final result = ai.rerank(params.mode, params.histories, params.documents);
+  send(request.sender, Response.fromResult(result.toJson()));
+}
 
-  message.sender.send({
-    'return': result.toJson(),
-  });
+void faults(JSXaynAi ai, Request request) {
+  final result = ai.faults();
+  send(request.sender, Response.fromResult(FaultsResponse(result).toJson()));
+}
+
+void serialize(JSXaynAi ai, Request request) {
+  final result = ai.serialize();
+  send(request.sender, Response.fromResult(SerializeResponse(result).toJson()));
+}
+
+void send(Sender sender, Response response) {
+  sender.send(response.toJson());
 }
