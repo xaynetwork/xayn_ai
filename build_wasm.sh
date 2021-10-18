@@ -22,7 +22,7 @@ build_wasm() {
         --no-typescript \
         --out-dir "$WASM_OUT_DIR_PATH" \
         --out-name genesis \
-        --target web \
+        --target no-modules \
         --release \
         -- $CARGO_ARGS
     # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)

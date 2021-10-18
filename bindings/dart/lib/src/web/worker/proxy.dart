@@ -36,7 +36,8 @@ class XaynAiWorker implements common.XaynAi {
         data.qambertModel,
         data.ltrModel,
         data.wasmModule,
-        data.wasmScript);
+        data.wasmScript,
+        serialized);
 
     final response = await call(worker, Method.create, params: params.toJson());
     if (response.isError()) {

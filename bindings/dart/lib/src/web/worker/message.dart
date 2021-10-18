@@ -46,7 +46,7 @@ class CreateParams {
   @Uint8ListConverter()
   final Uint8List wasmModule;
   @Uint8ListNullConverter()
-  late Uint8List? serialized;
+  Uint8List? serialized;
 
   final String wasmScript;
 
