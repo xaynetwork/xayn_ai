@@ -97,8 +97,8 @@ class XaynAi implements common.XaynAi {
   /// valid state can be restored with a previously serialized reranker database obtained from
   /// [`serialize()`].
   @override
-  RerankingOutcomes rerank(
-      RerankMode mode, List<History> histories, List<Document> documents) {
+  Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
+      List<Document> documents) async {
     final hists = Histories(histories);
     final docs = Documents(documents);
     final error = XaynAiError();
@@ -109,7 +109,7 @@ class XaynAi implements common.XaynAi {
     try {
       if (error.isError()) {
         if (error.isPanic()) {
-          free();
+          await free();
         }
         throw error.toException();
       }
@@ -124,7 +124,7 @@ class XaynAi implements common.XaynAi {
 
   /// Serializes the current state of the reranker.
   @override
-  Uint8List serialize() {
+  Future<Uint8List> serialize() async {
     final error = XaynAiError();
 
     final bytes = Bytes(ffi.xaynai_serialize(_ai, error.ptr));
@@ -143,7 +143,7 @@ class XaynAi implements common.XaynAi {
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
   @override
-  List<String> faults() {
+  Future<List<String>> faults() async {
     final error = XaynAiError();
 
     final faults = Faults(ffi.xaynai_faults(_ai, error.ptr));
@@ -160,7 +160,7 @@ class XaynAi implements common.XaynAi {
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
   @override
-  Analytics? analytics() {
+  Future<Analytics?> analytics() async {
     final error = XaynAiError();
 
     final builder = AnalyticsBuilder(ffi.xaynai_analytics(_ai, error.ptr));
@@ -177,7 +177,7 @@ class XaynAi implements common.XaynAi {
 
   /// Serializes the synchronizable data of the reranker.
   @override
-  Uint8List syncdataBytes() {
+  Future<Uint8List> syncdataBytes() async {
     final error = XaynAiError();
 
     final bytes = Bytes(ffi.xaynai_syncdata_bytes(_ai, error.ptr));
@@ -194,7 +194,7 @@ class XaynAi implements common.XaynAi {
 
   /// Synchronizes the internal data of the reranker with another.
   @override
-  void synchronize(Uint8List serialized) {
+  Future<void> synchronize(Uint8List serialized) async {
     Bytes? bytes;
     final error = XaynAiError();
 
@@ -212,7 +212,7 @@ class XaynAi implements common.XaynAi {
 
   /// Frees the memory.
   @override
-  void free() {
+  Future<void> free() async {
     if (_ai != nullptr) {
       ffi.xaynai_drop(_ai);
       _ai = nullptr;
