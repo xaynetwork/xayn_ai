@@ -51,30 +51,34 @@ class XaynAi {
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
-  RerankingOutcomes rerank(
-          RerankMode mode, List<History> histories, List<Document> documents) =>
+  Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
+          List<Document> documents) async =>
       throw UnsupportedError('Unsupported platform.');
 
   /// Serializes the current state of the reranker.
-  Uint8List serialize() => throw UnsupportedError('Unsupported platform.');
+  Future<Uint8List> serialize() async =>
+      throw UnsupportedError('Unsupported platform.');
 
   /// Retrieves faults which might occur during reranking.
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
-  List<String> faults() => throw UnsupportedError('Unsupported platform.');
+  Future<List<String>> faults() async =>
+      throw UnsupportedError('Unsupported platform.');
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
-  Analytics? analytics() => throw UnsupportedError('Unsupported platform.');
+  Future<Analytics?> analytics() async =>
+      throw UnsupportedError('Unsupported platform.');
 
   /// Serializes the synchronizable data of the reranker.
-  Uint8List syncdataBytes() => throw UnsupportedError('Unsupported platform.');
+  Future<Uint8List> syncdataBytes() async =>
+      throw UnsupportedError('Unsupported platform.');
 
   /// Synchronizes the internal data of the reranker with another.
-  void synchronize(Uint8List serialized) =>
+  Future<void> synchronize(Uint8List serialized) async =>
       throw UnsupportedError('Unsupported platform');
 
   /// Frees the memory.
-  void free() => throw UnsupportedError('Unsupported platform.');
+  Future<void> free() async => throw UnsupportedError('Unsupported platform.');
 }
 
 /// Maximum number of threads to be used for multithreaded features.
