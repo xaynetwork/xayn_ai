@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.version          = '0.0.1'
   s.summary          = 'XaynAI flutter plugin project.'
   s.description      = <<-DESC
-XainAI plugin project.
+XaynAI plugin project.
                        DESC
   s.homepage         = 'http://xayn.com'
   s.license          = { :file => '../../../LICENSE' }

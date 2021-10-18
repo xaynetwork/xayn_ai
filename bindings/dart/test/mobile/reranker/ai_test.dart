@@ -13,50 +13,50 @@ void main() {
   group('XaynAi', () {
     test('rerank full', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = ai.rerank(RerankMode.search, histories, documents);
-      final faults = ai.faults();
+      final outcome = await ai.rerank(RerankMode.search, histories, documents);
+      final faults = await ai.faults();
 
       expect(outcome.finalRanks.length, equals(documents.length));
       documents.forEach(
           (document) => expect(outcome.finalRanks, contains(document.rank)));
       expect(faults, isNot(isEmpty));
 
-      ai.free();
+      await ai.free();
     });
 
     test('rerank empty', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = ai.rerank(RerankMode.search, [], []);
-      final faults = ai.faults();
+      final outcome = await ai.rerank(RerankMode.search, [], []);
+      final faults = await ai.faults();
 
       expect(outcome.finalRanks, isEmpty);
       expect(faults, isNot(isEmpty));
 
-      ai.free();
+      await ai.free();
     });
 
     test('rerank empty hists', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = ai.rerank(RerankMode.search, [], documents);
-      final faults = ai.faults();
+      final outcome = await ai.rerank(RerankMode.search, [], documents);
+      final faults = await ai.faults();
 
       expect(outcome.finalRanks.length, equals(documents.length));
       documents.forEach(
           (document) => expect(outcome.finalRanks, contains(document.rank)));
       expect(faults, isNot(isEmpty));
 
-      ai.free();
+      await ai.free();
     });
 
     test('rerank empty docs', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = ai.rerank(RerankMode.search, histories, []);
-      final faults = ai.faults();
+      final outcome = await ai.rerank(RerankMode.search, histories, []);
+      final faults = await ai.faults();
 
       expect(outcome.finalRanks, isEmpty);
       expect(faults, isNot(isEmpty));
 
-      ai.free();
+      await ai.free();
     });
 
     test('invalid paths', () {
@@ -105,7 +105,7 @@ void main() {
     test('empty serialized', () async {
       final serialized = Uint8List(0);
       final ai = await XaynAi.create(mkSetupData(), serialized);
-      ai.free();
+      await ai.free();
     });
 
     test('invalid serialized', () {
@@ -119,29 +119,29 @@ void main() {
     test('serialize syncdata', () async {
       final ai = await XaynAi.create(mkSetupData());
 
-      expect(ai.syncdataBytes(), isNot(isEmpty));
+      expect(await ai.syncdataBytes(), isNot(isEmpty));
 
-      ai.free();
+      await ai.free();
     });
 
     test('synchronize empty', () async {
       final ai = await XaynAi.create(mkSetupData());
       expect(
-        () => ai.synchronize(Uint8List(0)),
+        () async => await ai.synchronize(Uint8List(0)),
         throwsXaynAiException(Code.synchronization),
       );
 
-      ai.free();
+      await ai.free();
     });
 
     test('synchronize invalid', () async {
       final ai = await XaynAi.create(mkSetupData());
       expect(
-        () => ai.synchronize(Uint8List.fromList([255])),
+        () async => await ai.synchronize(Uint8List.fromList([255])),
         throwsXaynAiException(Code.synchronization),
       );
 
-      ai.free();
+      await ai.free();
     });
   });
 }
