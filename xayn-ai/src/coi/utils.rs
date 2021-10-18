@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    data::{
-        document::{Relevance, UserFeedback},
-        PositiveCoi,
-    },
+    coi::{point::PositiveCoi, CoiId},
+    data::document::{Relevance, UserFeedback},
     reranker::systems::CoiSystemData,
-    CoiId,
     DocumentHistory,
     DocumentId,
 };
@@ -132,17 +129,14 @@ pub(super) mod tests {
 
     use super::*;
     use crate::{
-        data::{
-            document_data::{
-                CoiComponent,
-                DocumentBaseComponent,
-                DocumentContentComponent,
-                DocumentDataWithQAMBert,
-                QAMBertComponent,
-                SMBertComponent,
-            },
-            CoiPoint,
-            NegativeCoi,
+        coi::point::{CoiPoint, NegativeCoi},
+        data::document_data::{
+            CoiComponent,
+            DocumentBaseComponent,
+            DocumentContentComponent,
+            DocumentDataWithQAMBert,
+            QAMBertComponent,
+            SMBertComponent,
         },
         to_vec_of_ref_of,
         utils::{mock_coi_id, mock_uuid},

@@ -743,7 +743,7 @@ impl<'a> SampleView<'a> {
     }
 }
 
-/// An owned version of [`SampleRef`]
+/// An owned version of [`SampleView`]
 pub struct SampleOwned {
     /// Inputs used for training.
     ///
