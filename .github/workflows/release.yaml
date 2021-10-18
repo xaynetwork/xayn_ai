@@ -50,7 +50,7 @@ jobs:
       cache-date: ${{ steps.get-date.outputs.date }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       # We want to create a new cache after a week. Otherwise, the cache will
       # take up too much space by caching old dependencies
@@ -107,7 +107,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       - name: Install libclang-10-dev
         run: sudo apt-get install libclang-10-dev
@@ -187,7 +187,7 @@ jobs:
         target: [aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
@@ -248,7 +248,7 @@ jobs:
         target: [aarch64-apple-ios, x86_64-apple-ios]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
@@ -317,7 +317,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       - name: Install ${{ env.RUST_STABLE }} toolchain
         id: rust-toolchain
@@ -385,7 +385,7 @@ jobs:
       json-metadata: ${{ steps.asset-paths.outputs.json-metadata }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       - name: Install flutter
         uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
@@ -438,7 +438,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       - name: Download asset artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
@@ -510,7 +510,7 @@ jobs:
           known_hosts: ${{ secrets.KNOWN_HOSTS }}
 
       - name: Checkout repository
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.4
 
       - name: Download artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
