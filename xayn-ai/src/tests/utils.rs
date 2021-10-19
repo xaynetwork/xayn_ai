@@ -3,7 +3,7 @@ use std::ops::Range;
 use ndarray::arr1;
 
 use crate::{
-    coi::point::{CoiPoint, NegativeCoi, PositiveCoi, PositiveCoi_v0_0_0},
+    coi::point::{CoiPoint, NegativeCoi, PositiveCoi, PositiveCoi_v0_0_0, PositiveCoi_v0_1_0},
     data::{
         document::{Relevance, UserFeedback},
         document_data::{
@@ -86,6 +86,13 @@ pub(crate) fn pos_cois_from_words_v0(
     titles: &[&str],
     smbert: impl SMBertSystem,
 ) -> Vec<PositiveCoi_v0_0_0> {
+    cois_from_words(titles, smbert, 0)
+}
+
+pub(crate) fn pos_cois_from_words_v1(
+    titles: &[&str],
+    smbert: impl SMBertSystem,
+) -> Vec<PositiveCoi_v0_1_0> {
     cois_from_words(titles, smbert, 0)
 }
 

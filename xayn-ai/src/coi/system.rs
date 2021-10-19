@@ -8,12 +8,7 @@ use crate::{
     coi::{
         config::Configuration,
         point::{CoiPoint, UserInterests},
-        utils::{
-            classify_documents_based_on_user_feedback,
-            collect_matching_documents,
-            update_alpha,
-            update_beta,
-        },
+        utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
     embedding::utils::{l2_distance, Embedding},
@@ -193,9 +188,6 @@ impl systems::CoiSystem for CoiSystem {
 
         user_interests.positive = self.update_cois(&positive_docs, user_interests.positive);
         user_interests.negative = self.update_cois(&negative_docs, user_interests.negative);
-
-        user_interests.positive = update_alpha(&positive_docs, user_interests.positive);
-        user_interests.positive = update_beta(&negative_docs, user_interests.positive);
 
         Ok(user_interests)
     }
@@ -496,17 +488,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(positive.len(), 3);
-
-        assert_approx_eq!(f32, positive[0].alpha, 1.);
-        assert_approx_eq!(f32, positive[0].beta, 1.);
         assert_eq!(positive[0].point, arr1(&[2.7999997, 1.9, 1.]));
-
-        assert_approx_eq!(f32, positive[1].alpha, 1.21);
-        assert_approx_eq!(f32, positive[1].beta, 1.1);
         assert_eq!(positive[1].point, arr1(&[1., 2., 3.]));
-
-        assert_approx_eq!(f32, positive[2].alpha, 1.);
-        assert_approx_eq!(f32, positive[2].beta, 1.);
         assert_eq!(positive[2].point, arr1(&[3., 6., 6.]));
 
         assert_eq!(negative.len(), 1);
