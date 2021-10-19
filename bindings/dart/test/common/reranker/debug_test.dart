@@ -7,7 +7,8 @@ import 'package:flutter_test/flutter_test.dart'
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show History, Relevance, UserFeedback, UserAction, DayOfWeek;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
+    show RerankMode, RerankModeToInt;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/debug.dart'
     show RerankDebugCallData;
 
@@ -23,7 +24,7 @@ void main() {
       final documents = List<Document>.empty();
       final Uint8List? serializedState = null;
       final jsonMap = RerankDebugCallData(
-        rerankMode: RerankMode.search,
+        rerankMode: RerankMode.personalizedSearch,
         histories: histories,
         documents: documents,
         serializedState: serializedState,
@@ -33,7 +34,7 @@ void main() {
 
       final deCallData = RerankDebugCallData.fromJson(jsonMap);
 
-      expect(deCallData.rerankMode, equals(RerankMode.search));
+      expect(deCallData.rerankMode, equals(RerankMode.personalizedSearch));
       expect(deCallData.documents.length, equals(0));
       expect(deCallData.histories.length, equals(0));
       expect(deCallData.serializedState, isNull);
@@ -111,44 +112,59 @@ void main() {
         ),
       ];
 
+      final rerankMode = RerankMode.personalizedSearch;
       final serializedState = Uint8List.fromList([1, 2, 3, 4, 5, 6, 10, 20, 7]);
 
       final jsonMap = RerankDebugCallData(
-        rerankMode: RerankMode.search,
+        rerankMode: rerankMode,
         histories: histories,
         documents: documents,
         serializedState: serializedState,
       ).toJson();
 
-      expect(jsonMap['rerank_mode'], 1);
+      expect(jsonMap['rerank_mode'], equals(rerankMode.toInt()));
 
-      expect(jsonMap['histories'][1]['id'],
-          equals('fcb6a685-eb92-4d36-8686-8a70a3a33001'));
+      expect(
+        jsonMap['histories'][1]['id'],
+        equals('fcb6a685-eb92-4d36-8686-8a70a3a33001'),
+      );
       expect(jsonMap['histories'][1]['relevance'], equals(2));
       expect(jsonMap['histories'][1]['user_feedback'], equals(1));
-      expect(jsonMap['histories'][1]['session'],
-          equals('fcb6a685-eb92-4d36-8686-000000000000'));
-      expect(jsonMap['histories'][1]['query_count'], equals(12));
-      expect(jsonMap['histories'][1]['query_id'],
-          equals('fcb6a685-eb92-4d36-8686-A000A00A000A'));
       expect(
-          jsonMap['histories'][1]['query_words'], equals('is the dodo alive'));
+        jsonMap['histories'][1]['session'],
+        equals('fcb6a685-eb92-4d36-8686-000000000000'),
+      );
+      expect(jsonMap['histories'][1]['query_count'], equals(12));
+      expect(
+        jsonMap['histories'][1]['query_id'],
+        equals('fcb6a685-eb92-4d36-8686-A000A00A000A'),
+      );
+      expect(
+        jsonMap['histories'][1]['query_words'],
+        equals('is the dodo alive'),
+      );
       expect(jsonMap['histories'][1]['day'], equals(1));
       expect(jsonMap['histories'][1]['url'], equals('dodo lives:or not'));
       expect(jsonMap['histories'][1]['domain'], equals('no domain'));
       expect(jsonMap['histories'][1]['rank'], equals(8));
       expect(jsonMap['histories'][1]['user_action'], equals(1));
 
-      expect(jsonMap['documents'][1]['id'],
-          equals('fcb6a685-eb92-4d36-8686-8a70a3a33004'));
+      expect(
+        jsonMap['documents'][1]['id'],
+        equals('fcb6a685-eb92-4d36-8686-8a70a3a33004'),
+      );
       expect(jsonMap['documents'][1]['title'], equals('ab de'));
       expect(jsonMap['documents'][1]['snippet'], equals('snippet of ab de'));
       expect(jsonMap['documents'][1]['rank'], equals(2));
-      expect(jsonMap['documents'][1]['session'],
-          equals('fcb6a685-eb92-4d36-8686-000000000100'));
+      expect(
+        jsonMap['documents'][1]['session'],
+        equals('fcb6a685-eb92-4d36-8686-000000000100'),
+      );
       expect(jsonMap['documents'][1]['query_count'], equals(21));
-      expect(jsonMap['documents'][1]['query_id'],
-          equals('fcb6a685-eb92-4d36-8686-A000A00B000B'));
+      expect(
+        jsonMap['documents'][1]['query_id'],
+        equals('fcb6a685-eb92-4d36-8686-A000A00B000B'),
+      );
       expect(jsonMap['documents'][1]['query_words'], equals('abc'));
       expect(jsonMap['documents'][1]['url'], equals('url2'));
       expect(jsonMap['documents'][1]['domain'], equals('dom2'));
@@ -157,17 +173,23 @@ void main() {
 
       final callData = RerankDebugCallData.fromJson(jsonMap);
 
-      expect(callData.rerankMode, equals(RerankMode.search));
+      expect(callData.rerankMode, equals(RerankMode.personalizedSearch));
 
-      expect(callData.histories[0].id,
-          equals('fcb6a685-eb92-4d36-8686-8a70a3a33000'));
+      expect(
+        callData.histories[0].id,
+        equals('fcb6a685-eb92-4d36-8686-8a70a3a33000'),
+      );
       expect(callData.histories[0].relevance, equals(Relevance.low));
       expect(callData.histories[0].userFeedback, equals(UserFeedback.notGiven));
-      expect(callData.histories[0].session,
-          equals('fcb6a685-eb92-4d36-8686-000000000000'));
+      expect(
+        callData.histories[0].session,
+        equals('fcb6a685-eb92-4d36-8686-000000000000'),
+      );
       expect(callData.histories[0].queryCount, equals(12));
-      expect(callData.histories[0].queryId,
-          equals('fcb6a685-eb92-4d36-8686-A000A00A000A'));
+      expect(
+        callData.histories[0].queryId,
+        equals('fcb6a685-eb92-4d36-8686-A000A00A000A'),
+      );
       expect(callData.histories[0].queryWords, equals('is the dodo alive'));
       expect(callData.histories[0].day, equals(DayOfWeek.sun));
       expect(callData.histories[0].url, equals('dodo lives:or not'));
@@ -175,16 +197,24 @@ void main() {
       expect(callData.histories[0].rank, equals(8));
       expect(callData.histories[0].userAction, equals(UserAction.click));
 
-      expect(callData.histories[1].id,
-          equals('fcb6a685-eb92-4d36-8686-8a70a3a33001'));
+      expect(
+        callData.histories[1].id,
+        equals('fcb6a685-eb92-4d36-8686-8a70a3a33001'),
+      );
       expect(callData.histories[1].relevance, equals(Relevance.high));
       expect(
-          callData.histories[1].userFeedback, equals(UserFeedback.irrelevant));
-      expect(callData.histories[1].session,
-          equals('fcb6a685-eb92-4d36-8686-000000000000'));
+        callData.histories[1].userFeedback,
+        equals(UserFeedback.irrelevant),
+      );
+      expect(
+        callData.histories[1].session,
+        equals('fcb6a685-eb92-4d36-8686-000000000000'),
+      );
       expect(callData.histories[1].queryCount, equals(12));
-      expect(callData.histories[1].queryId,
-          equals('fcb6a685-eb92-4d36-8686-A000A00A000A'));
+      expect(
+        callData.histories[1].queryId,
+        equals('fcb6a685-eb92-4d36-8686-A000A00A000A'),
+      );
       expect(callData.histories[1].queryWords, equals('is the dodo alive'));
       expect(callData.histories[1].day, equals(DayOfWeek.tue));
       expect(callData.histories[1].url, equals('dodo lives:or not'));
@@ -192,15 +222,21 @@ void main() {
       expect(callData.histories[1].rank, equals(8));
       expect(callData.histories[1].userAction, equals(UserAction.skip));
 
-      expect(callData.histories[2].id,
-          equals('fcb6a685-eb92-4d36-8686-8a70a3a33002'));
+      expect(
+        callData.histories[2].id,
+        equals('fcb6a685-eb92-4d36-8686-8a70a3a33002'),
+      );
       expect(callData.histories[2].relevance, equals(Relevance.medium));
       expect(callData.histories[2].userFeedback, equals(UserFeedback.relevant));
-      expect(callData.histories[2].session,
-          equals('fcb6a685-eb92-4d36-8686-000000000000'));
+      expect(
+        callData.histories[2].session,
+        equals('fcb6a685-eb92-4d36-8686-000000000000'),
+      );
       expect(callData.histories[2].queryCount, equals(12));
-      expect(callData.histories[2].queryId,
-          equals('fcb6a685-eb92-4d36-8686-A000A00A000A'));
+      expect(
+        callData.histories[2].queryId,
+        equals('fcb6a685-eb92-4d36-8686-A000A00A000A'),
+      );
       expect(callData.histories[2].queryWords, equals('is the dodo alive'));
       expect(callData.histories[2].day, equals(DayOfWeek.tue));
       expect(callData.histories[2].url, equals('dodo lives:or not'));
@@ -210,30 +246,42 @@ void main() {
 
       expect(callData.histories.length, equals(3));
 
-      expect(callData.documents[0].id,
-          equals('fcb6a685-eb92-4d36-8686-8a70a3a33003'));
+      expect(
+        callData.documents[0].id,
+        equals('fcb6a685-eb92-4d36-8686-8a70a3a33003'),
+      );
       expect(callData.documents[0].title, equals('a b c'));
       expect(callData.documents[0].snippet, equals('snippet of a b c'));
       expect(callData.documents[0].rank, equals(1));
-      expect(callData.documents[0].session,
-          equals('fcb6a685-eb92-4d36-8686-000000000000'));
+      expect(
+        callData.documents[0].session,
+        equals('fcb6a685-eb92-4d36-8686-000000000000'),
+      );
       expect(callData.documents[0].queryCount, equals(21));
-      expect(callData.documents[0].queryId,
-          equals('fcb6a685-eb92-4d36-8686-A000A00B000B'));
+      expect(
+        callData.documents[0].queryId,
+        equals('fcb6a685-eb92-4d36-8686-A000A00B000B'),
+      );
       expect(callData.documents[0].queryWords, equals('abc'));
       expect(callData.documents[0].url, equals('url'));
       expect(callData.documents[0].domain, equals('dom'));
 
-      expect(callData.documents[1].id,
-          equals('fcb6a685-eb92-4d36-8686-8a70a3a33004'));
+      expect(
+        callData.documents[1].id,
+        equals('fcb6a685-eb92-4d36-8686-8a70a3a33004'),
+      );
       expect(callData.documents[1].title, equals('ab de'));
       expect(callData.documents[1].snippet, equals('snippet of ab de'));
       expect(callData.documents[1].rank, equals(2));
-      expect(callData.documents[1].session,
-          equals('fcb6a685-eb92-4d36-8686-000000000100'));
+      expect(
+        callData.documents[1].session,
+        equals('fcb6a685-eb92-4d36-8686-000000000100'),
+      );
       expect(callData.documents[1].queryCount, equals(21));
-      expect(callData.documents[1].queryId,
-          equals('fcb6a685-eb92-4d36-8686-A000A00B000B'));
+      expect(
+        callData.documents[1].queryId,
+        equals('fcb6a685-eb92-4d36-8686-A000A00B000B'),
+      );
       expect(callData.documents[1].queryWords, equals('abc'));
       expect(callData.documents[1].url, equals('url2'));
       expect(callData.documents[1].domain, equals('dom2'));
@@ -245,12 +293,15 @@ void main() {
 
     test('serialized_state defaults to null', () {
       final callData = RerankDebugCallData(
-          rerankMode: RerankMode.search, histories: [], documents: []);
-      expect(callData.rerankMode, equals(RerankMode.search));
+        rerankMode: RerankMode.personalizedSearch,
+        histories: [],
+        documents: [],
+      );
+      expect(callData.rerankMode, equals(RerankMode.personalizedSearch));
       expect(callData.serializedState, isNull);
 
       final jsonMap = RerankDebugCallData(
-        rerankMode: RerankMode.news,
+        rerankMode: RerankMode.personalizedNews,
         histories: [],
         documents: [],
         serializedState: Uint8List.fromList([1, 2, 3]),
