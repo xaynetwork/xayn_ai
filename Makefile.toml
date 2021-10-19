@@ -92,10 +92,16 @@ script = ["""
   ${DART_EXAMPLE_WORKSPACE}/flutter_run_web.sh
 """]
 
+[tasks.compile_dart_worker]
+script = ["""
+  cd "${DART_WORKSPACE}"
+  dart compile js -m -o example/web/worker.dart.js lib/src/web/worker/worker.dart
+"""]
+
 [tasks.build-web]
 # This will run build-local "unnecessarily". This will be fixed in a later PR.
 env = { WASM_VERSION = "wasm_bindings", WASM_OUT_DIR_PATH = "bindings/dart/example/assets", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
-run_task = { name = ["build-dart", "build-wasm", "generate_assets_metadata"] }
+run_task = { name = ["build-dart", "build-wasm", "generate_assets_metadata", "compile_dart_worker"] }
 
 [tasks.build-wasm]
 dependencies = ["build-wasm-multithreaded", "build-wasm-sequential"]
@@ -118,9 +124,6 @@ condition = { env_true = ["DISABLE_WASM_THREADS"] }
 script = ["""
   ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" sequential
   echo "self.wasm_bindgen = wasm_bindgen;" >> "$WASM_OUT_DIR_PATH/$WASM_VERSION/genesis.js"
-  cd "${DART_WORKSPACE}"
-
-  dart compile js -m -o example/web/worker.dart.js lib/src/web/worker/worker.dart
 """]
 
 [tasks.test-wasm]

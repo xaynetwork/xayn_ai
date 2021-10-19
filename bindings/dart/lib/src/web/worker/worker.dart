@@ -87,17 +87,17 @@ Future<JSXaynAi> create(Request request) async {
 void rerank(JSXaynAi ai, Request request) {
   final params = RerankParams.fromJson(request.params!);
   final result = ai.rerank(params.mode, params.histories, params.documents);
-  send(request.sender, Response.fromResult(result.toJson()));
+  send(request.sender, Response.fromResult(result));
 }
 
 void faults(JSXaynAi ai, Request request) {
   final result = ai.faults();
-  send(request.sender, Response.fromResult(FaultsResponse(result).toJson()));
+  send(request.sender, Response.fromResult(FaultsResponse(result)));
 }
 
 void serialize(JSXaynAi ai, Request request) {
   final result = ai.serialize();
-  send(request.sender, Response.fromResult(SerializeResponse(result).toJson()));
+  send(request.sender, Response.fromResult(SerializeResponse(result)));
 }
 
 void send(Sender sender, Response response) {

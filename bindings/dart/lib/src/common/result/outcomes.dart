@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:xayn_ai_ffi_dart/src/web/worker/message.dart' show ToJson;
 
 part 'outcomes.g.dart';
 
@@ -13,7 +14,7 @@ part 'outcomes.g.dart';
 /// Note that `finalRanks` is empty if and only if there
 /// had been no input documents.
 @JsonSerializable()
-class RerankingOutcomes {
+class RerankingOutcomes implements ToJson {
   /// The final ranking in order of the input documents.
   ///
   /// Should only be empty if there where no input documents.
@@ -49,6 +50,7 @@ class RerankingOutcomes {
   factory RerankingOutcomes.fromJson(Map json) =>
       _$RerankingOutcomesFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$RerankingOutcomesToJson(this);
 }
 

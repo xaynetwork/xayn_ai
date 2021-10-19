@@ -19,7 +19,8 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message.dart'
         Request,
         RerankParams,
         Response,
-        SerializeResponse;
+        SerializeResponse,
+        ToJson;
 import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Oneshot;
 
 class XaynAiWorker implements common.XaynAi {
@@ -39,7 +40,7 @@ class XaynAiWorker implements common.XaynAi {
         data.wasmScript,
         serialized);
 
-    final response = await call(worker, Method.create, params: params.toJson());
+    final response = await call(worker, Method.create, params: params);
     if (response.isError()) {
       throw response.error!;
     } else {
@@ -55,7 +56,7 @@ class XaynAiWorker implements common.XaynAi {
   Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
       List<Document> documents) async {
     final response = await call(_worker!, Method.rerank,
-        params: RerankParams(mode, histories, documents).toJson());
+        params: RerankParams(mode, histories, documents));
     if (response.isError()) {
       throw response.error!;
     } else {
@@ -109,11 +110,11 @@ class XaynAiWorker implements common.XaynAi {
   }
 }
 
-Future<Response> call(Worker worker, Method method,
-    {Map<String, dynamic>? params}) async {
+Future<Response> call<P extends ToJson>(Worker worker, Method method,
+    {P? params}) async {
   final channel = Oneshot();
   final sender = channel.sender;
-  final request = Request(method, params, sender);
+  final request = Request(method, params?.toJson(), sender);
   worker.postMessage(request.toJson(), [sender.port!]);
   final msg = await channel.receiver.recv();
   return Response.fromJson(msg.data as Map<dynamic, dynamic>);

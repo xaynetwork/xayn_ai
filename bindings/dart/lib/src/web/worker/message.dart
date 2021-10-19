@@ -10,6 +10,10 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/utils.dart'
 
 part 'message.g.dart';
 
+abstract class ToJson {
+  Map<String, dynamic> toJson();
+}
+
 @JsonSerializable()
 class Request {
   final Method method;
@@ -32,7 +36,7 @@ enum Method {
 }
 
 @JsonSerializable()
-class CreateParams {
+class CreateParams implements ToJson {
   @Uint8ListConverter()
   final Uint8List smbertVocab;
   @Uint8ListConverter()
@@ -56,11 +60,12 @@ class CreateParams {
 
   factory CreateParams.fromJson(Map json) => _$CreateParamsFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$CreateParamsToJson(this);
 }
 
 @JsonSerializable()
-class RerankParams {
+class RerankParams implements ToJson {
   final RerankMode mode;
   final List<History> histories;
   final List<Document> documents;
@@ -73,6 +78,7 @@ class RerankParams {
 
   factory RerankParams.fromJson(Map json) => _$RerankParamsFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$RerankParamsToJson(this);
 }
 
@@ -81,8 +87,8 @@ class Response {
   final Map<String, dynamic>? result;
   final XaynAiError? error;
 
-  static Response fromResult(Map<String, dynamic> result) =>
-      Response(result, null);
+  static Response fromResult<R extends ToJson>(R result) =>
+      Response(result.toJson(), null);
   static Response fromError(XaynAiError error) => Response(null, error);
   static final ok = Response(null, null);
 
@@ -109,7 +115,7 @@ class XaynAiError {
 }
 
 @JsonSerializable()
-class FaultsResponse {
+class FaultsResponse implements ToJson {
   final List<String> faults;
 
   FaultsResponse(
@@ -118,11 +124,12 @@ class FaultsResponse {
 
   factory FaultsResponse.fromJson(Map json) => _$FaultsResponseFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$FaultsResponseToJson(this);
 }
 
 @JsonSerializable()
-class SerializeResponse {
+class SerializeResponse implements ToJson {
   @Uint8ListConverter()
   final Uint8List data;
 
@@ -133,5 +140,6 @@ class SerializeResponse {
   factory SerializeResponse.fromJson(Map json) =>
       _$SerializeResponseFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$SerializeResponseToJson(this);
 }
