@@ -8,8 +8,6 @@ use derive_more::From;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sync::{SyncData, SyncData_v0_1_0};
-use systems::QAMBertSystem;
 
 use crate::{
     analytics::Analytics,
@@ -28,7 +26,10 @@ use crate::{
     },
     embedding::qambert::NeutralQAMBert,
     error::Error,
-    reranker::systems::{CoiSystemData, CommonSystems},
+    reranker::{
+        sync::{SyncData, SyncData_v0_1_0, SyncData_v0_2_0},
+        systems::{CoiSystemData, CommonSystems, QAMBertSystem},
+    },
     to_vec_of_ref_of,
     utils::nan_safe_f32_cmp,
 };
@@ -151,9 +152,12 @@ impl PreviousDocuments {
     }
 }
 
+const CURRENT_SCHEMA_VERSION: u8 = 2;
+
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
+#[obake(version("0.2.0"))]
 #[derive(Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct RerankerData {
@@ -169,12 +173,27 @@ pub(crate) struct RerankerData {
     user_interests: UserInterests,
 }
 
-impl From<RerankerData_v0_0_0> for RerankerData {
+impl From<RerankerData_v0_0_0> for RerankerData_v0_1_0 {
     fn from(data: RerankerData_v0_0_0) -> Self {
         Self {
-            sync_data: SyncData {
+            sync_data: SyncData_v0_1_0 {
                 user_interests: data.user_interests.into(),
             },
+            prev_documents: data.prev_documents,
+        }
+    }
+}
+
+impl From<RerankerData_v0_0_0> for RerankerData {
+    fn from(data: RerankerData_v0_0_0) -> Self {
+        RerankerData_v0_1_0::from(data).into()
+    }
+}
+
+impl From<RerankerData_v0_1_0> for RerankerData {
+    fn from(data: RerankerData_v0_1_0) -> Self {
+        Self {
+            sync_data: data.sync_data.into(),
             prev_documents: data.prev_documents,
         }
     }
@@ -327,7 +346,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        coi::CoiSystemError,
+        coi::{point::UserInterests_v0_1_0, CoiSystemError},
         data::document::{Relevance, UserFeedback},
         reranker::systems::SMBertSystem,
         tests::{
@@ -355,6 +374,18 @@ mod tests {
         ) -> Self {
             Self {
                 user_interests,
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
+
+    impl RerankerData_v0_1_0 {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests_v0_1_0,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                sync_data: SyncData_v0_1_0 { user_interests },
                 prev_documents: PreviousDocuments::Final(prev_documents),
             }
         }

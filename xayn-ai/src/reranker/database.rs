@@ -4,7 +4,7 @@ use anyhow::bail;
 
 use crate::{
     error::Error,
-    reranker::{RerankerData, RerankerData_v0_0_0},
+    reranker::{RerankerData, RerankerData_v0_0_0, RerankerData_v0_1_0, CURRENT_SCHEMA_VERSION},
     utils::serialize_with_version,
 };
 
@@ -14,8 +14,6 @@ pub(crate) trait Database {
 
     fn serialize(&self, data: &RerankerData) -> Result<Vec<u8>, Error>;
 }
-
-const CURRENT_SCHEMA_VERSION: u8 = 1;
 
 #[derive(Default)]
 pub(super) struct Db(RefCell<Option<RerankerData>>);
@@ -33,6 +31,7 @@ impl Db {
         // version is encoded in the first byte
         let data = match bytes[0] {
             0 => bincode::deserialize::<RerankerData_v0_0_0>(&bytes[1..])?.into(),
+            1 => bincode::deserialize::<RerankerData_v0_1_0>(&bytes[1..])?.into(),
             CURRENT_SCHEMA_VERSION => bincode::deserialize(&bytes[1..])?,
             version => bail!(
                 "Unsupported serialized data. Found version {} expected {}",
@@ -59,8 +58,8 @@ impl Database for Db {
 mod tests {
     use super::*;
     use crate::{
-        coi::point::{UserInterests, UserInterests_v0_0_0},
-        reranker::{RerankerData, RerankerData_v0_0_0},
+        coi::point::{UserInterests, UserInterests_v0_0_0, UserInterests_v0_1_0},
+        reranker::{RerankerData, RerankerData_v0_0_0, RerankerData_v0_1_0},
         tests::{
             data_with_rank,
             from_ids,
@@ -68,6 +67,7 @@ mod tests {
             neg_cois_from_words,
             pos_cois_from_words,
             pos_cois_from_words_v0,
+            pos_cois_from_words_v1,
         },
     };
 
@@ -103,6 +103,25 @@ mod tests {
         let docs = data_with_rank(from_ids(0..1));
         let data = RerankerData_v0_0_0::new_with_rank(user_interests, docs);
         let serialized = serialize_with_version(&data, 0).expect("serialized data");
+
+        let database = Db::deserialize(&serialized).expect("load data from serialized");
+        let loaded_data = database
+            .load_data()
+            .expect("load data")
+            .expect("loaded data");
+
+        assert_eq!(RerankerData::from(data), loaded_data);
+    }
+
+    #[test]
+    fn test_database_migration_from_v1() {
+        let words = &["a", "b", "c"];
+        let positive = pos_cois_from_words_v1(words, mocked_smbert_system());
+        let negative = neg_cois_from_words(words, mocked_smbert_system());
+        let user_interests = UserInterests_v0_1_0 { positive, negative };
+        let docs = data_with_rank(from_ids(0..1));
+        let data = RerankerData_v0_1_0::new_with_rank(user_interests, docs);
+        let serialized = serialize_with_version(&data, 1).expect("serialized data");
 
         let database = Db::deserialize(&serialized).expect("load data from serialized");
         let loaded_data = database

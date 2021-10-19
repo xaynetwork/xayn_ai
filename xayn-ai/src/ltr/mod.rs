@@ -93,16 +93,6 @@ pub(crate) struct ConstLtr;
 
 impl ConstLtr {
     const SCORE: f32 = 0.5;
-
-    #[allow(unused)] // TODO move ConstLtr into tests / remove later
-    pub(crate) fn new() -> Self {
-        // 0.5 is the only valid value.
-        // It must be between 0 and 1. Since this is used to compute the context value
-        // and context value is used to update `alpha` and `beta` of the cois.
-        // Using a value different from 0.5 will change the parameters of a coi in an
-        // unbalanced way.
-        Self
-    }
 }
 
 impl LtrSystem for ConstLtr {
@@ -259,7 +249,7 @@ mod tests {
             coi,
         };
 
-        let res = ConstLtr::new().compute_ltr(&[], vec![doc1, doc2]);
+        let res = ConstLtr.compute_ltr(&[], vec![doc1, doc2]);
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);

@@ -16,13 +16,7 @@ const MERGE_THRESHOLD_DIST: f32 = 4.5;
 impl PositiveCoi {
     pub fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
-        let (alpha, beta) = merge_params(self.alpha, self.beta, other.alpha, other.beta);
-        Self {
-            id,
-            point,
-            alpha,
-            beta,
-        }
+        Self { id, point }
     }
 }
 
@@ -161,22 +155,6 @@ where
     }
 }
 
-/// Calculates an "average" beta distribution ~B(a, b) from the given two ~B(`a1`, `b1`), ~B(`a2`, `b2`).
-///
-/// <https://xainag.atlassian.net/wiki/spaces/XAY/pages/2029944833/CoI+synchronisation>
-/// outlines the calculation.
-fn merge_params(a1: f32, b1: f32, a2: f32, b2: f32) -> (f32, f32) {
-    let mean = |a, b| a / (a + b);
-    let var = |a, b| a * b / (f32::powi(a + b, 2) * (a + b + 1.));
-
-    // geometric average of the mean and variance
-    let avg_mean = f32::sqrt(mean(a1, b1) * mean(a2, b2));
-    let avg_var = f32::sqrt(var(a1, b1) * var(a2, b2));
-
-    let factor = avg_mean * (1. - avg_mean) / avg_var - 1.;
-    (avg_mean * factor, (1. - avg_mean) * factor)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,7 +236,6 @@ mod tests {
         let dist_az = dist(&coi_a, &coi_z);
         assert!(dist(&coi_a, &merged) < dist_az);
         assert!(dist(&merged, &coi_z) < dist_az);
-        // TODO check merged beta params once refactoring is done
     }
 
     #[test]
