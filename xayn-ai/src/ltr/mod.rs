@@ -101,10 +101,16 @@ impl LtrSystem for ConstLtr {
         _history: &[DocumentHistory],
         documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
-        let ltr_score = Self::SCORE;
         Ok(documents
             .into_iter()
-            .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { ltr_score }))
+            .map(|doc| {
+                DocumentDataWithLtr::from_document(
+                    doc,
+                    LtrComponent {
+                        ltr_score: Self::SCORE,
+                    },
+                )
+            })
             .collect())
     }
 }

@@ -55,6 +55,10 @@ impl QAMBertSystem for QAMBert {
 #[allow(clippy::upper_case_acronyms)]
 pub struct NeutralQAMBert;
 
+impl NeutralQAMBert {
+    const SIMILARITY: f32 = 0.5;
+}
+
 impl QAMBertSystem for NeutralQAMBert {
     fn compute_similarity(
         &self,
@@ -65,7 +69,9 @@ impl QAMBertSystem for NeutralQAMBert {
             .map(|document| {
                 DocumentDataWithQAMBert::from_document(
                     document,
-                    QAMBertComponent { similarity: 0.5 },
+                    QAMBertComponent {
+                        similarity: Self::SIMILARITY,
+                    },
                 )
             })
             .collect())

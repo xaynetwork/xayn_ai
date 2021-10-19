@@ -288,6 +288,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        analytics::NoRelevantHistoricInfo,
         data::document::{Relevance, UserFeedback},
         tests::{
             document_history,
@@ -307,13 +308,19 @@ mod tests {
         },
     };
 
-    macro_rules! check_error {
-        ($reranker: expr, $error:pat) => {
-            assert!($reranker
+    macro_rules! contains_error {
+        ($reranker:expr, $error:pat $(,)?) => {
+            $reranker
                 .errors()
                 .iter()
-                .any(|e| matches!(e.downcast_ref(), Some($error))));
+                .any(|e| matches!(e.downcast_ref(), Some($error)));
         };
+    }
+
+    impl RerankMode {
+        fn is_personalized(&self) -> bool {
+            matches!(self, Self::PersonalizedNews | Self::PersonalizedSearch)
+        }
     }
 
     mod car_interest_example {
@@ -369,7 +376,9 @@ mod tests {
     #[template]
     #[rstest(
         mode,
+        case(RerankMode::StandardNews),
         case(RerankMode::PersonalizedNews),
+        case(RerankMode::StandardSearch),
         case(RerankMode::PersonalizedSearch)
     )]
     fn tmpl_rerank_mode_cases(mode: RerankMode) {}
@@ -385,13 +394,12 @@ mod tests {
         assert!(outcome.final_ranking.is_empty());
     }
 
-    /// A user performs the very first search that returns results/`Document`s.
-    /// The `Reranker` is not yet aware of any user interests and can therefore
-    /// not perform any reranking. In this case, the `Reranker` should
-    /// return the results/`Document`s in an unchanged order. Furthermore, the
-    /// `Reranker` should create `DocumentDataWithEmbedding` from the `Document`s,
-    /// from which the first user interests will be learned in the next call
-    /// to `rerank`.
+    /// A user performs the very first search that returns results/`Document`s. The `Reranker` is
+    /// not yet aware of any user interests and can therefore not perform any reranking. In this
+    /// case, the `Reranker` should return the results/`Document`s in an unchanged order.
+    /// Furthermore, in case of personalized queries, the `Reranker` should create
+    /// `DocumentDataWithEmbedding` from the `Document`s, from which the first user interests will
+    /// be learned in the next call to `rerank`.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_first_search_with_search_results(mode: RerankMode) {
         let cs = MockCommonSystems::default();
@@ -401,23 +409,36 @@ mod tests {
         let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
-        assert_eq!(reranker.data.prev_documents.len(), documents.len());
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
         assert!(reranker.data.sync_data.user_interests.positive.is_empty());
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
-        check_error!(reranker, CoiSystemError::NoCoi);
+        if mode.is_personalized() {
+            assert!(contains_error!(reranker, CoiSystemError::NoCoi));
+        } else {
+            assert!(reranker.errors().is_empty());
+        }
     }
 
     /// A user performed the very first search. The `Reranker` created the
-    /// previous documents from that search. The next time the user
+    /// previous documents if that search was personalized. The next time the user
     /// searches, the user interests should be learned from the previous
     /// documents and the current results/`Document`s should be reranked
     /// based on the newly learned user interests.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_first_and_second_search_learn_cois_and_rerank(
         mode: RerankMode,
-        #[rustfmt::skip]
-        #[values(RerankMode::PersonalizedNews, RerankMode::PersonalizedSearch)]
+        #[values(
+            RerankMode::StandardNews,
+            RerankMode::PersonalizedNews,
+            RerankMode::StandardSearch,
+            RerankMode::PersonalizedSearch
+        )]
         second_mode: RerankMode,
     ) {
         let cs = MockCommonSystems::default();
@@ -426,34 +447,64 @@ mod tests {
 
         let _rank = reranker.rerank(mode, &[], &documents);
 
-        let history = history_for_prev_docs(
-            &reranker.data.prev_documents.to_coi_system_data().unwrap(),
-            vec![
-                (Relevance::Low, UserFeedback::Irrelevant),
-                (Relevance::Low, UserFeedback::Relevant),
-                (Relevance::Low, UserFeedback::Relevant),
-                (Relevance::Low, UserFeedback::Irrelevant),
-                (Relevance::Low, UserFeedback::Irrelevant),
-                (Relevance::Low, UserFeedback::Relevant),
-            ],
-        );
+        let history = reranker
+            .data
+            .prev_documents
+            .to_coi_system_data()
+            .map(|prev_documents| {
+                history_for_prev_docs(
+                    prev_documents,
+                    vec![
+                        (Relevance::Low, UserFeedback::Irrelevant),
+                        (Relevance::Low, UserFeedback::Relevant),
+                        (Relevance::Low, UserFeedback::Relevant),
+                        (Relevance::Low, UserFeedback::Irrelevant),
+                        (Relevance::Low, UserFeedback::Irrelevant),
+                        (Relevance::Low, UserFeedback::Relevant),
+                    ],
+                )
+            })
+            .unwrap_or_default();
 
         let documents = documents_from_ids(10..20);
 
         let _rank = reranker.rerank(second_mode, &history, &documents);
-        assert!(reranker.errors().is_empty());
-        assert_eq!(reranker.data.prev_documents.len(), documents.len());
+        if !mode.is_personalized() && second_mode.is_personalized() {
+            assert!(contains_error!(
+                reranker,
+                CoiSystemError::NoMatchingDocuments
+            ));
+            assert!(contains_error!(reranker, CoiSystemError::NoCoi));
+        } else {
+            assert!(reranker.errors().is_empty());
+        }
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            second_mode
+                .is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
 
-        assert_eq!(reranker.data.sync_data.user_interests.positive.len(), 3);
-        assert_eq!(reranker.data.sync_data.user_interests.negative.len(), 3);
+        let coi_len = (mode.is_personalized() && second_mode.is_personalized())
+            .then(|| 3)
+            .unwrap_or_default();
+        assert_eq!(
+            reranker.data.sync_data.user_interests.positive.len(),
+            coi_len,
+        );
+        assert_eq!(
+            reranker.data.sync_data.user_interests.negative.len(),
+            coi_len,
+        );
     }
 
-    /// A user performed a couple of searches. The `Reranker` data holds the
-    /// previous documents from the last search. The user decides to clear
-    /// their history and then do a new search. The `Reranker` should skip
-    /// the learning step, discard the previous documents, rerank the
-    /// current `Document`s based on the current user interests and
-    /// create the previous documents from the current `Document`s.
+    /// A user performed a couple of searches. The `Reranker` data holds the previous documents from
+    /// the last search. The user decides to clear their history and then do a new search. The
+    /// `Reranker` should skip the learning step and discard the previous documents. In case of a
+    /// personalized query, it reranks the current `Document`s based on the current user interests
+    /// and create the previous documents from the current `Document`s. Otherwise it shouldn't
+    /// rerank and create no previous documents.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_rerank_no_history(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
@@ -463,25 +514,31 @@ mod tests {
         });
         let mut reranker = Reranker::new(cs).unwrap();
 
-        let outcome = reranker.rerank(mode, &[], &car_interest_example::documents());
+        let documents = car_interest_example::documents();
+        let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(
             outcome.final_ranking,
-            car_interest_example::expected_rerank_outcome().final_ranking
+            mode.is_personalized()
+                .then(|| car_interest_example::expected_rerank_outcome().final_ranking)
+                .unwrap_or_else(|| expected_rerank_unchanged(&documents)),
         );
         assert_eq!(
             reranker.data.prev_documents.len(),
-            car_interest_example::documents().len()
+            mode.is_personalized()
+                .then(|| car_interest_example::documents().len())
+                .unwrap_or_default(),
         );
     }
 
-    /// This case is unlikely because the app always sends the complete
-    /// history. If the app decides to only send a subset of the history like
-    /// "news" or "search" history (for example if the user switches from the
-    /// search to the news screen), this case will be more likely. The
-    /// `Reranker` should fail in the learning step with a `NoMatchingDocuments`
-    /// error, create the previous documents from the current `Document`s
-    /// and rerank the current `Document`s based on the current user interests.
+    /// This case is unlikely because the app always sends the complete history. If the app decides
+    /// to only send a subset of the history like "news" or "search" history (for example if the
+    /// user switches from the search to the news screen), this case will be more likely. In case of
+    /// a personalized query, the `Reranker` should fail in the learning step with a
+    /// `NoMatchingDocuments` error, create the previous documents from the current `Document`s and
+    /// rerank the current `Document`s based on the current user interests. Otherwise it should skip
+    /// the learning step and fail in the analysis step with a `NoRelevantHistoricInfo` error, it
+    /// shouldn't rerank and create no previous documents.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_rerank_no_matching_documents(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
@@ -498,29 +555,40 @@ mod tests {
 
         assert_eq!(
             outcome.final_ranking,
-            car_interest_example::expected_rerank_outcome().final_ranking
+            mode.is_personalized()
+                .then(|| car_interest_example::expected_rerank_outcome().final_ranking)
+                .unwrap_or_else(|| expected_rerank_unchanged(&documents)),
         );
-        assert_eq!(reranker.data.prev_documents.len(), documents.len());
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
 
-        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        if mode.is_personalized() {
+            assert!(contains_error!(
+                reranker,
+                CoiSystemError::NoMatchingDocuments
+            ));
+        } else {
+            assert!(contains_error!(reranker, NoRelevantHistoricInfo));
+        }
     }
 
-    /// A user performed the very first search. The `Reranker` created the
-    /// previous documents from that search. The user decides to clear
-    /// their history and then do a new search. The `Reranker` should skip
-    /// the learning step, discard the previous documents, rerank the
-    /// current `Document`s based on the current user interests and
-    /// create the previous documents from the current `Document`s.
-    /// Since the learning step was skipped, the `Reranker` is not yet
-    /// aware of any user interests and can therefore not perform any
-    /// reranking. The `Reranker` should return the results/`Document`s
-    /// in an unchanged order.
+    /// A user performed the very first search. In case of a personalized query, the `Reranker`
+    /// created the previous documents from that search. The user decides to clear their history and
+    /// then do a new search. The `Reranker` should skip the learning step and discard the previous
+    /// documents. Since the learning step was skipped, the `Reranker` is not yet aware of any user
+    /// interests and can therefore not perform any reranking. The `Reranker` should return the
+    /// results/`Document`s in an unchanged order. In case of a personalized query, those documents
+    /// are set as the new previous documents.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_first_and_second_search_no_history(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
             MemDb::from_data(RerankerData {
                 prev_documents: documents_with_embeddings_from_ids(0..10).into(),
-                ..Default::default()
+                ..RerankerData::default()
             })
         });
         let mut reranker = Reranker::new(cs).unwrap();
@@ -529,17 +597,29 @@ mod tests {
         let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
-        assert_eq!(reranker.data.prev_documents.len(), documents.len());
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
         assert!(reranker.data.sync_data.user_interests.positive.is_empty());
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
-        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        if mode.is_personalized() {
+            assert!(contains_error!(
+                reranker,
+                CoiSystemError::NoMatchingDocuments
+            ));
+        } else {
+            assert!(reranker.errors().is_empty());
+        }
     }
 
-    /// Similar to `test_first_and_second_search_no_history` but this time
-    /// the `Reranker` cannot find any matching documents. The `Reranker`
-    /// should return the results/`Document`s in an unchanged order and
-    /// create the previous documents from the current `Document`s.
+    /// Similar to `test_first_and_second_search_no_history` but this time the `Reranker` cannot
+    /// find any matching documents. The `Reranker` should return the results/`Document`s in an
+    /// unchanged order and in case of a personalized query create the previous documents from the
+    /// current `Document`s.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_first_and_second_search_no_matching_documents(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
@@ -556,12 +636,24 @@ mod tests {
         let outcome = reranker.rerank(mode, &history, &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
-        assert_eq!(reranker.data.prev_documents.len(), documents.len());
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
         assert!(reranker.data.sync_data.user_interests.positive.is_empty());
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
-        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
-        check_error!(reranker, CoiSystemError::NoCoi);
+        if mode.is_personalized() {
+            assert!(contains_error!(
+                reranker,
+                CoiSystemError::NoMatchingDocuments
+            ));
+            assert!(contains_error!(reranker, CoiSystemError::NoCoi));
+        } else {
+            assert!(reranker.errors().is_empty());
+        }
     }
 
     #[derive(thiserror::Error, Debug)]
@@ -590,12 +682,13 @@ mod tests {
         }
     }
 
+    /// If any of the systems fail in the `rerank` method, the `Reranker` should return the results/
+    /// `Document`s in an unchanged order. In case of a personalized query, it should fail with a
+    /// `NoMatchingDocuments` error and create the previous documents from the current `Document`s.
+    /// Otherwise it might potentially just fail in the analysis step, because neutral reranker
+    /// components are infallible. An exception is the smbert system which of course cannot create
+    /// previous documents if it fails.
     fn test_system_failure(cs: impl CommonSystems, can_fill_prev_docs: bool, mode: RerankMode) {
-        // If any of the systems fail in the `rerank` method, the `Reranker`
-        // should return the results/`Document`s in an unchanged order and
-        // create the previous documents from the current `Document`s.
-        // An exception is the smbert system which of course cannot create
-        // previous documents if it fails.
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = documents_from_ids(0..10);
 
@@ -603,15 +696,20 @@ mod tests {
         let outcome = reranker.rerank(mode, &[], &documents);
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
-        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
-        check_error!(reranker, MockError::Fail);
+        if mode.is_personalized() {
+            assert!(contains_error!(
+                reranker,
+                CoiSystemError::NoMatchingDocuments
+            ));
+            assert!(contains_error!(reranker, MockError::Fail));
+        } else {
+            assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
+        }
         assert_eq!(
             reranker.data.prev_documents.len(),
-            if can_fill_prev_docs {
-                documents.len()
-            } else {
-                0
-            }
+            (can_fill_prev_docs && mode.is_personalized())
+                .then(|| documents.len())
+                .unwrap_or_default(),
         );
     }
 
@@ -653,9 +751,11 @@ mod tests {
 
         assert_eq!(
             outcome.final_ranking,
-            car_interest_example::expected_rerank_outcome().final_ranking
+            mode.is_personalized()
+                .then(|| car_interest_example::expected_rerank_outcome().final_ranking)
+                .unwrap_or_else(|| expected_rerank_unchanged(&documents)),
         );
-        check_error!(reranker, MockError::Fail);
+        assert!(contains_error!(reranker, MockError::Fail));
         assert!(reranker.analytics.is_none())
     }
 
@@ -674,9 +774,9 @@ mod tests {
         test_system_failure(cs, true, mode);
     }
 
-    /// If the smbert system fails spontaneously in the `rerank` function, the
-    /// `Reranker` should return the results/`Document`s in an unchanged order
-    /// and create the previous documents from the current `Document`s.
+    /// If the smbert system fails spontaneously in the `rerank` function, the `Reranker` should
+    /// return the results/`Document`s in an unchanged order. In case of a personalized query, it
+    /// should create the previous documents from the current `Document`s.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_system_failure_smbert_fails_in_rerank(mode: RerankMode) {
         let mut called = 0;
@@ -702,11 +802,20 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         assert_eq!(
-            dbg!(reranker.data.prev_documents.len()),
-            dbg!(documents.len())
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
         );
-        check_error!(reranker, CoiSystemError::NoMatchingDocuments);
-        check_error!(reranker, MockError::Fail);
+        if mode.is_personalized() {
+            assert!(contains_error!(
+                reranker,
+                CoiSystemError::NoMatchingDocuments,
+            ));
+            assert!(contains_error!(reranker, MockError::Fail));
+        } else {
+            assert!(reranker.errors().is_empty());
+        }
     }
 
     /// If the database fails to load the data, propagate the error to the caller.

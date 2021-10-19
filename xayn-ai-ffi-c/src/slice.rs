@@ -295,11 +295,7 @@ mod tests {
     #[test]
     fn test_into_boxed_slice() {
         let slice = CBoxedSlice::from(vec![1u8, 2, 4]);
-        dbg!((&slice.data, &slice.len));
-        dbg!(&slice);
         let slice = slice.into_boxed_slice();
-        dbg!(&*slice as *const _);
-        dbg!(&slice);
         assert_eq!(&*slice, &[1u8, 2, 4]);
     }
 

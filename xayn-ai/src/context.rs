@@ -68,6 +68,10 @@ impl ContextCalc {
 /// Context system to run when Context is disabled
 pub struct NeutralContext;
 
+impl NeutralContext {
+    const CONTEXT: f32 = 0.;
+}
+
 impl ContextSystem for NeutralContext {
     fn compute_context(
         &self,
@@ -78,7 +82,9 @@ impl ContextSystem for NeutralContext {
             .map(|document| {
                 DocumentDataWithContext::from_document(
                     document,
-                    ContextComponent { context_value: 0. },
+                    ContextComponent {
+                        context_value: Self::CONTEXT,
+                    },
                 )
             })
             .collect())

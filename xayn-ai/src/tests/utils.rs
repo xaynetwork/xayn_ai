@@ -138,7 +138,7 @@ pub(crate) fn neg_cois_from_words_with_ids(
 }
 
 pub(crate) fn history_for_prev_docs(
-    prev_documents: &[&dyn CoiSystemData],
+    prev_documents: Vec<&dyn CoiSystemData>,
     relevance: Vec<(Relevance, UserFeedback)>,
 ) -> Vec<DocumentHistory> {
     prev_documents
