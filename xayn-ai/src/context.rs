@@ -65,6 +65,26 @@ impl ContextCalc {
     }
 }
 
+/// Context system to run when Context is disabled
+pub struct NeutralContext;
+
+impl ContextSystem for NeutralContext {
+    fn compute_context(
+        &self,
+        documents: Vec<DocumentDataWithLtr>,
+    ) -> Result<Vec<DocumentDataWithContext>, Error> {
+        Ok(documents
+            .into_iter()
+            .map(|document| {
+                DocumentDataWithContext::from_document(
+                    document,
+                    ContextComponent { context_value: 0. },
+                )
+            })
+            .collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::arr1;

@@ -193,6 +193,38 @@ impl systems::CoiSystem for CoiSystem {
     }
 }
 
+/// Coi system to run when Coi is disabled
+pub struct NeutralCoiSystem;
+
+impl systems::CoiSystem for NeutralCoiSystem {
+    fn compute_coi(
+        &self,
+        documents: Vec<DocumentDataWithQAMBert>,
+        _user_interests: &UserInterests,
+    ) -> Result<Vec<DocumentDataWithCoi>, Error> {
+        let coi = CoiComponent {
+            id: Uuid::nil().into(),
+            pos_distance: 0.,
+            neg_distance: 0.,
+        };
+        let documents = documents
+            .into_iter()
+            .map(|document| DocumentDataWithCoi::from_document(document, coi.clone()))
+            .collect();
+
+        Ok(documents)
+    }
+
+    fn update_user_interests<'a>(
+        &self,
+        _history: &[DocumentHistory],
+        _documents: &[&dyn CoiSystemData],
+        user_interests: UserInterests,
+    ) -> Result<UserInterests, Error> {
+        Ok(user_interests)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ndarray::{arr1, FixedInitializer};

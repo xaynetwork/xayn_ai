@@ -193,25 +193,33 @@ impl RerankingOutcomes {
             .map(|doc| (doc.id(), doc))
             .collect::<HashMap<_, _>>();
 
-        let docs_len = docs.len();
-        let mut final_ranking = Vec::with_capacity(docs_len);
-        let mut context_scores = Vec::with_capacity(docs_len);
-        let mut qambert_similarities =
-            matches!(mode, RerankMode::Search).then(|| Vec::with_capacity(docs_len));
-
-        for doc in docs {
-            let data = docs_with_rank[&doc.id];
-            final_ranking.push(data.rank.rank as u16);
-            context_scores.push(data.context.context_value);
-            if let Some(vs) = qambert_similarities.as_mut() {
-                vs.push(data.qambert.similarity)
-            }
-        }
+        let final_ranking = docs
+            .iter()
+            .map(|doc| docs_with_rank[&doc.id].rank.rank as u16)
+            .collect();
+        let qambert_similarities = matches!(
+            mode,
+            RerankMode::StandardSearch | RerankMode::PersonalizedSearch,
+        )
+        .then(|| {
+            docs.iter()
+                .map(|doc| docs_with_rank[&doc.id].qambert.similarity)
+                .collect()
+        });
+        let context_scores = matches!(
+            mode,
+            RerankMode::PersonalizedNews | RerankMode::PersonalizedSearch,
+        )
+        .then(|| {
+            docs.iter()
+                .map(|doc| docs_with_rank[&doc.id].context.context_value)
+                .collect()
+        });
 
         Self {
             final_ranking,
-            context_scores: Some(context_scores),
             qambert_similarities,
+            context_scores,
         }
     }
 

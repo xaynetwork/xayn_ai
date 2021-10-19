@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use crate::{
-    reranker::{database::Database, RerankerData},
+    reranker::database::{Database, RerankerData},
     Error,
 };
 

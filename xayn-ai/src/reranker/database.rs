@@ -1,12 +1,103 @@
 use std::cell::RefCell;
 
 use anyhow::bail;
+#[cfg(test)]
+use derive_more::From;
+use serde::{Deserialize, Serialize};
 
 use crate::{
+    coi::point::UserInterests_v0_0_0,
+    data::document_data::{DocumentDataWithRank, DocumentDataWithSMBert},
     error::Error,
-    reranker::{RerankerData, RerankerData_v0_0_0, RerankerData_v0_1_0, CURRENT_SCHEMA_VERSION},
-    utils::serialize_with_version,
+    reranker::{
+        sync::{SyncData_v0_1_0, SyncData_v0_2_0},
+        systems::CoiSystemData,
+        CURRENT_SCHEMA_VERSION,
+    },
+    utils::{serialize_with_version, to_vec_of_ref_of},
 };
+
+#[derive(Deserialize, Serialize)]
+#[cfg_attr(test, derive(Clone, Debug, From, PartialEq))]
+pub(super) enum PreviousDocuments {
+    None,
+    Embedding(Vec<DocumentDataWithSMBert>),
+    Final(Vec<DocumentDataWithRank>),
+}
+
+impl Default for PreviousDocuments {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl PreviousDocuments {
+    pub(super) fn to_coi_system_data(&self) -> Option<Vec<&dyn CoiSystemData>> {
+        match self {
+            PreviousDocuments::None => None,
+            PreviousDocuments::Embedding(documents) => {
+                Some(to_vec_of_ref_of!(documents, &dyn CoiSystemData))
+            }
+            PreviousDocuments::Final(documents) => {
+                Some(to_vec_of_ref_of!(documents, &dyn CoiSystemData))
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn len(&self) -> usize {
+        match self {
+            PreviousDocuments::None => 0,
+            PreviousDocuments::Embedding(documents) => documents.len(),
+            PreviousDocuments::Final(documents) => documents.len(),
+        }
+    }
+}
+
+#[obake::versioned]
+#[obake(version("0.0.0"))]
+#[obake(version("0.1.0"))]
+#[obake(version("0.2.0"))]
+#[derive(Default, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq))]
+pub(crate) struct RerankerData {
+    #[obake(inherit)]
+    #[obake(cfg(">=0.1"))]
+    pub(super) sync_data: SyncData,
+    #[obake(cfg(">=0.0"))]
+    pub(super) prev_documents: PreviousDocuments,
+
+    // removed fields go below this line
+    #[obake(inherit)]
+    #[obake(cfg(">=0.0, <0.1"))]
+    pub(super) user_interests: UserInterests,
+}
+
+impl From<RerankerData_v0_0_0> for RerankerData_v0_1_0 {
+    fn from(data: RerankerData_v0_0_0) -> Self {
+        Self {
+            sync_data: SyncData_v0_1_0 {
+                user_interests: data.user_interests.into(),
+            },
+            prev_documents: data.prev_documents,
+        }
+    }
+}
+
+impl From<RerankerData_v0_0_0> for RerankerData {
+    fn from(data: RerankerData_v0_0_0) -> Self {
+        RerankerData_v0_1_0::from(data).into()
+    }
+}
+
+impl From<RerankerData_v0_1_0> for RerankerData {
+    fn from(data: RerankerData_v0_1_0) -> Self {
+        Self {
+            sync_data: data.sync_data.into(),
+            prev_documents: data.prev_documents,
+        }
+    }
+}
 
 #[cfg_attr(test, mockall::automock)]
 pub(crate) trait Database {
@@ -58,8 +149,8 @@ impl Database for Db {
 mod tests {
     use super::*;
     use crate::{
-        coi::point::{UserInterests, UserInterests_v0_0_0, UserInterests_v0_1_0},
-        reranker::{RerankerData, RerankerData_v0_0_0, RerankerData_v0_1_0},
+        coi::point::{UserInterests, UserInterests_v0_1_0},
+        reranker::sync::SyncData,
         tests::{
             data_with_rank,
             from_ids,
@@ -70,6 +161,42 @@ mod tests {
             pos_cois_from_words_v1,
         },
     };
+
+    impl RerankerData_v0_0_0 {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests_v0_0_0,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                user_interests,
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
+
+    impl RerankerData_v0_1_0 {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests_v0_1_0,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                sync_data: SyncData_v0_1_0 { user_interests },
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
+
+    impl RerankerData {
+        pub(crate) fn new_with_rank(
+            user_interests: UserInterests,
+            prev_documents: Vec<DocumentDataWithRank>,
+        ) -> Self {
+            Self {
+                sync_data: SyncData { user_interests },
+                prev_documents: PreviousDocuments::Final(prev_documents),
+            }
+        }
+    }
 
     #[test]
     fn test_database_serialize_load() {

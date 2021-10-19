@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::{
+        merge::reduce_cois,
         point::{CoiPoint, UserInterests, UserInterests_v0_1_0, UserInterests_v0_2_0},
-        reduce_cois,
     },
     error::Error,
     reranker::CURRENT_SCHEMA_VERSION,

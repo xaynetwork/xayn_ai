@@ -7,25 +7,24 @@ use rubert::{AveragePooler, QAMBert, QAMBertBuilder, SMBert, SMBertBuilder};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
-    coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
+    coi::{config::Configuration as CoiSystemConfiguration, system::CoiSystem as CoiSystemImpl},
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
+    error::Error,
     ltr::{DomainReranker, DomainRerankerBuilder},
-    Error,
-};
-
-use super::{
-    database::{Database, Db},
-    systems::{
-        AnalyticsSystem,
-        CoiSystem,
-        CommonSystems,
-        ContextSystem,
-        LtrSystem,
-        QAMBertSystem,
-        SMBertSystem,
+    reranker::{
+        database::{Database, Db},
+        systems::{
+            AnalyticsSystem,
+            CoiSystem,
+            CommonSystems,
+            ContextSystem,
+            LtrSystem,
+            QAMBertSystem,
+            SMBertSystem,
+        },
+        RerankMode,
     },
-    RerankMode,
 };
 
 pub struct Systems {

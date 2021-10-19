@@ -2,9 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::CoiId,
-    data::document::{DocumentId, QueryId, SessionId},
+    data::document::{Document, DocumentId, QueryId, SessionId},
     embedding::utils::Embedding,
     reranker::systems::CoiSystemData,
+    utils::nan_safe_f32_cmp,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -99,6 +100,31 @@ macro_rules! impl_coi_system_data_no_coi {
 pub(crate) struct DocumentDataWithDocument {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) document_content: DocumentContentComponent,
+}
+
+impl From<&Document> for DocumentDataWithDocument {
+    fn from(document: &Document) -> Self {
+        Self {
+            document_base: DocumentBaseComponent {
+                id: document.id,
+                initial_ranking: document.rank,
+            },
+            document_content: DocumentContentComponent {
+                title: document.title.clone(),
+                snippet: document.snippet.clone(),
+                session: document.session,
+                query_count: document.query_count,
+                query_id: document.query_id,
+                query_words: document.query_words.clone(),
+                url: document.url.clone(),
+                domain: document.domain.clone(),
+            },
+        }
+    }
+}
+
+pub(crate) fn make_documents(documents: &[Document]) -> Vec<DocumentDataWithDocument> {
+    documents.iter().map(Into::into).collect()
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -239,6 +265,27 @@ impl DocumentDataWithRank {
             rank,
         }
     }
+}
+
+pub(crate) fn rank_by_identity(docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWithRank> {
+    docs.into_iter()
+        .enumerate()
+        .map(|(rank, doc)| DocumentDataWithRank::from_document(doc, RankComponent { rank }))
+        .collect()
+}
+
+pub(crate) fn rank_by_context(mut docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWithRank> {
+    docs.sort_unstable_by(|a, b| {
+        nan_safe_f32_cmp(&b.context.context_value, &a.context.context_value)
+    });
+    rank_by_identity(docs)
+}
+
+pub(crate) fn rank_by_similarity(
+    mut docs: Vec<DocumentDataWithContext>,
+) -> Vec<DocumentDataWithRank> {
+    docs.sort_unstable_by(|a, b| nan_safe_f32_cmp(&b.qambert.similarity, &a.qambert.similarity));
+    rank_by_identity(docs)
 }
 
 impl CoiSystemData for DocumentDataWithRank {
