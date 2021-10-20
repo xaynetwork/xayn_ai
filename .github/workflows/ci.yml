@@ -502,7 +502,7 @@ jobs:
     name: flutter-checks
     needs: build-linux-lib
     runs-on: ubuntu-20.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
