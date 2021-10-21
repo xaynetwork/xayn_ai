@@ -40,11 +40,18 @@ extension RerankModeToInt on RerankMode {
 
 /// The Xayn AI.
 class XaynAi {
+  /// Creates and initializes the Xayn AI from a given state.
+  ///
+  /// Requires the vocabulary and model of the tokenizer/embedder and the state.
+  /// It will throw an error if the provided state is empty.
+  static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
+    throw UnsupportedError('Unsupported platform.');
+  }
+
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the data to setup the AI, e.g. the vocabulary and model of the tokenizer/embedder.
-  /// Optionally accepts the serialized reranker database, otherwise creates a new one.
-  static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
+  /// Requires the vocabulary and model of the tokenizer/embedder.
+  static Future<XaynAi> create(SetupData data) async {
     throw UnsupportedError('Unsupported platform.');
   }
 

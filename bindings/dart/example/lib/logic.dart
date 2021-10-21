@@ -1,4 +1,5 @@
 import 'dart:convert' show jsonDecode;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/material.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle;
@@ -77,7 +78,7 @@ class Logic {
 
     final setupData = await getInputData(features: features);
 
-    final currentAi = await XaynAi.create(
+    final currentAi = await initAi(
         setupData, availableCallData[currentCallDataKey]?.serializedState);
 
     return Logic._(currentAi, setupData, availableCallData, currentCallDataKey);
@@ -95,8 +96,7 @@ class Logic {
 
   Future<void> resetXaynAiState() async {
     _currentAi.free();
-    _currentAi =
-        await XaynAi.create(_setupData, _currentCallData.serializedState);
+    _currentAi = await initAi(_setupData, _currentCallData.serializedState);
   }
 
   List<Outcome> run() {
@@ -112,6 +112,14 @@ class Logic {
     _currentAi
         .faults()
         .forEach((fault) => debugPrint('AI FAULT: $fault', wrapWidth: 1000));
+  }
+
+  static Future<XaynAi> initAi(SetupData setupData, Uint8List? serialized) {
+    if (serialized == null) {
+      return XaynAi.create(setupData);
+    } else {
+      return XaynAi.restore(setupData, serialized);
+    }
   }
 
   Stats benchmark() {

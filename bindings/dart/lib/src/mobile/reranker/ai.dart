@@ -33,25 +33,25 @@ import 'package:xayn_ai_ffi_dart/src/mobile/result/outcomes.dart'
 class XaynAi implements common.XaynAi {
   late Pointer<CXaynAi> _ai;
 
+  /// Creates and initializes the Xayn AI from a given state.
+  ///
+  /// Requires the vocabulary and model of the tokenizer/embedder and the state.
+  /// It will throw an error if the provided state is empty.
+  static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
+    if (serialized.isEmpty) {
+      throw ArgumentError('Serialized state cannot be empty');
+    }
+
+    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
+        data.qambertModel, data.ltrModel, serialized);
+  }
+
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder.
-  /// Optionally accepts the serialized reranker database, otherwise creates a
-  /// new one.
-  static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
-    final error = XaynAiError();
-    ffi.xaynai_init_thread_pool(
-        selectThreadPoolSize(Platform.numberOfProcessors), error.ptr);
-
-    try {
-      if (error.isError()) {
-        throw error.toException();
-      }
-      return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-          data.qambertModel, data.ltrModel, serialized);
-    } finally {
-      error.free();
-    }
+  static Future<XaynAi> create(SetupData data) async {
+    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
+        data.qambertModel, data.ltrModel, null);
   }
 
   /// Creates and initializes the Xayn AI.
@@ -71,6 +71,12 @@ class XaynAi implements common.XaynAi {
     final error = XaynAiError();
 
     try {
+      ffi.xaynai_init_thread_pool(
+          selectThreadPoolSize(Platform.numberOfProcessors), error.ptr);
+      if (error.isError()) {
+        throw error.toException();
+      }
+
       bytes = Bytes.fromList(serialized ?? Uint8List(0));
       _ai = ffi.xaynai_new(smbertVocabPtr, smbertModelPtr, qambertVocabPtr,
           qambertModelPtr, ltrModelPtr, bytes.ptr, error.ptr);
