@@ -17,8 +17,8 @@ use serde::{Deserialize, Serialize};
 /// Deserialization helper representing a flattened array.
 ///
 /// The flattened array is in row-major order.
-#[derive(Serialize)]
-#[cfg_attr(test, derive(Debug, Default, PartialEq))]
+#[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(Default, PartialEq))]
 pub struct FlattenedArray<A> {
     shape: Vec<Ix>,
     /// There is a invariant that the length of data is
@@ -192,7 +192,7 @@ impl BinParams {
         self.params.keys().map(|s| &**s)
     }
 
-    pub fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
+    pub(crate) fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
     {
@@ -206,7 +206,7 @@ impl BinParams {
     }
 
     /// Insert an array of given name (replacing any array previously set for that name).
-    pub fn insert<A>(&mut self, name: impl Into<String>, array: A)
+    pub(crate) fn insert<A>(&mut self, name: impl Into<String>, array: A)
     where
         FlattenedArray<f32>: From<A>,
     {
@@ -286,7 +286,6 @@ impl<'a> BinParamsWithScope<'a> {
         self.prefix.clone() + suffix
     }
 
-    #[cfg(test)]
     pub fn with_scope(&mut self, scope: &str) -> BinParamsWithScope {
         BinParamsWithScope {
             params: &mut *self.params,
@@ -302,8 +301,10 @@ mod tests {
     use ndarray::{arr1, arr2, Array1, Array2};
     use rand::{thread_rng, Rng};
 
-    use super::{super::he_normal_weights_init, *};
+    use crate::utils::he_normal_weights_init;
     use test_utils::assert_approx_eq;
+
+    use super::*;
 
     #[test]
     fn ix_is_usize() {

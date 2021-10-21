@@ -1,10 +1,5 @@
 use std::ops::{AddAssign, DivAssign, MulAssign};
 
-use super::super::ndutils::io::{
-    BinParamsWithScope,
-    FailedToRetrieveParams,
-    UnexpectedNumberOfDimensions,
-};
 use ndarray::{
     linalg::Dot,
     Array,
@@ -20,7 +15,10 @@ use ndarray::{
 };
 use thiserror::Error;
 
-use super::ActivationFunction;
+use crate::{
+    activation::ActivationFunction,
+    io::{BinParamsWithScope, FailedToRetrieveParams, UnexpectedNumberOfDimensions},
+};
 
 /// Error triggered if two matrices which should be used together are not compatible.
 #[derive(Debug, Error)]
@@ -48,7 +46,7 @@ pub enum LoadingDenseFailed {
 /// This can be used for both 1D and 2D inputs depending
 /// on the activation function.
 #[derive(Clone)]
-pub(crate) struct Dense<AF>
+pub struct Dense<AF>
 where
     AF: ActivationFunction<f32>,
 {
@@ -61,7 +59,7 @@ impl<AF> Dense<AF>
 where
     AF: ActivationFunction<f32>,
 {
-    pub(crate) fn load(
+    pub fn load(
         mut params: BinParamsWithScope,
         activation_function: AF,
     ) -> Result<Self, LoadingDenseFailed> {
@@ -70,12 +68,12 @@ where
         Ok(Self::new(weights, bias, activation_function)?)
     }
 
-    pub(crate) fn store_params(self, mut params: BinParamsWithScope) {
+    pub fn store_params(self, mut params: BinParamsWithScope) {
         params.insert("weights", self.weights);
         params.insert("bias", self.bias);
     }
 
-    pub(crate) fn new(
+    pub fn new(
         weights: Array2<f32>,
         bias: Array1<f32>,
         activation_function: AF,
@@ -97,7 +95,7 @@ where
         }
     }
 
-    pub(crate) fn check_in_out_shapes<D>(&self, mut shape: D) -> Result<D, IncompatibleMatrices>
+    pub fn check_in_out_shapes<D>(&self, mut shape: D) -> Result<D, IncompatibleMatrices>
     where
         D: Dimension,
     {
@@ -135,7 +133,7 @@ where
     /// If `for_back_propagation` is `true` this will also return the
     /// intermediate result (`z_out`) from before the activation function
     /// was applied. If not then `None` is returned instead.
-    pub(crate) fn run<S, D>(
+    pub fn run<S, D>(
         &self,
         input: &ArrayBase<S, D>,
         for_back_propagation: bool,
@@ -157,7 +155,7 @@ where
     /// # Panic
     ///
     /// The `input` and `partials` arrays are supposed to be c- or f-contiguous.
-    pub(crate) fn gradients_from_partials_1d(
+    pub fn gradients_from_partials_1d(
         &self,
         input: ArrayView1<f32>,
         partials: ArrayView1<f32>,
@@ -193,28 +191,27 @@ where
     }
 
     /// Adds given gradients to the weight and bias matrices.
-    pub(crate) fn add_gradients(&mut self, gradients: &DenseGradientSet) {
+    pub fn add_gradients(&mut self, gradients: &DenseGradientSet) {
         self.weights += &gradients.weight_gradients;
         self.bias += &gradients.bias_gradients;
     }
 
-    pub(crate) fn weights(&self) -> ArrayView2<f32> {
+    pub fn weights(&self) -> ArrayView2<f32> {
         self.weights.view()
     }
 
-    #[cfg(test)]
-    pub(crate) fn bias(&self) -> &Array1<f32> {
+    pub fn bias(&self) -> &Array1<f32> {
         &self.bias
     }
 
     /// Divides all parameters (weights, bias) of this dense layer in place.
-    pub(crate) fn div_parameters_by(&mut self, denominator: f32) {
+    pub fn div_parameters_by(&mut self, denominator: f32) {
         self.weights /= denominator;
         self.bias /= denominator;
     }
 
     /// Adds all parameters of `other` to `self`.
-    pub(crate) fn add_parameters_of(&mut self, other: Self) {
+    pub fn add_parameters_of(&mut self, other: Self) {
         let Dense {
             weights,
             bias,
@@ -229,17 +226,32 @@ where
 ///
 /// (Assuming the activation function has no parameters. It might still have
 /// hyper-parameters.)
-#[cfg_attr(test, derive(Debug, Clone))]
-pub(crate) struct DenseGradientSet {
-    pub(crate) weight_gradients: Array2<f32>,
-    pub(crate) bias_gradients: Array1<f32>,
+#[derive(Debug, Clone)]
+pub struct DenseGradientSet {
+    weight_gradients: Array2<f32>,
+    bias_gradients: Array1<f32>,
 }
 
 impl DenseGradientSet {
+    pub fn new(weight_gradients: Array2<f32>, bias_gradients: Array1<f32>) -> Self {
+        Self {
+            weight_gradients,
+            bias_gradients,
+        }
+    }
+
+    pub fn weight_gradients(&self) -> &Array2<f32> {
+        &self.weight_gradients
+    }
+
+    pub fn bias_gradients(&self) -> &Array1<f32> {
+        &self.bias_gradients
+    }
+
     /// Merge multiple gradients for the same shared weights.
     ///
     /// This will just sum them up.
-    pub(crate) fn merge_shared(
+    pub fn merge_shared(
         gradients_for_shared_weights: impl IntoIterator<Item = Self>,
     ) -> Option<Self> {
         gradients_for_shared_weights.into_iter().reduce(|mut l, r| {
@@ -290,11 +302,10 @@ impl DivAssign<f32> for DenseGradientSet {
 mod tests {
     use ndarray::{arr1, arr2, Array1, Array2, IntoDimension};
 
-    use super::{
-        super::activation::{Linear, Relu},
-        Dense,
-    };
+    use crate::activation::{Linear, Relu};
     use test_utils::assert_approx_eq;
+
+    use super::*;
 
     #[test]
     fn test_dense_matrix_for_2d_input() {

@@ -411,6 +411,7 @@ dependencies = [
  "env_logger",
  "indicatif",
  "itertools",
+ "layer",
  "log",
  "ndarray",
  "rand",
@@ -730,6 +731,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ef2db2b29cec96f7ec359ba84737662ebf6caca89e3401b3fc574b4a814e7fa"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "layer"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "ndarray",
+ "rand",
+ "rand_distr",
+ "serde",
+ "test-utils",
+ "thiserror",
 ]
 
 [[package]]
@@ -2364,6 +2378,7 @@ dependencies = [
  "derive_more",
  "displaydoc",
  "itertools",
+ "layer",
  "maplit",
  "mockall",
  "ndarray",
@@ -2371,7 +2386,6 @@ dependencies = [
  "once_cell",
  "paste",
  "rand",
- "rand_distr",
  "rayon",
  "rstest",
  "rstest_reuse",

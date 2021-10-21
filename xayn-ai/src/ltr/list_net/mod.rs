@@ -9,32 +9,17 @@ use std::{
     sync::Mutex,
 };
 
+use ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis, Dimension, IntoDimension, Ix};
 use thiserror::Error;
 
-use ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis, Dimension, IntoDimension, Ix};
-use ndutils::he_normal_weights_init;
-
-use crate::Relevance;
-
-use self::{
-    ndlayers::{
-        activation::{Linear, Relu, Softmax},
-        Dense,
-        DenseGradientSet,
-        IncompatibleMatrices,
-        LoadingDenseFailed,
-    },
-    ndutils::{
-        io::{BinParams, LoadingBinParamsFailed},
-        kl_divergence,
-        softmax,
-    },
-    optimizer::Optimizer,
+use self::optimizer::Optimizer;
+use crate::data::document::Relevance;
+use layer::{
+    activation::{Linear, Relu, Softmax},
+    dense::{Dense, DenseGradientSet, IncompatibleMatrices, LoadingDenseFailed},
+    io::{BinParams, LoadingBinParamsFailed},
+    utils::{he_normal_weights_init, kl_divergence, softmax},
 };
-
-mod ndlayers;
-//Pub for dev-tool
-pub mod ndutils;
 
 pub mod optimizer;
 

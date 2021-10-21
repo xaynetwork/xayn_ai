@@ -16,8 +16,6 @@ use ndarray::{
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 
-pub mod io;
-
 /// Computes softmax along specified axis.
 ///
 /// Inspired by [autograd's softmax implementation], especially the trick to subtract the max value
