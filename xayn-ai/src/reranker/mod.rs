@@ -810,4 +810,38 @@ mod tests {
             Err(error) => assert!(matches!(error.downcast_ref(), Some(MockError::Fail))),
         };
     }
+
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_analytics(mode: RerankMode) {
+        let cs = MockCommonSystems::default();
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = car_interest_example::documents();
+
+        // first rerank will return api ranking
+        let _rank = reranker.rerank(mode, &[], &documents);
+
+        let history = history_for_prev_docs(
+            &reranker.data.prev_documents.to_coi_system_data(),
+            vec![
+                (Relevance::Low, UserFeedback::Irrelevant),
+                (Relevance::High, UserFeedback::Relevant),
+                (Relevance::High, UserFeedback::Relevant),
+                (Relevance::Low, UserFeedback::Irrelevant),
+                (Relevance::Low, UserFeedback::Irrelevant),
+                (Relevance::High, UserFeedback::Relevant),
+            ],
+        );
+
+        // feedbackloop generate cois and can rerank
+        let _rank = reranker.rerank(mode, &history, &documents);
+
+        assert!(reranker.errors().is_empty());
+        // the previous ranking was not able to run because
+        // we don't have coi so the analytics is empty
+        assert!(reranker.analytics().is_none());
+
+        let _rank = reranker.rerank(mode, &history, &documents);
+        assert!(reranker.errors().is_empty());
+        assert!(reranker.analytics().is_some());
+    }
 }
