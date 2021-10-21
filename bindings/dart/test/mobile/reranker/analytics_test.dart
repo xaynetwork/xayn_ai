@@ -3,13 +3,93 @@ import 'dart:ffi' show nullptr, AllocatorAlloc, StructPointer;
 import 'package:ffi/ffi.dart' show calloc;
 import 'package:flutter_test/flutter_test.dart'
     show equals, expect, group, isNotNull, isNull, test, throwsStateError;
-
+import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
+import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
+    show History, Relevance, UserAction, UserFeedback, DayOfWeek;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart' show CAnalytics;
+import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/analytics.dart'
     show AnalyticsBuilder;
 
+import '../utils.dart' show mkSetupData;
+
 void main() {
   group('Analytics', () {
+    test('AI return analytics', () async {
+      final ai = await XaynAi.create(mkSetupData());
+      final documents = [
+        Document(
+          id: 'fcb6a685-eb92-4d36-8686-8a70a3a33003',
+          title: 'a b c',
+          snippet: 'snippet of a b c',
+          rank: 0,
+          session: 'fcb6a685-eb92-4d36-8686-000000000100',
+          queryCount: 21,
+          queryId: 'fcb6a685-eb92-4d36-8686-A000A00B000B',
+          queryWords: 'abc',
+          url: 'url',
+          domain: 'dom',
+        ),
+        Document(
+          id: 'fcb6a685-eb92-4d36-8686-8a70a3a33004',
+          title: 'ab de',
+          snippet: 'snippet of ab de',
+          rank: 1,
+          session: 'fcb6a685-eb92-4d36-8686-000000000100',
+          queryCount: 21,
+          queryId: 'fcb6a685-eb92-4d36-8686-A000A00B000B',
+          queryWords: 'abc',
+          url: 'url2',
+          domain: 'dom2',
+        ),
+      ];
+
+      final histories = [
+        History(
+          id: 'fcb6a685-eb92-4d36-8686-8a70a3a33003',
+          relevance: Relevance.high,
+          userFeedback: UserFeedback.relevant,
+          session: 'fcb6a685-eb92-4d36-8686-000000000100',
+          queryCount: 1,
+          queryId: 'fcb6a685-eb92-4d36-8686-A000A00A000A',
+          queryWords: 'is the dodo alive',
+          day: DayOfWeek.sun,
+          url: 'dodo lives:or not',
+          domain: 'no domain',
+          rank: 0,
+          userAction: UserAction.click,
+        ),
+        History(
+          id: 'fcb6a685-eb92-4d36-8686-8a70a3a33004',
+          relevance: Relevance.high,
+          userFeedback: UserFeedback.relevant,
+          session: 'fcb6a685-eb92-4d36-8686-000000000100',
+          queryCount: 1,
+          queryId: 'fcb6a685-eb92-4d36-8686-A000A00A000A',
+          queryWords: 'is the dodo alive',
+          day: DayOfWeek.sun,
+          url: 'dodo lives:or not',
+          domain: 'no domain',
+          rank: 1,
+          userAction: UserAction.click,
+        ),
+      ];
+
+      // first rerank will return same order as api
+      ai.rerank(RerankMode.search, <History>[], documents);
+      // second rerank create the coi in the feedbackloop
+      // and it will be able to rerank properly
+      ai.rerank(RerankMode.search, histories, documents);
+      // here we don't have analytics because the previous rerank
+      // returned the rank from the api
+      expect(ai.analytics(), isNull);
+
+      ai.rerank(RerankMode.search, histories, documents);
+      // this are the analytics about the second rerank
+      expect(ai.analytics(), isNotNull);
+    });
+
     test('create from C', () {
       final cAnalytics = calloc.call<CAnalytics>();
       cAnalytics.ref.ndcg_ltr = 0.25;
