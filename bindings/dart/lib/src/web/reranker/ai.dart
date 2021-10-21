@@ -33,8 +33,7 @@ class XaynAi implements common.XaynAi {
 
   /// Creates and initializes the Xayn AI and initializes the WASM module.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder and the WASM
-  /// module. Optionally accepts the serialized reranker database, otherwise
+  /// Requires the necessary [SetupData] for the AI. Optionally accepts the serialized reranker database, otherwise
   /// creates a new one.
   static Future<XaynAi> create(SetupData data) async {
     final ai = await ffi.XaynAi.create(data, null);
