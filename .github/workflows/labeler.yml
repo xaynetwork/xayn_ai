@@ -28,4 +28,3 @@ jobs:
           token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
           label: "WIP ⏳"
           type: remove
-#
