@@ -10,7 +10,7 @@ use structopt::StructOpt;
 use super::data_source::{DataSource, InMemoryStorage};
 use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
 use layer::utils::kl_divergence;
-use xayn_ai::list_net::{DataSource as _, ListNet};
+use xayn_ai::list_net::{data::DataSource as _, model::ListNet};
 
 /// Runs a single evaluation pass on a ListNet.
 #[derive(StructOpt, Debug)]

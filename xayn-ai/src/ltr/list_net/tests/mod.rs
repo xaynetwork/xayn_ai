@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use layer::{activation::ActivationFunction, dense::Dense};
 use test_utils::{assert_approx_eq, ltr::model};
 
-use super::*;
+use super::{model::ListNet, *};
 
 mod inference;
 mod training;

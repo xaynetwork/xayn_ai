@@ -1,6 +1,4 @@
 mod features;
-
-#[doc(hidden)]
 pub mod list_net;
 
 use std::{
@@ -12,6 +10,10 @@ use std::{
 use itertools::{izip, Itertools};
 use ndarray::{Array1, Array2};
 
+use self::{
+    features::{build_features, features_to_ndarray, DocSearchResult, Features, HistSearchResult},
+    list_net::model::ListNet,
+};
 use crate::{
     data::{
         document::DocumentHistory,
@@ -20,11 +22,6 @@ use crate::{
     error::Error,
     reranker::systems::LtrSystem,
 };
-
-use features::{build_features, features_to_ndarray};
-use list_net::ListNet;
-
-use self::features::{DocSearchResult, Features, HistSearchResult};
 
 /// Domain reranker consisting of a ListNet model trained on engineered features.
 pub(crate) struct DomainReranker {
@@ -146,7 +143,7 @@ pub fn list_net_training_data_from_history(
             .map(|doc| doc.relevance)
             .collect_vec();
         let relevances =
-            if let Some(relevances) = self::list_net::prepare_target_prob_dist(&relevances) {
+            if let Some(relevances) = self::list_net::data::prepare_target_prob_dist(&relevances) {
                 relevances
             } else {
                 // The last query is irrelevant so ignore pretend it doesn't exist.

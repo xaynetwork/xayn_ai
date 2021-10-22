@@ -2,16 +2,27 @@ use std::{
     convert::{Infallible, TryInto},
     env,
     ffi::OsString,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
-use ndarray::{arr1, arr2, Array, ArrayBase, Data};
+use ndarray::{arr1, arr2, s, Array, Array1, Array2, ArrayBase, Axis, Data, Dimension};
+use thiserror::Error;
 
 use super::{
     super::optimizer::MiniBatchSgd,
+    data::{
+        prepare_inputs,
+        prepare_target_prob_dist,
+        DataSource,
+        GradientSet,
+        SampleOwned,
+        SampleView,
+    },
     inference::{SAMPLE_INPUTS, SAMPLE_INPUTS_TO_FEW},
+    trainer::{ListNetTrainer, TrainingController},
     *,
 };
+use crate::data::document::Relevance;
 use layer::{
     activation::Relu,
     dense::DenseGradientSet,

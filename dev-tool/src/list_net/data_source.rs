@@ -19,9 +19,13 @@ use rand::{prelude::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use xayn_ai::list_net::{self, ListNet, SampleOwned, SampleView};
+use xayn_ai::list_net::{
+    self,
+    data::{SampleOwned, SampleView},
+    model::ListNet,
+};
 
-/// A [`xayn_ai::list_net::DataSource`] implementation.
+/// A [`xayn_ai::list_net::data::DataSource`] implementation.
 #[derive(Clone)]
 pub(crate) struct DataSource {
     /// The storage containing all samples.
@@ -200,7 +204,7 @@ pub enum DataSourceError {
     Storage(#[from] StorageError),
 }
 
-impl list_net::DataSource for DataSource {
+impl list_net::data::DataSource for DataSource {
     type Error = DataSourceError;
 
     fn reset(&mut self) {
@@ -520,8 +524,9 @@ mod tests {
     use itertools::Itertools;
     use ndarray::Array;
     use rand::{prelude::StdRng, SeedableRng};
+
     use test_utils::assert_approx_eq;
-    use xayn_ai::list_net::DataSource as _;
+    use xayn_ai::list_net::data::DataSource as _;
 
     use super::*;
 

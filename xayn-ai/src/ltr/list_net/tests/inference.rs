@@ -1,3 +1,5 @@
+use ndarray::{Array1, Array2};
+
 use super::*;
 use test_utils::assert_approx_eq;
 

@@ -1,4 +1,5 @@
 #![cfg(not(tarpaulin))]
+
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -10,10 +11,6 @@ use rand::{prelude::SliceRandom, thread_rng, Rng};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use structopt::StructOpt;
 
-use xayn_ai::list_net::{optimizer::MiniBatchSgd, DataSource as _, ListNet, ListNetTrainer};
-
-use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
-
 use super::{
     cli_callbacks::{
         CliTrainingControllerBuilder,
@@ -23,6 +20,13 @@ use super::{
     },
     data_source::{DataSource, InMemoryStorage, SplitDataSource},
     evaluate::run_evaluation,
+};
+use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
+use xayn_ai::list_net::{
+    data::DataSource as _,
+    model::ListNet,
+    optimizer::MiniBatchSgd,
+    trainer::ListNetTrainer,
 };
 
 /// Trains a ListNet.
