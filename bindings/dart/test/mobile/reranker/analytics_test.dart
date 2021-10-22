@@ -77,17 +77,17 @@ void main() {
       ];
 
       // first rerank will return same order as api
-      ai.rerank(RerankMode.search, <History>[], documents);
+      await ai.rerank(RerankMode.search, <History>[], documents);
       // second rerank create the coi in the feedbackloop
       // and it will be able to rerank properly
-      ai.rerank(RerankMode.search, histories, documents);
+      await ai.rerank(RerankMode.search, histories, documents);
       // here we don't have analytics because the previous rerank
       // returned the rank from the api
-      expect(ai.analytics(), isNull);
+      expect(await ai.analytics(), isNull);
 
-      ai.rerank(RerankMode.search, histories, documents);
+      await ai.rerank(RerankMode.search, histories, documents);
       // this are the analytics about the second rerank
-      expect(ai.analytics(), isNotNull);
+      expect(await ai.analytics(), isNotNull);
     });
 
     test('create from C', () {
