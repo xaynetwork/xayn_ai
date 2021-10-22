@@ -16,7 +16,7 @@ jobs:
       - uses: buildsville/add-remove-label@v1
         with:
           token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
-          label: WIP
+          label: "WIP :hourglass_flowing_sand"
           type: add
   ready_for_review_PR:
     if: (github.event.pull_request.draft == false) && contains(github.event.pull_request.labels.*.name, 'WIP') 
@@ -26,5 +26,5 @@ jobs:
       - uses: buildsville/add-remove-label@v1
         with:
           token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
-          label: WIP
+          label: "WIP :hourglass_flowing_sand"
           type: remove
