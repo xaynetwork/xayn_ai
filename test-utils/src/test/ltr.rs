@@ -2,7 +2,7 @@ use std::{io::Result, path::PathBuf};
 
 use crate::asset::{resolve_path, DATA_DIR};
 
-const ASSET: &str = "ltr_test_data_v0000";
+const ASSET: &str = "ltr_test_data_v0001";
 
 /// Resolves the path to the LTR feature extraction test data.
 pub fn feature_extraction_test_cases() -> Result<PathBuf> {
