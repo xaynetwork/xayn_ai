@@ -1,0 +1,30 @@
+name: Label Changer 
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, converted_to_draft, ready_for_review]
+  workflow_dispatch:
+
+jobs:
+  draft_PR:
+    if: (github.event.pull_request.draft == true) && !contains(github.event.pull_request.labels.*.name, 'WIP')
+    runs-on: ubuntu-latest
+    name: Add label
+    steps:
+      - uses: buildsville/add-remove-label@v1
+        with:
+          token: "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"
+          label: WIP
+          type: add
+  ready_for_review_PR:
+    if: (github.event.pull_request.draft == false) && contains(github.event.pull_request.labels.*.name, 'WIP') 
+    runs-on: ubuntu-latest
+    name: Remove label
+    steps:
+      - uses: buildsville/add-remove-label@v1
+        with:
+          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          label: WIP
+          type: remove
