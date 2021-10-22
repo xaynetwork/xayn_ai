@@ -842,17 +842,24 @@ mod tests {
         // first rerank will return api ranking
         let _rank = reranker.rerank(mode, &[], &documents);
 
-        let history = history_for_prev_docs(
-            &reranker.data.prev_documents.to_coi_system_data().unwrap(),
-            vec![
-                (Relevance::Low, UserFeedback::Irrelevant),
-                (Relevance::High, UserFeedback::Relevant),
-                (Relevance::High, UserFeedback::Relevant),
-                (Relevance::Low, UserFeedback::Irrelevant),
-                (Relevance::Low, UserFeedback::Irrelevant),
-                (Relevance::High, UserFeedback::Relevant),
-            ],
-        );
+        let history = reranker
+            .data
+            .prev_documents
+            .to_coi_system_data()
+            .map(|prev_documents| {
+                history_for_prev_docs(
+                    prev_documents,
+                    vec![
+                        (Relevance::Low, UserFeedback::Irrelevant),
+                        (Relevance::High, UserFeedback::Relevant),
+                        (Relevance::High, UserFeedback::Relevant),
+                        (Relevance::Low, UserFeedback::Irrelevant),
+                        (Relevance::Low, UserFeedback::Irrelevant),
+                        (Relevance::High, UserFeedback::Relevant),
+                    ],
+                )
+            })
+            .unwrap_or_default();
 
         // feedbackloop generate cois and can rerank
         let _rank = reranker.rerank(mode, &history, &documents);
@@ -864,6 +871,6 @@ mod tests {
 
         let _rank = reranker.rerank(mode, &history, &documents);
         assert!(reranker.errors().is_empty());
-        assert!(reranker.analytics().is_some());
+        assert_eq!(reranker.analytics().is_some(), mode.is_personalized());
     }
 }

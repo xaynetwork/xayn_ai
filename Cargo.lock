@@ -1002,7 +1002,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 [[package]]
 name = "obake"
 version = "1.0.4"
-source = "git+https://github.com/xaynetwork/obake?branch=clippy_lint#951d8e5adbc234fc140c23456b271dc88733610c"
+source = "git+https://github.com/doctorn/obake?rev=d6bea07e355ca4adf353c1e627f13c8c3286361b#d6bea07e355ca4adf353c1e627f13c8c3286361b"
 dependencies = [
  "obake_macros",
 ]
@@ -1010,7 +1010,7 @@ dependencies = [
 [[package]]
 name = "obake_macros"
 version = "1.0.4"
-source = "git+https://github.com/xaynetwork/obake?branch=clippy_lint#951d8e5adbc234fc140c23456b271dc88733610c"
+source = "git+https://github.com/doctorn/obake?rev=d6bea07e355ca4adf353c1e627f13c8c3286361b#d6bea07e355ca4adf353c1e627f13c8c3286361b"
 dependencies = [
  "proc-macro2",
  "quote",
