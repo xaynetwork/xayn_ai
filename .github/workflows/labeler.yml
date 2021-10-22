@@ -19,13 +19,21 @@ jobs:
           label: "WIP ⏳"
           type: add
   ready_for_review_PR:
-    if: (github.event.pull_request.draft == false) && contains(github.event.pull_request.labels.*.name, 'WIP ⏳') 
+    if: (github.event.pull_request.draft == false)  
     runs-on: ubuntu-latest
     name: Remove label
     steps:
-      - uses: buildsville/add-remove-label@v1
+      - name: Remove WIP Label 
+        uses: buildsville/add-remove-label@v1
+        if: contains(github.event.pull_request.labels.*.name, 'WIP ⏳')
         with:
           token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
           label: "WIP ⏳"
           type: remove
-#
+      - name: Add Ready for Review Label
+        if: "!contains(github.event.pull_request.labels.*.name, 'Ready for review ✅')"
+        uses: buildsville/add-remove-label@v1
+        with:
+          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          label: "Ready for review ✅"
+          type: add
