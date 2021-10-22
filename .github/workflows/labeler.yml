@@ -9,7 +9,7 @@ on:
 
 jobs:
   draft_PR:
-    if: (github.event.pull_request.draft == true) && !contains(github.event.pull_request.labels.*.name, 'WIP')
+    if: (github.event.pull_request.draft == true) && !contains(github.event.pull_request.labels.*.name, 'WIP ⏳')
     runs-on: ubuntu-latest
     name: Add label
     steps:
@@ -19,7 +19,7 @@ jobs:
           label: "WIP ⏳"
           type: add
   ready_for_review_PR:
-    if: (github.event.pull_request.draft == false) && contains(github.event.pull_request.labels.*.name, 'WIP') 
+    if: (github.event.pull_request.draft == false) && contains(github.event.pull_request.labels.*.name, 'WIP ⏳') 
     runs-on: ubuntu-latest
     name: Remove label
     steps:
@@ -28,3 +28,4 @@ jobs:
           token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
           label: "WIP ⏳"
           type: remove
+#
