@@ -1,0 +1,47 @@
+name: PR WIP Label Assigner  
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, converted_to_draft, ready_for_review]
+  workflow_dispatch:
+
+jobs:
+  draft_PR:
+    if: (github.event.pull_request.draft == true)
+    runs-on: ubuntu-latest
+    name: Add WIP label
+    steps:
+      - name: Add WIP Label
+        uses: buildsville/add-remove-label@v1
+        with:
+          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          label: "WIP ⏳"
+          type: add
+      - name: Remove Ready for Review Label 
+        uses: buildsville/add-remove-label@v1
+        if: contains(github.event.pull_request.labels.*.name, 'Ready for review ✅')
+        with:
+          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          label: "Ready for review ✅"
+          type: remove
+  ready_for_review_PR:
+    if: (github.event.pull_request.draft == false)  
+    runs-on: ubuntu-latest
+    name: Remove label
+    steps:
+      - name: Remove WIP Label 
+        uses: buildsville/add-remove-label@v1
+        if: contains(github.event.pull_request.labels.*.name, 'WIP ⏳')
+        with:
+          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          label: "WIP ⏳"
+          type: remove
+      - name: Add Ready for Review Label
+        if: "!contains(github.event.pull_request.labels.*.name, 'Ready for review ✅')"
+        uses: buildsville/add-remove-label@v1
+        with:
+          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          label: "Ready for review ✅"
+          type: add
