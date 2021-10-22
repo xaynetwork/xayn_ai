@@ -1,4 +1,4 @@
-name: Label Changer 
+name: PR WIP Label Assigner  
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: buildsville/add-remove-label@v1
         with:
-          token: "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"
+          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
           label: WIP
           type: add
   ready_for_review_PR:
