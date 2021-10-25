@@ -30,8 +30,7 @@ use crate::{
         sync::{SyncData, SyncData_v0_1_0, SyncData_v0_2_0},
         systems::{CoiSystemData, CommonSystems, QAMBertSystem},
     },
-    to_vec_of_ref_of,
-    utils::nan_safe_f32_cmp,
+    utils::{nan_safe_f32_cmp, to_vec_of_ref_of},
 };
 
 /// Update cois from user feedback

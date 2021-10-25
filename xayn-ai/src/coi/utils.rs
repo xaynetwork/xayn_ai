@@ -74,8 +74,7 @@ pub(super) mod tests {
             QAMBertComponent,
             SMBertComponent,
         },
-        to_vec_of_ref_of,
-        utils::mock_coi_id,
+        utils::{mock_coi_id, to_vec_of_ref_of},
     };
 
     pub(crate) struct MockCoiDoc {

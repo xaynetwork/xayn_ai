@@ -1,6 +1,3 @@
-#[macro_use]
-mod utils;
-
 mod analytics;
 mod coi;
 mod context;
@@ -9,6 +6,7 @@ mod embedding;
 mod error;
 mod ltr;
 mod reranker;
+mod utils;
 
 pub use crate::{
     analytics::Analytics,

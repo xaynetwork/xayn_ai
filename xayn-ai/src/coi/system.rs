@@ -222,8 +222,7 @@ mod tests {
             },
         },
         reranker::systems::CoiSystem as CoiSystemTrait,
-        to_vec_of_ref_of,
-        utils::mock_coi_id,
+        utils::{mock_coi_id, to_vec_of_ref_of},
     };
     use test_utils::assert_approx_eq;
 

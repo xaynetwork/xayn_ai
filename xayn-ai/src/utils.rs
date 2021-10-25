@@ -4,7 +4,6 @@ use serde::Serialize;
 
 use crate::Error;
 
-#[macro_export]
 macro_rules! to_vec_of_ref_of {
     ($data: expr, $type:ty) => {
         $data
@@ -13,6 +12,7 @@ macro_rules! to_vec_of_ref_of {
             .collect::<Vec<_>>()
     };
 }
+pub(crate) use to_vec_of_ref_of;
 
 /// Allows comparing and sorting f32 even if `NaN` is involved.
 ///
