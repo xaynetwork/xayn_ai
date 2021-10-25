@@ -12,6 +12,7 @@ macro_rules! to_vec_of_ref_of {
             .collect::<Vec<_>>()
     };
 }
+#[allow(clippy::useless_attribute, clippy::single_component_path_imports)]
 pub(crate) use to_vec_of_ref_of;
 
 /// Allows comparing and sorting f32 even if `NaN` is involved.
