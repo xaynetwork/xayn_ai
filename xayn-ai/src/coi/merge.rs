@@ -159,8 +159,8 @@ where
 mod tests {
     use super::*;
     use crate::{
+        coi::CoiId,
         tests::{mocked_smbert_system, pos_cois_from_words, pos_cois_from_words_with_ids},
-        utils::mock_coi_id,
     };
 
     impl PositiveCoi {
@@ -214,10 +214,10 @@ mod tests {
         let pair_bc = CoiPair::new(coi_b, coi_c.clone());
         let pair_cd = CoiPair::new(coi_c, coi_d);
 
-        assert!(pair_ab.contains(mock_coi_id(0)));
-        assert!(pair_ab.contains(mock_coi_id(1)));
-        assert!(!pair_ab.contains(mock_coi_id(2)));
-        assert!(!pair_ab.contains(mock_coi_id(3)));
+        assert!(pair_ab.contains(CoiId::mocked(0)));
+        assert!(pair_ab.contains(CoiId::mocked(1)));
+        assert!(!pair_ab.contains(CoiId::mocked(2)));
+        assert!(!pair_ab.contains(CoiId::mocked(3)));
 
         assert!(pair_ab.contains_any(&pair_ab));
         assert!(pair_ab.contains_any(&pair_ac));

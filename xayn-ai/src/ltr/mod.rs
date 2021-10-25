@@ -194,6 +194,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        coi::CoiId,
         data::{
             document::DocumentId,
             document_data::{
@@ -204,7 +205,6 @@ mod tests {
                 SMBertComponent,
             },
         },
-        utils::mock_coi_id,
     };
     use test_utils::assert_approx_eq;
 
@@ -213,7 +213,7 @@ mod tests {
         let id = DocumentId::from_u128(0);
         let embedding = arr1(&[1., 2., 3., 4.]).into();
         let coi = CoiComponent {
-            id: mock_coi_id(9),
+            id: CoiId::mocked(9),
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
@@ -233,7 +233,7 @@ mod tests {
         let id = DocumentId::from_u128(1);
         let embedding = arr1(&[5., 6., 7.]).into();
         let coi = CoiComponent {
-            id: mock_coi_id(5),
+            id: CoiId::mocked(5),
             pos_distance: 0.3,
             neg_distance: 0.9,
         };

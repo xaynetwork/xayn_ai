@@ -93,7 +93,7 @@ mod tests {
         super::{Action, MrrOutcome, QueryId, SessionId},
         *,
     };
-    use crate::utils::mock_uuid;
+    use crate::tests::mock_uuid;
     use test_utils::assert_approx_eq;
 
     #[test]

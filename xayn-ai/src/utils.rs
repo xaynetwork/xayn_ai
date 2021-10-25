@@ -73,19 +73,6 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
     nan_safe_f32_cmp(b, a)
 }
 
-/// Creates a UUID by combining `fcb6a685-eb92-4d36-8686-XXXXXXXXXXXX` with given `sub_id`.
-#[cfg(test)]
-pub(crate) fn mock_uuid(sub_id: usize) -> uuid::Uuid {
-    const BASE_UUID: u128 = 0xfcb6a685eb924d368686000000000000;
-    uuid::Uuid::from_u128(BASE_UUID | (sub_id as u128))
-}
-
-/// Creates a CoI id from a mock UUID.
-#[cfg(test)]
-pub(crate) fn mock_coi_id(sub_id: usize) -> crate::CoiId {
-    mock_uuid(sub_id).into()
-}
-
 /// Serializes the given data, tagged with the given version number.
 pub(crate) fn serialize_with_version(data: &impl Serialize, version: u8) -> Result<Vec<u8>, Error> {
     let size = bincode::serialized_size(data)? + 1;
@@ -137,13 +124,5 @@ mod tests {
         assert_eq!(nan_safe_f32_cmp_desc(&12., &f32::NAN), Ordering::Less);
         assert_eq!(nan_safe_f32_cmp(&f32::NAN, &12.), Ordering::Less);
         assert_eq!(nan_safe_f32_cmp_desc(&f32::NAN, &12.), Ordering::Greater);
-    }
-
-    #[test]
-    fn test_mock_uuid() {
-        assert_eq!(
-            format!("{}", mock_uuid(0xABCDEF0A)),
-            "fcb6a685-eb92-4d36-8686-0000abcdef0a"
-        );
     }
 }

@@ -71,6 +71,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        coi::CoiId,
         data::{
             document::DocumentId,
             document_data::{
@@ -81,7 +82,6 @@ mod tests {
                 SMBertComponent,
             },
         },
-        utils::mock_coi_id,
     };
     use test_utils::assert_approx_eq;
 
@@ -112,7 +112,7 @@ mod tests {
                 smbert: SMBertComponent { embedding },
                 qambert: QAMBertComponent { similarity },
                 coi: CoiComponent {
-                    id: mock_coi_id(0),
+                    id: CoiId::mocked(0),
                     pos_distance,
                     neg_distance,
                 },

@@ -122,7 +122,7 @@ mod tests {
         super::{Action, DayOfWeek, Query, QueryId, Rank, SessionId},
         *,
     };
-    use crate::utils::mock_uuid;
+    use crate::tests::mock_uuid;
     use test_utils::assert_approx_eq;
 
     fn history<'a>(

@@ -208,6 +208,7 @@ mod tests {
                 create_neg_cois,
                 create_pos_cois,
             },
+            CoiId,
         },
         data::{
             document::{DocumentId, Relevance, UserFeedback},
@@ -222,7 +223,7 @@ mod tests {
             },
         },
         reranker::systems::CoiSystem as CoiSystemTrait,
-        utils::{mock_coi_id, to_vec_of_ref_of},
+        utils::to_vec_of_ref_of,
     };
     use test_utils::assert_approx_eq;
 
@@ -242,7 +243,7 @@ mod tests {
                 },
                 qambert: QAMBertComponent { similarity: 0.5 },
                 coi: CoiComponent {
-                    id: mock_coi_id(1),
+                    id: CoiId::mocked(1),
                     pos_distance: 0.1,
                     neg_distance: 0.1,
                 },
@@ -349,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_shift_coi_point() {
-        let coi = PositiveCoi::new(mock_coi_id(0), arr1(&[1., 1., 1.]).into());
+        let coi = PositiveCoi::new(CoiId::mocked(0), arr1(&[1., 1., 1.]).into());
         let embedding = arr1(&[2., 3., 4.]).into();
 
         let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);
@@ -400,7 +401,7 @@ mod tests {
             .compute_coi_for_embedding(&embedding, &user_interests)
             .unwrap();
 
-        assert_eq!(coi_comp.id, mock_coi_id(2));
+        assert_eq!(coi_comp.id, CoiId::mocked(2));
         assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
         assert_approx_eq!(f32, coi_comp.neg_distance, 8.1273575);
     }
@@ -419,7 +420,7 @@ mod tests {
             .compute_coi_for_embedding(&embedding, &user_interests)
             .unwrap();
 
-        assert_eq!(coi_comp.id, mock_coi_id(2));
+        assert_eq!(coi_comp.id, CoiId::mocked(2));
         assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
         assert_approx_eq!(f32, coi_comp.neg_distance, f32::MAX, ulps = 0);
     }
@@ -435,11 +436,11 @@ mod tests {
             .compute_coi(documents, &user_interests)
             .unwrap();
 
-        assert_eq!(documents_coi[0].coi.id, mock_coi_id(1));
+        assert_eq!(documents_coi[0].coi.id, CoiId::mocked(1));
         assert_approx_eq!(f32, documents_coi[0].coi.pos_distance, 2.8996046);
         assert_approx_eq!(f32, documents_coi[0].coi.neg_distance, 3.7416575);
 
-        assert_eq!(documents_coi[1].coi.id, mock_coi_id(1));
+        assert_eq!(documents_coi[1].coi.id, CoiId::mocked(1));
         assert_approx_eq!(f32, documents_coi[1].coi.pos_distance, 5.8501925);
         assert_approx_eq!(f32, documents_coi[1].coi.neg_distance, SQRT_2);
     }
