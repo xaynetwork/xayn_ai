@@ -42,11 +42,12 @@ impl ContextCalc {
     fn from_docs(docs: &[DocumentDataWithLtr]) -> Self {
         let docs_len = docs.len() as f32;
         let pos_avg = docs.iter().map(|doc| doc.coi.pos_distance).sum::<f32>() / docs_len;
-        let similarity_avg = docs.iter().map(|doc| doc.qambert.similarity).sum::<f32>() / docs_len;
         let neg_max = docs
             .iter()
             .map(|doc| doc.coi.neg_distance)
             .fold(f32::MIN, f32::max); // NOTE f32::max considers NaN as smallest value
+        let similarity_avg = docs.iter().map(|doc| doc.qambert.similarity).sum::<f32>() / docs_len;
+
         Self {
             pos_avg,
             neg_max,
@@ -56,38 +57,16 @@ impl ContextCalc {
 
     /// Calculates context value from given LTR score, positive distance, negative distance and similarity.
     fn calculate(&self, ltr_score: f32, pos: f32, neg: f32, similarity: f32) -> f32 {
-        let frac_pos = (1. + pos / self.pos_avg).recip();
+        let frac_pos = (self.pos_avg > 0.)
+            .then(|| (1. + pos / self.pos_avg).recip())
+            .unwrap_or(1.);
         let frac_neg = (1. + (self.neg_max - neg)).recip();
-        let frac_similarity = (1. + similarity / self.similarity_avg).recip();
+        let frac_similarity = (self.similarity_avg > 0.)
+            .then(|| (1. + similarity / self.similarity_avg).recip())
+            .unwrap_or(1.);
 
         // frac_similarity weights 70% all the others weight 10%
         (frac_similarity * 7. + frac_pos + frac_neg + ltr_score) / 10.
-    }
-}
-
-/// Context system to run when Context is disabled
-pub struct NeutralContext;
-
-impl NeutralContext {
-    const CONTEXT: f32 = 0.;
-}
-
-impl ContextSystem for NeutralContext {
-    fn compute_context(
-        &self,
-        documents: Vec<DocumentDataWithLtr>,
-    ) -> Result<Vec<DocumentDataWithContext>, Error> {
-        Ok(documents
-            .into_iter()
-            .map(|document| {
-                DocumentDataWithContext::from_document(
-                    document,
-                    ContextComponent {
-                        context_value: Self::CONTEXT,
-                    },
-                )
-            })
-            .collect())
     }
 }
 

@@ -197,7 +197,7 @@ impl systems::CoiSystem for CoiSystem {
 pub struct NeutralCoiSystem;
 
 impl NeutralCoiSystem {
-    const COI: CoiComponent = CoiComponent {
+    pub(crate) const COI: CoiComponent = CoiComponent {
         id: CoiId(Uuid::nil()),
         pos_distance: 0.,
         neg_distance: 0.,

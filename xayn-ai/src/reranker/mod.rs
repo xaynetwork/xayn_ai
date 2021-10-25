@@ -11,7 +11,6 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use crate::{
     analytics::Analytics,
     coi::{CoiSystemError, NeutralCoiSystem},
-    context::NeutralContext,
     data::{
         document::{Document, DocumentHistory, RerankingOutcomes},
         document_data::{
@@ -32,7 +31,6 @@ use crate::{
             CoiSystem,
             CoiSystemData,
             CommonSystems,
-            ContextSystem,
             LtrSystem,
             QAMBertSystem,
             SMBertSystem,
@@ -254,7 +252,7 @@ where
         let documents =
             NeutralCoiSystem.compute_coi(documents, &self.data.sync_data.user_interests)?;
         let documents = ConstLtr.compute_ltr(history, documents)?;
-        let documents = NeutralContext.compute_context(documents)?;
+        let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_identity(documents);
 
         Ok(documents)
@@ -295,7 +293,7 @@ where
         let documents =
             NeutralCoiSystem.compute_coi(documents, &self.data.sync_data.user_interests)?;
         let documents = ConstLtr.compute_ltr(history, documents)?;
-        let documents = NeutralContext.compute_context(documents)?;
+        let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_similarity(documents);
 
         Ok(documents)
@@ -755,6 +753,7 @@ mod tests {
             assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
             assert_contains_error!(reranker, MockError::Fail);
         } else {
+            dbg!(&reranker.errors);
             assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
         }
         assert_eq!(
@@ -782,7 +781,28 @@ mod tests {
 
     test_system_failure!(smbert, MockSMBertSystem, compute_embedding, |_|, false);
     test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
-    test_system_failure!(context, MockContextSystem, compute_context, |_|);
+
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_component_failure_context(mode: RerankMode) {
+        let cs = common_systems_with_fail!(context, MockContextSystem, compute_context, |_|);
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = documents_from_ids(0..10);
+
+        // We use an empty history in order to skip the learning step.
+        let outcome = reranker.rerank(mode, &[], &documents);
+
+        assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
+        if mode.is_personalized() {
+            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
+        }
+        assert_contains_error!(reranker, MockError::Fail);
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
+    }
 
     /// An analytics system error should not prevent the documents from
     /// being reranked using the learned user interests. However, the error
