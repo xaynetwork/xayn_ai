@@ -2,7 +2,7 @@ use ndarray::arr1;
 
 use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
-    coi::system::CoiSystem as CoiSys,
+    coi::CoiSystem as CoiSys,
     context::Context,
     data::document_data::{
         DocumentDataWithQAMBert,

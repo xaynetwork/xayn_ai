@@ -5,7 +5,6 @@ use crate::{
     data::document::{Document, DocumentId, QueryId, SessionId},
     embedding::utils::Embedding,
     reranker::systems::CoiSystemData,
-    utils::nan_safe_f32_cmp,
 };
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -265,27 +264,6 @@ impl DocumentDataWithRank {
             rank,
         }
     }
-}
-
-pub(crate) fn rank_by_identity(docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWithRank> {
-    docs.into_iter()
-        .enumerate()
-        .map(|(rank, doc)| DocumentDataWithRank::from_document(doc, RankComponent { rank }))
-        .collect()
-}
-
-pub(crate) fn rank_by_context(mut docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWithRank> {
-    docs.sort_unstable_by(|a, b| {
-        nan_safe_f32_cmp(&b.context.context_value, &a.context.context_value)
-    });
-    rank_by_identity(docs)
-}
-
-pub(crate) fn rank_by_similarity(
-    mut docs: Vec<DocumentDataWithContext>,
-) -> Vec<DocumentDataWithRank> {
-    docs.sort_unstable_by(|a, b| nan_safe_f32_cmp(&b.qambert.similarity, &a.qambert.similarity));
-    rank_by_identity(docs)
 }
 
 impl CoiSystemData for DocumentDataWithRank {

@@ -197,20 +197,12 @@ impl RerankingOutcomes {
             .iter()
             .map(|doc| docs_with_rank[&doc.id].rank.rank as u16)
             .collect();
-        let qambert_similarities = matches!(
-            mode,
-            RerankMode::StandardSearch | RerankMode::PersonalizedSearch,
-        )
-        .then(|| {
+        let qambert_similarities = mode.is_search().then(|| {
             docs.iter()
                 .map(|doc| docs_with_rank[&doc.id].qambert.similarity)
                 .collect()
         });
-        let context_scores = matches!(
-            mode,
-            RerankMode::PersonalizedNews | RerankMode::PersonalizedSearch,
-        )
-        .then(|| {
+        let context_scores = mode.is_personalized().then(|| {
             docs.iter()
                 .map(|doc| docs_with_rank[&doc.id].context.context_value)
                 .collect()

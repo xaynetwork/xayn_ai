@@ -242,7 +242,6 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> selectCallData(BuildContext context) async {
-    print('start navigation');
     final newCallDataKey = await Navigator.push(
         context,
         MaterialPageRoute<String>(
@@ -259,7 +258,6 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> selectRerankMode(BuildContext context) async {
-    print('start navigation');
     final availableRerankModes = _logic!.availableRerankModes();
     final newRerankMode = await Navigator.push(
         context,

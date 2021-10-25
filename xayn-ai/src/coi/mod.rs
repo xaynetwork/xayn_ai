@@ -1,8 +1,12 @@
-pub(crate) mod config;
-pub(crate) mod merge;
+mod config;
+mod merge;
 pub(crate) mod point;
-pub(crate) mod system;
+mod system;
 mod utils;
+
+pub(crate) use config::Configuration;
+pub(crate) use merge::reduce_cois;
+pub(crate) use system::{CoiSystem, CoiSystemError, NeutralCoiSystem};
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};

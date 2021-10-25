@@ -7,7 +7,7 @@ use rubert::{AveragePooler, QAMBert, QAMBertBuilder, SMBert, SMBertBuilder};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
-    coi::{config::Configuration as CoiSystemConfiguration, system::CoiSystem as CoiSystemImpl},
+    coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
     error::Error,

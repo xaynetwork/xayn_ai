@@ -1,58 +1,18 @@
 use std::cell::RefCell;
 
 use anyhow::bail;
-#[cfg(test)]
-use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::point::UserInterests_v0_0_0,
-    data::document_data::{DocumentDataWithRank, DocumentDataWithSMBert},
     error::Error,
     reranker::{
         sync::{SyncData_v0_1_0, SyncData_v0_2_0},
-        systems::CoiSystemData,
+        PreviousDocuments,
         CURRENT_SCHEMA_VERSION,
     },
-    utils::{serialize_with_version, to_vec_of_ref_of},
+    utils::serialize_with_version,
 };
-
-#[derive(Deserialize, Serialize)]
-#[cfg_attr(test, derive(Clone, Debug, From, PartialEq))]
-pub(super) enum PreviousDocuments {
-    None,
-    Embedding(Vec<DocumentDataWithSMBert>),
-    Final(Vec<DocumentDataWithRank>),
-}
-
-impl Default for PreviousDocuments {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
-impl PreviousDocuments {
-    pub(super) fn to_coi_system_data(&self) -> Option<Vec<&dyn CoiSystemData>> {
-        match self {
-            PreviousDocuments::None => None,
-            PreviousDocuments::Embedding(documents) => {
-                Some(to_vec_of_ref_of!(documents, &dyn CoiSystemData))
-            }
-            PreviousDocuments::Final(documents) => {
-                Some(to_vec_of_ref_of!(documents, &dyn CoiSystemData))
-            }
-        }
-    }
-
-    #[cfg(test)]
-    pub(super) fn len(&self) -> usize {
-        match self {
-            PreviousDocuments::None => 0,
-            PreviousDocuments::Embedding(documents) => documents.len(),
-            PreviousDocuments::Final(documents) => documents.len(),
-        }
-    }
-}
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
@@ -150,6 +110,7 @@ mod tests {
     use super::*;
     use crate::{
         coi::point::{UserInterests, UserInterests_v0_1_0},
+        data::document_data::DocumentDataWithRank,
         reranker::sync::SyncData,
         tests::{
             data_with_rank,

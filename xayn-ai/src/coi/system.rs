@@ -220,9 +220,9 @@ impl systems::CoiSystem for NeutralCoiSystem {
         &self,
         _history: &[DocumentHistory],
         _documents: &[&dyn CoiSystemData],
-        user_interests: UserInterests,
+        _user_interests: UserInterests,
     ) -> Result<UserInterests, Error> {
-        Ok(user_interests)
+        unreachable!(/* should never be called on this system */)
     }
 }
 

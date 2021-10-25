@@ -3,30 +3,34 @@ pub(crate) mod public;
 pub(crate) mod sync;
 pub(crate) mod systems;
 
+#[cfg(test)]
+use derive_more::From;
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::{
     analytics::Analytics,
-    coi::system::{CoiSystemError, NeutralCoiSystem},
+    coi::{CoiSystemError, NeutralCoiSystem},
     context::NeutralContext,
     data::{
         document::{Document, DocumentHistory, RerankingOutcomes},
         document_data::{
             make_documents,
-            rank_by_context,
-            rank_by_identity,
-            rank_by_similarity,
+            DocumentDataWithContext,
             DocumentDataWithRank,
+            DocumentDataWithSMBert,
+            RankComponent,
         },
     },
     embedding::{qambert::NeutralQAMBert, smbert::NeutralSMBert},
     error::Error,
     ltr::ConstLtr,
     reranker::{
-        database::{PreviousDocuments, RerankerData},
+        database::RerankerData,
         sync::SyncData,
         systems::{
             CoiSystem,
+            CoiSystemData,
             CommonSystems,
             ContextSystem,
             LtrSystem,
@@ -34,6 +38,7 @@ use crate::{
             SMBertSystem,
         },
     },
+    utils::{nan_safe_f32_cmp, to_vec_of_ref_of},
 };
 
 const CURRENT_SCHEMA_VERSION: u8 = 2;
@@ -54,6 +59,53 @@ pub enum RerankMode {
     StandardSearch = 2,
     /// Run reranking for search with personalization.
     PersonalizedSearch = 3,
+}
+
+impl RerankMode {
+    pub(crate) fn is_personalized(&self) -> bool {
+        matches!(self, Self::PersonalizedNews | Self::PersonalizedSearch)
+    }
+
+    pub(crate) fn is_search(&self) -> bool {
+        matches!(self, Self::StandardSearch | Self::PersonalizedSearch)
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[cfg_attr(test, derive(Clone, Debug, From, PartialEq))]
+pub(super) enum PreviousDocuments {
+    None,
+    Embedding(Vec<DocumentDataWithSMBert>),
+    Final(Vec<DocumentDataWithRank>),
+}
+
+impl Default for PreviousDocuments {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl PreviousDocuments {
+    pub(super) fn to_coi_system_data(&self) -> Option<Vec<&dyn CoiSystemData>> {
+        match self {
+            PreviousDocuments::None => None,
+            PreviousDocuments::Embedding(documents) => {
+                Some(to_vec_of_ref_of!(documents, &dyn CoiSystemData))
+            }
+            PreviousDocuments::Final(documents) => {
+                Some(to_vec_of_ref_of!(documents, &dyn CoiSystemData))
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn len(&self) -> usize {
+        match self {
+            PreviousDocuments::None => 0,
+            PreviousDocuments::Embedding(documents) => documents.len(),
+            PreviousDocuments::Final(documents) => documents.len(),
+        }
+    }
 }
 
 pub(crate) struct Reranker<CS> {
@@ -121,7 +173,7 @@ where
         self.errors.clear();
 
         // feedback loop and analytics
-        if let RerankMode::PersonalizedNews | RerankMode::PersonalizedSearch = mode {
+        if mode.is_personalized() {
             self.learn_user_interests(history);
         }
         self.collect_analytics(history);
@@ -135,13 +187,10 @@ where
         .map(|documents_with_rank| {
             let outcome = RerankingOutcomes::from_rank(mode, documents, &documents_with_rank);
 
-            match mode {
-                RerankMode::PersonalizedNews | RerankMode::PersonalizedSearch => {
-                    self.data.prev_documents = PreviousDocuments::Final(documents_with_rank);
-                }
-                RerankMode::StandardNews | RerankMode::StandardSearch => {
-                    self.data.prev_documents = PreviousDocuments::None;
-                }
+            if mode.is_personalized() {
+                self.data.prev_documents = PreviousDocuments::Final(documents_with_rank);
+            } else {
+                self.data.prev_documents = PreviousDocuments::None;
             }
 
             outcome
@@ -149,19 +198,16 @@ where
         .unwrap_or_else(|e| {
             self.errors.push(e);
 
-            match mode {
-                RerankMode::PersonalizedNews | RerankMode::PersonalizedSearch => {
-                    let prev_documents = make_documents(documents);
-                    let prev_documents = self
-                        .common_systems
-                        .smbert()
-                        .compute_embedding(prev_documents)
-                        .unwrap_or_default();
-                    self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
-                }
-                RerankMode::StandardNews | RerankMode::StandardSearch => {
-                    self.data.prev_documents = PreviousDocuments::None;
-                }
+            if mode.is_personalized() {
+                let prev_documents = make_documents(documents);
+                let prev_documents = self
+                    .common_systems
+                    .smbert()
+                    .compute_embedding(prev_documents)
+                    .unwrap_or_default();
+                self.data.prev_documents = PreviousDocuments::Embedding(prev_documents);
+            } else {
+                self.data.prev_documents = PreviousDocuments::None;
             }
 
             RerankingOutcomes::from_initial_ranking(documents)
@@ -279,6 +325,27 @@ where
     }
 }
 
+pub(crate) fn rank_by_identity(docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWithRank> {
+    docs.into_iter()
+        .enumerate()
+        .map(|(rank, doc)| DocumentDataWithRank::from_document(doc, RankComponent { rank }))
+        .collect()
+}
+
+pub(crate) fn rank_by_context(mut docs: Vec<DocumentDataWithContext>) -> Vec<DocumentDataWithRank> {
+    docs.sort_unstable_by(|a, b| {
+        nan_safe_f32_cmp(&b.context.context_value, &a.context.context_value)
+    });
+    rank_by_identity(docs)
+}
+
+pub(crate) fn rank_by_similarity(
+    mut docs: Vec<DocumentDataWithContext>,
+) -> Vec<DocumentDataWithRank> {
+    docs.sort_unstable_by(|a, b| nan_safe_f32_cmp(&b.qambert.similarity, &a.qambert.similarity));
+    rank_by_identity(docs)
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::bail;
@@ -313,14 +380,14 @@ mod tests {
             $reranker
                 .errors()
                 .iter()
-                .any(|e| matches!(e.downcast_ref(), Some($error)));
+                .any(|e| matches!(e.downcast_ref(), Some($error)))
         };
     }
 
-    impl RerankMode {
-        fn is_personalized(&self) -> bool {
-            matches!(self, Self::PersonalizedNews | Self::PersonalizedSearch)
-        }
+    macro_rules! assert_contains_error {
+        ($reranker:expr, $error:pat $(,)?) => {
+            assert!(contains_error!($reranker, $error))
+        };
     }
 
     mod car_interest_example {
@@ -419,7 +486,7 @@ mod tests {
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         if mode.is_personalized() {
-            assert!(contains_error!(reranker, CoiSystemError::NoCoi));
+            assert_contains_error!(reranker, CoiSystemError::NoCoi);
         } else {
             assert!(reranker.errors().is_empty());
         }
@@ -453,7 +520,7 @@ mod tests {
             .to_coi_system_data()
             .map(|prev_documents| {
                 history_for_prev_docs(
-                    prev_documents,
+                    &prev_documents,
                     vec![
                         (Relevance::Low, UserFeedback::Irrelevant),
                         (Relevance::Low, UserFeedback::Relevant),
@@ -470,11 +537,8 @@ mod tests {
 
         let _rank = reranker.rerank(second_mode, &history, &documents);
         if !mode.is_personalized() && second_mode.is_personalized() {
-            assert!(contains_error!(
-                reranker,
-                CoiSystemError::NoMatchingDocuments
-            ));
-            assert!(contains_error!(reranker, CoiSystemError::NoCoi));
+            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
+            assert_contains_error!(reranker, CoiSystemError::NoCoi);
         } else {
             assert!(reranker.errors().is_empty());
         }
@@ -567,12 +631,9 @@ mod tests {
         );
 
         if mode.is_personalized() {
-            assert!(contains_error!(
-                reranker,
-                CoiSystemError::NoMatchingDocuments
-            ));
+            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
         } else {
-            assert!(contains_error!(reranker, NoRelevantHistoricInfo));
+            assert_contains_error!(reranker, NoRelevantHistoricInfo);
         }
     }
 
@@ -607,10 +668,7 @@ mod tests {
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         if mode.is_personalized() {
-            assert!(contains_error!(
-                reranker,
-                CoiSystemError::NoMatchingDocuments
-            ));
+            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
         } else {
             assert!(reranker.errors().is_empty());
         }
@@ -646,11 +704,8 @@ mod tests {
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
         if mode.is_personalized() {
-            assert!(contains_error!(
-                reranker,
-                CoiSystemError::NoMatchingDocuments
-            ));
-            assert!(contains_error!(reranker, CoiSystemError::NoCoi));
+            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
+            assert_contains_error!(reranker, CoiSystemError::NoCoi);
         } else {
             assert!(reranker.errors().is_empty());
         }
@@ -697,11 +752,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         if mode.is_personalized() {
-            assert!(contains_error!(
-                reranker,
-                CoiSystemError::NoMatchingDocuments
-            ));
-            assert!(contains_error!(reranker, MockError::Fail));
+            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
+            assert_contains_error!(reranker, MockError::Fail);
         } else {
             assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
         }
@@ -755,7 +807,7 @@ mod tests {
                 .then(|| car_interest_example::expected_rerank_outcome().final_ranking)
                 .unwrap_or_else(|| expected_rerank_unchanged(&documents)),
         );
-        assert!(contains_error!(reranker, MockError::Fail));
+        assert_contains_error!(reranker, MockError::Fail);
         assert!(reranker.analytics.is_none())
     }
 
@@ -808,11 +860,8 @@ mod tests {
                 .unwrap_or_default(),
         );
         if mode.is_personalized() {
-            assert!(contains_error!(
-                reranker,
-                CoiSystemError::NoMatchingDocuments,
-            ));
-            assert!(contains_error!(reranker, MockError::Fail));
+            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
+            assert_contains_error!(reranker, MockError::Fail);
         } else {
             assert!(reranker.errors().is_empty());
         }
@@ -848,7 +897,7 @@ mod tests {
             .to_coi_system_data()
             .map(|prev_documents| {
                 history_for_prev_docs(
-                    prev_documents,
+                    &prev_documents,
                     vec![
                         (Relevance::Low, UserFeedback::Irrelevant),
                         (Relevance::High, UserFeedback::Relevant),
