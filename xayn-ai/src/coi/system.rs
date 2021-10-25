@@ -225,6 +225,7 @@ mod tests {
         to_vec_of_ref_of,
         utils::mock_coi_id,
     };
+    use test_utils::assert_approx_eq;
 
     pub(crate) fn create_data_with_rank(
         embeddings: &[impl FixedInitializer<Elem = f32>],

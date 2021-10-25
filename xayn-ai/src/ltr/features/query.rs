@@ -108,11 +108,12 @@ fn mean_query_count<'a>(history_q: impl Iterator<Item = &'a &'a HistSearchResult
 
 #[cfg(test)]
 mod tests {
+    use super::{
+        super::{Action, DayOfWeek, QueryId, Rank, SessionId},
+        *,
+    };
     use crate::utils::mock_uuid;
-
-    use super::super::{Action, DayOfWeek, QueryId, Rank, SessionId};
-
-    use super::*;
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_query_features_no_matching_history() {

@@ -118,12 +118,12 @@ fn words_per_session<'a>(results: impl Iterator<Item = (SessionId, &'a Vec<Strin
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::mock_uuid;
-
     use super::{
         super::{Action, DayOfWeek, Query, QueryId, Rank, SessionId},
         *,
     };
+    use crate::utils::mock_uuid;
+    use test_utils::assert_approx_eq;
 
     fn history<'a>(
         iter: impl IntoIterator<Item = &'a (usize, usize, &'a [&'a str], Action)>,

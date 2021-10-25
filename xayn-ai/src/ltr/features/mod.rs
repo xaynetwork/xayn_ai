@@ -779,10 +779,9 @@ mod tests {
     use once_cell::sync::Lazy;
     use serde::Deserialize;
 
-    use test_utils::test::ltr::feature_extraction_test_cases;
-
     use super::*;
     use crate::utils::mock_uuid;
+    use test_utils::{assert_approx_eq, test::ltr::feature_extraction_test_cases};
 
     fn history_by_url<'a>(
         iter: impl IntoIterator<Item = &'a (Action, &'a str)>,

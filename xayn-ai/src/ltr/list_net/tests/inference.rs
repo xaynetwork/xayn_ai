@@ -1,4 +1,5 @@
 use super::*;
+use test_utils::assert_approx_eq;
 
 /// A single ListNet Input, cast to shape (10, 50).
 ///

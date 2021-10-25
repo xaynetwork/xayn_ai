@@ -206,6 +206,7 @@ mod tests {
         },
         utils::mock_coi_id,
     };
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_const_value() {

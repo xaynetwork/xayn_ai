@@ -83,6 +83,7 @@ mod tests {
         },
         utils::mock_coi_id,
     };
+    use test_utils::assert_approx_eq;
 
     struct LtrDocBuilder {
         docs: Vec<DocumentDataWithLtr>,

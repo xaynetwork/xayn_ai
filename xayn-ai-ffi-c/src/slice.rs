@@ -5,9 +5,6 @@ use std::{
     slice,
 };
 
-#[cfg(test)]
-use ::{std::fmt, xayn_ai::ApproxAssertIterHelper};
-
 /// A boxed slice with a C-compatible ABI.
 ///
 /// # C Layout
@@ -170,13 +167,6 @@ impl<T> CBoxedSlice<T> {
     }
 }
 
-#[cfg(test)]
-impl<T: fmt::Debug> fmt::Debug for CBoxedSlice<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self.as_slice(), f)
-    }
-}
-
 impl<T> From<Vec<T>> for CBoxedSlice<T> {
     fn from(vec: Vec<T>) -> Self {
         Self::from(vec.into_boxed_slice())
@@ -208,46 +198,51 @@ impl<T> AsRef<[T]> for CBoxedSlice<T> {
     }
 }
 
-#[cfg(test)]
-impl<T1, T2, const N: usize> PartialEq<[T2; N]> for CBoxedSlice<T1>
-where
-    T1: PartialEq<T2>,
-{
-    fn eq(&self, other: &[T2; N]) -> bool {
-        self.as_ref().eq(other)
-    }
-}
-
 // Safety: The data is owned and unaliased.
 unsafe impl<T: Send> Send for CBoxedSlice<T> {}
 unsafe impl<T: Sync> Sync for CBoxedSlice<T> {}
 
 #[cfg(test)]
-impl<'a, T> ApproxAssertIterHelper<'a> for &'a CBoxedSlice<T>
-where
-    &'a T: ApproxAssertIterHelper<'a>,
-{
-    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<usize>,
-    ) -> Box<dyn Iterator<Item = (Vec<usize>, Self::LeafElement)> + 'a> {
-        self.as_slice().indexed_iter_logical_order(prefix)
-    }
-}
-
-#[cfg(test)]
 mod tests {
-    use std::{ffi::CStr, mem::ManuallyDrop};
+    use std::{ffi::CStr, fmt, mem::ManuallyDrop};
 
     use super::*;
     use crate::utils::tests::AsPtr;
+    use test_utils::ApproxEqIter;
+
+    impl<T: fmt::Debug> fmt::Debug for CBoxedSlice<T> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fmt::Debug::fmt(self.as_slice(), f)
+        }
+    }
+
+    impl<T1, T2, const N: usize> PartialEq<[T2; N]> for CBoxedSlice<T1>
+    where
+        T1: PartialEq<T2>,
+    {
+        fn eq(&self, other: &[T2; N]) -> bool {
+            self.as_ref().eq(other)
+        }
+    }
+
+    impl<'a, T> ApproxEqIter<'a> for &'a CBoxedSlice<T>
+    where
+        &'a T: ApproxEqIter<'a>,
+    {
+        type LeafElement = <&'a T as ApproxEqIter<'a>>::LeafElement;
+
+        fn indexed_iter_logical_order(
+            self,
+            prefix: Vec<usize>,
+        ) -> Box<dyn Iterator<Item = (Vec<usize>, Self::LeafElement)> + 'a> {
+            self.as_slice().indexed_iter_logical_order(prefix)
+        }
+    }
 
     impl CBoxedSlice<u8> {
         /// Interprets the slice as a &CStr and then &str.
         ///
-        /// # Panic
+        /// # Panics
         ///
         /// This panics if the bytes are not a valid string.
         pub fn as_str(&self) -> &str {

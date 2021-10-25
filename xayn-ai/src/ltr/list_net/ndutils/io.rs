@@ -302,9 +302,8 @@ mod tests {
     use ndarray::{arr1, arr2, Array1, Array2};
     use rand::{thread_rng, Rng};
 
-    use super::super::he_normal_weights_init;
-
-    use super::*;
+    use super::{super::he_normal_weights_init, *};
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn ix_is_usize() {

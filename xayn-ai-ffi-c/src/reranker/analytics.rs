@@ -52,7 +52,7 @@ pub unsafe extern "C" fn analytics_drop(_analytics: Option<Box<CAnalytics>>) {}
 
 #[cfg(test)]
 mod tests {
-    use xayn_ai::assert_approx_eq;
+    use test_utils::assert_approx_eq;
 
     use super::*;
 
