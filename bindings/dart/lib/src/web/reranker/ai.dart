@@ -22,19 +22,18 @@ import 'package:xayn_ai_ffi_dart/src/web/reranker/data_provider.dart'
 class XaynAi implements common.XaynAi {
   final ffi.XaynAi _ai;
 
-  /// Creates and initializes the Xayn AI from a given state and initializes the WASM module.
+  /// Creates and initializes the Xayn AI from a given state.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder and the state.
+  /// Requires the necessary [SetupData] and the state.
   /// It will throw an error if the provided state is empty.
   static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
     final ai = await ffi.XaynAi.create(data, serialized);
     return XaynAi._(ai);
   }
 
-  /// Creates and initializes the Xayn AI and initializes the WASM module.
+  /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the necessary [SetupData] for the AI. Optionally accepts the serialized reranker database, otherwise
-  /// creates a new one.
+  /// Requires the necessary [SetupData] for the AI.
   static Future<XaynAi> create(SetupData data) async {
     final ai = await ffi.XaynAi.create(data, null);
     return XaynAi._(ai);
@@ -42,28 +41,31 @@ class XaynAi implements common.XaynAi {
 
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
-  /// reranker database, otherwise creates a new one.
+  /// Requires the vocabulary and model of the tokenizer/embedder and the LTR model.
+  /// Optionally accepts the serialized reranker database, otherwise creates a new one.
   XaynAi._(this._ai);
 
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
-  Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
-      List<Document> documents) async {
+  Future<RerankingOutcomes> rerank(
+    RerankMode mode,
+    List<History> histories,
+    List<Document> documents,
+  ) async {
     return await _ai.rerank(mode, histories, documents);
   }
 
   /// Serializes the current state of the reranker.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<Uint8List> serialize() async {
     return await _ai.serialize();
@@ -73,9 +75,9 @@ class XaynAi implements common.XaynAi {
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<List<String>> faults() async {
     return await _ai.faults();
@@ -83,9 +85,9 @@ class XaynAi implements common.XaynAi {
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<Analytics?> analytics() async {
     return await _ai.analytics();
@@ -93,9 +95,9 @@ class XaynAi implements common.XaynAi {
 
   /// Serializes the synchronizable data of the reranker.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<Uint8List> syncdataBytes() async {
     return await _ai.syncdataBytes();
@@ -103,9 +105,9 @@ class XaynAi implements common.XaynAi {
 
   /// Synchronizes the internal data of the reranker with another.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<void> synchronize(Uint8List serialized) async {
     await _ai.synchronize(serialized);
