@@ -1,7 +1,16 @@
 import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter_test/flutter_test.dart'
-    show contains, equals, expect, group, isEmpty, isNot, test;
+    show
+        contains,
+        equals,
+        expect,
+        group,
+        isEmpty,
+        isNot,
+        test,
+        throwsA,
+        TypeMatcher;
 
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart' show Code;
@@ -103,15 +112,16 @@ void main() {
     });
 
     test('empty serialized', () async {
-      final serialized = Uint8List(0);
-      final ai = await XaynAi.create(mkSetupData(), serialized);
-      await ai.free();
+      expect(
+        () async => await XaynAi.restore(mkSetupData(), Uint8List(0)),
+        throwsA(TypeMatcher<ArgumentError>()),
+      );
     });
 
     test('invalid serialized', () {
       expect(
         () async =>
-            await XaynAi.create(mkSetupData(), Uint8List.fromList([255])),
+            await XaynAi.restore(mkSetupData(), Uint8List.fromList([255])),
         throwsXaynAiException(Code.rerankerDeserialization),
       );
     });

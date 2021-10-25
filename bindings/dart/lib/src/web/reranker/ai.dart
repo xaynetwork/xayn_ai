@@ -64,15 +64,25 @@ class _XaynAi {
 class XaynAi implements common.XaynAi {
   late _XaynAi? _ai;
 
+  /// Creates and initializes the Xayn AI from a given state and initializes the WASM module.
+  ///
+  /// Requires the vocabulary and model of the tokenizer/embedder and the state.
+  /// It will throw an error if the provided state is empty.
+  static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
+    await init(data.wasmModule);
+    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
+        data.qambertModel, data.ltrModel, serialized);
+  }
+
   /// Creates and initializes the Xayn AI and initializes the WASM module.
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder and the WASM
   /// module. Optionally accepts the serialized reranker database, otherwise
   /// creates a new one.
-  static Future<XaynAi> create(SetupData data, [Uint8List? serialized]) async {
+  static Future<XaynAi> create(SetupData data) async {
     await init(data.wasmModule);
     return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-        data.qambertModel, data.ltrModel, serialized);
+        data.qambertModel, data.ltrModel, null);
   }
 
   /// Creates and initializes the Xayn AI.
