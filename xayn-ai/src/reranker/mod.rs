@@ -10,7 +10,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::{
     analytics::Analytics,
-    coi::{CoiSystemError, NeutralCoiSystem},
+    coi::NeutralCoiSystem,
     data::{
         document::{Document, DocumentHistory, RerankingOutcomes},
         document_data::{
@@ -171,9 +171,7 @@ where
         self.errors.clear();
 
         // feedback loop and analytics
-        if mode.is_personalized() {
-            self.learn_user_interests(history);
-        }
+        self.learn_user_interests(history);
         self.collect_analytics(history);
 
         match mode {
@@ -223,8 +221,6 @@ where
                 Ok(user_interests) => self.data.sync_data.user_interests = user_interests,
                 Err(e) => self.errors.push(e),
             }
-        } else {
-            self.errors.push(CoiSystemError::NoMatchingDocuments.into());
         }
     }
 
@@ -354,6 +350,7 @@ mod tests {
     use super::*;
     use crate::{
         analytics::NoRelevantHistoricInfo,
+        coi::CoiSystemError,
         data::document::{Relevance, UserFeedback},
         tests::{
             document_history,
@@ -535,7 +532,6 @@ mod tests {
 
         let _rank = reranker.rerank(second_mode, &history, &documents);
         if !mode.is_personalized() && second_mode.is_personalized() {
-            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
             assert_contains_error!(reranker, CoiSystemError::NoCoi);
         } else {
             assert!(reranker.errors().is_empty());
@@ -548,9 +544,7 @@ mod tests {
                 .unwrap_or_default(),
         );
 
-        let coi_len = (mode.is_personalized() && second_mode.is_personalized())
-            .then(|| 3)
-            .unwrap_or_default();
+        let coi_len = mode.is_personalized().then(|| 3).unwrap_or_default();
         assert_eq!(
             reranker.data.sync_data.user_interests.positive.len(),
             coi_len,
@@ -665,11 +659,7 @@ mod tests {
         assert!(reranker.data.sync_data.user_interests.positive.is_empty());
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
-        if mode.is_personalized() {
-            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
-        } else {
-            assert!(reranker.errors().is_empty());
-        }
+        assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
     }
 
     /// Similar to `test_first_and_second_search_no_history` but this time the `Reranker` cannot
@@ -701,11 +691,9 @@ mod tests {
         assert!(reranker.data.sync_data.user_interests.positive.is_empty());
         assert!(reranker.data.sync_data.user_interests.negative.is_empty());
 
+        assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
         if mode.is_personalized() {
-            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
             assert_contains_error!(reranker, CoiSystemError::NoCoi);
-        } else {
-            assert!(reranker.errors().is_empty());
         }
     }
 
@@ -750,10 +738,8 @@ mod tests {
 
         assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
         if mode.is_personalized() {
-            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
             assert_contains_error!(reranker, MockError::Fail);
         } else {
-            dbg!(&reranker.errors);
             assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
         }
         assert_eq!(
@@ -880,7 +866,6 @@ mod tests {
                 .unwrap_or_default(),
         );
         if mode.is_personalized() {
-            assert_contains_error!(reranker, CoiSystemError::NoMatchingDocuments);
             assert_contains_error!(reranker, MockError::Fail);
         } else {
             assert!(reranker.errors().is_empty());
