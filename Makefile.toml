@@ -72,7 +72,7 @@ workspace = false
 dependencies = ["flutter-pub-get"]
 script = ["""
   cd "${DART_WORKSPACE}"
-  flutter pub run build_runner build
+  flutter pub run build_runner build --delete-conflicting-outputs
 """]
 
 [tasks.flutter-pub-get]
