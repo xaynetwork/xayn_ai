@@ -432,7 +432,7 @@ fn mean_loss(losses: &[f32]) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use xayn_ai::assert_approx_eq;
+    use test_utils::assert_approx_eq;
 
     use super::*;
 

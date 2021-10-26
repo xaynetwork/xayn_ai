@@ -1,6 +1,6 @@
 use std::{io::Result, path::PathBuf};
 
-use crate::resolve_asset;
+use crate::asset::resolve_asset;
 
 /// Resolves the path to the QAMBert vocabulary.
 pub fn vocab() -> Result<PathBuf> {

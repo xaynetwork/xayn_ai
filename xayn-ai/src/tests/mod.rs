@@ -15,6 +15,7 @@ pub(crate) use self::{
         expected_rerank_unchanged,
         from_ids,
         history_for_prev_docs,
+        mock_uuid,
         neg_cois_from_words,
         neg_cois_from_words_with_ids,
         pos_cois_from_words,

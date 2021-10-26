@@ -1,6 +1,6 @@
 use std::{io::Result, path::PathBuf};
 
-use crate::{resolve_path, DATA_DIR};
+use crate::asset::{resolve_path, DATA_DIR};
 
 const ASSET: &str = "ltr_test_data_v0000";
 

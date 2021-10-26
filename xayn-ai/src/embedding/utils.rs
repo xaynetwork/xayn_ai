@@ -55,6 +55,7 @@ mod tests {
     use ndarray::arr1;
 
     use super::*;
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_l2_distance() {

@@ -191,6 +191,7 @@ fn dcg(scores: impl Iterator<Item = f32>) -> f32 {
 mod tests {
     use super::*;
     use crate::{reranker::systems::AnalyticsSystem, tests, UserFeedback};
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_full_analytics_system() {

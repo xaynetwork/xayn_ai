@@ -290,9 +290,11 @@ impl DivAssign<f32> for DenseGradientSet {
 mod tests {
     use ndarray::{arr1, arr2, Array1, Array2, IntoDimension};
 
-    use super::super::activation::{Linear, Relu};
-
-    use super::Dense;
+    use super::{
+        super::activation::{Linear, Relu},
+        Dense,
+    };
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_dense_matrix_for_2d_input() {

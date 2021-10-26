@@ -15,10 +15,9 @@ xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 rayon = { version = "1.5.1", optional = true }
 
 [dev-dependencies]
-test-utils = { path = "../test-utils" }
-float-cmp = "0.9.0"
 itertools = "0.10.1"
 tempfile = "3.2.0"
+test-utils = { path = "../test-utils" }
 
 [build-dependencies]
 cbindgen = "=0.20.0"

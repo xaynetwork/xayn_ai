@@ -1,11 +1,9 @@
 use std::cmp::Ordering;
 
-use ndarray::{ArrayBase, Data, Dimension, IntoDimension, Ix};
 use serde::Serialize;
 
 use crate::Error;
 
-#[macro_export]
 macro_rules! to_vec_of_ref_of {
     ($data: expr, $type:ty) => {
         $data
@@ -14,6 +12,8 @@ macro_rules! to_vec_of_ref_of {
             .collect::<Vec<_>>()
     };
 }
+#[allow(clippy::useless_attribute, clippy::single_component_path_imports)]
+pub(crate) use to_vec_of_ref_of;
 
 /// Allows comparing and sorting f32 even if `NaN` is involved.
 ///
@@ -74,19 +74,6 @@ pub(crate) fn nan_safe_f32_cmp_desc(a: &f32, b: &f32) -> Ordering {
     nan_safe_f32_cmp(b, a)
 }
 
-/// Creates a UUID by combining `fcb6a685-eb92-4d36-8686-XXXXXXXXXXXX` with given `sub_id`.
-#[cfg(test)]
-pub(crate) fn mock_uuid(sub_id: usize) -> uuid::Uuid {
-    const BASE_UUID: u128 = 0xfcb6a685eb924d368686000000000000;
-    uuid::Uuid::from_u128(BASE_UUID | (sub_id as u128))
-}
-
-/// Creates a CoI id from a mock UUID.
-#[cfg(test)]
-pub(crate) fn mock_coi_id(sub_id: usize) -> crate::CoiId {
-    mock_uuid(sub_id).into()
-}
-
 /// Serializes the given data, tagged with the given version number.
 pub(crate) fn serialize_with_version(data: &impl Serialize, version: u8) -> Result<Vec<u8>, Error> {
     let size = bincode::serialized_size(data)? + 1;
@@ -98,277 +85,10 @@ pub(crate) fn serialize_with_version(data: &impl Serialize, version: u8) -> Resu
     Ok(serialized)
 }
 
-/// Compares two "things" with approximate equality.
-///
-/// # Examples
-///
-/// This can be used to compare two floating point numbers:
-///
-/// ```
-/// use xayn_ai::assert_approx_eq;
-/// assert_approx_eq!(f32, 0.15039155, 0.1503916, ulps = 3);
-/// ```
-///
-/// Or containers of such:
-///
-/// ```
-/// use xayn_ai::assert_approx_eq;
-/// assert_approx_eq!(f32, &[[1.0, 2.], [3., 4.]], vec![[1.0, 2.], [3., 4.]])
-/// ```
-///
-/// Or ndarray arrays:
-///
-/// ```
-/// use ndarray::arr2;
-/// use xayn_ai::assert_approx_eq;
-/// assert_approx_eq!(
-///     f32,
-///     arr2(&[[1.0, 2.], [3., 4.]]),
-///     arr2(&[[1.0, 2.], [3., 4.]])
-/// );
-/// ```
-///
-/// The number of `ulps` defaults to `2` if not specified.
-///
-/// # NaN Handling
-///
-/// The assertions treats two NaN values to be "approximately" equal.
-///
-/// While there are good reasons for two NaN values not to compare as equal in
-/// general, they don't really apply for this assertions which tries to check if
-/// something has "an expected outcome" instead of "two values being semantically
-/// the same".
-///
-/// # Missing Implementations
-///
-/// Implementations for other primitives, smart pointer types or other sequential containers
-/// can easily be added on demand.
-///
-/// Non sequential containers are not supported.
-///
-/// # De-Facto `#[cfg(test)]`
-///
-/// As this is also used by some FFI binding crates, we need to export it and we can't limit it to `#[cfg(test)]`.
-///
-/// But you can't use this outside of dev/test builds, it won't compile as float-cmp is a dev-only dependency.
-/// Furthermore in dependencies which use this you need to have the `float-cmp` dependency available.
-#[macro_export]
-macro_rules! assert_approx_eq {
-    ($t:ty, $left:expr, $right:expr $(,)?) => {
-        assert_approx_eq!($t, $left, $right, epsilon = 0., ulps = 2)
-    };
-    ($t:ty, $left:expr, $right:expr, ulps = $ulps:expr $(,)?) => {
-       assert_approx_eq!($t, $left, $right, epsilon = 0., ulps = $ulps)
-    };
-    ($t:ty, $left:expr, $right:expr, epsilon = $epsilon:expr $(,)?) => {
-       assert_approx_eq!($t, $left, $right, epsilon = $epsilon, ulps = 2)
-    };
-    ($t:ty, $left:expr, $right:expr, epsilon = $epsilon:expr, ulps = $ulps:expr $(,)?) => {{
-       let epsilon = $epsilon;
-        let ulps = $ulps;
-        let left = $left;
-        let right = $right;
-        let mut left_iter =
-            $crate::ApproxAssertIterHelper::indexed_iter_logical_order(&left, Vec::new());
-        let mut right_iter =
-            $crate::ApproxAssertIterHelper::indexed_iter_logical_order(&right, Vec::new());
-        loop {
-            match (left_iter.next(), right_iter.next()) {
-                (Some((lidx, lv)), Some((ridx, rv))) => {
-                    assert_eq!(
-                        lidx, ridx,
-                        "Dimensionality mismatch when iterating in logical order: {:?} != {:?}",
-                        lidx, ridx
-                    );
-                    if !(lv.is_nan() && rv.is_nan()) {
-                        assert!(
-                            ::float_cmp::approx_eq!(f32, lv, rv, ulps = ulps, epsilon = epsilon),
-                            "approximated equal assertion failed (ulps={ulps:?}, epsilon={epsilon:?}) at index {idx:?}: {lv:?} == {rv:?}",
-                            ulps=ulps,
-                            epsilon=epsilon,
-                            lv=lv,
-                            rv=rv,
-                            idx=lidx,
-                        );
-                    }
-                }
-                (Some(pair), None) => {
-                    panic!("Left input is longer starting with from index {:?}", pair);
-                }
-                (None, Some(pair)) => {
-                    panic!("Left input is longer starting with from index {:?}", pair);
-                }
-                (None, None) => break,
-            }
-        }
-    }};
-}
-
-/// Helper trait for the `approx_assert_eq!` macro.
-///
-/// Until we have GAT in rust this is meant to be implemented
-/// on a `&`-reference to the thing you want to implement it for.
-///
-/// This can be implemented for both containers and leaf values (e.g. &f32).
-///
-/// This trait is tuned for testing, and uses trait objects to reduce the
-/// amount of code overhead.
-///
-/// Only use it for `assert_approx_eq!`.
-///
-/// # De-Facto `#[cfg(test)]`
-///
-/// We can't make this `#[cfg(test)]` as we use it in FFI crates,
-/// but this should only be used if `#[cfg(test)]` is enabled in
-/// either this crate or the dependent of this crate in which
-/// you use it.
-pub trait ApproxAssertIterHelper<'a>: Copy {
-    /// The leaf element, e.g. f32.
-    type LeafElement;
-
-    /// Flattened iterates over all leaf elements in this instance.
-    ///
-    /// The passed in `index_prefix` is the "index" at which
-    /// this instance is placed.
-    ///
-    /// Leaf values implementing this should just return a iterator
-    /// which yields a single tuple of their value and the
-    /// passed in index prefix.
-    ///
-    /// Sequential containers are supposed to yield a tuple for each
-    /// element in them in which the index is created by pushing
-    /// the elements index in this container onto the `index_prefix`.
-    fn indexed_iter_logical_order(
-        self,
-        index_prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a>;
-}
-
-impl<'a> ApproxAssertIterHelper<'a> for &'a f32 {
-    type LeafElement = f32;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
-        let iter = std::iter::once((prefix, *self));
-        Box::new(iter)
-    }
-}
-
-impl<'a, T> ApproxAssertIterHelper<'a> for &'a &'a T
-where
-    &'a T: ApproxAssertIterHelper<'a>,
-    T: 'a + ?Sized,
-{
-    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
-        (*self).indexed_iter_logical_order(prefix)
-    }
-}
-
-impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a Option<T>
-where
-    &'a T: ApproxAssertIterHelper<'a>,
-{
-    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
-        let iter = self.iter().flat_map(move |el| {
-            let mut new_prefix = prefix.clone();
-            new_prefix.push(0);
-            el.indexed_iter_logical_order(new_prefix)
-        });
-
-        Box::new(iter)
-    }
-}
-
-impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a Vec<T>
-where
-    &'a T: ApproxAssertIterHelper<'a>,
-{
-    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
-        self.as_slice().indexed_iter_logical_order(prefix)
-    }
-}
-
-impl<'a, T, const N: usize> ApproxAssertIterHelper<'a> for &'a [T; N]
-where
-    &'a T: ApproxAssertIterHelper<'a>,
-{
-    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
-        self.as_ref().indexed_iter_logical_order(prefix)
-    }
-}
-
-impl<'a, T: 'a> ApproxAssertIterHelper<'a> for &'a [T]
-where
-    &'a T: ApproxAssertIterHelper<'a>,
-{
-    type LeafElement = <&'a T as ApproxAssertIterHelper<'a>>::LeafElement;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
-        let iter = self.iter().enumerate().flat_map(move |(idx, el)| {
-            let mut new_prefix = prefix.clone();
-            new_prefix.push(idx);
-            el.indexed_iter_logical_order(new_prefix)
-        });
-
-        Box::new(iter)
-    }
-}
-
-impl<'a, S, D> ApproxAssertIterHelper<'a> for &'a ArrayBase<S, D>
-where
-    S: Data,
-    S::Elem: Copy,
-    &'a S::Elem: ApproxAssertIterHelper<'a>,
-    D: Dimension,
-{
-    type LeafElement = S::Elem;
-
-    fn indexed_iter_logical_order(
-        self,
-        prefix: Vec<Ix>,
-    ) -> Box<dyn Iterator<Item = (Vec<Ix>, Self::LeafElement)> + 'a> {
-        let iter = self.indexed_iter().map(move |(idx, elm)| {
-            let mut new_prefix = prefix.clone();
-            new_prefix.extend(idx.into_dimension().as_array_view().iter());
-            (new_prefix, *elm)
-        });
-
-        Box::new(iter)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::panic::catch_unwind;
-
-    use ndarray::{arr1, arr2, arr3};
-
     use super::*;
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_nan_safe_f32_cmp_sorts_in_the_right_order() {
@@ -405,94 +125,5 @@ mod tests {
         assert_eq!(nan_safe_f32_cmp_desc(&12., &f32::NAN), Ordering::Less);
         assert_eq!(nan_safe_f32_cmp(&f32::NAN, &12.), Ordering::Less);
         assert_eq!(nan_safe_f32_cmp_desc(&f32::NAN, &12.), Ordering::Greater);
-    }
-
-    #[test]
-    fn test_assert_approx_eq_float() {
-        assert_approx_eq!(f32, 0.15039155, 0.1503916, ulps = 3);
-        catch_unwind(|| assert_approx_eq!(f32, 0.15039155, 0.1503916, ulps = 2)).unwrap_err();
-    }
-
-    #[test]
-    fn test_assert_approx_eq_iterable_1d() {
-        assert_approx_eq!(f32, &[0.25, 1.25], &[0.25, 1.25]);
-        assert_approx_eq!(f32, &[0.25, 1.25], arr1(&[0.25, 1.25]));
-    }
-
-    #[test]
-    #[should_panic(expected = "at index [1]")]
-    fn test_assert_approx_eq_fails() {
-        assert_approx_eq!(f32, &[0.35, 4.35], arr1(&[0.35, 4.45]));
-    }
-
-    #[test]
-    #[should_panic(expected = "at index [0, 1, 2]")]
-    fn test_assert_approx_eq_fails_multi_dimensional() {
-        assert_approx_eq!(
-            f32,
-            &[[[0.25, 1.25, 0.], [0.0, 0.125, 0.]]],
-            arr3(&[[[0.25, 1.25, 0.], [0.0, 0.125, 1.]]]),
-        );
-    }
-
-    #[test]
-    fn test_assert_approx_eq_iterable_nested() {
-        assert_approx_eq!(
-            f32,
-            &[[0.25, 1.25], [0.0, 0.125]],
-            &[[0.25, 1.25], [0.0, 0.125]],
-        );
-        assert_approx_eq!(
-            f32,
-            &[[0.25, 1.25], [0.0, 0.125]],
-            arr2(&[[0.25, 1.25], [0.0, 0.125]]),
-        );
-        assert_approx_eq!(
-            f32,
-            &[[[0.25, 1.25], [0.0, 0.125]]],
-            arr3(&[[[0.25, 1.25], [0.0, 0.125]]]),
-        );
-    }
-
-    #[test]
-    fn test_compares_nan_values() {
-        assert_approx_eq!(f32, [3.1, f32::NAN, 1.0], [3.1, f32::NAN, 1.0]);
-    }
-
-    #[test]
-    #[should_panic(expected = "[2]")]
-    fn test_compares_nan_with_panic1() {
-        assert_approx_eq!(f32, [3.1, f32::NAN, 1.0], [3.1, f32::NAN, 2.0]);
-    }
-
-    #[test]
-    #[should_panic(expected = "[1]")]
-    fn test_compares_nan_with_panic2() {
-        assert_approx_eq!(f32, [3.1, f32::NAN, 1.0], [3.1, 3.0, 1.0]);
-    }
-
-    #[test]
-    #[should_panic(expected = "[0, 2]")]
-    fn test_panic_at_different_length() {
-        assert_approx_eq!(f32, &[[1., 2., 3.]], &[[1., 2.]]);
-    }
-
-    #[test]
-    fn test_mock_uuid() {
-        assert_eq!(
-            format!("{}", mock_uuid(0xABCDEF0A)),
-            "fcb6a685-eb92-4d36-8686-0000abcdef0a"
-        );
-    }
-
-    #[test]
-    fn test_equality_using_epsilon() {
-        assert_approx_eq!(f32, 0.125, 0.625, epsilon = 0.5)
-    }
-
-    #[test]
-    #[should_panic(expected = "[]")]
-    fn test_equality_using_epsilon_with_panic() {
-        assert_approx_eq!(f32, 0.125, 0.625, epsilon = 0.49)
     }
 }
