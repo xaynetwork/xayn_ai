@@ -1,13 +1,13 @@
-use rubert::SMBert;
+use ndarray::arr1;
+#[cfg(feature = "multithreaded")]
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     data::document_data::{DocumentDataWithDocument, DocumentDataWithSMBert, SMBertComponent},
     error::Error,
     reranker::systems::SMBertSystem,
 };
-
-#[cfg(feature = "multithreaded")]
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rubert::SMBert;
 
 impl SMBertSystem for SMBert {
     fn compute_embedding(
@@ -32,5 +32,28 @@ impl SMBertSystem for SMBert {
                     .map_err(Into::into)
             })
             .collect()
+    }
+}
+
+/// SMBert system to run when SMBert is disabled
+#[allow(clippy::upper_case_acronyms)]
+pub struct NeutralSMBert;
+
+impl SMBertSystem for NeutralSMBert {
+    fn compute_embedding(
+        &self,
+        documents: Vec<DocumentDataWithDocument>,
+    ) -> Result<Vec<DocumentDataWithSMBert>, Error> {
+        Ok(documents
+            .into_iter()
+            .map(|document| {
+                DocumentDataWithSMBert::from_document(
+                    document,
+                    SMBertComponent {
+                        embedding: arr1(&[]).into(),
+                    },
+                )
+            })
+            .collect())
     }
 }

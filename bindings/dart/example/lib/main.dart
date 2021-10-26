@@ -94,6 +94,24 @@ class _MyAppState extends State<MyApp> {
         ));
   }
 
+  Widget currentRerankModeView(BuildContext context) {
+    return Padding(
+        padding: EdgeInsets.all(10),
+        child: Row(
+          children: [
+            Text(_logic!.currentRerankMode),
+            Spacer(),
+            ElevatedButton(
+              onPressed: () {
+                selectRerankMode(context);
+              },
+              child: Text('Change Rerank Mode',
+                  style: TextStyle(color: Colors.white)),
+            )
+          ],
+        ));
+  }
+
   Widget benchmarkView() {
     final stats = _lastBenchmarkStats;
 
@@ -159,6 +177,7 @@ class _MyAppState extends State<MyApp> {
     return Column(
       children: [
         currentCallDataView(context),
+        currentRerankModeView(context),
         ElevatedButton(
           onPressed: resetAi,
           child: Text('Reset AI', style: TextStyle(color: Colors.white)),
@@ -223,12 +242,11 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> selectCallData(BuildContext context) async {
-    print('start navigation');
     final newCallDataKey = await Navigator.push(
         context,
         MaterialPageRoute<String>(
           builder: (BuildContext context) =>
-              SelectCallData(_logic!.availableCallDataKeys().toList()),
+              _SelectCallData(_logic!.availableCallDataKeys().toList()),
         ));
 
     if (newCallDataKey != null) {
@@ -238,12 +256,29 @@ class _MyAppState extends State<MyApp> {
       });
     }
   }
+
+  Future<void> selectRerankMode(BuildContext context) async {
+    final availableRerankModes = _logic!.availableRerankModes();
+    final newRerankMode = await Navigator.push(
+        context,
+        MaterialPageRoute<String>(
+          builder: (BuildContext context) =>
+              _SelectRerankMode(availableRerankModes.keys.toList()),
+        ));
+
+    if (newRerankMode != null) {
+      await _logic!.selectRerankMode(availableRerankModes[newRerankMode]!);
+      setState(() {
+        _lastResults = null;
+      });
+    }
+  }
 }
 
-class SelectCallData extends StatelessWidget {
-  final List<String> availableData;
+class _SelectCallData extends StatelessWidget {
+  final List<String> _availableData;
 
-  SelectCallData(this.availableData);
+  _SelectCallData(this._availableData);
 
   @override
   Widget build(BuildContext context) {
@@ -251,9 +286,9 @@ class SelectCallData extends StatelessWidget {
         appBar: AppBar(title: Text('Select Call Data')),
         body: ListView.separated(
             padding: const EdgeInsets.all(8),
-            itemCount: availableData.length,
+            itemCount: _availableData.length,
             itemBuilder: (BuildContext context, int listIdx) {
-              final name = availableData[listIdx];
+              final name = _availableData[listIdx];
               return Container(
                   height: 50,
                   child: Center(
@@ -267,4 +302,31 @@ class SelectCallData extends StatelessWidget {
             separatorBuilder: (BuildContext context, int index) =>
                 const Divider()));
   }
+}
+
+class _SelectRerankMode extends StatelessWidget {
+  final List<String> _availableModes;
+
+  _SelectRerankMode(this._availableModes);
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: Text('Select Rerank Mode')),
+      body: ListView.separated(
+          padding: const EdgeInsets.all(8),
+          itemCount: _availableModes.length,
+          itemBuilder: (BuildContext context, int listIdx) {
+            final name = _availableModes[listIdx];
+            return Container(
+                height: 50,
+                child: Center(
+                  child: TextButton(
+                      onPressed: () {
+                        Navigator.pop(context, name);
+                      },
+                      child: Text(name)),
+                ));
+          },
+          separatorBuilder: (BuildContext context, int index) =>
+              const Divider()));
 }

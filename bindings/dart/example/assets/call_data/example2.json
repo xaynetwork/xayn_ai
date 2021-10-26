@@ -1,9 +1,9 @@
 {
-    "rerank_mode": 1,
+    "rerank_mode": 3,
     "histories": [
         {
             "id": "fcb6a685-eb92-4d36-8686-000000000000",
-            "relevance":  2,
+            "relevance": 2,
             "user_feedback": 1,
             "rank": 0,
             "user_action": 2,

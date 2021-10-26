@@ -31,7 +31,7 @@ part 'debug.g.dart';
 @JsonSerializable()
 class RerankDebugCallData {
   /// The mode which was used to run the reranking.
-  final RerankMode rerankMode;
+  RerankMode rerankMode;
 
   /// History used for a reranking call.
   final List<History> histories;
