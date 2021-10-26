@@ -35,7 +35,7 @@ class XaynAi implements common.XaynAi {
 
   /// Creates and initializes the Xayn AI from a given state.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder and the state.
+  /// Requires the necessary [SetupData] and the state.
   /// It will throw an error if the provided state is empty.
   static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
     if (serialized.isEmpty) {
@@ -48,7 +48,7 @@ class XaynAi implements common.XaynAi {
 
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder.
+  /// Requires the necessary [SetupData] for the AI.
   static Future<XaynAi> create(SetupData data) async {
     return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
         data.qambertModel, data.ltrModel, null);
@@ -56,9 +56,9 @@ class XaynAi implements common.XaynAi {
 
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the path to the vocabulary and model of the tokenizer/embedder.
-  /// Optionally accepts the serialized reranker database, otherwise creates a
-  /// new one.
+  /// Requires the path to the vocabulary and model of the tokenizer/embedder
+  /// and the path of the LTR model. Optionally accepts the serialized reranker
+  /// database, otherwise creates a new one.
   XaynAi._(String smbertVocab, String smbertModel, String qambertVocab,
       String qambertModel, String ltrModel,
       [Uint8List? serialized]) {
@@ -78,8 +78,15 @@ class XaynAi implements common.XaynAi {
       }
 
       bytes = Bytes.fromList(serialized ?? Uint8List(0));
-      _ai = ffi.xaynai_new(smbertVocabPtr, smbertModelPtr, qambertVocabPtr,
-          qambertModelPtr, ltrModelPtr, bytes.ptr, error.ptr);
+      _ai = ffi.xaynai_new(
+        smbertVocabPtr,
+        smbertModelPtr,
+        qambertVocabPtr,
+        qambertModelPtr,
+        ltrModelPtr,
+        bytes.ptr,
+        error.ptr,
+      );
       if (error.isError()) {
         throw error.toException();
       }
@@ -99,12 +106,15 @@ class XaynAi implements common.XaynAi {
   ///
   /// The list of ranks is in the same order as the documents.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
-  Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
-      List<Document> documents) async {
+  Future<RerankingOutcomes> rerank(
+    RerankMode mode,
+    List<History> histories,
+    List<Document> documents,
+  ) async {
     final hists = Histories(histories);
     final docs = Documents(documents);
     final error = XaynAiError();

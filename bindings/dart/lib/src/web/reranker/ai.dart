@@ -7,237 +7,115 @@ import 'package:js/js.dart' show JS;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
-    show RerankMode, RerankModeToInt;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
     show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
-import 'package:xayn_ai_ffi_dart/src/web/data/document.dart'
-    show JsDocument, ToJsDocuments;
-import 'package:xayn_ai_ffi_dart/src/web/data/history.dart'
-    show JsHistory, ToJsHistories;
-import 'package:xayn_ai_ffi_dart/src/web/ffi/library.dart' show init;
-import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
-    show JsAnalytics, ToAnalytics;
+import 'package:xayn_ai_ffi_dart/src/web/ffi/ai.dart' as ffi show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/data_provider.dart'
     show SetupData;
-import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
-    show
-        RuntimeError,
-        RuntimeErrorToException,
-        XaynAiError,
-        XaynAiErrorToException;
-import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
-    show JsFault, ToStrings;
-import 'package:xayn_ai_ffi_dart/src/web/result/outcomes.dart'
-    show JsRerankingOutcomes, ToRerankingOutcomes;
-
-@JS('xayn_ai_ffi_wasm.WXaynAi')
-class _XaynAi {
-  external _XaynAi(Uint8List smbertVocab, Uint8List smbertModel,
-      Uint8List qambertVocab, Uint8List qambertModel, Uint8List ltrModel,
-      [Uint8List? serialized]);
-
-  external JsRerankingOutcomes rerank(
-    int mode,
-    List<JsHistory> histories,
-    List<JsDocument> documents,
-  );
-
-  external Uint8List serialize();
-
-  external List<JsFault> faults();
-
-  external JsAnalytics? analytics();
-
-  external Uint8List syncdataBytes();
-
-  external void synchronize(Uint8List serialized);
-
-  external void free();
-}
 
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
-  late _XaynAi? _ai;
+  final ffi.XaynAi _ai;
 
-  /// Creates and initializes the Xayn AI from a given state and initializes the WASM module.
+  /// Creates and initializes the Xayn AI from a given state.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder and the state.
+  /// Requires the necessary [SetupData] and the state.
   /// It will throw an error if the provided state is empty.
   static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
-    await init(data.wasmModule);
-    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-        data.qambertModel, data.ltrModel, serialized);
-  }
-
-  /// Creates and initializes the Xayn AI and initializes the WASM module.
-  ///
-  /// Requires the vocabulary and model of the tokenizer/embedder and the WASM
-  /// module. Optionally accepts the serialized reranker database, otherwise
-  /// creates a new one.
-  static Future<XaynAi> create(SetupData data) async {
-    await init(data.wasmModule);
-    return XaynAi._(data.smbertVocab, data.smbertModel, data.qambertVocab,
-        data.qambertModel, data.ltrModel, null);
+    final ai = await ffi.XaynAi.create(data, serialized);
+    return XaynAi._(ai);
   }
 
   /// Creates and initializes the Xayn AI.
   ///
-  /// Requires the vocabulary and model of the tokenizer/embedder. Optionally accepts the serialized
-  /// reranker database, otherwise creates a new one.
-  XaynAi._(Uint8List smbertVocab, Uint8List smbertModel, Uint8List qambertVocab,
-      Uint8List qambertModel, Uint8List ltrModel,
-      [Uint8List? serialized]) {
-    try {
-      _ai = _XaynAi(smbertVocab, smbertModel, qambertVocab, qambertModel,
-          ltrModel, serialized);
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      throw error.toException();
-    }
+  /// Requires the necessary [SetupData] for the AI.
+  static Future<XaynAi> create(SetupData data) async {
+    final ai = await ffi.XaynAi.create(data, null);
+    return XaynAi._(ai);
   }
+
+  /// Creates and initializes the Xayn AI.
+  ///
+  /// Requires the vocabulary and model of the tokenizer/embedder and the LTR model.
+  /// Optionally accepts the serialized reranker database, otherwise creates a new one.
+  XaynAi._(this._ai);
 
   /// Reranks the documents.
   ///
   /// The list of ranks is in the same order as the documents.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
-  Future<RerankingOutcomes> rerank(RerankMode mode, List<History> histories,
-      List<Document> documents) async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    try {
-      return _ai!
-          .rerank(mode.toInt(), histories.toJsHistories(),
-              documents.toJsDocuments())
-          .toRerankingOutcomes();
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      // the memory is automatically cleaned up by the js garbage collector once all reference to
-      // _ai are gone, which usually happens when creating a new wasm instance
-      _ai = null;
-      throw error.toException();
-    }
+  Future<RerankingOutcomes> rerank(
+    RerankMode mode,
+    List<History> histories,
+    List<Document> documents,
+  ) async {
+    return await _ai.rerank(mode, histories, documents);
   }
 
   /// Serializes the current state of the reranker.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<Uint8List> serialize() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    try {
-      return _ai!.serialize();
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
-    }
+    return await _ai.serialize();
   }
 
   /// Retrieves faults which might occur during reranking.
   ///
   /// Faults can range from warnings to errors which are handled in some default way internally.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<List<String>> faults() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    try {
-      return _ai!.faults().toStrings();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
-    }
+    return await _ai.faults();
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<Analytics?> analytics() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    try {
-      return _ai!.analytics()?.toAnalytics();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
-    }
+    return await _ai.analytics();
   }
 
   /// Serializes the synchronizable data of the reranker.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<Uint8List> syncdataBytes() async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    try {
-      return _ai!.syncdataBytes();
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
-    }
+    return await _ai.syncdataBytes();
   }
 
   /// Synchronizes the internal data of the reranker with another.
   ///
-  /// In case of a [`Code.panic`], the ai is dropped and its pointer invalidated. The last known
+  /// In case of a `Code.panic`, the ai is dropped and its pointer invalidated. The last known
   /// valid state can be restored with a previously serialized reranker database obtained from
-  /// [`serialize()`].
+  /// [XaynAi.serialize].
   @override
   Future<void> synchronize(Uint8List serialized) async {
-    if (_ai == null) {
-      throw StateError('XaynAi was already freed');
-    }
-
-    try {
-      _ai!.synchronize(serialized);
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
-    }
+    await _ai.synchronize(serialized);
   }
 
   /// Frees the memory.
   @override
   Future<void> free() async {
-    _ai?.free();
-    _ai = null;
+    await _ai.free();
   }
 }
