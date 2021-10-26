@@ -108,7 +108,7 @@ pub unsafe extern "C" fn reranking_outcomes_drop(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xayn_ai::assert_approx_eq;
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_into_raw() {

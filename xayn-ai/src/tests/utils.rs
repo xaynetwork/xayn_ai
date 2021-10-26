@@ -1,9 +1,13 @@
 use std::ops::Range;
 
 use ndarray::arr1;
+use uuid::Uuid;
 
 use crate::{
-    coi::point::{CoiPoint, NegativeCoi, PositiveCoi, PositiveCoi_v0_0_0, PositiveCoi_v0_1_0},
+    coi::{
+        point::{CoiPoint, NegativeCoi, PositiveCoi, PositiveCoi_v0_0_0, PositiveCoi_v0_1_0},
+        CoiId,
+    },
     data::{
         document::{Relevance, UserFeedback},
         document_data::{
@@ -22,11 +26,24 @@ use crate::{
     },
     embedding::utils::Embedding,
     reranker::systems::{CoiSystemData, SMBertSystem},
-    utils::mock_coi_id,
     Document,
     DocumentHistory,
     DocumentId,
 };
+
+/// Creates an UUID by combining `fcb6a685-eb92-4d36-8686-XXXXXXXXXXXX` with the given `sub_id`.
+pub(crate) const fn mock_uuid(sub_id: usize) -> Uuid {
+    const BASE_UUID: u128 = 0xfcb6a685eb924d368686000000000000;
+    Uuid::from_u128(BASE_UUID | (sub_id as u128))
+}
+
+#[test]
+fn test_mock_uuid() {
+    assert_eq!(
+        format!("{}", mock_uuid(0xABCDEF0A)),
+        "fcb6a685-eb92-4d36-8686-0000abcdef0a",
+    );
+}
 
 pub(crate) fn documents_from_ids(ids: Range<u128>) -> Vec<Document> {
     ids.enumerate()
@@ -78,7 +95,7 @@ fn cois_from_words<CP: CoiPoint>(
         .unwrap()
         .into_iter()
         .enumerate()
-        .map(|(offset, doc)| CP::new(mock_coi_id(start_id + offset), doc.smbert.embedding))
+        .map(|(offset, doc)| CP::new(CoiId::mocked(start_id + offset), doc.smbert.embedding))
         .collect()
 }
 
@@ -148,7 +165,7 @@ pub(crate) fn data_with_rank(
             smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {
-                id: mock_coi_id(1),
+                id: CoiId::mocked(1),
                 pos_distance: 0.1,
                 neg_distance: 0.1,
             },

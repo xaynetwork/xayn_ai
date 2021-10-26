@@ -65,7 +65,10 @@ pub(super) mod tests {
 
     use super::*;
     use crate::{
-        coi::point::{CoiPoint, NegativeCoi, PositiveCoi},
+        coi::{
+            point::{CoiPoint, NegativeCoi, PositiveCoi},
+            CoiId,
+        },
         data::document_data::{
             CoiComponent,
             DocumentBaseComponent,
@@ -74,8 +77,7 @@ pub(super) mod tests {
             QAMBertComponent,
             SMBertComponent,
         },
-        to_vec_of_ref_of,
-        utils::mock_coi_id,
+        utils::to_vec_of_ref_of,
     };
 
     pub(crate) struct MockCoiDoc {
@@ -102,7 +104,7 @@ pub(super) mod tests {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| CP::new(mock_coi_id(id), arr1(point.as_init_slice()).into()))
+            .map(|(id, point)| CP::new(CoiId::mocked(id), arr1(point.as_init_slice()).into()))
             .collect()
     }
 

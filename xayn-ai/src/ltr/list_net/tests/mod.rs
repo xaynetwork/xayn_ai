@@ -2,9 +2,8 @@ use std::f32::consts::SQRT_2;
 
 use once_cell::sync::Lazy;
 
-use test_utils::ltr::model;
-
 use super::{ndlayers::ActivationFunction, *};
+use test_utils::{assert_approx_eq, ltr::model};
 
 mod inference;
 mod training;

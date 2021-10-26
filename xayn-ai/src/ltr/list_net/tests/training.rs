@@ -7,8 +7,6 @@ use std::{
 
 use ndarray::{arr1, arr2, Array};
 
-use test_utils::test::ltr::training_intermediates;
-
 use super::{
     super::{
         ndutils::io::{FlattenedArray, UnexpectedNumberOfDimensions},
@@ -17,6 +15,7 @@ use super::{
     inference::{SAMPLE_INPUTS, SAMPLE_INPUTS_TO_FEW},
     *,
 };
+use test_utils::{assert_approx_eq, test::ltr::training_intermediates};
 
 struct VecDataSource {
     batch_size: usize,

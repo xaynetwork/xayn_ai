@@ -89,12 +89,12 @@ fn aggregate_feature(hists: &[HistSearchResult], pred: FilterPred) -> FeatMap {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::mock_uuid;
-
     use super::{
         super::{Action, MrrOutcome, QueryId, SessionId},
         *,
     };
+    use crate::tests::mock_uuid;
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_aggregate_feature() {
