@@ -3,43 +3,26 @@ import 'dart:typed_data' show Uint8List;
 import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
 import 'package:xayn_ai_ffi_dart/src/web/worker/message/utils.dart'
-    show ToJson, Uint8ListConverter;
+    show Uint8ListConverter;
 
 part 'response.g.dart';
 
 @JsonSerializable()
 class Response {
   final Map<String, dynamic>? result;
-  final XaynAiError? error;
 
   static Response fromResult<R extends ToJson>(R result) =>
-      Response(result.toJson(), null);
+      Response(result.toJson());
 
-  static Response fromError(XaynAiError error) => Response(null, error);
+  static const ok = Response(null);
 
-  static final ok = Response(null, null);
-
-  Response(this.result, this.error);
-
-  bool isError() => error != null ? true : false;
+  const Response(this.result);
 
   factory Response.fromJson(Map json) => _$ResponseFromJson(json);
 
   Map<String, dynamic> toJson() => _$ResponseToJson(this);
-}
-
-@JsonSerializable()
-class XaynAiError {
-  final int code;
-
-  final String message;
-
-  XaynAiError(this.code, this.message);
-
-  factory XaynAiError.fromJson(Map json) => _$XaynAiErrorFromJson(json);
-
-  Map<String, dynamic> toJson() => _$XaynAiErrorToJson(this);
 }
 
 @JsonSerializable()

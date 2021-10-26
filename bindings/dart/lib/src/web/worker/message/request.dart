@@ -4,8 +4,9 @@ import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
 import 'package:xayn_ai_ffi_dart/src/web/worker/message/utils.dart'
-    show ToJson, Uint8ListConverter, Uint8ListMaybeNullConverter;
+    show Uint8ListConverter, Uint8ListMaybeNullConverter;
 import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Sender;
 
 part 'request.g.dart';

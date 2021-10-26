@@ -1,5 +1,5 @@
 import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
-import 'package:xayn_ai_ffi_dart/src/web/worker/message/utils.dart' show ToJson;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
 
 part 'outcomes.g.dart';
 

@@ -3,10 +3,6 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:json_annotation/json_annotation.dart' show JsonConverter;
 
-abstract class ToJson {
-  Map<String, dynamic> toJson();
-}
-
 class Uint8ListConverter implements JsonConverter<Uint8List, Uint8List> {
   const Uint8ListConverter();
 
