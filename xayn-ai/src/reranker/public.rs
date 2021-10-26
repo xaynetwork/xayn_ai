@@ -10,22 +10,21 @@ use crate::{
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
+    error::Error,
     ltr::{DomainReranker, DomainRerankerBuilder},
-    Error,
-};
-
-use super::{
-    database::{Database, Db},
-    systems::{
-        AnalyticsSystem,
-        CoiSystem,
-        CommonSystems,
-        ContextSystem,
-        LtrSystem,
-        QAMBertSystem,
-        SMBertSystem,
+    reranker::{
+        database::{Database, Db},
+        systems::{
+            AnalyticsSystem,
+            CoiSystem,
+            CommonSystems,
+            ContextSystem,
+            LtrSystem,
+            QAMBertSystem,
+            SMBertSystem,
+        },
+        RerankMode,
     },
-    RerankMode,
 };
 
 pub struct Systems {

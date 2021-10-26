@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - All methods of `XaynAi` have been made asynchronous.
 - The `wasmParallel` `Feature` has been the replaced by the corresponding `WebFeature`s. A caller only needs to pass the set of available features to the `getAssets` function and the library automatically returns the most suitable WASM assets for the given features.
 - MAB system is not executed anymore. Only the context value is used instead to rank the documents.
+- The `RerankMode`s of `XaynAi.rerank()` have been extended with unpersonalized variants.
 
 ### Removed
 

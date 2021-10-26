@@ -9,6 +9,7 @@ use crate::{
         config::Configuration,
         point::{CoiPoint, UserInterests},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
+        CoiId,
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
     embedding::utils::{l2_distance, Embedding},
@@ -163,10 +164,9 @@ impl systems::CoiSystem for CoiSystem {
         documents
             .into_iter()
             .map(|document| {
-                let coi = self
-                    .compute_coi_for_embedding(&document.smbert.embedding, user_interests)
-                    .ok_or(CoiSystemError::NoCoi)?;
-                Ok(DocumentDataWithCoi::from_document(document, coi))
+                self.compute_coi_for_embedding(&document.smbert.embedding, user_interests)
+                    .map(|coi| DocumentDataWithCoi::from_document(document, coi))
+                    .ok_or_else(|| CoiSystemError::NoCoi.into())
             })
             .collect()
     }
@@ -190,6 +190,39 @@ impl systems::CoiSystem for CoiSystem {
         user_interests.negative = self.update_cois(&negative_docs, user_interests.negative);
 
         Ok(user_interests)
+    }
+}
+
+/// Coi system to run when Coi is disabled
+pub struct NeutralCoiSystem;
+
+impl NeutralCoiSystem {
+    pub(crate) const COI: CoiComponent = CoiComponent {
+        id: CoiId(Uuid::nil()),
+        pos_distance: 0.,
+        neg_distance: 0.,
+    };
+}
+
+impl systems::CoiSystem for NeutralCoiSystem {
+    fn compute_coi(
+        &self,
+        documents: Vec<DocumentDataWithQAMBert>,
+        _user_interests: &UserInterests,
+    ) -> Result<Vec<DocumentDataWithCoi>, Error> {
+        Ok(documents
+            .into_iter()
+            .map(|document| DocumentDataWithCoi::from_document(document, Self::COI))
+            .collect())
+    }
+
+    fn update_user_interests(
+        &self,
+        _history: &[DocumentHistory],
+        _documents: &[&dyn CoiSystemData],
+        _user_interests: UserInterests,
+    ) -> Result<UserInterests, Error> {
+        unreachable!(/* should never be called on this system */)
     }
 }
 

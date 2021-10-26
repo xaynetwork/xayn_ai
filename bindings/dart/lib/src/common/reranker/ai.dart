@@ -15,10 +15,14 @@ import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
 
 /// Rerank mode
 enum RerankMode {
-  @JsonValue(ffi.RerankMode.News)
-  news,
-  @JsonValue(ffi.RerankMode.Search)
-  search,
+  @JsonValue(ffi.RerankMode.StandardNews)
+  standardNews,
+  @JsonValue(ffi.RerankMode.PersonalizedNews)
+  personalizedNews,
+  @JsonValue(ffi.RerankMode.StandardSearch)
+  standardSearch,
+  @JsonValue(ffi.RerankMode.PersonalizedSearch)
+  personalizedSearch,
 }
 
 extension RerankModeToInt on RerankMode {
@@ -30,10 +34,14 @@ extension RerankModeToInt on RerankMode {
     // has only few variants and rarely changes we just write this switch
     // statement by hand.
     switch (this) {
-      case RerankMode.news:
-        return ffi.RerankMode.News;
-      case RerankMode.search:
-        return ffi.RerankMode.Search;
+      case RerankMode.standardNews:
+        return ffi.RerankMode.StandardNews;
+      case RerankMode.personalizedNews:
+        return ffi.RerankMode.PersonalizedNews;
+      case RerankMode.standardSearch:
+        return ffi.RerankMode.StandardSearch;
+      case RerankMode.personalizedSearch:
+        return ffi.RerankMode.PersonalizedSearch;
     }
   }
 }

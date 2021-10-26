@@ -7,7 +7,8 @@ import 'package:flutter_test/flutter_test.dart'
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show History, Relevance, UserFeedback, UserAction, DayOfWeek;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
+    show RerankMode, RerankModeToInt;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/debug.dart'
     show RerankDebugCallData;
 
@@ -23,7 +24,7 @@ void main() {
       final documents = List<Document>.empty();
       final Uint8List? serializedState = null;
       final jsonMap = RerankDebugCallData(
-        rerankMode: RerankMode.search,
+        rerankMode: RerankMode.personalizedSearch,
         histories: histories,
         documents: documents,
         serializedState: serializedState,
@@ -33,7 +34,7 @@ void main() {
 
       final deCallData = RerankDebugCallData.fromJson(jsonMap);
 
-      expect(deCallData.rerankMode, equals(RerankMode.search));
+      expect(deCallData.rerankMode, equals(RerankMode.personalizedSearch));
       expect(deCallData.documents.length, equals(0));
       expect(deCallData.histories.length, equals(0));
       expect(deCallData.serializedState, isNull);
@@ -111,16 +112,17 @@ void main() {
         ),
       ];
 
+      final rerankMode = RerankMode.personalizedSearch;
       final serializedState = Uint8List.fromList([1, 2, 3, 4, 5, 6, 10, 20, 7]);
 
       final jsonMap = RerankDebugCallData(
-        rerankMode: RerankMode.search,
+        rerankMode: rerankMode,
         histories: histories,
         documents: documents,
         serializedState: serializedState,
       ).toJson();
 
-      expect(jsonMap['rerank_mode'], 1);
+      expect(jsonMap['rerank_mode'], equals(rerankMode.toInt()));
 
       expect(jsonMap['histories'][1]['id'],
           equals('fcb6a685-eb92-4d36-8686-8a70a3a33001'));
@@ -157,7 +159,7 @@ void main() {
 
       final callData = RerankDebugCallData.fromJson(jsonMap);
 
-      expect(callData.rerankMode, equals(RerankMode.search));
+      expect(callData.rerankMode, equals(RerankMode.personalizedSearch));
 
       expect(callData.histories[0].id,
           equals('fcb6a685-eb92-4d36-8686-8a70a3a33000'));
@@ -245,12 +247,15 @@ void main() {
 
     test('serialized_state defaults to null', () {
       final callData = RerankDebugCallData(
-          rerankMode: RerankMode.search, histories: [], documents: []);
-      expect(callData.rerankMode, equals(RerankMode.search));
+        rerankMode: RerankMode.personalizedSearch,
+        histories: [],
+        documents: [],
+      );
+      expect(callData.rerankMode, equals(RerankMode.personalizedSearch));
       expect(callData.serializedState, isNull);
 
       final jsonMap = RerankDebugCallData(
-        rerankMode: RerankMode.news,
+        rerankMode: RerankMode.personalizedNews,
         histories: [],
         documents: [],
         serializedState: Uint8List.fromList([1, 2, 3]),

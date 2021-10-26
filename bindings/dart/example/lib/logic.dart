@@ -5,7 +5,13 @@ import 'package:flutter/material.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle;
 import 'package:stats/stats.dart' show Stats;
 import 'package:xayn_ai_ffi_dart/package.dart'
-    show Document, RerankDebugCallData, RerankingOutcomes, SetupData, XaynAi;
+    show
+        Document,
+        RerankDebugCallData,
+        RerankMode,
+        RerankingOutcomes,
+        SetupData,
+        XaynAi;
 
 import 'package:xayn_ai_ffi_dart_example/data_provider/data_provider.dart'
     if (dart.library.io) 'data_provider/mobile.dart'
@@ -25,11 +31,17 @@ class Logic {
   RerankDebugCallData _currentCallData;
   String _currentCallDataKey;
 
-  Logic._(this._currentAi, this._setupData, this._availableCallData,
-      this._currentCallDataKey)
-      : _currentCallData = _availableCallData[_currentCallDataKey]!;
+  Logic._(
+    this._currentAi,
+    this._setupData,
+    this._availableCallData,
+    this._currentCallDataKey,
+  ) : _currentCallData = _availableCallData[_currentCallDataKey]!;
 
   String get currentCallDataKey => _currentCallDataKey;
+
+  String get currentRerankMode =>
+      _currentCallData.rerankMode.toString().split('.').last;
 
   /// Creates a call data instance with the histories and documents of the current
   /// call data and an updated serialized state.
@@ -82,6 +94,17 @@ class Logic {
     _currentCallData = _availableCallData[key]!;
     _currentCallDataKey = key;
     await resetXaynAiState();
+  }
+
+  Map<String, RerankMode> availableRerankModes() {
+    return {
+      for (final mode in RerankMode.values)
+        mode.toString().split('.').last: mode
+    };
+  }
+
+  Future<void> selectRerankMode(RerankMode mode) async {
+    _currentCallData.rerankMode = mode;
   }
 
   Future<void> resetXaynAiState() async {
