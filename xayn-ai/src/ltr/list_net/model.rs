@@ -3,7 +3,19 @@ use std::{
     path::Path,
 };
 
-use ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis, Dimension, IntoDimension, Ix};
+use ndarray::{
+    s,
+    Array1,
+    ArrayBase,
+    ArrayView1,
+    Axis,
+    Data,
+    Dimension,
+    IntoDimension,
+    Ix,
+    Ix1,
+    Ix2,
+};
 use thiserror::Error;
 
 use crate::ltr::list_net::data::{
@@ -30,12 +42,11 @@ pub enum LoadingListNetFailed {
     #[error(transparent)]
     Dense(#[from] LoadingDenseFailed),
 
-    /// Tied to load a ListNet containing incompatible matrices.
+    /// Tried to load a ListNet containing incompatible matrices.
     #[error(transparent)]
     IncompatibleMatrices(#[from] IncompatibleMatrices),
 
-    /// BinParams file contains additional parameters,
-    /// probably due to loading the wrong model.
+    /// BinParams file contains additional parameters, probably due to loading the wrong model.
     #[error("BinParams contains additional parameters, model data is probably wrong: {params:?}")]
     LeftoverBinParams { params: Vec<String> },
 }
@@ -140,13 +151,13 @@ impl ListNet {
                 prob_dist,
             })
         } else {
-            Err(IncompatibleMatrices {
-                name_left: "scores_prob_dist/output",
-                shape_left: prob_dist_out_shape.into_dyn(),
-                name_right: "list_net/output",
-                shape_right: (10,).into_dimension().into_dyn(),
-                hint: "expected scores_prob_dist output shape to be equal to (10,)",
-            }
+            Err(IncompatibleMatrices::new(
+                "scores_prob_dist/output",
+                prob_dist_out_shape,
+                "list_net/output",
+                (10,),
+                "expected scores_prob_dist output shape to be equal to (10,)",
+            )
             .into())
         }
     }
@@ -204,13 +215,13 @@ impl ListNet {
     /// Any number of documents is supported.
     pub(super) fn calculate_intermediate_scores(
         &self,
-        inputs: ArrayView2<f32>,
+        inputs: ArrayBase<impl Data<Elem = f32>, Ix2>,
         for_back_propagation: bool,
     ) -> (Array1<f32>, Option<PartialForwardPassData>) {
         debug_assert_eq!(inputs.shape()[1], Self::INPUT_NR_FEATURES);
-        let (dense1_y, dense1_z) = self.dense1.run(&inputs, for_back_propagation);
-        let (dense2_y, dense2_z) = self.dense2.run(&dense1_y, for_back_propagation);
-        let (scores, _) = self.scores.run(&dense2_y, false);
+        let (dense1_y, dense1_z) = self.dense1.run(inputs, for_back_propagation);
+        let (dense2_y, dense2_z) = self.dense2.run(dense1_y.view(), for_back_propagation);
+        let (scores, _) = self.scores.run(dense2_y.view(), false);
         debug_assert_eq!(scores.shape()[1], 1);
 
         // flattens the array by removing axis 1
@@ -228,12 +239,11 @@ impl ListNet {
 
     /// Calculates the final ListNet scores based on the intermediate scores.
     ///
-    /// The input must be based on the output of [`ListNet.calculate_intermediate_scores()`],
+    /// The input must be based on the output of [`ListNet::calculate_intermediate_scores()`],
     /// but only supports a size of exactly [`Self::INPUT_NR_DOCUMENTS`].
-    fn calculate_final_scores(&self, scores: &Array1<f32>) -> Array1<f32> {
+    fn calculate_final_scores(&self, scores: ArrayBase<impl Data<Elem = f32>, Ix1>) -> Array1<f32> {
         debug_assert_eq!(scores.shape()[0], Self::INPUT_NR_DOCUMENTS);
-        let (prob_dist_y, _) = self.prob_dist.run(scores, false);
-        prob_dist_y
+        self.prob_dist.run(scores, false).0
     }
 
     /// Calculates the final scores for up to [`ListNet::INPUT_NR_DOCUMENTS`] intermediate scores.
@@ -264,7 +274,7 @@ impl ListNet {
             inputs.last().copied().unwrap_or_default(),
         );
 
-        let outputs = self.calculate_final_scores(&Array1::from(inputs));
+        let outputs = self.calculate_final_scores(Array1::from(inputs));
         debug_assert!(outputs.is_standard_layout());
         let mut outputs = outputs.into_raw_vec();
         outputs.truncate(nr_documents);
@@ -279,7 +289,7 @@ impl ListNet {
     /// # Panics
     ///
     /// If inputs have not exactly [`Self::INPUT_NR_FEATURES`] features.
-    pub(crate) fn run(&self, inputs: Array2<f32>) -> Vec<f32> {
+    pub(crate) fn run(&self, inputs: ArrayBase<impl Data<Elem = f32>, Ix2>) -> Vec<f32> {
         let nr_documents = inputs.shape()[0];
 
         assert_eq!(
@@ -287,7 +297,7 @@ impl ListNet {
             Self::INPUT_NR_FEATURES,
             "ListNet expects exactly {} features per document got {}",
             Self::INPUT_NR_FEATURES,
-            inputs.shape()[1]
+            inputs.shape()[1],
         );
 
         if nr_documents == 0 {
@@ -295,7 +305,7 @@ impl ListNet {
         }
 
         let intermediate_scores = {
-            let (scores, _) = self.calculate_intermediate_scores(inputs.view(), false);
+            let (scores, _) = self.calculate_intermediate_scores(inputs, false);
             debug_assert!(scores.is_standard_layout());
             scores.into_raw_vec()
         };
@@ -324,7 +334,7 @@ impl ListNet {
     /// Evaluates the ListNet on a given sample using the given cost function.
     pub fn evaluate(
         &self,
-        cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
+        cost_function: impl Fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
         sample: SampleView,
     ) -> f32 {
         let SampleView {
@@ -332,7 +342,7 @@ impl ListNet {
             target_prob_dist,
         } = sample;
         let (scores_y, _) = self.calculate_intermediate_scores(inputs, false);
-        let prob_dist_y = self.calculate_final_scores(&scores_y);
+        let prob_dist_y = self.calculate_final_scores(scores_y);
         cost_function(target_prob_dist, prob_dist_y.view())
     }
 
@@ -360,9 +370,9 @@ impl ListNet {
     }
 
     /// Run the the forward pass of back-propagation.
-    fn forward_pass(&self, inputs: ArrayView2<f32>) -> ForwardPassData {
+    fn forward_pass(&self, inputs: ArrayBase<impl Data<Elem = f32>, Ix2>) -> ForwardPassData {
         let (scores_y, partial_forward_pass) = self.calculate_intermediate_scores(inputs, true);
-        let prob_dist_y = self.calculate_final_scores(&scores_y);
+        let prob_dist_y = self.calculate_final_scores(scores_y.view());
 
         ForwardPassData {
             partial_forward_pass: partial_forward_pass.unwrap(),
@@ -374,8 +384,8 @@ impl ListNet {
     /// Run back propagation based on given inputs, target prob. dist. and forward pass data.
     fn back_propagation(
         &self,
-        inputs: ArrayView2<f32>,
-        target_prob_dist: ArrayView1<f32>,
+        inputs: ArrayBase<impl Data<Elem = f32>, Ix2>,
+        target_prob_dist: ArrayBase<impl Data<Elem = f32>, Ix1>,
         forward_pass: ForwardPassData,
     ) -> Option<GradientSet> {
         let ForwardPassData {
@@ -422,14 +432,14 @@ impl ListNet {
             d_scores.push(d_scores_part);
 
             let p_dense2 = self.scores.weights().dot(&p_scores)
-                * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
+                * Relu::partial_derivatives_at(dense2_z.slice(s![row, ..]));
             let d_dense2_part = self
                 .dense2
                 .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
             d_dense2.push(d_dense2_part);
 
             let p_dense1 = self.dense2.weights().dot(&p_dense2)
-                * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
+                * Relu::partial_derivatives_at(dense1_z.slice(s![row, ..]));
             let d_dense1_part = self
                 .dense1
                 .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());

@@ -49,7 +49,7 @@ impl Relu {
     ///
     /// I.e. it returns an array where for all values in the input an 1 is included
     /// if the value is positive or a 0 is included else wise.
-    pub fn partial_derivatives_at<S, D>(input: &ArrayBase<S, D>) -> Array<f32, D>
+    pub fn partial_derivatives_at<S, D>(input: ArrayBase<S, D>) -> Array<f32, D>
     where
         S: Data<Elem = f32>,
         D: Dimension,
@@ -59,15 +59,6 @@ impl Relu {
 }
 
 /// Softmax activation function.
-///
-/// # Panics on usage
-///
-/// - if the relative axis index is out of bounds
-///
-/// E.g. you can't use a `Softmax` activation function
-/// with an relative axis index of 10 on an array which
-/// is 2-dimensional (and as such only has support the
-/// relative axis indices 0,1,-1,-2).
 #[derive(Clone)]
 pub struct Softmax {
     rel_axis_idx: isize,
@@ -98,7 +89,11 @@ where
     ///
     /// # Panics
     ///
-    /// - If the relative axis index is out of bounds this will panic.
+    /// If the relative axis index is out of bounds this will panic,
+    /// e.g. you can't use a `Softmax` activation function
+    /// with an relative axis index of 10 on an array which
+    /// is 2-dimensional (and as such only has support the
+    /// relative axis indices 0,1,-1,-2).
     fn apply_to<S, D>(&self, input: ArrayBase<S, D>) -> ArrayBase<S, D>
     where
         S: DataOwned<Elem = A> + DataMut<Elem = A>,

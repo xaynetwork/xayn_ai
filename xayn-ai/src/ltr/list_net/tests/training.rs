@@ -381,19 +381,19 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
         // Inlined all functions involved into training to get *all* intermediates.
         let target_prob_dist = prepare_target_prob_dist(&relevances).unwrap();
         assert_trace_array!(test_guard =?= target_prob_dist);
-        let (dense1_y, dense1_z) = list_net.dense1.run(&inputs, true);
+        let (dense1_y, dense1_z) = list_net.dense1.run(inputs.view(), true);
         let dense1_z = dense1_z.unwrap();
         assert_trace_array!(test_guard =?= dense1_y, dense1_z);
-        let (dense2_y, dense2_z) = list_net.dense2.run(&dense1_y, true);
+        let (dense2_y, dense2_z) = list_net.dense2.run(dense1_y.view(), true);
         let dense2_z = dense2_z.unwrap();
         assert_trace_array!(test_guard =?= dense2_y, dense2_z);
-        let (scores_y, scores_z) = list_net.scores.run(&dense2_y, true);
+        let (scores_y, scores_z) = list_net.scores.run(dense2_y.view(), true);
         let scores_z = scores_z.unwrap();
         assert_trace_array!(test_guard =?= scores_y, scores_z);
 
         let scores_y = scores_y.index_axis_move(Axis(1), 0);
 
-        let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(&scores_y, true);
+        let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(scores_y.view(), true);
         let prob_dist_z = prob_dist_z.unwrap();
         assert_trace_array!(test_guard =?= prob_dist_y, prob_dist_z);
 
@@ -427,7 +427,7 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
             d_scores.push(d_scores_part);
 
             let p_dense2 = list_net.scores.weights().dot(&p_scores)
-                * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
+                * Relu::partial_derivatives_at(dense2_z.slice(s![row, ..]));
             assert_trace_array!(test_guard [row] =?= p_dense2);
             let d_dense2_part = list_net
                 .dense2
@@ -440,7 +440,7 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
             d_dense2.push(d_dense2_part);
 
             let p_dense1 = list_net.dense2.weights().dot(&p_dense2)
-                * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
+                * Relu::partial_derivatives_at(dense1_z.slice(s![row, ..]));
             assert_trace_array!(test_guard [row] =?= p_dense1);
             let d_dense1_part = list_net
                 .dense1

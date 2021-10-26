@@ -102,7 +102,7 @@ where
     /// Returns the mean cost over all samples of the evaluation dataset using the given cost function.
     fn evaluate_epoch(
         &mut self,
-        cost_function: fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
+        cost_function: impl Fn(ArrayView1<f32>, ArrayView1<f32>) -> f32 + Copy + Send + Sync,
     ) -> Result<(), TrainingError<D::Error, C::Error>> {
         let Self {
             data_source,

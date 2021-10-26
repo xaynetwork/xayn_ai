@@ -1,18 +1,18 @@
 //! This module contains utility for loading storing ndarray arrays
 
-use bincode::Options;
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
     fs::File,
-    io::{self, BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Error as IoError, Read, Write},
     path::Path,
 };
 
-use thiserror::Error;
-
+use bincode::{DefaultOptions, Error as BinError, ErrorKind, Options};
+use displaydoc::Display;
 use ndarray::{Array, ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix1, IxDyn};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Deserialization helper representing a flattened array.
 ///
@@ -78,19 +78,18 @@ where
     }
 }
 
-#[derive(Debug, Error)]
-#[error("Unexpected number of dimensions: got={got}, expected={expected}")]
+/// Unexpected number of dimensions: got={got}, expected={expected}"
+#[derive(Debug, Display, Error)]
 pub struct UnexpectedNumberOfDimensions {
     got: usize,
     expected: usize,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error)]
 pub enum FailedToRetrieveParams {
-    #[error(transparent)]
+    /// {0}
     UnexpectedNumberOfDimensions(#[from] UnexpectedNumberOfDimensions),
-
-    #[error("Missing parameters for {name}.")]
+    /// Missing parameters for {name}
     MissingParameters { name: String },
 }
 
@@ -141,7 +140,7 @@ impl TryIntoDimension for IxDyn {
         Ok(slice.into_dimension())
     }
 }
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct BinParams {
     params: HashMap<String, FlattenedArray<f32>>,
@@ -159,24 +158,21 @@ impl BinParams {
         bincode.deserialize_from(source).map_err(Into::into)
     }
 
-    pub fn serialize_into_file(
-        &self,
-        path: impl AsRef<Path>,
-    ) -> Result<(), Box<bincode::ErrorKind>> {
+    pub fn serialize_into_file(&self, path: impl AsRef<Path>) -> Result<(), Box<ErrorKind>> {
         let file = File::create(path)?;
         let writer = BufWriter::new(file);
         self.serialize_into(writer)
     }
 
-    pub fn serialize_into(&self, writer: impl Write) -> Result<(), Box<bincode::ErrorKind>> {
+    pub fn serialize_into(&self, writer: impl Write) -> Result<(), Box<ErrorKind>> {
         let bincode = Self::setup_bincode();
         bincode.serialize_into(writer, self)
     }
 
-    fn setup_bincode() -> impl bincode::Options {
+    fn setup_bincode() -> impl Options {
         // we explicitly set some default options to
         // convey exactly which options we use.
-        bincode::DefaultOptions::new()
+        DefaultOptions::new()
             .with_little_endian()
             .with_fixint_encoding()
             .reject_trailing_bytes()
@@ -206,10 +202,11 @@ impl BinParams {
     }
 
     /// Insert an array of given name (replacing any array previously set for that name).
-    pub(crate) fn insert<A>(&mut self, name: impl Into<String>, array: A)
-    where
-        FlattenedArray<f32>: From<A>,
-    {
+    pub(crate) fn insert(
+        &mut self,
+        name: impl Into<String>,
+        array: impl Into<FlattenedArray<f32>>,
+    ) {
         self.params.insert(name.into(), array.into());
     }
 
@@ -245,25 +242,23 @@ impl Iterator for BinParamsIntoIter {
     }
 }
 
-#[derive(Debug, Error)]
+/// Loading of binary parameters failed
+#[derive(Debug, Display, Error)]
+#[prefix_enum_doc_attributes]
 pub enum LoadingBinParamsFailed {
-    #[error(transparent)]
-    Io(#[from] io::Error),
-
-    #[error(transparent)]
-    DeserializationFailed(#[from] bincode::Error),
+    /// {0}
+    Io(#[from] IoError),
+    /// {0}
+    DeserializationFailed(#[from] BinError),
 }
 
 /// A wrapper embedding a prefix with the bin params.
-//Note: In the future we might have some Loader trait but given
-//that we currently only use it at one place that would be
-//overkill
 pub struct BinParamsWithScope<'a> {
     params: &'a mut BinParams,
     prefix: String,
 }
 
-impl<'a> BinParamsWithScope<'a> {
+impl BinParamsWithScope<'_> {
     pub fn take<A>(&mut self, name: &str) -> Result<A, FailedToRetrieveParams>
     where
         FlattenedArray<f32>: TryInto<A, Error = UnexpectedNumberOfDimensions>,
@@ -273,10 +268,7 @@ impl<'a> BinParamsWithScope<'a> {
     }
 
     /// Insert a array under given name combined with the current prefix (replacing any array previously set for that name).
-    pub fn insert<A>(&mut self, name: &str, array: A)
-    where
-        FlattenedArray<f32>: From<A>,
-    {
+    pub fn insert(&mut self, name: &str, array: impl Into<FlattenedArray<f32>>) {
         let name = self.create_name(name);
         self.params.insert(name, array);
     }

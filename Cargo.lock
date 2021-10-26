@@ -738,6 +738,7 @@ name = "layer"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "displaydoc",
  "ndarray",
  "rand",
  "rand_distr",
