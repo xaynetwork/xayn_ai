@@ -257,9 +257,8 @@ impl CoiSystemData for DocumentDataWithRank {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::mock_coi_id;
-
     use super::*;
+    use crate::coi::CoiId;
     use ndarray::arr1;
 
     #[test]
@@ -295,7 +294,7 @@ mod tests {
         assert_eq!(document_data.qambert, qambert);
 
         let coi = CoiComponent {
-            id: mock_coi_id(9),
+            id: CoiId::mocked(9),
             pos_distance: 0.7,
             neg_distance: 0.2,
         };

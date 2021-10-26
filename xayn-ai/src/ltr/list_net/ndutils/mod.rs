@@ -115,6 +115,7 @@ mod tests {
     use ndarray::{arr1, arr2, arr3};
 
     use super::*;
+    use test_utils::assert_approx_eq;
 
     #[test]
     fn test_softmax_1d() {

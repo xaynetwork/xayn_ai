@@ -53,11 +53,12 @@ impl CumFeaturesAccumulator {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::mock_uuid;
-
-    use super::super::{Action, DayOfWeek, Query, QueryId, Rank, SessionId};
-
-    use super::*;
+    use super::{
+        super::{Action, DayOfWeek, Query, QueryId, Rank, SessionId},
+        *,
+    };
+    use crate::tests::mock_uuid;
+    use test_utils::assert_approx_eq;
 
     fn history<'a>(iter: impl IntoIterator<Item = &'a (&'a str, Action)>) -> Vec<HistSearchResult> {
         iter.into_iter()

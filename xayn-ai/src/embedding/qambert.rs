@@ -75,7 +75,10 @@ impl QAMBertSystem for NeutralQAMBert {
 #[cfg(test)]
 mod tests {
     use rubert::{AveragePooler, QAMBertBuilder};
-    use test_utils::qambert::{model, vocab};
+    use test_utils::{
+        assert_approx_eq,
+        qambert::{model, vocab},
+    };
 
     use super::*;
     use crate::tests::documents_with_embeddings_from_snippet_and_query;
