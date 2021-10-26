@@ -11,7 +11,7 @@ env:
   RUST_STABLE: 1.51
   CARGO_NDK: 2.4.1
   ANDROID_PLATFORM_VERSION: 21
-  FLUTTER_VERSION: '2.5.0'
+  FLUTTER_VERSION: '2.5.3'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
   PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
