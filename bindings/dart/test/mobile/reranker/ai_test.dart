@@ -22,7 +22,8 @@ void main() {
   group('XaynAi', () {
     test('rerank full', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = await ai.rerank(RerankMode.search, histories, documents);
+      final outcome =
+          await ai.rerank(RerankMode.personalizedSearch, histories, documents);
       final faults = await ai.faults();
 
       expect(outcome.finalRanks.length, equals(documents.length));
@@ -35,18 +36,19 @@ void main() {
 
     test('rerank empty', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = await ai.rerank(RerankMode.search, [], []);
+      final outcome = await ai.rerank(RerankMode.personalizedSearch, [], []);
       final faults = await ai.faults();
 
       expect(outcome.finalRanks, isEmpty);
-      expect(faults, isNot(isEmpty));
+      expect(faults, isEmpty);
 
       await ai.free();
     });
 
     test('rerank empty hists', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = await ai.rerank(RerankMode.search, [], documents);
+      final outcome =
+          await ai.rerank(RerankMode.personalizedSearch, [], documents);
       final faults = await ai.faults();
 
       expect(outcome.finalRanks.length, equals(documents.length));
@@ -59,11 +61,12 @@ void main() {
 
     test('rerank empty docs', () async {
       final ai = await XaynAi.create(mkSetupData());
-      final outcome = await ai.rerank(RerankMode.search, histories, []);
+      final outcome =
+          await ai.rerank(RerankMode.personalizedSearch, histories, []);
       final faults = await ai.faults();
 
       expect(outcome.finalRanks, isEmpty);
-      expect(faults, isNot(isEmpty));
+      expect(faults, isEmpty);
 
       await ai.free();
     });

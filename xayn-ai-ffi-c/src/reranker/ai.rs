@@ -591,7 +591,7 @@ mod tests {
         let outcomes = unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
-                RerankMode::Search,
+                RerankMode::PersonalizedSearch,
                 hists.as_ptr(),
                 docs.as_ptr(),
                 error.as_mut_ptr(),
@@ -1307,7 +1307,7 @@ mod tests {
         assert!(unsafe {
             xaynai_rerank(
                 invalid,
-                RerankMode::Search,
+                RerankMode::PersonalizedSearch,
                 hists.as_ptr(),
                 docs.as_ptr(),
                 error.as_mut_ptr(),
@@ -1428,7 +1428,7 @@ mod tests {
         assert!(unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
-                RerankMode::Search,
+                RerankMode::PersonalizedSearch,
                 invalid,
                 docs.as_ptr(),
                 error.as_mut_ptr(),
@@ -1474,7 +1474,7 @@ mod tests {
         assert!(unsafe {
             xaynai_rerank(
                 xaynai.as_mut_ptr(),
-                RerankMode::Search,
+                RerankMode::PersonalizedSearch,
                 hists.as_ptr(),
                 invalid,
                 error.as_mut_ptr(),

@@ -6,9 +6,9 @@ mod utils;
 
 pub(crate) use config::Configuration;
 pub(crate) use merge::reduce_cois;
-pub(crate) use system::CoiSystem;
 #[cfg(test)]
 pub(crate) use system::CoiSystemError;
+pub(crate) use system::{CoiSystem, NeutralCoiSystem};
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};

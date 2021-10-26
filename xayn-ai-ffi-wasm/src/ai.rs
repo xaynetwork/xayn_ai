@@ -344,7 +344,8 @@ mod tests {
     }
 
     fn rerank_mode_search() -> JsValue {
-        JsValue::from_serde(&RerankMode::Search).expect("rerank mode search")
+        JsValue::from_serde(&RerankMode::PersonalizedSearch)
+            .expect("rerank mode personalized search")
     }
 
     #[wasm_bindgen_test]

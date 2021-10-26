@@ -107,7 +107,7 @@ impl GenerateCallDataCmd {
             gen_current_query_from_history(&histories[start_of_last_query..], &mut gen_state);
 
         let call_data = CallData {
-            rerank_mode: RerankMode::Search,
+            rerank_mode: RerankMode::PersonalizedSearch,
             histories,
             documents,
             serialized_state: None,
