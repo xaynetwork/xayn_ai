@@ -4,8 +4,6 @@ version = "0.1.0"
 authors = ["Xayn Engineering <engineering@xaynet.dev>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 derive_more = { version = "0.99.16", default-features = false, features = ["deref", "from"] }
 displaydoc = "0.2.3"
