@@ -40,7 +40,7 @@ void main() {
       final faults = await ai.faults();
 
       expect(outcome.finalRanks, isEmpty);
-      expect(faults, isNot(isEmpty));
+      expect(faults, isEmpty);
 
       await ai.free();
     });
@@ -66,7 +66,7 @@ void main() {
       final faults = await ai.faults();
 
       expect(outcome.finalRanks, isEmpty);
-      expect(faults, isNot(isEmpty));
+      expect(faults, isEmpty);
 
       await ai.free();
     });
