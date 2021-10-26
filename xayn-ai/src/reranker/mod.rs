@@ -249,7 +249,7 @@ where
             NeutralCoiSystem.compute_coi(documents, &self.data.sync_data.user_interests)?;
         let documents = ConstLtr.compute_ltr(history, documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
-        let documents = rank_by_identity(documents);
+        let documents = rank_by_identity(documents); // stable order needed
 
         Ok(documents)
     }
@@ -290,7 +290,7 @@ where
             NeutralCoiSystem.compute_coi(documents, &self.data.sync_data.user_interests)?;
         let documents = ConstLtr.compute_ltr(history, documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
-        let documents = rank_by_similarity(documents);
+        let documents = rank_by_context(documents);
 
         Ok(documents)
     }
@@ -330,13 +330,6 @@ pub(crate) fn rank_by_context(mut docs: Vec<DocumentDataWithContext>) -> Vec<Doc
     docs.sort_unstable_by(|a, b| {
         nan_safe_f32_cmp(&b.context.context_value, &a.context.context_value)
     });
-    rank_by_identity(docs)
-}
-
-pub(crate) fn rank_by_similarity(
-    mut docs: Vec<DocumentDataWithContext>,
-) -> Vec<DocumentDataWithRank> {
-    docs.sort_unstable_by(|a, b| nan_safe_f32_cmp(&b.qambert.similarity, &a.qambert.similarity));
     rank_by_identity(docs)
 }
 

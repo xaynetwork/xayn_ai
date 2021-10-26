@@ -63,7 +63,7 @@ impl ContextCalc {
         let frac_neg = (1. + (self.neg_max - neg)).recip();
         let frac_similarity = (self.similarity_avg > 0.)
             .then(|| (1. + similarity / self.similarity_avg).recip())
-            .unwrap_or(1.);
+            .unwrap_or(0.5);
 
         // frac_similarity weights 70% all the others weight 10%
         (frac_similarity * 7. + frac_pos + frac_neg + ltr_score) / 10.
