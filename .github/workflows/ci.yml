@@ -104,6 +104,20 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
+  cargo-sort:
+    name: cargo-sort
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.5
+
+      - name: Install cargo-sort
+        uses: ./.ci/install-cargo-sort
+
+      - name: cargo sort
+        run: cargo sort --grouped --workspace --check
+
   cargo-check:
     name: cargo-check
     needs: cargo-registry-cache
@@ -665,6 +679,7 @@ jobs:
   one-leaf:
     name: ignore-me
     needs:
+      - cargo-sort
       - flutter-format
       - cargo-tarpaulin
       - test-wasm-libs
