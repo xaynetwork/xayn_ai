@@ -679,6 +679,7 @@ jobs:
   one-leaf:
     name: ignore-me
     needs:
+      - cargo-sort
       - flutter-format
       - cargo-tarpaulin
       - test-wasm-libs
