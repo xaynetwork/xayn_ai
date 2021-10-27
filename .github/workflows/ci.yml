@@ -128,18 +128,10 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            ~/.cargo/bin/cargo-sort
           key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Install cargo-sort
-        run: cargo install cargo-sort || true
-
-      - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
-        with:
-          path: ~/.cargo/bin/cargo-sort
-          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
-          restore-keys: ${{ needs.cargo-registry-cache.outputs.cache-key }}
+        uses: ./.ci/install-cargo-sort
 
       - name: cargo sort
         run: cargo sort --grouped --workspace --check
