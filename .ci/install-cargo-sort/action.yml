@@ -1,0 +1,29 @@
+name: 'cargo-sort'
+description: 'Installs cargo-sort'
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        LINUX_URL: https://github.com/DevinR528/cargo-sort/releases/download/v1.0.5/cargo-sort-x86_64-unknown-linux-gnu.tar.gz
+        LINUX_CHECKSUM: ad909aed897f0eb4cda43f3884a5f7a4d403b7b8f1645e8f16ead33a7bbbf79cdf0ed85382777c70b7823d0d9f291dfd63dbbd63a8b8f5853acc00bbb3e8aa61
+        MACOS_URL: https://github.com/DevinR528/cargo-sort/releases/download/v1.0.5/cargo-sort-x86_64-apple-darwin.tar.gz
+        MACOS_CHECKSUM: b838f6333a47a649b2ea17e50803fe8dc89885570c3c2a97de9e92679f517b052de561db1a302aa265ad93c8db4731de4c032a0a84f5ec62ae5ff5f09693de4d
+      run: |
+        if [ ${{ runner.os }} == "Linux" ]; then
+          URL=${{ env.LINUX_URL }}
+          CHECKSUM=${{ env.LINUX_CHECKSUM }}
+        elif [ ${{ runner.os }} == "macOS" ]; then
+          URL=${{ env.MACOS_URL }}
+          CHECKSUM=${{ env.MACOS_CHECKSUM }}
+        else
+          echo "::error cargo-sort for ${{ runner.os }} is not supported"
+          exit 1
+        fi
+
+        wget -q -O cargo-sort $URL
+        echo "$CHECKSUM *cargo-sort" | shasum -c -
+        tar -xf cargo-sort
+        chmod u+x cargo-sort
+        mv cargo-sort $HOME/.cargo/bin
