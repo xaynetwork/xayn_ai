@@ -95,6 +95,6 @@ Future<void> free(ffi.XaynAi? ai, Request request) async {
   request.sender.sendResponse(Response.ok);
 }
 
-extension SendRequest on Sender {
+extension SendResponse on Sender {
   void sendResponse(Response response) => send(response.toJson());
 }
