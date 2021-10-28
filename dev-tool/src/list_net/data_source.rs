@@ -520,6 +520,7 @@ mod tests {
     use itertools::Itertools;
     use ndarray::Array;
     use rand::{prelude::StdRng, SeedableRng};
+
     use test_utils::assert_approx_eq;
     use xayn_ai::list_net::DataSource as _;
 

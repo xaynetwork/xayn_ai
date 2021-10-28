@@ -580,7 +580,7 @@ mod tests {
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
             error.message(),
-            "Failed to initialize the ai: io error: failed to fill whole buffer",
+            "Failed to initialize the ai: Loading of binary parameters failed: io error: failed to fill whole buffer",
         );
     }
 
@@ -641,7 +641,7 @@ mod tests {
         assert_eq!(error.code(), CCode::InitAi);
         assert_eq!(
             error.message(),
-            "Failed to initialize the ai: io error: failed to fill whole buffer"
+            "Failed to initialize the ai: Loading of binary parameters failed: io error: failed to fill whole buffer",
         );
     }
 

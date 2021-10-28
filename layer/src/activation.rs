@@ -1,12 +1,34 @@
 use ndarray::{Array, ArrayBase, Axis, Data, DataMut, DataOwned, Dimension, NdFloat, RemoveAxis};
 
-use super::super::ndutils::softmax;
+use crate::utils::softmax;
 
-use super::ActivationFunction;
+/// Trait representing an activation function.
+pub trait ActivationFunction<A> {
+    /// Applies the activation function to the given array.
+    ///
+    /// In most cases this will call `input.mapv_inplace` to
+    /// apply some function element wise.
+    ///
+    /// # Panics
+    ///
+    /// Wrongly configured activation functions might panic when
+    /// called with incompatible inputs.
+    ///
+    /// For example using a `Softmax` activation function which
+    /// should create the `Softmax` over the 10th axis cannot
+    /// work if the input array only has 2 axes.
+    ///
+    /// Any activation function for which this can happen should
+    /// document it on the type level documentation.
+    fn apply_to<S, D>(&self, input: ArrayBase<S, D>) -> ArrayBase<S, D>
+    where
+        S: DataOwned<Elem = A> + DataMut<Elem = A>,
+        D: Dimension + RemoveAxis;
+}
 
 /// reLu activation function.
 #[derive(Clone)]
-pub(crate) struct Relu;
+pub struct Relu;
 
 impl<A> ActivationFunction<A> for Relu
 where
@@ -27,7 +49,7 @@ impl Relu {
     ///
     /// I.e. it returns an array where for all values in the input an 1 is included
     /// if the value is positive or a 0 is included else wise.
-    pub(crate) fn partial_derivatives_at<S, D>(input: &ArrayBase<S, D>) -> Array<f32, D>
+    pub fn partial_derivatives_at<S, D>(input: ArrayBase<S, D>) -> Array<f32, D>
     where
         S: Data<Elem = f32>,
         D: Dimension,
@@ -37,17 +59,8 @@ impl Relu {
 }
 
 /// Softmax activation function.
-///
-/// # Panics on usage
-///
-/// - if the relative axis index is out of bounds
-///
-/// E.g. you can't use a `Softmax` activation function
-/// with an relative axis index of 10 on an array which
-/// is 2-dimensional (and as such only has support the
-/// relative axis indices 0,1,-1,-2).
 #[derive(Clone)]
-pub(crate) struct Softmax {
+pub struct Softmax {
     rel_axis_idx: isize,
 }
 
@@ -76,7 +89,11 @@ where
     ///
     /// # Panics
     ///
-    /// - If the relative axis index is out of bounds this will panic.
+    /// If the relative axis index is out of bounds this will panic,
+    /// e.g. you can't use a `Softmax` activation function
+    /// with an relative axis index of 10 on an array which
+    /// is 2-dimensional (and as such only has support the
+    /// relative axis indices 0,1,-1,-2).
     fn apply_to<S, D>(&self, input: ArrayBase<S, D>) -> ArrayBase<S, D>
     where
         S: DataOwned<Elem = A> + DataMut<Elem = A>,
@@ -99,7 +116,7 @@ where
 /// Like common this is a identity function used
 /// in cases where there no activation function is needed.
 #[derive(Clone)]
-pub(crate) struct Linear;
+pub struct Linear;
 
 impl<A> ActivationFunction<A> for Linear {
     fn apply_to<S, D>(&self, input: ArrayBase<S, D>) -> ArrayBase<S, D>
@@ -150,7 +167,6 @@ mod tests {
 
     #[test]
     fn test_softmax_activation_function_works() {
-        use super::super::super::ndutils::softmax;
         let relu = Softmax::new(-2);
         let array = arr3(&[
             [[-1.0f32, 2.], [3.5, -4.0]],

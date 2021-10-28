@@ -1191,7 +1191,10 @@ mod tests {
         assert_eq!(error.code, CCode::InitAi);
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
-            format!("{}: io error: failed to fill whole buffer", FAIL_INIT_AI),
+            format!(
+                "{}: Loading of binary parameters failed: io error: failed to fill whole buffer",
+                FAIL_INIT_AI,
+            ),
         );
 
         unsafe { error_message_drop(error.as_mut_ptr()) };

@@ -7,10 +7,10 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use structopt::StructOpt;
 
-use xayn_ai::list_net::{ndutils::kl_divergence, DataSource as _, ListNet};
-
 use super::data_source::{DataSource, InMemoryStorage};
 use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
+use layer::utils::kl_divergence;
+use xayn_ai::list_net::{DataSource as _, ListNet};
 
 /// Runs a single evaluation pass on a ListNet.
 #[derive(StructOpt, Debug)]

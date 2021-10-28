@@ -10,7 +10,8 @@ use std::{
 use bincode::Error;
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 use log::{debug, info, trace};
-use rayon::prelude::*;
+use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
+
 use xayn_ai::list_net::{GradientSet, ListNet, SampleOwned, SampleView, TrainingController};
 
 /// Builder to create a [`CliTrainingController`].

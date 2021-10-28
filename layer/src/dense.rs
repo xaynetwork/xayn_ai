@@ -1,10 +1,6 @@
 use std::ops::{AddAssign, DivAssign, MulAssign};
 
-use super::super::ndutils::io::{
-    BinParamsWithScope,
-    FailedToRetrieveParams,
-    UnexpectedNumberOfDimensions,
-};
+use displaydoc::Display;
 use ndarray::{
     linalg::Dot,
     Array,
@@ -15,31 +11,54 @@ use ndarray::{
     ArrayView2,
     Data,
     Dimension,
+    IntoDimension,
     IxDyn,
     RemoveAxis,
 };
 use thiserror::Error;
 
-use super::ActivationFunction;
+use crate::{
+    activation::ActivationFunction,
+    io::{BinParamsWithScope, FailedToRetrieveParams, UnexpectedNumberOfDimensions},
+};
 
-/// Error triggered if two matrices which should be used together are not compatible.
-#[derive(Debug, Error)]
-#[error("Can't combine {name_left}({shape_left:?}) with {name_right}({shape_right:?}): {hint}")]
+/// Can't combine {name_left}({shape_left:?}) with {name_right}({shape_right:?}): {hint}
+#[derive(Debug, Display, Error)]
 pub struct IncompatibleMatrices {
-    pub name_left: &'static str,
-    pub shape_left: IxDyn,
-    pub name_right: &'static str,
-    pub shape_right: IxDyn,
-    pub hint: &'static str,
+    name_left: &'static str,
+    shape_left: IxDyn,
+    name_right: &'static str,
+    shape_right: IxDyn,
+    hint: &'static str,
 }
 
-#[derive(Debug, Error)]
+impl IncompatibleMatrices {
+    pub fn new(
+        name_left: &'static str,
+        shape_left: impl IntoDimension,
+        name_right: &'static str,
+        shape_right: impl IntoDimension,
+        hint: &'static str,
+    ) -> Self {
+        Self {
+            name_left,
+            shape_left: shape_left.into_dimension().into_dyn(),
+            name_right,
+            shape_right: shape_right.into_dimension().into_dyn(),
+            hint,
+        }
+    }
+}
+
+/// Failed to load the Dense layer
+#[derive(Debug, Display, Error)]
+#[prefix_enum_doc_attributes]
 pub enum LoadingDenseFailed {
-    #[error(transparent)]
+    /// {0}
     IncompatibleMatrices(#[from] IncompatibleMatrices),
-    #[error(transparent)]
+    /// {0}
     DimensionMismatch(#[from] UnexpectedNumberOfDimensions),
-    #[error(transparent)]
+    /// {0}
     FailedToRetrieveParams(#[from] FailedToRetrieveParams),
 }
 
@@ -48,7 +67,7 @@ pub enum LoadingDenseFailed {
 /// This can be used for both 1D and 2D inputs depending
 /// on the activation function.
 #[derive(Clone)]
-pub(crate) struct Dense<AF>
+pub struct Dense<AF>
 where
     AF: ActivationFunction<f32>,
 {
@@ -61,26 +80,18 @@ impl<AF> Dense<AF>
 where
     AF: ActivationFunction<f32>,
 {
-    pub(crate) fn load(
-        mut params: BinParamsWithScope,
-        activation_function: AF,
-    ) -> Result<Self, LoadingDenseFailed> {
-        let weights = params.take("weights")?;
-        let bias = params.take("bias")?;
-        Ok(Self::new(weights, bias, activation_function)?)
-    }
-
-    pub(crate) fn store_params(self, mut params: BinParamsWithScope) {
-        params.insert("weights", self.weights);
-        params.insert("bias", self.bias);
-    }
-
-    pub(crate) fn new(
+    pub fn new(
         weights: Array2<f32>,
         bias: Array1<f32>,
         activation_function: AF,
     ) -> Result<Self, IncompatibleMatrices> {
-        if weights.shape()[1] != bias.shape()[0] {
+        if weights.shape()[1] == bias.shape()[0] {
+            Ok(Self {
+                weights,
+                bias,
+                activation_function,
+            })
+        } else {
             Err(IncompatibleMatrices {
                 name_left: "Dense/weights",
                 shape_left: weights.raw_dim().into_dyn(),
@@ -88,16 +99,35 @@ where
                 shape_right: bias.raw_dim().into_dyn(),
                 hint: "expected weights[1] == bias[0] for broadcasting bias add",
             })
-        } else {
-            Ok(Self {
-                weights,
-                bias,
-                activation_function,
-            })
         }
     }
 
-    pub(crate) fn check_in_out_shapes<D>(&self, mut shape: D) -> Result<D, IncompatibleMatrices>
+    pub fn load(
+        mut params: BinParamsWithScope,
+        activation_function: AF,
+    ) -> Result<Self, LoadingDenseFailed> {
+        Self::new(
+            params.take("weights")?,
+            params.take("bias")?,
+            activation_function,
+        )
+        .map_err(Into::into)
+    }
+
+    pub fn weights(&self) -> ArrayView2<f32> {
+        self.weights.view()
+    }
+
+    pub fn bias(&self) -> ArrayView1<f32> {
+        self.bias.view()
+    }
+
+    pub fn store_params(self, mut params: BinParamsWithScope) {
+        params.insert("weights", self.weights);
+        params.insert("bias", self.bias);
+    }
+
+    pub fn check_in_out_shapes<D>(&self, mut shape: D) -> Result<D, IncompatibleMatrices>
     where
         D: Dimension,
     {
@@ -105,39 +135,38 @@ where
         let name_left = "dense/input";
         let name_right = "dense/weights";
         let shape_right = self.weights.raw_dim();
-        match ndim {
-            1 | 2 => {
-                if shape[ndim - 1] != shape_right[0] {
-                    Err(IncompatibleMatrices {
-                        name_left,
-                        shape_left: shape.into_dyn(),
-                        name_right,
-                        shape_right: shape_right.into_dyn(),
-                        hint: "input matrix can't be dot multipled with weight matrix",
-                    })
-                } else {
-                    shape[ndim - 1] = shape_right[1];
-                    Ok(shape)
-                }
+        if let 1 | 2 = ndim {
+            if shape[ndim - 1] == shape_right[0] {
+                shape[ndim - 1] = shape_right[1];
+                Ok(shape)
+            } else {
+                Err(IncompatibleMatrices::new(
+                    name_left,
+                    shape,
+                    name_right,
+                    shape_right,
+                    "input matrix can't be dot multipled with weight matrix",
+                ))
             }
-            _ => Err(IncompatibleMatrices {
+        } else {
+            Err(IncompatibleMatrices::new(
                 name_left,
-                shape_left: shape.into_dyn(),
+                shape,
                 name_right,
-                shape_right: shape_right.into_dyn(),
-                hint: "can only use dot product with 1- or 2-dimensional arrays",
-            }),
+                shape_right,
+                "can only use dot product with 1- or 2-dimensional arrays",
+            ))
         }
     }
 
-    /// Returns the result of applying this dense layer on given inputs.
+    /// Applies the dense layer on the given inputs.
     ///
     /// If `for_back_propagation` is `true` this will also return the
     /// intermediate result (`z_out`) from before the activation function
     /// was applied. If not then `None` is returned instead.
-    pub(crate) fn run<S, D>(
+    pub fn run<S, D>(
         &self,
-        input: &ArrayBase<S, D>,
+        input: ArrayBase<S, D>,
         for_back_propagation: bool,
     ) -> (Array<f32, D>, Option<Array<f32, D>>)
     where
@@ -147,17 +176,18 @@ where
     {
         let mut out = input.dot(&self.weights);
         out += &self.bias;
-        let z_out = for_back_propagation.then(|| out.clone());
+        let z_out = for_back_propagation.then(|| out.to_owned());
         let y_out = self.activation_function.apply_to(out);
+
         (y_out, z_out)
     }
 
     /// Calculates the gradients of a dense layer based on the relevant partial derivatives.
     ///
-    /// # Panic
+    /// # Panics
     ///
-    /// The `input` and `partials` arrays are supposed to be c- or f-contiguous.
-    pub(crate) fn gradients_from_partials_1d(
+    /// The `input` and `partials` arrays are expected to be c- or f-contiguous.
+    pub fn gradients_from_partials_1d(
         &self,
         input: ArrayView1<f32>,
         partials: ArrayView1<f32>,
@@ -193,28 +223,19 @@ where
     }
 
     /// Adds given gradients to the weight and bias matrices.
-    pub(crate) fn add_gradients(&mut self, gradients: &DenseGradientSet) {
+    pub fn add_gradients(&mut self, gradients: &DenseGradientSet) {
         self.weights += &gradients.weight_gradients;
         self.bias += &gradients.bias_gradients;
     }
 
-    pub(crate) fn weights(&self) -> ArrayView2<f32> {
-        self.weights.view()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn bias(&self) -> &Array1<f32> {
-        &self.bias
-    }
-
     /// Divides all parameters (weights, bias) of this dense layer in place.
-    pub(crate) fn div_parameters_by(&mut self, denominator: f32) {
+    pub fn div_parameters_by(&mut self, denominator: f32) {
         self.weights /= denominator;
         self.bias /= denominator;
     }
 
     /// Adds all parameters of `other` to `self`.
-    pub(crate) fn add_parameters_of(&mut self, other: Self) {
+    pub fn add_parameters_of(&mut self, other: Self) {
         let Dense {
             weights,
             bias,
@@ -229,17 +250,32 @@ where
 ///
 /// (Assuming the activation function has no parameters. It might still have
 /// hyper-parameters.)
-#[cfg_attr(test, derive(Debug, Clone))]
-pub(crate) struct DenseGradientSet {
-    pub(crate) weight_gradients: Array2<f32>,
-    pub(crate) bias_gradients: Array1<f32>,
+#[derive(Debug, Clone)]
+pub struct DenseGradientSet {
+    weight_gradients: Array2<f32>,
+    bias_gradients: Array1<f32>,
 }
 
 impl DenseGradientSet {
+    pub fn new(weight_gradients: Array2<f32>, bias_gradients: Array1<f32>) -> Self {
+        Self {
+            weight_gradients,
+            bias_gradients,
+        }
+    }
+
+    pub fn weight_gradients(&self) -> &Array2<f32> {
+        &self.weight_gradients
+    }
+
+    pub fn bias_gradients(&self) -> &Array1<f32> {
+        &self.bias_gradients
+    }
+
     /// Merge multiple gradients for the same shared weights.
     ///
     /// This will just sum them up.
-    pub(crate) fn merge_shared(
+    pub fn merge_shared(
         gradients_for_shared_weights: impl IntoIterator<Item = Self>,
     ) -> Option<Self> {
         gradients_for_shared_weights.into_iter().reduce(|mut l, r| {
@@ -251,18 +287,6 @@ impl DenseGradientSet {
 
 impl AddAssign for DenseGradientSet {
     fn add_assign(&mut self, rhs: Self) {
-        debug_assert_eq!(
-            (self.weight_gradients.shape(), self.bias_gradients.shape()),
-            (rhs.weight_gradients.shape(), rhs.bias_gradients.shape())
-        );
-        self.weight_gradients += &rhs.weight_gradients;
-        self.bias_gradients += &rhs.bias_gradients;
-    }
-}
-
-#[cfg(test)]
-impl<'a> AddAssign<&'a Self> for DenseGradientSet {
-    fn add_assign(&mut self, rhs: &Self) {
         debug_assert_eq!(
             (self.weight_gradients.shape(), self.bias_gradients.shape()),
             (rhs.weight_gradients.shape(), rhs.bias_gradients.shape())
@@ -290,11 +314,21 @@ impl DivAssign<f32> for DenseGradientSet {
 mod tests {
     use ndarray::{arr1, arr2, Array1, Array2, IntoDimension};
 
-    use super::{
-        super::activation::{Linear, Relu},
-        Dense,
-    };
+    use crate::activation::{Linear, Relu};
     use test_utils::assert_approx_eq;
+
+    use super::*;
+
+    impl<'a> AddAssign<&'a Self> for DenseGradientSet {
+        fn add_assign(&mut self, rhs: &Self) {
+            debug_assert_eq!(
+                (self.weight_gradients.shape(), self.bias_gradients.shape()),
+                (rhs.weight_gradients.shape(), rhs.bias_gradients.shape())
+            );
+            self.weight_gradients += &rhs.weight_gradients;
+            self.bias_gradients += &rhs.bias_gradients;
+        }
+    }
 
     #[test]
     fn test_dense_matrix_for_2d_input() {
@@ -307,13 +341,13 @@ mod tests {
         // (..., features) = (2, 3);
         let inputs = arr2(&[[10., 1., -10.], [0., 10., 0.]]);
         let expected = arr2(&[[-15.5, 30.], [40.5, 82.]]);
-        let (res, _) = dense.run(&inputs, false);
+        let (res, _) = dense.run(inputs, false);
         assert_approx_eq!(f32, res, expected);
 
         // (..., features) = (1, 3);
         let inputs = arr2(&[[0.5, 1.0, -0.5]]);
         let expected = arr2(&[[3.5, 11.]]);
-        let (res, _) = dense.run(&inputs, false);
+        let (res, _) = dense.run(inputs, false);
         assert_approx_eq!(f32, res, expected);
     }
 
@@ -325,7 +359,7 @@ mod tests {
 
         let inputs = arr2(&[[10., 1., -10.], [0., 10., 0.]]);
         let expected = arr2(&[[0.0, 30.], [40.5, 82.]]);
-        let (res, _) = dense.run(&inputs, false);
+        let (res, _) = dense.run(inputs, false);
         assert_approx_eq!(f32, res, expected);
     }
 
@@ -347,13 +381,13 @@ mod tests {
         // (..., features) = (2, 3);
         let inputs = arr1(&[10., 1., -10.]);
         let expected = arr1(&[-15.5, 30.]);
-        let (res, _) = dense.run(&inputs, false);
+        let (res, _) = dense.run(inputs, false);
         assert_approx_eq!(f32, res, expected);
 
         // (..., features) = (1, 3);
         let inputs = arr1(&[0.5, 1.0, -0.5]);
         let expected = arr1(&[3.5, 11.]);
-        let (res, _) = dense.run(&inputs, false);
+        let (res, _) = dense.run(inputs, false);
         assert_approx_eq!(f32, res, expected);
     }
 
@@ -389,7 +423,7 @@ mod tests {
 
         let inputs = arr2(&[[10., 1., -10.], [0., 10., 0.]]);
 
-        let (y_out, z_out) = dense.run(&inputs, true);
+        let (y_out, z_out) = dense.run(inputs, true);
 
         assert_approx_eq!(f32, y_out, arr2(&[[0.0, 30.], [40.5, 82.]]));
         assert_approx_eq!(f32, z_out.unwrap(), arr2(&[[-15.5, 30.], [40.5, 82.]]));
