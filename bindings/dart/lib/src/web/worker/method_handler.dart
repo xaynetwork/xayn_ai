@@ -40,7 +40,7 @@ Future<void> create(ffi.XaynAi? ai, Request request) async {
       params.qambertVocab,
       params.qambertModel,
       params.ltrModel,
-      params.wasmModule);
+      params.wasmModule,);
 
   send(request.sender, Response.ok);
 }
