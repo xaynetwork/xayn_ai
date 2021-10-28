@@ -15,7 +15,11 @@ use crate::{
         document::{Document, DocumentHistory, RerankingOutcomes},
         document_data::{
             make_documents,
+            DocumentDataWithCoi,
             DocumentDataWithContext,
+            DocumentDataWithDocument,
+            DocumentDataWithLtr,
+            DocumentDataWithQAMBert,
             DocumentDataWithRank,
             DocumentDataWithSMBert,
             RankComponent,
@@ -256,18 +260,14 @@ where
 
     /// Reranks the documents with all systems except QAMbert.
     fn rerank_personalized_news(
-        &self,
+        &mut self,
         history: &[DocumentHistory],
         documents: &[Document],
     ) -> Result<Vec<DocumentDataWithRank>, Error> {
         let documents = make_documents(documents);
-        let documents = self.common_systems.smbert().compute_embedding(&documents)?;
-        let documents = self
-            .common_systems
-            .coi()
-            .compute_coi(&documents, &self.data.sync_data.user_interests)?;
+        let documents = self.run_centers_of_interest(&documents)?;
         let documents = NeutralQAMBert.compute_similarity(&documents)?;
-        let documents = self.common_systems.ltr().compute_ltr(history, &documents)?;
+        let documents = self.run_ltr(history, &documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_context(documents);
 
@@ -297,25 +297,63 @@ where
 
     /// Reranks the documents with all systems.
     fn rerank_personalized_search(
-        &self,
+        &mut self,
         history: &[DocumentHistory],
         documents: &[Document],
     ) -> Result<Vec<DocumentDataWithRank>, Error> {
         let documents = make_documents(documents);
-        let documents = self.common_systems.smbert().compute_embedding(&documents)?;
-        let documents = self
-            .common_systems
-            .coi()
-            .compute_coi(&documents, &self.data.sync_data.user_interests)?;
+        let documents = self.run_centers_of_interest(&documents)?;
         let documents = self
             .common_systems
             .qambert()
-            .compute_similarity(&documents)?;
-        let documents = self.common_systems.ltr().compute_ltr(history, &documents)?;
+            .compute_similarity(&documents)
+            .or_else(|e| {
+                self.errors.push(e);
+                NeutralQAMBert.compute_similarity(&documents)
+            })?;
+        let documents = self.run_ltr(history, &documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_context(documents);
 
         Ok(documents)
+    }
+
+    fn run_centers_of_interest(
+        &mut self,
+        documents: &[DocumentDataWithDocument],
+    ) -> Result<Vec<DocumentDataWithCoi>, Error> {
+        self.common_systems
+            .smbert()
+            .compute_embedding(documents)
+            .and_then(|documents| {
+                self.common_systems
+                    .coi()
+                    .compute_coi(&documents, &self.data.sync_data.user_interests)
+                    .or_else(|e| {
+                        self.errors.push(e);
+                        NeutralCoiSystem
+                            .compute_coi(&documents, &self.data.sync_data.user_interests)
+                    })
+            })
+            .or_else(|e| {
+                self.errors.push(e);
+                let documents = NeutralSMBert.compute_embedding(documents)?;
+                NeutralCoiSystem.compute_coi(&documents, &self.data.sync_data.user_interests)
+            })
+    }
+
+    fn run_ltr(
+        &mut self,
+        history: &[DocumentHistory],
+        documents: &[DocumentDataWithQAMBert],
+    ) -> Result<Vec<DocumentDataWithLtr>, Error> {
+        self.common_systems
+            .ltr()
+            .compute_ltr(history, documents)
+            .or_else(|e| {
+                self.errors.push(e);
+                ConstLtr.compute_ltr(history, &documents)
+            })
     }
 }
 
