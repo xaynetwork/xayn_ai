@@ -6,7 +6,7 @@ part 'analytics.g.dart';
 /// The analytics of the Xayn AI.
 @immutable
 @JsonSerializable()
-class Analytics {
+class Analytics implements ToJson {
   /// The nDCG@k score between the LTR ranking and the relevance based ranking.
   final double ndcgLtr;
 
