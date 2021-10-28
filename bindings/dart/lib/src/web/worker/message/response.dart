@@ -9,8 +9,9 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message/utils.dart'
 
 part 'response.g.dart';
 
+/// A Response object that holds the result of the method invocation.
 @JsonSerializable()
-class Response {
+class Response implements ToJson {
   final Map<String, dynamic>? result;
 
   static Response fromResult<R extends ToJson>(R result) =>
@@ -22,9 +23,11 @@ class Response {
 
   factory Response.fromJson(Map json) => _$ResponseFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$ResponseToJson(this);
 }
 
+/// A response that contains a [Uint8List] result.
 @JsonSerializable()
 class Uint8ListResponse implements ToJson {
   @Uint8ListConverter()
@@ -41,6 +44,7 @@ class Uint8ListResponse implements ToJson {
   Map<String, dynamic> toJson() => _$Uint8ListResponseToJson(this);
 }
 
+/// A response that holds the result of the `Method.faults` invocation.
 @JsonSerializable()
 class FaultsResponse implements ToJson {
   final List<String> faults;
@@ -55,6 +59,7 @@ class FaultsResponse implements ToJson {
   Map<String, dynamic> toJson() => _$FaultsResponseToJson(this);
 }
 
+/// A response that holds the result of the `Method.analytics` invocation.
 @JsonSerializable()
 class AnalyticsResponse implements ToJson {
   Analytics? analytics;

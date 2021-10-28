@@ -1,4 +1,5 @@
 abstract class ToJson {
+  /// Serializes a dart object into a JSON object.
   Map<String, dynamic> toJson();
 }
 

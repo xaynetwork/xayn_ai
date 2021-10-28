@@ -11,19 +11,7 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Sender;
 
 part 'request.g.dart';
 
-@JsonSerializable()
-class Request {
-  final Method method;
-  final Map<String, dynamic>? params;
-  final Sender sender;
-
-  Request(this.method, this.params, this.sender);
-
-  factory Request.fromJson(Map json) => _$RequestFromJson(json);
-
-  Map<String, dynamic> toJson() => _$RequestToJson(this);
-}
-
+/// The name of the method to be invoked.
 enum Method {
   create,
   rerank,
@@ -35,6 +23,25 @@ enum Method {
   free,
 }
 
+/// A request object that holds the following fields:
+/// - the [Method] to be invoked,
+/// - the parameters used during the invocation of the [Method] (it may be omitted),
+/// - the [Sender] used by the producer to send back the result.
+@JsonSerializable()
+class Request implements ToJson {
+  final Method method;
+  final Map<String, dynamic>? params;
+  final Sender sender;
+
+  Request(this.method, this.params, this.sender);
+
+  factory Request.fromJson(Map json) => _$RequestFromJson(json);
+
+  @override
+  Map<String, dynamic> toJson() => _$RequestToJson(this);
+}
+
+/// The parameters to be used during the invocation of the [Method.create] method.
 @JsonSerializable()
 class CreateParams implements ToJson {
   @Uint8ListConverter()
@@ -64,6 +71,7 @@ class CreateParams implements ToJson {
   Map<String, dynamic> toJson() => _$CreateParamsToJson(this);
 }
 
+/// The parameters to be used during the invocation of the [Method.rerank] method.
 @JsonSerializable()
 class RerankParams implements ToJson {
   final RerankMode mode;
@@ -82,6 +90,7 @@ class RerankParams implements ToJson {
   Map<String, dynamic> toJson() => _$RerankParamsToJson(this);
 }
 
+/// The parameters to be used during the invocation of the [Method.synchronize] method.
 @JsonSerializable()
 class SynchronizeParams implements ToJson {
   @Uint8ListConverter()

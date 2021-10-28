@@ -28,13 +28,14 @@ class XaynAi implements common.XaynAi {
   /// It will throw an error if the provided state is empty.
   static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
     final ai = await ffi.XaynAi.create(
-        data.smbertVocab,
-        data.smbertModel,
-        data.qambertVocab,
-        data.qambertModel,
-        data.ltrModel,
-        data.wasmModule,
-        serialized);
+      data.smbertVocab,
+      data.smbertModel,
+      data.qambertVocab,
+      data.qambertModel,
+      data.ltrModel,
+      data.wasmModule,
+      serialized,
+    );
     return XaynAi._(ai);
   }
 
@@ -43,13 +44,14 @@ class XaynAi implements common.XaynAi {
   /// Requires the necessary [SetupData] for the AI.
   static Future<XaynAi> create(SetupData data) async {
     final ai = await ffi.XaynAi.create(
-        data.smbertVocab,
-        data.smbertModel,
-        data.qambertVocab,
-        data.qambertModel,
-        data.ltrModel,
-        data.wasmModule,
-        null);
+      data.smbertVocab,
+      data.smbertModel,
+      data.qambertVocab,
+      data.qambertModel,
+      data.ltrModel,
+      data.wasmModule,
+      null,
+    );
     return XaynAi._(ai);
   }
 

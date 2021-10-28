@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 import 'package:meta/meta.dart' show immutable;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
 
 part 'analytics.g.dart';
 
@@ -29,5 +30,6 @@ class Analytics implements ToJson {
 
   factory Analytics.fromJson(Map json) => _$AnalyticsFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$AnalyticsToJson(this);
 }

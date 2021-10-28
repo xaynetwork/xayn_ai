@@ -9,8 +9,9 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Sender;
 
 typedef Handler = Future<void> Function(ffi.XaynAi? ai, Request request);
 
+/// A method handler for handling [Method] invocations.
 class MethodHandler {
-  final handlers = <Method, Handler>{
+  static const handlers = <Method, Handler>{
     Method.create: create,
     Method.rerank: rerank,
     Method.faults: faults,
@@ -21,6 +22,8 @@ class MethodHandler {
     Method.free: free,
   };
 
+  const MethodHandler();
+
   Handler operator [](Method method) {
     try {
       return handlers[method]!;
@@ -30,59 +33,68 @@ class MethodHandler {
   }
 }
 
+/// The method handler for the [Method.create] invocation.
 Future<void> create(ffi.XaynAi? ai, Request request) async {
   final params = CreateParams.fromJson(request.params!);
   WorkerGlobalScope.instance.importScripts(params.wasmScript);
 
   ai = await ffi.XaynAi.create(
-      params.smbertVocab,
-      params.smbertModel,
-      params.qambertVocab,
-      params.qambertModel,
-      params.ltrModel,
-      params.wasmModule,);
+    params.smbertVocab,
+    params.smbertModel,
+    params.qambertVocab,
+    params.qambertModel,
+    params.ltrModel,
+    params.wasmModule,
+  );
 
-  send(request.sender, Response.ok);
+  request.sender.sendResponse(Response.ok);
 }
 
+/// The method handler for the [Method.rerank] invocation.
 Future<void> rerank(ffi.XaynAi? ai, Request request) async {
   final params = RerankParams.fromJson(request.params!);
   final result = ai!.rerank(params.mode, params.histories, params.documents);
-  send(request.sender, Response.fromResult(result));
+  request.sender.sendResponse(Response.fromResult(result));
 }
 
+/// The method handler for the [Method.faults] invocation.
 Future<void> faults(ffi.XaynAi? ai, Request request) async {
   final result = ai!.faults();
-  send(request.sender, Response.fromResult(FaultsResponse(result)));
+  request.sender.sendResponse(Response.fromResult(FaultsResponse(result)));
 }
 
+/// The method handler for the [Method.serialize] invocation.
 Future<void> serialize(ffi.XaynAi? ai, Request request) async {
   final result = ai!.serialize();
-  send(request.sender, Response.fromResult(Uint8ListResponse(result)));
+  request.sender.sendResponse(Response.fromResult(Uint8ListResponse(result)));
 }
 
+/// The method handler for the [Method.analytics] invocation.
 Future<void> analytics(ffi.XaynAi? ai, Request request) async {
   final result = ai!.analytics();
-  send(request.sender, Response.fromResult(AnalyticsResponse(result)));
+  request.sender.sendResponse(Response.fromResult(AnalyticsResponse(result)));
 }
 
+/// The method handler for the [Method.syncdataBytes] invocation.
 Future<void> syncdataBytes(ffi.XaynAi? ai, Request request) async {
   final result = ai!.syncdataBytes();
-  send(request.sender, Response.fromResult(Uint8ListResponse(result)));
+  request.sender.sendResponse(Response.fromResult(Uint8ListResponse(result)));
 }
 
+/// The method handler for the [Method.synchronize] invocation.
 Future<void> synchronize(ffi.XaynAi? ai, Request request) async {
   final params = SynchronizeParams.fromJson(request.params!);
   ai!.synchronize(params.serialized);
-  send(request.sender, Response.ok);
+  request.sender.sendResponse(Response.ok);
 }
 
+/// The method handler for the [Method.free] invocation.
 Future<void> free(ffi.XaynAi? ai, Request request) async {
   ai!.free();
   ai = null;
-  send(request.sender, Response.ok);
+  request.sender.sendResponse(Response.ok);
 }
 
-void send(Sender sender, Response response) async {
-  sender.send(response.toJson());
+extension SendRequest on Sender {
+  void sendResponse(Response response) => send(response.toJson());
 }

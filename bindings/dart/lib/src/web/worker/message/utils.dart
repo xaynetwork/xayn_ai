@@ -3,6 +3,7 @@ import 'dart:typed_data' show Uint8List;
 
 import 'package:json_annotation/json_annotation.dart' show JsonConverter;
 
+/// A [Uint8List] from/to JSON converter.
 class Uint8ListConverter implements JsonConverter<Uint8List, Uint8List> {
   const Uint8ListConverter();
 
@@ -17,6 +18,7 @@ class Uint8ListConverter implements JsonConverter<Uint8List, Uint8List> {
   }
 }
 
+/// A `Uint8List?` from/to JSON converter.
 class Uint8ListMaybeNullConverter
     implements JsonConverter<Uint8List?, Uint8List?> {
   const Uint8ListMaybeNullConverter();
@@ -32,6 +34,7 @@ class Uint8ListMaybeNullConverter
   }
 }
 
+/// A `MessagePort?` from/to JSON converter.
 class MessagePortConverter
     implements JsonConverter<MessagePort?, MessagePort?> {
   const MessagePortConverter();
