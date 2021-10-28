@@ -40,7 +40,7 @@ class Oneshot {
 @JsonSerializable()
 class Sender {
   @MessagePortConverter()
-  late MessagePort? port;
+  late MessagePort? _port;
 
   Sender(this.port);
 
