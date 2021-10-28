@@ -11,7 +11,7 @@ use crate::{
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
-    data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithQAMBert},
+    data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
     embedding::utils::{l2_distance, Embedding},
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
@@ -158,7 +158,7 @@ impl CoiSystem {
 impl systems::CoiSystem for CoiSystem {
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithQAMBert>,
+        documents: Vec<DocumentDataWithSMBert>,
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
         documents
@@ -207,7 +207,7 @@ impl NeutralCoiSystem {
 impl systems::CoiSystem for NeutralCoiSystem {
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithQAMBert>,
+        documents: Vec<DocumentDataWithSMBert>,
         _user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
         Ok(documents

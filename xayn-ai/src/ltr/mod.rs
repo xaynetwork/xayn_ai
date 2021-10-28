@@ -15,7 +15,7 @@ use ndarray::{Array1, Array2};
 use crate::{
     data::{
         document::DocumentHistory,
-        document_data::{DocumentDataWithCoi, DocumentDataWithLtr, LtrComponent},
+        document_data::{DocumentDataWithLtr, DocumentDataWithQAMBert, LtrComponent},
     },
     error::Error,
     reranker::systems::LtrSystem,
@@ -35,7 +35,7 @@ impl LtrSystem for DomainReranker {
     fn compute_ltr(
         &self,
         history: &[DocumentHistory],
-        documents: Vec<DocumentDataWithCoi>,
+        documents: Vec<DocumentDataWithQAMBert>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
         let hists = history.iter().map_into().collect_vec();
         let docs = documents.iter().map_into().collect_vec();
@@ -99,7 +99,7 @@ impl LtrSystem for ConstLtr {
     fn compute_ltr(
         &self,
         _history: &[DocumentHistory],
-        documents: Vec<DocumentDataWithCoi>,
+        documents: Vec<DocumentDataWithQAMBert>,
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
         let ltr_score = Self::SCORE;
         Ok(documents
@@ -217,7 +217,7 @@ mod tests {
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
-        let doc1 = DocumentDataWithCoi {
+        let doc1 = DocumentDataWithQAMBert {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking: 24,
@@ -237,7 +237,7 @@ mod tests {
             pos_distance: 0.3,
             neg_distance: 0.9,
         };
-        let doc2 = DocumentDataWithCoi {
+        let doc2 = DocumentDataWithQAMBert {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking: 42,
