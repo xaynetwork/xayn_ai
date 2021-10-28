@@ -2,18 +2,31 @@ use std::{
     convert::{Infallible, TryInto},
     env,
     ffi::OsString,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
-use ndarray::{arr1, arr2, Array};
+use ndarray::{arr1, arr2, s, Array, Array1, Array2, ArrayBase, Axis, Data, Dimension};
+use thiserror::Error;
 
 use super::{
-    super::{
-        ndutils::io::{FlattenedArray, UnexpectedNumberOfDimensions},
-        optimizer::MiniBatchSgd,
+    super::optimizer::MiniBatchSgd,
+    data::{
+        prepare_inputs,
+        prepare_target_prob_dist,
+        DataSource,
+        GradientSet,
+        SampleOwned,
+        SampleView,
     },
     inference::{SAMPLE_INPUTS, SAMPLE_INPUTS_TO_FEW},
+    trainer::{ListNetTrainer, TrainingController},
     *,
+};
+use crate::data::document::Relevance;
+use layer::{
+    activation::Relu,
+    dense::DenseGradientSet,
+    io::{BinParams, FlattenedArray, UnexpectedNumberOfDimensions},
 };
 use test_utils::{assert_approx_eq, test::ltr::training_intermediates};
 
@@ -227,13 +240,13 @@ fn test_training_list_net_is_reproducible_for_same_inputs_and_state() {
     assert_approx_eq!(
         f32,
         &ctrl1.mean_evaluation_results,
-        &ctrl2.mean_evaluation_results
+        &ctrl2.mean_evaluation_results,
     );
 
     assert!(
         ctrl1.mean_evaluation_results.iter().all(|v| !v.is_nan()),
         "contains NaN values {:?}",
-        ctrl1.mean_evaluation_results
+        ctrl1.mean_evaluation_results,
     );
 }
 
@@ -285,10 +298,11 @@ impl BinParamsEqTestGuard {
         self.write_to_path_on_normal_drop.is_some()
     }
 
-    fn assert_array_eq<D>(&mut self, prefix: Option<&str>, name: &str, array: &Array<f32, D>)
+    fn assert_array_eq<S, D>(&mut self, prefix: Option<&str>, name: &str, array: &ArrayBase<S, D>)
     where
         FlattenedArray<f32>:
             TryInto<Array<f32, D>, Error = UnexpectedNumberOfDimensions> + From<Array<f32, D>>,
+        S: Data<Elem = f32>,
         D: Dimension,
     {
         let do_rewrite = self.do_rewrite();
@@ -303,7 +317,7 @@ impl BinParamsEqTestGuard {
         };
 
         if do_rewrite {
-            params.insert(name, array.clone());
+            params.insert(name, array.to_owned());
         } else {
             dbg!(params.create_name(name));
             let expected = params.take::<Array<f32, D>>(name).unwrap();
@@ -312,7 +326,7 @@ impl BinParamsEqTestGuard {
                 array,
                 expected,
                 epsilon = self.epsilon,
-                ulps = self.ulps
+                ulps = self.ulps,
             );
         }
     }
@@ -331,14 +345,20 @@ impl Drop for BinParamsEqTestGuard {
 }
 
 macro_rules! assert_trace_array {
-    ($inout:ident =?= $($array:ident),+) => ($(
-        $inout.assert_array_eq(None, stringify!($array), &$array);
-    )*);
+    ($inout:ident =?= $($array:ident),+ $(,)?) => {
+        $(
+            $inout.assert_array_eq(None, stringify!($array), &$array);
+        )+
+    };
 
-    ($inout:ident [$($idx:expr),+] =?= $($array:expr),+) => ({
-        let prefix = [$($idx.to_string()),*].join("/");
-        $($inout.assert_array_eq(Some(&prefix), stringify!($array), &$array);)*
-    });
+    ($inout:ident [$($idx:expr),+] =?= $($array:expr),+ $(,)?) => {
+        {
+            let prefix = [$($idx.to_string()),+].join("/");
+            $(
+                $inout.assert_array_eq(Some(&prefix), stringify!($array), &$array);
+            )+
+        }
+    };
 }
 
 #[test]
@@ -361,19 +381,19 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
         // Inlined all functions involved into training to get *all* intermediates.
         let target_prob_dist = prepare_target_prob_dist(&relevances).unwrap();
         assert_trace_array!(test_guard =?= target_prob_dist);
-        let (dense1_y, dense1_z) = list_net.dense1.run(&inputs, true);
+        let (dense1_y, dense1_z) = list_net.dense1.run(inputs.view(), true);
         let dense1_z = dense1_z.unwrap();
         assert_trace_array!(test_guard =?= dense1_y, dense1_z);
-        let (dense2_y, dense2_z) = list_net.dense2.run(&dense1_y, true);
+        let (dense2_y, dense2_z) = list_net.dense2.run(dense1_y.view(), true);
         let dense2_z = dense2_z.unwrap();
         assert_trace_array!(test_guard =?= dense2_y, dense2_z);
-        let (scores_y, scores_z) = list_net.scores.run(&dense2_y, true);
+        let (scores_y, scores_z) = list_net.scores.run(dense2_y.view(), true);
         let scores_z = scores_z.unwrap();
         assert_trace_array!(test_guard =?= scores_y, scores_z);
 
         let scores_y = scores_y.index_axis_move(Axis(1), 0);
 
-        let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(&scores_y, true);
+        let (prob_dist_y, prob_dist_z) = list_net.prob_dist.run(scores_y.view(), true);
         let prob_dist_z = prob_dist_z.unwrap();
         assert_trace_array!(test_guard =?= prob_dist_y, prob_dist_z);
 
@@ -394,48 +414,88 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
             // From here on training is "split" into multiple parallel "path" using
             // shared weights (hence why we add up the gradients).
             let p_scores = p_scores.slice(s![row..row + 1]);
-            assert_trace_array!(test_guard [row] =?= p_scores.to_owned());
+            assert_trace_array!(test_guard [row] =?= p_scores);
 
             let d_scores_part = list_net
                 .scores
                 .gradients_from_partials_1d(dense2_y.slice(s![row, ..]), p_scores);
-            assert_trace_array!(test_guard [row] =?= d_scores_part.weight_gradients, d_scores_part.bias_gradients);
+            assert_trace_array!(
+                test_guard [row] =?=
+                    d_scores_part.weight_gradients(),
+                    d_scores_part.bias_gradients(),
+            );
             d_scores.push(d_scores_part);
 
             let p_dense2 = list_net.scores.weights().dot(&p_scores)
-                * Relu::partial_derivatives_at(&dense2_z.slice(s![row, ..]));
+                * Relu::partial_derivatives_at(dense2_z.slice(s![row, ..]));
             assert_trace_array!(test_guard [row] =?= p_dense2);
             let d_dense2_part = list_net
                 .dense2
                 .gradients_from_partials_1d(dense1_y.slice(s![row, ..]), p_dense2.view());
-            assert_trace_array!(test_guard [row] =?= d_dense2_part.weight_gradients, d_dense2_part.bias_gradients);
+            assert_trace_array!(
+                test_guard [row] =?=
+                    d_dense2_part.weight_gradients(),
+                    d_dense2_part.bias_gradients(),
+            );
             d_dense2.push(d_dense2_part);
 
             let p_dense1 = list_net.dense2.weights().dot(&p_dense2)
-                * Relu::partial_derivatives_at(&dense1_z.slice(s![row, ..]));
+                * Relu::partial_derivatives_at(dense1_z.slice(s![row, ..]));
             assert_trace_array!(test_guard [row] =?= p_dense1);
             let d_dense1_part = list_net
                 .dense1
                 .gradients_from_partials_1d(inputs.slice(s![row, ..]), p_dense1.view());
-            assert_trace_array!(test_guard [row] =?= d_dense1_part.weight_gradients, d_dense1_part.bias_gradients);
+            assert_trace_array!(
+                test_guard [row] =?=
+                    d_dense1_part.weight_gradients(),
+                    d_dense1_part.bias_gradients(),
+            );
             d_dense1.push(d_dense1_part);
 
             let d_scores = d_scores.last().unwrap();
-            assert_trace_array!(test_guard [row, "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
+            assert_trace_array!(
+                test_guard [row, "gradients"] =?=
+                    d_scores.weight_gradients(),
+                    d_scores.bias_gradients(),
+            );
             let d_dense2 = d_dense2.last().unwrap();
-            assert_trace_array!(test_guard [row, "gradients"] =?= d_dense2.weight_gradients, d_dense2.bias_gradients);
+            assert_trace_array!(
+                test_guard [row, "gradients"] =?=
+                    d_dense2.weight_gradients(),
+                    d_dense2.bias_gradients(),
+            );
             let d_dense1 = d_dense1.last().unwrap();
-            assert_trace_array!(test_guard [row, "gradients"] =?= d_dense1.weight_gradients, d_dense1.bias_gradients);
+            assert_trace_array!(
+                test_guard [row, "gradients"] =?=
+                    d_dense1.weight_gradients(),
+                    d_dense1.bias_gradients(),
+            );
         }
 
         let d_scores = DenseGradientSet::merge_shared(d_scores).unwrap();
         let d_dense2 = DenseGradientSet::merge_shared(d_dense2).unwrap();
         let d_dense1 = DenseGradientSet::merge_shared(d_dense1).unwrap();
 
-        assert_trace_array!(test_guard ["final", "gradients"] =?= d_prob_dist.weight_gradients, d_prob_dist.bias_gradients);
-        assert_trace_array!(test_guard ["final", "gradients"] =?= d_scores.weight_gradients, d_scores.bias_gradients);
-        assert_trace_array!(test_guard ["final", "gradients"] =?= d_dense2.weight_gradients, d_dense2.bias_gradients);
-        assert_trace_array!(test_guard ["final", "gradients"] =?= d_dense1.weight_gradients, d_dense1.bias_gradients);
+        assert_trace_array!(
+            test_guard ["final", "gradients"] =?=
+                d_prob_dist.weight_gradients(),
+                d_prob_dist.bias_gradients(),
+        );
+        assert_trace_array!(
+            test_guard ["final", "gradients"] =?=
+                d_scores.weight_gradients(),
+                d_scores.bias_gradients(),
+        );
+        assert_trace_array!(
+            test_guard ["final", "gradients"] =?=
+                d_dense2.weight_gradients(),
+                d_dense2.bias_gradients(),
+        );
+        assert_trace_array!(
+            test_guard ["final", "gradients"] =?=
+                d_dense1.weight_gradients(),
+                d_dense1.bias_gradients(),
+        );
 
         let mut gradients = GradientSet {
             dense1: d_dense1,
@@ -458,42 +518,42 @@ fn test_training_with_preset_initial_state_and_input_produces_expected_results()
         assert_approx_eq!(
             f32,
             list_net.prob_dist.weights(),
-            reference_list_net.prob_dist.weights()
+            reference_list_net.prob_dist.weights(),
         );
         assert_approx_eq!(
             f32,
             list_net.prob_dist.bias(),
-            reference_list_net.prob_dist.bias()
+            reference_list_net.prob_dist.bias(),
         );
         assert_approx_eq!(
             f32,
             list_net.scores.weights(),
-            reference_list_net.scores.weights()
+            reference_list_net.scores.weights(),
         );
         assert_approx_eq!(
             f32,
             list_net.scores.bias(),
-            reference_list_net.scores.bias()
+            reference_list_net.scores.bias(),
         );
         assert_approx_eq!(
             f32,
             list_net.dense2.weights(),
-            reference_list_net.dense2.weights()
+            reference_list_net.dense2.weights(),
         );
         assert_approx_eq!(
             f32,
             list_net.dense2.bias(),
-            reference_list_net.dense2.bias()
+            reference_list_net.dense2.bias(),
         );
         assert_approx_eq!(
             f32,
             list_net.dense1.weights(),
-            reference_list_net.dense1.weights()
+            reference_list_net.dense1.weights(),
         );
         assert_approx_eq!(
             f32,
             list_net.dense1.bias(),
-            reference_list_net.dense1.bias()
+            reference_list_net.dense1.bias(),
         );
     }
 }
@@ -531,12 +591,12 @@ fn test_training_list_net_does_not_panic() {
     assert!(
         evaluation_results.iter().all(|v| !v.is_nan()),
         "contains NaN values {:?}",
-        evaluation_results
+        evaluation_results,
     );
     assert!(
         evaluation_results.first() > evaluation_results.last(),
         "unexpected regression of training: {:?}",
-        evaluation_results
+        evaluation_results,
     );
 }
 
@@ -546,81 +606,72 @@ fn test_gradients_merge_batch() {
     assert!(res.is_none());
 
     let a = GradientSet {
-        dense1: DenseGradientSet {
-            weight_gradients: arr2(&[[0.1, -2.], [0.3, 0.04]]),
-            bias_gradients: arr1(&[0.4, 1.23]),
-        },
-        dense2: DenseGradientSet {
-            weight_gradients: arr2(&[[2., -2.], [-0.3, 0.4]]),
-            bias_gradients: arr1(&[0.1, 3.43]),
-        },
-        scores: DenseGradientSet {
-            weight_gradients: arr2(&[[0.125, 2.4], [0.321, 0.454]]),
-            bias_gradients: arr1(&[0.42, 2.23]),
-        },
-        prob_dist: DenseGradientSet {
-            weight_gradients: arr2(&[[100., -0.2], [3.25, 0.22]]),
-            bias_gradients: arr1(&[-0.42, -2.25]),
-        },
+        dense1: DenseGradientSet::new(arr2(&[[0.1, -2.], [0.3, 0.04]]), arr1(&[0.4, 1.23])),
+        dense2: DenseGradientSet::new(arr2(&[[2., -2.], [-0.3, 0.4]]), arr1(&[0.1, 3.43])),
+        scores: DenseGradientSet::new(arr2(&[[0.125, 2.4], [0.321, 0.454]]), arr1(&[0.42, 2.23])),
+        prob_dist: DenseGradientSet::new(
+            arr2(&[[100., -0.2], [3.25, 0.22]]),
+            arr1(&[-0.42, -2.25]),
+        ),
     };
 
     let a2 = GradientSet::mean_of(vec![a.clone()]).unwrap();
 
-    assert_approx_eq!(f32, &a2.dense1.weight_gradients, &a.dense1.weight_gradients);
-    assert_approx_eq!(f32, &a2.dense1.bias_gradients, &a.dense1.bias_gradients);
-    assert_approx_eq!(f32, &a2.dense2.weight_gradients, &a.dense2.weight_gradients);
-    assert_approx_eq!(f32, &a2.dense2.bias_gradients, &a.dense2.bias_gradients);
-    assert_approx_eq!(f32, &a2.scores.weight_gradients, &a.scores.weight_gradients);
-    assert_approx_eq!(f32, &a2.scores.bias_gradients, &a.scores.bias_gradients);
     assert_approx_eq!(
         f32,
-        &a2.prob_dist.weight_gradients,
-        &a.prob_dist.weight_gradients
+        a2.dense1.weight_gradients(),
+        a.dense1.weight_gradients(),
+    );
+    assert_approx_eq!(f32, a2.dense1.bias_gradients(), a.dense1.bias_gradients());
+    assert_approx_eq!(
+        f32,
+        a2.dense2.weight_gradients(),
+        a.dense2.weight_gradients(),
+    );
+    assert_approx_eq!(f32, a2.dense2.bias_gradients(), a.dense2.bias_gradients());
+    assert_approx_eq!(
+        f32,
+        a2.scores.weight_gradients(),
+        a.scores.weight_gradients(),
+    );
+    assert_approx_eq!(f32, a2.scores.bias_gradients(), a.scores.bias_gradients());
+    assert_approx_eq!(
+        f32,
+        a2.prob_dist.weight_gradients(),
+        a.prob_dist.weight_gradients(),
     );
     assert_approx_eq!(
         f32,
-        &a2.prob_dist.bias_gradients,
-        &a.prob_dist.bias_gradients
+        a2.prob_dist.bias_gradients(),
+        a.prob_dist.bias_gradients(),
     );
 
     let b = GradientSet {
-        dense1: DenseGradientSet {
-            weight_gradients: arr2(&[[0.1, 2.], [0.3, 0.04]]),
-            bias_gradients: arr1(&[0.4, 1.23]),
-        },
-        dense2: DenseGradientSet {
-            weight_gradients: arr2(&[[0.2, -2.8], [0.3, 0.04]]),
-            bias_gradients: arr1(&[0.4, 1.23]),
-        },
-        scores: DenseGradientSet {
-            weight_gradients: arr2(&[[0.1, -2.], [0.3, 0.04]]),
-            bias_gradients: arr1(&[0.4, 1.23]),
-        },
-        prob_dist: DenseGradientSet {
-            weight_gradients: arr2(&[[0.0, -2.], [0.3, 0.04]]),
-            bias_gradients: arr1(&[0.38, 1.21]),
-        },
+        dense1: DenseGradientSet::new(arr2(&[[0.1, 2.], [0.3, 0.04]]), arr1(&[0.4, 1.23])),
+        dense2: DenseGradientSet::new(arr2(&[[0.2, -2.8], [0.3, 0.04]]), arr1(&[0.4, 1.23])),
+        scores: DenseGradientSet::new(arr2(&[[0.1, -2.], [0.3, 0.04]]), arr1(&[0.4, 1.23])),
+        prob_dist: DenseGradientSet::new(arr2(&[[0.0, -2.], [0.3, 0.04]]), arr1(&[0.38, 1.21])),
     };
 
     let g = GradientSet::mean_of(vec![a, b]).unwrap();
 
-    assert_approx_eq!(f32, &g.dense1.weight_gradients, [[0.1, 0.], [0.3, 0.04]]);
-    assert_approx_eq!(f32, &g.dense1.bias_gradients, [0.4, 1.23]);
-    assert_approx_eq!(f32, &g.dense2.weight_gradients, [[1.1, -2.4], [0.0, 0.22]]);
-    assert_approx_eq!(f32, &g.dense2.bias_gradients, [0.25, 2.33]);
+    assert_approx_eq!(f32, g.dense1.weight_gradients(), [[0.1, 0.], [0.3, 0.04]]);
+    assert_approx_eq!(f32, g.dense1.bias_gradients(), [0.4, 1.23]);
+    assert_approx_eq!(f32, g.dense2.weight_gradients(), [[1.1, -2.4], [0.0, 0.22]]);
+    assert_approx_eq!(f32, g.dense2.bias_gradients(), [0.25, 2.33]);
     assert_approx_eq!(
         f32,
-        &g.scores.weight_gradients,
+        g.scores.weight_gradients(),
         [[0.1125, 0.2], [0.3105, 0.247]],
-        ulps = 4
+        ulps = 4,
     );
-    assert_approx_eq!(f32, &g.scores.bias_gradients, [0.41, 1.73]);
+    assert_approx_eq!(f32, g.scores.bias_gradients(), [0.41, 1.73]);
     assert_approx_eq!(
         f32,
-        &g.prob_dist.weight_gradients,
-        [[50., -1.1], [1.775, 0.13]]
+        g.prob_dist.weight_gradients(),
+        [[50., -1.1], [1.775, 0.13]],
     );
-    assert_approx_eq!(f32, &g.prob_dist.bias_gradients, [-0.02, -0.52], ulps = 4);
+    assert_approx_eq!(f32, g.prob_dist.bias_gradients(), [-0.02, -0.52], ulps = 4);
 }
 
 #[test]
@@ -647,7 +698,7 @@ fn test_prepare_target_prop_dist() {
             0.025_677_6,
             0.171_677_72,
             0.155_340_43,
-        ]
+        ],
     );
 }
 

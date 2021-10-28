@@ -1,3 +1,5 @@
+use ndarray::{Array1, Array2};
+
 use super::*;
 use test_utils::assert_approx_eq;
 
@@ -124,7 +126,7 @@ fn test_list_net_end_to_end_without_chunking_and_padding() {
         .into_shape((10, 50))
         .unwrap();
 
-    let (scores, _) = list_net.calculate_intermediate_scores(inputs.view(), false);
+    let (scores, _) = list_net.calculate_intermediate_scores(inputs, false);
     let scores = scores.into_raw_vec();
     let outcome = list_net.calculate_final_scores_padded(&scores, None);
 

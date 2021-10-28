@@ -16,8 +16,6 @@ use ndarray::{
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 
-pub mod io;
-
 /// Computes softmax along specified axis.
 ///
 /// Inspired by [autograd's softmax implementation], especially the trick to subtract the max value
@@ -86,10 +84,10 @@ pub fn kl_divergence(good_dist: ArrayView1<f32>, eval_dist: ArrayView1<f32>) -> 
 ///
 /// - [Website](https://www.cv-foundation.org/openaccess/content_iccv_2015/html/He_Delving_Deep_into_ICCV_2015_paper.html)
 /// - [Pdf](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf)
-pub fn he_normal_weights_init<R>(rng: &mut R, dim: impl IntoDimension<Dim = Ix2>) -> Array2<f32>
-where
-    R: Rng + ?Sized,
-{
+pub fn he_normal_weights_init(
+    rng: &mut (impl Rng + ?Sized),
+    dim: impl IntoDimension<Dim = Ix2>,
+) -> Array2<f32> {
     let dim = dim.into_dimension();
     let nr_rows = dim[0];
 

@@ -1,6 +1,4 @@
 mod features;
-
-#[doc(hidden)]
 pub mod list_net;
 
 use std::{
@@ -12,6 +10,10 @@ use std::{
 use itertools::{izip, Itertools};
 use ndarray::{Array1, Array2};
 
+use self::{
+    features::{build_features, features_to_ndarray, DocSearchResult, Features, HistSearchResult},
+    list_net::ListNet,
+};
 use crate::{
     data::{
         document::DocumentHistory,
@@ -20,11 +22,6 @@ use crate::{
     error::Error,
     reranker::systems::LtrSystem,
 };
-
-use features::{build_features, features_to_ndarray};
-use list_net::ListNet;
-
-use self::features::{DocSearchResult, Features, HistSearchResult};
 
 /// Domain reranker consisting of a ListNet model trained on engineered features.
 pub(crate) struct DomainReranker {
