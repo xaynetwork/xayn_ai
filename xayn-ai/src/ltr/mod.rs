@@ -12,7 +12,7 @@ use ndarray::{Array1, Array2};
 
 use self::{
     features::{build_features, features_to_ndarray, DocSearchResult, Features, HistSearchResult},
-    list_net::model::ListNet,
+    list_net::ListNet,
 };
 use crate::{
     data::{
@@ -143,7 +143,7 @@ pub fn list_net_training_data_from_history(
             .map(|doc| doc.relevance)
             .collect_vec();
         let relevances =
-            if let Some(relevances) = self::list_net::data::prepare_target_prob_dist(&relevances) {
+            if let Some(relevances) = self::list_net::prepare_target_prob_dist(&relevances) {
                 relevances
             } else {
                 // The last query is irrelevant so ignore pretend it doesn't exist.

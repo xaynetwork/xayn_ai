@@ -3,6 +3,7 @@ use std::{
     path::Path,
 };
 
+use displaydoc::Display;
 use ndarray::{
     s,
     Array1,
@@ -32,22 +33,21 @@ use layer::{
 };
 
 /// ListNet load failure.
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error)]
 pub enum LoadingListNetFailed {
     /// Failed to load bin params.
-    #[error(transparent)]
+    #[displaydoc("{0}")]
     BinParams(#[from] LoadingBinParamsFailed),
 
     /// Failed to create instance of `Dense`.
-    #[error(transparent)]
+    #[displaydoc("{0}")]
     Dense(#[from] LoadingDenseFailed),
 
     /// Tried to load a ListNet containing incompatible matrices.
-    #[error(transparent)]
+    #[displaydoc("{0}")]
     IncompatibleMatrices(#[from] IncompatibleMatrices),
 
-    /// BinParams file contains additional parameters, probably due to loading the wrong model.
-    #[error("BinParams contains additional parameters, model data is probably wrong: {params:?}")]
+    /// BinParams contains additional parameters, model data is probably wrong: {params:?}
     LeftoverBinParams { params: Vec<String> },
 }
 

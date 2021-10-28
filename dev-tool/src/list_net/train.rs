@@ -22,12 +22,7 @@ use super::{
     evaluate::run_evaluation,
 };
 use crate::{exit_code::NO_ERROR, utils::progress_spin_until_done};
-use xayn_ai::list_net::{
-    data::DataSource as _,
-    model::ListNet,
-    optimizer::MiniBatchSgd,
-    trainer::ListNetTrainer,
-};
+use xayn_ai::list_net::{DataSource as _, ListNet, ListNetTrainer, MiniBatchSgd};
 
 /// Trains a ListNet.
 #[derive(StructOpt, Debug)]
