@@ -2,6 +2,7 @@
 members = [
     "dev-tool",
     "kpe",
+    "layer",
     "rubert",
     "rubert-tokenizer",
     "test-utils",

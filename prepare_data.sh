@@ -54,7 +54,7 @@ find . -type f -not -iname $CHECKSUM_FILE -print0 | xargs -0 shasum -a 256 > $CH
 cd $CURRENT_DIR
 
 # prepare archive
-tar czf $ARCHIVE_NAME -C $TMP_DIR $ARCHIVE_BASENAME
+tar czf $ARCHIVE_NAME --exclude ".DS_Store" -C $TMP_DIR $ARCHIVE_BASENAME
 rm -rf $TMP_DIR
 
 if [ "$UPLOAD" = true ]; then

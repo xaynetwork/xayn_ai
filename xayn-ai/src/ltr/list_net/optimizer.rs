@@ -1,4 +1,4 @@
-use super::{GradientSet, ListNet};
+use super::{data::GradientSet, model::ListNet};
 
 /// Optimizer which applies gradients in a specific way to the current list net instance.
 pub trait Optimizer {
