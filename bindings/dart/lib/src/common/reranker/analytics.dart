@@ -1,8 +1,13 @@
+import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 import 'package:meta/meta.dart' show immutable;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
+
+part 'analytics.g.dart';
 
 /// The analytics of the Xayn AI.
 @immutable
-class Analytics {
+@JsonSerializable()
+class Analytics implements ToJson {
   /// The nDCG@k score between the LTR ranking and the relevance based ranking.
   final double ndcgLtr;
 
@@ -22,4 +27,9 @@ class Analytics {
     this.ndcgInitialRanking,
     this.ndcgFinalRanking,
   );
+
+  factory Analytics.fromJson(Map json) => _$AnalyticsFromJson(json);
+
+  @override
+  Map<String, dynamic> toJson() => _$AnalyticsToJson(this);
 }
