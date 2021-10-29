@@ -27,9 +27,9 @@ use crate::ltr::list_net::data::{
 };
 use layer::{
     activation::{Linear, Relu, Softmax},
-    dense::{Dense, DenseGradientSet, IncompatibleMatrices, LoadingDenseFailed},
+    dense::{Dense, DenseGradientSet, LoadingDenseFailed},
     io::{BinParams, LoadingBinParamsFailed},
-    utils::{he_normal_weights_init, kl_divergence},
+    utils::{he_normal_weights_init, kl_divergence, IncompatibleMatrices},
 };
 
 /// ListNet load failure.

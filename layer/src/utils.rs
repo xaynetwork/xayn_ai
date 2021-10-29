@@ -1,5 +1,6 @@
 use std::f32::consts::SQRT_2;
 
+use displaydoc::Display;
 use ndarray::{
     Array2,
     ArrayBase,
@@ -10,11 +11,41 @@ use ndarray::{
     Dimension,
     IntoDimension,
     Ix2,
+    IxDyn,
     NdFloat,
     RemoveAxis,
 };
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
+use thiserror::Error;
+
+/// Can't combine {name_left}({shape_left:?}) with {name_right}({shape_right:?}): {hint}
+#[derive(Debug, Display, Error)]
+pub struct IncompatibleMatrices {
+    name_left: &'static str,
+    shape_left: IxDyn,
+    name_right: &'static str,
+    shape_right: IxDyn,
+    hint: &'static str,
+}
+
+impl IncompatibleMatrices {
+    pub fn new(
+        name_left: &'static str,
+        shape_left: impl IntoDimension,
+        name_right: &'static str,
+        shape_right: impl IntoDimension,
+        hint: &'static str,
+    ) -> Self {
+        Self {
+            name_left,
+            shape_left: shape_left.into_dimension().into_dyn(),
+            name_right,
+            shape_right: shape_right.into_dimension().into_dyn(),
+            hint,
+        }
+    }
+}
 
 /// Computes softmax along specified axis.
 ///
