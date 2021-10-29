@@ -27,7 +27,15 @@ class XaynAi implements common.XaynAi {
   /// Requires the necessary [SetupData] and the state.
   /// It will throw an error if the provided state is empty.
   static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
-    final ai = await ffi.XaynAi.create(data, serialized);
+    final ai = await ffi.XaynAi.create(
+      data.smbertVocab,
+      data.smbertModel,
+      data.qambertVocab,
+      data.qambertModel,
+      data.ltrModel,
+      data.wasmModule,
+      serialized,
+    );
     return XaynAi._(ai);
   }
 
@@ -35,7 +43,15 @@ class XaynAi implements common.XaynAi {
   ///
   /// Requires the necessary [SetupData] for the AI.
   static Future<XaynAi> create(SetupData data) async {
-    final ai = await ffi.XaynAi.create(data, null);
+    final ai = await ffi.XaynAi.create(
+      data.smbertVocab,
+      data.smbertModel,
+      data.qambertVocab,
+      data.qambertModel,
+      data.ltrModel,
+      data.wasmModule,
+      null,
+    );
     return XaynAi._(ai);
   }
 
@@ -58,7 +74,7 @@ class XaynAi implements common.XaynAi {
     List<History> histories,
     List<Document> documents,
   ) async {
-    return await _ai.rerank(mode, histories, documents);
+    return _ai.rerank(mode, histories, documents);
   }
 
   /// Serializes the current state of the reranker.
@@ -68,7 +84,7 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<Uint8List> serialize() async {
-    return await _ai.serialize();
+    return _ai.serialize();
   }
 
   /// Retrieves faults which might occur during reranking.
@@ -80,7 +96,7 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<List<String>> faults() async {
-    return await _ai.faults();
+    return _ai.faults();
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
@@ -90,7 +106,7 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<Analytics?> analytics() async {
-    return await _ai.analytics();
+    return _ai.analytics();
   }
 
   /// Serializes the synchronizable data of the reranker.
@@ -100,7 +116,7 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<Uint8List> syncdataBytes() async {
-    return await _ai.syncdataBytes();
+    return _ai.syncdataBytes();
   }
 
   /// Synchronizes the internal data of the reranker with another.
@@ -110,12 +126,12 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<void> synchronize(Uint8List serialized) async {
-    await _ai.synchronize(serialized);
+    _ai.synchronize(serialized);
   }
 
   /// Frees the memory.
   @override
   Future<void> free() async {
-    await _ai.free();
+    _ai.free();
   }
 }
