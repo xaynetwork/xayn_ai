@@ -950,9 +950,7 @@ mod tests {
         let _rank = reranker.rerank(mode, &history, &documents);
 
         assert!(reranker.errors().is_empty());
-        // the previous ranking was not able to run because
-        // we don't have coi so the analytics is empty
-        assert!(reranker.analytics().is_none());
+        assert_eq!(reranker.analytics().is_some(), mode.is_personalized());
 
         let _rank = reranker.rerank(mode, &history, &documents);
         assert!(reranker.errors().is_empty());
