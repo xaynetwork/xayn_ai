@@ -1,8 +1,7 @@
-use ndarray::{Array1, Array3, ArrayBase, Data, Ix3, s};
+use ndarray::{s, Array1, Array3, ArrayBase, Data, Ix3};
 
 use crate::utils::IncompatibleMatrices;
 
-// not transposed, zero output padding
 pub struct Conv1D {
     weights: Array3<f32>,
     bias: Option<Array1<f32>>,
@@ -40,7 +39,7 @@ impl Conv1D {
             0,
             "Given groups={}, expected weight to be divisible by {} at dimension 0, but got weight of size {:?} instead",
             groups,
-            groups, 
+            groups,
             weights_shape,
         );
         if let Some(ref bias) = bias {
@@ -79,7 +78,7 @@ impl Conv1D {
             "Given groups={}, weight of size {:?}, expected input {:?} to have {} channels, but got {} channels instead",
             self.groups,
             weights_shape,
-            input_shape, 
+            input_shape,
             weights_shape[1] * self.groups,
             input_shape[1],
         );
@@ -122,16 +121,22 @@ impl Conv1D {
         let batch_size = input_shape[0];
 
         // TODO: reshape only once in `new`
-        let weights = self.weights.view().into_shape((weights_shape[0], weights_shape[1] * weights_shape[2])).unwrap();
+        let weights = self
+            .weights
+            .view()
+            .into_shape((weights_shape[0], weights_shape[1] * weights_shape[2]))
+            .unwrap();
 
-        // TODO: move this into batch_size loop
         let mut finput = if kernel_width == 1 && stride_width == 1 && pad_width == 0 {
             // output_width == input_shape[2]
-            input.to_owned().into_shape((input_shape[0], input_shape[1], output_width)).unwrap()
+            input
+                .to_owned()
+                .into_shape((input_shape[0], input_shape[1], output_width))
+                .unwrap()
         } else {
             Array3::zeros((input_shape[0], input_shape[1] * kernel_width, output_width))
         };
-        
+
         // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/ConvolutionMM2d.cpp#L140
         let mut output = Array3::<f32>::zeros([
             batch_size,
@@ -156,19 +161,20 @@ impl Conv1D {
                     if pad_width > 0 || stride_width > 1 {
                         unimplemented!("https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/cpu/Unfold2d.cpp#L160");
                     } else {
-                        let src = nip*input_width + kh*input_width + kw;
-                        let dst = nip * kernel_width * output_width + kh * kernel_width * output_width + kw * output_width;
-                        finput[dst..dst+output_width].copy_from_slice(&input[src..src+output_width]);
+                        let src = nip * input_width + kh * input_width + kw;
+                        let dst = nip * kernel_width * output_width
+                            + kh * kernel_width * output_width
+                            + kw * output_width;
+                        finput[dst..dst + output_width]
+                            .copy_from_slice(&input[src..src + output_width]);
                     }
                 }
             }
-            // multiply weights with input[i, ..] and assign to output[i, ..]
-            // weights: (ws0, ws1 * ws2), input: (is0, is1 * ws2, is2 - ws2 + 1) => ws1 == is1 is guaranteed above
+
             output.assign(&weights.dot(&finput));
         }
 
         if let Some(ref bias) = self.bias {
-            // view 1D bias as 3D via reshape(1, shape0, 1)
             output = output + bias.view().into_shape((1, bias.len(), 1)).unwrap();
         }
 
@@ -180,96 +186,101 @@ impl Conv1D {
 mod tests {
     use ndarray::arr3;
 
-    use test_utils::assert_approx_eq;
     use super::*;
+    use test_utils::assert_approx_eq;
 
     // https://github.com/pytorch/pytorch/blob/master/test/cpp/api/functional.cpp#L13
     #[test]
     fn test_conv1d_wide_kernel() {
-        let weights = (0..18).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 3)).unwrap();
-        let input = (0..30).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 5)).unwrap();
+        let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
         let output = Conv1D::new(weights, None, 1, 0, 1, 1).unwrap().run(input);
-        let expected = arr3(&[[[ 312.,  348.,  384.],
-            [ 798.,  915., 1032.]],
-           [[ 852.,  888.,  924.],
-            [2553., 2670., 2787.]]]);
+        let expected = arr3(&[
+            [[312., 348., 384.], [798., 915., 1032.]],
+            [[852., 888., 924.], [2553., 2670., 2787.]],
+        ]);
         assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
     fn test_conv1d_single_kernel() {
-        let weights = (0..6).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 1)).unwrap();
-        let input = (0..30).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 5)).unwrap();
+        let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
         let output = Conv1D::new(weights, None, 1, 0, 1, 1).unwrap().run(input);
-        let expected = arr3(&[[[ 25.,  28.,  31.,  34.,  37.],
-            [ 70.,  82.,  94., 106., 118.]],
-           [[ 70.,  73.,  76.,  79.,  82.],
-            [250., 262., 274., 286., 298.]]]);
+        let expected = arr3(&[
+            [[25., 28., 31., 34., 37.], [70., 82., 94., 106., 118.]],
+            [[70., 73., 76., 79., 82.], [250., 262., 274., 286., 298.]],
+        ]);
         assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
-    #[ignore = "unimplemented"]
+    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
     fn test_conv1d_stride() {
-        let weights = (0..18).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 3)).unwrap();
-        let input = (0..30).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 5)).unwrap();
+        let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
         let output = Conv1D::new(weights, None, 2, 0, 1, 1).unwrap().run(input);
-        let expected = arr3(&[[[ 312.,  384.],
-            [ 798., 1032.]],
-           [[ 852.,  924.],
-            [2553., 2787.]]]);
+        let expected = arr3(&[
+            [[312., 384.], [798., 1032.]],
+            [[852., 924.], [2553., 2787.]],
+        ]);
         assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
-    #[ignore = "unimplemented"]
+    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
     fn test_conv1d_pad() {
-        let weights = (0..18).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 3)).unwrap();
-        let input = (0..30).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 5)).unwrap();
+        let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
         let output = Conv1D::new(weights, None, 1, 1, 1, 1).unwrap().run(input);
-        let expected = arr3(&[[[ 210.,  312.,  348.,  384.,  240.],
-            [ 507.,  798.,  915., 1032.,  699.]],
-           [[ 615.,  852.,  888.,  924.,  555.],
-            [1722., 2553., 2670., 2787., 1824.]]]);
+        let expected = arr3(&[
+            [
+                [210., 312., 348., 384., 240.],
+                [507., 798., 915., 1032., 699.],
+            ],
+            [
+                [615., 852., 888., 924., 555.],
+                [1722., 2553., 2670., 2787., 1824.],
+            ],
+        ]);
         assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
-    #[ignore = "unimplemented"]
+    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
     fn test_conv1d_dilation() {
-        let weights = (0..18).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 3)).unwrap();
-        let input = (0..30).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 5)).unwrap();
+        let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
         let output = Conv1D::new(weights, None, 1, 0, 2, 1).unwrap().run(input);
-        let expected = arr3(&[[[ 354.],
-            [ 921.]],
-           [[ 894.],
-            [2676.]]]);
+        let expected = arr3(&[[[354.], [921.]], [[894.], [2676.]]]);
         assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
-    #[ignore = "unimplemented"]
+    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
     fn test_conv1d_groups() {
-        let weights = (0..24).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 4, 3)).unwrap();
-        let input = (0..80).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 8, 5)).unwrap();
+        let weights = Array1::range(0., 24., 1.).into_shape((2, 4, 3)).unwrap();
+        let input = Array1::range(0., 80., 1.).into_shape((2, 8, 5)).unwrap();
         let output = Conv1D::new(weights, None, 1, 0, 1, 2).unwrap().run(input);
-        let expected = arr3(&[[[  794.,   860.,   926.],
-            [ 6218.,  6428.,  6638.]],
-           [[ 3434.,  3500.,  3566.],
-            [14618., 14828., 15038.]]]);
+        let expected = arr3(&[
+            [[794., 860., 926.], [6218., 6428., 6638.]],
+            [[3434., 3500., 3566.], [14618., 14828., 15038.]],
+        ]);
         assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
     fn test_conv1d_bias() {
-        let weights = (0..18).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 3)).unwrap();
-        let bias = (0..2).map(|e| e as f32).collect::<Array1<f32>>();
-        let input = (0..30).map(|e| e as f32).collect::<Array1<f32>>().into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, Some(bias), 1, 0, 1, 1).unwrap().run(input);
-        let expected = arr3(&[[[ 312.,  348.,  384.],
-            [ 799.,  916., 1033.]],
-           [[ 852.,  888.,  924.],
-            [2554., 2671., 2788.]]]);
+        let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let bias = Array1::range(0., 2., 1.);
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
+        let output = Conv1D::new(weights, Some(bias), 1, 0, 1, 1)
+            .unwrap()
+            .run(input);
+        let expected = arr3(&[
+            [[312., 348., 384.], [799., 916., 1033.]],
+            [[852., 888., 924.], [2554., 2671., 2788.]],
+        ]);
         assert_approx_eq!(f32, output, expected);
     }
 }
