@@ -6,11 +6,11 @@ runs:
     - shell: bash
       working-directory: ${{ runner.temp }}
       env:
-        # https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/checksums-v3.9.0_sha256.txt
-        LINUX_URL: https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_linux-amd64
-        LINUX_CHECKSUM: 7dbabe30095f822ec38f5f70711ff121c26e588227da4cc05208417cfaf929cd
-        MACOS_URL: https://github.com/hairyhenderson/gomplate/releases/download/v3.9.0/gomplate_darwin-amd64
-        MACOS_CHECKSUM: 23983ca48bf7035840a76dc63fcb161a67bc4522e6066bd872d4024fcb366187
+        # https://github.com/hairyhenderson/gomplate/releases/download/v3.10.0/checksums-v3.10.0_sha256.txt
+        LINUX_URL: https://github.com/hairyhenderson/gomplate/releases/download/v3.10.0/gomplate_linux-amd64
+        LINUX_CHECKSUM: eec0f85433c9c8aad93e8cd84c79d238f436b3e62f35b15471f5929bc741763a
+        MACOS_URL: https://github.com/hairyhenderson/gomplate/releases/download/v3.10.0/gomplate_darwin-amd64
+        MACOS_CHECKSUM: 9eb031e2c32226708a7a67cd8e5139fea9c9dbe0fed0c2a5959d224e8a6353e0
       run: |
         if [ ${{ runner.os }} == "Linux" ]; then
           URL=${{ env.LINUX_URL }}
