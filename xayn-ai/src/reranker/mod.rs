@@ -50,6 +50,7 @@ const CURRENT_SCHEMA_VERSION: u8 = 2;
 /// This will influence how exactly the reranking
 /// is done. E.g. using `News` will disable the
 /// QA-mBert pipeline.
+#[cfg_attr(test, derive(Debug))]
 #[derive(Clone, Copy, Deserialize_repr, Serialize_repr)]
 #[repr(u8)]
 pub enum RerankMode {
@@ -397,6 +398,7 @@ mod tests {
             MockContextSystem,
             MockDatabase,
             MockLtrSystem,
+            MockQAMBertSystem,
             MockSMBertSystem,
         },
     };
@@ -426,10 +428,12 @@ mod tests {
             tests::{
                 data_with_rank,
                 documents_from_words,
+                expected_rerank_unchanged,
                 from_ids,
                 mocked_smbert_system,
                 pos_cois_from_words,
             },
+            RerankMode,
         };
 
         pub(super) fn reranker_data_with_rank_from_ids(ids: Range<u32>) -> RerankerData {
@@ -444,12 +448,35 @@ mod tests {
         }
 
         pub(super) fn expected_rerank_outcome() -> RerankingOutcomes {
-            // the (id, rank) mapping is [5, 3, 4, 0, 2, 1].zip(0..6)
+            RerankingOutcomes {
+                final_ranking: vec![1, 0, 2, 5, 3, 4],
+                qambert_similarities: None,
+                context_scores: None,
+            }
+        }
+
+        pub(super) fn expected_rerank_outcome_no_qambert() -> RerankingOutcomes {
             RerankingOutcomes {
                 final_ranking: vec![3, 5, 4, 1, 2, 0],
                 qambert_similarities: None,
                 context_scores: None,
             }
+        }
+
+        pub(super) fn assert_expected_rerank(
+            mode: RerankMode,
+            documents: &[Document],
+            final_ranking: Vec<u16>,
+        ) {
+            let expected = mode
+                .is_search()
+                .then(|| expected_rerank_outcome().final_ranking)
+                .or_else(|| {
+                    mode.is_personalized()
+                        .then(|| expected_rerank_outcome_no_qambert().final_ranking)
+                })
+                .unwrap_or(expected_rerank_unchanged(&documents));
+            assert_eq!(final_ranking, expected);
         }
 
         fn reranker_data(docs: impl Into<PreviousDocuments>) -> RerankerData {
@@ -595,21 +622,14 @@ mod tests {
     #[apply(tmpl_rerank_mode_cases)]
     fn test_rerank_no_history(mode: RerankMode) {
         let cs = MockCommonSystems::new().set_db(|| {
-            MemDb::from_data(car_interest_example::reranker_data_with_rank_from_ids(
-                0..10,
-            ))
+            MemDb::from_data(car_interest_example::reranker_data_with_rank_from_ids(0..1))
         });
         let mut reranker = Reranker::new(cs).unwrap();
 
         let documents = car_interest_example::documents();
         let outcome = reranker.rerank(mode, &[], &documents);
 
-        assert_eq!(
-            outcome.final_ranking,
-            mode.is_personalized()
-                .then(|| car_interest_example::expected_rerank_outcome().final_ranking)
-                .unwrap_or_else(|| expected_rerank_unchanged(&documents)),
-        );
+        car_interest_example::assert_expected_rerank(mode, &documents, outcome.final_ranking);
         assert_eq!(
             reranker.data.prev_documents.len(),
             mode.is_personalized()
@@ -640,12 +660,7 @@ mod tests {
         let documents = car_interest_example::documents();
         let outcome = reranker.rerank(mode, &history, &documents);
 
-        assert_eq!(
-            outcome.final_ranking,
-            mode.is_personalized()
-                .then(|| car_interest_example::expected_rerank_outcome().final_ranking)
-                .unwrap_or_else(|| expected_rerank_unchanged(&documents)),
-        );
+        car_interest_example::assert_expected_rerank(mode, &documents, outcome.final_ranking);
         assert_eq!(
             reranker.data.prev_documents.len(),
             mode.is_personalized()
@@ -743,61 +758,13 @@ mod tests {
                 let cs = MockCommonSystems::default()
                     .[<set_$system>](|| mock_system)
                     .set_db(|| {
-                        // We need to set at least one positive coi, otherwise
-                        // `rerank` will fail with `CoiSystemError::NoCoi` and
-                        // the systems that come after the `CoiSystem` will never
-                        // be executed.
+                        // we need to set at least one positive coi to run the coi system
                         MemDb::from_data(car_interest_example::reranker_data_with_rank_from_ids(0..1))
                     });
                 cs
             }}
         }
     }
-
-    /// If any of the systems fail in the `rerank` method, the `Reranker` should return the results/
-    /// `Document`s in an unchanged order. In case of a personalized query, it should fail with a
-    /// `NoMatchingDocuments` error and create the previous documents from the current `Document`s.
-    /// Otherwise it might potentially just fail in the analysis step, because neutral reranker
-    /// components are infallible. An exception is the smbert system which of course cannot create
-    /// previous documents if it fails.
-    fn test_system_failure(cs: impl CommonSystems, can_fill_prev_docs: bool, mode: RerankMode) {
-        let mut reranker = Reranker::new(cs).unwrap();
-        let documents = documents_from_ids(0..10);
-
-        // We use an empty history in order to skip the learning step.
-        let outcome = reranker.rerank(mode, &[], &documents);
-
-        assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
-        if mode.is_personalized() {
-            assert_contains_error!(reranker, MockError::Fail);
-        } else {
-            assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
-        }
-        assert_eq!(
-            reranker.data.prev_documents.len(),
-            (can_fill_prev_docs && mode.is_personalized())
-                .then(|| documents.len())
-                .unwrap_or_default(),
-        );
-    }
-
-    macro_rules! test_system_failure {
-        ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|) => {
-            test_system_failure!($system, $mock, $method, |$($args),*|, true);
-        };
-        ($system:ident, $mock:ty, $method:ident, |$($args:tt),*|, $can_fill_prev_docs: expr) => {
-            paste! {
-                #[apply(tmpl_rerank_mode_cases)]
-                fn [<test_component_failure_ $system>](mode: RerankMode) {
-                    let cs = common_systems_with_fail!($system, $mock, $method, |$($args),*|);
-                    test_system_failure(cs, $can_fill_prev_docs, mode);
-                }
-            }
-        };
-    }
-
-    test_system_failure!(smbert, MockSMBertSystem, compute_embedding, |_|, false);
-    test_system_failure!(ltr, MockLtrSystem, compute_ltr, |_,_|);
 
     #[apply(tmpl_rerank_mode_cases)]
     fn test_component_failure_context(mode: RerankMode) {
@@ -838,14 +805,9 @@ mod tests {
         let documents = car_interest_example::documents();
         let outcome = reranker.rerank(mode, &[], &documents);
 
-        assert_eq!(
-            outcome.final_ranking,
-            mode.is_personalized()
-                .then(|| car_interest_example::expected_rerank_outcome().final_ranking)
-                .unwrap_or_else(|| expected_rerank_unchanged(&documents)),
-        );
+        car_interest_example::assert_expected_rerank(mode, &documents, outcome.final_ranking);
         assert_contains_error!(reranker, MockError::Fail);
-        assert!(reranker.analytics.is_none())
+        assert!(reranker.analytics.is_none());
     }
 
     #[apply(tmpl_rerank_mode_cases)]
@@ -860,12 +822,35 @@ mod tests {
             coi
         });
 
-        test_system_failure(cs, true, mode);
+        let mut reranker = Reranker::new(cs).unwrap();
+        // let documents = documents_from_ids(0..10);
+        let documents = car_interest_example::documents();
+
+        // We use an empty history in order to skip the learning step.
+        let outcome = reranker.rerank(mode, &[], &documents);
+
+        if matches!(mode, RerankMode::PersonalizedNews) {
+            expected_rerank_unchanged(&documents);
+        } else {
+            car_interest_example::assert_expected_rerank(mode, &documents, outcome.final_ranking);
+        }
+
+        if mode.is_personalized() {
+            assert_contains_error!(reranker, MockError::Fail);
+        } else {
+            assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
+        }
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default()
+        );
     }
 
-    /// If the smbert system fails spontaneously in the `rerank` function, the `Reranker` should
-    /// return the results/`Document`s in an unchanged order. In case of a personalized query, it
-    /// should create the previous documents from the current `Document`s.
+    /// If the smbert system fails spontaneously in the `rerank` function, the `Reranker` should still
+    /// run the other systems. In case of a personalized query, it should create the previous
+    /// documents from the current `Document`s if possible.
     #[apply(tmpl_rerank_mode_cases)]
     fn test_system_failure_smbert_fails_in_rerank(mode: RerankMode) {
         let mut called = 0;
@@ -889,7 +874,12 @@ mod tests {
 
         let outcome = reranker.rerank(mode, &[], &documents);
 
-        assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
+        if matches!(mode, RerankMode::PersonalizedNews) {
+            assert_eq!(outcome.final_ranking, expected_rerank_unchanged(&documents));
+        } else {
+            car_interest_example::assert_expected_rerank(mode, &documents, outcome.final_ranking);
+        }
+
         assert_eq!(
             reranker.data.prev_documents.len(),
             mode.is_personalized()
@@ -901,6 +891,66 @@ mod tests {
         } else {
             assert!(reranker.errors().is_empty());
         }
+    }
+
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_component_failure_ltr(mode: RerankMode) {
+        let cs = common_systems_with_fail!(ltr, MockLtrSystem, compute_ltr, |_, _|);
+
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = car_interest_example::documents();
+
+        // We use an empty history in order to skip the learning step.
+        let outcome = reranker.rerank(mode, &[], &documents);
+
+        car_interest_example::assert_expected_rerank(mode, &documents, outcome.final_ranking);
+
+        if mode.is_personalized() {
+            assert_contains_error!(reranker, MockError::Fail);
+        } else {
+            assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
+        }
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
+    }
+
+    #[apply(tmpl_rerank_mode_cases)]
+    fn test_component_failure_qambert(mode: RerankMode) {
+        let cs = common_systems_with_fail!(qambert, MockQAMBertSystem, compute_similarity, |_|);
+
+        let mut reranker = Reranker::new(cs).unwrap();
+        let documents = car_interest_example::documents();
+
+        // We use an empty history in order to skip the learning step.
+        let outcome = reranker.rerank(mode, &[], &documents);
+        let final_ranking = outcome.final_ranking;
+
+        match mode {
+            RerankMode::StandardSearch => {
+                assert_eq!(final_ranking, expected_rerank_unchanged(&documents))
+            }
+            RerankMode::PersonalizedSearch => assert_eq!(
+                final_ranking,
+                car_interest_example::expected_rerank_outcome_no_qambert().final_ranking
+            ),
+            _ => car_interest_example::assert_expected_rerank(mode, &documents, final_ranking),
+        }
+
+        if mode.is_search() {
+            assert_contains_error!(reranker, MockError::Fail);
+        } else {
+            assert!(reranker.errors.is_empty() || !contains_error!(reranker, MockError::Fail));
+        }
+        assert_eq!(
+            reranker.data.prev_documents.len(),
+            mode.is_personalized()
+                .then(|| documents.len())
+                .unwrap_or_default(),
+        );
     }
 
     /// If the database fails to load the data, propagate the error to the caller.
