@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::{
-    data::document_data::DocumentDataWithCoi,
+    data::document_data::DocumentDataWithQAMBert,
     DayOfWeek,
     DocumentHistory,
     QueryId,
@@ -90,8 +90,8 @@ pub struct DocSearchResult {
     pub(crate) initial_rank: Rank,
 }
 
-impl From<&DocumentDataWithCoi> for DocSearchResult {
-    fn from(doc_data: &DocumentDataWithCoi) -> Self {
+impl From<&DocumentDataWithQAMBert> for DocSearchResult {
+    fn from(doc_data: &DocumentDataWithQAMBert) -> Self {
         let initial_rank = doc_data.document_base.initial_ranking.into();
         let content = &doc_data.document_content;
         let query_words = content.query_words.split_whitespace().map_into().collect();

@@ -244,9 +244,9 @@ where
     ) -> Result<Vec<DocumentDataWithRank>, Error> {
         let documents = make_documents(documents);
         let documents = NeutralSMBert.compute_embedding(documents)?;
-        let documents = NeutralQAMBert.compute_similarity(documents)?;
         let documents =
             NeutralCoiSystem.compute_coi(documents, &self.data.sync_data.user_interests)?;
+        let documents = NeutralQAMBert.compute_similarity(documents)?;
         let documents = ConstLtr.compute_ltr(history, documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_identity(documents); // stable order needed
@@ -262,11 +262,11 @@ where
     ) -> Result<Vec<DocumentDataWithRank>, Error> {
         let documents = make_documents(documents);
         let documents = self.common_systems.smbert().compute_embedding(documents)?;
-        let documents = NeutralQAMBert.compute_similarity(documents)?;
         let documents = self
             .common_systems
             .coi()
             .compute_coi(documents, &self.data.sync_data.user_interests)?;
+        let documents = NeutralQAMBert.compute_similarity(documents)?;
         let documents = self.common_systems.ltr().compute_ltr(history, documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_context(documents);
@@ -282,12 +282,12 @@ where
     ) -> Result<Vec<DocumentDataWithRank>, Error> {
         let documents = make_documents(documents);
         let documents = NeutralSMBert.compute_embedding(documents)?;
+        let documents =
+            NeutralCoiSystem.compute_coi(documents, &self.data.sync_data.user_interests)?;
         let documents = self
             .common_systems
             .qambert()
             .compute_similarity(documents)?;
-        let documents =
-            NeutralCoiSystem.compute_coi(documents, &self.data.sync_data.user_interests)?;
         let documents = ConstLtr.compute_ltr(history, documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_context(documents);
@@ -305,12 +305,12 @@ where
         let documents = self.common_systems.smbert().compute_embedding(documents)?;
         let documents = self
             .common_systems
-            .qambert()
-            .compute_similarity(documents)?;
-        let documents = self
-            .common_systems
             .coi()
             .compute_coi(documents, &self.data.sync_data.user_interests)?;
+        let documents = self
+            .common_systems
+            .qambert()
+            .compute_similarity(documents)?;
         let documents = self.common_systems.ltr().compute_ltr(history, documents)?;
         let documents = self.common_systems.context().compute_context(documents)?;
         let documents = rank_by_context(documents);
