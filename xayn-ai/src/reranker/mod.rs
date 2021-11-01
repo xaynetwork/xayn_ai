@@ -974,7 +974,6 @@ mod tests {
         let mut reranker = Reranker::new(cs).unwrap();
         let documents = car_interest_example::documents();
 
-        // first rerank will return api ranking
         let _rank = reranker.rerank(mode, &[], &documents);
 
         let history = reranker
@@ -996,7 +995,7 @@ mod tests {
             })
             .unwrap_or_default();
 
-        // feedbackloop generate cois and can rerank
+        // feedbackloop generate cois
         let _rank = reranker.rerank(mode, &history, &documents);
 
         assert!(reranker.errors().is_empty());
