@@ -475,7 +475,7 @@ mod tests {
                     mode.is_personalized()
                         .then(|| expected_rerank_outcome_no_qambert().final_ranking)
                 })
-                .unwrap_or(expected_rerank_unchanged(&documents));
+                .unwrap_or_else(|| expected_rerank_unchanged(&documents));
             assert_eq!(final_ranking, expected);
         }
 
