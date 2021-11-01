@@ -64,6 +64,7 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
                 document_base: doc.document_base,
                 document_content: doc.document_content,
                 smbert: doc.smbert,
+                coi: doc.coi,
                 qambert: QAMBertComponent { similarity: 0.5 },
             })
             .collect())
