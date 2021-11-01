@@ -11,7 +11,7 @@ displaydoc = "0.2.3"
 ndarray = "=0.15.3"
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 thiserror = "1.0.29"
-tract-onnx = "0.15.4"
+tract-onnx = "0.15.5"
 
 [dev-dependencies]
 criterion = { version = "0.3.5", features = ["html_reports"] }
