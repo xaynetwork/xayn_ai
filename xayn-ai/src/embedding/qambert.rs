@@ -13,14 +13,14 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 impl QAMBertSystem for QAMBert {
     fn compute_similarity(
         &self,
-        documents: Vec<DocumentDataWithCoi>,
+        documents: &[DocumentDataWithCoi],
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error> {
         if let Some(document) = documents.first() {
             let query = &document.document_content.query_words;
             let query = self.run(query)?;
 
             #[cfg(not(feature = "multithreaded"))]
-            let documents = documents.into_iter();
+            let documents = documents.iter();
             #[cfg(feature = "multithreaded")]
             let documents = documents.into_par_iter();
 
@@ -62,10 +62,10 @@ impl NeutralQAMBert {
 impl QAMBertSystem for NeutralQAMBert {
     fn compute_similarity(
         &self,
-        documents: Vec<DocumentDataWithCoi>,
+        documents: &[DocumentDataWithCoi],
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error> {
         Ok(documents
-            .into_iter()
+            .iter()
             .map(|document| {
                 DocumentDataWithQAMBert::from_document(
                     document,
@@ -108,7 +108,7 @@ mod tests {
         );
 
         let similarities: Vec<f32> = system
-            .compute_similarity(documents)
+            .compute_similarity(&documents)
             .unwrap()
             .iter()
             .map(|document| document.qambert.similarity)
@@ -128,7 +128,7 @@ mod tests {
     }
 
     fn check_empty_documents<Q: QAMBertSystem>(system: Q) {
-        let similarities = system.compute_similarity(Vec::new()).unwrap();
+        let similarities = system.compute_similarity(&[]).unwrap();
 
         assert!(similarities.is_empty());
     }
@@ -151,7 +151,7 @@ mod tests {
         // `documents_with_embeddings_from_snippet_and_query` always returns a non empty title.
         let documents = documents_with_embeddings_from_snippet_and_query("", &[""]);
 
-        let similarity = qambert().compute_similarity(documents).unwrap()[0]
+        let similarity = qambert().compute_similarity(&documents).unwrap()[0]
             .qambert
             .similarity;
 

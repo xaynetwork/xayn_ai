@@ -158,11 +158,11 @@ impl CoiSystem {
 impl systems::CoiSystem for CoiSystem {
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: &[DocumentDataWithSMBert],
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
         documents
-            .into_iter()
+            .iter()
             .map(|document| {
                 self.compute_coi_for_embedding(&document.smbert.embedding, user_interests)
                     .map(|coi| DocumentDataWithCoi::from_document(document, coi))
@@ -207,11 +207,11 @@ impl NeutralCoiSystem {
 impl systems::CoiSystem for NeutralCoiSystem {
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: &[DocumentDataWithSMBert],
         _user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
         Ok(documents
-            .into_iter()
+            .iter()
             .map(|document| DocumentDataWithCoi::from_document(document, Self::COI))
             .collect())
     }
@@ -466,7 +466,7 @@ mod tests {
         let documents = create_data_with_embeddings(&[[1., 4., 4.], [3., 6., 6.]]);
 
         let documents_coi = CoiSystem::default()
-            .compute_coi(documents, &user_interests)
+            .compute_coi(&documents, &user_interests)
             .unwrap();
 
         assert_eq!(documents_coi[0].coi.id, CoiId::mocked(1));
@@ -485,7 +485,7 @@ mod tests {
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[NAN, NAN, NAN]]);
-        let _ = CoiSystem::default().compute_coi(documents, &user_interests);
+        let _ = CoiSystem::default().compute_coi(&documents, &user_interests);
     }
 
     #[test]
@@ -495,7 +495,7 @@ mod tests {
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[1., NAN, 2.]]);
-        let _ = CoiSystem::default().compute_coi(documents, &user_interests);
+        let _ = CoiSystem::default().compute_coi(&documents, &user_interests);
     }
 
     #[test]

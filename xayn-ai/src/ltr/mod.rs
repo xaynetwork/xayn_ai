@@ -32,7 +32,7 @@ impl LtrSystem for DomainReranker {
     fn compute_ltr(
         &self,
         history: &[DocumentHistory],
-        documents: Vec<DocumentDataWithQAMBert>,
+        documents: &[DocumentDataWithQAMBert],
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
         let hists = history.iter().map_into().collect_vec();
         let docs = documents.iter().map_into().collect_vec();
@@ -96,11 +96,11 @@ impl LtrSystem for ConstLtr {
     fn compute_ltr(
         &self,
         _history: &[DocumentHistory],
-        documents: Vec<DocumentDataWithQAMBert>,
+        documents: &[DocumentDataWithQAMBert],
     ) -> Result<Vec<DocumentDataWithLtr>, Error> {
         let ltr_score = Self::SCORE;
         Ok(documents
-            .into_iter()
+            .iter()
             .map(|doc| DocumentDataWithLtr::from_document(doc, LtrComponent { ltr_score }))
             .collect())
     }
@@ -247,7 +247,7 @@ mod tests {
             coi,
         };
 
-        let res = ConstLtr.compute_ltr(&[], vec![doc1, doc2]);
+        let res = ConstLtr.compute_ltr(&[], &vec![doc1, doc2]);
         assert!(res.is_ok());
         let ltr_docs = res.unwrap();
         assert_eq!(ltr_docs.len(), 2);
