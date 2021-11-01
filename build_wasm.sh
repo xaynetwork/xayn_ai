@@ -27,9 +27,7 @@ build_wasm() {
         --release \
         -- $CARGO_ARGS
 
-    local CONFIG_DIR="data/bundler_config"
-    local BUNDLER_CONFIG="$CONFIG_DIR/webpack.config.js"
-    yarn --cwd "$CONFIG_DIR" webpack "$TMP_DIR/genesis.js" -o "$WASM_OUT_DIR_PATH" -c "$BUNDLER_CONFIG"
+    yarn --cwd "data/bundler_config" webpack "$TMP_DIR/genesis.js" -o "$WASM_OUT_DIR_PATH" -c "webpack.config.js"
     mv "$TMP_DIR/package.json" "$WASM_OUT_DIR_PATH"
     rm -r "$TMP_DIR"
 

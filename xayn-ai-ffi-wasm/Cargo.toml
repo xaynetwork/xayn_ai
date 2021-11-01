@@ -18,7 +18,7 @@ xayn-ai-ffi = { path = "../xayn-ai-ffi" }
 # always want to use parallelism if our target supports it, which this
 # setups represents fairly well.
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
-wasm-bindgen-rayon = { version = "1.0.3" }
+wasm-bindgen-rayon = "1.0.3"
 xayn-ai = { path = "../xayn-ai", features = ["multithreaded"] }
 
 [target.'cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))'.dependencies]

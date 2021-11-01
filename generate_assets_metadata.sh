@@ -122,8 +122,8 @@ gen_wasm_asset_metadata() {
 }
 
 # Generates and adds the following object to the `wasm_assets` object.
-# Furthermore, any asset (script, module or snippets) will be added to
-# the `upload` list.
+# Furthermore, the script, the module and any additional javascript file
+# will be added to the `upload` list.
 #
 # "<feature>": {
 #   "script": {
@@ -159,7 +159,6 @@ gen_wasm_assets_metadata() {
     for ASSET_PATH in $(find "${WASM_OUT_DIR_PATH}/${WASM_VERSION}" -type f -name '*.js' ! -name genesis.js); do
         local ASSET_FILENAME=$(basename "$ASSET_PATH")
         local ASSET_URL_SUFFIX="${WASM_VERSION}/${ASSET_FILENAME}"
-
         add_to_upload_list "$ASSET_PATH" "{\"url_suffix\": \"$ASSET_URL_SUFFIX\"}"
     done
 }
