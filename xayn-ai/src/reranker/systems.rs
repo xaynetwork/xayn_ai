@@ -27,7 +27,7 @@ use mockall::automock;
 pub(crate) trait SMBertSystem {
     fn compute_embedding(
         &self,
-        documents: Vec<DocumentDataWithDocument>,
+        documents: &[DocumentDataWithDocument],
     ) -> Result<Vec<DocumentDataWithSMBert>, Error>;
 }
 
@@ -36,7 +36,7 @@ pub(crate) trait SMBertSystem {
 pub(crate) trait QAMBertSystem {
     fn compute_similarity(
         &self,
-        documents: Vec<DocumentDataWithCoi>,
+        documents: &[DocumentDataWithCoi],
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error>;
 }
 
@@ -51,7 +51,7 @@ pub(crate) trait CoiSystem {
     /// Add centre of interest information to a document
     fn compute_coi(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: &[DocumentDataWithSMBert],
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error>;
 
@@ -69,7 +69,7 @@ pub(crate) trait LtrSystem {
     fn compute_ltr(
         &self,
         history: &[DocumentHistory],
-        documents: Vec<DocumentDataWithQAMBert>,
+        documents: &[DocumentDataWithQAMBert],
     ) -> Result<Vec<DocumentDataWithLtr>, Error>;
 }
 

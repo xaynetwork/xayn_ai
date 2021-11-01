@@ -89,10 +89,10 @@ fn cois_from_words<CP: CoiPoint>(
                 ..Default::default()
             },
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     smbert
-        .compute_embedding(documents)
+        .compute_embedding(&documents)
         .unwrap()
         .into_iter()
         .enumerate()
