@@ -12,10 +12,10 @@ use rubert::SMBert;
 impl SMBertSystem for SMBert {
     fn compute_embedding(
         &self,
-        documents: Vec<DocumentDataWithDocument>,
+        documents: &[DocumentDataWithDocument],
     ) -> Result<Vec<DocumentDataWithSMBert>, Error> {
         #[cfg(not(feature = "multithreaded"))]
-        let documents = documents.into_iter();
+        let documents = documents.iter();
         #[cfg(feature = "multithreaded")]
         let documents = documents.into_par_iter();
 
@@ -42,10 +42,10 @@ pub struct NeutralSMBert;
 impl SMBertSystem for NeutralSMBert {
     fn compute_embedding(
         &self,
-        documents: Vec<DocumentDataWithDocument>,
+        documents: &[DocumentDataWithDocument],
     ) -> Result<Vec<DocumentDataWithSMBert>, Error> {
         Ok(documents
-            .into_iter()
+            .iter()
             .map(|document| {
                 DocumentDataWithSMBert::from_document(
                     document,

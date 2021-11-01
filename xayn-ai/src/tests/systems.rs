@@ -30,7 +30,7 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
     let mut mock_smbert = MockSMBertSystem::new();
     mock_smbert.expect_compute_embedding().returning(|docs| {
         Ok(docs
-            .into_iter()
+            .iter()
             .map(|doc| {
                 let mut embedding: Vec<f32> = doc
                     .document_content
@@ -43,8 +43,8 @@ pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
                 embedding.resize(128, 0.);
 
                 DocumentDataWithSMBert {
-                    document_base: doc.document_base,
-                    document_content: doc.document_content,
+                    document_base: doc.document_base.clone(),
+                    document_content: doc.document_content.clone(),
                     smbert: SMBertComponent {
                         embedding: arr1(&embedding).into(),
                     },
@@ -59,12 +59,12 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
     let mut mock_qambert = MockQAMBertSystem::new();
     mock_qambert.expect_compute_similarity().returning(|docs| {
         Ok(docs
-            .into_iter()
+            .iter()
             .map(|doc| DocumentDataWithQAMBert {
-                document_base: doc.document_base,
-                document_content: doc.document_content,
-                smbert: doc.smbert,
-                coi: doc.coi,
+                document_base: doc.document_base.clone(),
+                document_content: doc.document_content.clone(),
+                smbert: doc.smbert.clone(),
+                coi: doc.coi.clone(),
                 qambert: QAMBertComponent { similarity: 0.5 },
             })
             .collect())

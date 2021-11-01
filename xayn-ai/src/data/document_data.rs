@@ -7,15 +7,15 @@ use crate::{
     reranker::systems::CoiSystemData,
 };
 
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct DocumentBaseComponent {
     pub(crate) id: DocumentId,
     pub(crate) initial_ranking: usize,
 }
 
-#[cfg_attr(test, derive(Debug, PartialEq, Clone, Default))]
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(Debug, PartialEq, Default))]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct DocumentContentComponent {
     pub(crate) title: String,
     pub(crate) snippet: String,
@@ -28,15 +28,15 @@ pub(crate) struct DocumentContentComponent {
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub(crate) struct SMBertComponent {
     pub(crate) embedding: Embedding,
 }
 
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub(crate) struct QAMBertComponent {
     pub(crate) similarity: f32,
@@ -137,12 +137,12 @@ pub(crate) struct DocumentDataWithSMBert {
 
 impl DocumentDataWithSMBert {
     pub(crate) fn from_document(
-        document: DocumentDataWithDocument,
+        document: &DocumentDataWithDocument,
         smbert: SMBertComponent,
     ) -> Self {
         Self {
-            document_base: document.document_base,
-            document_content: document.document_content,
+            document_base: document.document_base.clone(),
+            document_content: document.document_content.clone(),
             smbert,
         }
     }
@@ -162,12 +162,12 @@ pub(crate) struct DocumentDataWithQAMBert {
 }
 
 impl DocumentDataWithQAMBert {
-    pub(crate) fn from_document(document: DocumentDataWithCoi, qambert: QAMBertComponent) -> Self {
+    pub(crate) fn from_document(document: &DocumentDataWithCoi, qambert: QAMBertComponent) -> Self {
         Self {
-            document_base: document.document_base,
-            document_content: document.document_content,
-            smbert: document.smbert,
-            coi: document.coi,
+            document_base: document.document_base.clone(),
+            document_content: document.document_content.clone(),
+            smbert: document.smbert.clone(),
+            coi: document.coi.clone(),
             qambert,
         }
     }
@@ -181,11 +181,11 @@ pub(crate) struct DocumentDataWithCoi {
 }
 
 impl DocumentDataWithCoi {
-    pub(crate) fn from_document(document: DocumentDataWithSMBert, coi: CoiComponent) -> Self {
+    pub(crate) fn from_document(document: &DocumentDataWithSMBert, coi: CoiComponent) -> Self {
         Self {
-            document_base: document.document_base,
-            document_content: document.document_content,
-            smbert: document.smbert,
+            document_base: document.document_base.clone(),
+            document_content: document.document_content.clone(),
+            smbert: document.smbert.clone(),
             coi,
         }
     }
@@ -201,12 +201,12 @@ pub(crate) struct DocumentDataWithLtr {
 }
 
 impl DocumentDataWithLtr {
-    pub(crate) fn from_document(document: DocumentDataWithQAMBert, ltr: LtrComponent) -> Self {
+    pub(crate) fn from_document(document: &DocumentDataWithQAMBert, ltr: LtrComponent) -> Self {
         Self {
-            document_base: document.document_base,
-            smbert: document.smbert,
-            qambert: document.qambert,
-            coi: document.coi,
+            document_base: document.document_base.clone(),
+            smbert: document.smbert.clone(),
+            qambert: document.qambert.clone(),
+            coi: document.coi.clone(),
             ltr,
         }
     }
@@ -303,7 +303,8 @@ mod tests {
         let embedding = SMBertComponent {
             embedding: arr1(&[1., 2., 3., 4.]).into(),
         };
-        let document_data = DocumentDataWithSMBert::from_document(document_data, embedding.clone());
+        let document_data =
+            DocumentDataWithSMBert::from_document(&document_data, embedding.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.smbert, embedding);
 
@@ -313,19 +314,19 @@ mod tests {
             neg_distance: 0.2,
         };
 
-        let document_data = DocumentDataWithCoi::from_document(document_data, coi.clone());
+        let document_data = DocumentDataWithCoi::from_document(&document_data, coi.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.coi, coi);
 
         let qambert = QAMBertComponent { similarity: 0.5 };
-        let document_data = DocumentDataWithQAMBert::from_document(document_data, qambert.clone());
+        let document_data = DocumentDataWithQAMBert::from_document(&document_data, qambert.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
 
         let ltr = LtrComponent { ltr_score: 0.3 };
-        let document_data = DocumentDataWithLtr::from_document(document_data, ltr.clone());
+        let document_data = DocumentDataWithLtr::from_document(&document_data, ltr.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.smbert, embedding);
         assert_eq!(document_data.qambert, qambert);
