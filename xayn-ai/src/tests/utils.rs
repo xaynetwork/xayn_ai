@@ -15,6 +15,7 @@ use crate::{
             ContextComponent,
             DocumentBaseComponent,
             DocumentContentComponent,
+            DocumentDataWithCoi,
             DocumentDataWithDocument,
             DocumentDataWithRank,
             DocumentDataWithSMBert,
@@ -197,9 +198,9 @@ pub(crate) fn documents_with_embeddings_from_ids(ids: Range<u32>) -> Vec<Documen
 pub(crate) fn documents_with_embeddings_from_snippet_and_query(
     query: &str,
     snippets: &[&str],
-) -> Vec<DocumentDataWithSMBert> {
+) -> Vec<DocumentDataWithCoi> {
     from_ids(0..snippets.len() as u32)
-        .map(|(id, initial_ranking, embedding)| DocumentDataWithSMBert {
+        .map(|(id, initial_ranking, embedding)| DocumentDataWithCoi {
             document_base: DocumentBaseComponent {
                 id,
                 initial_ranking,
@@ -211,6 +212,11 @@ pub(crate) fn documents_with_embeddings_from_snippet_and_query(
                 ..Default::default()
             },
             smbert: SMBertComponent { embedding },
+            coi: CoiComponent {
+                id: CoiId::mocked(1),
+                pos_distance: 0.,
+                neg_distance: 0.,
+            },
         })
         .collect()
 }

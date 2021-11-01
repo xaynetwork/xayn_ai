@@ -1,7 +1,7 @@
 use rubert::QAMBert;
 
 use crate::{
-    data::document_data::{DocumentDataWithQAMBert, DocumentDataWithSMBert, QAMBertComponent},
+    data::document_data::{DocumentDataWithCoi, DocumentDataWithQAMBert, QAMBertComponent},
     embedding::utils::l2_distance,
     error::Error,
     reranker::systems::QAMBertSystem,
@@ -13,7 +13,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 impl QAMBertSystem for QAMBert {
     fn compute_similarity(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error> {
         if let Some(document) = documents.first() {
             let query = &document.document_content.query_words;
@@ -62,7 +62,7 @@ impl NeutralQAMBert {
 impl QAMBertSystem for NeutralQAMBert {
     fn compute_similarity(
         &self,
-        documents: Vec<DocumentDataWithSMBert>,
+        documents: Vec<DocumentDataWithCoi>,
     ) -> Result<Vec<DocumentDataWithQAMBert>, Error> {
         Ok(documents
             .into_iter()

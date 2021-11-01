@@ -91,8 +91,8 @@ macro_rules! impl_coi_system_data_no_coi {
 
 /// Document usage order: [`DocumentDataWithDocument`]
 /// -> [`DocumentDataWithSMBert`]
-/// -> [`DocumentDataWithQAMBert`]
 /// -> [`DocumentDataWithCoi`]
+/// -> [`DocumentDataWithQAMBert`]
 /// -> [`DocumentDataWithLtr`]
 /// -> [`DocumentDataWithContext`]
 /// -> [`DocumentDataWithRank`]
@@ -157,40 +157,35 @@ pub(crate) struct DocumentDataWithQAMBert {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
+    pub(crate) coi: CoiComponent,
     pub(crate) qambert: QAMBertComponent,
 }
 
 impl DocumentDataWithQAMBert {
-    pub(crate) fn from_document(
-        document: DocumentDataWithSMBert,
-        qambert: QAMBertComponent,
-    ) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithCoi, qambert: QAMBertComponent) -> Self {
         Self {
             document_base: document.document_base,
             document_content: document.document_content,
             smbert: document.smbert,
+            coi: document.coi,
             qambert,
         }
     }
 }
 
-impl_coi_system_data_no_coi! {DocumentDataWithQAMBert}
-
 pub(crate) struct DocumentDataWithCoi {
     pub(crate) document_base: DocumentBaseComponent,
     pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
-    pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
 }
 
 impl DocumentDataWithCoi {
-    pub(crate) fn from_document(document: DocumentDataWithQAMBert, coi: CoiComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithSMBert, coi: CoiComponent) -> Self {
         Self {
             document_base: document.document_base,
             document_content: document.document_content,
             smbert: document.smbert,
-            qambert: document.qambert,
             coi,
         }
     }
@@ -206,7 +201,7 @@ pub(crate) struct DocumentDataWithLtr {
 }
 
 impl DocumentDataWithLtr {
-    pub(crate) fn from_document(document: DocumentDataWithCoi, ltr: LtrComponent) -> Self {
+    pub(crate) fn from_document(document: DocumentDataWithQAMBert, ltr: LtrComponent) -> Self {
         Self {
             document_base: document.document_base,
             smbert: document.smbert,
@@ -312,22 +307,22 @@ mod tests {
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.smbert, embedding);
 
-        let qambert = QAMBertComponent { similarity: 0.5 };
-        let document_data = DocumentDataWithQAMBert::from_document(document_data, qambert.clone());
-        assert_eq!(document_data.document_base, document_id);
-        assert_eq!(document_data.smbert, embedding);
-        assert_eq!(document_data.qambert, qambert);
-
         let coi = CoiComponent {
             id: CoiId::mocked(9),
             pos_distance: 0.7,
             neg_distance: 0.2,
         };
+
         let document_data = DocumentDataWithCoi::from_document(document_data, coi.clone());
         assert_eq!(document_data.document_base, document_id);
         assert_eq!(document_data.smbert, embedding);
-        assert_eq!(document_data.qambert, qambert);
         assert_eq!(document_data.coi, coi);
+
+        let qambert = QAMBertComponent { similarity: 0.5 };
+        let document_data = DocumentDataWithQAMBert::from_document(document_data, qambert.clone());
+        assert_eq!(document_data.document_base, document_id);
+        assert_eq!(document_data.smbert, embedding);
+        assert_eq!(document_data.qambert, qambert);
 
         let ltr = LtrComponent { ltr_score: 0.3 };
         let document_data = DocumentDataWithLtr::from_document(document_data, ltr.clone());
