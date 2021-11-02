@@ -823,7 +823,6 @@ mod tests {
         });
 
         let mut reranker = Reranker::new(cs).unwrap();
-        // let documents = documents_from_ids(0..10);
         let documents = car_interest_example::documents();
 
         // We use an empty history in order to skip the learning step.
