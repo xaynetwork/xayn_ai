@@ -12,15 +12,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - AI data is synchronizable between devices via the new functions `syncdata_bytes` and `synchronize`.
 - Add multi-threading support: Parallelism is always enabled for mobile targets and can optionally be enabled for web targets.
-  An optional set of `Feature`s is introduced to pick the assets for the chosen target during the setup (see `getInputData()`).
-  Currently the only available `Feature` is `webParallel` (if not specified, the AI will run sequentially). The asset generation
-  and publishing has been updated accordingly. For the AI to run in parallel on the web it is required that it runs on a WebWorker.
+  An optional set of `Feature`s is introduced to pick the assets for the chosen target during the setup (see `getInputData()` in the example).
+  `Feature` are currently only supported on the web: the caller needs to pass the set of available features on the browser to the `getAssets`
+  function and the library automatically returns the most suitable WASM assets for the given features.
+  For the AI to run in parallel on the web it is required that it runs on a WebWorker.
 - Add methods to instantiate the AI from a state: `restore`.
 - All methods of `XaynAi` have been made asynchronous.
-- The `wasmParallel` `Feature` has been the replaced by the corresponding `WebFeature`s. A caller only needs to pass the set of
-  available features to the `getAssets` function and the library automatically returns the most suitable WASM assets for the given features.
-- MAB system is not executed anymore. Only the context value is used instead to rank the documents.
 - The `RerankMode`s of `XaynAi.rerank()` have been extended with unpersonalized variants.
+- MAB system is not executed anymore. Only the context value is used instead to rank the documents.
+- For standard search QA-mBert is used to rerank.
+- The AI does not fail at the first error but try to rerank the documents with the remaining systems.
 
 ### Changed
 
