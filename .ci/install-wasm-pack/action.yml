@@ -6,9 +6,9 @@ runs:
     - shell: bash
       working-directory: ${{ runner.temp }}
       env:
-        LINUX_URL: https://github.com/rustwasm/wasm-pack/releases/download/v0.10.0/wasm-pack-v0.10.0-x86_64-unknown-linux-musl.tar.gz
+        LINUX_URL: https://github.com/rustwasm/wasm-pack/releases/download/v0.10.1/wasm-pack-v0.10.1-x86_64-unknown-linux-musl.tar.gz
         # `shasum -a 256 wasm-pack`
-        LINUX_CHECKSUM: bbd1da4c281346c3a3d612dbac698ed21497d71791ffeceba193b754434aa70b
+        LINUX_CHECKSUM: f6eddf40f7fae0676c8cec4bff0b9f2315cf082ae5e24fab869377c2ee3a601c
       run: |
         if [ ${{ runner.os }} == "Linux" ]; then
           URL=${{ env.LINUX_URL }}
