@@ -12,7 +12,7 @@ runs:
   steps:
     - shell: bash
       env:
-        S3CMD_VERSION: 2.1.0
+        S3CMD_VERSION: 2.2.0
       run: |
         echo "::add-mask::${{ inputs.access-key }}"
         echo "::add-mask::${{ inputs.secret-key }}"

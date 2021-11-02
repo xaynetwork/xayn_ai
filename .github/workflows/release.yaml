@@ -16,9 +16,6 @@ env:
   ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/dart/android/src/main/jniLibs
   PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
   CARGO_INCREMENTAL: 0
-  # TODO: remove once xcode 13.x is the default version
-  # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-11-Readme.md#xcode
-  DEVELOPER_DIR: /Applications/Xcode_13.0.app
 
 permissions:
   contents: read
@@ -102,7 +99,7 @@ jobs:
 
   build-release-headers:
     name: build-release-headers
-    needs: [cargo-registry-cache]
+    needs: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     steps:
