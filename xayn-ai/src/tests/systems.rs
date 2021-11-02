@@ -60,12 +60,23 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
     mock_qambert.expect_compute_similarity().returning(|docs| {
         Ok(docs
             .iter()
-            .map(|doc| DocumentDataWithQAMBert {
-                document_base: doc.document_base.clone(),
-                document_content: doc.document_content.clone(),
-                smbert: doc.smbert.clone(),
-                coi: doc.coi.clone(),
-                qambert: QAMBertComponent { similarity: 0.5 },
+            .map(|doc| {
+                let snippet = &doc.document_content.snippet;
+                let data = if snippet.is_empty() {
+                    &doc.document_content.title
+                } else {
+                    snippet
+                };
+                let similarity =
+                    (data.len() as f32 - doc.document_content.query_words.len() as f32).abs();
+
+                DocumentDataWithQAMBert {
+                    document_base: doc.document_base.clone(),
+                    document_content: doc.document_content.clone(),
+                    smbert: doc.smbert.clone(),
+                    coi: doc.coi.clone(),
+                    qambert: QAMBertComponent { similarity },
+                }
             })
             .collect())
     });
