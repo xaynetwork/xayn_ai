@@ -676,8 +676,8 @@ jobs:
   # this is an helper that needs all the real leafs of the workflow.
   # It makes easier notify_staging_failure because we only need to check
   # for this job
-  one-leaf:
-    name: ignore-me
+  ci-ok:
+    name: ci-ok
     needs:
       - cargo-sort
       - flutter-format
@@ -693,14 +693,14 @@ jobs:
 
   notify-staging-failure:
     name: notify-staging-failure
-    needs: one-leaf
-    # always() allows to run even if one-leaf is not successful
+    needs: ci-ok
+    # always() allows to run even if ci-ok is not successful
     # we only want this to run on the staging branch
     if: always() && github.ref == 'refs/heads/staging'
     runs-on: ubuntu-20.04
     steps:
       - name: Notify failure
-        if: needs.one-leaf.result != 'success'
+        if: needs.ci-ok.result != 'success'
         uses: 8398a7/action-slack@c84a35cfa82a01f3733a3cbf5d5260123e55c2f9 # v3.9.2
         with:
           status: custom

@@ -1,4 +1,4 @@
-status = [ "cargo-registry-cache", "cargo-format", "cargo-sort", "cargo-check", "cargo-clippy","cargo-test", "cargo-tarpaulin","test-android-libs","build-ios-libs", "test-wasm-libs","build-linux-lib","flutter-format","flutter-checks","flutter-build-example"]
+status = [ "ci-ok"]
 timeout_sec = 36000 # ten hours
 required_approvals = 1
 use_squash_merge = true
