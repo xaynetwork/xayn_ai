@@ -348,6 +348,9 @@ jobs:
           key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
+      - name: Install webpack
+        run: yarn --cwd data/bundler_config
+
       - name: Build WASM library
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}

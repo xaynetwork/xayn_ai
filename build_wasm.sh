@@ -18,15 +18,18 @@ build_wasm() {
 
     echo "build $WASM_FEATURE wasm"
 
+    local TMP_DIR=$(mktemp -d)
     wasm-pack build xayn-ai-ffi-wasm \
         --no-typescript \
-        --out-dir "$WASM_OUT_DIR_PATH" \
+        --out-dir "$TMP_DIR" \
         --out-name genesis \
         --target web \
         --release \
         -- $CARGO_ARGS
-    # remove glob gitignore (https://rustwasm.github.io/docs/wasm-pack/commands/build.html#footnote-0)
-    rm "$WASM_OUT_DIR_PATH/.gitignore"
+
+    yarn --cwd "data/bundler_config" webpack "$TMP_DIR/genesis.js" -o "$WASM_OUT_DIR_PATH" -c "webpack.config.js"
+    mv "$TMP_DIR/package.json" "$WASM_OUT_DIR_PATH"
+    rm -r "$TMP_DIR"
 
     local TMP_FILE=$(mktemp)
     local PACKAGE="$WASM_OUT_DIR_PATH/package.json"

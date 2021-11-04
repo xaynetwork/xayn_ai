@@ -98,7 +98,7 @@ env = { WASM_VERSION = "wasm_bindings", WASM_OUT_DIR_PATH = "bindings/dart/examp
 run_task = { name = ["build-dart", "build-wasm", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
-dependencies = ["build-wasm-multithreaded", "build-wasm-sequential"]
+dependencies = ["install-webpack", "build-wasm-multithreaded", "build-wasm-sequential"]
 
 [tasks.build-wasm-multithreaded]
 env = { RUSTC_BOOTSTRAP=1 }
@@ -111,12 +111,23 @@ script = ["""
   fi
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
   ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" multithreaded -Z build-std=panic_abort,std
+  # Webpack removes the entire wasm output folder along with the `.gitkeep` file.
+  # We add the `.gitkeep` back so it doesn't show up as a change in git.
+  touch "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION/.gitkeep"
 """]
 
 [tasks.build-wasm-sequential]
 condition = { env_true = ["DISABLE_WASM_THREADS"] }
 script = ["""
   ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION" sequential
+  # Webpack removes the entire wasm output folder along with the `.gitkeep` file.
+  # We add the `.gitkeep` back so it doesn't show up as a change in git.
+  touch "$CARGO_MAKE_WORKING_DIRECTORY/$WASM_OUT_DIR_PATH/$WASM_VERSION/.gitkeep"
+"""]
+
+[tasks.install-webpack]
+script = ["""
+  yarn --cwd data/bundler_config
 """]
 
 [tasks.test-wasm]

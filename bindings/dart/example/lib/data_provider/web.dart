@@ -1,6 +1,5 @@
 import 'dart:async' show Completer;
-import 'dart:html' show document, window;
-import 'dart:js' show context;
+import 'dart:html' show ScriptElement, document, window;
 import 'dart:typed_data' show ByteBuffer, Uint8List;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
@@ -50,20 +49,16 @@ Future<Uint8List> _fetchAsset(String url, String checksum) async {
   }
 }
 
-/// Injects the WASM script into the HTML and exports its methods
-/// to the `window` object of the browser.
+/// Injects the WASM script into the HTML.
 Future<void> injectWasmScript(String url) {
   final completer = Completer<void>();
-  context['_notifyWasmBindingsLoaded'] = () => completer.complete();
 
-  document.head!.append(document.createElement('script')
-    ..attributes = const {'type': 'module'}
+  final script = ScriptElement()
     // ignore: unsafe_html
-    ..setInnerHtml('''
-        import * as xayn_ai_ffi_wasm from '$url';
-        window.xayn_ai_ffi_wasm = xayn_ai_ffi_wasm;
-        _notifyWasmBindingsLoaded();
-     '''));
+    ..src = url
+    ..type = 'text/javascript';
+  document.head!.append(script);
+  script.onLoad.listen((_) => completer.complete());
 
   return completer.future;
 }

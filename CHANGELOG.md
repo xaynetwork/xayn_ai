@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+### Changed
+
+- `wasmScript` is no longer a javascript module.
+- Functions of `wasmScript` do not need to be exported to `window.xayn_ai_ffi_wasm` anymore.
+
 ## 3.0 - 2021/11/02
 
 ### Added

@@ -112,22 +112,18 @@ gen_wasm_asset_metadata() {
 
     local ASSET="{}"
 
-    if [ -f "$ASSET_PATH" ]; then
-        local ASSET_CHECKSUM=$(calc_checksum "$ASSET_PATH")
-        local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
-        local ASSET_FILENAME=$(basename "$ASSET_PATH")
-        local ASSET_URL_SUFFIX="${WASM_VERSION}/${ASSET_FILENAME}"
-        ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"url_suffix": $url_suffix}')
-    else
-        ASSET=$(echo $ASSET | jq -c '. |= .+ {"url_suffix": "", "checksum": ""}')
-    fi
+    local ASSET_CHECKSUM=$(calc_checksum "$ASSET_PATH")
+    local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
+    local ASSET_FILENAME=$(basename "$ASSET_PATH")
+    local ASSET_URL_SUFFIX="${WASM_VERSION}/${ASSET_FILENAME}"
+    ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"url_suffix": $url_suffix}')
 
     echo $ASSET
 }
 
 # Generates and adds the following object to the `wasm_assets` object.
-# Furthermore, any asset (script, module or snippets) will be added to
-# the `upload` list.
+# Furthermore, the script, the module and any additional javascript file
+# will be added to the `upload` list.
 #
 # "<feature>": {
 #   "script": {
@@ -160,31 +156,27 @@ gen_wasm_assets_metadata() {
     add_to_upload_list "$ASSET_JS_PATH" "$ASSET_JS"
     add_to_upload_list "$ASSET_WASM_PATH" "$ASSET_WASM"
 
-    # The S3 URI must end with '/' in order to upload a directory.
-    # We don't have to add the `snippets` folder name to the snippets url suffix
-    # because s3cmd will already take the name from the snippets path.
-    local SNIPPETS_URL_SUFFIX="$WASM_VERSION/"
-    local SNIPPETS_PATH="$WASM_OUT_DIR_PATH/$WASM_VERSION/snippets"
-
-    if [ -d "$SNIPPETS_PATH" ]; then
-        add_to_upload_list "$SNIPPETS_PATH" "{\"url_suffix\": \"$SNIPPETS_URL_SUFFIX\"}"
-    fi
+    for ASSET_PATH in $(find "${WASM_OUT_DIR_PATH}/${WASM_VERSION}" -type f -name '*.js' ! -name genesis.js); do
+        local ASSET_FILENAME=$(basename "$ASSET_PATH")
+        local ASSET_URL_SUFFIX="${WASM_VERSION}/${ASSET_FILENAME}"
+        add_to_upload_list "$ASSET_PATH" "{\"url_suffix\": \"$ASSET_URL_SUFFIX\"}"
+    done
 }
 
 # Generates for the given asset the following object and adds it to the `upload` list.
 #
 # {
-#   "url_suffix": "<version>/<filename/dirname>",
+#   "url_suffix": "<version>/<filename>",
 #   "path": "<path>"
 # },
 #
-# The asset can be a file or directory. If the asset does not exist, the script will
+# The asset can only be a file. If the asset does not exist, the script will
 # exit with an error.
 add_to_upload_list() {
     local ASSET_PATH=$1
     local ASSET_META=$2
 
-    if [ -f "$ASSET_PATH" ] || [ -d "$ASSET_PATH" ]; then
+    if [ -f "$ASSET_PATH" ]; then
         local TMP_FILE=$(mktemp)
         local ASSET_URL_SUFFIX=$(echo $ASSET_META | jq -c '. | {"url_suffix": .url_suffix}')
 
