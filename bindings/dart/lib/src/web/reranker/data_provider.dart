@@ -33,6 +33,7 @@ class SetupData implements common.SetupData {
   late Uint8List qambertModel;
   late Uint8List ltrModel;
   late Uint8List wasmModule;
+  late String wasmScript;
   late String webWorkerScript;
 
   SetupData(Map<common.AssetType, dynamic> assets) {
@@ -42,6 +43,7 @@ class SetupData implements common.SetupData {
     qambertModel = assets[common.AssetType.qambertModel]! as Uint8List;
     ltrModel = assets[common.AssetType.ltrModel]! as Uint8List;
     wasmModule = assets[common.AssetType.wasmModule]! as Uint8List;
+    wasmScript = assets[common.AssetType.wasmScript]! as String;
     webWorkerScript = assets[common.AssetType.webWorkerScript]! as String;
   }
 }

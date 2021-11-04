@@ -1,6 +1,7 @@
 @JS()
 library ai;
 
+import 'dart:html' show Worker;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:js/js.dart' show JS;
@@ -14,52 +15,60 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
 import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart' show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
-import 'package:xayn_ai_ffi_dart/src/web/ffi/ai.dart' as ffi show XaynAi;
+import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
 import 'package:xayn_ai_ffi_dart/src/web/reranker/data_provider.dart'
     show SetupData;
+import 'package:xayn_ai_ffi_dart/src/web/worker/message/request.dart'
+    show CreateParams, Method, Request, RerankParams, SynchronizeParams;
+import 'package:xayn_ai_ffi_dart/src/web/worker/message/response.dart'
+    show AnalyticsResponse, FaultsResponse, Response, Uint8ListResponse;
+import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Oneshot;
 
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
-  final ffi.XaynAi _ai;
+  final Worker? _worker;
 
   /// Creates and initializes the Xayn AI from a given state.
   ///
   /// Requires the necessary [SetupData] and the state.
   /// It will throw an error if the provided state is empty.
   static Future<XaynAi> restore(SetupData data, Uint8List serialized) async {
-    final ai = await ffi.XaynAi.create(
-      data.smbertVocab,
-      data.smbertModel,
-      data.qambertVocab,
-      data.qambertModel,
-      data.ltrModel,
-      data.wasmModule,
-      serialized,
-    );
-    return XaynAi._(ai);
+    if (serialized.isEmpty) {
+      throw ArgumentError('Serialized state cannot be empty');
+    }
+    return await XaynAi._create(data, serialized);
   }
 
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the necessary [SetupData] for the AI.
   static Future<XaynAi> create(SetupData data) async {
-    final ai = await ffi.XaynAi.create(
+    return await XaynAi._create(data, null);
+  }
+
+  static Future<XaynAi> _create(SetupData data, [Uint8List? serialized]) async {
+    final worker = Worker(data.webWorkerScript);
+
+    final params = CreateParams(
       data.smbertVocab,
       data.smbertModel,
       data.qambertVocab,
       data.qambertModel,
       data.ltrModel,
       data.wasmModule,
-      null,
+      data.wasmScript,
+      serialized,
     );
-    return XaynAi._(ai);
+
+    await _call(worker, Method.create, params: params);
+    return XaynAi._(worker);
   }
 
   /// Creates and initializes the Xayn AI.
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder and the LTR model.
   /// Optionally accepts the serialized reranker database, otherwise creates a new one.
-  XaynAi._(this._ai);
+  XaynAi._(this._worker);
 
   /// Reranks the documents.
   ///
@@ -74,7 +83,12 @@ class XaynAi implements common.XaynAi {
     List<History> histories,
     List<Document> documents,
   ) async {
-    return _ai.rerank(mode, histories, documents);
+    final response = await _call(
+      _worker!,
+      Method.rerank,
+      params: RerankParams(mode, histories, documents),
+    );
+    return RerankingOutcomes.fromJson(response.result!);
   }
 
   /// Serializes the current state of the reranker.
@@ -84,7 +98,8 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<Uint8List> serialize() async {
-    return _ai.serialize();
+    final response = await _call(_worker!, Method.serialize);
+    return Uint8ListResponse.fromJson(response.result!).data;
   }
 
   /// Retrieves faults which might occur during reranking.
@@ -96,7 +111,8 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<List<String>> faults() async {
-    return _ai.faults();
+    final response = await _call(_worker!, Method.faults);
+    return FaultsResponse.fromJson(response.result!).faults;
   }
 
   /// Retrieves the analytics which were collected in the penultimate reranking.
@@ -106,7 +122,8 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<Analytics?> analytics() async {
-    return _ai.analytics();
+    final response = await _call(_worker!, Method.analytics);
+    return AnalyticsResponse.fromJson(response.result!).analytics;
   }
 
   /// Serializes the synchronizable data of the reranker.
@@ -116,7 +133,8 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<Uint8List> syncdataBytes() async {
-    return _ai.syncdataBytes();
+    final response = await _call(_worker!, Method.syncdataBytes);
+    return Uint8ListResponse.fromJson(response.result!).data;
   }
 
   /// Synchronizes the internal data of the reranker with another.
@@ -126,12 +144,27 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<void> synchronize(Uint8List serialized) async {
-    _ai.synchronize(serialized);
+    await _call(
+      _worker!,
+      Method.synchronize,
+      params: SynchronizeParams(serialized),
+    );
   }
 
   /// Frees the memory.
   @override
   Future<void> free() async {
-    _ai.free();
+    await _call(_worker!, Method.free);
+    _worker!.terminate();
   }
+}
+
+Future<Response> _call<P extends ToJson>(Worker worker, Method method,
+    {P? params}) async {
+  final channel = Oneshot();
+  final sender = channel.sender;
+  final request = Request(method, params?.toJson(), sender);
+  worker.postMessage(request.toJson(), [sender.port!]);
+  final msg = await channel.receiver.recv();
+  return Response.fromJson(msg.data as Map<dynamic, dynamic>);
 }
