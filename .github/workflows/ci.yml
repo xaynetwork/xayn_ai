@@ -9,6 +9,7 @@ on:
       # we push on release only from staging and release represent
       # a snapshot of staging in a given point in time
       - 'release'
+      - '_bors_staging-squash-merge.tmp'
 
 concurrency:
   group: ${{ github.ref }}
