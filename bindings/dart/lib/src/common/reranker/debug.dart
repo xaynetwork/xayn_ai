@@ -6,7 +6,7 @@ import 'package:json_annotation/json_annotation.dart'
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart' show RerankMode;
 
 part 'debug.g.dart';
 

@@ -7,10 +7,10 @@ import 'package:flutter_test/flutter_test.dart'
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show History, Relevance, UserFeedback, UserAction, DayOfWeek;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
-    show RerankMode, RerankModeToInt;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/debug.dart'
     show RerankDebugCallData;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart'
+    show RerankMode, RerankModeToInt;
 
 String encodeJson(Map<String, dynamic> object) => JsonEncoder().convert(object);
 

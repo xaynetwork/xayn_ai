@@ -6,12 +6,14 @@ import 'package:ffi/ffi.dart' show malloc, StringUtf8Pointer;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
-    show RerankMode, RerankModeToInt, selectThreadPoolSize;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
     show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart'
+    show RerankMode, RerankModeToInt;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/utils.dart'
+    show selectThreadPoolSize;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
 import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
