@@ -57,10 +57,9 @@ class CreateParams implements ToJson {
   final Uint8List ltrModel;
   @Uint8ListConverter()
   final Uint8List wasmModule;
+  final String wasmScript;
   @Uint8ListMaybeNullConverter()
   Uint8List? serialized;
-
-  final String wasmScript;
 
   CreateParams(this.smbertVocab, this.smbertModel, this.qambertVocab,
       this.qambertModel, this.ltrModel, this.wasmModule, this.wasmScript,
