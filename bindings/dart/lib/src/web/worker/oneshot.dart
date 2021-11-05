@@ -102,9 +102,21 @@ class Receiver {
     }
 
     final result = await _port!.onMessage.first;
-    _port!.close();
-    _port = null;
+    close();
 
     return result;
+  }
+
+  /// Closes the receiver half of the [MessageChannel].
+  ///
+  /// The method can only be called once. Calling the [Receiver.close]
+  /// method again leads to a [StateError].
+  void close() {
+    if (_port == null) {
+      throw StateError('Receiver.close was already called');
+    }
+
+    _port!.close();
+    _port = null;
   }
 }

@@ -1,7 +1,8 @@
 @JS()
 library ai;
 
-import 'dart:html' show Worker;
+import 'dart:async';
+import 'dart:html' show MessageEvent, Worker;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:js/js.dart' show JS;
@@ -23,6 +24,8 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message/request.dart'
 import 'package:xayn_ai_ffi_dart/src/web/worker/message/response.dart'
     show AnalyticsResponse, FaultsResponse, Response, Uint8ListResponse;
 import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Oneshot;
+
+const int kReceiveTimeoutInSec = 10;
 
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
@@ -60,7 +63,11 @@ class XaynAi implements common.XaynAi {
       serialized,
     );
 
-    await _call(worker, Method.create, params: params);
+    final response = await _call(worker, Method.create, params: params);
+    if (response.isException()) {
+      throw response.exception!;
+    }
+
     return XaynAi._(worker);
   }
 
@@ -88,6 +95,11 @@ class XaynAi implements common.XaynAi {
       Method.rerank,
       params: RerankParams(mode, histories, documents),
     );
+
+    if (response.isException()) {
+      throw response.exception!;
+    }
+
     return RerankingOutcomes.fromJson(response.result!);
   }
 
@@ -99,6 +111,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<Uint8List> serialize() async {
     final response = await _call(_worker!, Method.serialize);
+
+    if (response.isException()) {
+      throw response.exception!;
+    }
+
     return Uint8ListResponse.fromJson(response.result!).data;
   }
 
@@ -112,6 +129,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<List<String>> faults() async {
     final response = await _call(_worker!, Method.faults);
+
+    if (response.isException()) {
+      throw response.exception!;
+    }
+
     return FaultsResponse.fromJson(response.result!).faults;
   }
 
@@ -123,6 +145,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<Analytics?> analytics() async {
     final response = await _call(_worker!, Method.analytics);
+
+    if (response.isException()) {
+      throw response.exception!;
+    }
+
     return AnalyticsResponse.fromJson(response.result!).analytics;
   }
 
@@ -134,6 +161,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<Uint8List> syncdataBytes() async {
     final response = await _call(_worker!, Method.syncdataBytes);
+
+    if (response.isException()) {
+      throw response.exception!;
+    }
+
     return Uint8ListResponse.fromJson(response.result!).data;
   }
 
@@ -144,18 +176,26 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<void> synchronize(Uint8List serialized) async {
-    await _call(
+    final response = await _call(
       _worker!,
       Method.synchronize,
       params: SynchronizeParams(serialized),
     );
+
+    if (response.isException()) {
+      throw response.exception!;
+    }
   }
 
   /// Frees the memory.
   @override
   Future<void> free() async {
-    await _call(_worker!, Method.free);
+    final response = await _call(_worker!, Method.free);
     _worker!.terminate();
+
+    if (response.isException()) {
+      throw response.exception!;
+    }
   }
 }
 
@@ -165,6 +205,16 @@ Future<Response> _call<P extends ToJson>(Worker worker, Method method,
   final sender = channel.sender;
   final request = Request(method, params?.toJson(), sender);
   worker.postMessage(request.toJson(), [sender.port!]);
-  final msg = await channel.receiver.recv();
+  final receiver = channel.receiver;
+
+  MessageEvent? msg;
+  try {
+    msg =
+        await receiver.recv().timeout(Duration(seconds: kReceiveTimeoutInSec));
+  } on TimeoutException {
+    receiver.close();
+    rethrow;
+  }
+
   return Response.fromJson(msg.data as Map<dynamic, dynamic>);
 }
