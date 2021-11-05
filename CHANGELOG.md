@@ -9,11 +9,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 
 - A new `webWorkerScript` asset type that points to the web worker script. The complete URL (base URL + URL suffix) needs to be passed as a `String` via the assets map to the `SetupData`.
+- The version of XaynAI runs in a web-worker.
 
 ### Changed
 
-- `wasmScript` is no longer a javascript module.
-- Functions of `wasmScript` do not need to be exported to `window.xayn_ai_ffi_wasm` anymore.
+- `wasmScript` no longer needs to be injected into the HTML document.
+- The URL suffix of `wasmScript` is now relative to the path of `webWorkerScript`. The suffix needs to be passed unchanged as a `String` via the assets map to the `SetupData` (see `getInputData()` in `xayn_ai/bindings/dart/example/lib/data_provider/web.dart`).
+
+### Fixed
+
+- The multi-thread version of XaynAI runs in a multi-threading capable browser.
 
 ## 3.0 - 2021/11/02
 
