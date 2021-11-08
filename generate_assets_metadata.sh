@@ -8,7 +8,7 @@
 # The script needs to be executed in the root of the repository.
 #
 # Usage:
-# ./generate_assets_metadata <path of assets_manifest.json> [<path of the wasm output directory>] [<path of the web worker output directory>] [<version of the web worker file>]
+# ./generate_assets_metadata <path of assets_manifest.json> [<path of the wasm output directory>]
 
 set -e
 
