@@ -1,7 +1,5 @@
-// TODO: refactor looped assignments as iterator collections
-
 use displaydoc::Display;
-use ndarray::{s, Array1, Array2, Array3, ArrayBase, Data, ErrorKind, Ix2, Ix3, ShapeError};
+use ndarray::{azip, Array1, Array2, Array3, ArrayBase, Data, ErrorKind, Ix2, Ix3, ShapeError};
 use thiserror::Error;
 
 /// A 1-dimensional convolutional layer.
@@ -156,16 +154,10 @@ impl Conv1D {
 
         // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/ConvolutionMM2d.cpp#L140
         let mut output = Array3::zeros([batch_size, self.channel_out_size, output_size]);
-        for i in 0..batch_size {
-            let input = input.slice(s![i, .., ..]);
-            let mut output = output.slice_mut(s![i, .., ..]);
-            if self.kernel_size == 1 && self.stride == 1 && self.padding == 0 {
-                output.assign(&self.weights.dot(&input));
-            } else {
-                let input = self.unfold(input, output_size)?;
-                output.assign(&self.weights.dot(&input));
-            }
-        }
+        azip!((mut output in output.outer_iter_mut(), input in input.outer_iter()) {
+            let input = self.unfold(input, output_size);
+            output.assign(&self.weights.dot(&input));
+        });
 
         if let Some(ref bias) = self.bias {
             Ok(output + bias)
@@ -174,7 +166,7 @@ impl Conv1D {
         }
     }
 
-    /// Unfolds the input for non-singleton kernels.
+    /// Unfolds the input for the kernel.
     ///
     /// The input is a slice of a single batch sample. The unfolded input is of shape
     /// `(channel_in_size * kernel_size, output_size)`.
@@ -182,50 +174,16 @@ impl Conv1D {
         &self,
         input: ArrayBase<impl Data<Elem = f32>, Ix2>,
         output_size: usize,
-    ) -> Result<Array2<f32>, ConvError> {
+    ) -> Array2<f32> {
         if self.padding > 0 {
             unimplemented!("https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/cpu/Unfold2d.cpp#L191-L243");
         }
-        assert!(
-            self.kernel_size > 1,
-            "input can only be unfolded for non-singleton kernels",
-        );
 
         // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/cpu/Unfold2d.cpp#L160
-        let channel_in_size = input.shape()[0];
-        let input_size = input.shape()[1];
-        let input = input
-            .as_slice()
-            .ok_or_else(|| ShapeError::from_kind(ErrorKind::IncompatibleLayout))?;
-
-        let mut unfolded = Array2::zeros((channel_in_size * self.kernel_size, output_size));
-        {
-            let unfolded = unfolded
-                .as_slice_mut()
-                .ok_or_else(|| ShapeError::from_kind(ErrorKind::IncompatibleLayout))?;
-            for k in 0..channel_in_size * self.kernel_size {
-                let nip = k / self.kernel_size;
-                let rest = k % self.kernel_size;
-                let kh = rest / self.kernel_size;
-                let kw = rest % self.kernel_size;
-
-                let src = nip * input_size + kh * input_size + kw;
-                let dst = nip * self.kernel_size * output_size
-                    + kh * self.kernel_size * output_size
-                    + kw * output_size;
-
-                if self.stride > 1 {
-                    for j in 0..output_size {
-                        unfolded[dst + j] = input[src + j * self.stride];
-                    }
-                } else {
-                    unfolded[dst..dst + output_size]
-                        .copy_from_slice(&input[src..src + output_size]);
-                }
-            }
-        }
-
-        Ok(unfolded)
+        Array2::from_shape_fn(
+            (input.shape()[0] * self.kernel_size, output_size),
+            |(i, j)| input[[i / self.kernel_size, i % self.kernel_size + j * self.stride]],
+        )
     }
 }
 
@@ -284,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn test_conv1d_stride() {
+    fn test_conv1d_stride_with_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
         let output = Conv1D::new(weights, None, 2, 0, 1, 1)
@@ -299,8 +257,23 @@ mod tests {
     }
 
     #[test]
+    fn test_conv1d_stride_with_singleton_kernel() {
+        let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
+        let output = Conv1D::new(weights, None, 2, 0, 1, 1)
+            .unwrap()
+            .run(input)
+            .unwrap();
+        let expected = arr3(&[
+            [[25., 31., 37.], [70., 94., 118.]],
+            [[70., 76., 82.], [250., 274., 298.]],
+        ]);
+        assert_approx_eq!(f32, dbg!(output), expected);
+    }
+
+    #[test]
     #[should_panic(expected = "not implemented: https://github.com/pytorch")]
-    fn test_conv1d_padding() {
+    fn test_conv1d_padding_with_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
         let output = Conv1D::new(weights, None, 1, 1, 1, 1)
@@ -315,6 +288,28 @@ mod tests {
             [
                 [615., 852., 888., 924., 555.],
                 [1722., 2553., 2670., 2787., 1824.],
+            ],
+        ]);
+        assert_approx_eq!(f32, output, expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
+    fn test_conv1d_padding_with_singleton_kernel() {
+        let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
+        let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
+        let output = Conv1D::new(weights, None, 1, 1, 1, 1)
+            .unwrap()
+            .run(input)
+            .unwrap();
+        let expected = arr3(&[
+            [
+                [0., 25., 28., 31., 34., 37., 0.],
+                [0., 70., 82., 94., 106., 118., 0.],
+            ],
+            [
+                [0., 70., 73., 76., 79., 82., 0.],
+                [0., 250., 262., 274., 286., 298., 0.],
             ],
         ]);
         assert_approx_eq!(f32, output, expected);
