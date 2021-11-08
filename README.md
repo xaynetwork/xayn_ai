@@ -97,6 +97,7 @@ cargo install --version 0.10.1 wasm-pack
 
 - `rustup target add wasm32-unknown-unknown`
 - [nodejs](https://nodejs.org/en/) (only if you want to run the tests on nodejs)
+- [yarn](https://yarnpkg.com/)
 
 All `wasm-pack` commands below are to be run in the directory `xayn-ai-ffi-wasm/`.
 

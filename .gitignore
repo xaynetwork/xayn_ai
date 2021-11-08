@@ -6,6 +6,7 @@ __pycache__
 # Data
 /data/*
 !/data/asset_templates
+!/data/bundler_config
 !/data/snippets_for_example_data_generation.json
 
 # MacOS files

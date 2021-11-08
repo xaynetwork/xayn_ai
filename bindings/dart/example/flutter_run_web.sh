@@ -15,7 +15,6 @@ error() {
 ROOT="$(dirname $0)"
 cd "$ROOT"
 BUILD_OUT="./build/web"
-SNIPPETS_DIR="$BUILD_OUT/assets/assets/wasm_bindings/snippets"
 CANVASKIT_OUT="$BUILD_OUT/canvaskit"
 
 # The default canvaskit is hosted on `https://unpkg.com/` but that CDN
@@ -56,29 +55,6 @@ if [ ! -e "$CANVASKIT_OUT/canvaskit.js" ]; then
     download_canvaskit_file "canvaskit.wasm"
     download_canvaskit_file "profiling/canvaskit.js"
     download_canvaskit_file "profiling/canvaskit.wasm"
-fi
-
-# Fetch polyfill for firefox
-if [ ! -e "$BUILD_OUT/module-workers-polyfill.min.js" ]; then
-        echo "Downloading module-workers-polyfill" >&2
-        download_unpkg module-workers-polyfill 0.3.2 module-workers-polyfill.min.js "$BUILD_OUT"
-fi
-
-# Flutter does not recursively include assets even if we list an asset dir.
-# Neither does flutter support platform specific assets.
-#
-# Because of this we would need to add the following to the list of assets:
-# - assets/wasm_bindings/snippets/wasm-bindgen-rayon-7afa899f36665473/sc/workerHelpers.no-bundler.js
-#
-# But that is a problem as:
-# - This asset only exist for web builds.
-# - This path contains the crate hash, which changes with patch updates
-#
-# So we instead manually include all snippets it in the build output dir
-SNIPPET_SOURCE_DIR="./assets/wasm_bindings/snippets"
-if [ -d  "$SNIPPET_SOURCE_DIR" ]; then
-    mkdir -p "$SNIPPETS_DIR"
-    cp -R "$SNIPPET_SOURCE_DIR"/* "$SNIPPETS_DIR"
 fi
 
 echo "Running Server"
