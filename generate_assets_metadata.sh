@@ -111,18 +111,13 @@ gen_data_assets_metadata() {
 
 gen_web_asset_metadata() {
     local ASSET_PATH=$1
+    local WASM_VERSION=$2
 
     local ASSET="{}"
     local ASSET_CHECKSUM=$(calc_checksum "$ASSET_PATH")
     local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
     local ASSET_FILENAME=$(basename "$ASSET_PATH")
-    local ASSET_URL_SUFFIX=""
-    if [ -z ${2+x} ]; then
-        ASSET_URL_SUFFIX="$ASSET_FILENAME"
-    else
-        local WASM_VERSION=$2
-        ASSET_URL_SUFFIX="$WASM_VERSION/$ASSET_FILENAME"
-    fi
+    local ASSET_URL_SUFFIX="$WASM_VERSION/$ASSET_FILENAME"
     ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"url_suffix": $url_suffix}')
 
     echo $ASSET
@@ -147,7 +142,7 @@ gen_web_worker_asset_metadata() {
 # "<feature>": {
 #   "script": {
 #     "checksum": "<checksum>",
-#     "url_suffix": "<filename>"
+#     "url_suffix": "<version>/<filename>"
 #   },
 #   "module": {
 #     "checksum": "<checksum>",
@@ -168,12 +163,7 @@ gen_wasm_assets_metadata() {
     local ASSET_WASM_PATH="$WASM_OUT_DIR_PATH/$WASM_VERSION/$WASM_MODULE_NAME"
 
     local WASM_PACKAGE="{}"
-    # JS asset is a bit special when it comes to the asset generation.
-    # We want that the worker script and the JS asset are uploaded in the same folder
-    # but we only want to add the value of "WASM_VERSION" to worker url suffix because
-    # the url of JS asset needs to be relative to the worker path.
-    # https://github.com/xaynetwork/xayn_ai/pull/272 explains it in more detail.
-    local ASSET_JS=$(gen_web_asset_metadata "$ASSET_JS_PATH")
+    local ASSET_JS=$(gen_web_asset_metadata "$ASSET_JS_PATH" "$WASM_VERSION")
     WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_script $ASSET_JS '. |= .+ {"script": $wasm_script}')
     local ASSET_WASM=$(gen_web_asset_metadata "$ASSET_WASM_PATH" "$WASM_VERSION")
     WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_module $ASSET_WASM '. |= .+ {"module": $wasm_module}')
@@ -183,7 +173,7 @@ gen_wasm_assets_metadata() {
     jq --argjson wasm_asset $WASM_PACKAGE --arg feature "$WASM_FEATURE" '.wasm_assets |= .+ {($feature): $wasm_asset}' "$ASSETS_METADATA_PATH" > "$TMP_FILE"
     mv "$TMP_FILE" "$ASSETS_METADATA_PATH"
 
-    add_to_upload_list "$ASSET_JS_PATH" $(gen_web_asset_metadata "$ASSET_JS_PATH" "$WASM_VERSION")
+    add_to_upload_list "$ASSET_JS_PATH" "$ASSET_JS"
     add_to_upload_list "$ASSET_WASM_PATH" "$ASSET_WASM"
 
     for ASSET_PATH in $(find "${WASM_OUT_DIR_PATH}/${WASM_VERSION}" -type f -name '*.js' ! -name $WASM_SCRIPT_NAME ! -name $WEB_WORKER_NAME); do

@@ -22,19 +22,16 @@ Future<SetupData> getInputData() async {
   // };
 
   for (var asset in getAssets(features: features).entries) {
-    if (asset.key == AssetType.wasmScript) {
-      fetched.putIfAbsent(asset.key, () => asset.value.urlSuffix);
-    } else {
-      final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
-      // We also load the wasm/worker script here in order to check its integrity/checksum.
-      // The browser keeps it in cache so `injectWasmScript` does not download it again.
-      final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
+    final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
+    // We also load the wasm/worker script here in order to check its integrity/checksum.
+    // The browser keeps it in cache so `injectWasmScript` does not download it again.
+    final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
 
-      if (asset.key == AssetType.webWorkerScript) {
-        fetched.putIfAbsent(asset.key, () => path);
-      } else {
-        fetched.putIfAbsent(asset.key, () => data);
-      }
+    if (asset.key == AssetType.webWorkerScript ||
+        asset.key == AssetType.wasmScript) {
+      fetched.putIfAbsent(asset.key, () => path);
+    } else {
+      fetched.putIfAbsent(asset.key, () => data);
     }
   }
 

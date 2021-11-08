@@ -43,7 +43,12 @@ class SetupData implements common.SetupData {
     qambertModel = assets[common.AssetType.qambertModel]! as Uint8List;
     ltrModel = assets[common.AssetType.ltrModel]! as Uint8List;
     wasmModule = assets[common.AssetType.wasmModule]! as Uint8List;
-    wasmScript = assets[common.AssetType.wasmScript]! as String;
+
+    // The wasm script url needs to be relative to the web-worker url.
+    // # https://github.com/xaynetwork/xayn_ai/pull/272 explains it in more detail.
+    final wasmScriptRelative = assets[common.AssetType.wasmScript]! as String;
+    wasmScript = wasmScriptRelative.split('/').last;
+
     webWorkerScript = assets[common.AssetType.webWorkerScript]! as String;
   }
 }

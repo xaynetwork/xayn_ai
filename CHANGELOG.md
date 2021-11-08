@@ -13,8 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
-- `wasmScript` no longer needs to be injected into the HTML document.
-- The URL suffix of `wasmScript` is now relative to the path of `webWorkerScript`. The suffix needs to be passed unchanged as a `String` via the assets map to the `SetupData` (see `getInputData()` in `xayn_ai/bindings/dart/example/lib/data_provider/web.dart`).
+- `wasmScript` no longer needs to be injected into the HTML document. The complete URL (base URL + URL suffix) needs to be passed as a `String` via the assets map to the `SetupData`.
 
 ### Fixed
 
