@@ -1,4 +1,4 @@
-import 'dart:math' show min, max;
+import 'dart:math' show max, min;
 
 /// Maximum number of threads to be used for multithreaded features.
 const int maxNumberOfThreads = 16;
