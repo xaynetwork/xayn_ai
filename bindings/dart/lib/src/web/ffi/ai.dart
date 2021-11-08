@@ -7,10 +7,10 @@ import 'package:js/js.dart' show JS;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart'
-    show RerankMode, RerankModeToInt;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart'
+    show RerankMode, RerankModeToInt;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
 import 'package:xayn_ai_ffi_dart/src/web/data/document.dart'
@@ -62,7 +62,8 @@ class XaynAi {
 
   /// Creates and initializes the Xayn AI and initializes the WASM module.
   ///
-  /// Requires the necessary [SetupData] for the AI. Optionally accepts the
+  /// Requires the path to the vocabulary and model of the tokenizer/embedder,
+  /// the path of the LTR model and the WASM module. Optionally accepts the
   /// serialized reranker database, otherwise creates a new one.
   static Future<XaynAi> create(
       Uint8List smbertVocab,

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+### Added
+
+- A new `webWorkerScript` asset type that points to the web worker script. The complete URL (base URL + URL suffix) needs to be passed as a `String` via the assets map to the `SetupData`.
+
 ### Changed
 
 - `wasmScript` is no longer a javascript module.

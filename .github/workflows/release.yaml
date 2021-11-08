@@ -120,7 +120,6 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ env.RUST_STABLE }}
-          target: ${{ matrix.target }}
           default: true
 
       - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
@@ -294,9 +293,65 @@ jobs:
           if-no-files-found: error
           path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
+  build-web-worker-asset:
+    name: build-web-worker-asset
+    runs-on: ubuntu-20.04
+    needs: build-release-headers
+    timeout-minutes: 20
+    env:
+      OUT_DIR: ${{ github.workspace }}/out
+    outputs:
+      upload-name: ${{ steps.upload.outputs.name }}
+      upload-path: ${{ steps.out-dir.outputs.path }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.5
+
+      - name: Install flutter
+        uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install flutter dependencies
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub get
+
+      - name: Download headers
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        with:
+          name: headers-${{ github.sha }}
+          path: ${{ runner.temp }}/headers
+
+      - name: Copy headers
+        uses: ./.ci/copy-headers
+        with:
+          working-directory: ${{ runner.temp }}/headers
+          dart-ws: ${{ env.DART_WORKSPACE }}
+
+      - id: out-dir
+        run: echo "::set-output name=path::$(echo ${{ env.OUT_DIR }}/web_worker)"
+
+      - name: Compile Dart web worker
+        run: |
+          mkdir -p ${{ steps.out-dir.outputs.path }}
+          dart compile js ${{ env.DART_WORKSPACE }}/lib/src/web/worker/worker.dart -m --no-source-maps -o ${{ steps.out-dir.outputs.path }}/worker.js
+          cd ${{ steps.out-dir.outputs.path }}
+          rm ${{ steps.out-dir.outputs.path }}/worker.js.deps
+
+      - id: upload
+        run: echo "::set-output name=name::$(echo build-worker-release)"
+
+      - name: Upload web worker artifact
+        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
+        with:
+          name: ${{ steps.upload.outputs.name }}
+          retention-days: 1
+          if-no-files-found: error
+          path: ${{ steps.out-dir.outputs.path }}
+
   build-release-wasm-libs:
     name: build-release-wasm-libs
-    needs: cargo-registry-cache
+    needs: [cargo-registry-cache, build-web-worker-asset]
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     strategy:
@@ -332,6 +387,9 @@ jobs:
       - name: Install wasm-pack
         uses: ./.ci/install-wasm-pack
 
+      - name: Install webpack
+        run: yarn --cwd data/bundler_config
+
       - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
         with:
@@ -348,14 +406,23 @@ jobs:
           key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
 
-      - name: Install webpack
-        run: yarn --cwd data/bundler_config
-
       - name: Build WASM library
         env:
           RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
           RUSTC_BOOTSTRAP: ${{ matrix.RUSTC_BOOTSTRAP }}
         run: ./build_wasm.sh ${{ env.OUT_DIR }}/wasm ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
+
+      - name: Download web worker artifact
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        with:
+          name: ${{ needs.build-web-worker-asset.outputs.upload-name }}
+          path: ${{ needs.build-web-worker-asset.outputs.upload-path }}
+
+      - name: Add web worker to WASM artifact
+        # https://github.com/xaynetwork/xayn_ai/pull/272 explains the reason for following step.
+        run: |
+          mv ${{ needs.build-web-worker-asset.outputs.upload-path }}/* ${{ env.OUT_DIR }}/wasm/
+          rm -r ${{ needs.build-web-worker-asset.outputs.upload-path }}
 
       - name: Generate WASM library version key
         id: wasm-lib
@@ -398,11 +465,11 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          path: ${{ runner.temp }}/wasm_assets
+          path: ${{ runner.temp }}/wasm_artifacts
 
-      - run: |
+      - working-directory: ${{ runner.temp }}/wasm_artifacts
+        run: |
           mkdir -p ${{ needs.build-release-wasm-libs.outputs.out-dir }}
-          cd ${{ runner.temp }}/wasm_assets
           cp -R build-wasm-*/* ${{ needs.build-release-wasm-libs.outputs.out-dir }}
 
       - name: Download data
@@ -449,11 +516,11 @@ jobs:
       - name: Download WASM artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          path: ${{ runner.temp }}/wasm_assets
+          path: ${{ runner.temp }}/wasm_artifacts
 
-      - run: |
+      - working-directory: ${{ runner.temp }}/wasm_artifacts
+        run: |
           mkdir -p ${{ needs.build-release-wasm-libs.outputs.out-dir }}
-          cd ${{ runner.temp }}/wasm_assets
           cp -R build-wasm-*/* ${{ needs.build-release-wasm-libs.outputs.out-dir }}
 
       - name: Download data
@@ -529,14 +596,10 @@ jobs:
           cp -r ios-*/* ${{ env.DART_WORKSPACE }}/ios
 
       - name: Copy headers
-        shell: bash
-        run: |
-          cd /tmp/artifacts/headers-${{ github.sha }}
-          cp ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes
-          cp ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes
-          cp lib/src/common/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/common/ffi
-          cp lib/src/mobile/ffi/genesis.dart ${{ env.DART_WORKSPACE }}/lib/src/mobile/ffi
-          find lib/ -type f -regex ".*\.g\.dart" -exec cp --parents '{}' ${{ env.DART_WORKSPACE }}/ \;
+        uses: ./.ci/copy-headers
+        with:
+          working-directory: /tmp/artifacts/headers-${{ github.sha }}
+          dart-ws: ${{ env.DART_WORKSPACE }}
 
       - name: Download asset artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10

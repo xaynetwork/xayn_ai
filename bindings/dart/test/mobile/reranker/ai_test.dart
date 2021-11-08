@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart'
         throwsA,
         TypeMatcher;
 
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart' show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/common/result/error.dart' show Code;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show XaynAi;
 import '../utils.dart'

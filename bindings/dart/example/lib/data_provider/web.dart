@@ -12,7 +12,7 @@ const _baseAssetUrl = './assets/assets';
 
 /// Prepares and returns the data that is needed to init [`XaynAi`].
 Future<SetupData> getInputData() async {
-  final fetched = <AssetType, Uint8List>{};
+  final fetched = <AssetType, dynamic>{};
   final features = <WebFeature>{};
 
   // uncomment the following section to load the multithreaded version
@@ -24,12 +24,14 @@ Future<SetupData> getInputData() async {
 
   for (var asset in getAssets(features: features).entries) {
     final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
-    // We also load the wasm script here in order to check its integrity/checksum.
+    // We also load the wasm/worker script here in order to check its integrity/checksum.
     // The browser keeps it in cache so `injectWasmScript` does not download it again.
     final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
 
     if (asset.key == AssetType.wasmScript) {
       await injectWasmScript(path);
+    } else if (asset.key == AssetType.webWorkerScript) {
+      fetched.putIfAbsent(asset.key, () => path);
     } else {
       fetched.putIfAbsent(asset.key, () => data);
     }

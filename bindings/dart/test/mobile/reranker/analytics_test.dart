@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart'
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart'
     show History, Relevance, UserAction, UserFeedback, DayOfWeek;
-import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' show RerankMode;
+import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart' show RerankMode;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart' show CAnalytics;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/ai.dart' show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/mobile/reranker/analytics.dart'

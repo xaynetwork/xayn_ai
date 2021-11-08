@@ -6,6 +6,7 @@ part of 'data_provider.dart';
 final _{{ print "wasm " $key | strings.CamelCase}} = <common.AssetType, common.Asset>{
   common.AssetType.wasmModule: common.Asset('{{$value.module.url_suffix}}', common.Checksum('{{$value.module.checksum}}'), []),
   common.AssetType.wasmScript: common.Asset('{{$value.script.url_suffix}}', common.Checksum('{{$value.script.checksum}}'), []),
+  common.AssetType.webWorkerScript: common.Asset('{{$value.web_worker.url_suffix}}', common.Checksum('{{$value.web_worker.checksum}}'), []),
 };
 {{- end }}
 

@@ -14,6 +14,9 @@ set -e
 
 OUT_DIR="out"
 ASSETS_METADATA_PATH="$OUT_DIR/assets_metadata.json"
+WASM_SCRIPT_NAME="genesis.js"
+WASM_MODULE_NAME="genesis_bg.wasm"
+WEB_WORKER_NAME="worker.js"
 
 if [[ "$OSTYPE" == "darwin"*  || $RUNNER_OS == "macOS" ]]; then
     if [ -x "$(command -v gsplit)" ]; then
@@ -106,19 +109,30 @@ gen_data_assets_metadata() {
     done
 }
 
-gen_wasm_asset_metadata() {
-    local WASM_VERSION=$1
-    local ASSET_PATH=$2
+gen_web_asset_metadata() {
+    local ASSET_PATH=$1
+    local WASM_VERSION=$2
 
     local ASSET="{}"
-
     local ASSET_CHECKSUM=$(calc_checksum "$ASSET_PATH")
     local ASSET_WITH_CHECKSUM=$(echo $ASSET | jq -c --arg checksum $ASSET_CHECKSUM '. |= .+ {"checksum": $checksum}')
     local ASSET_FILENAME=$(basename "$ASSET_PATH")
-    local ASSET_URL_SUFFIX="${WASM_VERSION}/${ASSET_FILENAME}"
+    local ASSET_URL_SUFFIX="$WASM_VERSION/$ASSET_FILENAME"
     ASSET=$(echo $ASSET_WITH_CHECKSUM | jq -c --arg url_suffix $ASSET_URL_SUFFIX '. |= .+ {"url_suffix": $url_suffix}')
 
     echo $ASSET
+}
+
+gen_web_worker_asset_metadata() {
+    local WEB_WORKER_OUT_DIR_PATH=$1
+    local WASM_VERSION=$2
+
+    local ASSET_WEB_WORKER_PATH="$WEB_WORKER_OUT_DIR_PATH/$WEB_WORKER_NAME"
+    local ASSET_WEB_WORKER=$(gen_web_asset_metadata "$ASSET_WEB_WORKER_PATH" "$WASM_VERSION")
+
+    add_to_upload_list "$ASSET_WEB_WORKER_PATH" "$ASSET_WEB_WORKER"
+
+    echo $ASSET_WEB_WORKER
 }
 
 # Generates and adds the following object to the `wasm_assets` object.
@@ -133,21 +147,27 @@ gen_wasm_asset_metadata() {
 #   "module": {
 #     "checksum": "<checksum>",
 #     "url_suffix": "<version>/<filename>"
+#   },
+#   "web_worker": {
+#     "checksum": "<checksum>",
+#     "url_suffix": "<version>/<filename>"
 #   }
 # },
 gen_wasm_assets_metadata() {
     local WASM_OUT_DIR_PATH=$1
     local WASM_VERSION=$2
     local WASM_FEATURE=$3
+    local ASSET_WEB_WORKER=$4
 
-    local ASSET_JS_PATH="${WASM_OUT_DIR_PATH}/${WASM_VERSION}/genesis.js"
-    local ASSET_WASM_PATH="${WASM_OUT_DIR_PATH}/${WASM_VERSION}/genesis_bg.wasm"
+    local ASSET_JS_PATH="$WASM_OUT_DIR_PATH/$WASM_VERSION/$WASM_SCRIPT_NAME"
+    local ASSET_WASM_PATH="$WASM_OUT_DIR_PATH/$WASM_VERSION/$WASM_MODULE_NAME"
 
     local WASM_PACKAGE="{}"
-    local ASSET_JS=$(gen_wasm_asset_metadata "$WASM_VERSION" "$ASSET_JS_PATH")
+    local ASSET_JS=$(gen_web_asset_metadata "$ASSET_JS_PATH" "$WASM_VERSION")
     WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_script $ASSET_JS '. |= .+ {"script": $wasm_script}')
-    local ASSET_WASM=$(gen_wasm_asset_metadata "$WASM_VERSION" "$ASSET_WASM_PATH")
+    local ASSET_WASM=$(gen_web_asset_metadata "$ASSET_WASM_PATH" "$WASM_VERSION")
     WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson wasm_module $ASSET_WASM '. |= .+ {"module": $wasm_module}')
+    WASM_PACKAGE=$(echo $WASM_PACKAGE | jq -c --argjson web_worker_script $ASSET_WEB_WORKER '. |= .+ {"web_worker": $web_worker_script}')
 
     local TMP_FILE=$(mktemp)
     jq --argjson wasm_asset $WASM_PACKAGE --arg feature "$WASM_FEATURE" '.wasm_assets |= .+ {($feature): $wasm_asset}' "$ASSETS_METADATA_PATH" > "$TMP_FILE"
@@ -156,7 +176,7 @@ gen_wasm_assets_metadata() {
     add_to_upload_list "$ASSET_JS_PATH" "$ASSET_JS"
     add_to_upload_list "$ASSET_WASM_PATH" "$ASSET_WASM"
 
-    for ASSET_PATH in $(find "${WASM_OUT_DIR_PATH}/${WASM_VERSION}" -type f -name '*.js' ! -name genesis.js); do
+    for ASSET_PATH in $(find "${WASM_OUT_DIR_PATH}/${WASM_VERSION}" -type f -name '*.js' ! -name $WASM_SCRIPT_NAME ! -name $WEB_WORKER_NAME); do
         local ASSET_FILENAME=$(basename "$ASSET_PATH")
         local ASSET_URL_SUFFIX="${WASM_VERSION}/${ASSET_FILENAME}"
         add_to_upload_list "$ASSET_PATH" "{\"url_suffix\": \"$ASSET_URL_SUFFIX\"}"
@@ -202,7 +222,8 @@ gen_assets_metadata() {
         for WASM_VERSION in $(find "$WASM_OUT_DIR_PATH" -type f -maxdepth 2 -name 'package.json' -exec sh -c "dirname {} | xargs basename" \;); do
             local PACKAGE="$WASM_OUT_DIR_PATH/$WASM_VERSION/package.json"
             local WASM_FEATURE=$(cat "$PACKAGE" | jq -r '.feature')
-            gen_wasm_assets_metadata "$WASM_OUT_DIR_PATH" "$WASM_VERSION" "$WASM_FEATURE"
+            local ASSET_WEB_WORKER=$(gen_web_worker_asset_metadata "$WASM_OUT_DIR_PATH/$WASM_VERSION" "$WASM_VERSION")
+            gen_wasm_assets_metadata "$WASM_OUT_DIR_PATH" "$WASM_VERSION" "$WASM_FEATURE" "$ASSET_WEB_WORKER"
         done
     fi
 }

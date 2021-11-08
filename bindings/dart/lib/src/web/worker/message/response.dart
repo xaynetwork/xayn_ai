@@ -1,6 +1,7 @@
 import 'dart:typed_data' show Uint8List;
 
 import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
+
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
