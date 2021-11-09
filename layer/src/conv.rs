@@ -28,8 +28,17 @@ pub enum ConvError {
     #[displaydoc("{0}")]
     Shape(#[from] ShapeError),
 
-    /// Invalid configurations: {0}
-    Config(String),
+    /// Stride must be positive
+    Stride,
+
+    /// Dilation must be positive
+    Dilation,
+
+    /// Groups must be positive
+    Groups,
+
+    /// Channel out size must be divisible by groups
+    ChannelOutSize,
 }
 
 impl Conv1D {
@@ -53,18 +62,17 @@ impl Conv1D {
         dilation: usize,
         groups: usize,
     ) -> Result<Self, ConvError> {
-        // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/Convolution.cpp#L515
         if weights.is_empty() {
             return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
         }
         if stride == 0 {
-            return Err(ConvError::Config("stride must be positive".into()));
+            return Err(ConvError::Stride);
         }
         if dilation == 0 {
-            return Err(ConvError::Config("dilation must be positive".into()));
+            return Err(ConvError::Dilation);
         }
         if groups == 0 {
-            return Err(ConvError::Config("groups must be positive".into()));
+            return Err(ConvError::Groups);
         }
 
         let weights_shape = weights.shape();
@@ -73,21 +81,8 @@ impl Conv1D {
         let kernel_size = weights_shape[2];
         let dilated_kernel_size = dilation * (kernel_size - 1) + 1;
 
-        if groups > channel_out_size {
-            return Err(ConvError::Config(format!(
-                "given groups={}, expected weight to be at least {} at dimension 0, but got weight of size {:?} instead",
-                groups,
-                groups,
-                weights_shape,
-            )));
-        }
         if channel_out_size % groups != 0 {
-            return Err(ConvError::Config(format!(
-                "given groups={}, expected weight to be divisible by {} at dimension 0, but got weight of size {:?} instead",
-                groups,
-                groups,
-                weights_shape,
-            )));
+            return Err(ConvError::ChannelOutSize);
         }
 
         let weights = weights.into_shape((channel_out_size, channel_grouped_size * kernel_size))?;
@@ -125,12 +120,10 @@ impl Conv1D {
         &self,
         input: ArrayBase<impl Data<Elem = f32>, Ix3>,
     ) -> Result<Array3<f32>, ConvError> {
-        // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/Convolution.cpp#L820
         let input_shape = input.shape();
         let batch_size = input_shape[0];
         let channel_in_size = input_shape[1];
-        let input_size = input_shape[2];
-        let padded_input_size = input_size + 2 * self.padding;
+        let padded_input_size = input_shape[2] + 2 * self.padding;
 
         if channel_in_size != self.channel_grouped_size * self.groups {
             return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
@@ -145,14 +138,12 @@ impl Conv1D {
         }
 
         if self.groups > 1 {
-            unimplemented!("https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/Convolution.cpp#L1032-L1041");
+            unimplemented!("ATen/native/Convolution");
         }
-        // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/Convolution.cpp#L1070
         if self.dilation > 1 {
-            unimplemented!("https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/NaiveDilatedConvolution.cpp#L434");
+            unimplemented!("ATen/native/NaiveDilatedConvolution");
         }
 
-        // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/ConvolutionMM2d.cpp#L140
         let mut output = Array3::zeros([batch_size, self.channel_out_size, output_size]);
         azip!((mut output in output.outer_iter_mut(), input in input.outer_iter()) {
             let input = self.unfold(input, output_size);
@@ -176,10 +167,9 @@ impl Conv1D {
         output_size: usize,
     ) -> Array2<f32> {
         if self.padding > 0 {
-            unimplemented!("https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/cpu/Unfold2d.cpp#L191-L243");
+            unimplemented!("ATen/native/cpu/Unfold2d");
         }
 
-        // https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/cpu/Unfold2d.cpp#L160
         Array2::from_shape_fn(
             (input.shape()[0] * self.kernel_size, output_size),
             |(i, j)| input[[i / self.kernel_size, i % self.kernel_size + j * self.stride]],
@@ -194,7 +184,6 @@ mod tests {
     use super::*;
     use test_utils::assert_approx_eq;
 
-    // https://github.com/pytorch/pytorch/blob/master/test/cpp/api/functional.cpp#L13-L26
     #[test]
     fn test_conv1d_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
@@ -272,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
+    #[should_panic(expected = "not implemented: ATen/native/")]
     fn test_conv1d_padding_with_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
@@ -294,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
+    #[should_panic(expected = "not implemented: ATen/native/")]
     fn test_conv1d_padding_with_singleton_kernel() {
         let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
@@ -316,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
+    #[should_panic(expected = "not implemented: ATen/native/")]
     fn test_conv1d_dilation() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
@@ -329,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: https://github.com/pytorch")]
+    #[should_panic(expected = "not implemented: ATen/native/")]
     fn test_conv1d_groups() {
         let weights = Array1::range(0., 24., 1.).into_shape((2, 4, 3)).unwrap();
         let input = Array1::range(0., 80., 1.).into_shape((2, 8, 5)).unwrap();
