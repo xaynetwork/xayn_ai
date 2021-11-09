@@ -261,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: ATen/native/")]
+    #[should_panic(expected = "not implemented: ATen/native/cpu/Unfold2d")]
     fn test_conv1d_padding_with_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: ATen/native/")]
+    #[should_panic(expected = "not implemented: ATen/native/cpu/Unfold2d")]
     fn test_conv1d_padding_with_singleton_kernel() {
         let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
@@ -305,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: ATen/native/")]
+    #[should_panic(expected = "not implemented: ATen/native/NaiveDilatedConvolution")]
     fn test_conv1d_dilation() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
@@ -318,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not implemented: ATen/native/")]
+    #[should_panic(expected = "not implemented: ATen/native/Convolution")]
     fn test_conv1d_groups() {
         let weights = Array1::range(0., 24., 1.).into_shape((2, 4, 3)).unwrap();
         let input = Array1::range(0., 80., 1.).into_shape((2, 8, 5)).unwrap();
