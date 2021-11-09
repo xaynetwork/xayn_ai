@@ -175,8 +175,7 @@ If that happens run `cargo make clean-non-rust`.
 
 ```diff
 - const _baseAssetUrl = 'assets';
-+ const _baseAssetUrl =
-+   'https://ai-assets.xaynet.dev'
++ const _baseAssetUrl = 'https://ai-assets.xaynet.dev';
 ```
 
 Then use `cargo make build-web` and `cargo make serve-web` like above.
