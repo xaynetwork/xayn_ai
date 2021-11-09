@@ -11,8 +11,6 @@ use ndarray::{
     ArrayView2,
     Data,
     Dimension,
-    IntoDimension,
-    IxDyn,
     RemoveAxis,
 };
 use thiserror::Error;
@@ -20,35 +18,8 @@ use thiserror::Error;
 use crate::{
     activation::ActivationFunction,
     io::{BinParamsWithScope, FailedToRetrieveParams, UnexpectedNumberOfDimensions},
+    utils::IncompatibleMatrices,
 };
-
-/// Can't combine {name_left}({shape_left:?}) with {name_right}({shape_right:?}): {hint}
-#[derive(Debug, Display, Error)]
-pub struct IncompatibleMatrices {
-    name_left: &'static str,
-    shape_left: IxDyn,
-    name_right: &'static str,
-    shape_right: IxDyn,
-    hint: &'static str,
-}
-
-impl IncompatibleMatrices {
-    pub fn new(
-        name_left: &'static str,
-        shape_left: impl IntoDimension,
-        name_right: &'static str,
-        shape_right: impl IntoDimension,
-        hint: &'static str,
-    ) -> Self {
-        Self {
-            name_left,
-            shape_left: shape_left.into_dimension().into_dyn(),
-            name_right,
-            shape_right: shape_right.into_dimension().into_dyn(),
-            hint,
-        }
-    }
-}
 
 /// Failed to load the Dense layer
 #[derive(Debug, Display, Error)]
@@ -92,13 +63,13 @@ where
                 activation_function,
             })
         } else {
-            Err(IncompatibleMatrices {
-                name_left: "Dense/weights",
-                shape_left: weights.raw_dim().into_dyn(),
-                name_right: "Dense/bias",
-                shape_right: bias.raw_dim().into_dyn(),
-                hint: "expected weights[1] == bias[0] for broadcasting bias add",
-            })
+            Err(IncompatibleMatrices::new(
+                "Dense/weights",
+                weights.raw_dim(),
+                "Dense/bias",
+                bias.raw_dim(),
+                "expected weights[1] == bias[0] for broadcasting bias add",
+            ))
         }
     }
 
