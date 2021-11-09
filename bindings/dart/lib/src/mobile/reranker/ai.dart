@@ -61,9 +61,14 @@ class XaynAi implements common.XaynAi {
   /// Requires the path to the vocabulary and model of the tokenizer/embedder
   /// and the path of the LTR model. Optionally accepts the serialized reranker
   /// database, otherwise creates a new one.
-  XaynAi._(String smbertVocab, String smbertModel, String qambertVocab,
-      String qambertModel, String ltrModel,
-      [Uint8List? serialized]) {
+  XaynAi._(
+    String smbertVocab,
+    String smbertModel,
+    String qambertVocab,
+    String qambertModel,
+    String ltrModel,
+    Uint8List? serialized,
+  ) {
     final smbertVocabPtr = smbertVocab.toNativeUtf8().cast<Uint8>();
     final smbertModelPtr = smbertModel.toNativeUtf8().cast<Uint8>();
     final qambertVocabPtr = qambertVocab.toNativeUtf8().cast<Uint8>();

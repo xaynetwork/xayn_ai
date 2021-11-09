@@ -61,9 +61,16 @@ class CreateParams implements ToJson {
   @Uint8ListMaybeNullConverter()
   Uint8List? serialized;
 
-  CreateParams(this.smbertVocab, this.smbertModel, this.qambertVocab,
-      this.qambertModel, this.ltrModel, this.wasmModule, this.wasmScript,
-      [Uint8List? serialized]);
+  CreateParams(
+    this.smbertVocab,
+    this.smbertModel,
+    this.qambertVocab,
+    this.qambertModel,
+    this.ltrModel,
+    this.wasmModule,
+    this.wasmScript,
+    this.serialized,
+  );
 
   factory CreateParams.fromJson(Map json) => _$CreateParamsFromJson(json);
 

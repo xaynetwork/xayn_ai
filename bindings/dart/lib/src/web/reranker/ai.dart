@@ -46,7 +46,7 @@ class XaynAi implements common.XaynAi {
     return await XaynAi._create(data, null);
   }
 
-  static Future<XaynAi> _create(SetupData data, [Uint8List? serialized]) async {
+  static Future<XaynAi> _create(SetupData data, Uint8List? serialized) async {
     final worker = Worker(data.webWorkerScript);
 
     final params = CreateParams(

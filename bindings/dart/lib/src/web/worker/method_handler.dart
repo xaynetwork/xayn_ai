@@ -45,6 +45,7 @@ Future<ffi.XaynAi?> create(ffi.XaynAi? ai, Request request) async {
     params.qambertModel,
     params.ltrModel,
     params.wasmModule,
+    params.serialized,
   );
 
   request.sender.sendResponse(Response.ok);
