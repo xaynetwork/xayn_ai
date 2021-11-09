@@ -1,16 +1,12 @@
 # You can find more information about the design decisions here:
 # https://github.com/xaynetwork/xayn_ai/pull/21
 
-name: Rust-CI
+name: Bors-Rust-CI
 
 on:
   push:
-    branches-ignore:
-      # we push on release only from staging and release represent
-      # a snapshot of staging in a given point in time
-      - 'master'
-      - 'release'
-      - '_bors_staging-squash-merge.tmp'
+    branches:
+    - 'master'
 
 concurrency:
   group: ${{ github.ref }}
@@ -289,6 +285,153 @@ jobs:
           version: '0.16.0'
           args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70 --workspace --exclude xayn-ai-ffi-wasm --exclude dev-tool --timeout 300'
 
+  test-android-libs:
+    name: test-android-libs
+    needs: [cargo-registry-cache, cargo-test]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
+
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
+
+      - name: Install Cross
+        shell: bash
+        run: |
+          wget -q -O - https://github.com/rust-embedded/cross/releases/download/v0.2.1/cross-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xvzf -
+          echo "${{ env.CROSS_CHECKSUM }} *cross" | shasum -c -
+          mv cross ~/.cargo/bin/
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Restore build artifacts
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
+
+      - name: Test Android library ${{ matrix.target }}
+        env:
+          RUSTFLAGS: ${{ env.OPT_TESTS_RUSTFLAGS }}
+        run: cross test --target ${{ matrix.target }} --all-targets --no-default-features -- -Z unstable-options --report-time
+
+  build-ios-libs:
+    name: build-ios-libs
+    needs: [cargo-registry-cache, cargo-test]
+    runs-on: macos-11
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-ios, x86_64-apple-ios]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain with target ${{ matrix.target }}
+        id: rust-toolchain
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
+
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
+
+      - name: Restore build artifacts
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        with:
+          path: ${{ github.workspace }}/target
+          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
+
+      - name: Build iOS library ${{ matrix.target }}
+        working-directory: ./xayn-ai-ffi-c
+        run: cargo build --target ${{ matrix.target }} -p xayn-ai-ffi-c
+
+      - name: Prepare lib for upload
+        run: |
+          dir=target/${{ matrix.target }}/debug
+          mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
+
+      - name: Upload library artifacts
+        uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074 # v2.2.4
+        with:
+          name: build-ios-${{ matrix.target }}-${{ github.sha }}
+          retention-days: 1
+          if-no-files-found: error
+          path: target/${{ matrix.target}}/debug/libxayn_ai_ffi_c_${{ matrix.target }}.a
+
+  test-wasm-libs:
+    name: test-wasm-libs
+    needs: [cargo-registry-cache, cargo-test]
+    runs-on: ubuntu-20.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: wasm32-unknown-unknown
+          default: true
+
+      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
+        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
+
+      - name: Install wasm-pack
+        uses: ./.ci/install-wasm-pack
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Test WASM library
+        working-directory: ./xayn-ai-ffi-wasm
+        env:
+          RUSTFLAGS: ${{ env.OPT_TESTS_RUSTFLAGS }}
+        run: wasm-pack test --firefox --chrome --headless
+
   build-linux-lib:
     name: build-linux-lib
     needs: [cargo-registry-cache, cargo-test]
@@ -427,6 +570,104 @@ jobs:
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter ${{ matrix.cmd }}
 
+  flutter-build-example:
+    name: flutter-build-example
+    needs: [build-linux-lib, build-ios-libs]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [android, ios, web]
+        include:
+          - target: android
+            os: ubuntu-20.04
+            cmd: flutter build apk --debug --split-per-abi
+          - target: ios
+            os: macos-11
+            cmd: flutter build ios --debug --no-codesign
+          - target: web
+            os: ubuntu-20.04
+            cmd: flutter build web
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+      - name: Install libclang-10-dev
+        if: matrix.os == 'ubuntu-20.04'
+        run: sudo apt-get install libclang-10-dev
+
+      - name: Install gomplate
+        uses: ./.ci/install-gomplate
+
+      - name: Download ${{ needs.build-linux-lib.outputs.cache-key }} artifacts
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        with:
+          name: ${{ needs.build-linux-lib.outputs.cache-key }}
+          path: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
+
+      - name: Move C-headers
+        working-directory: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
+        run: |
+          mv bindings/dart/ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
+          mv bindings/dart/ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
+
+      - name: Download iOS aarch64 artifacts
+        if: matrix.target == 'ios'
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        with:
+          name: build-ios-aarch64-apple-ios-${{ github.sha }}
+          path: ${{ runner.temp }}/build-ios-${{ github.sha }}
+
+      - name: Download iOS x84_64 artifacts
+        if: matrix.target == 'ios'
+        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        with:
+          name: build-ios-x86_64-apple-ios-${{ github.sha }}
+          path: ${{ runner.temp }}/build-ios-${{ github.sha }}
+
+      - name: Move iOS artifacts
+        if: matrix.target == 'ios'
+        run: |
+          cd ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
+          cd ${{ runner.temp }}/build-ios-${{ github.sha }}
+          find . -iname '*.a' -exec cp \{\} ${{ env.DART_WORKSPACE }}/ios \;
+
+      - name: Install flutter
+        uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Download data
+        run: sh download_data.sh
+
+      - name: Install flutter dependencies
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub get
+
+      - name: Generate flutter ffi
+        uses: ./.ci/generate-flutter-ffi
+        with:
+          dart-ws: ${{ env.DART_WORKSPACE }}
+
+      - name: Build asset artifacts
+        uses: ./.ci/build-asset-artifacts
+        with:
+          dart-ws: ${{ env.DART_WORKSPACE }}
+
+      - name: Other Dart code generation
+        working-directory: ${{ env.DART_WORKSPACE }}
+        run: flutter pub run build_runner build
+
+      - name: Build flutter example for ${{ matrix.target }}
+        working-directory: ${{ env.DART_WORKSPACE }}/example
+        run: ${{ matrix.cmd }}
+
+      - name: Build ios archive
+        if: matrix.target == 'ios'
+        working-directory: ${{ env.DART_WORKSPACE }}/example
+        run: xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner archive -configuration release -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED="NO"
+
   # this is an helper that needs all the real leafs of the workflow.
   # It makes easier notify_staging_failure because we only need to check
   # for this job
@@ -436,7 +677,10 @@ jobs:
       - cargo-sort
       - flutter-format
       - cargo-tarpaulin
+      - test-wasm-libs
+      - test-android-libs
       - flutter-checks
+      - flutter-build-example
     runs-on: ubuntu-20.04
     steps:
       - run: echo "Helper job"
