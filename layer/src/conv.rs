@@ -242,7 +242,7 @@ mod tests {
             [[312., 384.], [798., 1032.]],
             [[852., 924.], [2553., 2787.]],
         ]);
-        assert_approx_eq!(f32, dbg!(output), expected);
+        assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
@@ -257,7 +257,7 @@ mod tests {
             [[25., 31., 37.], [70., 94., 118.]],
             [[70., 76., 82.], [250., 274., 298.]],
         ]);
-        assert_approx_eq!(f32, dbg!(output), expected);
+        assert_approx_eq!(f32, output, expected);
     }
 
     #[test]
