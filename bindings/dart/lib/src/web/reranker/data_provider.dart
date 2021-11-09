@@ -45,7 +45,7 @@ class SetupData implements common.SetupData {
     wasmModule = assets[common.AssetType.wasmModule]! as Uint8List;
 
     // The wasm script url needs to be relative to the web-worker url.
-    // # https://github.com/xaynetwork/xayn_ai/pull/272 explains it in more detail.
+    // https://github.com/xaynetwork/xayn_ai/pull/272 explains it in more detail.
     final wasmScriptRelative = assets[common.AssetType.wasmScript]! as String;
     wasmScript = wasmScriptRelative.split('/').last;
 
