@@ -14,13 +14,13 @@ jobs:
     name: Add WIP label
     steps:
       - name: Add WIP Label
-        uses: uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
+        uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
           label: "WIP ⏳"
           type: add
       - name: Remove Ready for Review Label 
-        uses: uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
+        uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         if: contains(github.event.pull_request.labels.*.name, 'Ready for review ✅')
         with:
           token: ${{secrets.GITHUB_TOKEN}}
@@ -32,7 +32,7 @@ jobs:
     name: Remove label
     steps:
       - name: Remove WIP Label 
-        uses: uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
+        uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         if: contains(github.event.pull_request.labels.*.name, 'WIP ⏳')
         with:
           token: ${{secrets.GITHUB_TOKEN}}
@@ -40,7 +40,7 @@ jobs:
           type: remove
       - name: Add Ready for Review Label
         if: "!contains(github.event.pull_request.labels.*.name, 'Ready for review ✅')"
-        uses: uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
+        uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
           label: "Ready for review ✅"
