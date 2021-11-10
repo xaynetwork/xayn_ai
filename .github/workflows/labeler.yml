@@ -42,7 +42,7 @@ jobs:
           token: ${{secrets.GITHUB_TOKEN}}
           label: "WIP ⏳"
           type: remove
-          
+
       - name: Add Ready for Review Label
         uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         with:
