@@ -14,8 +14,6 @@ import 'package:xayn_ai_ffi_dart/src/common/reranker/ai.dart' as common
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
 import 'package:xayn_ai_ffi_dart/src/common/reranker/mode.dart' show RerankMode;
-import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
-    show Code, XaynAiException;
 import 'package:xayn_ai_ffi_dart/src/common/result/outcomes.dart'
     show RerankingOutcomes;
 import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
@@ -32,7 +30,6 @@ const int kReceiveTimeoutInSec = 10;
 /// The Xayn AI.
 class XaynAi implements common.XaynAi {
   final Worker? _worker;
-  bool didPanic = false;
 
   /// Creates and initializes the Xayn AI from a given state.
   ///
@@ -105,7 +102,6 @@ class XaynAi implements common.XaynAi {
     );
 
     if (response.isException()) {
-      checkIfAiPanicked(response.exception!);
       throw response.exception!;
     }
 
@@ -122,7 +118,6 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.serialize);
 
     if (response.isException()) {
-      checkIfAiPanicked(response.exception!);
       throw response.exception!;
     }
 
@@ -141,7 +136,6 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.faults);
 
     if (response.isException()) {
-      checkIfAiPanicked(response.exception!);
       throw response.exception!;
     }
 
@@ -158,7 +152,6 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.analytics);
 
     if (response.isException()) {
-      checkIfAiPanicked(response.exception!);
       throw response.exception!;
     }
 
@@ -175,7 +168,6 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.syncdataBytes);
 
     if (response.isException()) {
-      checkIfAiPanicked(response.exception!);
       throw response.exception!;
     }
 
@@ -196,7 +188,6 @@ class XaynAi implements common.XaynAi {
     );
 
     if (response.isException()) {
-      checkIfAiPanicked(response.exception!);
       throw response.exception!;
     }
   }
@@ -204,14 +195,6 @@ class XaynAi implements common.XaynAi {
   /// Frees the memory.
   @override
   Future<void> free() async {
-    if (didPanic) {
-      // When the wasm module panicked we don't call `free` on it because
-      // it will result in a wasm runtime error.
-      _worker!.terminate();
-      return;
-    }
-
-    // the clean path of freeing the wasm module and terminating the worker.
     try {
       final response = await _call(_worker!, Method.free);
       if (response.isException()) {
@@ -221,12 +204,6 @@ class XaynAi implements common.XaynAi {
       rethrow;
     } finally {
       _worker!.terminate();
-    }
-  }
-
-  void checkIfAiPanicked(XaynAiException exception) {
-    if (exception.code == Code.panic) {
-      didPanic = true;
     }
   }
 }
