@@ -7,6 +7,9 @@ on:
     types: [opened, converted_to_draft, ready_for_review]
   workflow_dispatch:
 
+permissions: 
+  pull-requests: write
+
 jobs:
   draft_PR:
     if: (github.event.pull_request.draft == true)
