@@ -22,7 +22,6 @@ jobs:
 
       - name: Remove Ready for Review Label 
         uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
-        if: contains(github.event.pull_request.labels.*.name, 'Ready for review ✅')
         with:
           token: ${{secrets.GITHUB_TOKEN}}
           label: "Ready for review ✅"
@@ -42,7 +41,6 @@ jobs:
           type: remove
           
       - name: Add Ready for Review Label
-        if: "!contains(github.event.pull_request.labels.*.name, 'Ready for review ✅')"
         uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
