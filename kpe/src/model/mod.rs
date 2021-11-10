@@ -9,6 +9,8 @@ use ndarray::ShapeError;
 use thiserror::Error;
 use tract_onnx::prelude::TractError;
 
+use layer::{conv::ConvError, utils::IncompatibleMatrices};
+
 /// The potential errors of the models.
 #[derive(Debug, Display, Error)]
 pub enum ModelError {
@@ -18,4 +20,8 @@ pub enum ModelError {
     Tract(#[from] TractError),
     /// Invalid array shapes: {0}
     Shape(#[from] ShapeError),
+    /// Failed to read or run the CNN model: {0}
+    Cnn(#[from] ConvError),
+    /// Failed to read or run the classifier model: {0}
+    Classifier(#[from] IncompatibleMatrices),
 }

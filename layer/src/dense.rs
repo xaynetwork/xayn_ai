@@ -23,7 +23,7 @@ use crate::{
 ///
 /// This can be used for both 1D and 2D inputs depending
 /// on the activation function.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Dense<AF>
 where
     AF: ActivationFunction<f32>,

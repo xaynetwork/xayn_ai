@@ -190,7 +190,8 @@ where
 
     /// Computes the forward pass of the input through the layer.
     ///
-    /// The input is of shape `(batch_size, channel_in_size, input_size)`.
+    /// The input is of shape `(batch_size, channel_in_size, input_size)` and the output is of shape
+    /// `(batch_size, channel_out_size, output_size)`.
     pub fn run(
         &self,
         input: ArrayBase<impl Data<Elem = f32>, Ix3>,

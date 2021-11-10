@@ -5,6 +5,7 @@ use std::{
 };
 
 use displaydoc::Display;
+use ndarray::{Array1, Array2, Array3};
 use thiserror::Error;
 
 use crate::{
@@ -17,8 +18,10 @@ use crate::{
 pub struct Builder<V, M> {
     vocab: V,
     bert: M,
-    cnn: M,
-    classifier: M,
+    cnn_weights: Vec<Array3<f32>>,
+    cnn_bias: Vec<Array1<f32>>,
+    classifier_weights: Array2<f32>,
+    classifier_bias: Array1<f32>,
     accents: bool,
     lowercase: bool,
     token_size: usize,
@@ -53,25 +56,41 @@ impl Builder<BufReader<File>, BufReader<File>> {
     pub fn from_files(
         vocab: impl AsRef<Path>,
         bert: impl AsRef<Path>,
-        cnn: impl AsRef<Path>,
-        classifier: impl AsRef<Path>,
+        cnn_weights: Vec<Array3<f32>>,
+        cnn_bias: Vec<Array1<f32>>,
+        classifier_weights: Array2<f32>,
+        classifier_bias: Array1<f32>,
     ) -> Result<Self, BuilderError> {
         let vocab = BufReader::new(File::open(vocab)?);
         let bert = BufReader::new(File::open(bert)?);
-        let cnn = BufReader::new(File::open(cnn)?);
-        let classifier = BufReader::new(File::open(classifier)?);
-        Ok(Self::new(vocab, bert, cnn, classifier))
+        Ok(Self::new(
+            vocab,
+            bert,
+            cnn_weights,
+            cnn_bias,
+            classifier_weights,
+            classifier_bias,
+        ))
     }
 }
 
 impl<V, M> Builder<V, M> {
     /// Creates a [`Pipeline`] builder from an in-memory vocabulary and models.
-    pub fn new(vocab: V, bert: M, cnn: M, classifier: M) -> Self {
+    pub fn new(
+        vocab: V,
+        bert: M,
+        cnn_weights: Vec<Array3<f32>>,
+        cnn_bias: Vec<Array1<f32>>,
+        classifier_weights: Array2<f32>,
+        classifier_bias: Array1<f32>,
+    ) -> Self {
         Self {
             vocab,
             bert,
-            cnn,
-            classifier,
+            cnn_weights,
+            cnn_bias,
+            classifier_weights,
+            classifier_bias,
             accents: false,
             lowercase: true,
             token_size: 1024,
@@ -161,8 +180,8 @@ impl<V, M> Builder<V, M> {
             self.key_phrase_min_score,
         )?;
         let bert = BertModel::new(self.bert, self.token_size)?;
-        let cnn = CnnModel::new(self.cnn, self.token_size, bert.embedding_size)?;
-        let classifier = ClassifierModel::new(self.classifier, cnn.out_channel_size)?;
+        let cnn = CnnModel::new(self.cnn_weights, self.cnn_bias)?;
+        let classifier = ClassifierModel::new(self.classifier_weights, self.classifier_bias)?;
 
         Ok(Pipeline {
             tokenizer,

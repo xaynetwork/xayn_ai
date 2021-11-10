@@ -1,6 +1,6 @@
 //! The KPE pipeline extracts key phrases from a sequence.
 //!
-//! ```no_run
+//! ```compile_fail
 //! use kpe::Builder;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
