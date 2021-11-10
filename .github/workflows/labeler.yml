@@ -7,6 +7,9 @@ on:
     types: [opened, converted_to_draft, ready_for_review]
   workflow_dispatch:
 
+permissions: 
+  pull-requests: write
+
 jobs:
   draft_PR:
     if: (github.event.pull_request.draft == true)
@@ -16,14 +19,14 @@ jobs:
       - name: Add WIP Label
         uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         with:
-          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          token: ${{secrets.GITHUB_TOKEN}}
           label: "WIP ⏳"
           type: add
 
       - name: Remove Ready for Review Label 
         uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         with:
-          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          token: ${{secrets.GITHUB_TOKEN}}
           label: "Ready for review ✅"
           type: remove
 
@@ -36,13 +39,13 @@ jobs:
         uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         if: contains(github.event.pull_request.labels.*.name, 'WIP ⏳')
         with:
-          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          token: ${{secrets.GITHUB_TOKEN}}
           label: "WIP ⏳"
           type: remove
 
       - name: Add Ready for Review Label
         uses: buildsville/add-remove-label@6008d7bd99d3baeb7c04033584e68f8ec80b198b # v1
         with:
-          token: ${{secrets.LABEL_MODIFIER_TOKEN_GITHUB}}
+          token: ${{secrets.GITHUB_TOKEN}}
           label: "Ready for review ✅"
           type: add
