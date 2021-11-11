@@ -4,6 +4,7 @@ mod approx_eq;
 mod asset;
 pub mod bench;
 pub mod example;
+pub mod kpe;
 pub mod ltr;
 pub mod qambert;
 pub mod smbert;
