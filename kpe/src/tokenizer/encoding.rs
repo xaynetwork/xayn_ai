@@ -32,11 +32,11 @@ pub struct Encoding {
     pub active_mask: ActiveMask,
 }
 
-impl Tokenizer {
+impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
     /// Encodes the sequence.
     ///
     /// The encoding is in correct shape for the models.
-    pub fn encode(&self, sequence: impl AsRef<str>) -> (Encoding, KeyPhrases) {
+    pub fn encode(&self, sequence: impl AsRef<str>) -> (Encoding, KeyPhrases<KEY_PHRASE_SIZE>) {
         let encoding = self.tokenizer.encode(sequence);
         let (token_ids, type_ids, tokens, word_indices, _, _, attention_mask, overflowing) =
             encoding.into();
@@ -47,12 +47,8 @@ impl Tokenizer {
 
         let valid_mask = valid_mask(&word_indices);
         let words = decode_words(tokens, word_indices, overflowing);
-        let key_phrases = KeyPhrases::collect(
-            &words,
-            self.key_phrase_size,
-            self.key_phrase_max_count,
-            self.key_phrase_min_score,
-        );
+        let key_phrases =
+            KeyPhrases::collect(&words, self.key_phrase_max_count, self.key_phrase_min_score);
         let active_mask = key_phrases.active_mask();
 
         (
@@ -148,11 +144,10 @@ mod tests {
     const SHORT_SEQUENCE: &str = "This is an embedding.";
     const LONG_SEQUENCE: &str = "This embedding is way too long.";
 
-    fn tokenizer(token_size: usize) -> Tokenizer {
+    fn tokenizer(token_size: usize) -> Tokenizer<3> {
         let vocab = BufReader::new(File::open(vocab().unwrap()).unwrap());
         let accents = false;
         let lowercase = true;
-        let key_phrase_size = 3;
         let key_phrase_count = None;
         let key_phrase_score = None;
 
@@ -161,7 +156,6 @@ mod tests {
             accents,
             lowercase,
             token_size,
-            key_phrase_size,
             key_phrase_count,
             key_phrase_score,
         )

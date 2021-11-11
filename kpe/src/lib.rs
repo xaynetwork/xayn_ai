@@ -9,7 +9,6 @@
 //!         .with_accents(false)
 //!         .with_lowercase(true)
 //!         .with_token_size(64)?
-//!         .with_key_phrase_size(5)?
 //!         .build()?;
 //!
 //!     let key_phrases = kpe.run("This is a sequence.")?;

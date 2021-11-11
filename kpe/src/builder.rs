@@ -22,7 +22,6 @@ pub struct Builder<V, M> {
     accents: bool,
     lowercase: bool,
     token_size: usize,
-    key_phrase_size: usize,
     key_phrase_max_count: Option<usize>,
     key_phrase_min_score: Option<f32>,
 }
@@ -32,16 +31,19 @@ pub struct Builder<V, M> {
 pub enum BuilderError {
     /// The token size must be at least two to allow for special tokens
     TokenSize,
-    /// The maximum key phrase words must be at least one
-    KeyPhraseSize,
+
     /// The maximum number of returned key phrases must be at least one if given
     KeyPhraseMaxCount,
+
     /// The minimum score of returned key phrases must be finite if given
     KeyPhraseMinScore,
+
     /// Failed to load a data file: {0}
     DataFile(#[from] IoError),
+
     /// Failed to build the tokenizer: {0}
     Tokenizer(#[from] TokenizerError),
+
     /// Failed to build the model: {0}
     Model(#[from] ModelError),
 }
@@ -73,7 +75,6 @@ impl<V, M> Builder<V, M> {
             accents: false,
             lowercase: true,
             token_size: 1024,
-            key_phrase_size: 5,
             key_phrase_max_count: None,
             key_phrase_min_score: None,
         }
@@ -107,21 +108,6 @@ impl<V, M> Builder<V, M> {
             Ok(self)
         } else {
             Err(BuilderError::TokenSize)
-        }
-    }
-
-    /// Sets the maximum key phrase words for the tokenizer and the models.
-    ///
-    /// Defaults to `5`.
-    ///
-    /// # Errors
-    /// Fails if `size` is less than one.
-    pub fn with_key_phrase_size(mut self, size: usize) -> Result<Self, BuilderError> {
-        if size > 0 {
-            self.key_phrase_size = size;
-            Ok(self)
-        } else {
-            Err(BuilderError::KeyPhraseSize)
         }
     }
 
@@ -171,14 +157,12 @@ impl<V, M> Builder<V, M> {
             self.accents,
             self.lowercase,
             self.token_size,
-            self.key_phrase_size,
             self.key_phrase_max_count,
             self.key_phrase_min_score,
         )?;
         let bert = BertModel::new(self.bert, self.token_size)?;
         let cnn = CnnModel::new(self.cnn, self.token_size, bert.embedding_size)?;
-        let classifier =
-            ClassifierModel::new(self.classifier, self.key_phrase_size, cnn.out_channel_size)?;
+        let classifier = ClassifierModel::new(self.classifier, cnn.out_channel_size)?;
 
         Ok(Pipeline {
             tokenizer,

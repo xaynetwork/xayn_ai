@@ -7,7 +7,7 @@ use crate::{model::classifier::Scores, tokenizer::encoding::ActiveMask};
 
 /// The collection of all potential key phrases.
 #[derive(Default)]
-pub struct KeyPhrases {
+pub struct KeyPhrases<const KEY_PHRASE_SIZE: usize> {
     choices: Vec<String>,
     mentions: Vec<i64>,
     max_count: Option<usize>,
@@ -18,14 +18,13 @@ pub struct KeyPhrases {
 #[derive(Clone, Debug, Deref, From)]
 pub struct RankedKeyPhrases(Vec<String>);
 
-impl KeyPhrases {
+impl<const KEY_PHRASE_SIZE: usize> KeyPhrases<KEY_PHRASE_SIZE> {
     /// Collects all potential key phrases from the words.
     ///
-    /// Each key phrase contains at most `size` words. At most `count` key phrases with at least
-    /// `score` will be ranked.
+    /// Each key phrase contains at most `KEY_PHRASE_SIZE` words. At most `count` key phrases with
+    /// at least `score` will be ranked.
     pub fn collect(
         words: &[impl Borrow<str>],
-        size: usize,
         max_count: Option<usize>,
         min_score: Option<f32>,
     ) -> Self {
@@ -34,7 +33,7 @@ impl KeyPhrases {
         }
 
         let num_words = words.len();
-        let size = size.min(num_words);
+        let size = KEY_PHRASE_SIZE.min(num_words);
         let max_key_phrases = (0..size).into_iter().fold(0, |max, n| max + num_words - n);
 
         let mut choices = Vec::with_capacity(max_key_phrases);
@@ -126,8 +125,7 @@ mod tests {
 
     #[test]
     fn test_collect_unique() {
-        let size = 3;
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, size, None, None);
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, None, None);
         assert_eq!(
             key_phrases.choices,
             [
@@ -154,8 +152,7 @@ mod tests {
 
     #[test]
     fn test_collect_duplicate() {
-        let size = 3;
-        let key_phrases = KeyPhrases::collect(&DUPLICATE_WORDS, size, None, None);
+        let key_phrases = KeyPhrases::<3>::collect(&DUPLICATE_WORDS, None, None);
         assert_eq!(
             key_phrases.choices,
             [
@@ -191,8 +188,7 @@ mod tests {
 
     #[test]
     fn test_collect_few() {
-        let size = 3;
-        let key_phrases = KeyPhrases::collect(&FEW_WORDS, size, None, None);
+        let key_phrases = KeyPhrases::<3>::collect(&FEW_WORDS, None, None);
         assert_eq!(key_phrases.choices, ["this", "embedding", "this embedding"]);
         assert_eq!(
             key_phrases.mentions,
@@ -205,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_collect_empty() {
-        let key_phrases = KeyPhrases::collect(&[] as &[&str], 3, None, None);
+        let key_phrases = KeyPhrases::<3>::collect(&[] as &[&str], None, None);
         assert!(key_phrases.choices.is_empty());
         assert!(key_phrases.mentions.is_empty());
     }
@@ -213,7 +209,7 @@ mod tests {
     #[test]
     fn test_mask_unique() {
         assert_eq!(
-            KeyPhrases::collect(&UNIQUE_WORDS, 3, None, None)
+            KeyPhrases::<3>::collect(&UNIQUE_WORDS, None, None)
                 .active_mask()
                 .0,
             ArrayView2::from_shape(
@@ -237,7 +233,7 @@ mod tests {
     #[test]
     fn test_mask_duplicate() {
         assert_eq!(
-            KeyPhrases::collect(&DUPLICATE_WORDS, 3, None, None)
+            KeyPhrases::<3>::collect(&DUPLICATE_WORDS, None, None)
                 .active_mask()
                 .0,
             ArrayView2::from_shape(
@@ -306,7 +302,7 @@ mod tests {
     #[test]
     fn test_mask_few() {
         assert_eq!(
-            KeyPhrases::collect(&FEW_WORDS, 3, None, None)
+            KeyPhrases::<3>::collect(&FEW_WORDS, None, None)
                 .active_mask()
                 .0,
             ArrayView2::from_shape(
@@ -324,7 +320,7 @@ mod tests {
     #[test]
     fn test_mask_empty() {
         assert_eq!(
-            KeyPhrases::collect(&[] as &[&str], 3, None, None)
+            KeyPhrases::<3>::collect(&[] as &[&str], None, None)
                 .active_mask()
                 .0,
             ArrayView2::from_shape((0, 0), &[] as &[bool]).unwrap(),
@@ -334,7 +330,7 @@ mod tests {
     #[test]
     fn test_rank_no_count_no_score() {
         let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3, None, None);
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, None, None);
         assert_eq!(
             key_phrases.rank(scores).0,
             [
@@ -354,7 +350,7 @@ mod tests {
     #[test]
     fn test_rank_no_count_some_score() {
         let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3, None, Some(9.));
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, None, Some(9.));
         assert_eq!(
             key_phrases.rank(scores).0,
             ["this embedding", "fits perfectly", "embedding fits"],
@@ -364,7 +360,7 @@ mod tests {
     #[test]
     fn test_rank_some_count_no_score() {
         let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3, Some(3), None);
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, Some(3), None);
         assert_eq!(
             key_phrases.rank(scores).0,
             ["this embedding", "fits perfectly", "embedding fits"],
@@ -374,7 +370,7 @@ mod tests {
     #[test]
     fn test_rank_some_count_low_score() {
         let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3, Some(3), Some(5.));
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, Some(3), Some(5.));
         assert_eq!(
             key_phrases.rank(scores).0,
             ["this embedding", "fits perfectly", "embedding fits"],
@@ -384,7 +380,7 @@ mod tests {
     #[test]
     fn test_rank_some_count_high_score() {
         let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3, Some(3), Some(10.));
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, Some(3), Some(10.));
         assert_eq!(
             key_phrases.rank(scores).0,
             ["this embedding", "fits perfectly"],
@@ -394,7 +390,7 @@ mod tests {
     #[test]
     fn test_rank_low_count_some_score() {
         let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3, Some(2), Some(8.));
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, Some(2), Some(8.));
         assert_eq!(
             key_phrases.rank(scores).0,
             ["this embedding", "fits perfectly"],
@@ -404,7 +400,7 @@ mod tests {
     #[test]
     fn test_rank_high_count_some_score() {
         let scores = Scores(vec![1., 5., 3., 2., 12., 9., 11., 7., 4.]);
-        let key_phrases = KeyPhrases::collect(&UNIQUE_WORDS, 3, Some(5), Some(8.));
+        let key_phrases = KeyPhrases::<3>::collect(&UNIQUE_WORDS, Some(5), Some(8.));
         assert_eq!(
             key_phrases.rank(scores).0,
             ["this embedding", "fits perfectly", "embedding fits"],
@@ -414,7 +410,7 @@ mod tests {
     #[test]
     fn test_rank_empty() {
         let scores = Scores(Vec::new());
-        let key_phrases = KeyPhrases::collect(&[] as &[&str], 3, None, None);
+        let key_phrases = KeyPhrases::<3>::collect(&[] as &[&str], None, None);
         assert!(key_phrases.rank(scores).0.is_empty());
     }
 }

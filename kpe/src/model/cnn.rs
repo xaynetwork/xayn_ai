@@ -30,6 +30,9 @@ pub struct CnnModel {
 pub struct Features(pub Arc<Tensor>);
 
 impl CnnModel {
+    /// The maximum number of words per key phrase.
+    pub const KEY_PHRASE_SIZE: usize = 5;
+
     /// Creates a model from an onnx model file.
     ///
     /// Requires the maximum number of tokens per tokenized sequence and the size of the embedding
