@@ -361,7 +361,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(index, 1);
-        assert_approx_eq!(f32, distance, 26.747852);
+        assert_approx_eq!(f32, distance, 26.747_852);
         assert!(threshold < distance);
 
         cois = coi_system.update_coi(&embedding, cois);
@@ -435,8 +435,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(coi_comp.id, CoiId::mocked(2));
-        assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
-        assert_approx_eq!(f32, coi_comp.neg_distance, 8.1273575);
+        assert_approx_eq!(f32, coi_comp.pos_distance, 4.890_455_7);
+        assert_approx_eq!(f32, coi_comp.neg_distance, 8.127_357_5);
     }
 
     #[test]
@@ -454,7 +454,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(coi_comp.id, CoiId::mocked(2));
-        assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
+        assert_approx_eq!(f32, coi_comp.pos_distance, 4.890_455_7);
         assert_approx_eq!(f32, coi_comp.neg_distance, f32::MAX, ulps = 0);
     }
 
@@ -470,11 +470,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(documents_coi[0].coi.id, CoiId::mocked(1));
-        assert_approx_eq!(f32, documents_coi[0].coi.pos_distance, 2.8996046);
-        assert_approx_eq!(f32, documents_coi[0].coi.neg_distance, 3.7416575);
+        assert_approx_eq!(f32, documents_coi[0].coi.pos_distance, 2.899_604_6);
+        assert_approx_eq!(f32, documents_coi[0].coi.neg_distance, 3.741_657_5);
 
         assert_eq!(documents_coi[1].coi.id, CoiId::mocked(1));
-        assert_approx_eq!(f32, documents_coi[1].coi.pos_distance, 5.8501925);
+        assert_approx_eq!(f32, documents_coi[1].coi.pos_distance, 5.850_192_5);
         assert_approx_eq!(f32, documents_coi[1].coi.neg_distance, SQRT_2);
     }
 
@@ -522,12 +522,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(positive.len(), 3);
-        assert_eq!(positive[0].point, arr1(&[2.7999997, 1.9, 1.]));
+        assert_eq!(positive[0].point, arr1(&[2.799_999_7, 1.9, 1.]));
         assert_eq!(positive[1].point, arr1(&[1., 2., 3.]));
         assert_eq!(positive[2].point, arr1(&[3., 6., 6.]));
 
         assert_eq!(negative.len(), 1);
-        assert_eq!(negative[0].point, arr1(&[3.6999998, 4.9, 5.7999997]));
+        assert_eq!(negative[0].point, arr1(&[3.699_999_8, 4.9, 5.799_999_7]));
     }
 
     #[test]
