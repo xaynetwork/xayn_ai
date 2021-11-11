@@ -59,7 +59,7 @@ class CreateParams implements ToJson {
   final Uint8List wasmModule;
   final String wasmScript;
   @Uint8ListMaybeNullConverter()
-  Uint8List? serialized;
+  final Uint8List? serialized;
 
   CreateParams(
     this.smbertVocab,
