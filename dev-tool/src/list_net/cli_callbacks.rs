@@ -137,9 +137,7 @@ where
         //FIXME This can always happen (after a longer training, mainly
         //      if training with inadequate data or parameters). Still
         //      we want to handle this better in the future.
-        if mean_cost.is_nan() {
-            panic!("evaluation KL-Divergence cost is NaN");
-        }
+        assert!(!mean_cost.is_nan(), "evaluation KL-Divergence cost is NaN");
 
         self.setup
             .training_feedback

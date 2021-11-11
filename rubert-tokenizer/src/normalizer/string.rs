@@ -469,9 +469,7 @@ mod tests {
                 } else {
                     // This is a new group
                     let start = alignment.0;
-                    if start < last.1 {
-                        panic!("We can't have overlapping ranges.");
-                    }
+                    assert!(!(start < last.1), "We can't have overlapping ranges.");
 
                     // Add the old group
                     alignments_original
