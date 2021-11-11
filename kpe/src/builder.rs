@@ -5,7 +5,6 @@ use std::{
 };
 
 use displaydoc::Display;
-use ndarray::{Array1, Array2, Array3};
 use thiserror::Error;
 
 use crate::{
@@ -13,15 +12,14 @@ use crate::{
     pipeline::Pipeline,
     tokenizer::{Tokenizer, TokenizerError},
 };
+use layer::io::{BinParams, LoadingBinParamsFailed};
 
 /// A builder to create a [`Pipeline`].
 pub struct Builder<V, M> {
     vocab: V,
     bert: M,
-    cnn_weights: Vec<Array3<f32>>,
-    cnn_bias: Vec<Array1<f32>>,
-    classifier_weights: Array2<f32>,
-    classifier_bias: Array1<f32>,
+    cnn: BinParams,
+    classifier: BinParams,
     accents: bool,
     lowercase: bool,
     token_size: usize,
@@ -44,6 +42,9 @@ pub enum BuilderError {
     /// Failed to load a data file: {0}
     DataFile(#[from] IoError),
 
+    /// Failed to load binary parameters from a file: {0}
+    BinParams(#[from] LoadingBinParamsFailed),
+
     /// Failed to build the tokenizer: {0}
     Tokenizer(#[from] TokenizerError),
 
@@ -56,41 +57,26 @@ impl Builder<BufReader<File>, BufReader<File>> {
     pub fn from_files(
         vocab: impl AsRef<Path>,
         bert: impl AsRef<Path>,
-        cnn_weights: Vec<Array3<f32>>,
-        cnn_bias: Vec<Array1<f32>>,
-        classifier_weights: Array2<f32>,
-        classifier_bias: Array1<f32>,
+        cnn: impl AsRef<Path>,
+        classifier: impl AsRef<Path>,
     ) -> Result<Self, BuilderError> {
         let vocab = BufReader::new(File::open(vocab)?);
         let bert = BufReader::new(File::open(bert)?);
-        Ok(Self::new(
-            vocab,
-            bert,
-            cnn_weights,
-            cnn_bias,
-            classifier_weights,
-            classifier_bias,
-        ))
+        let cnn = BinParams::deserialize_from_file(cnn)?;
+        let classifier = BinParams::deserialize_from_file(classifier)?;
+
+        Ok(Self::new(vocab, bert, cnn, classifier))
     }
 }
 
 impl<V, M> Builder<V, M> {
     /// Creates a [`Pipeline`] builder from an in-memory vocabulary and models.
-    pub fn new(
-        vocab: V,
-        bert: M,
-        cnn_weights: Vec<Array3<f32>>,
-        cnn_bias: Vec<Array1<f32>>,
-        classifier_weights: Array2<f32>,
-        classifier_bias: Array1<f32>,
-    ) -> Self {
+    pub fn new(vocab: V, bert: M, cnn: BinParams, classifier: BinParams) -> Self {
         Self {
             vocab,
             bert,
-            cnn_weights,
-            cnn_bias,
-            classifier_weights,
-            classifier_bias,
+            cnn,
+            classifier,
             accents: false,
             lowercase: true,
             token_size: 1024,
@@ -180,8 +166,8 @@ impl<V, M> Builder<V, M> {
             self.key_phrase_min_score,
         )?;
         let bert = BertModel::new(self.bert, self.token_size)?;
-        let cnn = CnnModel::new(self.cnn_weights, self.cnn_bias)?;
-        let classifier = ClassifierModel::new(self.classifier_weights, self.classifier_bias)?;
+        let cnn = CnnModel::new(self.cnn)?;
+        let classifier = ClassifierModel::new(self.classifier)?;
 
         Ok(Pipeline {
             tokenizer,

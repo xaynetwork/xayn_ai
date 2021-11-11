@@ -1,14 +1,19 @@
 //! The KPE pipeline extracts key phrases from a sequence.
 //!
-//! ```compile_fail
+//! ```no_run
 //! use kpe::Builder;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let kpe = Builder::from_files("vocab.txt", "bert.onnx", "cnn.onnx", "classifier.onnx")?
-//!         .with_accents(false)
-//!         .with_lowercase(true)
-//!         .with_token_size(64)?
-//!         .build()?;
+//!     let kpe = Builder::from_files(
+//!         "vocab.txt",
+//!         "bert.onnx",
+//!         "cnn.binparams",
+//!         "classifier.binparams",
+//!     )?
+//!     .with_accents(false)
+//!     .with_lowercase(true)
+//!     .with_token_size(64)?
+//!     .build()?;
 //!
 //!     let key_phrases = kpe.run("This is a sequence.")?;
 //!     assert_eq!(key_phrases.len(), 12);

@@ -33,9 +33,6 @@ impl BertModel {
     /// Creates a model from an onnx model file.
     ///
     /// Requires the maximum number of tokens per tokenized sequence.
-    ///
-    /// # Panics
-    /// Panics if the model is empty (due to the way tract implemented the onnx model parsing).
     pub fn new(mut model: impl Read, token_size: usize) -> Result<Self, ModelError> {
         let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
         let plan = tract_onnx::onnx()
@@ -116,7 +113,7 @@ mod tests {
     use tract_onnx::prelude::IntoArcTensor;
 
     use super::*;
-    use test_utils::smbert::model;
+    use test_utils::kpe::bert;
 
     #[test]
     fn test_embeddings_collect_full() {
@@ -199,9 +196,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "missing bert model asset"]
     fn test_token_size_invalid() {
-        let model = BufReader::new(File::open(model().unwrap()).unwrap());
+        let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         assert!(matches!(
             BertModel::new(model, 0).unwrap_err(),
             ModelError::Tract(_),
@@ -209,10 +205,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "missing bert model asset"]
     fn test_run() {
         let token_size = 64;
-        let model = BufReader::new(File::open(model().unwrap()).unwrap());
+        let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         let model = BertModel::new(model, token_size).unwrap();
 
         let token_ids = Array2::from_elem((1, token_size), 0).into();
