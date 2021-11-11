@@ -10,15 +10,15 @@ use crate::{coi::CoiId, embedding::utils::Embedding};
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct PositiveCoi {
     #[obake(cfg(">=0.0"))]
-    pub id: CoiId,
+    pub(crate) id: CoiId,
     #[obake(cfg(">=0.0"))]
-    pub point: Embedding,
+    pub(crate) point: Embedding,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
-    pub alpha: f32,
+    pub(crate) alpha: f32,
     #[obake(cfg(">=0.0, <0.2"))]
-    pub beta: f32,
+    pub(crate) beta: f32,
 }
 
 impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
@@ -49,7 +49,7 @@ impl From<PositiveCoi_v0_1_0> for PositiveCoi {
 
 #[cfg(test)]
 impl PositiveCoi_v0_0_0 {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
+    pub(crate) fn new(id: CoiId, point: Embedding) -> Self {
         Self {
             id,
             point,
@@ -61,7 +61,7 @@ impl PositiveCoi_v0_0_0 {
 
 #[cfg(test)]
 impl PositiveCoi_v0_1_0 {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
+    pub(crate) fn new(id: CoiId, point: Embedding) -> Self {
         Self {
             id,
             point,
@@ -72,7 +72,7 @@ impl PositiveCoi_v0_1_0 {
 }
 
 impl PositiveCoi {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
+    pub(crate) fn new(id: CoiId, point: Embedding) -> Self {
         Self { id, point }
     }
 }
@@ -80,12 +80,12 @@ impl PositiveCoi {
 #[derive(Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct NegativeCoi {
-    pub id: CoiId,
-    pub point: Embedding,
+    pub(crate) id: CoiId,
+    pub(crate) point: Embedding,
 }
 
 impl NegativeCoi {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
+    pub(crate) fn new(id: CoiId, point: Embedding) -> Self {
         Self { id, point }
     }
 }
@@ -173,9 +173,9 @@ type PositiveCois_v0_2_0 = Vec<PositiveCoi>;
 pub(crate) struct UserInterests {
     #[obake(inherit)]
     #[obake(cfg(">=0.0"))]
-    pub positive: PositiveCois,
+    pub(crate) positive: PositiveCois,
     #[obake(cfg(">=0.0"))]
-    pub negative: Vec<NegativeCoi>,
+    pub(crate) negative: Vec<NegativeCoi>,
 }
 
 impl From<UserInterests_v0_0_0> for UserInterests_v0_1_0 {

@@ -70,7 +70,7 @@ impl DataSource for VecDataSource {
         self.training_data.len()
     }
 
-    fn next_training_batch(&mut self) -> Result<Vec<SampleView>, Self::Error> {
+    fn next_training_batch(&mut self) -> Result<Vec<SampleView<'_>>, Self::Error> {
         if self.batch_size == 0 {
             return Err(BatchSize0Error);
         }
@@ -132,8 +132,8 @@ impl TrainingController for TestController {
 
     fn run_batch(
         &mut self,
-        batch: Vec<SampleView>,
-        map_fn: impl Fn(SampleView) -> (GradientSet, f32) + Send + Sync,
+        batch: Vec<SampleView<'_>>,
+        map_fn: impl Fn(SampleView<'_>) -> (GradientSet, f32) + Send + Sync,
     ) -> Result<Vec<GradientSet>, Self::Error> {
         eprintln!("Begin of batch.");
         let mut losses = Vec::new();

@@ -194,7 +194,7 @@ impl systems::CoiSystem for CoiSystem {
 }
 
 /// Coi system to run when Coi is disabled
-pub struct NeutralCoiSystem;
+pub(crate) struct NeutralCoiSystem;
 
 impl NeutralCoiSystem {
     pub(crate) const COI: CoiComponent = CoiComponent {

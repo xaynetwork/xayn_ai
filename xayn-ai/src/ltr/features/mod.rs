@@ -79,7 +79,7 @@ pub(crate) struct Query {
 
 #[derive(Debug)]
 /// A result from a new search performed by the user.
-pub struct DocSearchResult {
+pub(crate) struct DocSearchResult {
     /// Search query.
     pub(crate) query: Query,
     /// URL of result.
@@ -117,7 +117,7 @@ impl AsRef<DocSearchResult> for DocSearchResult {
 }
 
 /// A reranked result from a search performed at some point in the user's history.
-pub struct HistSearchResult {
+pub(crate) struct HistSearchResult {
     /// Search query.
     pub(crate) query: Query,
     /// URL of result.
@@ -552,7 +552,7 @@ pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
 pub(crate) fn mean_recip_rank(
     hists: &[impl AsRef<HistSearchResult>],
     outcome: Option<MrrOutcome>,
-    pred: Option<FilterPred>,
+    pred: Option<FilterPred<'_>>,
 ) -> f32 {
     let filtered = hists
         .iter()
@@ -660,7 +660,7 @@ pub(crate) fn click_entropy(hists: &[impl AsRef<HistSearchResult>]) -> f32 {
 /// where the sum ranges over all `query` results containing a result matching `pred`.
 ///
 /// If `|hist({Miss, Skip}, pred)|` is `0` then `0` is returned.
-pub(crate) fn snippet_quality(hists: &[HistSearchResult], pred: FilterPred) -> f32 {
+pub(crate) fn snippet_quality(hists: &[HistSearchResult], pred: FilterPred<'_>) -> f32 {
     let miss_skip_count = hists
         .iter()
         .filter(|hist| {
@@ -696,7 +696,7 @@ pub(crate) fn snippet_quality(hists: &[HistSearchResult], pred: FilterPred) -> f
 ///
 /// 2. `-1 / nr_clicked` is added if there exists a skipped document matching `pred`. `nr_clicked`
 ///     is the number of all clicked documents independent of whether or not they match.
-fn snippet_score(rs: &ResultSet, pred: FilterPred) -> f32 {
+fn snippet_score(rs: &ResultSet<'_>, pred: FilterPred<'_>) -> f32 {
     let mut score = 0.0;
 
     if rs
@@ -752,7 +752,7 @@ fn snippet_score(rs: &ResultSet, pred: FilterPred) -> f32 {
 ///
 /// In both cases it defaults to 0 if the denominator is 0 (as in this case the
 /// numerator should be 0 too).
-pub(crate) fn cond_prob(hists: &[HistSearchResult], outcome: Action, pred: FilterPred) -> f32 {
+pub(crate) fn cond_prob(hists: &[HistSearchResult], outcome: Action, pred: FilterPred<'_>) -> f32 {
     let hist_pred = hists.iter().filter(|hist| pred.apply(hist));
     let hist_pred_outcome = hist_pred
         .clone()

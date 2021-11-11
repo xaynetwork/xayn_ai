@@ -74,7 +74,7 @@ impl Db {
     ///
     /// If `bytes` is empty, then an empty database is returned. If `bytes` represents an older
     /// version, then the database is migrated.
-    pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
+    pub(crate) fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.is_empty() {
             return Ok(Self::default());
         }

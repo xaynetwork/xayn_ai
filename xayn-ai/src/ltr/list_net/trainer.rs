@@ -102,7 +102,7 @@ where
     /// Returns the mean cost over all samples of the evaluation dataset using the given cost function.
     fn evaluate_epoch(
         &mut self,
-        cost_function: impl Fn(ArrayView1<f32>, ArrayView1<f32>) -> f32 + Copy + Send + Sync,
+        cost_function: impl Fn(ArrayView1<'_, f32>, ArrayView1<'_, f32>) -> f32 + Copy + Send + Sync,
     ) -> Result<(), TrainingError<D::Error, C::Error>> {
         let Self {
             data_source,
@@ -146,8 +146,8 @@ pub trait TrainingController {
     /// Implementations can be both sequential or parallel.
     fn run_batch(
         &mut self,
-        batch: Vec<SampleView>,
-        map_fn: impl Fn(SampleView) -> (GradientSet, f32) + Send + Sync,
+        batch: Vec<SampleView<'_>>,
+        map_fn: impl Fn(SampleView<'_>) -> (GradientSet, f32) + Send + Sync,
     ) -> Result<Vec<GradientSet>, Self::Error>;
 
     /// Runs the processing of the sample evaluation.

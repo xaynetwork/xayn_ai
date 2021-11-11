@@ -74,7 +74,7 @@ impl AggregateFeatures {
     }
 }
 
-fn aggregate_feature(hists: &[HistSearchResult], pred: FilterPred) -> FeatMap {
+fn aggregate_feature(hists: &[HistSearchResult], pred: FilterPred<'_>) -> FeatMap {
     let eval_atom = |atom_feat| match atom_feat {
         AtomFeat::MeanRecipRank(outcome) => mean_recip_rank(hists, Some(outcome), Some(pred)),
         AtomFeat::MeanRecipRankAll => mean_recip_rank(hists, None, Some(pred)),

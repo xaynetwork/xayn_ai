@@ -106,7 +106,7 @@ impl LtrSystem for ConstLtr {
     }
 }
 
-pub type OwnedSample = (Array2<f32>, Array1<f32>);
+pub(crate) type OwnedSample = (Array2<f32>, Array1<f32>);
 
 /// Creates training data for ListNet from a user's history.
 pub fn list_net_training_data_from_history(

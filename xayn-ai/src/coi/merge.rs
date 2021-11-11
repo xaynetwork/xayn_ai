@@ -14,14 +14,14 @@ use crate::{
 const MERGE_THRESHOLD_DIST: f32 = 4.5;
 
 impl PositiveCoi {
-    pub fn merge(self, other: Self, id: CoiId) -> Self {
+    pub(crate) fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
         Self { id, point }
     }
 }
 
 impl NegativeCoi {
-    pub fn merge(self, other: Self, id: CoiId) -> Self {
+    pub(crate) fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
         Self { id, point }
     }

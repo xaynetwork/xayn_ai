@@ -334,8 +334,8 @@ impl ListNet {
     /// Evaluates the ListNet on a given sample using the given cost function.
     pub fn evaluate(
         &self,
-        cost_function: impl Fn(ArrayView1<f32>, ArrayView1<f32>) -> f32,
-        sample: SampleView,
+        cost_function: impl Fn(ArrayView1<'_, f32>, ArrayView1<'_, f32>) -> f32,
+        sample: SampleView<'_>,
     ) -> f32 {
         let SampleView {
             inputs,
@@ -352,7 +352,7 @@ impl ListNet {
     ///
     /// If inputs and relevances are not for exactly [`Self::INPUT_NR_DOCUMENTS`]
     /// documents.
-    pub(super) fn gradients_for_query(&self, sample: SampleView) -> (GradientSet, f32) {
+    pub(super) fn gradients_for_query(&self, sample: SampleView<'_>) -> (GradientSet, f32) {
         let SampleView {
             inputs,
             target_prob_dist,

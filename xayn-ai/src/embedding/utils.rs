@@ -9,7 +9,7 @@ pub(crate) type Embedding = Embedding1;
 ///
 /// # Panics
 /// Panics if the vectors didn't consist of all real values.
-pub fn l2_distance<A, B, S>(a: &A, b: &B) -> f32
+pub(crate) fn l2_distance<A, B, S>(a: &A, b: &B) -> f32
 where
     A: Deref<Target = ArrayBase<S, Ix1>>,
     B: Deref<Target = ArrayBase<S, Ix1>>,
@@ -33,7 +33,7 @@ where
 ///
 /// # Panics
 /// Panics if the vectors do not consist solely of real values.
-pub fn mean<A, S>(a: &A, b: &A) -> Embedding
+pub(crate) fn mean<A, S>(a: &A, b: &A) -> Embedding
 where
     A: Deref<Target = ArrayBase<S, Ix1>>,
     S: Data<Elem = f32>,

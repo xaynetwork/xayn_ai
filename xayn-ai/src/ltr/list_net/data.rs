@@ -126,7 +126,7 @@ pub struct SampleOwned {
 }
 
 impl SampleOwned {
-    pub fn as_view(&self) -> SampleView {
+    pub fn as_view(&self) -> SampleView<'_> {
         SampleView {
             inputs: self.inputs.view(),
             target_prob_dist: self.target_prob_dist.view(),
@@ -156,7 +156,7 @@ pub trait DataSource: Send {
     /// Returns the next batch of training samples.
     ///
     /// Returns an empty vector once all training samples have been returned.
-    fn next_training_batch(&mut self) -> Result<Vec<SampleView>, Self::Error>;
+    fn next_training_batch(&mut self) -> Result<Vec<SampleView<'_>>, Self::Error>;
 
     /// Returns the expected number of evaluation samples.
     fn number_of_evaluation_samples(&self) -> usize;
@@ -176,7 +176,7 @@ pub trait DataSource: Send {
 ///
 /// - returns `None` if there are less then 10 documents
 /// - truncates inputs and relevances to 10 documents
-pub fn prepare_inputs(inputs: &Array2<f32>) -> Option<ArrayView2<f32>> {
+pub fn prepare_inputs(inputs: &Array2<f32>) -> Option<ArrayView2<'_, f32>> {
     if inputs.shape()[0] < ListNet::INPUT_NR_DOCUMENTS {
         None
     } else {

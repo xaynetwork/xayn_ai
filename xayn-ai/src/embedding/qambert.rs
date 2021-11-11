@@ -53,7 +53,7 @@ impl QAMBertSystem for QAMBert {
 
 /// QAMBert system to run when QAMBert is disabled
 #[allow(clippy::upper_case_acronyms)]
-pub struct NeutralQAMBert;
+pub(crate) struct NeutralQAMBert;
 
 impl NeutralQAMBert {
     const SIMILARITY: f32 = 0.5;

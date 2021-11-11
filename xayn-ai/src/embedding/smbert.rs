@@ -37,7 +37,7 @@ impl SMBertSystem for SMBert {
 
 /// SMBert system to run when SMBert is disabled
 #[allow(clippy::upper_case_acronyms)]
-pub struct NeutralSMBert;
+pub(crate) struct NeutralSMBert;
 
 impl SMBertSystem for NeutralSMBert {
     fn compute_embedding(

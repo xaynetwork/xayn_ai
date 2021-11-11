@@ -62,13 +62,13 @@ pub(crate) struct CoiComponent {
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ContextComponent {
-    pub context_value: f32,
+    pub(crate) context_value: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
 pub(crate) struct RankComponent {
-    pub rank: usize,
+    pub(crate) rank: usize,
 }
 
 macro_rules! impl_coi_system_data_no_coi {

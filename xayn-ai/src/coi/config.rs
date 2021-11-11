@@ -2,10 +2,10 @@ use std::num::NonZeroUsize;
 
 pub(crate) struct Configuration {
     /// The shift factor by how much a Coi is shifted towards a new point.
-    pub shift_factor: f32,
-    pub threshold: f32,
+    pub(crate) shift_factor: f32,
+    pub(crate) threshold: f32,
     /// The positive number of neighbors for the k-nearest-neighbors distance.
-    pub neighbors: NonZeroUsize,
+    pub(crate) neighbors: NonZeroUsize,
 }
 
 impl Default for Configuration {

@@ -27,7 +27,7 @@ use crate::{
     },
 };
 
-pub struct Systems {
+pub(crate) struct Systems {
     database: Db,
     smbert: SMBert,
     qambert: QAMBert,
