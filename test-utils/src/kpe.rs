@@ -11,7 +11,7 @@ pub fn vocab() -> Result<PathBuf> {
 
 /// Resolves the path to the Bert model.
 pub fn bert() -> Result<PathBuf> {
-    resolve_path(&[DATA_DIR, ASSET, "bert.onnx"])
+    resolve_path(&[DATA_DIR, ASSET, "bert-quantized.onnx"])
 }
 
 /// Resolves the path to the CNN model.
