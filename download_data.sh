@@ -47,3 +47,4 @@ download asset qambert v0001
 download asset ltr v0000
 download misc bench_matmul v0000
 download misc ltr_test_data v0001
+download misc kpe v0000
