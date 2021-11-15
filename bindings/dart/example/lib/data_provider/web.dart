@@ -1,5 +1,4 @@
-import 'dart:async' show Completer;
-import 'dart:html' show ScriptElement, document, window;
+import 'dart:html' show window;
 import 'dart:typed_data' show ByteBuffer, Uint8List;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
@@ -28,9 +27,8 @@ Future<SetupData> getInputData() async {
     // The browser keeps it in cache so `injectWasmScript` does not download it again.
     final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
 
-    if (asset.key == AssetType.wasmScript) {
-      await injectWasmScript(path);
-    } else if (asset.key == AssetType.webWorkerScript) {
+    if (asset.key == AssetType.webWorkerScript ||
+        asset.key == AssetType.wasmScript) {
       fetched.putIfAbsent(asset.key, () => path);
     } else {
       fetched.putIfAbsent(asset.key, () => data);
@@ -49,18 +47,4 @@ Future<Uint8List> _fetchAsset(String url, String checksum) async {
   } catch (e) {
     return Future.error('error loading asset: $url, error: $e');
   }
-}
-
-/// Injects the WASM script into the HTML.
-Future<void> injectWasmScript(String url) {
-  final completer = Completer<void>();
-
-  final script = ScriptElement()
-    // ignore: unsafe_html
-    ..src = url
-    ..type = 'text/javascript';
-  document.head!.append(script);
-  script.onLoad.listen((_) => completer.complete());
-
-  return completer.future;
 }

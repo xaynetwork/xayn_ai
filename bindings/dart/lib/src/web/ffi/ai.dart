@@ -33,9 +33,14 @@ import 'package:xayn_ai_ffi_dart/src/web/result/outcomes.dart'
 
 @JS('xayn_ai_ffi_wasm.WXaynAi')
 class _XaynAi {
-  external _XaynAi(Uint8List smbertVocab, Uint8List smbertModel,
-      Uint8List qambertVocab, Uint8List qambertModel, Uint8List ltrModel,
-      [Uint8List? serialized]);
+  external _XaynAi(
+    Uint8List smbertVocab,
+    Uint8List smbertModel,
+    Uint8List qambertVocab,
+    Uint8List qambertModel,
+    Uint8List ltrModel,
+    Uint8List? serialized,
+  );
 
   external JsRerankingOutcomes rerank(
     int mode,
@@ -66,13 +71,14 @@ class XaynAi {
   /// the path of the LTR model and the WASM module. Optionally accepts the
   /// serialized reranker database, otherwise creates a new one.
   static Future<XaynAi> create(
-      Uint8List smbertVocab,
-      Uint8List smbertModel,
-      Uint8List qambertVocab,
-      Uint8List qambertModel,
-      Uint8List ltrModel,
-      Uint8List wasmModule,
-      [Uint8List? serialized]) async {
+    Uint8List smbertVocab,
+    Uint8List smbertModel,
+    Uint8List qambertVocab,
+    Uint8List qambertModel,
+    Uint8List ltrModel,
+    Uint8List wasmModule,
+    Uint8List? serialized,
+  ) async {
     await init(wasmModule);
     return XaynAi._(
       smbertVocab,
@@ -88,9 +94,14 @@ class XaynAi {
   ///
   /// Requires the vocabulary and model of the tokenizer/embedder and the LTR model.
   /// Optionally accepts the serialized reranker database, otherwise creates a new one.
-  XaynAi._(Uint8List smbertVocab, Uint8List smbertModel, Uint8List qambertVocab,
-      Uint8List qambertModel, Uint8List ltrModel,
-      [Uint8List? serialized]) {
+  XaynAi._(
+    Uint8List smbertVocab,
+    Uint8List smbertModel,
+    Uint8List qambertVocab,
+    Uint8List qambertModel,
+    Uint8List ltrModel,
+    Uint8List? serialized,
+  ) {
     try {
       _ai = _XaynAi(
         smbertVocab,

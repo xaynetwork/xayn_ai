@@ -1,11 +1,11 @@
 module.exports = {
   mode: "production",
-  target: "web",
+  target: "webworker",
   output: {
     filename: "genesis.js",
     library: {
       name: "xayn_ai_ffi_wasm",
-      type: "window",
+      type: "self",
     },
     clean: true,
   },
