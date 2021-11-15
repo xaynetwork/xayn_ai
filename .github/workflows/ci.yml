@@ -21,7 +21,7 @@ permissions:
 
 env:
   RUST_STABLE: 1.55
-  RUST_NIGHTLY: nightly-2021-11-15
+  RUST_NIGHTLY: nightly-2021-09-09
   CARGO_NDK: 2.4.1
   ANDROID_PLATFORM_VERSION: 21
   # cmd: `shasum -a 256 cross`
