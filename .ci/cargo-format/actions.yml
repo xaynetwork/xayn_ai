@@ -1,0 +1,35 @@
+name: 'Cargo Format'
+description: 'Cargo Format'
+inputs:
+  RUST_NIGHTLY:
+    description: 'Rust Nightly ENV'
+    required: true
+  cache-key:
+    description: 'Cache Key'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+    - name: Install ${{ inputs.RUST_NIGHTLY }} toolchain
+      uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
+      with:
+        profile: minimal
+        toolchain: ${{ inputs.RUST_NIGHTLY }}
+        components: rustfmt
+        default: true
+
+    - name: Use cached cargo registry
+      uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+        key: ${{ inputs.cache-key }}
+
+    # cargo fmt does not create any artifacts, therefore we don't need to cache the target folder
+    - name: cargo fmt
+      run: cargo fmt --all -- --check

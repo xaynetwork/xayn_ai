@@ -73,35 +73,47 @@ jobs:
       - name: Fetch dependencies
         run: cargo fetch
 
+  # cargo-format:
+  #   name: cargo-format
+  #   needs: cargo-registry-cache
+  #   runs-on: ubuntu-20.04
+  #   timeout-minutes: 10
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+  #     - name: Install ${{ env.RUST_NIGHTLY }} toolchain
+  #       uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
+  #       with:
+  #         profile: minimal
+  #         toolchain: ${{ env.RUST_NIGHTLY }}
+  #         components: rustfmt
+  #         default: true
+
+  #     - name: Use cached cargo registry
+  #       uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry/index
+  #           ~/.cargo/registry/cache
+  #           ~/.cargo/git/db
+  #         key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
+
+  #     # cargo fmt does not create any artifacts, therefore we don't need to cache the target folder
+  #     - name: cargo fmt
+  #       run: cargo fmt --all -- --check
+
   cargo-format:
     name: cargo-format
     needs: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 10
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Install ${{ env.RUST_NIGHTLY }} toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
-        with:
-          profile: minimal
-          toolchain: ${{ env.RUST_NIGHTLY }}
-          components: rustfmt
-          default: true
-
-      - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
-
-      # cargo fmt does not create any artifacts, therefore we don't need to cache the target folder
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
+      - name: Cargo Format Action
+        uses: ./.ci/cargo-format
+        with: 
+          RUST_NIGHTLY: ${{ env.RUST_NIGHTLY }}
+          cache-key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
   cargo-sort:
     name: cargo-sort
