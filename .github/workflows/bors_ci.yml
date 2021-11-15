@@ -20,8 +20,6 @@ permissions:
 env:
   RUST_STABLE: 1.55
   RUST_NIGHTLY: nightly-2021-09-09
-  CARGO_NDK: 2.4.1
-  ANDROID_PLATFORM_VERSION: 21
   # cmd: `shasum -a 256 cross`
   CROSS_CHECKSUM: 18a3599273773a7d1e333b413751f0adc1a83ec8045d060fee4f0639bd6baaf0
   # On targets like `*-linux-android*` and `wasm32-unknown-unknown`, reading the model
