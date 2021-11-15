@@ -10,15 +10,21 @@ inputs:
 runs:
   using: "composite"
   steps:
-
+    - name: Configure log Beginning
+      run: echo "::group::{Install toolchain}"
+    
     - name: Install ${{ inputs.RUST_NIGHTLY }} toolchain
+      run: echo "::group::My title"
       uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
       with:
         profile: minimal
         toolchain: ${{ inputs.RUST_NIGHTLY }}
         components: rustfmt
         default: true
-
+    
+    - name: Configure log End
+      run: echo "::endgroup::"
+      
     - name: Use cached cargo registry
       uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
       with:
