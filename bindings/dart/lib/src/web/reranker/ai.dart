@@ -25,9 +25,21 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message/response.dart'
     show AnalyticsResponse, FaultsResponse, Response, Uint8ListResponse;
 import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Oneshot;
 
-const int kReceiveTimeoutInSec = 20;
+const int kReceiveTimeoutInSec = 15;
 
 /// The Xayn AI.
+///
+/// Web worker exception handling
+///
+/// Exceptions other than [XaynAiException] that are thrown on the web worker
+/// side are not sent back, but caught and their error message is logged in
+/// the console. In this case, the called method/static function of [XaynAi]
+/// throws a [TimeoutException]. The timeout is set to 15 seconds.
+///
+/// After a [TimeoutException] was thrown, the instance must be disposed by
+/// calling [XaynAi.free]. The instance must not be used afterwards.
+/// Note: Calling [XaynAi.free] can also throw a [XaynAiException] or a
+/// [TimeoutException].
 class XaynAi implements common.XaynAi {
   final Worker? _worker;
 
