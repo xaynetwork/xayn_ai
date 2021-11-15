@@ -1,4 +1,4 @@
-use std::{io::Read, iter::repeat, sync::Arc};
+use std::{io::Read, sync::Arc};
 
 use derive_more::{Deref, From};
 use ndarray::{Array1, Array3, ErrorKind, ShapeError};
@@ -87,7 +87,7 @@ impl BertModel {
 }
 
 impl Embeddings {
-    /// Collects the valid embeddings according to the mask and pads with zeros.
+    /// Collects the valid embeddings according to the mask.
     pub fn collect(self, valid_mask: ValidMask) -> Result<Array3<f32>, ModelError> {
         valid_mask
             .iter()
@@ -95,12 +95,12 @@ impl Embeddings {
             .filter_map(|(valid, embedding)| valid.then(|| embedding))
             .flatten()
             .copied()
-            .chain(repeat(0.).take(
-                (self.shape()[1] - valid_mask.iter().filter(|valid| **valid).count())
-                    * self.shape()[2],
-            ))
             .collect::<Array1<f32>>()
-            .into_shape((self.shape()[0], self.shape()[1], self.shape()[2]))
+            .into_shape((
+                self.shape()[0],
+                valid_mask.iter().filter(|valid| **valid).count(),
+                self.shape()[2],
+            ))
             .map_err(Into::into)
     }
 }
@@ -115,19 +115,29 @@ mod tests {
     use super::*;
     use test_utils::kpe::bert;
 
-    #[test]
-    fn test_embeddings_collect_full() {
-        let token_size = 10;
-        let embedding_size = 32;
-        let valid_embeddings = (1..=token_size)
-            .into_iter()
+    fn embeddings(token_size: usize, embedding_size: usize) -> Embeddings {
+        (1..=token_size)
             .map(|e| vec![e as f32; embedding_size])
             .flatten()
             .collect::<Array1<_>>()
             .into_shape((1, token_size, embedding_size))
-            .unwrap();
-        let embeddings = Embeddings(valid_embeddings.clone().into_arc_tensor());
+            .unwrap()
+            .into_arc_tensor()
+            .into()
+    }
+
+    #[test]
+    fn test_embeddings_collect_full() {
+        let token_size = 10;
+        let embedding_size = 32;
+        let embeddings = embeddings(token_size, embedding_size);
         let valid_mask = vec![true; token_size].into();
+        let valid_embeddings = embeddings
+            .to_array_view::<f32>()
+            .unwrap()
+            .into_dimensionality()
+            .unwrap()
+            .to_owned();
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
 
@@ -135,28 +145,18 @@ mod tests {
     fn test_embeddings_collect_sparse() {
         let token_size = 10;
         let embedding_size = 32;
-        let valid_embeddings = [2., 4., 6., 8., 10., 0., 0., 0., 0., 0.]
-            .iter()
-            .map(|e| vec![*e; embedding_size])
-            .flatten()
-            .collect::<Array1<_>>()
-            .into_shape((1, token_size, embedding_size))
-            .unwrap();
-        let embeddings = Embeddings(
-            (1..=token_size)
-                .into_iter()
-                .map(|e| vec![e as f32; embedding_size])
-                .flatten()
-                .collect::<Array1<_>>()
-                .into_shape((1, token_size, embedding_size))
-                .unwrap()
-                .into_arc_tensor(),
-        );
+        let embeddings = embeddings(token_size, embedding_size);
         let valid_mask = (1..=token_size)
             .into_iter()
             .map(|e| e % 2 == 0)
             .collect::<Vec<_>>()
             .into();
+        let valid_embeddings = (1..=token_size)
+            .filter_map(|e| (e % 2 == 0).then(|| vec![e as f32; embedding_size]))
+            .flatten()
+            .collect::<Array1<_>>()
+            .into_shape((1, token_size / 2, embedding_size))
+            .unwrap();
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
 
@@ -164,18 +164,9 @@ mod tests {
     fn test_embeddings_collect_empty() {
         let token_size = 10;
         let embedding_size = 32;
-        let valid_embeddings = Array3::<f32>::zeros((1, token_size, embedding_size));
-        let embeddings = Embeddings(
-            (1..=token_size)
-                .into_iter()
-                .map(|e| vec![e as f32; embedding_size])
-                .flatten()
-                .collect::<Array1<_>>()
-                .into_shape((1, token_size, embedding_size))
-                .unwrap()
-                .into_arc_tensor(),
-        );
+        let embeddings = embeddings(token_size, embedding_size);
         let valid_mask = vec![false; token_size].into();
+        let valid_embeddings = Array3::<f32>::zeros((1, 0, embedding_size));
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
 
