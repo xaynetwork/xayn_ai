@@ -9,7 +9,7 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message/request.dart'
 import 'package:xayn_ai_ffi_dart/src/web/worker/message/response.dart'
     show Response;
 import 'package:xayn_ai_ffi_dart/src/web/worker/method_handler.dart'
-    show MethodHandler;
+    show MethodHandler, SendResponse;
 
 void main() async {
   try {
@@ -46,7 +46,7 @@ Future<void> handleRequests() async {
     try {
       ai = await methodHandler[request.method](ai, request);
     } on XaynAiException catch (error) {
-      request.sender.send(Response.fromError(error));
+      request.sender.sendResponse(Response.fromError(error));
     } catch (error) {
       print(
           'Web worker error while handling the method call `${request.method}`: $error');

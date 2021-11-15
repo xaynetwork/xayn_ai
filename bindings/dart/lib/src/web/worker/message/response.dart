@@ -16,11 +16,12 @@ part 'response.g.dart';
 @JsonSerializable()
 class Response implements ToJson {
   final Map<String, dynamic>? result;
-  final XaynAiException? exception;
+  final Map<String, dynamic>? exception;
 
   static Response fromResult<R extends ToJson>(R result) =>
       Response(result.toJson(), null);
-  static Response fromError(XaynAiException error) => Response(null, error);
+  static Response fromError(XaynAiException error) =>
+      Response(null, error.toJson());
 
   static const ok = Response(null, null);
 
