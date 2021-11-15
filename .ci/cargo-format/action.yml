@@ -11,6 +11,7 @@ runs:
   using: "composite"
   steps:
     - name: Configure log Beginning
+      shell: bash
       run: echo "::group::{Install toolchain}"
     
     - name: Install ${{ inputs.RUST_NIGHTLY }} toolchain
@@ -23,8 +24,9 @@ runs:
         default: true
     
     - name: Configure log End
+      shell: bash
       run: echo "::endgroup::"
-      
+
     - name: Use cached cargo registry
       uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
       with:
