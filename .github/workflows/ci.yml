@@ -451,7 +451,7 @@ jobs:
     steps:
       - name: Notify failure
         if: needs.ci-ok.result != 'success'
-        uses: 8398a7/action-slack@b17d9de8e9ed64b041e4fac845d6fdb2be6b9b04 # v3.9.2
+        uses: 8398a7/action-slack@b17d9de8e9ed64b041e4fac845d6fdb2be6b9b04 # v3.11.0
         with:
           status: custom
           fields: workflow, repo
