@@ -1,4 +1,5 @@
 //! The single source of truth for all data paths and other test utilities.
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 mod approx_eq;
 mod asset;

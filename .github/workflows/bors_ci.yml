@@ -18,8 +18,8 @@ permissions:
   contents: read
 
 env:
-  RUST_STABLE: 1.51
-  RUST_NIGHTLY: nightly-2021-05-10
+  RUST_STABLE: 1.55
+  RUST_NIGHTLY: nightly-2021-11-15
   CARGO_NDK: 2.4.1
   ANDROID_PLATFORM_VERSION: 21
   # cmd: `shasum -a 256 cross`

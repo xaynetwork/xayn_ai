@@ -353,7 +353,7 @@ where
             .compute_ltr(history, documents)
             .or_else(|e| {
                 self.errors.push(e);
-                ConstLtr.compute_ltr(history, &documents)
+                ConstLtr.compute_ltr(history, documents)
             })
     }
 }
@@ -475,7 +475,7 @@ mod tests {
                     mode.is_personalized()
                         .then(|| expected_rerank_outcome_no_qambert().final_ranking)
                 })
-                .unwrap_or_else(|| expected_rerank_unchanged(&documents));
+                .unwrap_or_else(|| expected_rerank_unchanged(documents));
             assert_eq!(final_ranking, expected);
         }
 
