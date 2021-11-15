@@ -1,4 +1,3 @@
-#![cfg_attr(doc, forbid(broken_intra_doc_links, private_intra_doc_links))]
 //! The KPE pipeline extracts key phrases from a sequence.
 //!
 //! ```no_run
@@ -18,6 +17,11 @@
 //!     Ok(())
 //! }
 //! ```
+#![cfg_attr(
+    doc,
+    forbid(rustdoc::broken_intra_doc_links, rustdoc::private_intra_doc_links)
+)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 mod builder;
 mod model;
