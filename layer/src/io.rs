@@ -14,6 +14,8 @@ use ndarray::{Array, ArrayBase, DataOwned, Dim, Dimension, IntoDimension, Ix, Ix
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::utils::IncompatibleMatrices;
+
 /// Deserialization helper representing a flattened array.
 ///
 /// The flattened array is in row-major order.
@@ -85,10 +87,13 @@ pub struct UnexpectedNumberOfDimensions {
     expected: usize,
 }
 
+/// Irretrievable parameters error.
 #[derive(Debug, Display, Error)]
 pub enum FailedToRetrieveParams {
-    /// {0}
+    /// Unexpected dimensionality.
+    #[displaydoc("{0}")]
     UnexpectedNumberOfDimensions(#[from] UnexpectedNumberOfDimensions),
+
     /// Missing parameters for {name}
     MissingParameters { name: String },
 }
@@ -284,6 +289,23 @@ impl BinParamsWithScope<'_> {
             prefix: self.prefix.clone() + scope + "/",
         }
     }
+}
+
+/// Failed to load the layer
+#[derive(Debug, Display, Error)]
+#[prefix_enum_doc_attributes]
+pub enum LoadingLayerFailed {
+    /// Incompatible matrices.
+    #[displaydoc("{0}")]
+    IncompatibleMatrices(#[from] IncompatibleMatrices),
+
+    /// Mismatched dimensions.
+    #[displaydoc("{0}")]
+    DimensionMismatch(#[from] UnexpectedNumberOfDimensions),
+
+    /// Irretrivable parameters.
+    #[displaydoc("{0}")]
+    FailedToRetrieveParams(#[from] FailedToRetrieveParams),
 }
 
 #[cfg(test)]

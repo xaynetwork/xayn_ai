@@ -1,12 +1,43 @@
 use displaydoc::Display;
-use ndarray::{azip, Array1, Array2, Array3, ArrayBase, Data, ErrorKind, Ix2, Ix3, ShapeError};
+use ndarray::{
+    azip,
+    Array1,
+    Array2,
+    Array3,
+    ArrayBase,
+    ArrayView2,
+    ArrayView3,
+    Data,
+    ErrorKind,
+    Ix2,
+    Ix3,
+    ShapeError,
+};
 use thiserror::Error;
 
+use crate::{
+    activation::ActivationFunction,
+    io::{BinParamsWithScope, LoadingLayerFailed},
+};
+
 /// A 1-dimensional convolutional layer.
-pub struct Conv1D {
+///
+/// The layer can be configured via:
+/// - stride: Strides of the convolving kernel, must be positive.
+/// - padding: Zero-padding of the input (unimplemented for `padding != 0`).
+/// - dilation: Spacing between the convolving kernel elements, must be positive (unimplemented
+/// for `dilation != 1`).
+/// - groups: Grouping of the input, must be positive and must divide the `channel_in_size`
+/// (unimplemented for `groups != 1`).
+#[derive(Debug)]
+pub struct Conv1D<AF>
+where
+    AF: ActivationFunction<f32>,
+{
     // params
     weights: Array2<f32>,
-    bias: Option<Array3<f32>>,
+    bias: Array3<f32>,
+    activation: AF,
 
     // configs
     stride: usize,
@@ -39,24 +70,24 @@ pub enum ConvError {
 
     /// Channel out size must be divisible by groups
     ChannelOutSize,
+
+    /// Loading failed.
+    #[displaydoc("{0}")]
+    Load(#[from] LoadingLayerFailed),
 }
 
-impl Conv1D {
+impl<AF> Conv1D<AF>
+where
+    AF: ActivationFunction<f32>,
+{
     /// Creates a 1-dimensional convolutional layer.
     ///
     /// The weights are of shape `(channel_out_size, channel_in_size/groups, kernel_size)` and the
     /// bias is of shape `(channel_out_size,)`.
-    ///
-    /// The layer can be configured via:
-    /// - stride: Strides of the convolving kernel, must be positive.
-    /// - padding: Zero-padding of the input (unimplemented for `padding != 0`).
-    /// - dilation: Spacing between the convolving kernel elements, must be positive (unimplemented
-    /// for `dilation != 1`).
-    /// - groups: Grouping of the input, must be positive and must divide the `channel_in_size`
-    /// (unimplemented for `groups != 1`).
     pub fn new(
         weights: Array3<f32>,
-        bias: Option<Array1<f32>>,
+        bias: Array1<f32>,
+        activation: AF,
         stride: usize,
         padding: usize,
         dilation: usize,
@@ -80,26 +111,22 @@ impl Conv1D {
         let channel_grouped_size = weights_shape[1];
         let kernel_size = weights_shape[2];
         let dilated_kernel_size = dilation * (kernel_size - 1) + 1;
+        let bias_size = bias.len();
 
         if channel_out_size % groups != 0 {
             return Err(ConvError::ChannelOutSize);
         }
+        if channel_out_size != bias_size {
+            return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
+        }
 
         let weights = weights.into_shape((channel_out_size, channel_grouped_size * kernel_size))?;
-        let bias = bias
-            .map(|bias| {
-                let bias_size = bias.len();
-                if bias_size == channel_out_size {
-                    bias.into_shape((1, bias_size, 1))
-                } else {
-                    Err(ShapeError::from_kind(ErrorKind::IncompatibleShape))
-                }
-            })
-            .transpose()?;
+        let bias = bias.into_shape((1, bias_size, 1))?;
 
         Ok(Self {
             weights,
             bias,
+            activation,
 
             stride,
             padding,
@@ -111,6 +138,54 @@ impl Conv1D {
             kernel_size,
             dilated_kernel_size,
         })
+    }
+
+    /// Loads a 1-dimensional convolutional layer from a binary.
+    pub fn load(
+        mut params: BinParamsWithScope,
+        activation: AF,
+        stride: usize,
+        padding: usize,
+        dilation: usize,
+        groups: usize,
+    ) -> Result<Self, ConvError> {
+        let weights = params
+            .take("weights")
+            .map_err::<LoadingLayerFailed, _>(Into::into)?;
+        let bias = params
+            .take("bias")
+            .map_err::<LoadingLayerFailed, _>(Into::into)?;
+
+        Self::new(weights, bias, activation, stride, padding, dilation, groups)
+    }
+
+    /// Gets the weights.
+    ///
+    /// The weights are in shape `(channel_out_size, channel_grouped_size * kernel_size)`.
+    pub fn weights(&self) -> ArrayView2<f32> {
+        self.weights.view()
+    }
+
+    /// Gets the bias.
+    ///
+    /// The bias is in shape `(1, bias_size, 1)`.
+    pub fn bias(&self) -> ArrayView3<f32> {
+        self.bias.view()
+    }
+
+    /// Gets the first dimension of the original weights.
+    pub fn channel_out_size(&self) -> usize {
+        self.channel_out_size
+    }
+
+    /// Gets the second dimension of the original weights.
+    pub fn channel_grouped_size(&self) -> usize {
+        self.channel_grouped_size
+    }
+
+    /// Gets the third dimension of the original weights.
+    pub fn kernel_size(&self) -> usize {
+        self.kernel_size
     }
 
     /// Computes the forward pass of the input through the layer.
@@ -149,12 +224,9 @@ impl Conv1D {
             let input = self.unfold(input, output_size);
             output.assign(&self.weights.dot(&input));
         });
+        let output = self.activation.apply_to(output + &self.bias);
 
-        if let Some(ref bias) = self.bias {
-            Ok(output + bias)
-        } else {
-            Ok(output)
-        }
+        Ok(output)
     }
 
     /// Unfolds the input for the kernel.
@@ -182,13 +254,15 @@ mod tests {
     use ndarray::arr3;
 
     use super::*;
+    use crate::activation::Linear;
     use test_utils::assert_approx_eq;
 
     #[test]
     fn test_conv1d_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 1, 0, 1, 1)
+        let output = Conv1D::new(weights, bias, Linear, 1, 0, 1, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -202,8 +276,9 @@ mod tests {
     #[test]
     fn test_conv1d_singleton_kernel() {
         let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 1, 0, 1, 1)
+        let output = Conv1D::new(weights, bias, Linear, 1, 0, 1, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -219,7 +294,7 @@ mod tests {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
         let bias = Array1::range(0., 2., 1.);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, Some(bias), 1, 0, 1, 1)
+        let output = Conv1D::new(weights, bias, Linear, 1, 0, 1, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -233,8 +308,9 @@ mod tests {
     #[test]
     fn test_conv1d_stride_with_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 2, 0, 1, 1)
+        let output = Conv1D::new(weights, bias, Linear, 2, 0, 1, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -248,8 +324,9 @@ mod tests {
     #[test]
     fn test_conv1d_stride_with_singleton_kernel() {
         let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 2, 0, 1, 1)
+        let output = Conv1D::new(weights, bias, Linear, 2, 0, 1, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -264,8 +341,9 @@ mod tests {
     #[should_panic(expected = "not implemented: ATen/native/cpu/Unfold2d")]
     fn test_conv1d_padding_with_nonsingleton_kernel() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 1, 1, 1, 1)
+        let output = Conv1D::new(weights, bias, Linear, 1, 1, 1, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -286,8 +364,9 @@ mod tests {
     #[should_panic(expected = "not implemented: ATen/native/cpu/Unfold2d")]
     fn test_conv1d_padding_with_singleton_kernel() {
         let weights = Array1::range(0., 6., 1.).into_shape((2, 3, 1)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 1, 1, 1, 1)
+        let output = Conv1D::new(weights, bias, Linear, 1, 1, 1, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -308,8 +387,9 @@ mod tests {
     #[should_panic(expected = "not implemented: ATen/native/NaiveDilatedConvolution")]
     fn test_conv1d_dilation() {
         let weights = Array1::range(0., 18., 1.).into_shape((2, 3, 3)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 30., 1.).into_shape((2, 3, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 1, 0, 2, 1)
+        let output = Conv1D::new(weights, bias, Linear, 1, 0, 2, 1)
             .unwrap()
             .run(input)
             .unwrap();
@@ -321,8 +401,9 @@ mod tests {
     #[should_panic(expected = "not implemented: ATen/native/Convolution")]
     fn test_conv1d_groups() {
         let weights = Array1::range(0., 24., 1.).into_shape((2, 4, 3)).unwrap();
+        let bias = Array1::zeros(2);
         let input = Array1::range(0., 80., 1.).into_shape((2, 8, 5)).unwrap();
-        let output = Conv1D::new(weights, None, 1, 0, 1, 2)
+        let output = Conv1D::new(weights, bias, Linear, 1, 0, 1, 2)
             .unwrap()
             .run(input)
             .unwrap();

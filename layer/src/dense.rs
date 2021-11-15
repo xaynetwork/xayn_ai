@@ -1,6 +1,5 @@
 use std::ops::{AddAssign, DivAssign, MulAssign};
 
-use displaydoc::Display;
 use ndarray::{
     linalg::Dot,
     Array,
@@ -13,25 +12,12 @@ use ndarray::{
     Dimension,
     RemoveAxis,
 };
-use thiserror::Error;
 
 use crate::{
     activation::ActivationFunction,
-    io::{BinParamsWithScope, FailedToRetrieveParams, UnexpectedNumberOfDimensions},
+    io::{BinParamsWithScope, LoadingLayerFailed},
     utils::IncompatibleMatrices,
 };
-
-/// Failed to load the Dense layer
-#[derive(Debug, Display, Error)]
-#[prefix_enum_doc_attributes]
-pub enum LoadingDenseFailed {
-    /// {0}
-    IncompatibleMatrices(#[from] IncompatibleMatrices),
-    /// {0}
-    DimensionMismatch(#[from] UnexpectedNumberOfDimensions),
-    /// {0}
-    FailedToRetrieveParams(#[from] FailedToRetrieveParams),
-}
 
 /// A dense feed forward network layer.
 ///
@@ -76,7 +62,7 @@ where
     pub fn load(
         mut params: BinParamsWithScope,
         activation_function: AF,
-    ) -> Result<Self, LoadingDenseFailed> {
+    ) -> Result<Self, LoadingLayerFailed> {
         Self::new(
             params.take("weights")?,
             params.take("bias")?,
