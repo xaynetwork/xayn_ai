@@ -1,7 +1,7 @@
 @JS()
 library ai;
 
-import 'dart:async';
+import 'dart:async' show TimeoutException;
 import 'dart:html' show MessageEvent, Worker;
 import 'dart:typed_data' show Uint8List;
 
