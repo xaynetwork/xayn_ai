@@ -14,7 +14,10 @@ use tract_onnx::prelude::{
 };
 
 use crate::{
-    model::{cnn::Features, ModelError},
+    model::{
+        cnn::{CnnModel, Features},
+        ModelError,
+    },
     tokenizer::encoding::ActiveMask,
 };
 
@@ -36,14 +39,10 @@ impl ClassifierModel {
     ///
     /// # Panics
     /// Panics if the model is empty (due to the way tract implemented the onnx model parsing).
-    pub fn new(
-        mut model: impl Read,
-        key_phrase_size: usize,
-        cnn_out_channel_size: usize,
-    ) -> Result<Self, ModelError> {
+    pub fn new(mut model: impl Read, cnn_out_channel_size: usize) -> Result<Self, ModelError> {
         let input_fact = InferenceFact::dt_shape(
             f32::datum_type(),
-            &[1, key_phrase_size, cnn_out_channel_size],
+            &[1, CnnModel::KEY_PHRASE_SIZE, cnn_out_channel_size],
         );
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
@@ -99,7 +98,7 @@ mod tests {
     #[test]
     fn test_model_empty() {
         assert!(matches!(
-            ClassifierModel::new(Vec::new().as_slice(), 5, 128).unwrap_err(),
+            ClassifierModel::new(Vec::new().as_slice(), 128).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
@@ -107,17 +106,7 @@ mod tests {
     #[test]
     fn test_model_invalid() {
         assert!(matches!(
-            ClassifierModel::new([0].as_ref(), 5, 128).unwrap_err(),
-            ModelError::Tract(_),
-        ));
-    }
-
-    #[test]
-    #[ignore = "missing classifier model asset"]
-    fn test_key_phrase_size_invalid() {
-        let model = BufReader::new(File::open(model().unwrap()).unwrap());
-        assert!(matches!(
-            ClassifierModel::new(model, 0, 128).unwrap_err(),
+            ClassifierModel::new([0].as_ref(), 128).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
@@ -127,7 +116,7 @@ mod tests {
     fn test_cnn_out_channel_size_invalid() {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
-            ClassifierModel::new(model, 5, 0).unwrap_err(),
+            ClassifierModel::new(model, 0).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
@@ -135,13 +124,12 @@ mod tests {
     #[test]
     #[ignore = "missing classifier model asset"]
     fn test_run() {
-        let key_phrase_size = 5;
         let cnn_out_channel_size = 128;
         let key_phrase_choices = 10;
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
-        let model = ClassifierModel::new(model, key_phrase_size, cnn_out_channel_size).unwrap();
+        let model = ClassifierModel::new(model, cnn_out_channel_size).unwrap();
 
-        let features = Array3::from_elem((1, key_phrase_size, cnn_out_channel_size), 0)
+        let features = Array3::from_elem((1, CnnModel::KEY_PHRASE_SIZE, cnn_out_channel_size), 0)
             .into_arc_tensor()
             .into();
         let active_mask =

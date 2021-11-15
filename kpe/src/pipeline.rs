@@ -13,7 +13,7 @@ use crate::{
 ///
 /// [`Builder`]: crate::builder::Builder
 pub struct Pipeline {
-    pub(crate) tokenizer: Tokenizer,
+    pub(crate) tokenizer: Tokenizer<{ CnnModel::KEY_PHRASE_SIZE }>,
     pub(crate) bert: BertModel,
     pub(crate) cnn: CnnModel,
     pub(crate) classifier: ClassifierModel,

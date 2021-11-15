@@ -9,10 +9,9 @@ use thiserror::Error;
 
 /// A pre-configured Bert tokenizer for key phrase extraction.
 #[derive(Debug)]
-pub struct Tokenizer {
+pub struct Tokenizer<const KEY_PHRASE_SIZE: usize> {
     tokenizer: BertTokenizer<i64>,
     token_size: usize,
-    key_phrase_size: usize,
     key_phrase_max_count: Option<usize>,
     key_phrase_min_score: Option<f32>,
 }
@@ -24,22 +23,20 @@ pub enum TokenizerError {
     Builder(#[from] BuilderError),
 }
 
-impl Tokenizer {
+impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
     /// Creates a tokenizer from a vocabulary.
     ///
     /// Can be set to keep accents and to lowercase the sequences. Requires the maximum number of
     /// tokens per tokenized sequence, which applies to padding and truncation and includes special
     /// tokens as well.
     ///
-    /// Also requires the maximum number of words per key phrase. Optionally takes
-    /// an upper count for the number of returned key phrases as well as a lower threshold for the
-    /// scores of returned key phrases.
+    /// Optionally takes an upper count for the number of returned key phrases as well as a lower
+    /// threshold for the scores of returned key phrases.
     pub fn new(
         vocab: impl BufRead,
         accents: bool,
         lowercase: bool,
         token_size: usize,
-        key_phrase_size: usize,
         key_phrase_max_count: Option<usize>,
         key_phrase_min_score: Option<f32>,
     ) -> Result<Self, TokenizerError> {
@@ -54,7 +51,6 @@ impl Tokenizer {
         Ok(Tokenizer {
             tokenizer,
             token_size,
-            key_phrase_size,
             key_phrase_max_count,
             key_phrase_min_score,
         })
