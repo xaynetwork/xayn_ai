@@ -45,8 +45,8 @@ Future<void> handleRequests() async {
     final request = Request.fromJson(json);
     try {
       ai = await methodHandler[request.method](ai, request);
-    } on XaynAiException catch (error) {
-      request.sender.sendResponse(Response.fromError(error));
+    } on XaynAiException catch (exception) {
+      request.sender.sendResponse(Response.fromException(exception));
     } catch (error) {
       print(
           'Web worker error while handling the method call `${request.method}`: $error');

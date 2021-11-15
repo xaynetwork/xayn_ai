@@ -20,8 +20,8 @@ class Response implements ToJson {
 
   static Response fromResult<R extends ToJson>(R result) =>
       Response(result.toJson(), null);
-  static Response fromError(XaynAiException error) =>
-      Response(null, error.toJson());
+  static Response fromException(XaynAiException exception) =>
+      Response(null, exception.toJson());
 
   static const ok = Response(null, null);
 
