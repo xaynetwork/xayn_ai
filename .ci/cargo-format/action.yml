@@ -30,4 +30,6 @@ runs:
 
     # cargo fmt does not create any artifacts, therefore we don't need to cache the target folder
     - name: cargo fmt
+      shell: bash
       run: cargo fmt --all -- --check
+      
