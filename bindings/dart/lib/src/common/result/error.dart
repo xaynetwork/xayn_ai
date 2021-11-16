@@ -1,6 +1,9 @@
+import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 import 'package:meta/meta.dart' show immutable;
 
 import 'package:xayn_ai_ffi_dart/src/common/ffi/genesis.dart' show CCode;
+
+part 'error.g.dart';
 
 /// The Xayn AI error codes.
 enum Code {
@@ -272,6 +275,7 @@ extension IntToCode on int {
 
 /// A Xayn AI exception.
 @immutable
+@JsonSerializable()
 class XaynAiException implements Exception {
   final Code code;
   final String message;
@@ -281,4 +285,8 @@ class XaynAiException implements Exception {
 
   @override
   String toString() => message;
+
+  factory XaynAiException.fromJson(Map json) => _$XaynAiExceptionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$XaynAiExceptionToJson(this);
 }

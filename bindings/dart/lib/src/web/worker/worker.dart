@@ -1,17 +1,21 @@
 import 'dart:async' show StreamController;
 import 'dart:html' show DedicatedWorkerGlobalScope;
 
+import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
+    show XaynAiException;
 import 'package:xayn_ai_ffi_dart/src/web/ffi/ai.dart' as ffi show XaynAi;
 import 'package:xayn_ai_ffi_dart/src/web/worker/message/request.dart'
     show Request;
+import 'package:xayn_ai_ffi_dart/src/web/worker/message/response.dart'
+    show Response;
 import 'package:xayn_ai_ffi_dart/src/web/worker/method_handler.dart'
-    show MethodHandler;
+    show MethodHandler, SendResponse;
 
 void main() async {
   try {
     await handleRequests();
-  } catch (e) {
-    print(e);
+  } catch (error) {
+    print('Web worker error while handling a request: $error');
   }
 }
 
@@ -30,7 +34,7 @@ class MessageStream<T> {
   }
 }
 
-/// A Function that handles the incoming [Request]s.
+/// A function that handles the incoming [Request]s.
 /// [Request]s are processed sequentially in the order in which they arrived.
 Future<void> handleRequests() async {
   final messageStream = MessageStream<Map>();
@@ -41,8 +45,11 @@ Future<void> handleRequests() async {
     final request = Request.fromJson(json);
     try {
       ai = await methodHandler[request.method](ai, request);
-    } catch (e) {
-      print(e);
+    } on XaynAiException catch (exception) {
+      request.sender.sendResponse(Response.fromException(exception));
+    } catch (error) {
+      print(
+          'Web worker error while handling the method call `${request.method}`: $error');
     }
   }
 }

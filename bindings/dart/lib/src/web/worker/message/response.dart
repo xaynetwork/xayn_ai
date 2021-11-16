@@ -4,23 +4,36 @@ import 'package:json_annotation/json_annotation.dart' show JsonSerializable;
 
 import 'package:xayn_ai_ffi_dart/src/common/reranker/analytics.dart'
     show Analytics;
+import 'package:xayn_ai_ffi_dart/src/common/result/error.dart'
+    show XaynAiException;
 import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show ToJson;
 import 'package:xayn_ai_ffi_dart/src/web/worker/message/utils.dart'
     show Uint8ListConverter;
 
 part 'response.g.dart';
 
+/// The kind of the [Response].
+enum Result {
+  ok,
+  exception,
+}
+
 /// A Response object that holds the result of the method invocation.
 @JsonSerializable()
 class Response implements ToJson {
+  final Result kind;
   final Map<String, dynamic>? result;
 
   static Response fromResult<R extends ToJson>(R result) =>
-      Response(result.toJson());
+      Response(Result.ok, result.toJson());
+  static Response fromException(XaynAiException exception) =>
+      Response(Result.exception, exception.toJson());
 
-  static const ok = Response(null);
+  static const ok = Response(Result.ok, null);
 
-  const Response(this.result);
+  const Response(this.kind, this.result);
+
+  bool isException() => kind == Result.exception ? true : false;
 
   factory Response.fromJson(Map json) => _$ResponseFromJson(json);
 
@@ -34,9 +47,7 @@ class Uint8ListResponse implements ToJson {
   @Uint8ListConverter()
   final Uint8List data;
 
-  Uint8ListResponse(
-    this.data,
-  );
+  Uint8ListResponse(this.data);
 
   factory Uint8ListResponse.fromJson(Map json) =>
       _$Uint8ListResponseFromJson(json);
@@ -50,9 +61,7 @@ class Uint8ListResponse implements ToJson {
 class FaultsResponse implements ToJson {
   final List<String> faults;
 
-  FaultsResponse(
-    this.faults,
-  );
+  FaultsResponse(this.faults);
 
   factory FaultsResponse.fromJson(Map json) => _$FaultsResponseFromJson(json);
 
@@ -65,9 +74,7 @@ class FaultsResponse implements ToJson {
 class AnalyticsResponse implements ToJson {
   Analytics? analytics;
 
-  AnalyticsResponse(
-    this.analytics,
-  );
+  AnalyticsResponse(this.analytics);
 
   factory AnalyticsResponse.fromJson(Map json) =>
       _$AnalyticsResponseFromJson(json);

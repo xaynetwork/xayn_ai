@@ -1,7 +1,8 @@
 @JS()
 library ai;
 
-import 'dart:html' show Worker;
+import 'dart:async' show TimeoutException;
+import 'dart:html' show MessageEvent, Worker;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:js/js.dart' show JS;
@@ -24,7 +25,21 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message/response.dart'
     show AnalyticsResponse, FaultsResponse, Response, Uint8ListResponse;
 import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Oneshot;
 
+const int kReceiveTimeoutSeconds = 15;
+
 /// The Xayn AI.
+///
+/// Web worker exception handling
+///
+/// Exceptions other than [XaynAiException] that are thrown on the web worker
+/// side are not sent back, but caught and their error message is logged in
+/// the console. In this case, the called method/static function of [XaynAi]
+/// throws a [TimeoutException]. The timeout is set to [kReceiveTimeoutSeconds].
+///
+/// After a [TimeoutException] was thrown, the instance must be disposed by
+/// calling [XaynAi.free]. The instance must not be used afterwards.
+/// Note: Calling [XaynAi.free] can also throw a [XaynAiException] or a
+/// [TimeoutException].
 class XaynAi implements common.XaynAi {
   final Worker? _worker;
 
@@ -60,7 +75,16 @@ class XaynAi implements common.XaynAi {
       serialized,
     );
 
-    await _call(worker, Method.create, params: params);
+    try {
+      final response = await _call(worker, Method.create, params: params);
+      if (response.isException()) {
+        throw response.result!;
+      }
+    } catch (_) {
+      worker.terminate();
+      rethrow;
+    }
+
     return XaynAi._(worker);
   }
 
@@ -88,6 +112,11 @@ class XaynAi implements common.XaynAi {
       Method.rerank,
       params: RerankParams(mode, histories, documents),
     );
+
+    if (response.isException()) {
+      throw response.result!;
+    }
+
     return RerankingOutcomes.fromJson(response.result!);
   }
 
@@ -99,6 +128,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<Uint8List> serialize() async {
     final response = await _call(_worker!, Method.serialize);
+
+    if (response.isException()) {
+      throw response.result!;
+    }
+
     return Uint8ListResponse.fromJson(response.result!).data;
   }
 
@@ -112,6 +146,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<List<String>> faults() async {
     final response = await _call(_worker!, Method.faults);
+
+    if (response.isException()) {
+      throw response.result!;
+    }
+
     return FaultsResponse.fromJson(response.result!).faults;
   }
 
@@ -123,6 +162,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<Analytics?> analytics() async {
     final response = await _call(_worker!, Method.analytics);
+
+    if (response.isException()) {
+      throw response.result!;
+    }
+
     return AnalyticsResponse.fromJson(response.result!).analytics;
   }
 
@@ -134,6 +178,11 @@ class XaynAi implements common.XaynAi {
   @override
   Future<Uint8List> syncdataBytes() async {
     final response = await _call(_worker!, Method.syncdataBytes);
+
+    if (response.isException()) {
+      throw response.result!;
+    }
+
     return Uint8ListResponse.fromJson(response.result!).data;
   }
 
@@ -144,18 +193,30 @@ class XaynAi implements common.XaynAi {
   /// [XaynAi.serialize].
   @override
   Future<void> synchronize(Uint8List serialized) async {
-    await _call(
+    final response = await _call(
       _worker!,
       Method.synchronize,
       params: SynchronizeParams(serialized),
     );
+
+    if (response.isException()) {
+      throw response.result!;
+    }
   }
 
   /// Frees the memory.
   @override
   Future<void> free() async {
-    await _call(_worker!, Method.free);
-    _worker!.terminate();
+    try {
+      final response = await _call(_worker!, Method.free);
+      if (response.isException()) {
+        throw response.result!;
+      }
+    } catch (_) {
+      rethrow;
+    } finally {
+      _worker!.terminate();
+    }
   }
 }
 
@@ -165,6 +226,17 @@ Future<Response> _call<P extends ToJson>(Worker worker, Method method,
   final sender = channel.sender;
   final request = Request(method, params?.toJson(), sender);
   worker.postMessage(request.toJson(), [sender.port!]);
-  final msg = await channel.receiver.recv();
+  final receiver = channel.receiver;
+
+  MessageEvent? msg;
+  try {
+    msg = await receiver
+        .recv()
+        .timeout(Duration(seconds: kReceiveTimeoutSeconds));
+  } on TimeoutException {
+    receiver.close();
+    rethrow;
+  }
+
   return Response.fromJson(msg.data as Map<dynamic, dynamic>);
 }
