@@ -31,6 +31,7 @@ extension XaynAiErrorToException on XaynAiError {
 }
 
 @JS('WebAssembly.RuntimeError')
+// see: https://github.com/lexaknyazev/wasm.dart/blob/a6c93afea4732c140f1f61f144795961c42c8613/wasm_interop/lib/wasm_interop.dart#L718
 external Function get runtimeError;
 
 class RuntimeError extends Error {

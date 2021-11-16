@@ -38,8 +38,7 @@ const int kReceiveTimeoutSeconds = 15;
 ///
 /// After a [TimeoutException] was thrown, the instance must be disposed by
 /// calling [XaynAi.free]. The instance must not be used afterwards.
-/// Note: Calling [XaynAi.free] can also throw a [XaynAiException] or a
-/// [TimeoutException].
+/// Note: Calling [XaynAi.free] can also throw a [TimeoutException].
 class XaynAi implements common.XaynAi {
   final Worker? _worker;
 
