@@ -78,7 +78,7 @@ class XaynAi implements common.XaynAi {
     try {
       final response = await _call(worker, Method.create, params: params);
       if (response.isException()) {
-        throw response.exception!;
+        throw response.result!;
       }
     } catch (_) {
       worker.terminate();
@@ -114,7 +114,7 @@ class XaynAi implements common.XaynAi {
     );
 
     if (response.isException()) {
-      throw response.exception!;
+      throw response.result!;
     }
 
     return RerankingOutcomes.fromJson(response.result!);
@@ -130,7 +130,7 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.serialize);
 
     if (response.isException()) {
-      throw response.exception!;
+      throw response.result!;
     }
 
     return Uint8ListResponse.fromJson(response.result!).data;
@@ -148,7 +148,7 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.faults);
 
     if (response.isException()) {
-      throw response.exception!;
+      throw response.result!;
     }
 
     return FaultsResponse.fromJson(response.result!).faults;
@@ -164,7 +164,7 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.analytics);
 
     if (response.isException()) {
-      throw response.exception!;
+      throw response.result!;
     }
 
     return AnalyticsResponse.fromJson(response.result!).analytics;
@@ -180,7 +180,7 @@ class XaynAi implements common.XaynAi {
     final response = await _call(_worker!, Method.syncdataBytes);
 
     if (response.isException()) {
-      throw response.exception!;
+      throw response.result!;
     }
 
     return Uint8ListResponse.fromJson(response.result!).data;
@@ -200,7 +200,7 @@ class XaynAi implements common.XaynAi {
     );
 
     if (response.isException()) {
-      throw response.exception!;
+      throw response.result!;
     }
   }
 
@@ -210,7 +210,7 @@ class XaynAi implements common.XaynAi {
     try {
       final response = await _call(_worker!, Method.free);
       if (response.isException()) {
-        throw response.exception!;
+        throw response.result!;
       }
     } catch (_) {
       rethrow;

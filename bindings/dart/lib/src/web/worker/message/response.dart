@@ -12,22 +12,28 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message/utils.dart'
 
 part 'response.g.dart';
 
+/// The kind of the [Response].
+enum Result {
+  ok,
+  exception,
+}
+
 /// A Response object that holds the result of the method invocation.
 @JsonSerializable()
 class Response implements ToJson {
+  final Result kind;
   final Map<String, dynamic>? result;
-  final Map<String, dynamic>? exception;
 
   static Response fromResult<R extends ToJson>(R result) =>
-      Response(result.toJson(), null);
+      Response(Result.ok, result.toJson());
   static Response fromException(XaynAiException exception) =>
-      Response(null, exception.toJson());
+      Response(Result.exception, exception.toJson());
 
-  static const ok = Response(null, null);
+  static const ok = Response(Result.ok, null);
 
-  const Response(this.result, this.exception);
+  const Response(this.kind, this.result);
 
-  bool isException() => exception != null ? true : false;
+  bool isException() => kind == Result.exception ? true : false;
 
   factory Response.fromJson(Map json) => _$ResponseFromJson(json);
 
