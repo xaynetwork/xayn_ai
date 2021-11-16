@@ -25,7 +25,7 @@ import 'package:xayn_ai_ffi_dart/src/web/worker/message/response.dart'
     show AnalyticsResponse, FaultsResponse, Response, Uint8ListResponse;
 import 'package:xayn_ai_ffi_dart/src/web/worker/oneshot.dart' show Oneshot;
 
-const int kReceiveTimeoutInSec = 15;
+const int kReceiveTimeoutSeconds = 15;
 
 /// The Xayn AI.
 ///
