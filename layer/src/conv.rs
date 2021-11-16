@@ -161,14 +161,14 @@ where
 
     /// Gets the weights.
     ///
-    /// The weights are in shape `(channel_out_size, channel_grouped_size * kernel_size)`.
+    /// The weights are of shape `(channel_out_size, channel_grouped_size * kernel_size)`.
     pub fn weights(&self) -> ArrayView2<f32> {
         self.weights.view()
     }
 
     /// Gets the bias.
     ///
-    /// The bias is in shape `(1, bias_size, 1)`.
+    /// The bias is of shape `(1, bias_size, 1)`.
     pub fn bias(&self) -> ArrayView3<f32> {
         self.bias.view()
     }

@@ -79,7 +79,7 @@ impl<V, M> Builder<V, M> {
             classifier,
             accents: false,
             lowercase: true,
-            token_size: 1024,
+            token_size: 512,
             key_phrase_max_count: None,
             key_phrase_min_score: None,
         }
@@ -103,12 +103,12 @@ impl<V, M> Builder<V, M> {
 
     /// Sets the token size for the tokenizer and the models.
     ///
-    /// Defaults to `1024`.
+    /// Defaults to `512`.
     ///
     /// # Errors
-    /// Fails if `size` is less than two.
+    /// Fails if `size` is less than two or greater than 512.
     pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError> {
-        if size > 1 {
+        if size > 1 && size < 513 {
             self.token_size = size;
             Ok(self)
         } else {

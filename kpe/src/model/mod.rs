@@ -31,4 +31,7 @@ pub enum ModelError {
 
     /// Remaining parameters must be used: {0:?}
     UnusedParams(Vec<String>),
+
+    /// The sequence must contain at least `KEY_PHRASE_SIZE` valid words
+    NotEnoughWords,
 }

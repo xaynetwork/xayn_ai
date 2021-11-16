@@ -64,7 +64,7 @@ impl<const KEY_PHRASE_SIZE: usize> KeyPhrases<KEY_PHRASE_SIZE> {
         }
     }
 
-    /// Creates the mask of active/mentioned key phrases for each unique keyphrase.
+    /// Creates the mask of active/mentioned key phrases for each unique key phrase.
     pub fn active_mask(&self) -> ActiveMask {
         Array2::from_shape_fn((self.choices.len(), self.mentions.len()), |(i, j)| {
             i as i64 == self.mentions[j]

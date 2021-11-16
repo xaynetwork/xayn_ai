@@ -1,5 +1,4 @@
 use derive_more::{Deref, From};
-use ndarray::s;
 
 use crate::{
     model::{cnn::Features, ModelError},
@@ -14,7 +13,9 @@ pub struct ClassifierModel {
 }
 
 /// The inferred scores.
-#[derive(Clone, Deref, From)]
+///
+/// The scores are of shape `(len(key_phrase_choices),)`.
+#[derive(Clone, Debug, Deref, From)]
 pub struct Scores(pub Vec<f32>);
 
 impl ClassifierModel {
@@ -32,8 +33,12 @@ impl ClassifierModel {
 
     /// Runs the model on the convolved features to compute the scores.
     pub fn run(&self, features: Features, active_mask: ActiveMask) -> Result<Scores, ModelError> {
-        debug_assert_eq!(features.shape()[1..], active_mask.shape()[..]);
-        let (scores, _) = self.layer.run(features.0.slice(s![0, .., ..]), false);
+        debug_assert_eq!(features.shape()[1], active_mask.shape()[1]);
+        debug_assert!(active_mask
+            .rows()
+            .into_iter()
+            .all(|row| row.iter().any(|active| *active)));
+        let (scores, _) = self.layer.run(features.t(), false);
         debug_assert!(scores.iter().all(|v| !v.is_infinite() && !v.is_nan()));
 
         let scores = active_mask
@@ -57,26 +62,55 @@ impl ClassifierModel {
 
 #[cfg(test)]
 mod tests {
-    use ndarray::{Array2, Array3};
+    use ndarray::Array2;
 
     use super::*;
     use test_utils::kpe::classifier;
 
     #[test]
-    #[ignore = "check actual weight shapes"]
-    fn test_run() {
+    fn test_model_shapes() {
         let model =
             ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
                 .unwrap();
+        assert_eq!(model.layer.weights().shape(), [512, 1],);
+        assert_eq!(model.layer.bias().shape(), [1]);
+    }
 
-        let key_phrase_size = 5;
+    #[test]
+    fn test_model_empty() {
+        matches!(
+            ClassifierModel::new(BinParams::default()).unwrap_err(),
+            ModelError::Classifier(_),
+        );
+    }
+
+    #[test]
+    fn test_run_unique() {
         let channel_out_size = 512;
-        let key_phrase_choices = 10;
-        let features = Array3::zeros((1, key_phrase_size, channel_out_size)).into();
-        let active_mask =
-            Array2::from_elem((key_phrase_choices, key_phrase_choices + 5), false).into();
+        let output_size = 42;
+
+        let model =
+            ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
+                .unwrap();
+        let features = Array2::zeros((channel_out_size, output_size)).into();
+        let active_mask = Array2::from_elem((output_size, output_size), true).into();
 
         let scores = model.run(features, active_mask).unwrap();
-        assert_eq!(scores.len(), key_phrase_choices);
+        assert_eq!(scores.len(), output_size);
+    }
+
+    #[test]
+    fn test_run_duplicate() {
+        let channel_out_size = 512;
+        let output_size = 42;
+
+        let model =
+            ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
+                .unwrap();
+        let features = Array2::zeros((channel_out_size, output_size)).into();
+        let active_mask = Array2::from_elem((output_size / 2, output_size), true).into();
+
+        let scores = model.run(features, active_mask).unwrap();
+        assert_eq!(scores.len(), output_size / 2);
     }
 }

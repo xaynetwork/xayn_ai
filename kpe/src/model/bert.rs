@@ -1,7 +1,7 @@
 use std::{io::Read, sync::Arc};
 
 use derive_more::{Deref, From};
-use ndarray::{Array1, Array3, ErrorKind, ShapeError};
+use ndarray::{Array1, Array2, ErrorKind, ShapeError};
 use tract_onnx::prelude::{
     tvec,
     Datum,
@@ -22,11 +22,14 @@ use crate::{
 #[derive(Debug)]
 pub struct BertModel {
     plan: TypedSimplePlan<TypedModel>,
+    token_size: usize,
     pub embedding_size: usize,
 }
 
 /// The inferred embeddings.
-#[derive(Clone, Deref, From)]
+///
+/// The embeddings are of shape `(1, token_size, embedding_size = 768)`.
+#[derive(Clone, Debug, Deref, From)]
 pub struct Embeddings(pub Arc<Tensor>);
 
 impl BertModel {
@@ -54,10 +57,10 @@ impl BertModel {
             })
             .flatten()
             .ok_or_else(|| ShapeError::from_kind(ErrorKind::IncompatibleShape))?;
-        debug_assert!(embedding_size > 0);
 
         Ok(BertModel {
             plan,
+            token_size,
             embedding_size,
         })
     }
@@ -69,14 +72,19 @@ impl BertModel {
         attention_mask: AttentionMask,
         type_ids: TypeIds,
     ) -> Result<Embeddings, ModelError> {
-        debug_assert_eq!(token_ids.shape(), attention_mask.shape());
-        debug_assert_eq!(token_ids.shape(), type_ids.shape());
-        let inputs = tvec!(
+        debug_assert_eq!(token_ids.shape(), [1, self.token_size]);
+        debug_assert_eq!(attention_mask.shape(), [1, self.token_size]);
+        debug_assert_eq!(type_ids.shape(), [1, self.token_size]);
+        let inputs = tvec![
             token_ids.0.into(),
             attention_mask.0.into(),
             type_ids.0.into(),
-        );
+        ];
         let outputs = self.plan.run(inputs)?;
+        debug_assert_eq!(
+            outputs[0].shape(),
+            [1, self.token_size, self.embedding_size],
+        );
         debug_assert!(outputs[0]
             .to_array_view::<f32>()?
             .iter()
@@ -88,7 +96,7 @@ impl BertModel {
 
 impl Embeddings {
     /// Collects the valid embeddings according to the mask.
-    pub fn collect(self, valid_mask: ValidMask) -> Result<Array3<f32>, ModelError> {
+    pub fn collect(self, valid_mask: ValidMask) -> Result<Array2<f32>, ModelError> {
         valid_mask
             .iter()
             .zip(self.to_array_view::<f32>()?.rows())
@@ -97,7 +105,6 @@ impl Embeddings {
             .copied()
             .collect::<Array1<f32>>()
             .into_shape((
-                self.shape()[0],
                 valid_mask.iter().filter(|valid| **valid).count(),
                 self.shape()[2],
             ))
@@ -115,29 +122,28 @@ mod tests {
     use super::*;
     use test_utils::kpe::bert;
 
-    fn embeddings(token_size: usize, embedding_size: usize) -> Embeddings {
-        (1..=token_size)
-            .map(|e| vec![e as f32; embedding_size])
-            .flatten()
-            .collect::<Array1<_>>()
-            .into_shape((1, token_size, embedding_size))
-            .unwrap()
-            .into_arc_tensor()
-            .into()
-    }
-
     #[test]
     fn test_embeddings_collect_full() {
         let token_size = 10;
         let embedding_size = 32;
-        let embeddings = embeddings(token_size, embedding_size);
+
+        let embeddings = Embeddings(
+            (1..=token_size)
+                .map(|e| vec![e as f32; embedding_size])
+                .flatten()
+                .collect::<Array1<_>>()
+                .into_shape((1, token_size, embedding_size))
+                .unwrap()
+                .into_arc_tensor(),
+        );
         let valid_mask = vec![true; token_size].into();
-        let valid_embeddings = embeddings
-            .to_array_view::<f32>()
-            .unwrap()
-            .into_dimensionality()
-            .unwrap()
-            .to_owned();
+        let valid_embeddings = (1..=token_size)
+            .map(|e| vec![e as f32; embedding_size])
+            .flatten()
+            .collect::<Array1<_>>()
+            .into_shape((token_size, embedding_size))
+            .unwrap();
+
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
 
@@ -145,7 +151,16 @@ mod tests {
     fn test_embeddings_collect_sparse() {
         let token_size = 10;
         let embedding_size = 32;
-        let embeddings = embeddings(token_size, embedding_size);
+
+        let embeddings = Embeddings(
+            (1..=token_size)
+                .map(|e| vec![e as f32; embedding_size])
+                .flatten()
+                .collect::<Array1<_>>()
+                .into_shape((1, token_size, embedding_size))
+                .unwrap()
+                .into_arc_tensor(),
+        );
         let valid_mask = (1..=token_size)
             .into_iter()
             .map(|e| e % 2 == 0)
@@ -155,8 +170,9 @@ mod tests {
             .filter_map(|e| (e % 2 == 0).then(|| vec![e as f32; embedding_size]))
             .flatten()
             .collect::<Array1<_>>()
-            .into_shape((1, token_size / 2, embedding_size))
+            .into_shape((token_size / 2, embedding_size))
             .unwrap();
+
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
 
@@ -164,10 +180,30 @@ mod tests {
     fn test_embeddings_collect_empty() {
         let token_size = 10;
         let embedding_size = 32;
-        let embeddings = embeddings(token_size, embedding_size);
+
+        let embeddings = Embeddings(
+            (1..=token_size)
+                .map(|e| vec![e as f32; embedding_size])
+                .flatten()
+                .collect::<Array1<_>>()
+                .into_shape((1, token_size, embedding_size))
+                .unwrap()
+                .into_arc_tensor(),
+        );
         let valid_mask = vec![false; token_size].into();
-        let valid_embeddings = Array3::<f32>::zeros((1, 0, embedding_size));
+        let valid_embeddings = Array2::<f32>::zeros((0, embedding_size));
+
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
+    }
+
+    #[test]
+    #[ignore = "run slow test with `cargo test --release -- --ignored`"]
+    fn test_model_shapes() {
+        let token_size = 64;
+        let model = BufReader::new(File::open(bert().unwrap()).unwrap());
+        let model = BertModel::new(model, token_size).unwrap();
+        assert_eq!(model.token_size, token_size);
+        assert_eq!(model.embedding_size, 768);
     }
 
     #[test]
@@ -187,23 +223,40 @@ mod tests {
     }
 
     #[test]
-    fn test_token_size_invalid() {
+    #[should_panic(expected = "not yet implemented")]
+    fn test_token_size_invalid_empty() {
+        let model = BufReader::new(File::open(bert().unwrap()).unwrap());
+        let _ = BertModel::new(model, 0);
+    }
+
+    #[test]
+    fn test_token_size_invalid_small() {
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         assert!(matches!(
-            BertModel::new(model, 0).unwrap_err(),
+            BertModel::new(model, 1).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
 
     #[test]
+    fn test_token_size_invalid_large() {
+        let model = BufReader::new(File::open(bert().unwrap()).unwrap());
+        assert!(matches!(
+            BertModel::new(model, 1024).unwrap_err(),
+            ModelError::Tract(_),
+        ));
+    }
+
+    #[test]
+    #[ignore = "run slow test with `cargo test --release -- --ignored`"]
     fn test_run() {
         let token_size = 64;
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         let model = BertModel::new(model, token_size).unwrap();
 
-        let token_ids = Array2::from_elem((1, token_size), 0).into();
-        let attention_mask = Array2::from_elem((1, token_size), 1).into();
-        let type_ids = Array2::from_elem((1, token_size), 0).into();
+        let token_ids = Array2::zeros((1, token_size)).into();
+        let attention_mask = Array2::ones((1, token_size)).into();
+        let type_ids = Array2::zeros((1, token_size)).into();
         let embeddings = model.run(token_ids, attention_mask, type_ids).unwrap();
         assert_eq!(embeddings.shape(), [1, token_size, model.embedding_size]);
     }
