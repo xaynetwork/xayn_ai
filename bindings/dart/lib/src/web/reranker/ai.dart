@@ -34,7 +34,7 @@ const int kReceiveTimeoutSeconds = 15;
 /// Exceptions other than [XaynAiException] that are thrown on the web worker
 /// side are not sent back, but caught and their error message is logged in
 /// the console. In this case, the called method/static function of [XaynAi]
-/// throws a [TimeoutException]. The timeout is set to [kReceiveTimeoutInSec] seconds.
+/// throws a [TimeoutException]. The timeout is set to [kReceiveTimeoutSeconds].
 ///
 /// After a [TimeoutException] was thrown, the instance must be disposed by
 /// calling [XaynAi.free]. The instance must not be used afterwards.
