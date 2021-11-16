@@ -230,8 +230,9 @@ Future<Response> _call<P extends ToJson>(Worker worker, Method method,
 
   MessageEvent? msg;
   try {
-    msg =
-        await receiver.recv().timeout(Duration(seconds: kReceiveTimeoutInSec));
+    msg = await receiver
+        .recv()
+        .timeout(Duration(seconds: kReceiveTimeoutSeconds));
   } on TimeoutException {
     receiver.close();
     rethrow;
