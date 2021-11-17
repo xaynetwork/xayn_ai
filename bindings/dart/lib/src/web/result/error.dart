@@ -20,7 +20,7 @@ class XaynAiError extends Error {
 
 extension ObjectToXaynAiError on Object {
   XaynAiError toXaynAiError() => XaynAiError(
-        (getProperty(this, 'code') as int),
+        getProperty(this, 'code') as int,
         getProperty(this, 'message') as String,
       );
 }
