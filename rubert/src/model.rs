@@ -6,6 +6,7 @@ use std::{
 
 use derive_more::{Deref, From};
 use displaydoc::Display;
+use ndarray::{ErrorKind, ShapeError};
 use thiserror::Error;
 use tract_onnx::prelude::{
     tvec,
@@ -62,8 +63,8 @@ pub enum ModelError {
     Read(#[from] IoError),
     /// Failed to run a tract operation: {0}
     Tract(#[from] TractError),
-    /// Invalid onnx model shapes
-    Shape,
+    /// Invalid onnx model shapes: {0}
+    Shape(#[from] ShapeError),
 }
 
 pub trait BertModel: Sized {
@@ -96,7 +97,7 @@ pub trait BertModel: Sized {
                 _kind: PhantomData,
             })
         } else {
-            Err(ModelError::Shape)
+            Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into())
         }
     }
 }
@@ -119,7 +120,7 @@ where
         model: impl Read,
         token_size: usize,
     ) -> Result<Self, ModelError> {
-        <K as BertModel>::load(model, token_size)
+        K::load(model, token_size)
     }
 
     /// Runs prediction on the encoded sequence.
@@ -127,11 +128,11 @@ where
         debug_assert_eq!(encoding.token_ids.shape(), [1, self.token_size]);
         debug_assert_eq!(encoding.attention_mask.shape(), [1, self.token_size]);
         debug_assert_eq!(encoding.type_ids.shape(), [1, self.token_size]);
-        let inputs = tvec!(
+        let inputs = tvec![
             encoding.token_ids.0.into(),
             encoding.attention_mask.0.into(),
             encoding.type_ids.0.into()
-        );
+        ];
         let outputs = self.plan.run(inputs)?;
         debug_assert_eq!(outputs[0].shape(), [1, self.token_size, K::EMBEDDING_SIZE]);
 

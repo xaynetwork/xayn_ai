@@ -82,7 +82,7 @@ where
 
     /// Gets the embedding size.
     pub fn embedding_size(&self) -> usize {
-        <K as BertModel>::EMBEDDING_SIZE
+        K::EMBEDDING_SIZE
     }
 }
 
