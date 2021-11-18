@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   call-ci-workflow:
-    uses: xaynetwork/xaynai/.github/workflows/ci_reuse_wf.yml@46f5c668ebc85ff59a5d3eaf5e0dc49aefa39612
+    uses: xaynetwork/xayn_ai/blob/46f5c668ebc85ff59a5d3eaf5e0dc49aefa39612/.github/workflows/ci_reuse_wf.yml
     secrets:
       slack: ${{ secrets.SLACK_WEBHOOK_URL }}
 
