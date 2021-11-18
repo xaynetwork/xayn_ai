@@ -6,7 +6,7 @@ use crate::{
     tokenizer::{key_phrase::RankedKeyPhrases, Tokenizer, TokenizerError},
 };
 
-/// A pipeline for a bert model.
+/// A pipeline for a KPE model.
 ///
 /// Can be created via the [`Builder`] and consists of a tokenizer, a Bert model, a CNN model and a
 /// Classifier model.

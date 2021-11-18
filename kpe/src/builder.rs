@@ -79,7 +79,7 @@ impl<V, M> Builder<V, M> {
             classifier,
             accents: false,
             lowercase: true,
-            token_size: 512,
+            token_size: *Bert::TOKEN_RANGE.end(),
             key_phrase_max_count: None,
             key_phrase_min_score: None,
         }
@@ -108,7 +108,7 @@ impl<V, M> Builder<V, M> {
     /// # Errors
     /// Fails if `size` is less than two or greater than 512.
     pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError> {
-        if (2..=512).contains(&size) {
+        if Bert::TOKEN_RANGE.contains(&size) {
             self.token_size = size;
             Ok(self)
         } else {

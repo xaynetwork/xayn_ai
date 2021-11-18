@@ -1,4 +1,4 @@
-use std::{io::Read, sync::Arc};
+use std::{io::Read, ops::RangeInclusive, sync::Arc};
 
 use derive_more::{Deref, From};
 use ndarray::{Array1, Array2, ErrorKind, ShapeError};
@@ -32,6 +32,9 @@ pub struct Bert {
 pub struct Embeddings(pub Arc<Tensor>);
 
 impl Bert {
+    /// The range of token sizes.
+    pub const TOKEN_RANGE: RangeInclusive<usize> = 2..=512;
+
     /// The number of values per embedding.
     pub const EMBEDDING_SIZE: usize = 768;
 
@@ -39,6 +42,10 @@ impl Bert {
     ///
     /// Requires the maximum number of tokens per tokenized sequence.
     pub fn new(mut model: impl Read, token_size: usize) -> Result<Self, ModelError> {
+        if !Self::TOKEN_RANGE.contains(&token_size) {
+            return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
+        }
+
         let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
@@ -183,6 +190,7 @@ mod tests {
 
     #[test]
     fn test_model_shapes() {
+        assert_eq!(Bert::TOKEN_RANGE, 2..=512);
         assert_eq!(Bert::EMBEDDING_SIZE, 768);
     }
 
@@ -203,27 +211,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not yet implemented")]
-    fn test_token_size_invalid_empty() {
-        let model = BufReader::new(File::open(bert().unwrap()).unwrap());
-        let _ = Bert::new(model, 0);
-    }
-
-    #[test]
-    fn test_token_size_invalid_small() {
+    fn test_token_size_invalid() {
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         assert!(matches!(
-            Bert::new(model, 1).unwrap_err(),
-            ModelError::Tract(_),
-        ));
-    }
-
-    #[test]
-    fn test_token_size_invalid_large() {
-        let model = BufReader::new(File::open(bert().unwrap()).unwrap());
-        assert!(matches!(
-            Bert::new(model, 1024).unwrap_err(),
-            ModelError::Tract(_),
+            Bert::new(model, 0).unwrap_err(),
+            ModelError::Shape(_),
         ));
     }
 
