@@ -20,8 +20,41 @@ permissions:
   contents: read
 
 jobs:
-  call-ci-workflow:
-    uses: xaynetwork/jorge_test/.github/workflows/test_ci_wf.yml@e73c9b774477480eda211a816a2eb9b3cc3cdbd4
-    secrets:
-      slack: ${{ secrets.SLACK_WEBHOOK_URL }}
 
+  reusable-workflow:
+    uses: xaynetwork/jorge_test/.github/workflows/test_ci_wf.yml@e73c9b774477480eda211a816a2eb9b3cc3cdbd4
+
+  # this is an helper that needs all the real leafs of the workflow.
+  # It makes easier notify_staging_failure because we only need to check
+  # for this job
+  ci-ok:
+    name: ci-ok
+    needs: reusable-workflow
+    runs-on: ubuntu-20.04
+    steps:
+      - run: echo "Helper job"
+
+  notify-staging-failure:
+    name: notify-staging-failure
+    needs: ci-ok
+    # always() allows to run even if ci-ok is not successful
+    # we only want this to run on the staging branch
+    if: always() && github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Notify failure
+        if: needs.ci-ok.result != 'success'
+        uses: 8398a7/action-slack@b17d9de8e9ed64b041e4fac845d6fdb2be6b9b04 # v3.11.0
+        with:
+          status: custom
+          fields: workflow, repo
+          custom_payload: |
+            {
+              attachments: [{
+                title: 'Staging CI failed :warning:',
+                color: 'danger',
+                text: `CI: ${process.env.AS_WORKFLOW}\nRepository: ${process.env.AS_REPO}`,
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

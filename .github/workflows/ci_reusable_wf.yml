@@ -5,9 +5,6 @@ name: Reusable Dev CI
 
 on:
   workflow_call:
-    secrets:
-      slack:
-        required: true
 
 env:
   RUST_STABLE: 1.55
@@ -139,7 +136,6 @@ jobs:
         run: |
           cargo check --all-targets
           cargo check --all-targets --all-features
-
   cargo-clippy:
     name: cargo-clippy
     needs: [cargo-registry-cache, cargo-check]
@@ -178,7 +174,6 @@ jobs:
         run: |
           cargo clippy --all-targets -- --deny warnings
           cargo clippy --all-targets --all-features -- --deny warnings
-
   cargo-test:
     name: cargo-test
     needs: [cargo-registry-cache, cargo-check]
@@ -229,7 +224,6 @@ jobs:
           cargo test --all-targets
           cargo test --all-targets --all-features
           cargo test --all-features --doc
-
   cargo-tarpaulin:
     name: cargo-tarpaulin
     needs: [cargo-registry-cache, cargo-test]
@@ -329,7 +323,6 @@ jobs:
             ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
-
   flutter-format:
     name: flutter-format
     runs-on: ubuntu-20.04
@@ -384,7 +377,6 @@ jobs:
           mv bindings/dart/ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
           mv bindings/dart/ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
           cp -R target ${{ github.workspace }}
-
       - name: Download data
         run: sh download_data.sh
 
@@ -410,41 +402,3 @@ jobs:
         working-directory: ${{ env.DART_WORKSPACE }}
         run: flutter ${{ matrix.cmd }}
 
-  # this is an helper that needs all the real leafs of the workflow.
-  # It makes easier notify_staging_failure because we only need to check
-  # for this job
-  ci-ok:
-    name: ci-ok
-    needs:
-      - cargo-sort
-      - flutter-format
-      - cargo-tarpaulin
-      - flutter-checks
-    runs-on: ubuntu-20.04
-    steps:
-      - run: echo "Helper job"
-
-  notify-staging-failure:
-    name: notify-staging-failure
-    needs: ci-ok
-    # always() allows to run even if ci-ok is not successful
-    # we only want this to run on the staging branch
-    if: always() && github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Notify failure
-        if: needs.ci-ok.result != 'success'
-        uses: 8398a7/action-slack@b17d9de8e9ed64b041e4fac845d6fdb2be6b9b04 # v3.11.0
-        with:
-          status: custom
-          fields: workflow, repo
-          custom_payload: |
-            {
-              attachments: [{
-                title: 'Staging CI failed :warning:',
-                color: 'danger',
-                text: `CI: ${process.env.AS_WORKFLOW}\nRepository: ${process.env.AS_REPO}`,
-              }]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.slack }}
