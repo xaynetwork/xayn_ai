@@ -57,7 +57,7 @@ pub type QAMBertBuilder<V, M> = Builder<V, M, kinds::QAMBert, NonePooler>;
 
 #[cfg(doc)]
 pub use crate::{
-    model::ModelError,
+    model::{BertModel, ModelError},
     pooler::{Embedding, PoolerError},
     tokenizer::TokenizerError,
 };

@@ -72,46 +72,13 @@ pub enum ModelError {
     Shape(#[from] ShapeError),
 }
 
+/// Properties for kinds of Bert models.
 pub trait BertModel: Sized {
     /// The range of token sizes.
     const TOKEN_RANGE: RangeInclusive<usize>;
 
     /// The number of values per embedding.
     const EMBEDDING_SIZE: usize;
-
-    /// Creates a model from an onnx model file.
-    ///
-    /// Requires the maximum number of tokens per tokenized sequence.
-    fn load(
-        // `Read` instead of `AsRef<Path>` is needed for wasm
-        mut model: impl Read,
-        token_size: usize,
-    ) -> Result<Model<Self>, ModelError> {
-        if !<Self as BertModel>::TOKEN_RANGE.contains(&token_size) {
-            return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
-        }
-
-        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
-        let plan = tract_onnx::onnx()
-            .model_for_read(&mut model)?
-            .with_input_fact(0, input_fact.clone())?
-            .with_input_fact(1, input_fact.clone())?
-            .with_input_fact(2, input_fact)?
-            .into_optimized()?
-            .into_runnable()?;
-
-        if plan.model().output_fact(0)?.shape.as_concrete()
-            == Some(&[1, token_size, <Self as BertModel>::EMBEDDING_SIZE])
-        {
-            Ok(Model {
-                plan,
-                token_size,
-                _kind: PhantomData,
-            })
-        } else {
-            Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into())
-        }
-    }
 }
 
 /// The predicted encoding.
@@ -129,10 +96,33 @@ where
     /// Requires the maximum number of tokens per tokenized sequence.
     pub fn new(
         // `Read` instead of `AsRef<Path>` is needed for wasm
-        model: impl Read,
+        mut model: impl Read,
         token_size: usize,
     ) -> Result<Self, ModelError> {
-        K::load(model, token_size)
+        if !K::TOKEN_RANGE.contains(&token_size) {
+            return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
+        }
+
+        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
+        let plan = tract_onnx::onnx()
+            .model_for_read(&mut model)?
+            .with_input_fact(0, input_fact.clone())?
+            .with_input_fact(1, input_fact.clone())?
+            .with_input_fact(2, input_fact)?
+            .into_optimized()?
+            .into_runnable()?;
+
+        if plan.model().output_fact(0)?.shape.as_concrete()
+            == Some(&[1, token_size, K::EMBEDDING_SIZE])
+        {
+            Ok(Model {
+                plan,
+                token_size,
+                _kind: PhantomData,
+            })
+        } else {
+            Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into())
+        }
     }
 
     /// Runs prediction on the encoded sequence.
