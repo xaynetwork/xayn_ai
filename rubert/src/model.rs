@@ -66,9 +66,6 @@ pub trait BertModel: Sized {
     /// Creates a model from an onnx model file.
     ///
     /// Requires the maximum number of tokens per tokenized sequence.
-    ///
-    /// # Panics
-    /// Panics if the model is empty (due to the way tract implemented the onnx model parsing).
     fn load(
         // `Read` instead of `AsRef<Path>` is needed for wasm
         mut model: impl Read,
@@ -105,6 +102,8 @@ pub trait BertModel: Sized {
 }
 
 /// The predicted encoding.
+///
+/// The prediction is of shape `(1, token_size, embedding_size)`.
 #[derive(Clone, Deref, From)]
 pub struct Prediction(Arc<Tensor>);
 

@@ -15,9 +15,13 @@ where
     D: Dimension;
 
 /// A 1-dimensional sequence embedding.
+///
+/// The embedding is of shape `(embedding_size,)`.
 pub type Embedding1 = Embedding<Ix1>;
 
 /// A 2-dimensional sequence embedding.
+///
+/// The embedding is of shape `(token_size, embedding_size)`.
 pub type Embedding2 = Embedding<Ix2>;
 
 impl<S, D> PartialEq<ArrayBase<S, D>> for Embedding<D>
