@@ -7,7 +7,7 @@ use crate::{
 };
 use layer::{activation::Relu, conv::Conv1D, io::BinParams};
 
-/// A CNN onnx model.
+/// A CNN model.
 #[derive(Debug)]
 pub struct CnnModel {
     layers: [Conv1D<Relu>; Self::KEY_PHRASE_SIZE],
@@ -88,10 +88,12 @@ impl CnnModel {
         Ok(features.into())
     }
 
+    /// Gets the channel out size of the CNN layers.
     fn channel_out_size(&self) -> usize {
         self.layers[0].channel_out_size()
     }
 
+    /// Computes the output size of the concatenated CNN layers.
     fn output_size(&self, valid_size: usize) -> usize {
         debug_assert!(valid_size >= Self::KEY_PHRASE_SIZE);
         Self::KEY_PHRASE_SIZE * valid_size

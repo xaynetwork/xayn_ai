@@ -108,7 +108,7 @@ impl<V, M> Builder<V, M> {
     /// # Errors
     /// Fails if `size` is less than two or greater than 512.
     pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError> {
-        if size > 1 && size < 513 {
+        if (2..=512).contains(&size) {
             self.token_size = size;
             Ok(self)
         } else {

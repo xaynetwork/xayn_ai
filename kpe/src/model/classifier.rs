@@ -6,7 +6,7 @@ use crate::{
 };
 use layer::{activation::Linear, dense::Dense, io::BinParams};
 
-/// A Classifier onnx model.
+/// A Classifier model.
 #[derive(Debug)]
 pub struct ClassifierModel {
     layer: Dense<Linear>,
@@ -39,6 +39,7 @@ impl ClassifierModel {
             .into_iter()
             .all(|row| row.iter().any(|active| *active)));
         let (scores, _) = self.layer.run(features.t(), false);
+        debug_assert_eq!(scores.shape(), [features.shape()[1], 1]);
         debug_assert!(scores.iter().all(|v| !v.is_infinite() && !v.is_nan()));
 
         let scores = active_mask
@@ -54,6 +55,7 @@ impl ClassifierModel {
                     .unwrap(/* active mask must have entries in each row */)
             })
             .collect::<Vec<f32>>();
+        debug_assert_eq!(scores.len(), active_mask.shape()[0]);
         debug_assert!(scores.iter().all(|v| !v.is_infinite() && !v.is_nan()));
 
         Ok(scores.into())

@@ -97,6 +97,7 @@ impl BertModel {
 impl Embeddings {
     /// Collects the valid embeddings according to the mask.
     pub fn collect(self, valid_mask: ValidMask) -> Result<Array2<f32>, ModelError> {
+        debug_assert_eq!(self.shape()[0], 1);
         valid_mask
             .iter()
             .zip(self.to_array_view::<f32>()?.rows())
