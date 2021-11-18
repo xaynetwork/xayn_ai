@@ -8,7 +8,7 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    model::{bert::BertModel, classifier::ClassifierModel, cnn::CnnModel, ModelError},
+    model::{bert::Bert, classifier::Classifier, cnn::Cnn, ModelError},
     pipeline::Pipeline,
     tokenizer::{Tokenizer, TokenizerError},
 };
@@ -165,9 +165,9 @@ impl<V, M> Builder<V, M> {
             self.key_phrase_max_count,
             self.key_phrase_min_score,
         )?;
-        let bert = BertModel::new(self.bert, self.token_size)?;
-        let cnn = CnnModel::new(self.cnn)?;
-        let classifier = ClassifierModel::new(self.classifier)?;
+        let bert = Bert::new(self.bert, self.token_size)?;
+        let cnn = Cnn::new(self.cnn)?;
+        let classifier = Classifier::new(self.classifier)?;
 
         Ok(Pipeline {
             tokenizer,

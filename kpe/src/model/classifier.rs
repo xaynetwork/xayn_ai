@@ -4,7 +4,7 @@ use ndarray::{ErrorKind, ShapeError};
 
 use crate::{
     model::{
-        cnn::{CnnModel, Features},
+        cnn::{Cnn, Features},
         ModelError,
     },
     tokenizer::encoding::ActiveMask,
@@ -13,7 +13,7 @@ use layer::{activation::Linear, dense::Dense, io::BinParams};
 
 /// A Classifier model.
 #[derive(Debug)]
-pub struct ClassifierModel {
+pub struct Classifier {
     layer: Dense<Linear>,
 }
 
@@ -23,7 +23,7 @@ pub struct ClassifierModel {
 #[derive(Clone, Debug, Deref, From)]
 pub struct Scores(pub Vec<f32>);
 
-impl ClassifierModel {
+impl Classifier {
     /// Creates a model from a binary parameters file.
     pub fn new(mut params: BinParams) -> Result<Self, ModelError> {
         let layer = Dense::load(params.with_scope("dense"), Linear)?;
@@ -33,7 +33,7 @@ impl ClassifierModel {
             ));
         }
 
-        if layer.weights().shape() == [CnnModel::CHANNEL_OUT_SIZE, 1] {
+        if layer.weights().shape() == [Cnn::CHANNEL_OUT_SIZE, 1] {
             Ok(Self { layer })
         } else {
             Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into())
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn test_model_empty() {
         matches!(
-            ClassifierModel::new(BinParams::default()).unwrap_err(),
+            Classifier::new(BinParams::default()).unwrap_err(),
             ModelError::Classifier(_),
         );
     }
@@ -90,9 +90,9 @@ mod tests {
     fn test_run_unique() {
         let output_size = 42;
         let model =
-            ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
+            Classifier::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
                 .unwrap();
-        let features = Array2::zeros((CnnModel::CHANNEL_OUT_SIZE, output_size)).into();
+        let features = Array2::zeros((Cnn::CHANNEL_OUT_SIZE, output_size)).into();
         let active_mask = Array2::from_elem((output_size, output_size), true).into();
         assert_eq!(model.run(features, active_mask).unwrap().len(), output_size);
     }
@@ -101,9 +101,9 @@ mod tests {
     fn test_run_duplicate() {
         let output_size = 42;
         let model =
-            ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
+            Classifier::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
                 .unwrap();
-        let features = Array2::zeros((CnnModel::CHANNEL_OUT_SIZE, output_size)).into();
+        let features = Array2::zeros((Cnn::CHANNEL_OUT_SIZE, output_size)).into();
         let active_mask = Array2::from_elem((output_size / 2, output_size), true).into();
         assert_eq!(
             model.run(features, active_mask).unwrap().len(),

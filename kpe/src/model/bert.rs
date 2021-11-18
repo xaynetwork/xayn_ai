@@ -20,7 +20,7 @@ use crate::{
 
 /// A Bert onnx model.
 #[derive(Debug)]
-pub struct BertModel {
+pub struct Bert {
     plan: TypedSimplePlan<TypedModel>,
     token_size: usize,
 }
@@ -31,7 +31,7 @@ pub struct BertModel {
 #[derive(Clone, Debug, Deref, From)]
 pub struct Embeddings(pub Arc<Tensor>);
 
-impl BertModel {
+impl Bert {
     /// The number of values per embedding.
     pub const EMBEDDING_SIZE: usize = 768;
 
@@ -51,7 +51,7 @@ impl BertModel {
         if plan.model().output_fact(0)?.shape.as_concrete()
             == Some(&[1, token_size, Self::EMBEDDING_SIZE])
         {
-            Ok(BertModel { plan, token_size })
+            Ok(Self { plan, token_size })
         } else {
             Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into())
         }
@@ -90,7 +90,7 @@ impl Embeddings {
     /// Collects the valid embeddings according to the mask.
     pub fn collect(self, valid_mask: ValidMask) -> Result<Array2<f32>, ModelError> {
         debug_assert_eq!(self.shape()[0], 1);
-        debug_assert_eq!(self.shape()[2], BertModel::EMBEDDING_SIZE);
+        debug_assert_eq!(self.shape()[2], Bert::EMBEDDING_SIZE);
         valid_mask
             .iter()
             .zip(self.to_array_view::<f32>()?.rows())
@@ -121,19 +121,19 @@ mod tests {
         let token_size = 10;
         let embeddings = Embeddings(
             (1..=token_size)
-                .map(|e| vec![e as f32; BertModel::EMBEDDING_SIZE])
+                .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
                 .flatten()
                 .collect::<Array1<_>>()
-                .into_shape((1, token_size, BertModel::EMBEDDING_SIZE))
+                .into_shape((1, token_size, Bert::EMBEDDING_SIZE))
                 .unwrap()
                 .into_arc_tensor(),
         );
         let valid_mask = vec![true; token_size].into();
         let valid_embeddings = (1..=token_size)
-            .map(|e| vec![e as f32; BertModel::EMBEDDING_SIZE])
+            .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
             .flatten()
             .collect::<Array1<_>>()
-            .into_shape((token_size, BertModel::EMBEDDING_SIZE))
+            .into_shape((token_size, Bert::EMBEDDING_SIZE))
             .unwrap();
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
@@ -143,10 +143,10 @@ mod tests {
         let token_size = 10;
         let embeddings = Embeddings(
             (1..=token_size)
-                .map(|e| vec![e as f32; BertModel::EMBEDDING_SIZE])
+                .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
                 .flatten()
                 .collect::<Array1<_>>()
-                .into_shape((1, token_size, BertModel::EMBEDDING_SIZE))
+                .into_shape((1, token_size, Bert::EMBEDDING_SIZE))
                 .unwrap()
                 .into_arc_tensor(),
         );
@@ -156,10 +156,10 @@ mod tests {
             .collect::<Vec<_>>()
             .into();
         let valid_embeddings = (1..=token_size)
-            .filter_map(|e| (e % 2 == 0).then(|| vec![e as f32; BertModel::EMBEDDING_SIZE]))
+            .filter_map(|e| (e % 2 == 0).then(|| vec![e as f32; Bert::EMBEDDING_SIZE]))
             .flatten()
             .collect::<Array1<_>>()
-            .into_shape((token_size / 2, BertModel::EMBEDDING_SIZE))
+            .into_shape((token_size / 2, Bert::EMBEDDING_SIZE))
             .unwrap();
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
@@ -169,27 +169,27 @@ mod tests {
         let token_size = 10;
         let embeddings = Embeddings(
             (1..=token_size)
-                .map(|e| vec![e as f32; BertModel::EMBEDDING_SIZE])
+                .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
                 .flatten()
                 .collect::<Array1<_>>()
-                .into_shape((1, token_size, BertModel::EMBEDDING_SIZE))
+                .into_shape((1, token_size, Bert::EMBEDDING_SIZE))
                 .unwrap()
                 .into_arc_tensor(),
         );
         let valid_mask = vec![false; token_size].into();
-        let valid_embeddings = Array2::<f32>::zeros((0, BertModel::EMBEDDING_SIZE));
+        let valid_embeddings = Array2::<f32>::zeros((0, Bert::EMBEDDING_SIZE));
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
 
     #[test]
     fn test_model_shapes() {
-        assert_eq!(BertModel::EMBEDDING_SIZE, 768);
+        assert_eq!(Bert::EMBEDDING_SIZE, 768);
     }
 
     #[test]
     fn test_model_empty() {
         assert!(matches!(
-            BertModel::new(Vec::new().as_slice(), 10).unwrap_err(),
+            Bert::new(Vec::new().as_slice(), 10).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn test_model_invalid() {
         assert!(matches!(
-            BertModel::new([0].as_ref(), 10).unwrap_err(),
+            Bert::new([0].as_ref(), 10).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
@@ -206,14 +206,14 @@ mod tests {
     #[should_panic(expected = "not yet implemented")]
     fn test_token_size_invalid_empty() {
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
-        let _ = BertModel::new(model, 0);
+        let _ = Bert::new(model, 0);
     }
 
     #[test]
     fn test_token_size_invalid_small() {
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         assert!(matches!(
-            BertModel::new(model, 1).unwrap_err(),
+            Bert::new(model, 1).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
@@ -222,7 +222,7 @@ mod tests {
     fn test_token_size_invalid_large() {
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         assert!(matches!(
-            BertModel::new(model, 1024).unwrap_err(),
+            Bert::new(model, 1024).unwrap_err(),
             ModelError::Tract(_),
         ));
     }
@@ -232,15 +232,12 @@ mod tests {
     fn test_run() {
         let token_size = 64;
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
-        let model = BertModel::new(model, token_size).unwrap();
+        let model = Bert::new(model, token_size).unwrap();
 
         let token_ids = Array2::zeros((1, token_size)).into();
         let attention_mask = Array2::ones((1, token_size)).into();
         let type_ids = Array2::zeros((1, token_size)).into();
         let embeddings = model.run(token_ids, attention_mask, type_ids).unwrap();
-        assert_eq!(
-            embeddings.shape(),
-            [1, token_size, BertModel::EMBEDDING_SIZE],
-        );
+        assert_eq!(embeddings.shape(), [1, token_size, Bert::EMBEDDING_SIZE]);
     }
 }

@@ -3,7 +3,7 @@ use ndarray::{concatenate, s, Array2, Axis, ErrorKind, NewAxis, ShapeError};
 
 use crate::{
     model::{
-        bert::{BertModel, Embeddings},
+        bert::{Bert, Embeddings},
         ModelError,
     },
     tokenizer::encoding::ValidMask,
@@ -12,7 +12,7 @@ use layer::{activation::Relu, conv::Conv1D, io::BinParams};
 
 /// A CNN model.
 #[derive(Debug)]
-pub struct CnnModel {
+pub struct Cnn {
     layers: [Conv1D<Relu>; Self::KEY_PHRASE_SIZE],
 }
 
@@ -22,7 +22,7 @@ pub struct CnnModel {
 #[derive(Clone, Debug, Deref, From)]
 pub struct Features(pub Array2<f32>);
 
-impl CnnModel {
+impl Cnn {
     /// The maximum number of words per key phrase.
     pub const KEY_PHRASE_SIZE: usize = 5;
 
@@ -50,7 +50,7 @@ impl CnnModel {
             .zip(1..=Self::KEY_PHRASE_SIZE)
             .all(|(layer, kernel_size)| {
                 layer.channel_out_size() == Self::CHANNEL_OUT_SIZE
-                    && layer.channel_grouped_size() == BertModel::EMBEDDING_SIZE
+                    && layer.channel_grouped_size() == Bert::EMBEDDING_SIZE
                     && layer.kernel_size() == kernel_size
             })
         {
@@ -73,13 +73,10 @@ impl CnnModel {
 
         debug_assert_eq!(
             embeddings.shape(),
-            [1, valid_mask.len(), BertModel::EMBEDDING_SIZE],
+            [1, valid_mask.len(), Bert::EMBEDDING_SIZE],
         );
         let valid_embeddings = embeddings.collect(valid_mask)?;
-        debug_assert_eq!(
-            valid_embeddings.shape(),
-            [valid_size, BertModel::EMBEDDING_SIZE],
-        );
+        debug_assert_eq!(valid_embeddings.shape(), [valid_size, Bert::EMBEDDING_SIZE],);
 
         let run_layer =
             |idx: usize| self.layers[idx].run(valid_embeddings.t().slice(s![NewAxis, .., ..]));
@@ -123,24 +120,23 @@ mod tests {
 
     #[test]
     fn test_model_shapes() {
-        assert_eq!(CnnModel::KEY_PHRASE_SIZE, 5);
-        assert_eq!(CnnModel::CHANNEL_OUT_SIZE, 512);
+        assert_eq!(Cnn::KEY_PHRASE_SIZE, 5);
+        assert_eq!(Cnn::CHANNEL_OUT_SIZE, 512);
     }
 
     #[test]
     fn test_model_empty() {
         matches!(
-            CnnModel::new(BinParams::default()).unwrap_err(),
+            Cnn::new(BinParams::default()).unwrap_err(),
             ModelError::Cnn(_),
         );
     }
 
     #[test]
     fn test_run_full() {
-        let token_size = 4 * CnnModel::KEY_PHRASE_SIZE;
-        let model =
-            CnnModel::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, BertModel::EMBEDDING_SIZE))
+        let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
+        let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
+        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = vec![true; token_size].into();
@@ -148,16 +144,15 @@ mod tests {
         let features = model.run(embeddings, valid_mask).unwrap();
         assert_eq!(
             features.shape(),
-            [CnnModel::CHANNEL_OUT_SIZE, model.output_size(token_size)],
+            [Cnn::CHANNEL_OUT_SIZE, model.output_size(token_size)],
         );
     }
 
     #[test]
     fn test_run_sparse() {
-        let token_size = 4 * CnnModel::KEY_PHRASE_SIZE;
-        let model =
-            CnnModel::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, BertModel::EMBEDDING_SIZE))
+        let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
+        let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
+        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = (1..=token_size)
@@ -167,41 +162,36 @@ mod tests {
             .into();
         assert_eq!(
             model.run(embeddings, valid_mask).unwrap().shape(),
-            [
-                CnnModel::CHANNEL_OUT_SIZE,
-                model.output_size(token_size / 2),
-            ],
+            [Cnn::CHANNEL_OUT_SIZE, model.output_size(token_size / 2)],
         );
     }
 
     #[test]
     fn test_run_min() {
-        let token_size = 4 * CnnModel::KEY_PHRASE_SIZE;
-        let model =
-            CnnModel::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, BertModel::EMBEDDING_SIZE))
+        let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
+        let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
+        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = (1..=token_size)
             .into_iter()
-            .map(|e| e <= CnnModel::KEY_PHRASE_SIZE)
+            .map(|e| e <= Cnn::KEY_PHRASE_SIZE)
             .collect::<Vec<_>>()
             .into();
         assert_eq!(
             model.run(embeddings, valid_mask).unwrap().shape(),
             [
-                CnnModel::CHANNEL_OUT_SIZE,
-                model.output_size(CnnModel::KEY_PHRASE_SIZE),
+                Cnn::CHANNEL_OUT_SIZE,
+                model.output_size(Cnn::KEY_PHRASE_SIZE),
             ],
         );
     }
 
     #[test]
     fn test_run_empty() {
-        let token_size = 4 * CnnModel::KEY_PHRASE_SIZE;
-        let model =
-            CnnModel::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, BertModel::EMBEDDING_SIZE))
+        let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
+        let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
+        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = vec![false; token_size].into();
