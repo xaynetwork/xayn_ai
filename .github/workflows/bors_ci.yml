@@ -70,7 +70,7 @@ jobs:
         run: cargo fetch
 
   reusable-workflow:
-    uses: xaynetwork/jorge_test/.github/workflows/test_ci_wf.yml@e73c9b774477480eda211a816a2eb9b3cc3cdbd4
+    uses: xaynetwork/jorge_test/.github/workflows/test_ci_wf.yml@7661683f08346c172d7d4c6195a422f897b6e11a
 
   test-android-libs:
     name: test-android-libs
