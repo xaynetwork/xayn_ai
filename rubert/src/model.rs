@@ -33,21 +33,25 @@ pub mod kinds {
     #[allow(clippy::upper_case_acronyms)]
     pub struct SMBert;
 
-    impl BertModel for SMBert {}
+    impl BertModel for SMBert {
+        const EMBEDDING_SIZE: usize = 128;
+    }
 
     /// Question Answering (Embedding) Multilingual Bert
     #[derive(Debug)]
     #[allow(clippy::upper_case_acronyms)]
     pub struct QAMBert;
 
-    impl BertModel for QAMBert {}
+    impl BertModel for QAMBert {
+        const EMBEDDING_SIZE: usize = 128;
+    }
 }
 
 /// A Bert onnx model.
 #[derive(Debug)]
 pub struct Model<K> {
     plan: TypedSimplePlan<TypedModel>,
-    pub(crate) embedding_size: usize,
+    pub(crate) token_size: usize,
     _kind: PhantomData<K>,
 }
 
@@ -63,6 +67,9 @@ pub enum ModelError {
 }
 
 pub trait BertModel: Sized {
+    /// The number of values per embedding.
+    const EMBEDDING_SIZE: usize;
+
     /// Creates a model from an onnx model file.
     ///
     /// Requires the maximum number of tokens per tokenized sequence.
@@ -80,24 +87,17 @@ pub trait BertModel: Sized {
             .into_optimized()?
             .into_runnable()?;
 
-        let embedding_size = plan
-            .model()
-            .output_fact(0)?
-            .shape
-            .as_concrete()
-            .map(|shape| {
-                // input/output shapes are guaranteed to match when a sound onnx model is loaded
-                debug_assert_eq!([1, token_size], shape[0..2]);
-                shape.get(2).copied()
+        if plan.model().output_fact(0)?.shape.as_concrete()
+            == Some(&[1, token_size, <Self as BertModel>::EMBEDDING_SIZE])
+        {
+            Ok(Model {
+                plan,
+                token_size,
+                _kind: PhantomData,
             })
-            .flatten()
-            .ok_or(ModelError::Shape)?;
-
-        Ok(Model {
-            plan,
-            embedding_size,
-            _kind: PhantomData,
-        })
+        } else {
+            Err(ModelError::Shape)
+        }
     }
 }
 
@@ -106,20 +106,6 @@ pub trait BertModel: Sized {
 /// The prediction is of shape `(1, token_size, embedding_size)`.
 #[derive(Clone, Deref, From)]
 pub struct Prediction(Arc<Tensor>);
-
-impl<K> Model<K> {
-    /// Runs prediction on the encoded sequence.
-    pub fn predict(&self, encoding: Encoding) -> Result<Prediction, ModelError> {
-        let inputs = tvec!(
-            encoding.token_ids.0.into(),
-            encoding.attention_mask.0.into(),
-            encoding.type_ids.0.into()
-        );
-        let mut outputs = self.plan.run(inputs)?;
-
-        Ok(outputs.remove(0).into())
-    }
-}
 
 impl<K> Model<K>
 where
@@ -135,6 +121,22 @@ where
     ) -> Result<Self, ModelError> {
         <K as BertModel>::load(model, token_size)
     }
+
+    /// Runs prediction on the encoded sequence.
+    pub fn predict(&self, encoding: Encoding) -> Result<Prediction, ModelError> {
+        debug_assert_eq!(encoding.token_ids.shape(), [1, self.token_size]);
+        debug_assert_eq!(encoding.attention_mask.shape(), [1, self.token_size]);
+        debug_assert_eq!(encoding.type_ids.shape(), [1, self.token_size]);
+        let inputs = tvec!(
+            encoding.token_ids.0.into(),
+            encoding.attention_mask.0.into(),
+            encoding.type_ids.0.into()
+        );
+        let outputs = self.plan.run(inputs)?;
+        debug_assert_eq!(outputs[0].shape(), [1, self.token_size, K::EMBEDDING_SIZE]);
+
+        Ok(outputs[0].clone().into())
+    }
 }
 
 #[cfg(test)]
@@ -145,6 +147,12 @@ mod tests {
     use test_utils::smbert::model;
 
     use super::*;
+
+    #[test]
+    fn test_model_shapes() {
+        assert_eq!(kinds::SMBert::EMBEDDING_SIZE, 128);
+        assert_eq!(kinds::QAMBert::EMBEDDING_SIZE, 128);
+    }
 
     #[test]
     fn test_model_empty() {
@@ -185,7 +193,7 @@ mod tests {
         let prediction = model.predict(encoding).unwrap();
         assert_eq!(
             prediction.shape(),
-            &[shape.0, shape.1, model.embedding_size],
-        )
+            [shape.0, shape.1, kinds::SMBert::EMBEDDING_SIZE],
+        );
     }
 }

@@ -11,7 +11,6 @@ use ndarray::{Array1, Array2, Axis};
 #[derive(Debug)]
 pub struct Tokenizer {
     tokenizer: BertTokenizer<i64>,
-    pub(crate) token_size: usize,
 }
 
 /// The potential errors of the tokenizer.
@@ -67,10 +66,7 @@ impl Tokenizer {
             .with_padding(Padding::fixed(token_size, "[PAD]"))
             .build()?;
 
-        Ok(Tokenizer {
-            tokenizer,
-            token_size,
-        })
+        Ok(Tokenizer { tokenizer })
     }
 
     /// Encodes the sequence.
