@@ -1,7 +1,12 @@
 use derive_more::{Deref, From};
 
+use ndarray::{ErrorKind, ShapeError};
+
 use crate::{
-    model::{cnn::Features, ModelError},
+    model::{
+        cnn::{CnnModel, Features},
+        ModelError,
+    },
     tokenizer::encoding::ActiveMask,
 };
 use layer::{activation::Linear, dense::Dense, io::BinParams};
@@ -28,7 +33,11 @@ impl ClassifierModel {
             ));
         }
 
-        Ok(Self { layer })
+        if layer.weights().shape() == [CnnModel::CHANNEL_OUT_SIZE, 1] {
+            Ok(Self { layer })
+        } else {
+            Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into())
+        }
     }
 
     /// Runs the model on the convolved features to compute the scores.
@@ -70,15 +79,6 @@ mod tests {
     use test_utils::kpe::classifier;
 
     #[test]
-    fn test_model_shapes() {
-        let model =
-            ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
-                .unwrap();
-        assert_eq!(model.layer.weights().shape(), [512, 1],);
-        assert_eq!(model.layer.bias().shape(), [1]);
-    }
-
-    #[test]
     fn test_model_empty() {
         matches!(
             ClassifierModel::new(BinParams::default()).unwrap_err(),
@@ -88,31 +88,26 @@ mod tests {
 
     #[test]
     fn test_run_unique() {
-        let channel_out_size = 512;
         let output_size = 42;
-
         let model =
             ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
                 .unwrap();
-        let features = Array2::zeros((channel_out_size, output_size)).into();
+        let features = Array2::zeros((CnnModel::CHANNEL_OUT_SIZE, output_size)).into();
         let active_mask = Array2::from_elem((output_size, output_size), true).into();
-
-        let scores = model.run(features, active_mask).unwrap();
-        assert_eq!(scores.len(), output_size);
+        assert_eq!(model.run(features, active_mask).unwrap().len(), output_size);
     }
 
     #[test]
     fn test_run_duplicate() {
-        let channel_out_size = 512;
         let output_size = 42;
-
         let model =
             ClassifierModel::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
                 .unwrap();
-        let features = Array2::zeros((channel_out_size, output_size)).into();
+        let features = Array2::zeros((CnnModel::CHANNEL_OUT_SIZE, output_size)).into();
         let active_mask = Array2::from_elem((output_size / 2, output_size), true).into();
-
-        let scores = model.run(features, active_mask).unwrap();
-        assert_eq!(scores.len(), output_size / 2);
+        assert_eq!(
+            model.run(features, active_mask).unwrap().len(),
+            output_size / 2,
+        );
     }
 }
