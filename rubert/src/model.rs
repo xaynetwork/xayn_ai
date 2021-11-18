@@ -1,6 +1,7 @@
 use std::{
     io::{Error as IoError, Read},
     marker::PhantomData,
+    ops::RangeInclusive,
     sync::Arc,
 };
 
@@ -27,6 +28,8 @@ pub mod kinds {
     //! It must be passed together with `vocab` and `model` parameters.
     //! Passing the wrong kind with respect to the model can lead to a wrong output of the pipeline.
 
+    use std::ops::RangeInclusive;
+
     use super::BertModel;
 
     /// Sentence (Embedding) Multilingual Bert
@@ -35,6 +38,7 @@ pub mod kinds {
     pub struct SMBert;
 
     impl BertModel for SMBert {
+        const TOKEN_RANGE: RangeInclusive<usize> = 2..=512;
         const EMBEDDING_SIZE: usize = 128;
     }
 
@@ -44,6 +48,7 @@ pub mod kinds {
     pub struct QAMBert;
 
     impl BertModel for QAMBert {
+        const TOKEN_RANGE: RangeInclusive<usize> = 2..=512;
         const EMBEDDING_SIZE: usize = 128;
     }
 }
@@ -68,6 +73,9 @@ pub enum ModelError {
 }
 
 pub trait BertModel: Sized {
+    /// The range of token sizes.
+    const TOKEN_RANGE: RangeInclusive<usize>;
+
     /// The number of values per embedding.
     const EMBEDDING_SIZE: usize;
 
@@ -79,6 +87,10 @@ pub trait BertModel: Sized {
         mut model: impl Read,
         token_size: usize,
     ) -> Result<Model<Self>, ModelError> {
+        if !<Self as BertModel>::TOKEN_RANGE.contains(&token_size) {
+            return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
+        }
+
         let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
@@ -151,7 +163,10 @@ mod tests {
 
     #[test]
     fn test_model_shapes() {
+        assert_eq!(kinds::SMBert::TOKEN_RANGE, 2..=512);
         assert_eq!(kinds::SMBert::EMBEDDING_SIZE, 128);
+
+        assert_eq!(kinds::QAMBert::TOKEN_RANGE, 2..=512);
         assert_eq!(kinds::QAMBert::EMBEDDING_SIZE, 128);
     }
 
@@ -176,7 +191,7 @@ mod tests {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             Model::<kinds::SMBert>::new(model, 0).unwrap_err(),
-            ModelError::Tract(_),
+            ModelError::Shape(_),
         ));
     }
 
