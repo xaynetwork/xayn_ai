@@ -1,5 +1,5 @@
 import 'dart:html' show window;
-import 'dart:typed_data' show ByteBuffer, Uint8List;
+import 'dart:typed_data' show ByteBuffer, BytesBuilder, Uint8List;
 
 import 'package:xayn_ai_ffi_dart/package.dart'
     show AssetType, getAssets, SetupData, WebFeature;
@@ -22,16 +22,26 @@ Future<SetupData> getInputData() async {
   // };
 
   for (var asset in getAssets(features: features).entries) {
-    final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
-    // We also load the wasm/worker script here in order to check its integrity/checksum.
-    // The browser keeps it in cache so `injectWasmScript` does not download it again.
-    final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
+    if (asset.value.fragments.isEmpty) {
+      final path = joinPaths([_baseAssetUrl, asset.value.urlSuffix]);
+      // We also load the wasm/worker script here in order to check its integrity/checksum.
+      // The browser keeps it in cache so `injectWasmScript` does not download it again.
+      final data = await _fetchAsset(path, asset.value.checksum.checksumSri);
 
-    if (asset.key == AssetType.webWorkerScript ||
-        asset.key == AssetType.wasmScript) {
-      fetched.putIfAbsent(asset.key, () => path);
+      if (asset.key == AssetType.webWorkerScript ||
+          asset.key == AssetType.wasmScript) {
+        fetched.putIfAbsent(asset.key, () => path);
+      } else {
+        fetched.putIfAbsent(asset.key, () => data);
+      }
     } else {
-      fetched.putIfAbsent(asset.key, () => data);
+      final builder = BytesBuilder(copy: false);
+      for (var fragment in asset.value.fragments) {
+        final path = joinPaths([_baseAssetUrl, fragment.urlSuffix]);
+        final part = await _fetchAsset(path, fragment.checksum.checksumSri);
+        builder.add(part);
+      }
+      fetched.putIfAbsent(asset.key, () => builder.takeBytes());
     }
   }
 

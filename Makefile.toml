@@ -84,7 +84,15 @@ script = ["""
 
 [tasks.generate_assets_metadata]
 script = ["""
-  ./generate_assets_metadata.sh assets_manifest.json "$EXAMPLE_ASSETS_DIR"
+  ./generate_assets_metadata.sh assets_manifest.json "$OUT_DIR"
+
+  for ASSET in $(cat "$CARGO_MAKE_WORKING_DIRECTORY/$OUT_DIR/assets_metadata.json" | jq -c '.upload[]'); do
+    ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
+    ASSET_DIRNAME=$(dirname $ASSET_URL_SUFFIX)
+    ASSET_PATH=$(echo $ASSET | jq -r '.path')
+    mkdir -p "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$ASSET_DIRNAME"
+    cp "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_PATH" "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$ASSET_URL_SUFFIX"
+  done
 """]
 
 [tasks.serve-web]
@@ -94,7 +102,7 @@ script = ["""
 
 [tasks.build-web]
 # This will run build-local "unnecessarily". This will be fixed in a later PR.
-env = { EXAMPLE_ASSETS_DIR = "bindings/dart/example/assets", WASM_VERSION = "wasm_bindings", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
+env = { EXAMPLE_ASSETS_DIR = "bindings/dart/example/assets", OUT_DIR = "out", WASM_VERSION = "wasm_bindings", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
 run_task = { name = ["build-dart", "build-wasm", "compile-dart-worker", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
@@ -110,19 +118,13 @@ script = ["""
     exit 1
   fi
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
-  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION" multithreaded -Z build-std=panic_abort,std
-  # Webpack removes the entire wasm output folder along with the `.gitkeep` file.
-  # We add the `.gitkeep` back so it doesn't show up as a change in git.
-  touch "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION/.gitkeep"
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$OUT_DIR/$WASM_VERSION" multithreaded -Z build-std=panic_abort,std
 """]
 
 [tasks.build-wasm-sequential]
 condition = { env_true = ["DISABLE_WASM_THREADS"] }
 script = ["""
-  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION" sequential
-  # Webpack removes the entire wasm output folder along with the `.gitkeep` file.
-  # We add the `.gitkeep` back so it doesn't show up as a change in git.
-  touch "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION/.gitkeep"
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$OUT_DIR/$WASM_VERSION" sequential
 """]
 
 [tasks.install-webpack]
@@ -132,7 +134,7 @@ script = ["""
 
 [tasks.compile-dart-worker]
 script = ["""
-  dart compile js "${DART_WORKSPACE}/lib/src/web/worker/worker.dart" -m -o "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION/worker.js"
+  dart compile js "${DART_WORKSPACE}/lib/src/web/worker/worker.dart" -m -o "$CARGO_MAKE_WORKING_DIRECTORY/$OUT_DIR/$WASM_VERSION/worker.js"
 """]
 
 [tasks.test-wasm]
@@ -172,4 +174,5 @@ script = ["""
   rm -f "${DART_WORKSPACE}"/lib/src/common/reranker/assets.dart
   rm -f "${DART_WORKSPACE}"/lib/src/web/reranker/assets.dart
   rm -f out/assets_metadata.json
+  rm -rf out/wasm_bindings
 """]
