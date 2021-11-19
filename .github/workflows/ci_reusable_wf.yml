@@ -224,6 +224,7 @@ jobs:
           cargo test --all-targets
           cargo test --all-targets --all-features
           cargo test --all-features --doc
+
   cargo-tarpaulin:
     name: cargo-tarpaulin
     needs: [cargo-registry-cache, cargo-test]
