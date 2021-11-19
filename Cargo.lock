@@ -717,6 +717,7 @@ dependencies = [
  "criterion",
  "derive_more",
  "displaydoc",
+ "layer",
  "ndarray",
  "rubert-tokenizer",
  "test-utils",

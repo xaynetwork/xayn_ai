@@ -2,21 +2,21 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    model::{bert::BertModel, classifier::ClassifierModel, cnn::CnnModel, ModelError},
+    model::{bert::Bert, classifier::Classifier, cnn::Cnn, ModelError},
     tokenizer::{key_phrase::RankedKeyPhrases, Tokenizer, TokenizerError},
 };
 
-/// A pipeline for a bert model.
+/// A pipeline for a KPE model.
 ///
 /// Can be created via the [`Builder`] and consists of a tokenizer, a Bert model, a CNN model and a
 /// Classifier model.
 ///
 /// [`Builder`]: crate::builder::Builder
 pub struct Pipeline {
-    pub(crate) tokenizer: Tokenizer<{ CnnModel::KEY_PHRASE_SIZE }>,
-    pub(crate) bert: BertModel,
-    pub(crate) cnn: CnnModel,
-    pub(crate) classifier: ClassifierModel,
+    pub(crate) tokenizer: Tokenizer<{ Cnn::KEY_PHRASE_SIZE }>,
+    pub(crate) bert: Bert,
+    pub(crate) cnn: Cnn,
+    pub(crate) classifier: Classifier,
 }
 
 /// The potential errors of the [`Pipeline`].

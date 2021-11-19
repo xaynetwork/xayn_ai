@@ -8,17 +8,18 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    model::{bert::BertModel, classifier::ClassifierModel, cnn::CnnModel, ModelError},
+    model::{bert::Bert, classifier::Classifier, cnn::Cnn, ModelError},
     pipeline::Pipeline,
     tokenizer::{Tokenizer, TokenizerError},
 };
+use layer::io::{BinParams, LoadingBinParamsFailed};
 
 /// A builder to create a [`Pipeline`].
 pub struct Builder<V, M> {
     vocab: V,
     bert: M,
-    cnn: M,
-    classifier: M,
+    cnn: BinParams,
+    classifier: BinParams,
     accents: bool,
     lowercase: bool,
     token_size: usize,
@@ -41,6 +42,9 @@ pub enum BuilderError {
     /// Failed to load a data file: {0}
     DataFile(#[from] IoError),
 
+    /// Failed to load binary parameters from a file: {0}
+    BinParams(#[from] LoadingBinParamsFailed),
+
     /// Failed to build the tokenizer: {0}
     Tokenizer(#[from] TokenizerError),
 
@@ -58,15 +62,16 @@ impl Builder<BufReader<File>, BufReader<File>> {
     ) -> Result<Self, BuilderError> {
         let vocab = BufReader::new(File::open(vocab)?);
         let bert = BufReader::new(File::open(bert)?);
-        let cnn = BufReader::new(File::open(cnn)?);
-        let classifier = BufReader::new(File::open(classifier)?);
+        let cnn = BinParams::deserialize_from_file(cnn)?;
+        let classifier = BinParams::deserialize_from_file(classifier)?;
+
         Ok(Self::new(vocab, bert, cnn, classifier))
     }
 }
 
 impl<V, M> Builder<V, M> {
     /// Creates a [`Pipeline`] builder from an in-memory vocabulary and models.
-    pub fn new(vocab: V, bert: M, cnn: M, classifier: M) -> Self {
+    pub fn new(vocab: V, bert: M, cnn: BinParams, classifier: BinParams) -> Self {
         Self {
             vocab,
             bert,
@@ -74,7 +79,7 @@ impl<V, M> Builder<V, M> {
             classifier,
             accents: false,
             lowercase: true,
-            token_size: 1024,
+            token_size: *Bert::TOKEN_RANGE.end(),
             key_phrase_max_count: None,
             key_phrase_min_score: None,
         }
@@ -98,12 +103,12 @@ impl<V, M> Builder<V, M> {
 
     /// Sets the token size for the tokenizer and the models.
     ///
-    /// Defaults to `1024`.
+    /// Defaults to `512`.
     ///
     /// # Errors
-    /// Fails if `size` is less than two.
+    /// Fails if `size` is less than two or greater than 512.
     pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError> {
-        if size > 1 {
+        if Bert::TOKEN_RANGE.contains(&size) {
             self.token_size = size;
             Ok(self)
         } else {
@@ -160,9 +165,9 @@ impl<V, M> Builder<V, M> {
             self.key_phrase_max_count,
             self.key_phrase_min_score,
         )?;
-        let bert = BertModel::new(self.bert, self.token_size)?;
-        let cnn = CnnModel::new(self.cnn, self.token_size, bert.embedding_size)?;
-        let classifier = ClassifierModel::new(self.classifier, cnn.out_channel_size)?;
+        let bert = Bert::new(self.bert, self.token_size)?;
+        let cnn = Cnn::new(self.cnn)?;
+        let classifier = Classifier::new(self.classifier)?;
 
         Ok(Pipeline {
             tokenizer,
