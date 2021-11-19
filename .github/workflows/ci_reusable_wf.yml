@@ -323,6 +323,7 @@ jobs:
             ${{ github.workspace }}/target/debug/libxayn_ai_ffi_c.so
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
+
   flutter-format:
     name: flutter-format
     runs-on: ubuntu-20.04
