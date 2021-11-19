@@ -1,11 +1,13 @@
 use std::{
     io::{Error as IoError, Read},
     marker::PhantomData,
+    ops::RangeInclusive,
     sync::Arc,
 };
 
 use derive_more::{Deref, From};
 use displaydoc::Display;
+use ndarray::{ErrorKind, ShapeError};
 use thiserror::Error;
 use tract_onnx::prelude::{
     tvec,
@@ -26,6 +28,8 @@ pub mod kinds {
     //! It must be passed together with `vocab` and `model` parameters.
     //! Passing the wrong kind with respect to the model can lead to a wrong output of the pipeline.
 
+    use std::ops::RangeInclusive;
+
     use super::BertModel;
 
     /// Sentence (Embedding) Multilingual Bert
@@ -33,21 +37,27 @@ pub mod kinds {
     #[allow(clippy::upper_case_acronyms)]
     pub struct SMBert;
 
-    impl BertModel for SMBert {}
+    impl BertModel for SMBert {
+        const TOKEN_RANGE: RangeInclusive<usize> = 2..=512;
+        const EMBEDDING_SIZE: usize = 128;
+    }
 
     /// Question Answering (Embedding) Multilingual Bert
     #[derive(Debug)]
     #[allow(clippy::upper_case_acronyms)]
     pub struct QAMBert;
 
-    impl BertModel for QAMBert {}
+    impl BertModel for QAMBert {
+        const TOKEN_RANGE: RangeInclusive<usize> = 2..=512;
+        const EMBEDDING_SIZE: usize = 128;
+    }
 }
 
 /// A Bert onnx model.
 #[derive(Debug)]
 pub struct Model<K> {
     plan: TypedSimplePlan<TypedModel>,
-    pub(crate) embedding_size: usize,
+    pub(crate) token_size: usize,
     _kind: PhantomData<K>,
 }
 
@@ -58,69 +68,24 @@ pub enum ModelError {
     Read(#[from] IoError),
     /// Failed to run a tract operation: {0}
     Tract(#[from] TractError),
-    /// Invalid onnx model shapes
-    Shape,
+    /// Invalid onnx model shapes: {0}
+    Shape(#[from] ShapeError),
 }
 
+/// Properties for kinds of Bert models.
 pub trait BertModel: Sized {
-    /// Creates a model from an onnx model file.
-    ///
-    /// Requires the maximum number of tokens per tokenized sequence.
-    ///
-    /// # Panics
-    /// Panics if the model is empty (due to the way tract implemented the onnx model parsing).
-    fn load(
-        // `Read` instead of `AsRef<Path>` is needed for wasm
-        mut model: impl Read,
-        token_size: usize,
-    ) -> Result<Model<Self>, ModelError> {
-        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
-        let plan = tract_onnx::onnx()
-            .model_for_read(&mut model)?
-            .with_input_fact(0, input_fact.clone())?
-            .with_input_fact(1, input_fact.clone())?
-            .with_input_fact(2, input_fact)?
-            .into_optimized()?
-            .into_runnable()?;
+    /// The range of token sizes.
+    const TOKEN_RANGE: RangeInclusive<usize>;
 
-        let embedding_size = plan
-            .model()
-            .output_fact(0)?
-            .shape
-            .as_concrete()
-            .map(|shape| {
-                // input/output shapes are guaranteed to match when a sound onnx model is loaded
-                debug_assert_eq!([1, token_size], shape[0..2]);
-                shape.get(2).copied()
-            })
-            .flatten()
-            .ok_or(ModelError::Shape)?;
-
-        Ok(Model {
-            plan,
-            embedding_size,
-            _kind: PhantomData,
-        })
-    }
+    /// The number of values per embedding.
+    const EMBEDDING_SIZE: usize;
 }
 
 /// The predicted encoding.
+///
+/// The prediction is of shape `(1, token_size, embedding_size)`.
 #[derive(Clone, Deref, From)]
 pub struct Prediction(Arc<Tensor>);
-
-impl<K> Model<K> {
-    /// Runs prediction on the encoded sequence.
-    pub fn predict(&self, encoding: Encoding) -> Result<Prediction, ModelError> {
-        let inputs = tvec!(
-            encoding.token_ids.0.into(),
-            encoding.attention_mask.0.into(),
-            encoding.type_ids.0.into()
-        );
-        let mut outputs = self.plan.run(inputs)?;
-
-        Ok(outputs.remove(0).into())
-    }
-}
 
 impl<K> Model<K>
 where
@@ -131,10 +96,49 @@ where
     /// Requires the maximum number of tokens per tokenized sequence.
     pub fn new(
         // `Read` instead of `AsRef<Path>` is needed for wasm
-        model: impl Read,
+        mut model: impl Read,
         token_size: usize,
     ) -> Result<Self, ModelError> {
-        <K as BertModel>::load(model, token_size)
+        if !K::TOKEN_RANGE.contains(&token_size) {
+            return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
+        }
+
+        let input_fact = InferenceFact::dt_shape(i64::datum_type(), &[1, token_size]);
+        let plan = tract_onnx::onnx()
+            .model_for_read(&mut model)?
+            .with_input_fact(0, input_fact.clone())?
+            .with_input_fact(1, input_fact.clone())?
+            .with_input_fact(2, input_fact)?
+            .into_optimized()?
+            .into_runnable()?;
+
+        if plan.model().output_fact(0)?.shape.as_concrete()
+            == Some(&[1, token_size, K::EMBEDDING_SIZE])
+        {
+            Ok(Model {
+                plan,
+                token_size,
+                _kind: PhantomData,
+            })
+        } else {
+            Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into())
+        }
+    }
+
+    /// Runs prediction on the encoded sequence.
+    pub fn predict(&self, encoding: Encoding) -> Result<Prediction, ModelError> {
+        debug_assert_eq!(encoding.token_ids.shape(), [1, self.token_size]);
+        debug_assert_eq!(encoding.attention_mask.shape(), [1, self.token_size]);
+        debug_assert_eq!(encoding.type_ids.shape(), [1, self.token_size]);
+        let inputs = tvec![
+            encoding.token_ids.0.into(),
+            encoding.attention_mask.0.into(),
+            encoding.type_ids.0.into()
+        ];
+        let outputs = self.plan.run(inputs)?;
+        debug_assert_eq!(outputs[0].shape(), [1, self.token_size, K::EMBEDDING_SIZE]);
+
+        Ok(outputs[0].clone().into())
     }
 }
 
@@ -146,6 +150,15 @@ mod tests {
     use test_utils::smbert::model;
 
     use super::*;
+
+    #[test]
+    fn test_model_shapes() {
+        assert_eq!(kinds::SMBert::TOKEN_RANGE, 2..=512);
+        assert_eq!(kinds::SMBert::EMBEDDING_SIZE, 128);
+
+        assert_eq!(kinds::QAMBert::TOKEN_RANGE, 2..=512);
+        assert_eq!(kinds::QAMBert::EMBEDDING_SIZE, 128);
+    }
 
     #[test]
     fn test_model_empty() {
@@ -168,7 +181,7 @@ mod tests {
         let model = BufReader::new(File::open(model().unwrap()).unwrap());
         assert!(matches!(
             Model::<kinds::SMBert>::new(model, 0).unwrap_err(),
-            ModelError::Tract(_),
+            ModelError::Shape(_),
         ));
     }
 
@@ -186,7 +199,7 @@ mod tests {
         let prediction = model.predict(encoding).unwrap();
         assert_eq!(
             prediction.shape(),
-            &[shape.0, shape.1, model.embedding_size],
-        )
+            [shape.0, shape.1, kinds::SMBert::EMBEDDING_SIZE],
+        );
     }
 }

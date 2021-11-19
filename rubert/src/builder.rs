@@ -88,13 +88,16 @@ impl<V, M, K, P> Builder<V, M, K, P> {
     /// Defaults to `128`.
     ///
     /// # Errors
-    /// Fails if `size` is less than two.
-    pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError> {
-        if size < 2 {
-            Err(BuilderError::TokenSize)
-        } else {
+    /// Fails if `size` is less than two or greater than 512.
+    pub fn with_token_size(mut self, size: usize) -> Result<Self, BuilderError>
+    where
+        K: BertModel,
+    {
+        if K::TOKEN_RANGE.contains(&size) {
             self.token_size = size;
             Ok(self)
+        } else {
+            Err(BuilderError::TokenSize)
         }
     }
 

@@ -2,7 +2,7 @@ use displaydoc::Display;
 use thiserror::Error;
 
 use crate::{
-    model::{Model, ModelError},
+    model::{BertModel, Model, ModelError},
     pooler::{Embedding1, Embedding2, PoolerError},
     tokenizer::{Tokenizer, TokenizerError},
     AveragePooler,
@@ -32,7 +32,10 @@ pub enum PipelineError {
     Pooler(#[from] PoolerError),
 }
 
-impl<K> Pipeline<K, NonePooler> {
+impl<K> Pipeline<K, NonePooler>
+where
+    K: BertModel,
+{
     /// Computes the embedding of the sequence.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embedding2, PipelineError> {
         let encoding = self.tokenizer.encode(sequence);
@@ -41,7 +44,10 @@ impl<K> Pipeline<K, NonePooler> {
     }
 }
 
-impl<K> Pipeline<K, FirstPooler> {
+impl<K> Pipeline<K, FirstPooler>
+where
+    K: BertModel,
+{
     /// Computes the embedding of the sequence.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embedding1, PipelineError> {
         let encoding = self.tokenizer.encode(sequence);
@@ -50,7 +56,10 @@ impl<K> Pipeline<K, FirstPooler> {
     }
 }
 
-impl<K> Pipeline<K, AveragePooler> {
+impl<K> Pipeline<K, AveragePooler>
+where
+    K: BertModel,
+{
     /// Computes the embedding of the sequence.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<Embedding1, PipelineError> {
         let encoding = self.tokenizer.encode(sequence);
@@ -62,15 +71,18 @@ impl<K> Pipeline<K, AveragePooler> {
     }
 }
 
-impl<K, P> Pipeline<K, P> {
+impl<K, P> Pipeline<K, P>
+where
+    K: BertModel,
+{
     /// Gets the token size.
     pub fn token_size(&self) -> usize {
-        self.tokenizer.token_size
+        self.model.token_size
     }
 
     /// Gets the embedding size.
     pub fn embedding_size(&self) -> usize {
-        self.model.embedding_size
+        K::EMBEDDING_SIZE
     }
 }
 
