@@ -220,9 +220,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "run slow test with `cargo test --release -- --ignored`"]
     fn test_run() {
-        let token_size = 64;
+        let token_size = 2;
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         let model = Bert::new(model, token_size).unwrap();
 

@@ -1,31 +1,25 @@
-//! Run as `cargo bench --bench kpe.
-
-use std::{io::Result, path::Path};
+//! Run as `cargo bench --bench kpe`.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use ndarray::{s, Array1, Axis};
 
 use kpe::Builder;
-use test_utils::smbert;
+use test_utils::kpe::{bert, classifier, cnn, vocab};
 
 fn bench_kpe(manager: &mut Criterion) {
-    // TODO: change assets once available
     let pipeline = Builder::from_files(
-        smbert::vocab().unwrap(),
-        smbert::model().unwrap(),
-        smbert::model().unwrap(),
-        smbert::model().unwrap(),
+        vocab().unwrap(),
+        bert().unwrap(),
+        cnn().unwrap(),
+        classifier().unwrap(),
     )
     .unwrap()
     .with_accents(false)
-    .with_lowercase(true)
-    .with_token_size(512)
-    .unwrap()
-    .with_key_phrase_size(5)
+    .with_lowercase(false)
+    .with_token_size(128)
     .unwrap()
     .build()
     .unwrap();
-    let sequence = "This embedding fits perfectly and this embedding fits well.";
+    let sequence = "This sequence will be split into key phrases.";
     manager.bench_function("KPE", |bencher| {
         bencher.iter(|| pipeline.run(black_box(sequence)).unwrap())
     });
