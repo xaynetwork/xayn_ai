@@ -9,34 +9,35 @@ use rubert_tokenizer::{Encoding as BertEncoding, Offsets};
 /// The token ids of the encoded sequence.
 ///
 /// The token ids are of shape `(1, token_size)`.
-#[derive(Clone, Deref, From)]
+#[derive(Clone, Debug, Deref, From)]
 pub struct TokenIds(pub Array2<i64>);
 
 /// The attention mask of the encoded sequence.
 ///
 /// The attention mask is of shape `(1, token_size)`.
-#[derive(Clone, Deref, From)]
+#[derive(Clone, Debug, Deref, From)]
 pub struct AttentionMask(pub Array2<i64>);
 
 /// The type ids of the encoded sequence.
 ///
 /// The type ids are of shape `(1, token_size)`.
-#[derive(Clone, Deref, From)]
+#[derive(Clone, Debug, Deref, From)]
 pub struct TypeIds(pub Array2<i64>);
 
 /// The starting tokens mask of the encoded sequence.
 ///
 /// The valid mask is of shape `(token_size,)`.
-#[derive(Clone, Deref, From)]
+#[derive(Clone, Debug, Deref, From)]
 pub struct ValidMask(pub Vec<bool>);
 
 /// The active words mask for each key phrase.
 ///
 /// The active mask is of shape `(key_phrase_choices, key_phrase_mentions)`.
-#[derive(Clone, Deref, From)]
+#[derive(Clone, Debug, Deref, From)]
 pub struct ActiveMask(pub Array2<bool>);
 
 /// The encoded sequence.
+#[derive(Clone, Debug)]
 pub struct Encoding {
     pub token_ids: TokenIds,
     pub attention_mask: AttentionMask,

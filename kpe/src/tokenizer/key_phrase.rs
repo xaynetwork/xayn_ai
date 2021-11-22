@@ -16,7 +16,7 @@ pub struct KeyPhrases<const KEY_PHRASE_SIZE: usize> {
 
 /// The ranked key phrases in descending order.
 #[derive(Clone, Debug, Deref, From)]
-pub struct RankedKeyPhrases(Vec<String>);
+pub struct RankedKeyPhrases(pub(crate) Vec<String>);
 
 impl<const KEY_PHRASE_SIZE: usize> KeyPhrases<KEY_PHRASE_SIZE> {
     /// Collects all potential key phrases from the words.
