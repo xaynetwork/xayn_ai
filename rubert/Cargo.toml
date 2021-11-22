@@ -13,7 +13,7 @@ ndarray = { version = "=0.15.3", features = ["serde"] }
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 serde = { version = "1.0.130", features = ["derive"] }
 thiserror = "1.0.30"
-tract-onnx = "0.15.5"
+tract-onnx = "0.15.8"
 
 # features
 criterion = { version = "0.3.5", features = ["html_reports"], optional = true }
