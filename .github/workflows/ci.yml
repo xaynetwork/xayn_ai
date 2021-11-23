@@ -7,10 +7,7 @@ on:
       # a snapshot of staging in a given point in time
       - 'master'
       - 'release'
-      - '_bors_staging-squash-merge.tmp'
-      - '_bors_trying-squash-merge.tmp'
-      - '_bors_staging'
-      - '_bors_trying'
+      - '_bors_*'
 
 concurrency:
   group: ${{ github.ref }}
@@ -21,7 +18,7 @@ permissions:
 
 jobs:
 
-  reusable-workflow:
+  dev-ci:
     uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@26482c656e6a079d3b1dd378ba4d0ca911b5a848
 
   # this is an helper that needs all the real leafs of the workflow.
@@ -29,7 +26,7 @@ jobs:
   # for this job
   ci-ok:
     name: ci-ok
-    needs: reusable-workflow
+    needs: dev-ci
     runs-on: ubuntu-20.04
     steps:
       - run: echo "Helper job"
