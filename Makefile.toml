@@ -153,12 +153,11 @@ dependencies = ["clean-bindgen", "clean-flutter-build", "clean-codegen"]
 
 [tasks.clean-bindgen]
 script = ["""
-  cd "${DART_WORKSPACE}"
-  rm -f ios/Classes/XaynAiFFiCommon.h
-  rm -f ios/Classes/XaynAiFFiDart.h
-  rm -f lib/src/common/ffi/genesis.dart
-  rm -f lib/src/mobile/ffi/genesis.dart
-  find $EXAMPLE_ASSETS_DIR/wasm_bindings -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
+  rm -f "$DART_WORKSPACE/ios/Classes/XaynAiFFiCommon.h"
+  rm -f "$DART_WORKSPACE/ios/Classes/XaynAiFFiDart.h"
+  rm -f "$DART_WORKSPACE/lib/src/common/ffi/genesis.dart"
+  rm -f "$DART_WORKSPACE/lib/src/mobile/ffi/genesis.dart"
+  find "$EXAMPLE_ASSETS_DIR/wasm_bindings" -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
 """]
 
 [tasks.clean-flutter-build]
