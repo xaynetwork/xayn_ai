@@ -6,7 +6,6 @@ name: Merge master CI
 on:
   push:
     branches:
-    - 'master'
     - '_bors_staging'
     - '_bors_trying'
 
@@ -70,7 +69,7 @@ jobs:
         run: cargo fetch
 
   reusable-workflow:
-    uses: xaynetwork/jorge_test/.github/workflows/test_ci_wf.yml@7661683f08346c172d7d4c6195a422f897b6e11a
+    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@26482c656e6a079d3b1dd378ba4d0ca911b5a848
 
   test-android-libs:
     name: test-android-libs
