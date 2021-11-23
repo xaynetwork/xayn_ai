@@ -67,15 +67,15 @@ mod tests {
         .unwrap();
         let expected = [
             // quantized, non-quantized
-            "A",
+            "a",
             "b",
             "d",  // c
             "e.", // d
             "c",  // e.
-            "A b c d e.",
-            "A b c",
-            "A b",     // A b c d
-            "A b c d", // A b
+            "a b c d e.",
+            "a b c",
+            "a b",     // a b c d
+            "a b c d", // a b
             "b c d e.",
             "d e.",   // c d e.
             "c d e.", // d e.
@@ -100,7 +100,7 @@ mod tests {
         .with_lowercase(false)
         .build()
         .unwrap()
-        .run("a a a a a")
+        .run("A a A a A")
         .unwrap();
         let expected = ["a", "a a", "a a a", "a a a a", "a a a a a"];
         assert_eq!(actual.0, expected);

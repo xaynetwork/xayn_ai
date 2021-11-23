@@ -82,7 +82,7 @@ impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
 /// Decodes the tokenized words.
 ///
 /// Joins starting tokens with their continuing tokens. Everything which is not separated by
-/// whitespace is considered as continuation as well, e.g. punctuation.
+/// whitespace is considered as continuation as well, e.g. punctuation. All words are lowercased.
 fn decode_words(
     sequence: impl AsRef<str>,
     offsets: impl AsRef<[Offsets]>,
@@ -95,7 +95,7 @@ fn decode_words(
         (0, 0),
         |(word_start, word_end), &Offsets(token_start, token_end)| {
             if word_end < token_start {
-                words.push(sequence[word_start..word_end].into());
+                words.push(sequence[word_start..word_end].to_lowercase());
                 (token_start, token_end)
             } else {
                 (word_start, token_end)
@@ -115,7 +115,7 @@ fn decode_words(
                     (word_start, word_end),
                     |(word_start, word_end), &Offsets(token_start, token_end)| {
                         if word_end < token_start {
-                            words.push(sequence[word_start..word_end].into());
+                            words.push(sequence[word_start..word_end].to_lowercase());
                             ControlFlow::Break(())
                         } else {
                             ControlFlow::Continue((word_start, token_end))
@@ -123,10 +123,10 @@ fn decode_words(
                     },
                 )
             {
-                words.push(sequence[word_start..word_end].into());
+                words.push(sequence[word_start..word_end].to_lowercase());
             }
         } else {
-            words.push(sequence[word_start..word_end].into());
+            words.push(sequence[word_start..word_end].to_lowercase());
         }
     }
     words.shrink_to_fit();
@@ -324,9 +324,9 @@ mod tests {
         );
     }
 
-    const EXACT_WORDS: [&str; 4] = ["This", "embedding", "fits", "perfectly."];
-    const SHORT_WORDS: [&str; 4] = ["This", "is", "an", "embedding."];
-    const LONG_WORDS: [&str; 6] = ["This", "embedding", "is", "way", "too", "long."];
+    const EXACT_WORDS: [&str; 4] = ["this", "embedding", "fits", "perfectly."];
+    const SHORT_WORDS: [&str; 4] = ["this", "is", "an", "embedding."];
+    const LONG_WORDS: [&str; 6] = ["this", "embedding", "is", "way", "too", "long."];
 
     #[test]
     fn test_decode_words_exact() {
@@ -381,6 +381,6 @@ mod tests {
 
     #[test]
     fn test_valid_mask_empty() {
-        assert!(valid_mask(&[]).0.is_empty());
+        assert!(valid_mask(&[]).is_empty());
     }
 }
