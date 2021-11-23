@@ -27,7 +27,7 @@ pub trait ActivationFunction<A> {
 }
 
 /// reLu activation function.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Relu;
 
 impl<A> ActivationFunction<A> for Relu
@@ -59,7 +59,7 @@ impl Relu {
 }
 
 /// Softmax activation function.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Softmax {
     rel_axis_idx: isize,
 }
@@ -115,7 +115,7 @@ where
 ///
 /// Like common this is a identity function used
 /// in cases where there no activation function is needed.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Linear;
 
 impl<A> ActivationFunction<A> for Linear {

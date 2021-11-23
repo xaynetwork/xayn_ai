@@ -4,6 +4,7 @@ library ai;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:js/js.dart' show JS;
+import 'package:js/js_util.dart' show instanceof;
 
 import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 import 'package:xayn_ai_ffi_dart/src/common/data/history.dart' show History;
@@ -22,10 +23,12 @@ import 'package:xayn_ai_ffi_dart/src/web/reranker/analytics.dart'
     show JsAnalytics, ToAnalytics;
 import 'package:xayn_ai_ffi_dart/src/web/result/error.dart'
     show
-        RuntimeError,
+        ObjectToRuntimeError,
+        ObjectToXaynAiError,
         RuntimeErrorToException,
         XaynAiError,
-        XaynAiErrorToException;
+        XaynAiErrorToException,
+        runtimeError;
 import 'package:xayn_ai_ffi_dart/src/web/result/fault.dart'
     show JsFault, ToStrings;
 import 'package:xayn_ai_ffi_dart/src/web/result/outcomes.dart'
@@ -111,10 +114,14 @@ class XaynAi {
         ltrModel,
         serialized,
       );
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      throw error.toException();
+    } catch (error) {
+      if (instanceof(error, runtimeError)) {
+        throw error.toRuntimeError().toException();
+      } else if (XaynAiError.isXaynAiError(error)) {
+        throw error.toXaynAiError().toException();
+      } else {
+        rethrow;
+      }
     }
   }
 
@@ -142,13 +149,17 @@ class XaynAi {
             documents.toJsDocuments(),
           )
           .toRerankingOutcomes();
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      // the memory is automatically cleaned up by the js garbage collector once all reference to
-      // _ai are gone, which usually happens when creating a new wasm instance
-      _ai = null;
-      throw error.toException();
+    } catch (error) {
+      if (instanceof(error, runtimeError)) {
+        // the memory is automatically cleaned up by the js garbage collector once all reference to
+        // _ai are gone, which usually happens when creating a new wasm instance
+        _ai = null;
+        throw error.toRuntimeError().toException();
+      } else if (XaynAiError.isXaynAiError(error)) {
+        throw error.toXaynAiError().toException();
+      } else {
+        rethrow;
+      }
     }
   }
 
@@ -164,11 +175,15 @@ class XaynAi {
 
     try {
       return _ai!.serialize();
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
+    } catch (error) {
+      if (instanceof(error, runtimeError)) {
+        _ai = null;
+        throw error.toRuntimeError().toException();
+      } else if (XaynAiError.isXaynAiError(error)) {
+        throw error.toXaynAiError().toException();
+      } else {
+        rethrow;
+      }
     }
   }
 
@@ -186,9 +201,13 @@ class XaynAi {
 
     try {
       return _ai!.faults().toStrings();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
+    } catch (error) {
+      if (instanceof(error, runtimeError)) {
+        _ai = null;
+        throw error.toRuntimeError().toException();
+      } else {
+        rethrow;
+      }
     }
   }
 
@@ -204,9 +223,13 @@ class XaynAi {
 
     try {
       return _ai!.analytics()?.toAnalytics();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
+    } catch (error) {
+      if (instanceof(error, runtimeError)) {
+        _ai = null;
+        throw error.toRuntimeError().toException();
+      } else {
+        rethrow;
+      }
     }
   }
 
@@ -222,11 +245,15 @@ class XaynAi {
 
     try {
       return _ai!.syncdataBytes();
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
+    } catch (error) {
+      if (instanceof(error, runtimeError)) {
+        _ai = null;
+        throw error.toRuntimeError().toException();
+      } else if (XaynAiError.isXaynAiError(error)) {
+        throw error.toXaynAiError().toException();
+      } else {
+        rethrow;
+      }
     }
   }
 
@@ -242,11 +269,15 @@ class XaynAi {
 
     try {
       _ai!.synchronize(serialized);
-    } on XaynAiError catch (error) {
-      throw error.toException();
-    } on RuntimeError catch (error) {
-      _ai = null;
-      throw error.toException();
+    } catch (error) {
+      if (instanceof(error, runtimeError)) {
+        _ai = null;
+        throw error.toRuntimeError().toException();
+      } else if (XaynAiError.isXaynAiError(error)) {
+        throw error.toXaynAiError().toException();
+      } else {
+        rethrow;
+      }
     }
   }
 

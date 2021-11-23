@@ -11,7 +11,6 @@ use ndarray::{Array1, Array2, Axis};
 #[derive(Debug)]
 pub struct Tokenizer {
     tokenizer: BertTokenizer<i64>,
-    pub(crate) token_size: usize,
 }
 
 /// The potential errors of the tokenizer.
@@ -22,14 +21,20 @@ pub enum TokenizerError {
 }
 
 /// The token ids of the encoded sequence.
+///
+/// The token ids are of shape `(1, token_size)`.
 #[derive(Clone, Deref, From)]
 pub struct TokenIds(pub Array2<i64>);
 
 /// The attention mask of the encoded sequence.
+///
+/// The attention mask is of shape `(1, token_size)`.
 #[derive(Clone, Deref, From)]
 pub struct AttentionMask(pub Array2<i64>);
 
 /// The type ids of the encoded sequence.
+///
+/// The type ids are of shape `(1, token_size)`.
 #[derive(Clone, Deref, From)]
 pub struct TypeIds(pub Array2<i64>);
 
@@ -61,10 +66,7 @@ impl Tokenizer {
             .with_padding(Padding::fixed(token_size, "[PAD]"))
             .build()?;
 
-        Ok(Tokenizer {
-            tokenizer,
-            token_size,
-        })
+        Ok(Tokenizer { tokenizer })
     }
 
     /// Encodes the sequence.

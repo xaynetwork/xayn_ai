@@ -7,11 +7,12 @@ edition = "2018"
 [dependencies]
 derive_more = { version = "0.99.16", default-features = false, features = ["deref", "from"] }
 displaydoc = "0.2.3"
+layer = { path = "../layer" }
 # to be kept in sync with tract-core
 ndarray = "=0.15.3"
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 thiserror = "1.0.29"
-tract-onnx = "0.15.5"
+tract-onnx = "0.15.8"
 
 [dev-dependencies]
 criterion = { version = "0.3.5", features = ["html_reports"] }
