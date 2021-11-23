@@ -68,12 +68,12 @@ jobs:
       - name: Fetch dependencies
         run: cargo fetch
 
-  reusable-workflow:
+  dev-ci:
     uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@26482c656e6a079d3b1dd378ba4d0ca911b5a848
 
   test-android-libs:
     name: test-android-libs
-    needs: [cargo-registry-cache, reusable-workflow]
+    needs: [cargo-registry-cache, dev-ci]
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     strategy:
@@ -126,7 +126,7 @@ jobs:
 
   build-ios-libs:
     name: build-ios-libs
-    needs: [cargo-registry-cache, reusable-workflow]
+    needs: [cargo-registry-cache, dev-ci]
     runs-on: macos-11
     timeout-minutes: 20
     strategy:
@@ -181,7 +181,7 @@ jobs:
 
   test-wasm-libs:
     name: test-wasm-libs
-    needs: [cargo-registry-cache, reusable-workflow]
+    needs: [cargo-registry-cache, dev-ci]
     runs-on: ubuntu-20.04
     timeout-minutes: 20
     steps:
@@ -220,7 +220,7 @@ jobs:
 
   flutter-build-example:
     name: flutter-build-example
-    needs: [reusable-workflow, build-ios-libs]
+    needs: [build-ios-libs, dev-ci]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -325,7 +325,7 @@ jobs:
       - test-wasm-libs
       - test-android-libs
       - flutter-build-example
-      - reusable-workflow
+      - dev-ci
     runs-on: ubuntu-20.04
     steps:
       - run: echo "Helper job"
