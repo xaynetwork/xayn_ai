@@ -10,6 +10,9 @@ IOS_TARGETS = "aarch64-apple-ios x86_64-apple-ios"
 DART_WORKSPACE = "bindings/dart"
 DART_EXAMPLE_WORKSPACE = "bindings/dart/example"
 
+EXAMPLE_ASSETS_DIR = "bindings/dart/example/assets"
+ASSET_OUT_DIR = "out"
+
 [config]
 skip_core_tasks = true
 # this avoids cargo make to run these tasks for each crate
@@ -29,10 +32,10 @@ script = ["""
 """]
 
 [tasks.build-mobile.linux]
-dependencies = ["build-android", "generate_assets_metadata"]
+run_task = { name = ["build-android", "generate_assets_metadata"] }
 
 [tasks.build-mobile.mac]
-dependencies = ["build-android", "build-ios", "generate_assets_metadata"]
+run_task = { name = ["build-android", "build-ios", "generate_assets_metadata"] }
 
 [tasks.build-android]
 dependencies = ["build-dart"]
@@ -84,7 +87,15 @@ script = ["""
 
 [tasks.generate_assets_metadata]
 script = ["""
-  ./generate_assets_metadata.sh assets_manifest.json "$EXAMPLE_ASSETS_DIR"
+  ./generate_assets_metadata.sh assets_manifest.json "$ASSET_OUT_DIR"
+
+  for ASSET in $(cat "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/assets_metadata.json" | jq -c '.upload[]'); do
+    ASSET_URL_SUFFIX=$(echo $ASSET | jq -r '.url_suffix')
+    ASSET_DIRNAME=$(dirname $ASSET_URL_SUFFIX)
+    ASSET_PATH=$(echo $ASSET | jq -r '.path')
+    mkdir -p "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$ASSET_DIRNAME"
+    cp "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_PATH" "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$ASSET_URL_SUFFIX"
+  done
 """]
 
 [tasks.serve-web]
@@ -94,7 +105,7 @@ script = ["""
 
 [tasks.build-web]
 # This will run build-local "unnecessarily". This will be fixed in a later PR.
-env = { EXAMPLE_ASSETS_DIR = "bindings/dart/example/assets", WASM_VERSION = "wasm_bindings", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
+env = { WASM_VERSION = "wasm_bindings", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
 run_task = { name = ["build-dart", "build-wasm", "compile-dart-worker", "generate_assets_metadata"] }
 
 [tasks.build-wasm]
@@ -110,19 +121,13 @@ script = ["""
     exit 1
   fi
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
-  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION" multithreaded -Z build-std=panic_abort,std
-  # Webpack removes the entire wasm output folder along with the `.gitkeep` file.
-  # We add the `.gitkeep` back so it doesn't show up as a change in git.
-  touch "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION/.gitkeep"
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/$WASM_VERSION" multithreaded -Z build-std=panic_abort,std
 """]
 
 [tasks.build-wasm-sequential]
 condition = { env_true = ["DISABLE_WASM_THREADS"] }
 script = ["""
-  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION" sequential
-  # Webpack removes the entire wasm output folder along with the `.gitkeep` file.
-  # We add the `.gitkeep` back so it doesn't show up as a change in git.
-  touch "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION/.gitkeep"
+  ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/$WASM_VERSION" sequential
 """]
 
 [tasks.install-webpack]
@@ -132,7 +137,7 @@ script = ["""
 
 [tasks.compile-dart-worker]
 script = ["""
-  dart compile js "${DART_WORKSPACE}/lib/src/web/worker/worker.dart" -m -o "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$WASM_VERSION/worker.js"
+  dart compile js "${DART_WORKSPACE}/lib/src/web/worker/worker.dart" -m -o "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/$WASM_VERSION/worker.js"
 """]
 
 [tasks.test-wasm]
@@ -148,15 +153,11 @@ dependencies = ["clean-bindgen", "clean-flutter-build", "clean-codegen"]
 
 [tasks.clean-bindgen]
 script = ["""
-  cd "${DART_WORKSPACE}"
-  rm -f ios/Classes/XaynAiFFiCommon.h
-  rm -f ios/Classes/XaynAiFFiDart.h
-  rm -f lib/src/common/ffi/genesis.dart
-  rm -f lib/src/mobile/ffi/genesis.dart
-  rm -f example/assets/wasm_bindings/genesis_bg.wasm
-  rm -f example/assets/wasm_bindings/genesis.js
-  rm -f example/assets/wasm_bindings/package.json
-  rm -rf example/assets/wasm_bindings/snippets/
+  rm -f "$DART_WORKSPACE/ios/Classes/XaynAiFFiCommon.h"
+  rm -f "$DART_WORKSPACE/ios/Classes/XaynAiFFiDart.h"
+  rm -f "$DART_WORKSPACE/lib/src/common/ffi/genesis.dart"
+  rm -f "$DART_WORKSPACE/lib/src/mobile/ffi/genesis.dart"
+  find "$EXAMPLE_ASSETS_DIR/wasm_bindings" -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
 """]
 
 [tasks.clean-flutter-build]
@@ -171,5 +172,10 @@ script = ["""
   find "${DART_WORKSPACE}" -type f -regex '.*\\.g\\.dart' -exec rm {} \\;
   rm -f "${DART_WORKSPACE}"/lib/src/common/reranker/assets.dart
   rm -f "${DART_WORKSPACE}"/lib/src/web/reranker/assets.dart
-  rm -f out/assets_metadata.json
+  rm -f "$ASSET_OUT_DIR/assets_metadata.json"
+  rm -rf "$ASSET_OUT_DIR/wasm_bindings"
+  find $EXAMPLE_ASSETS_DIR/qambert_v* -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
+  find $EXAMPLE_ASSETS_DIR/smbert_v* -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
+  find $EXAMPLE_ASSETS_DIR/ltr_v* -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
+  find $EXAMPLE_ASSETS_DIR/wasm_bindings -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
 """]
