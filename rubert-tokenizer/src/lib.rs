@@ -64,6 +64,7 @@ mod tokenizer;
 pub use crate::{
     builder::{Builder, BuilderError},
     model::ModelError,
+    normalizer::string::Offsets,
     post_tokenizer::{
         encoding::Encoding,
         padding::{Padding, PaddingError},

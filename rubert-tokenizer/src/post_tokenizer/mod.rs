@@ -85,9 +85,19 @@ where
             .chain(encoding.word_indices)
             .chain(once(None))
             .collect();
-        let offsets = once(Offsets(0, 0))
+        let cls_token_offset = encoding
+            .offsets
+            .first()
+            .map(|&Offsets(start, _)| Offsets(start, start))
+            .unwrap_or_default();
+        let sep_token_offset = encoding
+            .offsets
+            .last()
+            .map(|&Offsets(_, end)| Offsets(end, end))
+            .unwrap_or_default();
+        let offsets = once(cls_token_offset)
             .chain(encoding.offsets)
-            .chain(once(Offsets(0, 0)))
+            .chain(once(sep_token_offset))
             .collect();
         let special_tokens_mask = once(N::one())
             .chain(encoding.special_tokens_mask)

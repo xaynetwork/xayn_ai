@@ -489,8 +489,15 @@ impl<N> Encoding<N> {
             .extend(iter::repeat(N::zero()).take(pad_length));
         self.special_tokens_mask
             .extend(iter::repeat(N::one()).take(pad_length));
-        self.offsets
-            .extend(iter::repeat(Offsets(0, 0)).take(pad_length));
+        self.offsets.extend(
+            iter::repeat(
+                self.offsets
+                    .last()
+                    .map(|&Offsets(_, end)| Offsets(end, end))
+                    .unwrap_or_default(),
+            )
+            .take(pad_length),
+        );
 
         self
     }
