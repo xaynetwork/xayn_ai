@@ -7,7 +7,7 @@ on:
       # a snapshot of staging in a given point in time
       - 'master'
       - 'release'
-      - '_bors_*'
+      - '_bors*'
 
 concurrency:
   group: ${{ github.ref }}
