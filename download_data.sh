@@ -18,9 +18,8 @@ CHECKSUM_FILE="sha256sums"
 download()
 {
   cd "$CALLING_BASE_DIR"
-  TREAT_AS="$1"
-  NAME="$2"
-  VERSION="$3"
+  NAME="$1"
+  VERSION="$2"
   ARCHIVE_BASENAME="${NAME}_$VERSION"
   ARCHIVE_NAME="$ARCHIVE_BASENAME.tgz"
   URL="http://s3-de-central.profitbricks.com/xayn-yellow-bert/$NAME/$ARCHIVE_NAME"
@@ -33,18 +32,11 @@ download()
   # check content
   cd "$ARCHIVE_BASENAME"
   shasum -c "$CHECKSUM_FILE"
-
-  if [ "$TREAT_AS" = "asset" ]; then
-    # update symlinks (the `|| :` makes the shell ignore failure of rm even if `set -eu` is used)
-    cd "$CALLING_BASE_DIR"
-    rm "${SELF_DIR_PATH}/bindings/dart/example/assets/${NAME}"_v* || :
-    ln -s "../../../../data/${ARCHIVE_BASENAME}" "${SELF_DIR_PATH}/bindings/dart/example/assets/${ARCHIVE_BASENAME}"
-  fi
 }
 
-download asset smbert v0000
-download asset qambert v0001
-download asset ltr v0000
-download misc bench_matmul v0000
-download misc ltr_test_data v0001
-download misc kpe v0000
+download smbert v0000
+download qambert v0001
+download ltr v0000
+download bench_matmul v0000
+download ltr_test_data v0001
+download kpe v0000

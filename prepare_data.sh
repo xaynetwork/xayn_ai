@@ -49,7 +49,7 @@ TO_ARCHIVE="$TMP_DIR/$ARCHIVE_BASENAME"
 # compute checksum file
 cd $ARCHIVE_BASENAME
 rm -f $CHECKSUM_FILE
-find . -type f -not -iname $CHECKSUM_FILE -print0 | xargs -0 shasum -a 256 > $CHECKSUM_FILE
+find . -type f -not -iname $CHECKSUM_FILE -not -name ".DS_Store" -print0 | xargs -0 shasum -a 256 > $CHECKSUM_FILE
 
 cd $CURRENT_DIR
 
