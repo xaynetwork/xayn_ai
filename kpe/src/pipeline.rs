@@ -43,3 +43,51 @@ impl Pipeline {
         Ok(key_phrases.rank(scores))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::builder::Builder;
+    use test_utils::kpe::{bert, classifier, cnn, vocab};
+
+    #[test]
+    fn test_run_unique() {
+        assert_eq!(
+            Builder::from_files(
+                vocab().unwrap(),
+                bert().unwrap(),
+                cnn().unwrap(),
+                classifier().unwrap(),
+            )
+            .unwrap()
+            .with_token_size(7)
+            .unwrap()
+            .build()
+            .unwrap()
+            .run("a b c d e")
+            .unwrap()
+            .len(),
+            15,
+        );
+    }
+
+    #[test]
+    fn test_run_duplicate() {
+        assert_eq!(
+            Builder::from_files(
+                vocab().unwrap(),
+                bert().unwrap(),
+                cnn().unwrap(),
+                classifier().unwrap(),
+            )
+            .unwrap()
+            .with_token_size(7)
+            .unwrap()
+            .build()
+            .unwrap()
+            .run("a a a a a")
+            .unwrap()
+            .len(),
+            5,
+        );
+    }
+}
