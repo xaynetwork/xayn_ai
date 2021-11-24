@@ -156,9 +156,12 @@ mod tests {
     use super::*;
     use test_utils::smbert::vocab;
 
-    const EXACT_SEQUENCE: &str = "This embedding fits perfectly."; // this embedd ##ing fit ##s perfect ##ly .
-    const SHORT_SEQUENCE: &str = "This is an embedding."; // this is an embedd ##ing .
-    const LONG_SEQUENCE: &str = "This embedding is way too long."; // this embedd ##ing is way too long .
+    /// Tokens: This embedd ##ing fit ##s perfect ##ly .
+    const EXACT_SEQUENCE: &str = "This embedding fits perfectly.";
+    /// Tokens: This is an embedd ##ing .
+    const SHORT_SEQUENCE: &str = "This is an embedding.";
+    /// Tokens: This embedd ##ing is way too long .
+    const LONG_SEQUENCE: &str = "This embedding is way too long.";
 
     fn tokenizer(token_size: usize) -> Tokenizer<3> {
         let vocab = BufReader::new(File::open(vocab().unwrap()).unwrap());
@@ -377,6 +380,6 @@ mod tests {
 
     #[test]
     fn test_valid_mask_empty() {
-        assert_eq!(valid_mask(&[]).0, [] as [bool; 0]);
+        assert!(valid_mask(&[]).0.is_empty());
     }
 }

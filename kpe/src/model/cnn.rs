@@ -76,7 +76,7 @@ impl Cnn {
             [1, valid_mask.len(), Bert::EMBEDDING_SIZE],
         );
         let valid_embeddings = embeddings.collect(valid_mask)?;
-        debug_assert_eq!(valid_embeddings.shape(), [valid_size, Bert::EMBEDDING_SIZE],);
+        debug_assert_eq!(valid_embeddings.shape(), [valid_size, Bert::EMBEDDING_SIZE]);
 
         let run_layer =
             |idx: usize| self.layers[idx].run(valid_embeddings.t().slice(s![NewAxis, .., ..]));
