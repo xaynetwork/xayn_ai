@@ -15,4 +15,4 @@ resolver = "2"
 
 [workspace.metadata]
 # minimum supported rust version
-msrv = "1.51.0"
+msrv = "1.55.0"

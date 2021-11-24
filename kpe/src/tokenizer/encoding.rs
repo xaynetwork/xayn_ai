@@ -1,7 +1,10 @@
+use std::ops::ControlFlow;
+
 use derive_more::{Deref, From};
 use ndarray::{Array1, Array2, Axis};
 
 use crate::tokenizer::{key_phrase::KeyPhrases, Tokenizer};
+use rubert_tokenizer::{Encoding as BertEncoding, Offsets};
 
 /// The token ids of the encoded sequence.
 ///
@@ -47,16 +50,17 @@ impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
     ///
     /// The encoding is in correct shape for the models.
     pub fn encode(&self, sequence: impl AsRef<str>) -> (Encoding, KeyPhrases<KEY_PHRASE_SIZE>) {
+        let sequence = sequence.as_ref();
         let encoding = self.tokenizer.encode(sequence);
-        let (token_ids, type_ids, tokens, word_indices, _, _, attention_mask, overflowing) =
+        let (token_ids, type_ids, _, _, ref offsets, _, attention_mask, overflowing) =
             encoding.into();
 
         let token_ids = Array1::from(token_ids).insert_axis(Axis(0)).into();
         let attention_mask = Array1::from(attention_mask).insert_axis(Axis(0)).into();
         let type_ids = Array1::from(type_ids).insert_axis(Axis(0)).into();
 
-        let valid_mask = valid_mask(&word_indices);
-        let words = decode_words(tokens, word_indices, overflowing);
+        let valid_mask = valid_mask(offsets);
+        let words = decode_words(sequence, offsets, overflowing);
         let key_phrases =
             KeyPhrases::collect(&words, self.key_phrase_max_count, self.key_phrase_min_score);
         let active_mask = key_phrases.active_mask();
@@ -74,46 +78,54 @@ impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
     }
 }
 
-/// Joins starting tokens with their continuing tokens to decode the tokenized words.
+/// Decodes the tokenized words.
+///
+/// Joins starting tokens with their continuing tokens. Everything which is not separated by
+/// whitespace is considered as continuation as well, e.g. punctuation.
 fn decode_words(
-    tokens: Vec<String>,
-    word_indices: Vec<Option<i64>>,
-    overflowing: Option<Vec<rubert_tokenizer::Encoding<i64>>>,
+    sequence: impl AsRef<str>,
+    offsets: impl AsRef<[Offsets]>,
+    overflowing: Option<impl AsRef<[BertEncoding<i64>]>>,
 ) -> Vec<String> {
-    let mut words = Vec::<String>::with_capacity(word_indices.len());
-    let last_idx = word_indices.into_iter().zip(tokens.into_iter()).fold(
-        None,
-        |previous, (current, token)| {
-            if current.is_some() {
-                if previous == current {
-                    words.last_mut().unwrap().push_str(&token[2..]);
-                } else {
-                    words.push(token);
-                }
-                current
+    let sequence = sequence.as_ref();
+    let offsets = offsets.as_ref();
+    let mut words = Vec::<String>::with_capacity(offsets.len());
+    let (word_start, word_end) = offsets.iter().fold(
+        (0, 0),
+        |(word_start, word_end), &Offsets(token_start, token_end)| {
+            if word_end < token_start {
+                words.push(sequence[word_start..word_end].into());
+                (token_start, token_end)
             } else {
-                previous
+                (word_start, token_end)
             }
         },
     );
-    // subtokens of the last word might have been truncated during tokenization, but we can
-    // still use the whole word for the keyphrase because the model only pays attention to the
-    // starting token
-    if let Some(overflowing) = overflowing {
-        if !overflowing.is_empty() {
-            for (idx, token) in overflowing[0]
-                .word_indices()
+    if word_start < word_end {
+        if let Some(overflowing) = overflowing {
+            // subtokens of the last word might have been truncated during tokenization, but we can
+            // still use the whole word for the keyphrase because the model only pays attention to
+            // the starting token
+            if let ControlFlow::Continue((word_start, word_end)) = overflowing
+                .as_ref()
                 .iter()
-                .zip(overflowing[0].tokens().iter())
+                .flat_map(BertEncoding::offsets)
+                .try_fold(
+                    (word_start, word_end),
+                    |(word_start, word_end), &Offsets(token_start, token_end)| {
+                        if word_end < token_start {
+                            words.push(sequence[word_start..word_end].into());
+                            ControlFlow::Break(())
+                        } else {
+                            ControlFlow::Continue((word_start, token_end))
+                        }
+                    },
+                )
             {
-                if idx.is_some() {
-                    if idx == &last_idx {
-                        words.last_mut().unwrap().push_str(&token[2..]);
-                    } else {
-                        break;
-                    }
-                }
+                words.push(sequence[word_start..word_end].into());
             }
+        } else {
+            words.push(sequence[word_start..word_end].into());
         }
     }
     words.shrink_to_fit();
@@ -122,20 +134,14 @@ fn decode_words(
 }
 
 /// Creates the mask of starting tokens.
-fn valid_mask(word_indices: &[Option<i64>]) -> ValidMask {
-    word_indices
+fn valid_mask(offsets: impl AsRef<[Offsets]>) -> ValidMask {
+    offsets
+        .as_ref()
         .iter()
-        .scan(None, |previous, current| {
-            if current == previous {
-                Some(false)
-            } else {
-                *previous = *current;
-                if current.is_some() {
-                    Some(true)
-                } else {
-                    Some(false)
-                }
-            }
+        .scan(0, |previous_end, &Offsets(start, end)| {
+            let valid = start > *previous_end || (start == 0 && end > 0);
+            *previous_end = end;
+            Some(valid)
         })
         .collect::<Vec<_>>()
         .into()
@@ -150,8 +156,11 @@ mod tests {
     use super::*;
     use test_utils::smbert::vocab;
 
+    /// Tokens: This embedd ##ing fit ##s perfect ##ly .
     const EXACT_SEQUENCE: &str = "This embedding fits perfectly.";
+    /// Tokens: This is an embedd ##ing .
     const SHORT_SEQUENCE: &str = "This is an embedding.";
+    /// Tokens: This embedd ##ing is way too long .
     const LONG_SEQUENCE: &str = "This embedding is way too long.";
 
     fn tokenizer(token_size: usize) -> Tokenizer<3> {
@@ -195,37 +204,22 @@ mod tests {
         );
         assert_eq!(
             encoding.valid_mask.0,
-            [false, true, true, false, true, false, true, false, true, false],
+            [false, true, true, false, true, false, true, false, false, false],
         );
         assert_eq!(
             encoding.active_mask.0,
             ArrayView2::from_shape(
-                (12, 12),
+                (9, 9),
                 &[
-                    true, false, false, false, false, false, false, false, false, false, false,
-                    false, //
-                    false, true, false, false, false, false, false, false, false, false, false,
-                    false, //
-                    false, false, true, false, false, false, false, false, false, false, false,
-                    false, //
-                    false, false, false, true, false, false, false, false, false, false, false,
-                    false, //
-                    false, false, false, false, true, false, false, false, false, false, false,
-                    false, //
-                    false, false, false, false, false, true, false, false, false, false, false,
-                    false, //
-                    false, false, false, false, false, false, true, false, false, false, false,
-                    false, //
-                    false, false, false, false, false, false, false, true, false, false, false,
-                    false, //
-                    false, false, false, false, false, false, false, false, true, false, false,
-                    false, //
-                    false, false, false, false, false, false, false, false, false, true, false,
-                    false, //
-                    false, false, false, false, false, false, false, false, false, false, true,
-                    false, //
-                    false, false, false, false, false, false, false, false, false, false, false,
-                    true, //
+                    true, false, false, false, false, false, false, false, false, //
+                    false, true, false, false, false, false, false, false, false, //
+                    false, false, true, false, false, false, false, false, false, //
+                    false, false, false, true, false, false, false, false, false, //
+                    false, false, false, false, true, false, false, false, false, //
+                    false, false, false, false, false, true, false, false, false, //
+                    false, false, false, false, false, false, true, false, false, //
+                    false, false, false, false, false, false, false, true, false, //
+                    false, false, false, false, false, false, false, false, true, //
                 ],
             )
             .unwrap(),
@@ -251,37 +245,22 @@ mod tests {
         );
         assert_eq!(
             encoding.valid_mask.0,
-            [false, true, true, true, true, false, true, false, false, false],
+            [false, true, true, true, true, false, false, false, false, false],
         );
         assert_eq!(
             encoding.active_mask.0,
             ArrayView2::from_shape(
-                (12, 12),
+                (9, 9),
                 &[
-                    true, false, false, false, false, false, false, false, false, false, false,
-                    false, //
-                    false, true, false, false, false, false, false, false, false, false, false,
-                    false, //
-                    false, false, true, false, false, false, false, false, false, false, false,
-                    false, //
-                    false, false, false, true, false, false, false, false, false, false, false,
-                    false, //
-                    false, false, false, false, true, false, false, false, false, false, false,
-                    false, //
-                    false, false, false, false, false, true, false, false, false, false, false,
-                    false, //
-                    false, false, false, false, false, false, true, false, false, false, false,
-                    false, //
-                    false, false, false, false, false, false, false, true, false, false, false,
-                    false, //
-                    false, false, false, false, false, false, false, false, true, false, false,
-                    false, //
-                    false, false, false, false, false, false, false, false, false, true, false,
-                    false, //
-                    false, false, false, false, false, false, false, false, false, false, true,
-                    false, //
-                    false, false, false, false, false, false, false, false, false, false, false,
-                    true, //
+                    true, false, false, false, false, false, false, false, false, //
+                    false, true, false, false, false, false, false, false, false, //
+                    false, false, true, false, false, false, false, false, false, //
+                    false, false, false, true, false, false, false, false, false, //
+                    false, false, false, false, true, false, false, false, false, //
+                    false, false, false, false, false, true, false, false, false, //
+                    false, false, false, false, false, false, true, false, false, //
+                    false, false, false, false, false, false, false, true, false, //
+                    false, false, false, false, false, false, false, false, true, //
                 ],
             )
             .unwrap(),
@@ -344,79 +323,63 @@ mod tests {
         );
     }
 
-    const EXACT_WORDS: [&str; 5] = ["this", "embedding", "fits", "perfectly", "."];
-    const SHORT_WORDS: [&str; 5] = ["this", "is", "an", "embedding", "."];
-    const LONG_WORDS: [&str; 7] = ["this", "embedding", "is", "way", "too", "long", "."];
+    const EXACT_WORDS: [&str; 4] = ["This", "embedding", "fits", "perfectly."];
+    const SHORT_WORDS: [&str; 4] = ["This", "is", "an", "embedding."];
+    const LONG_WORDS: [&str; 6] = ["This", "embedding", "is", "way", "too", "long."];
 
     #[test]
     fn test_decode_words_exact() {
-        let (_, _, tokens, word_indices, _, _, _, overflowing) =
-            tokenizer(10).tokenizer.encode(EXACT_SEQUENCE).into();
-        let words = decode_words(tokens, word_indices, overflowing);
+        let encoding = tokenizer(10).tokenizer.encode(EXACT_SEQUENCE);
+        let words = decode_words(EXACT_SEQUENCE, encoding.offsets(), encoding.overflowing());
         assert_eq!(words, EXACT_WORDS);
     }
 
     #[test]
     fn test_decode_words_padded() {
-        let (_, _, tokens, word_indices, _, _, _, overflowing) =
-            tokenizer(10).tokenizer.encode(SHORT_SEQUENCE).into();
-        let words = decode_words(tokens, word_indices, overflowing);
+        let encoding = tokenizer(10).tokenizer.encode(SHORT_SEQUENCE);
+        let words = decode_words(SHORT_SEQUENCE, encoding.offsets(), encoding.overflowing());
         assert_eq!(words, SHORT_WORDS);
     }
 
     #[test]
     fn test_decode_words_truncated_between() {
-        let (_, _, tokens, word_indices, _, _, _, overflowing) =
-            tokenizer(8).tokenizer.encode(LONG_SEQUENCE).into();
-        let words = decode_words(tokens, word_indices, overflowing);
+        let encoding = tokenizer(8).tokenizer.encode(LONG_SEQUENCE);
+        let words = decode_words(LONG_SEQUENCE, encoding.offsets(), encoding.overflowing());
         assert_eq!(words, LONG_WORDS[..5]);
     }
 
     #[test]
     fn test_decode_words_truncated_within() {
-        let (_, _, tokens, word_indices, _, _, _, overflowing) =
-            tokenizer(4).tokenizer.encode(LONG_SEQUENCE).into();
-        let words = decode_words(tokens, word_indices, overflowing);
+        let encoding = tokenizer(4).tokenizer.encode(LONG_SEQUENCE);
+        let words = decode_words(LONG_SEQUENCE, encoding.offsets(), encoding.overflowing());
         assert_eq!(words, LONG_WORDS[..2]);
     }
 
     #[test]
     fn test_decode_words_truncated_empty() {
-        let (_, _, tokens, word_indices, _, _, _, overflowing) =
-            tokenizer(2).tokenizer.encode(LONG_SEQUENCE).into();
-        let words = decode_words(tokens, word_indices, overflowing);
+        let encoding = tokenizer(2).tokenizer.encode(LONG_SEQUENCE);
+        let words = decode_words(LONG_SEQUENCE, encoding.offsets(), encoding.overflowing());
         assert!(words.is_empty());
     }
 
     #[test]
     fn test_decode_words_empty() {
-        let (_, _, tokens, word_indices, _, _, _, overflowing) =
-            tokenizer(5).tokenizer.encode("").into();
-        let words = decode_words(tokens, word_indices, overflowing);
+        let encoding = tokenizer(5).tokenizer.encode("");
+        let words = decode_words("", encoding.offsets(), encoding.overflowing());
         assert!(words.is_empty());
     }
 
     #[test]
     fn test_valid_mask_full() {
-        let word_indices = vec![
-            None,
-            Some(0),
-            Some(1),
-            Some(1),
-            Some(2),
-            Some(3),
-            Some(3),
-            Some(4),
-            None,
-        ];
+        let encoding = tokenizer(10).tokenizer.encode(EXACT_SEQUENCE);
         assert_eq!(
-            valid_mask(&word_indices).0,
-            [false, true, true, false, true, true, false, true, false],
+            valid_mask(encoding.offsets()).0,
+            [false, true, true, false, true, false, true, false, false, false],
         );
     }
 
     #[test]
     fn test_valid_mask_empty() {
-        assert_eq!(valid_mask(&[]).0, [] as [bool; 0]);
+        assert!(valid_mask(&[]).0.is_empty());
     }
 }
