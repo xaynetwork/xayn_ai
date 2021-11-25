@@ -41,22 +41,28 @@ where
         weights: Array2<f32>,
         bias: Array1<f32>,
         activation_function: AF,
-    ) -> Result<Self, IncompatibleMatrices> {
-        if weights.shape()[1] == bias.shape()[0] {
-            Ok(Self {
-                weights,
-                bias,
-                activation_function,
-            })
-        } else {
-            Err(IncompatibleMatrices::new(
+    ) -> Result<Self, LoadingLayerFailed> {
+        if weights.iter().any(|w| w.is_nan() || w.is_infinite())
+            || bias.iter().any(|b| b.is_nan() || b.is_infinite())
+        {
+            return Err(LoadingLayerFailed::InvalidParams);
+        }
+        if weights.shape()[1] != bias.shape()[0] {
+            return Err(IncompatibleMatrices::new(
                 "Dense/weights",
                 weights.raw_dim(),
                 "Dense/bias",
                 bias.raw_dim(),
                 "expected weights[1] == bias[0] for broadcasting bias add",
-            ))
+            )
+            .into());
         }
+
+        Ok(Self {
+            weights,
+            bias,
+            activation_function,
+        })
     }
 
     pub fn load(
