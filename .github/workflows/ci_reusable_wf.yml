@@ -3,9 +3,9 @@ name: Reusable Dev CI
 on:
   workflow_call:
     outputs:
-    cache-key-linux-lib:
-      description: Cache key from the build-linux-lib job
-      value: ${{ jobs.build-linux-lib.outputs.cache-key }}  
+      cache-key-linux-lib:
+        description: Cache key from the build-linux-lib job
+        value: ${{ jobs.build-linux-lib.outputs.cache-key }}
 
 env:
   RUST_STABLE: 1.55
