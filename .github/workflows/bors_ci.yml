@@ -69,7 +69,7 @@ jobs:
         run: cargo fetch
 
   dev-ci:
-    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@26482c656e6a079d3b1dd378ba4d0ca911b5a848
+    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@49cefaead3a29817658e7e19d1ea028070aa1f3b
 
   test-android-libs:
     name: test-android-libs
@@ -248,14 +248,14 @@ jobs:
       - name: Install gomplate
         uses: ./.ci/install-gomplate
 
-      - name: Download ${{ needs.build-linux-lib.outputs.cache-key }} artifacts
+      - name: Download ${{ needs.dev-ci.outputs.cache-key-linux-lib }} artifacts
         uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
         with:
-          name: ${{ needs.build-linux-lib.outputs.cache-key }}
-          path: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
+          name: ${{ needs.dev-ci.outputs.cache-key-linux-lib }}
+          path: ${{ runner.temp }}/${{ needs.dev-ci.outputs.cache-key-linux-lib }}
 
       - name: Move C-headers
-        working-directory: ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
+        working-directory: ${{ runner.temp }}/${{ needs.dev-ci.outputs.cache-key-linux-lib }}
         run: |
           mv bindings/dart/ios/Classes/XaynAiFfiCommon.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h
           mv bindings/dart/ios/Classes/XaynAiFfiDart.h ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
@@ -277,7 +277,7 @@ jobs:
       - name: Move iOS artifacts
         if: matrix.target == 'ios'
         run: |
-          cd ${{ runner.temp }}/${{ needs.build-linux-lib.outputs.cache-key }}
+          cd ${{ runner.temp }}/${{ needs.dev-ci.outputs.cache-key-linux-lib }}
           cd ${{ runner.temp }}/build-ios-${{ github.sha }}
           find . -iname '*.a' -exec cp \{\} ${{ env.DART_WORKSPACE }}/ios \;
 
