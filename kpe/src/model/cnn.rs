@@ -82,7 +82,9 @@ impl Cnn {
             [1, valid_mask.len(), Bert::EMBEDDING_SIZE],
         );
         debug_assert!(embeddings.is_valid());
-        let valid_size = valid_mask.size();
+        let valid_size = cfg!(debug_assertions)
+            .then(|| valid_mask.size())
+            .unwrap_or_default();
         let valid_embeddings = embeddings.collect(valid_mask)?;
         debug_assert_eq!(valid_embeddings.shape(), [valid_size, Bert::EMBEDDING_SIZE]);
         debug_assert!(valid_embeddings.iter().copied().all(f32::is_finite));
