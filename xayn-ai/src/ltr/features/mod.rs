@@ -458,7 +458,7 @@ pub(crate) fn build_features(
 /// Note that we follow the ordering of features as implemented in soundgarden,
 /// since the ListNet model has been trained on that.
 pub(crate) fn features_to_ndarray(feats_list: &[Features]) -> Array2<f32> {
-    let mut arr = Array2::zeros((feats_list.len(), 50));
+    let mut arr = Array2::default((feats_list.len(), 50));
 
     let click_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Click);
     let miss_mrr = &AtomFeat::MeanRecipRank(MrrOutcome::Miss);

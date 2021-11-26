@@ -73,7 +73,9 @@ impl Bert {
     ) -> Result<Embeddings, ModelError> {
         debug_assert_eq!(token_ids.shape(), [1, self.token_size]);
         debug_assert_eq!(attention_mask.shape(), [1, self.token_size]);
+        debug_assert!(attention_mask.iter().all(|&value| value == 0 || value == 1));
         debug_assert_eq!(type_ids.shape(), [1, self.token_size]);
+        debug_assert!(type_ids.iter().all(|&value| value == 0));
         let inputs = tvec![
             token_ids.0.into(),
             attention_mask.0.into(),
@@ -85,9 +87,11 @@ impl Bert {
             [1, self.token_size, Self::EMBEDDING_SIZE],
         );
         debug_assert!(outputs[0]
-            .to_array_view::<f32>()?
+            .to_array_view::<f32>()
+            .unwrap()
             .iter()
-            .all(|v| !v.is_infinite() && !v.is_nan()));
+            .copied()
+            .all(f32::is_finite));
 
         Ok(outputs[0].clone().into())
     }
@@ -184,7 +188,7 @@ mod tests {
                 .into_arc_tensor(),
         );
         let valid_mask = vec![false; token_size].into();
-        let valid_embeddings = Array2::<f32>::zeros((0, Bert::EMBEDDING_SIZE));
+        let valid_embeddings = Array2::<f32>::default((0, Bert::EMBEDDING_SIZE));
         assert_eq!(embeddings.collect(valid_mask).unwrap(), valid_embeddings);
     }
 
@@ -225,9 +229,9 @@ mod tests {
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         let model = Bert::new(model, token_size).unwrap();
 
-        let token_ids = Array2::zeros((1, token_size)).into();
+        let token_ids = Array2::ones((1, token_size)).into();
         let attention_mask = Array2::ones((1, token_size)).into();
-        let type_ids = Array2::zeros((1, token_size)).into();
+        let type_ids = Array2::default((1, token_size)).into();
         let embeddings = model.run(token_ids, attention_mask, type_ids).unwrap();
         assert_eq!(embeddings.shape(), [1, token_size, Bert::EMBEDDING_SIZE]);
     }

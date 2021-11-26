@@ -154,7 +154,7 @@ fn test_run_works_with_10_inputs() {
 #[test]
 fn test_running_list_net_with_no_inputs_works() {
     let list_net = &*LIST_NET;
-    let inputs = Array2::<f32>::zeros((0, 50));
+    let inputs = Array2::<f32>::default((0, 50));
     let outputs = list_net.run(inputs);
     assert!(outputs.is_empty());
 }

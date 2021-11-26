@@ -22,7 +22,7 @@ fn bench_tract(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
         .unwrap();
     manager.bench_function(name, |bencher| {
         bencher.iter(|| {
-            plan.run(black_box(tvec![Array2::<f32>::zeros((10, 128)).into()]))
+            plan.run(black_box(tvec![Array2::<f32>::default((10, 128)).into()]))
                 .unwrap();
         })
     });
@@ -43,7 +43,7 @@ fn bench_onnx(manager: &mut Criterion, name: &str, model: impl AsRef<Path>) {
     manager.bench_function(name, |bencher| {
         bencher.iter(|| {
             session
-                .run::<f32, f32, _>(black_box(vec![Array2::zeros((10, 128))]))
+                .run::<f32, f32, _>(black_box(vec![Array2::default((10, 128))]))
                 .unwrap();
         })
     });

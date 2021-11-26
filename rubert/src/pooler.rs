@@ -117,7 +117,7 @@ impl AveragePooler {
         let average = if count > 0. {
             attention_mask.dot(&prediction.to_array_view()?.slice(s![0, .., ..])) / count
         } else {
-            Array1::zeros(prediction.shape()[2])
+            Array1::default(prediction.shape()[2])
         };
 
         Ok(average.into())

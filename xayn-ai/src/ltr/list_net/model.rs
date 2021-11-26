@@ -171,21 +171,21 @@ impl ListNet {
 
         let dense1 = Dense::new(
             he_normal_weights_init(&mut rng, (Self::INPUT_NR_FEATURES, 48)),
-            Array1::zeros((48,)),
+            Array1::default(48),
             Relu,
         )
         .unwrap();
 
         let dense2 = Dense::new(
             he_normal_weights_init(&mut rng, (48, 8)),
-            Array1::zeros((8,)),
+            Array1::default(8),
             Relu,
         )
         .unwrap();
 
         let scores = Dense::new(
             he_normal_weights_init(&mut rng, (8, 1)),
-            Array1::zeros((1,)),
+            Array1::default(1),
             Linear,
         )
         .unwrap();
@@ -195,7 +195,7 @@ impl ListNet {
                 &mut rng,
                 (Self::INPUT_NR_DOCUMENTS, Self::INPUT_NR_DOCUMENTS),
             ),
-            Array1::zeros((Self::INPUT_NR_DOCUMENTS,)),
+            Array1::default(Self::INPUT_NR_DOCUMENTS),
             Softmax::default(),
         )
         .unwrap();

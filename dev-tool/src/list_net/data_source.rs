@@ -529,12 +529,12 @@ mod tests {
     fn dummy_storage() -> InMemoryStorage {
         let mut storage = InMemoryStorage::default();
 
-        let inputs = Array::zeros((10, 50));
+        let inputs = Array::default((10, 50));
         let target_prob_dist = Array::ones((10,));
         storage.add_sample(inputs, target_prob_dist).unwrap();
 
         let inputs = Array::ones((10, 50));
-        let target_prob_dist = Array::zeros((10,));
+        let target_prob_dist = Array::default((10,));
         storage.add_sample(inputs, target_prob_dist).unwrap();
 
         let inputs = Array::from_elem((10, 50), 4.);
@@ -547,13 +547,13 @@ mod tests {
     #[test]
     fn test_adding_bad_matrices_fails() {
         let mut storage = InMemoryStorage::default();
-        let inputs = Array::zeros((10, 48));
+        let inputs = Array::default((10, 48));
         let target_prob_dist = Array::ones((10,));
         let err = storage.add_sample(inputs, target_prob_dist).unwrap_err();
 
         assert_eq!(&format!("{}", err), "Sample with bad array shapes. Expected shapes [10, 50] & [10] but got shapes [10, 48] & [10]." );
 
-        let inputs = Array::zeros((8, 50));
+        let inputs = Array::default((8, 50));
         let target_prob_dist = Array::ones((11,));
         let err = storage.add_sample(inputs, target_prob_dist).unwrap_err();
 
