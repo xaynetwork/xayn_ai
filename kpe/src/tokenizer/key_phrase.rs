@@ -75,6 +75,7 @@ impl<const KEY_PHRASE_SIZE: usize> KeyPhrases<KEY_PHRASE_SIZE> {
     /// Ranks the key phrases in descending order according to the scores.
     pub fn rank(self, scores: Scores) -> RankedKeyPhrases {
         debug_assert_eq!(self.choices.len(), scores.len());
+        debug_assert!(scores.is_valid());
         let min_score = self.min_score.as_ref();
         let mut key_phrases = self
             .choices

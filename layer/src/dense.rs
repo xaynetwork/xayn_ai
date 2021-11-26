@@ -42,8 +42,7 @@ where
         bias: Array1<f32>,
         activation_function: AF,
     ) -> Result<Self, LoadingLayerFailed> {
-        if weights.iter().any(|w| w.is_nan() || w.is_infinite())
-            || bias.iter().any(|b| b.is_nan() || b.is_infinite())
+        if !weights.iter().copied().all(f32::is_finite) || !bias.iter().copied().all(f32::is_finite)
         {
             return Err(LoadingLayerFailed::InvalidParams);
         }

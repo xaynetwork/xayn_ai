@@ -12,11 +12,30 @@ use rubert_tokenizer::{Encoding as BertEncoding, Offsets};
 #[derive(Clone, Debug, Deref, From)]
 pub struct TokenIds(pub Array2<i64>);
 
+impl TokenIds {
+    /// Checks if the token ids are valid, i.e. in the interval `[0, vocab_size)`.
+    pub fn is_valid(&self, vocab_size: usize) -> bool {
+        debug_assert!(vocab_size as u64 <= i64::MAX as u64);
+        self.iter()
+            .copied()
+            .all(|token_id| 0 <= token_id && token_id < vocab_size as i64)
+    }
+}
+
 /// The attention mask of the encoded sequence.
 ///
 /// The attention mask is of shape `(1, token_size)`.
 #[derive(Clone, Debug, Deref, From)]
 pub struct AttentionMask(pub Array2<i64>);
+
+impl AttentionMask {
+    /// Checks if the attention mask is valid, i.e. either `0` or `1`.
+    pub fn is_valid(&self) -> bool {
+        self.iter()
+            .copied()
+            .all(|attention| attention == 0 || attention == 1)
+    }
+}
 
 /// The type ids of the encoded sequence.
 ///
@@ -24,17 +43,45 @@ pub struct AttentionMask(pub Array2<i64>);
 #[derive(Clone, Debug, Deref, From)]
 pub struct TypeIds(pub Array2<i64>);
 
+impl TypeIds {
+    /// Checks if the type ids are valid, i.e. `0`.
+    pub fn is_valid(&self) -> bool {
+        self.iter().copied().all(|type_id| type_id == 0)
+    }
+}
+
 /// The starting tokens mask of the encoded sequence.
 ///
 /// The valid mask is of shape `(token_size,)`.
 #[derive(Clone, Debug, Deref, From)]
 pub struct ValidMask(pub Vec<bool>);
 
+impl ValidMask {
+    /// Gets the number of valid entries in the mask.
+    pub fn size(&self) -> usize {
+        self.iter().filter(|valid| **valid).count()
+    }
+
+    /// Checks if the valid mask is valid, i.e. at least `key_phrase_size` valid entries.
+    pub fn is_valid(&self, key_phrase_size: usize) -> bool {
+        self.size() >= key_phrase_size
+    }
+}
+
 /// The active words mask for each key phrase.
 ///
 /// The active mask is of shape `(key_phrase_choices, key_phrase_mentions)`.
 #[derive(Clone, Debug, Deref, From)]
 pub struct ActiveMask(pub Array2<bool>);
+
+impl ActiveMask {
+    /// Checks if the active mask is valid, i.e. at least one mention per choice.
+    pub fn is_valid(&self) -> bool {
+        self.rows()
+            .into_iter()
+            .all(|mentions| mentions.iter().copied().any(|active| active))
+    }
+}
 
 /// The encoded sequence.
 #[derive(Clone, Debug)]
@@ -44,6 +91,17 @@ pub struct Encoding {
     pub type_ids: TypeIds,
     pub valid_mask: ValidMask,
     pub active_mask: ActiveMask,
+}
+
+impl Encoding {
+    /// Checks if all parts of the encoding are valid.
+    pub fn is_valid(&self, vocab_size: usize, key_phrase_size: usize) -> bool {
+        self.token_ids.is_valid(vocab_size)
+            && self.attention_mask.is_valid()
+            && self.type_ids.is_valid()
+            && self.valid_mask.is_valid(key_phrase_size)
+            && self.active_mask.is_valid()
+    }
 }
 
 impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
@@ -66,16 +124,16 @@ impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
             KeyPhrases::collect(&words, self.key_phrase_max_count, self.key_phrase_min_score);
         let active_mask = key_phrases.active_mask();
 
-        (
-            Encoding {
-                token_ids,
-                attention_mask,
-                type_ids,
-                valid_mask,
-                active_mask,
-            },
-            key_phrases,
-        )
+        let encoding = Encoding {
+            token_ids,
+            attention_mask,
+            type_ids,
+            valid_mask,
+            active_mask,
+        };
+        debug_assert!(encoding.is_valid(self.tokenizer.vocab_size(), KEY_PHRASE_SIZE));
+
+        (encoding, key_phrases)
     }
 }
 

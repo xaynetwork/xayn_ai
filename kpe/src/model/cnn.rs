@@ -22,6 +22,13 @@ pub struct Cnn {
 #[derive(Clone, Debug, Deref, From)]
 pub struct Features(pub Array2<f32>);
 
+impl Features {
+    /// Checks if the features are valid, i.e. finite.
+    pub fn is_valid(&self) -> bool {
+        self.iter().copied().all(f32::is_finite)
+    }
+}
+
 impl Cnn {
     /// The maximum number of words per key phrase.
     pub const KEY_PHRASE_SIZE: usize = 5;
@@ -66,8 +73,7 @@ impl Cnn {
         embeddings: Embeddings,
         valid_mask: ValidMask,
     ) -> Result<Features, ModelError> {
-        let valid_size = valid_mask.iter().filter(|valid| **valid).count();
-        if valid_size < Self::KEY_PHRASE_SIZE {
+        if !valid_mask.is_valid(Self::KEY_PHRASE_SIZE) {
             return Err(ModelError::NotEnoughWords);
         }
 
@@ -75,19 +81,15 @@ impl Cnn {
             embeddings.shape(),
             [1, valid_mask.len(), Bert::EMBEDDING_SIZE],
         );
-        debug_assert!(embeddings
-            .to_array_view::<f32>()
-            .unwrap()
-            .iter()
-            .copied()
-            .all(f32::is_finite));
+        debug_assert!(embeddings.is_valid());
+        let valid_size = valid_mask.size();
         let valid_embeddings = embeddings.collect(valid_mask)?;
         debug_assert_eq!(valid_embeddings.shape(), [valid_size, Bert::EMBEDDING_SIZE]);
         debug_assert!(valid_embeddings.iter().copied().all(f32::is_finite));
 
         let run_layer =
             |idx: usize| self.layers[idx].run(valid_embeddings.t().slice(s![NewAxis, .., ..]));
-        let features = concatenate(
+        let features = Features(concatenate(
             Axis(1),
             &[
                 run_layer(0)?.slice(s![0, .., ..]),
@@ -96,7 +98,7 @@ impl Cnn {
                 run_layer(3)?.slice(s![0, .., ..]),
                 run_layer(4)?.slice(s![0, .., ..]),
             ],
-        )?;
+        )?);
         debug_assert_eq!(
             features.shape(),
             [
@@ -104,9 +106,9 @@ impl Cnn {
                 self.output_size(valid_embeddings.shape()[0]),
             ],
         );
-        debug_assert!(features.iter().copied().all(f32::is_finite));
+        debug_assert!(features.is_valid());
 
-        Ok(features.into())
+        Ok(features)
     }
 
     /// Computes the output size of the concatenated CNN layers.

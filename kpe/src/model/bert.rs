@@ -31,6 +31,17 @@ pub struct Bert {
 #[derive(Clone, Debug, Deref, From)]
 pub struct Embeddings(pub Arc<Tensor>);
 
+impl Embeddings {
+    /// Checks if the embeddings are valid, i.e. finite.
+    pub fn is_valid(&self) -> bool {
+        self.to_array_view::<f32>()
+            .unwrap()
+            .iter()
+            .copied()
+            .all(f32::is_finite)
+    }
+}
+
 impl Bert {
     /// The range of token sizes.
     pub const TOKEN_RANGE: RangeInclusive<usize> = 2..=512;
@@ -72,28 +83,25 @@ impl Bert {
         type_ids: TypeIds,
     ) -> Result<Embeddings, ModelError> {
         debug_assert_eq!(token_ids.shape(), [1, self.token_size]);
+        debug_assert!(token_ids.is_valid(isize::MAX as usize));
         debug_assert_eq!(attention_mask.shape(), [1, self.token_size]);
-        debug_assert!(attention_mask.iter().all(|&value| value == 0 || value == 1));
+        debug_assert!(attention_mask.is_valid());
         debug_assert_eq!(type_ids.shape(), [1, self.token_size]);
-        debug_assert!(type_ids.iter().all(|&value| value == 0));
+        debug_assert!(type_ids.is_valid());
         let inputs = tvec![
             token_ids.0.into(),
             attention_mask.0.into(),
             type_ids.0.into(),
         ];
         let outputs = self.plan.run(inputs)?;
+        let embeddings = Embeddings(outputs[0].clone());
         debug_assert_eq!(
-            outputs[0].shape(),
+            embeddings.shape(),
             [1, self.token_size, Self::EMBEDDING_SIZE],
         );
-        debug_assert!(outputs[0]
-            .to_array_view::<f32>()
-            .unwrap()
-            .iter()
-            .copied()
-            .all(f32::is_finite));
+        debug_assert!(embeddings.is_valid());
 
-        Ok(outputs[0].clone().into())
+        Ok(embeddings)
     }
 }
 

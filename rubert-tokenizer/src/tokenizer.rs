@@ -49,4 +49,9 @@ impl<N> Tokenizer<N> {
             cleanup,
         )
     }
+
+    /// Gets the number of entries in the vocabulary.
+    pub fn vocab_size(&self) -> usize {
+        self.model.vocab.len()
+    }
 }

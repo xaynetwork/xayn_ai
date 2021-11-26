@@ -96,8 +96,7 @@ where
         if weights.is_empty() {
             return Err(ShapeError::from_kind(ErrorKind::IncompatibleShape).into());
         }
-        if weights.iter().any(|w| w.is_nan() || w.is_infinite())
-            || bias.iter().any(|b| b.is_nan() || b.is_infinite())
+        if !weights.iter().copied().all(f32::is_finite) || !bias.iter().copied().all(f32::is_finite)
         {
             return Err(LoadingLayerFailed::InvalidParams.into());
         }
