@@ -41,7 +41,7 @@ jobs:
         run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
 
       - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: |
             ~/.cargo/registry/index
@@ -71,7 +71,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: |
             ~/.cargo/registry/index
@@ -115,7 +115,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: |
             ~/.cargo/registry/index
@@ -124,7 +124,7 @@ jobs:
           key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -156,7 +156,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: |
             ~/.cargo/registry/index
@@ -165,7 +165,7 @@ jobs:
           key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -196,7 +196,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: |
             ~/.cargo/registry/index
@@ -210,7 +210,7 @@ jobs:
         run: echo "::set-output name=key::$(echo "${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}")"
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: ${{ github.workspace }}/target
           key: ${{ steps.cache-key.outputs.key }}
@@ -245,7 +245,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: |
             ~/.cargo/registry/index
@@ -254,7 +254,7 @@ jobs:
           key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Cache build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: ${{ github.workspace }}/target
           key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
@@ -289,7 +289,7 @@ jobs:
           default: true
 
       - name: Use cached cargo registry
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: |
             ~/.cargo/registry/index
@@ -298,7 +298,7 @@ jobs:
           key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
 
       - name: Restore build artifacts
-        uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353 # v2.1.6
+        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
         with:
           path: ${{ github.workspace }}/target
           key: ${{ needs.cargo-test.outputs.cache-key }}
