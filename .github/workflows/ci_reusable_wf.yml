@@ -180,7 +180,7 @@ jobs:
     name: cargo-test
     needs: [cargo-registry-cache, cargo-check]
     runs-on: ubuntu-20.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
