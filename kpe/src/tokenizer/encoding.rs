@@ -57,14 +57,14 @@ impl TypeIds {
 pub struct ValidMask(pub Vec<bool>);
 
 impl ValidMask {
-    /// Gets the number of valid entries in the mask.
-    pub fn size(&self) -> usize {
+    /// Counts the number of valid entries in the mask.
+    pub fn count(&self) -> usize {
         self.iter().filter(|valid| **valid).count()
     }
 
     /// Checks if the valid mask is valid, i.e. at least `key_phrase_size` valid entries.
     pub fn is_valid(&self, key_phrase_size: usize) -> bool {
-        self.size() >= key_phrase_size
+        self.count() >= key_phrase_size
     }
 }
 
