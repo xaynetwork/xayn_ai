@@ -15,7 +15,7 @@ indicatif = "0.16.2"
 itertools = "0.10.0"
 layer = { path = "../layer" }
 log = "0.4.14"
-ndarray = "0.15.3"
+ndarray = "0.15.4"
 rand = "0.8.3"
 rayon = "1.5.1"
 serde = { version = "1.0.130", features = ["derive"] }

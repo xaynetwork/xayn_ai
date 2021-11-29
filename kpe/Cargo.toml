@@ -9,7 +9,7 @@ derive_more = { version = "0.99.16", default-features = false, features = ["dere
 displaydoc = "0.2.3"
 layer = { path = "../layer" }
 # to be kept in sync with tract-core
-ndarray = "=0.15.3"
+ndarray = "=0.15.4"
 rubert-tokenizer = { path = "../rubert-tokenizer" }
 thiserror = "1.0.29"
 tract-onnx = "0.15.8"

@@ -12,7 +12,7 @@ displaydoc = "0.2.3"
 itertools = "0.10.1"
 layer = { path = "../layer" }
 # to be kept in sync with rubert
-ndarray = "=0.15.3"
+ndarray = "=0.15.4"
 # TODO: use version 1.0.5 once it is released
 obake = { git = "https://github.com/doctorn/obake", rev = "d6bea07e355ca4adf353c1e627f13c8c3286361b" }
 rand = "0.8.4"
