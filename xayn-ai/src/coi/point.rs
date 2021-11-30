@@ -48,54 +48,21 @@ impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
 
 impl From<PositiveCoi_v0_1_0> for PositiveCoi_v0_2_0 {
     fn from(coi: PositiveCoi_v0_1_0) -> Self {
-        Self::new(coi.id, coi.point)
+        Self {
+            id: coi.id,
+            point: coi.point,
+        }
     }
 }
 
 impl From<PositiveCoi_v0_2_0> for PositiveCoi {
     fn from(coi: PositiveCoi_v0_2_0) -> Self {
-        Self::new(coi.id, coi.point /* , 0 */)
-    }
-}
-
-#[cfg(test)]
-impl PositiveCoi_v0_0_0 {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
         Self {
-            id,
-            point,
-            alpha: 1.,
-            beta: 1.,
-        }
-    }
-}
-
-#[cfg(test)]
-impl PositiveCoi_v0_1_0 {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
-        Self {
-            id,
-            point,
-            alpha: 1.,
-            beta: 1.,
-        }
-    }
-}
-
-impl PositiveCoi_v0_2_0 {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
-        Self { id, point }
-    }
-}
-
-impl PositiveCoi {
-    pub fn new(id: CoiId, point: Embedding /* , viewed_seconds: usize */) -> Self {
-        Self {
-            id,
-            point,
+            id: coi.id,
+            point: coi.point,
             view_count: 1,
-            view_time: Duration::from_secs(0 /* viewed_seconds as u64 */),
-            last_time: SystemTime::now(),
+            view_time: Duration::default(),
+            last_time: SystemTime::UNIX_EPOCH,
         }
     }
 }
@@ -107,14 +74,8 @@ pub(crate) struct NegativeCoi {
     pub point: Embedding,
 }
 
-impl NegativeCoi {
-    pub fn new(id: CoiId, point: Embedding) -> Self {
-        Self { id, point }
-    }
-}
-
 pub(crate) trait CoiPoint {
-    fn new(id: CoiId, embedding: Embedding) -> Self;
+    fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self;
     fn id(&self) -> CoiId;
     fn set_id(&mut self, id: CoiId);
     fn point(&self) -> &Embedding;
@@ -122,12 +83,25 @@ pub(crate) trait CoiPoint {
 }
 
 macro_rules! impl_coi_point {
-    ($($(#[$attribute:meta])* $type:ty),+ $(,)?) => {
+    (
+        $(
+            $(#[$attribute:meta])*
+            $type:ty {
+                fn new(
+                    $id:ident: CoiId,
+                    $point:ident: Embedding,
+                    $viewed:ident: Option<Duration> $(,)?
+                ) -> Self {
+                    $new:expr
+                }
+            }
+        ),+ $(,)?
+    ) => {
         $(
             $(#[$attribute])*
             impl CoiPoint for $type {
-                fn new(id: CoiId, embedding: Embedding) -> Self {
-                    <$type>::new(id, embedding)
+                fn new($id: CoiId, $point: Embedding, $viewed: Option<Duration>) -> Self {
+                    $new
                 }
 
                 fn id(&self) -> CoiId {
@@ -151,11 +125,54 @@ macro_rules! impl_coi_point {
 }
 
 impl_coi_point! {
-    #[cfg(test)] PositiveCoi_v0_0_0,
-    #[cfg(test)] PositiveCoi_v0_1_0,
-    #[cfg(test)] PositiveCoi_v0_2_0,
-    PositiveCoi,
-    NegativeCoi,
+    #[cfg(test)]
+    PositiveCoi_v0_0_0 {
+        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+            Self {
+                id,
+                point,
+                alpha: 1.,
+                beta: 1.,
+            }
+        }
+    },
+
+    #[cfg(test)]
+    PositiveCoi_v0_1_0 {
+        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+            Self {
+                id,
+                point,
+                alpha: 1.,
+                beta: 1.,
+            }
+        }
+    },
+
+    #[cfg(test)]
+    PositiveCoi_v0_2_0 {
+        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+            Self { id, point }
+        }
+    },
+
+    PositiveCoi {
+        fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self {
+            Self {
+                id,
+                point,
+                view_count: 1,
+                view_time: viewed.unwrap_or_default(),
+                last_time: SystemTime::now(),
+            }
+        }
+    },
+
+    NegativeCoi {
+        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+            Self { id, point }
+        }
+    },
 }
 
 pub(crate) trait CoiPointMerge {

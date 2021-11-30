@@ -103,7 +103,7 @@ fn cois_from_words<CP: CoiPoint>(
         .unwrap()
         .into_iter()
         .enumerate()
-        .map(|(offset, doc)| CP::new(CoiId::mocked(start_id + offset), doc.smbert.embedding))
+        .map(|(offset, doc)| CP::new(CoiId::mocked(start_id + offset), doc.smbert.embedding, None))
         .collect()
 }
 
