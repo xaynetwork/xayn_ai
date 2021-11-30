@@ -237,7 +237,7 @@ mod tests {
         let model = BufReader::new(File::open(bert().unwrap()).unwrap());
         let model = Bert::new(model, token_size).unwrap();
 
-        let token_ids = Array2::ones((1, token_size)).into();
+        let token_ids = Array2::default((1, token_size)).into();
         let attention_mask = Array2::ones((1, token_size)).into();
         let type_ids = Array2::default((1, token_size)).into();
         let embeddings = model.run(token_ids, attention_mask, type_ids).unwrap();
