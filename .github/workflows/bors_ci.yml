@@ -69,7 +69,7 @@ jobs:
         run: cargo fetch
 
   dev-ci:
-    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@49cefaead3a29817658e7e19d1ea028070aa1f3b
+    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@master
 
   test-android-libs:
     name: test-android-libs
