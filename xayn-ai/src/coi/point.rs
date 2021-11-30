@@ -1,3 +1,7 @@
+use std::time::{Duration, SystemTime};
+
+#[cfg(test)]
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 use crate::{coi::CoiId, embedding::utils::Embedding};
@@ -6,19 +10,29 @@ use crate::{coi::CoiId, embedding::utils::Embedding};
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
 #[obake(version("0.2.0"))]
+#[obake(version("0.3.0"))]
 #[derive(Clone, Deserialize, Serialize)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(Debug, Derivative), derivative(PartialEq))]
 pub(crate) struct PositiveCoi {
     #[obake(cfg(">=0.0"))]
-    pub id: CoiId,
+    pub(crate) id: CoiId,
     #[obake(cfg(">=0.0"))]
-    pub point: Embedding,
+    pub(crate) point: Embedding,
+    #[obake(cfg(">=0.3"))]
+    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
+    pub(crate) view_count: usize,
+    #[obake(cfg(">=0.3"))]
+    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
+    pub(crate) view_time: Duration,
+    #[obake(cfg(">=0.3"))]
+    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
+    pub(crate) last_time: SystemTime,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
-    pub alpha: f32,
+    pub(crate) alpha: f32,
     #[obake(cfg(">=0.0, <0.2"))]
-    pub beta: f32,
+    pub(crate) beta: f32,
 }
 
 impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
@@ -32,18 +46,15 @@ impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
     }
 }
 
-impl From<PositiveCoi_v0_0_0> for PositiveCoi {
-    fn from(coi: PositiveCoi_v0_0_0) -> Self {
-        PositiveCoi_v0_1_0::from(coi).into()
+impl From<PositiveCoi_v0_1_0> for PositiveCoi_v0_2_0 {
+    fn from(coi: PositiveCoi_v0_1_0) -> Self {
+        Self::new(coi.id, coi.point)
     }
 }
 
-impl From<PositiveCoi_v0_1_0> for PositiveCoi {
-    fn from(coi: PositiveCoi_v0_1_0) -> Self {
-        Self {
-            id: coi.id,
-            point: coi.point,
-        }
+impl From<PositiveCoi_v0_2_0> for PositiveCoi {
+    fn from(coi: PositiveCoi_v0_2_0) -> Self {
+        Self::new(coi.id, coi.point /* , 0 */)
     }
 }
 
@@ -71,9 +82,21 @@ impl PositiveCoi_v0_1_0 {
     }
 }
 
-impl PositiveCoi {
+impl PositiveCoi_v0_2_0 {
     pub fn new(id: CoiId, point: Embedding) -> Self {
         Self { id, point }
+    }
+}
+
+impl PositiveCoi {
+    pub fn new(id: CoiId, point: Embedding /* , viewed_seconds: usize */) -> Self {
+        Self {
+            id,
+            point,
+            view_count: 1,
+            view_time: Duration::from_secs(0 /* viewed_seconds as u64 */),
+            last_time: SystemTime::now(),
+        }
     }
 }
 
@@ -130,6 +153,7 @@ macro_rules! impl_coi_point {
 impl_coi_point! {
     #[cfg(test)] PositiveCoi_v0_0_0,
     #[cfg(test)] PositiveCoi_v0_1_0,
+    #[cfg(test)] PositiveCoi_v0_2_0,
     PositiveCoi,
     NegativeCoi,
 }
@@ -162,12 +186,15 @@ type PositiveCois_v0_0_0 = Vec<PositiveCoi_v0_0_0>;
 #[allow(non_camel_case_types)]
 type PositiveCois_v0_1_0 = Vec<PositiveCoi_v0_1_0>;
 #[allow(non_camel_case_types)]
-type PositiveCois_v0_2_0 = Vec<PositiveCoi>;
+type PositiveCois_v0_2_0 = Vec<PositiveCoi_v0_2_0>;
+#[allow(non_camel_case_types)]
+type PositiveCois_v0_3_0 = Vec<PositiveCoi>;
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
 #[obake(version("0.2.0"))]
+#[obake(version("0.3.0"))]
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct UserInterests {
@@ -187,14 +214,17 @@ impl From<UserInterests_v0_0_0> for UserInterests_v0_1_0 {
     }
 }
 
-impl From<UserInterests_v0_0_0> for UserInterests {
-    fn from(ui: UserInterests_v0_0_0) -> Self {
-        UserInterests_v0_1_0::from(ui).into()
+impl From<UserInterests_v0_1_0> for UserInterests_v0_2_0 {
+    fn from(ui: UserInterests_v0_1_0) -> Self {
+        Self {
+            positive: ui.positive.into_iter().map(Into::into).collect(),
+            negative: ui.negative.into_iter().map(Into::into).collect(),
+        }
     }
 }
 
-impl From<UserInterests_v0_1_0> for UserInterests {
-    fn from(ui: UserInterests_v0_1_0) -> Self {
+impl From<UserInterests_v0_2_0> for UserInterests {
+    fn from(ui: UserInterests_v0_2_0) -> Self {
         Self {
             positive: ui.positive.into_iter().map(Into::into).collect(),
             negative: ui.negative.into_iter().map(Into::into).collect(),

@@ -1548,7 +1548,7 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to deserialize the reranker database: Unsupported serialized data. Found version {} expected 2",
+                "Failed to deserialize the reranker database: Unsupported serialized data. Found version {} expected 3",
                 version,
             ),
         );
@@ -1660,7 +1660,7 @@ mod tests {
         assert_eq!(
             error.message.as_ref().unwrap().as_str(),
             format!(
-                "Failed to synchronize data: Unsupported serialized data. Found version {} expected 2.",
+                "Failed to synchronize data: Unsupported serialized data. Found version {} expected 3.",
                 version,
             ),
         );

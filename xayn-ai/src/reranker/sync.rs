@@ -3,7 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::{
-        point::{CoiPoint, UserInterests, UserInterests_v0_1_0, UserInterests_v0_2_0},
+        point::{
+            CoiPoint,
+            UserInterests,
+            UserInterests_v0_1_0,
+            UserInterests_v0_2_0,
+            UserInterests_v0_3_0,
+        },
         reduce_cois,
     },
     error::Error,
@@ -15,6 +21,7 @@ use crate::{
 #[obake::versioned]
 #[obake(version("0.1.0"))]
 #[obake(version("0.2.0"))]
+#[obake(version("0.3.0"))]
 #[derive(Default, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Clone, Debug, PartialEq))]
 pub(crate) struct SyncData {
@@ -23,11 +30,25 @@ pub(crate) struct SyncData {
     pub(crate) user_interests: UserInterests,
 }
 
-impl From<SyncData_v0_1_0> for SyncData {
+impl From<SyncData_v0_1_0> for SyncData_v0_2_0 {
     fn from(data: SyncData_v0_1_0) -> Self {
         Self {
             user_interests: data.user_interests.into(),
         }
+    }
+}
+
+impl From<SyncData_v0_2_0> for SyncData {
+    fn from(data: SyncData_v0_2_0) -> Self {
+        Self {
+            user_interests: data.user_interests.into(),
+        }
+    }
+}
+
+impl From<SyncData_v0_1_0> for SyncData {
+    fn from(data: SyncData_v0_1_0) -> Self {
+        SyncData_v0_2_0::from(data).into()
     }
 }
 
@@ -41,6 +62,7 @@ impl SyncData {
         // version encoded in first byte
         let data = match bytes[0] {
             0 | 1 => bincode::deserialize::<SyncData_v0_1_0>(&bytes[1..])?.into(),
+            2 => bincode::deserialize::<SyncData_v0_2_0>(&bytes[1..])?.into(),
             CURRENT_SCHEMA_VERSION => bincode::deserialize(&bytes[1..])?,
             version => bail!(
                 "Unsupported serialized data. Found version {} expected {}.",
@@ -58,7 +80,7 @@ impl SyncData {
     }
 
     /// Synchronizes with another `SyncData`.
-    pub(crate) fn synchronize(&mut self, other: SyncData) {
+    pub(crate) fn synchronize(&mut self, other: Self) {
         let Self { user_interests } = other;
         self.user_interests.append(user_interests);
 
