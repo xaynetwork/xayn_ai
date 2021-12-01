@@ -177,6 +177,10 @@ pub(crate) fn data_with_rank(
                 id,
                 initial_ranking,
             },
+            document_content: DocumentContentComponent {
+                title: id.to_string(),
+                ..DocumentContentComponent::default()
+            },
             smbert: SMBertComponent { embedding },
             qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {

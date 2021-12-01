@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -25,6 +27,7 @@ pub(crate) struct DocumentContentComponent {
     pub(crate) query_words: String,
     pub(crate) url: String,
     pub(crate) domain: String,
+    pub(crate) viewed: Option<Duration>,
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
@@ -71,24 +74,6 @@ pub(crate) struct RankComponent {
     pub rank: usize,
 }
 
-macro_rules! impl_coi_system_data_no_coi {
-    ($type:ty) => {
-        impl CoiSystemData for $type {
-            fn id(&self) -> DocumentId {
-                self.document_base.id
-            }
-
-            fn smbert(&self) -> &SMBertComponent {
-                &self.smbert
-            }
-
-            fn coi(&self) -> Option<&CoiComponent> {
-                None
-            }
-        }
-    };
-}
-
 /// Document usage order: [`DocumentDataWithDocument`]
 /// -> [`DocumentDataWithSMBert`]
 /// -> [`DocumentDataWithCoi`]
@@ -117,6 +102,7 @@ impl From<&Document> for DocumentDataWithDocument {
                 query_words: document.query_words.clone(),
                 url: document.url.clone(),
                 domain: document.domain.clone(),
+                viewed: document.viewed,
             },
         }
     }
@@ -148,7 +134,23 @@ impl DocumentDataWithSMBert {
     }
 }
 
-impl_coi_system_data_no_coi! {DocumentDataWithSMBert}
+impl CoiSystemData for DocumentDataWithSMBert {
+    fn id(&self) -> DocumentId {
+        self.document_base.id
+    }
+
+    fn smbert(&self) -> &SMBertComponent {
+        &self.smbert
+    }
+
+    fn coi(&self) -> Option<&CoiComponent> {
+        None
+    }
+
+    fn viewed(&self) -> Option<Duration> {
+        self.document_content.viewed
+    }
+}
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Serialize, Deserialize)]
@@ -194,6 +196,7 @@ impl DocumentDataWithCoi {
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct DocumentDataWithLtr {
     pub(crate) document_base: DocumentBaseComponent,
+    pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
@@ -204,6 +207,7 @@ impl DocumentDataWithLtr {
     pub(crate) fn from_document(document: &DocumentDataWithQAMBert, ltr: LtrComponent) -> Self {
         Self {
             document_base: document.document_base.clone(),
+            document_content: document.document_content.clone(),
             smbert: document.smbert.clone(),
             qambert: document.qambert.clone(),
             coi: document.coi.clone(),
@@ -215,6 +219,7 @@ impl DocumentDataWithLtr {
 #[cfg_attr(test, derive(Debug, Clone))]
 pub(crate) struct DocumentDataWithContext {
     pub(crate) document_base: DocumentBaseComponent,
+    pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
@@ -226,6 +231,7 @@ impl DocumentDataWithContext {
     pub(crate) fn from_document(document: DocumentDataWithLtr, context: ContextComponent) -> Self {
         Self {
             document_base: document.document_base,
+            document_content: document.document_content,
             smbert: document.smbert,
             qambert: document.qambert,
             coi: document.coi,
@@ -239,6 +245,7 @@ impl DocumentDataWithContext {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DocumentDataWithRank {
     pub(crate) document_base: DocumentBaseComponent,
+    pub(crate) document_content: DocumentContentComponent,
     pub(crate) smbert: SMBertComponent,
     pub(crate) qambert: QAMBertComponent,
     pub(crate) coi: CoiComponent,
@@ -251,6 +258,7 @@ impl DocumentDataWithRank {
     pub(crate) fn from_document(document: DocumentDataWithContext, rank: RankComponent) -> Self {
         Self {
             document_base: document.document_base,
+            document_content: document.document_content,
             smbert: document.smbert,
             qambert: document.qambert,
             coi: document.coi,
@@ -272,6 +280,10 @@ impl CoiSystemData for DocumentDataWithRank {
 
     fn coi(&self) -> Option<&CoiComponent> {
         Some(&self.coi)
+    }
+
+    fn viewed(&self) -> Option<Duration> {
+        self.document_content.viewed
     }
 }
 

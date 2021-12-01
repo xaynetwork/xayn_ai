@@ -136,6 +136,7 @@ impl<'a> CDocuments<'a> {
                         )
                     }?
                     .into();
+                    let viewed = None;
 
                     Ok(Document {
                         id,
@@ -148,6 +149,7 @@ impl<'a> CDocuments<'a> {
                         query_words,
                         url,
                         domain,
+                        viewed,
                     })
                 })
                 .collect(),

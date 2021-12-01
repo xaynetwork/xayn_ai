@@ -82,6 +82,7 @@ mod tests {
             document_data::{
                 CoiComponent,
                 DocumentBaseComponent,
+                DocumentContentComponent,
                 LtrComponent,
                 QAMBertComponent,
                 SMBertComponent,
@@ -113,6 +114,10 @@ mod tests {
                 document_base: DocumentBaseComponent {
                     id,
                     initial_ranking: 13,
+                },
+                document_content: DocumentContentComponent {
+                    title: id.to_string(),
+                    ..DocumentContentComponent::default()
                 },
                 smbert: SMBertComponent { embedding },
                 qambert: QAMBertComponent { similarity },

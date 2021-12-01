@@ -61,6 +61,8 @@ fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
 
 #[cfg(test)]
 pub(super) mod tests {
+    use std::time::Duration;
+
     use ndarray::{arr1, FixedInitializer};
 
     use super::*;
@@ -96,6 +98,10 @@ pub(super) mod tests {
 
         fn coi(&self) -> Option<&CoiComponent> {
             self.coi.as_ref()
+        }
+
+        fn viewed(&self) -> Option<Duration> {
+            Some(Duration::from_secs(10))
         }
     }
 
