@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{ops::Range, time::Duration};
 
 use ndarray::arr1;
 use uuid::Uuid;
@@ -103,7 +103,13 @@ fn cois_from_words<CP: CoiPoint>(
         .unwrap()
         .into_iter()
         .enumerate()
-        .map(|(offset, doc)| CP::new(CoiId::mocked(start_id + offset), doc.smbert.embedding, None))
+        .map(|(offset, doc)| {
+            CP::new(
+                CoiId::mocked(start_id + offset),
+                doc.smbert.embedding,
+                Some(Duration::from_secs(10)),
+            )
+        })
         .collect()
 }
 

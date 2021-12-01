@@ -396,7 +396,11 @@ mod tests {
 
     #[test]
     fn test_shift_coi_point() {
-        let coi = PositiveCoi::new(CoiId::mocked(0), arr1(&[1., 1., 1.]).into(), None);
+        let coi = PositiveCoi::new(
+            CoiId::mocked(0),
+            arr1(&[1., 1., 1.]).into(),
+            Some(Duration::from_secs(10)),
+        );
         let embedding = arr1(&[2., 3., 4.]).into();
 
         let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);

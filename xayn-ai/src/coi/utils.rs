@@ -109,7 +109,13 @@ pub(super) mod tests {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| CP::new(CoiId::mocked(id), arr1(point.as_init_slice()).into(), None))
+            .map(|(id, point)| {
+                CP::new(
+                    CoiId::mocked(id),
+                    arr1(point.as_init_slice()).into(),
+                    Some(Duration::from_secs(10)),
+                )
+            })
             .collect()
     }
 
