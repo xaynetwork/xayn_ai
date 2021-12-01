@@ -19,7 +19,7 @@ permissions:
 jobs:
 
   dev-ci:
-    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@master
+    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@a8dc734e4b4fa659f720a1718d3c3e066aa96c81
 
   # this is an helper that needs all the real leafs of the workflow.
   # It makes easier notify_staging_failure because we only need to check

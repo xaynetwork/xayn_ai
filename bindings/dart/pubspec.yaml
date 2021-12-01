@@ -1,5 +1,5 @@
 name: 'xayn_ai_ffi_dart'
-version: '3.0.0'
+version: '4.0.0'
 
 environment:
   sdk: '>=2.14.4 <3.0.0'
