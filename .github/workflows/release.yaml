@@ -36,44 +36,6 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
-  cargo-registry-cache:
-    # we use the latest stable rustc + cargo version that is already installed on the image
-    # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#rust-tools
-    name: cargo-registry-cache
-    runs-on: ubuntu-20.04
-    timeout-minutes: 5
-    outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
-      cache-date: ${{ steps.get-date.outputs.date }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      # We want to create a new cache after a week. Otherwise, the cache will
-      # take up too much space by caching old dependencies
-      - name: Generate Year + ISO week number key
-        id: get-date
-        shell: bash
-        run: echo "::set-output name=date::$(/bin/date -u "+%Y-%V")"
-
-      - name: Generate cargo registry cache key
-        id: cache-key
-        shell: bash
-        run: echo "::set-output name=key::$(echo ${{ runner.os }}-${{ github.job }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('**/Cargo.lock') }})"
-
-      - name: Restore cargo registry ${{ steps.cache-key.outputs.key }} cache
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ steps.cache-key.outputs.key }}
-          restore-keys: ${{ runner.os }}-${{ github.job }}-${{ steps.get-date.outputs.date }}-
-
-      - name: Fetch dependencies
-        run: cargo fetch
-
   install-cargo-ndk:
     name: install-cargo-ndk
     runs-on: ubuntu-20.04
@@ -99,7 +61,6 @@ jobs:
 
   build-release-headers:
     name: build-release-headers
-    needs: cargo-registry-cache
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     steps:
@@ -122,21 +83,7 @@ jobs:
           toolchain: ${{ env.RUST_STABLE }}
           default: true
 
-      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
-
-      - name: Restore build artifacts
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
+      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
 
       - name: Build headers
         run: cargo check
@@ -175,7 +122,7 @@ jobs:
 
   build-release-android-libs:
     name: build-release-android-libs
-    needs: [cargo-registry-cache, install-cargo-ndk]
+    needs: install-cargo-ndk
     runs-on: ubuntu-20.04
     timeout-minutes: 25
     strategy:
@@ -194,21 +141,7 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
-
-      - name: Restore build artifacts
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
+      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
 
       - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
         uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
@@ -236,7 +169,6 @@ jobs:
 
   build-release-ios-libs:
     name: build-release-ios-libs
-    needs: cargo-registry-cache
     runs-on: macos-11
     timeout-minutes: 25
     strategy:
@@ -255,21 +187,7 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
-
-      - name: Restore build artifacts
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.target }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
+      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
 
       - name: Build iOS library
         env:
@@ -351,7 +269,7 @@ jobs:
 
   build-release-wasm-libs:
     name: build-release-wasm-libs
-    needs: [cargo-registry-cache, build-web-worker-asset]
+    needs: build-web-worker-asset
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     strategy:
@@ -390,21 +308,7 @@ jobs:
       - name: Install webpack
         run: yarn --cwd data/bundler_config
 
-      - name: Restore ${{ needs.cargo-registry-cache.outputs.cache-key }} cache
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ needs.cargo-registry-cache.outputs.cache-key }}
-
-      - name: Restore build artifacts
-        uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
-        with:
-          path: ${{ github.workspace }}/target
-          key: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ steps.rust-toolchain.outputs.rustc }}-${{ github.job }}-${{ matrix.wasm_feature }}-${{ needs.cargo-registry-cache.outputs.cache-date }}-
+      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
 
       - name: Build WASM library
         env:
