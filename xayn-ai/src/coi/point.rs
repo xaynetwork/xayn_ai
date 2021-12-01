@@ -80,6 +80,9 @@ pub(crate) trait CoiPoint {
     fn set_id(&mut self, id: CoiId);
     fn point(&self) -> &Embedding;
     fn set_point(&mut self, embedding: Embedding);
+    fn update_view(&mut self, viewed: Option<Duration>) {
+        #![allow(unused_variables)]
+    }
 }
 
 macro_rules! impl_coi_point {
@@ -90,19 +93,26 @@ macro_rules! impl_coi_point {
                 fn new(
                     $id:ident: CoiId,
                     $point:ident: Embedding,
-                    $viewed:ident: Option<Duration> $(,)?
-                ) -> Self {
-                    $new:expr
-                }
+                    $new_viewed:ident: Option<Duration> $(,)?
+                ) -> Self
+                    $new_body:block
+
+                $(
+                    fn update_view(
+                        $this:ident: &mut Self,
+                        $update_viewed:ident: Option<Duration> $(,)?
+                    )
+                        $update_body:block
+                )?
             }
         ),+ $(,)?
     ) => {
         $(
             $(#[$attribute])*
             impl CoiPoint for $type {
-                fn new($id: CoiId, $point: Embedding, $viewed: Option<Duration>) -> Self {
-                    $new
-                }
+                fn new($id: CoiId, $point: Embedding, $new_viewed: Option<Duration>) -> Self
+                    $new_body
+
 
                 fn id(&self) -> CoiId {
                     self.id
@@ -119,6 +129,11 @@ macro_rules! impl_coi_point {
                 fn set_point(&mut self, embedding: Embedding) {
                     self.point = embedding;
                 }
+
+                $(
+                    fn update_view($this: &mut Self, $update_viewed: Option<Duration>)
+                        $update_body
+                )?
             }
         )+
     };
@@ -165,6 +180,12 @@ impl_coi_point! {
                 view_time: viewed.unwrap_or_default(),
                 last_time: SystemTime::now(),
             }
+        }
+
+        fn update_view(self: &mut Self, viewed: Option<Duration>) {
+            self.view_count += 1;
+            self.view_time += viewed.unwrap_or_default();
+            self.last_time = SystemTime::now();
         }
     },
 

@@ -119,6 +119,7 @@ impl CoiSystem {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, coi.point()));
                 coi.set_id(Uuid::new_v4().into());
+                coi.update_view(None);
             }
             _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone(), None)),
         }
