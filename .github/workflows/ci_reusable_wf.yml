@@ -13,6 +13,8 @@ env:
   FLUTTER_VERSION: '2.5.3'
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   CARGO_INCREMENTAL: 0
+  # flags to use for test, tarpaulin and to build the linux library
+  COMMON_CARGO_TEST_FLAGS: --all-features
 
 jobs:
   cargo-format:
@@ -31,7 +33,6 @@ jobs:
           default: true
 
       - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
-
 
       # cargo fmt does not create any artifacts, therefore we don't need to cache the target folder
       - name: cargo fmt
@@ -96,9 +97,8 @@ jobs:
       - name: Run tests
         env:
           RUSTFLAGS: "-D warnings"
-        run: |
-          # compilations options must be kept in sync with cargo-tarpaulin and build-linux-lib
-          cargo test --all-features
+        # compilations options must be kept in sync with cargo-tarpaulin and build-linux-lib
+        run: cargo test ${{ env.COMMON_CARGO_TEST_FLAGS }}
 
   cargo-more-test:
     needs: cargo-test
@@ -155,7 +155,7 @@ jobs:
         with:
           version: '0.16.0'
           # compilations options must be kept in sync with cargo-test
-          args: '-v --all-features --force-clean --lib --ignore-tests --fail-under 70 --workspace --exclude xayn-ai-ffi-wasm --exclude dev-tool --timeout 300'
+          args: '${{ env.COMMON_CARGO_TEST_FLAGS }} -v --force-clean --lib --ignore-tests --fail-under 70 --workspace --exclude xayn-ai-ffi-wasm --exclude dev-tool --timeout 300'
 
   build-linux-lib:
     needs: cargo-test
@@ -178,13 +178,8 @@ jobs:
       - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
 
       - name: Build linux lib
-        # We have to use the same RUSTFLAGS that are used in the test
-        # job in order to be able to reuse the cache. If we do not do this,
-        # the compiler will recompile all the libraries from scratch.
-        env:
-          RUSTFLAGS: "-D warnings"
         # compilations options must be kept in sync with cargo-test
-        run: cargo build --all-features
+        run: cargo build ${{ env.COMMON_CARGO_FLAG_TESTS }}
 
       - name: Generate lib artifacts key
         id: cache-key
@@ -219,6 +214,7 @@ jobs:
         run: flutter format --set-exit-if-changed .
 
   flutter-checks:
+    needs: build-linux-lib
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     strategy:
