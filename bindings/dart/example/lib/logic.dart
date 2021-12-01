@@ -200,3 +200,32 @@ class Outcome {
     return resultList;
   }
 }
+
+enum _BenchmarkStatsKind {
+  none,
+  pending,
+  ready,
+}
+
+class BenchmarkStats {
+  final _BenchmarkStatsKind _kind;
+  final Stats<num>? _ready;
+
+  BenchmarkStats.none()
+      : _kind = _BenchmarkStatsKind.none,
+        _ready = null;
+
+  BenchmarkStats.ready(this._ready) : _kind = _BenchmarkStatsKind.ready;
+
+  @override
+  String toString() {
+    switch (_kind) {
+      case _BenchmarkStatsKind.none:
+        return '-- no benchmark stats --';
+      case _BenchmarkStatsKind.pending:
+        return '';
+      case _BenchmarkStatsKind.ready:
+        return 'Min: ${_ready!.min} Median: ${_ready!.median} Max: ${_ready!.max} Avg: ${_ready!.average} Std: ${_ready!.standardDeviation}';
+    }
+  }
+}
