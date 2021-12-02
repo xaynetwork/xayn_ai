@@ -6,10 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+## 4.0 - 2021/12/01
+
 ### Added
 
 - A new `webWorkerScript` asset type that points to the web worker script. The complete URL (base URL + URL suffix) needs to be passed as a `String` via the assets map to the `SetupData`.
-- The version of XaynAI runs in a web-worker.
+- On web XaynAI runs in a web-worker.
 - Every method/static function of `XaynAI` throws a `TimeoutException` if the web worker does not respond within 15 seconds. (see [#290](https://github.com/xaynetwork/xayn_ai/pull/290))
 
 ### Changed

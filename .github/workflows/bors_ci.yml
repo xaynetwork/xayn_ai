@@ -32,7 +32,7 @@ env:
 jobs:
 
   dev-ci:
-    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@master
+    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@f67b437d383db98192a6f95e0a5859898125948b
 
   test-android-libs:
     name: test-android-libs
