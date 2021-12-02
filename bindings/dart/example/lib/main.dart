@@ -27,7 +27,6 @@ import 'package:flutter/material.dart'
         Widget,
         debugPrint,
         runApp;
-
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:xayn_ai_ffi_dart_example/debug/print.dart'
@@ -205,11 +204,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> benchRerank() async {
-    final stats = await _logic!.benchmark();
-
-    setState(() {
-      _lastBenchmarkStats = BenchmarkStats.ready(stats);
-    });
+    final setPending = (int i) async {
+      setState(() => _lastBenchmarkStats = BenchmarkStats.pending(i));
+      await Future<void>.delayed(const Duration(microseconds: 1));
+    };
+    final stats = await _logic!.benchmark(setPending);
+    setState(() => _lastBenchmarkStats = BenchmarkStats.ready(stats));
   }
 
   Future<void> resetAi() async {

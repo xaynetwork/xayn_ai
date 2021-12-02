@@ -134,7 +134,9 @@ class Logic {
     }
   }
 
-  Future<Stats> benchmark() async {
+  Future<Stats> benchmark(
+    Future<void> Function(int) setStateBenchmarkStatsPending,
+  ) async {
     print('Starting Benchmark');
 
     const preBenchNum = 10;
@@ -153,8 +155,9 @@ class Logic {
     // Though given the complexity of the computations and
     // given that it doesn't really involve JIT the main benefit
     // of this might be how it affects CPU frequencies.
-    for (var i = 0; i < preBenchNum; i++) {
+    for (var i = -preBenchNum; i < 0; i++) {
       await _currentAi.rerank(mode, histories, documents);
+      await setStateBenchmarkStatsPending(i);
     }
 
     final times = List<num>.empty(growable: true);
@@ -166,6 +169,7 @@ class Logic {
 
       await _printFaults();
       print('Iteration: $i');
+      await setStateBenchmarkStatsPending(i);
     }
 
     print('Finished Benchmark');
@@ -209,21 +213,31 @@ enum _BenchmarkStatsKind {
 
 class BenchmarkStats {
   final _BenchmarkStatsKind _kind;
+  final int? _pending;
   final Stats<num>? _ready;
 
   BenchmarkStats.none()
       : _kind = _BenchmarkStatsKind.none,
+        _pending = null,
         _ready = null;
 
-  BenchmarkStats.ready(this._ready) : _kind = _BenchmarkStatsKind.ready;
+  BenchmarkStats.pending(int iteration)
+      : _kind = _BenchmarkStatsKind.pending,
+        _pending = iteration,
+        _ready = null;
+
+  BenchmarkStats.ready(Stats<num> stats)
+      : _kind = _BenchmarkStatsKind.ready,
+        _pending = null,
+        _ready = stats;
 
   @override
   String toString() {
     switch (_kind) {
       case _BenchmarkStatsKind.none:
-        return '-- no benchmark stats --';
+        return '-- no benchmark stats yet --';
       case _BenchmarkStatsKind.pending:
-        return '';
+        return 'Running warmup/benchmark: ${_pending!}';
       case _BenchmarkStatsKind.ready:
         return 'Min: ${_ready!.min} Median: ${_ready!.median} Max: ${_ready!.max} Avg: ${_ready!.average} Std: ${_ready!.standardDeviation}';
     }
