@@ -179,7 +179,7 @@ jobs:
 
       - name: Build linux lib
         # compilations options must be kept in sync with cargo-test
-        run: cargo build ${{ env.COMMON_CARGO_FLAG_TESTS }}
+        run: cargo build ${{ env.COMMON_CARGO_TEST_FLAGS }}
 
       - name: Generate lib artifacts key
         id: cache-key
