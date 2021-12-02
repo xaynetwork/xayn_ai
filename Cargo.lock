@@ -2392,6 +2392,7 @@ dependencies = [
  "derive_more",
  "displaydoc",
  "itertools",
+ "js-sys",
  "layer",
  "maplit",
  "mockall",

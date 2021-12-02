@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
-use crate::{coi::CoiId, embedding::utils::Embedding};
+use crate::{coi::CoiId, embedding::utils::Embedding, utils::system_time_now};
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
@@ -178,14 +178,14 @@ impl_coi_point! {
                 point,
                 view_count: 1,
                 view_time: viewed.unwrap_or_default(),
-                last_time: SystemTime::now(),
+                last_time: system_time_now(),
             }
         }
 
         fn update_view(self: &mut Self, viewed: Option<Duration>) {
             self.view_count += 1;
             self.view_time += viewed.unwrap_or_default();
-            self.last_time = SystemTime::now();
+            self.last_time = system_time_now();
         }
     },
 
