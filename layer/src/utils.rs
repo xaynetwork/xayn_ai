@@ -124,7 +124,7 @@ pub fn he_normal_weights_init(
 
     // Avoids panic due to invalid σ which can only happen with empty weight matrices.
     if nr_rows == 0 {
-        return Array2::zeros(dim);
+        return Array2::default(dim);
     }
 
     let std_dev = SQRT_2 / (nr_rows as f32).sqrt();

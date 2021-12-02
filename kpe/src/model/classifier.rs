@@ -23,6 +23,13 @@ pub struct Classifier {
 #[derive(Clone, Debug, Deref, From)]
 pub struct Scores(pub Vec<f32>);
 
+impl Scores {
+    /// Checks if the scores are valid, i.e. finite.
+    pub fn is_valid(&self) -> bool {
+        self.iter().copied().all(f32::is_finite)
+    }
+}
+
 impl Classifier {
     /// Creates a model from a binary parameters file.
     pub fn new(mut params: BinParams) -> Result<Self, ModelError> {
@@ -43,31 +50,31 @@ impl Classifier {
     /// Runs the model on the convolved features to compute the scores.
     pub fn run(&self, features: Features, active_mask: ActiveMask) -> Result<Scores, ModelError> {
         debug_assert_eq!(features.shape()[1], active_mask.shape()[1]);
-        debug_assert!(active_mask
-            .rows()
-            .into_iter()
-            .all(|row| row.iter().any(|active| *active)));
+        debug_assert!(features.is_valid());
+        debug_assert!(active_mask.is_valid());
         let (scores, _) = self.layer.run(features.t(), false);
         debug_assert_eq!(scores.shape(), [features.shape()[1], 1]);
-        debug_assert!(scores.iter().all(|v| !v.is_infinite() && !v.is_nan()));
+        debug_assert!(scores.iter().copied().all(f32::is_finite));
 
-        let scores = active_mask
-            .rows()
-            .into_iter()
-            .map(|active| {
-                active
+        let scores = Scores(
+            active_mask
+                .rows()
+                .into_iter()
+                .map(|active| {
+                    active
                     .iter()
                     .zip(scores.iter())
                     .filter_map(|(active, score)| active.then(|| score))
                     .copied()
                     .reduce(f32::max)
                     .unwrap(/* active mask must have entries in each row */)
-            })
-            .collect::<Vec<f32>>();
+                })
+                .collect::<Vec<f32>>(),
+        );
         debug_assert_eq!(scores.len(), active_mask.shape()[0]);
-        debug_assert!(scores.iter().all(|v| !v.is_infinite() && !v.is_nan()));
+        debug_assert!(scores.is_valid());
 
-        Ok(scores.into())
+        Ok(scores)
     }
 }
 
@@ -87,25 +94,23 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "TODO: fix linux target nan issue"]
     fn test_run_unique() {
         let output_size = 42;
         let model =
             Classifier::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
                 .unwrap();
-        let features = Array2::zeros((Cnn::CHANNEL_OUT_SIZE, output_size)).into();
+        let features = Array2::default((Cnn::CHANNEL_OUT_SIZE, output_size)).into();
         let active_mask = Array2::from_elem((output_size, output_size), true).into();
         assert_eq!(model.run(features, active_mask).unwrap().len(), output_size);
     }
 
     #[test]
-    #[ignore = "TODO: fix linux target nan issue"]
     fn test_run_duplicate() {
         let output_size = 42;
         let model =
             Classifier::new(BinParams::deserialize_from_file(classifier().unwrap()).unwrap())
                 .unwrap();
-        let features = Array2::zeros((Cnn::CHANNEL_OUT_SIZE, output_size)).into();
+        let features = Array2::default((Cnn::CHANNEL_OUT_SIZE, output_size)).into();
         let active_mask = Array2::from_elem((output_size / 2, output_size), true).into();
         assert_eq!(
             model.run(features, active_mask).unwrap().len(),

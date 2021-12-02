@@ -306,6 +306,9 @@ pub enum LoadingLayerFailed {
     /// Irretrivable parameters.
     #[displaydoc("{0}")]
     FailedToRetrieveParams(#[from] FailedToRetrieveParams),
+
+    /// Some parameters are invalid (e.g. nan, infinite, etc.)
+    InvalidParams,
 }
 
 #[cfg(test)]

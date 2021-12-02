@@ -11,7 +11,7 @@
 //!         "classifier.binparams",
 //!     )?
 //!     .with_accents(false)
-//!     .with_lowercase(true)
+//!     .with_lowercase(false)
 //!     .with_token_size(64)?
 //!     .build()?;
 //!
@@ -35,10 +35,8 @@ mod tokenizer;
 pub use crate::{
     builder::{Builder, BuilderError},
     pipeline::{Pipeline, PipelineError},
+    tokenizer::key_phrase::RankedKeyPhrases,
 };
 
 #[cfg(doc)]
-pub use crate::{
-    model::ModelError,
-    tokenizer::{key_phrase::RankedKeyPhrases, TokenizerError},
-};
+pub use crate::{model::ModelError, tokenizer::TokenizerError};

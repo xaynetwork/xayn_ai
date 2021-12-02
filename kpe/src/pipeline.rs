@@ -51,43 +51,58 @@ mod tests {
 
     #[test]
     fn test_run_unique() {
-        assert_eq!(
-            Builder::from_files(
-                vocab().unwrap(),
-                bert().unwrap(),
-                cnn().unwrap(),
-                classifier().unwrap(),
-            )
-            .unwrap()
-            .with_token_size(7)
-            .unwrap()
-            .build()
-            .unwrap()
-            .run("a b c d e")
-            .unwrap()
-            .len(),
-            15,
-        );
+        let actual = Builder::from_files(
+            vocab().unwrap(),
+            bert().unwrap(),
+            cnn().unwrap(),
+            classifier().unwrap(),
+        )
+        .unwrap()
+        .with_token_size(8)
+        .unwrap()
+        .with_lowercase(false)
+        .build()
+        .unwrap()
+        .run("A b c d e.")
+        .unwrap();
+        let expected = [
+            // quantized, non-quantized
+            "a",
+            "b",
+            "d",  // c
+            "e.", // d
+            "c",  // e.
+            "a b c d e.",
+            "a b c",
+            "a b",     // a b c d
+            "a b c d", // a b
+            "b c d e.",
+            "d e.",   // c d e.
+            "c d e.", // d e.
+            "b c d",
+            "b c",
+            "c d",
+        ];
+        assert_eq!(actual.0, expected);
     }
 
     #[test]
     fn test_run_duplicate() {
-        assert_eq!(
-            Builder::from_files(
-                vocab().unwrap(),
-                bert().unwrap(),
-                cnn().unwrap(),
-                classifier().unwrap(),
-            )
-            .unwrap()
-            .with_token_size(7)
-            .unwrap()
-            .build()
-            .unwrap()
-            .run("a a a a a")
-            .unwrap()
-            .len(),
-            5,
-        );
+        let actual = Builder::from_files(
+            vocab().unwrap(),
+            bert().unwrap(),
+            cnn().unwrap(),
+            classifier().unwrap(),
+        )
+        .unwrap()
+        .with_token_size(7)
+        .unwrap()
+        .with_lowercase(false)
+        .build()
+        .unwrap()
+        .run("A a A a A")
+        .unwrap();
+        let expected = ["a", "a a", "a a a", "a a a a", "a a a a a"];
+        assert_eq!(actual.0, expected);
     }
 }

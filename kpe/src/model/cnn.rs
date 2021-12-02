@@ -22,6 +22,13 @@ pub struct Cnn {
 #[derive(Clone, Debug, Deref, From)]
 pub struct Features(pub Array2<f32>);
 
+impl Features {
+    /// Checks if the features are valid, i.e. finite.
+    pub fn is_valid(&self) -> bool {
+        self.iter().copied().all(f32::is_finite)
+    }
+}
+
 impl Cnn {
     /// The maximum number of words per key phrase.
     pub const KEY_PHRASE_SIZE: usize = 5;
@@ -66,8 +73,7 @@ impl Cnn {
         embeddings: Embeddings,
         valid_mask: ValidMask,
     ) -> Result<Features, ModelError> {
-        let valid_size = valid_mask.iter().filter(|valid| **valid).count();
-        if valid_size < Self::KEY_PHRASE_SIZE {
+        if !valid_mask.is_valid(Self::KEY_PHRASE_SIZE) {
             return Err(ModelError::NotEnoughWords);
         }
 
@@ -75,12 +81,17 @@ impl Cnn {
             embeddings.shape(),
             [1, valid_mask.len(), Bert::EMBEDDING_SIZE],
         );
+        debug_assert!(embeddings.is_valid());
+        let valid_size = cfg!(debug_assertions)
+            .then(|| valid_mask.count())
+            .unwrap_or_default();
         let valid_embeddings = embeddings.collect(valid_mask)?;
         debug_assert_eq!(valid_embeddings.shape(), [valid_size, Bert::EMBEDDING_SIZE]);
+        debug_assert!(valid_embeddings.iter().copied().all(f32::is_finite));
 
         let run_layer =
             |idx: usize| self.layers[idx].run(valid_embeddings.t().slice(s![NewAxis, .., ..]));
-        let features = concatenate(
+        let features = Features(concatenate(
             Axis(1),
             &[
                 run_layer(0)?.slice(s![0, .., ..]),
@@ -89,7 +100,7 @@ impl Cnn {
                 run_layer(3)?.slice(s![0, .., ..]),
                 run_layer(4)?.slice(s![0, .., ..]),
             ],
-        )?;
+        )?);
         debug_assert_eq!(
             features.shape(),
             [
@@ -97,9 +108,9 @@ impl Cnn {
                 self.output_size(valid_embeddings.shape()[0]),
             ],
         );
-        debug_assert!(features.iter().all(|v| !v.is_infinite() && !v.is_nan()));
+        debug_assert!(features.is_valid());
 
-        Ok(features.into())
+        Ok(features)
     }
 
     /// Computes the output size of the concatenated CNN layers.
@@ -136,7 +147,7 @@ mod tests {
     fn test_run_full() {
         let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
         let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
+        let embeddings = Array3::<f32>::default((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = vec![true; token_size].into();
@@ -152,7 +163,7 @@ mod tests {
     fn test_run_sparse() {
         let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
         let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
+        let embeddings = Array3::<f32>::default((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = (1..=token_size)
@@ -170,7 +181,7 @@ mod tests {
     fn test_run_min() {
         let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
         let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
+        let embeddings = Array3::<f32>::default((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = (1..=token_size)
@@ -191,7 +202,7 @@ mod tests {
     fn test_run_empty() {
         let token_size = 4 * Cnn::KEY_PHRASE_SIZE;
         let model = Cnn::new(BinParams::deserialize_from_file(cnn().unwrap()).unwrap()).unwrap();
-        let embeddings = Array3::<f32>::zeros((1, token_size, Bert::EMBEDDING_SIZE))
+        let embeddings = Array3::<f32>::default((1, token_size, Bert::EMBEDDING_SIZE))
             .into_arc_tensor()
             .into();
         let valid_mask = vec![false; token_size].into();
