@@ -205,41 +205,36 @@ class Outcome {
   }
 }
 
-enum _BenchmarkStatsKind {
-  none,
-  pending,
-  ready,
+abstract class BenchmarkStats {
+  static BenchmarkStats none() => _BenchmarkStatsNone();
+
+  static BenchmarkStats pending(int iter) => _BenchmarkStatsPending(iter);
+
+  static BenchmarkStats ready(Stats<num> stats) => _BenchmarkStatsReady(stats);
 }
 
-class BenchmarkStats {
-  final _BenchmarkStatsKind _kind;
-  final int? _pending;
-  final Stats<num>? _ready;
-
-  BenchmarkStats.none()
-      : _kind = _BenchmarkStatsKind.none,
-        _pending = null,
-        _ready = null;
-
-  BenchmarkStats.pending(int iteration)
-      : _kind = _BenchmarkStatsKind.pending,
-        _pending = iteration,
-        _ready = null;
-
-  BenchmarkStats.ready(Stats<num> stats)
-      : _kind = _BenchmarkStatsKind.ready,
-        _pending = null,
-        _ready = stats;
+class _BenchmarkStatsNone extends BenchmarkStats {
+  _BenchmarkStatsNone();
 
   @override
-  String toString() {
-    switch (_kind) {
-      case _BenchmarkStatsKind.none:
-        return '-- no benchmark stats yet --';
-      case _BenchmarkStatsKind.pending:
-        return 'Running warmup/benchmark: ${_pending!}';
-      case _BenchmarkStatsKind.ready:
-        return 'Min: ${_ready!.min} Median: ${_ready!.median} Max: ${_ready!.max} Avg: ${_ready!.average} Std: ${_ready!.standardDeviation}';
-    }
-  }
+  String toString() => '-- no benchmark stats yet --';
+}
+
+class _BenchmarkStatsPending extends BenchmarkStats {
+  final int _iter;
+
+  _BenchmarkStatsPending(this._iter);
+
+  @override
+  String toString() => 'Running warmup/benchmark: $_iter';
+}
+
+class _BenchmarkStatsReady extends BenchmarkStats {
+  final Stats<num> _stats;
+
+  _BenchmarkStatsReady(this._stats);
+
+  @override
+  String toString() =>
+      'Min: ${_stats.min} Median: ${_stats.median} Max: ${_stats.max} Avg: ${_stats.average} Std: ${_stats.standardDeviation}';
 }
