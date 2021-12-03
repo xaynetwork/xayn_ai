@@ -6,6 +6,50 @@ use serde::{Deserialize, Serialize};
 
 use crate::{coi::CoiId, embedding::utils::Embedding, utils::system_time_now};
 
+#[derive(Clone, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Debug))]
+pub(crate) struct CoiView {
+    count: usize,
+    time: Duration,
+    last: SystemTime,
+}
+
+impl CoiView {
+    pub(crate) fn new(viewed: Option<Duration>) -> Self {
+        Self {
+            count: 1,
+            time: viewed.unwrap_or_default(),
+            last: system_time_now(),
+        }
+    }
+
+    pub(crate) fn update(&mut self, viewed: Option<Duration>) {
+        self.count += 1;
+        if let Some(viewed) = viewed {
+            self.time += viewed;
+        }
+        self.last = system_time_now();
+    }
+
+    pub(crate) fn merge(self, other: Self) -> Self {
+        Self {
+            count: self.count + other.count,
+            time: self.time + other.time,
+            last: self.last.max(other.last),
+        }
+    }
+}
+
+impl Default for CoiView {
+    fn default() -> Self {
+        Self {
+            count: 1,
+            time: Duration::default(),
+            last: SystemTime::UNIX_EPOCH,
+        }
+    }
+}
+
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
@@ -20,13 +64,7 @@ pub(crate) struct PositiveCoi {
     pub(crate) point: Embedding,
     #[obake(cfg(">=0.3"))]
     #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) view_count: usize,
-    #[obake(cfg(">=0.3"))]
-    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) view_time: Duration,
-    #[obake(cfg(">=0.3"))]
-    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) last_time: SystemTime,
+    pub(crate) view: CoiView,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
@@ -60,9 +98,7 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
         Self {
             id: coi.id,
             point: coi.point,
-            view_count: 1,
-            view_time: Duration::default(),
-            last_time: SystemTime::UNIX_EPOCH,
+            view: CoiView::default(),
         }
     }
 }
@@ -80,6 +116,9 @@ pub(crate) trait CoiPoint {
     fn set_id(&mut self, id: CoiId);
     fn point(&self) -> &Embedding;
     fn set_point(&mut self, embedding: Embedding);
+    fn view(&self) -> CoiView {
+        CoiView::default()
+    }
     fn update_view(&mut self, viewed: Option<Duration>) {
         #![allow(unused_variables)]
     }
@@ -176,16 +215,12 @@ impl_coi_point! {
             Self {
                 id,
                 point,
-                view_count: 1,
-                view_time: viewed.unwrap_or_default(),
-                last_time: system_time_now(),
+                view: CoiView::new(viewed),
             }
         }
 
         fn update_view(self: &mut Self, viewed: Option<Duration>) {
-            self.view_count += 1;
-            self.view_time += viewed.unwrap_or_default();
-            self.last_time = system_time_now();
+            self.view.update(viewed);
         }
     },
 
@@ -194,28 +229,6 @@ impl_coi_point! {
             Self { id, point }
         }
     },
-}
-
-pub(crate) trait CoiPointMerge {
-    fn merge(self, other: Self, id: CoiId) -> Self;
-}
-
-macro_rules! impl_coi_point_merge {
-    ($($(#[$attribute:meta])* $type:ty),+ $(,)?) => {
-        $(
-            $(#[$attribute])*
-            impl CoiPointMerge for $type {
-                fn merge(self, other: Self, id: CoiId) -> Self {
-                    self.merge(other, id)
-                }
-            }
-        )+
-    };
-}
-
-impl_coi_point_merge! {
-    PositiveCoi,
-    NegativeCoi,
 }
 
 // generic types can't be versioned, but aliasing and proper naming in the proc macro call works
