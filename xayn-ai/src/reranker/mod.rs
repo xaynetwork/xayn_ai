@@ -43,7 +43,8 @@ use crate::{
     utils::{nan_safe_f32_cmp, to_vec_of_ref_of},
 };
 
-const CURRENT_SCHEMA_VERSION: u8 = 2;
+/// The version number of the reranker de/serialization schema.
+const CURRENT_SCHEMA_VERSION: u8 = 3;
 
 /// The mode used to run reranking with.
 ///

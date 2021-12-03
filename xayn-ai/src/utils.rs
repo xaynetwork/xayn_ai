@@ -1,5 +1,9 @@
-use std::cmp::Ordering;
+#[cfg(target_arch = "wasm32")]
+use std::time::Duration;
+use std::{cmp::Ordering, time::SystemTime};
 
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 use serde::Serialize;
 
 use crate::Error;
@@ -83,6 +87,16 @@ pub(crate) fn serialize_with_version(data: &impl Serialize, version: u8) -> Resu
     bincode::serialize_into(&mut serialized, data)?;
 
     Ok(serialized)
+}
+
+/// Gets the current system time depending on the target architecture.
+#[inline]
+pub(crate) fn system_time_now() -> SystemTime {
+    #[cfg(target_arch = "wasm32")]
+    return SystemTime::UNIX_EPOCH + Duration::from_secs_f64(Date::now() / 1000.);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    return SystemTime::now();
 }
 
 #[cfg(test)]

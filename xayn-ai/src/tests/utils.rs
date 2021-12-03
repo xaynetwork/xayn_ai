@@ -5,7 +5,14 @@ use uuid::Uuid;
 
 use crate::{
     coi::{
-        point::{CoiPoint, NegativeCoi, PositiveCoi, PositiveCoi_v0_0_0, PositiveCoi_v0_1_0},
+        point::{
+            CoiPoint,
+            NegativeCoi,
+            PositiveCoi,
+            PositiveCoi_v0_0_0,
+            PositiveCoi_v0_1_0,
+            PositiveCoi_v0_2_0,
+        },
         CoiId,
     },
     data::{
@@ -96,7 +103,7 @@ fn cois_from_words<CP: CoiPoint>(
         .unwrap()
         .into_iter()
         .enumerate()
-        .map(|(offset, doc)| CP::new(CoiId::mocked(start_id + offset), doc.smbert.embedding))
+        .map(|(offset, doc)| CP::new(CoiId::mocked(start_id + offset), doc.smbert.embedding, None))
         .collect()
 }
 
@@ -111,6 +118,13 @@ pub(crate) fn pos_cois_from_words_v1(
     titles: &[&str],
     smbert: impl SMBertSystem,
 ) -> Vec<PositiveCoi_v0_1_0> {
+    cois_from_words(titles, smbert, 0)
+}
+
+pub(crate) fn pos_cois_from_words_v2(
+    titles: &[&str],
+    smbert: impl SMBertSystem,
+) -> Vec<PositiveCoi_v0_2_0> {
     cois_from_words(titles, smbert, 0)
 }
 

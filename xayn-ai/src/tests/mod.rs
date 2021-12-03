@@ -21,6 +21,7 @@ pub(crate) use self::{
         pos_cois_from_words,
         pos_cois_from_words_v0,
         pos_cois_from_words_v1,
+        pos_cois_from_words_v2,
         pos_cois_from_words_with_ids,
     },
 };
