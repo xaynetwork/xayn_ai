@@ -7,13 +7,14 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::{CoiPoint, UserInterests},
+        point::{CoiPoint, CoiView, UserInterests},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
     embedding::utils::{l2_distance, Embedding},
     reranker::systems::{self, CoiSystemData},
+    utils::system_time_now,
     DocumentHistory,
     Error,
 };
@@ -158,6 +159,37 @@ impl CoiSystem {
             pos_distance,
             neg_distance,
         })
+    }
+
+    /// Computes the relevance/weights of the cois.
+    ///
+    /// The horizon specifies the time since the last view after which a coi becomes irrelevant.
+    #[allow(dead_code)]
+    fn compute_weights<'coi, CP: CoiPoint>(&self, cois: &'coi [CP], horizon: Duration) -> Vec<f64> {
+        let counts =
+            cois.iter().map(|coi| coi.view().count).sum::<usize>() as f64 + f64::MIN_POSITIVE;
+        let times = cois
+            .iter()
+            .map(|coi| coi.view().time)
+            .sum::<Duration>()
+            .as_secs_f64()
+            + f64::MIN_POSITIVE;
+        let now = system_time_now();
+        const SECONDS_PER_DAY: f64 = 86400.;
+        let horizon = (-0.1 * horizon.as_secs_f64() / SECONDS_PER_DAY).exp() - f64::MIN_POSITIVE;
+
+        cois.iter()
+            .map(|coi| {
+                let CoiView { count, time, last } = coi.view();
+                let count = count as f64 / counts;
+                let time = time.as_secs_f64() / times;
+                let days = (-0.1 * now.duration_since(last).unwrap_or_default().as_secs_f64()
+                    / SECONDS_PER_DAY)
+                    .exp();
+                let last = ((horizon - days) / (horizon - 1.)).max(0.);
+                (count + time) * last
+            })
+            .collect()
     }
 }
 

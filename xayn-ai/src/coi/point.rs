@@ -6,12 +6,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{coi::CoiId, embedding::utils::Embedding, utils::system_time_now};
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct CoiView {
-    count: usize,
-    time: Duration,
-    last: SystemTime,
+    pub(crate) count: usize,
+    pub(crate) time: Duration,
+    pub(crate) last: SystemTime,
 }
 
 impl CoiView {
@@ -137,8 +137,13 @@ macro_rules! impl_coi_point {
                     $new_body:block
 
                 $(
+                    fn view($view_this:ident: &Self $(,)?) -> CoiView
+                        $view_body:block
+                )?
+
+                $(
                     fn update_view(
-                        $this:ident: &mut Self,
+                        $update_this:ident: &mut Self,
                         $update_viewed:ident: Option<Duration> $(,)?
                     )
                         $update_body:block
@@ -170,7 +175,12 @@ macro_rules! impl_coi_point {
                 }
 
                 $(
-                    fn update_view($this: &mut Self, $update_viewed: Option<Duration>)
+                    fn view($view_this: &Self) -> CoiView
+                        $view_body
+                )?
+
+                $(
+                    fn update_view($update_this: &mut Self, $update_viewed: Option<Duration>)
                         $update_body
                 )?
             }
@@ -217,6 +227,10 @@ impl_coi_point! {
                 point,
                 view: CoiView::new(viewed),
             }
+        }
+
+        fn view(self: &Self) -> CoiView {
+            self.view
         }
 
         fn update_view(self: &mut Self, viewed: Option<Duration>) {
