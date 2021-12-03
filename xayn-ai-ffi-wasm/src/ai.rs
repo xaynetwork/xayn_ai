@@ -337,6 +337,7 @@ mod tests {
                 query_words: doc.7,
                 url: doc.8,
                 domain: doc.9,
+                viewed: None,
             })
             .unwrap()
         })
