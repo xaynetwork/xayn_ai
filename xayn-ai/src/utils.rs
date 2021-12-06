@@ -89,6 +89,9 @@ pub(crate) fn serialize_with_version(data: &impl Serialize, version: u8) -> Resu
     Ok(serialized)
 }
 
+/// The number of seconds per day (without leap seconds).
+pub(crate) const SECONDS_PER_DAY: f64 = 86400.;
+
 /// Gets the current system time depending on the target architecture.
 #[inline]
 pub(crate) fn system_time_now() -> SystemTime {

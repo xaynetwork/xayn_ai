@@ -14,7 +14,7 @@ use crate::{
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
     embedding::utils::{l2_distance, Embedding},
     reranker::systems::{self, CoiSystemData},
-    utils::system_time_now,
+    utils::{system_time_now, SECONDS_PER_DAY},
     DocumentHistory,
     Error,
 };
@@ -163,20 +163,20 @@ impl CoiSystem {
 
     /// Computes the relevance/weights of the cois.
     ///
-    /// The horizon specifies the time since the last view after which a coi becomes irrelevant.
+    /// The weights are computed from the view counts and view times of each coi and they are not
+    /// normalized. The horizon specifies the time since the last view after which a coi becomes
+    /// irrelevant.
     #[allow(dead_code)]
-    fn compute_weights<'coi, CP: CoiPoint>(&self, cois: &'coi [CP], horizon: Duration) -> Vec<f64> {
-        let counts =
-            cois.iter().map(|coi| coi.view().count).sum::<usize>() as f64 + f64::MIN_POSITIVE;
+    fn compute_weights<CP: CoiPoint>(&self, cois: &[CP], horizon: Duration) -> Vec<f64> {
+        let counts = cois.iter().map(|coi| coi.view().count).sum::<usize>() as f64 + f64::EPSILON;
         let times = cois
             .iter()
             .map(|coi| coi.view().time)
             .sum::<Duration>()
             .as_secs_f64()
-            + f64::MIN_POSITIVE;
+            + f64::EPSILON;
         let now = system_time_now();
-        const SECONDS_PER_DAY: f64 = 86400.;
-        let horizon = (-0.1 * horizon.as_secs_f64() / SECONDS_PER_DAY).exp() - f64::MIN_POSITIVE;
+        let horizon = (-0.1 * horizon.as_secs_f64() / SECONDS_PER_DAY).exp() - f64::EPSILON;
 
         cois.iter()
             .map(|coi| {
@@ -589,5 +589,67 @@ mod tests {
         let error = error.downcast::<CoiSystemError>().unwrap();
 
         assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
+    }
+
+    #[test]
+    fn test_compute_weights_empty_cois() {
+        let cois = create_pos_cois(&[[]]);
+        let horizon = Duration::from_secs_f64(SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert!(weights.is_empty());
+    }
+
+    #[test]
+    fn test_compute_weights_zero_horizon() {
+        let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
+        let horizon = Duration::ZERO;
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(f64, weights, [0., 0.]);
+    }
+
+    #[test]
+    fn test_compute_weights_count() {
+        let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        cois[1].view.count += 1;
+        cois[2].view.count += 2;
+        let horizon = Duration::from_secs_f64(SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(
+            f64,
+            weights,
+            [0.5, 0.6666666666666666, 0.8333333333333334],
+            epsilon = 0.0000001,
+        );
+    }
+
+    #[test]
+    fn test_compute_weights_time() {
+        let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        cois[1].view.time += Duration::from_secs(10);
+        cois[2].view.time += Duration::from_secs(20);
+        let horizon = Duration::from_secs_f64(SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(
+            f64,
+            weights,
+            [0.5, 0.6666666666666666, 0.8333333333333334],
+            epsilon = 0.0000001,
+        );
+    }
+
+    #[test]
+    fn test_compute_weights_last() {
+        let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        cois[0].view.last -= Duration::from_secs_f64(0.5 * SECONDS_PER_DAY);
+        cois[1].view.last -= Duration::from_secs_f64(1.5 * SECONDS_PER_DAY);
+        cois[2].view.last -= Duration::from_secs_f64(2.5 * SECONDS_PER_DAY);
+        let horizon = Duration::from_secs_f64(2. * SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(
+            f64,
+            weights,
+            [0.4872996888057648, 0.15438258855213516, 0.],
+            epsilon = 0.0000001,
+        );
     }
 }

@@ -44,7 +44,7 @@ impl Default for CoiView {
     fn default() -> Self {
         Self {
             count: 1,
-            time: Duration::default(),
+            time: Duration::ZERO,
             last: SystemTime::UNIX_EPOCH,
         }
     }
