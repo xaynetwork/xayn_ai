@@ -1,3 +1,6 @@
+use std::iter;
+
+use float_cmp::ApproxEq;
 use ndarray::{ArrayBase, Data, Dimension, IntoDimension, Ix};
 
 /// Compares two "things" with approximate equality.
@@ -15,7 +18,7 @@ use ndarray::{ArrayBase, Data, Dimension, IntoDimension, Ix};
 ///
 /// ```
 /// use test_utils::assert_approx_eq;
-/// assert_approx_eq!(f32, &[[1.0, 2.], [3., 4.]], vec![[1.0, 2.], [3., 4.]])
+/// assert_approx_eq!(f32, &[[1., 2.], [3., 4.]], vec![[1., 2.], [3., 4.]])
 /// ```
 ///
 /// Or ndarray arrays:
@@ -25,8 +28,8 @@ use ndarray::{ArrayBase, Data, Dimension, IntoDimension, Ix};
 /// use test_utils::assert_approx_eq;
 /// assert_approx_eq!(
 ///     f32,
-///     arr2(&[[1.0, 2.], [3., 4.]]),
-///     arr2(&[[1.0, 2.], [3., 4.]])
+///     arr2(&[[1., 2.], [3., 4.]]),
+///     arr2(&[[1., 2.], [3., 4.]]),
 /// );
 /// ```
 ///
@@ -46,7 +49,7 @@ use ndarray::{ArrayBase, Data, Dimension, IntoDimension, Ix};
 /// Implementations for other primitives, smart pointer types or other sequential containers
 /// can easily be added on demand.
 ///
-/// Non sequential containers are not supported.
+/// Non-sequential containers are not supported.
 #[macro_export]
 macro_rules! assert_approx_eq {
     ($t:ty, $left:expr, $right:expr $(,)?) => {
@@ -69,7 +72,7 @@ macro_rules! assert_approx_eq {
             $crate::ApproxEqIter::<$t>::indexed_iter_logical_order(&right, Vec::new());
         loop {
             match (left_iter.next(), right_iter.next()) {
-                (Some((lidx, lv)), Some((ridx, rv))) => {
+                (std::option::Option::Some((lidx, lv)), std::option::Option::Some((ridx, rv))) => {
                     std::assert_eq!(
                         lidx, ridx,
                         "Dimensionality mismatch when iterating in logical order: {:?} != {:?}",
@@ -83,13 +86,13 @@ macro_rules! assert_approx_eq {
                         );
                     }
                 }
-                (Some(pair), None) => {
+                (std::option::Option::Some(pair), std::option::Option::None) => {
                     std::panic!("Left input is longer starting from index {:?}", pair);
                 }
-                (None, Some(pair)) => {
+                (std::option::Option::None, std::option::Option::Some(pair)) => {
                     std::panic!("Right input is longer starting from index {:?}", pair);
                 }
-                (None, None) => break,
+                (std::option::Option::None, std::option::Option::None) => break,
             }
         }
     }};
@@ -106,7 +109,11 @@ macro_rules! assert_approx_eq {
 /// amount of code overhead.
 ///
 /// Only use it for [`assert_approx_eq!`].
-pub trait ApproxEqIter<'a, LeafElement>: Copy {
+pub trait ApproxEqIter<'a, LeafElement>
+where
+    Self: Copy,
+    LeafElement: ApproxEq,
+{
     /// Flattened iterates over all leaf elements in this instance.
     ///
     /// The passed in `index_prefix` is the "index" at which
@@ -131,55 +138,50 @@ macro_rules! impl_approx_eq_iter {
             impl<'a> ApproxEqIter<'a, $t> for &'a $t {
                 fn indexed_iter_logical_order(
                     self,
-                    prefix: Vec<Ix>,
+                    index_prefix: Vec<Ix>,
                 ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
-                    let iter = std::iter::once((prefix, *self));
-                    Box::new(iter)
+                    Box::new(iter::once((index_prefix, *self)))
                 }
             }
 
             impl<'a, T> ApproxEqIter<'a, $t> for &'a &'a T
             where
+                T: ?Sized,
                 &'a T: ApproxEqIter<'a, $t>,
-                T: 'a + ?Sized,
             {
                 fn indexed_iter_logical_order(
                     self,
-                    prefix: Vec<Ix>,
+                    index_prefix: Vec<Ix>,
                 ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
-                    (*self).indexed_iter_logical_order(prefix)
+                    (*self).indexed_iter_logical_order(index_prefix)
                 }
             }
 
             impl<'a, T> ApproxEqIter<'a, $t> for &'a Option<T>
             where
                 &'a T: ApproxEqIter<'a, $t>,
-                T: 'a,
             {
                 fn indexed_iter_logical_order(
                     self,
-                    prefix: Vec<Ix>,
+                    index_prefix: Vec<Ix>,
                 ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
-                    let iter = self.iter().flat_map(move |el| {
-                        let mut new_prefix = prefix.clone();
-                        new_prefix.push(0);
-                        el.indexed_iter_logical_order(new_prefix)
-                    });
-
-                    Box::new(iter)
+                    Box::new(self.iter().flat_map(move |el| {
+                        let mut index_prefix = index_prefix.clone();
+                        index_prefix.push(0);
+                        el.indexed_iter_logical_order(index_prefix)
+                    }))
                 }
             }
 
             impl<'a, T> ApproxEqIter<'a, $t> for &'a Vec<T>
             where
                 &'a T: ApproxEqIter<'a, $t>,
-                T: 'a,
             {
                 fn indexed_iter_logical_order(
                     self,
-                    prefix: Vec<Ix>,
+                    index_prefix: Vec<Ix>,
                 ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
-                    self.as_slice().indexed_iter_logical_order(prefix)
+                    self.as_slice().indexed_iter_logical_order(index_prefix)
                 }
             }
 
@@ -189,28 +191,25 @@ macro_rules! impl_approx_eq_iter {
             {
                 fn indexed_iter_logical_order(
                     self,
-                    prefix: Vec<Ix>,
+                    index_prefix: Vec<Ix>,
                 ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
-                    self.as_ref().indexed_iter_logical_order(prefix)
+                    self.as_ref().indexed_iter_logical_order(index_prefix)
                 }
             }
 
             impl<'a, T> ApproxEqIter<'a, $t> for &'a [T]
             where
                 &'a T: ApproxEqIter<'a, $t>,
-                T: 'a,
             {
                 fn indexed_iter_logical_order(
                     self,
-                    prefix: Vec<Ix>,
+                    index_prefix: Vec<Ix>,
                 ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
-                    let iter = self.iter().enumerate().flat_map(move |(idx, el)| {
-                        let mut new_prefix = prefix.clone();
-                        new_prefix.push(idx);
-                        el.indexed_iter_logical_order(new_prefix)
-                    });
-
-                    Box::new(iter)
+                    Box::new(self.iter().enumerate().flat_map(move |(idx, el)| {
+                        let mut index_prefix = index_prefix.clone();
+                        index_prefix.push(idx);
+                        el.indexed_iter_logical_order(index_prefix)
+                    }))
                 }
             }
 
@@ -221,22 +220,20 @@ macro_rules! impl_approx_eq_iter {
             {
                 fn indexed_iter_logical_order(
                     self,
-                    prefix: Vec<Ix>,
+                    index_prefix: Vec<Ix>,
                 ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
-                    let iter = self.indexed_iter().map(move |(idx, elm)| {
-                        let mut new_prefix = prefix.clone();
-                        new_prefix.extend(idx.into_dimension().as_array_view().iter());
-                        (new_prefix, *elm)
-                    });
-
-                    Box::new(iter)
+                    Box::new(self.indexed_iter().map(move |(idx, el)| {
+                        let mut index_prefix = index_prefix.clone();
+                        index_prefix.extend(idx.into_dimension().as_array_view().iter());
+                        (index_prefix, *el)
+                    }))
                 }
             }
         )+
     };
 }
 
-impl_approx_eq_iter! { f32, f64, i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize }
+impl_approx_eq_iter! { f32, f64 }
 
 #[cfg(test)]
 mod tests {
