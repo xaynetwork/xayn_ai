@@ -167,26 +167,26 @@ impl CoiSystem {
     /// normalized. The horizon specifies the time since the last view after which a coi becomes
     /// irrelevant.
     #[allow(dead_code)]
-    fn compute_weights<CP: CoiPoint>(&self, cois: &[CP], horizon: Duration) -> Vec<f64> {
-        let counts = cois.iter().map(|coi| coi.view().count).sum::<usize>() as f64 + f64::EPSILON;
+    fn compute_weights<CP: CoiPoint>(&self, cois: &[CP], horizon: Duration) -> Vec<f32> {
+        let counts = cois.iter().map(|coi| coi.view().count).sum::<usize>() as f32 + f32::EPSILON;
         let times = cois
             .iter()
             .map(|coi| coi.view().time)
             .sum::<Duration>()
-            .as_secs_f64()
-            + f64::EPSILON;
+            .as_secs_f32()
+            + f32::EPSILON;
         let now = system_time_now();
-        let horizon = (-0.1 * horizon.as_secs_f64() / SECONDS_PER_DAY).exp() - f64::EPSILON;
+        let horizon = (-0.1 * horizon.as_secs_f32() / SECONDS_PER_DAY).exp();
 
         cois.iter()
             .map(|coi| {
                 let CoiView { count, time, last } = coi.view();
-                let count = count as f64 / counts;
-                let time = time.as_secs_f64() / times;
-                let days = (-0.1 * now.duration_since(last).unwrap_or_default().as_secs_f64()
+                let count = count as f32 / counts;
+                let time = time.as_secs_f32() / times;
+                let days = (-0.1 * now.duration_since(last).unwrap_or_default().as_secs_f32()
                     / SECONDS_PER_DAY)
                     .exp();
-                let last = ((horizon - days) / (horizon - 1.)).max(0.);
+                let last = ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.);
                 (count + time) * last
             })
             .collect()
@@ -594,7 +594,7 @@ mod tests {
     #[test]
     fn test_compute_weights_empty_cois() {
         let cois = create_pos_cois(&[[]]);
-        let horizon = Duration::from_secs_f64(SECONDS_PER_DAY);
+        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
         assert!(weights.is_empty());
     }
@@ -604,7 +604,7 @@ mod tests {
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
         let horizon = Duration::ZERO;
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
-        assert_approx_eq!(f64, weights, [0., 0.]);
+        assert_approx_eq!(f32, weights, [0., 0.]);
     }
 
     #[test]
@@ -612,14 +612,9 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].view.count += 1;
         cois[2].view.count += 2;
-        let horizon = Duration::from_secs_f64(SECONDS_PER_DAY);
+        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
-        assert_approx_eq!(
-            f64,
-            weights,
-            [0.5, 0.6666666666666666, 0.8333333333333334],
-            epsilon = 0.0000001,
-        );
+        assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
     }
 
     #[test]
@@ -627,29 +622,24 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].view.time += Duration::from_secs(10);
         cois[2].view.time += Duration::from_secs(20);
-        let horizon = Duration::from_secs_f64(SECONDS_PER_DAY);
+        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
-        assert_approx_eq!(
-            f64,
-            weights,
-            [0.5, 0.6666666666666666, 0.8333333333333334],
-            epsilon = 0.0000001,
-        );
+        assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
     }
 
     #[test]
     fn test_compute_weights_last() {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
-        cois[0].view.last -= Duration::from_secs_f64(0.5 * SECONDS_PER_DAY);
-        cois[1].view.last -= Duration::from_secs_f64(1.5 * SECONDS_PER_DAY);
-        cois[2].view.last -= Duration::from_secs_f64(2.5 * SECONDS_PER_DAY);
-        let horizon = Duration::from_secs_f64(2. * SECONDS_PER_DAY);
+        cois[0].view.last -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
+        cois[1].view.last -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
+        cois[2].view.last -= Duration::from_secs_f32(2.5 * SECONDS_PER_DAY);
+        let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
         assert_approx_eq!(
-            f64,
+            f32,
             weights,
-            [0.4872996888057648, 0.15438258855213516, 0.],
-            epsilon = 0.0000001,
+            [0.48729968, 0.15438259, 0.],
+            epsilon = 0.00001,
         );
     }
 }
