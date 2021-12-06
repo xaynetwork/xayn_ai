@@ -112,137 +112,107 @@ pub(crate) struct NegativeCoi {
 
 pub(crate) trait CoiPoint {
     fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self;
+
     fn id(&self) -> CoiId;
+
     fn set_id(&mut self, id: CoiId);
+
     fn point(&self) -> &Embedding;
+
     fn set_point(&mut self, embedding: Embedding);
+
     fn view(&self) -> CoiView {
         CoiView::default()
     }
+
     fn update_view(&mut self, viewed: Option<Duration>) {
         #![allow(unused_variables)]
     }
 }
 
-macro_rules! impl_coi_point {
-    (
-        $(
-            $(#[$attribute:meta])*
-            $type:ty {
-                fn new(
-                    $id:ident: CoiId,
-                    $point:ident: Embedding,
-                    $new_viewed:ident: Option<Duration> $(,)?
-                ) -> Self
-                    $new_body:block
+macro_rules! coi_point_default_impls {
+    () => {
+        fn id(&self) -> CoiId {
+            self.id
+        }
 
-                $(
-                    fn view($view_this:ident: &Self $(,)?) -> CoiView
-                        $view_body:block
-                )?
+        fn set_id(&mut self, id: CoiId) {
+            self.id = id;
+        }
 
-                $(
-                    fn update_view(
-                        $update_this:ident: &mut Self,
-                        $update_viewed:ident: Option<Duration> $(,)?
-                    )
-                        $update_body:block
-                )?
-            }
-        ),+ $(,)?
-    ) => {
-        $(
-            $(#[$attribute])*
-            impl CoiPoint for $type {
-                fn new($id: CoiId, $point: Embedding, $new_viewed: Option<Duration>) -> Self
-                    $new_body
+        fn point(&self) -> &Embedding {
+            &self.point
+        }
 
-
-                fn id(&self) -> CoiId {
-                    self.id
-                }
-
-                fn set_id(&mut self, id: CoiId) {
-                    self.id = id;
-                }
-
-                fn point(&self) -> &Embedding {
-                    &self.point
-                }
-
-                fn set_point(&mut self, embedding: Embedding) {
-                    self.point = embedding;
-                }
-
-                $(
-                    fn view($view_this: &Self) -> CoiView
-                        $view_body
-                )?
-
-                $(
-                    fn update_view($update_this: &mut Self, $update_viewed: Option<Duration>)
-                        $update_body
-                )?
-            }
-        )+
+        fn set_point(&mut self, embedding: Embedding) {
+            self.point = embedding;
+        }
     };
 }
 
-impl_coi_point! {
-    #[cfg(test)]
-    PositiveCoi_v0_0_0 {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self {
-                id,
-                point,
-                alpha: 1.,
-                beta: 1.,
-            }
+#[cfg(test)]
+impl CoiPoint for PositiveCoi_v0_0_0 {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self {
+            id,
+            point,
+            alpha: 1.,
+            beta: 1.,
         }
-    },
+    }
 
-    #[cfg(test)]
-    PositiveCoi_v0_1_0 {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self {
-                id,
-                point,
-                alpha: 1.,
-                beta: 1.,
-            }
-        }
-    },
+    coi_point_default_impls! {}
+}
 
-    #[cfg(test)]
-    PositiveCoi_v0_2_0 {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self { id, point }
+#[cfg(test)]
+impl CoiPoint for PositiveCoi_v0_1_0 {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self {
+            id,
+            point,
+            alpha: 1.,
+            beta: 1.,
         }
-    },
+    }
 
-    PositiveCoi {
-        fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self {
-            Self {
-                id,
-                point,
-                view: CoiView::new(viewed),
-            }
-        }
+    coi_point_default_impls! {}
+}
 
-        fn view(self: &Self) -> CoiView {
-            self.view
-        }
+#[cfg(test)]
+impl CoiPoint for PositiveCoi_v0_2_0 {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self { id, point }
+    }
 
-        fn update_view(self: &mut Self, viewed: Option<Duration>) {
-            self.view.update(viewed);
-        }
-    },
+    coi_point_default_impls! {}
+}
 
-    NegativeCoi {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self { id, point }
+impl CoiPoint for PositiveCoi {
+    fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self {
+        Self {
+            id,
+            point,
+            view: CoiView::new(viewed),
         }
-    },
+    }
+
+    coi_point_default_impls! {}
+
+    fn view(&self) -> CoiView {
+        self.view
+    }
+
+    fn update_view(&mut self, viewed: Option<Duration>) {
+        self.view.update(viewed);
+    }
+}
+
+impl CoiPoint for NegativeCoi {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self { id, point }
+    }
+
+    coi_point_default_impls! {}
 }
 
 // generic types can't be versioned, but aliasing and proper naming in the proc macro call works
