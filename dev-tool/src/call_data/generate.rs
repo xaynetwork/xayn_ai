@@ -390,6 +390,7 @@ fn gen_current_query_from_history(
                 query_words: query_words.clone(),
                 url: url.clone(),
                 domain: domain.clone(),
+                viewed: None,
             }
         })
         .collect()

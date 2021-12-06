@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, time::Duration};
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -114,14 +114,19 @@ impl CoiSystem {
     /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
-    fn update_coi<CP: CoiPoint>(&self, embedding: &Embedding, mut cois: Vec<CP>) -> Vec<CP> {
+    fn update_coi<CP: CoiPoint>(
+        &self,
+        embedding: &Embedding,
+        viewed: Option<Duration>,
+        mut cois: Vec<CP>,
+    ) -> Vec<CP> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, coi.point()));
                 coi.set_id(Uuid::new_v4().into());
-                coi.update_view(None);
+                coi.update_view(viewed)
             }
-            _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone(), None)),
+            _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone(), viewed)),
         }
         cois
     }
@@ -129,7 +134,7 @@ impl CoiSystem {
     /// Updates the CoIs based on the embeddings of docs.
     fn update_cois<CP: CoiPoint>(&self, docs: &[&dyn CoiSystemData], cois: Vec<CP>) -> Vec<CP> {
         docs.iter().fold(cois, |cois, doc| {
-            self.update_coi(&doc.smbert().embedding, cois)
+            self.update_coi(&doc.smbert().embedding, doc.viewed(), cois)
         })
     }
 
@@ -249,6 +254,7 @@ mod tests {
             document_data::{
                 ContextComponent,
                 DocumentBaseComponent,
+                DocumentContentComponent,
                 DocumentDataWithRank,
                 LtrComponent,
                 QAMBertComponent,
@@ -271,6 +277,10 @@ mod tests {
                 document_base: DocumentBaseComponent {
                     id: DocumentId::from_u128(id as u128),
                     initial_ranking: id,
+                },
+                document_content: DocumentContentComponent {
+                    title: id.to_string(),
+                    ..DocumentContentComponent::default()
                 },
                 smbert: SMBertComponent {
                     embedding: arr1(embedding.as_init_slice()).into(),
@@ -352,6 +362,7 @@ mod tests {
     fn test_update_coi_add_point() {
         let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
         let embedding = arr1(&[1., 1., 1.]).into();
+        let viewed = Some(Duration::from_secs(10));
 
         let config = Configuration::default();
         let threshold = config.threshold;
@@ -365,7 +376,7 @@ mod tests {
         assert_approx_eq!(f32, distance, 26.747852);
         assert!(threshold < distance);
 
-        cois = coi_system.update_coi(&embedding, cois);
+        cois = coi_system.update_coi(&embedding, viewed, cois);
         assert_eq!(cois.len(), 4);
     }
 
@@ -373,8 +384,9 @@ mod tests {
     fn test_update_coi_update_point() {
         let cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
         let embedding = arr1(&[2., 3., 4.]).into();
+        let viewed = Some(Duration::from_secs(10));
 
-        let cois = CoiSystem::default().update_coi(&embedding, cois);
+        let cois = CoiSystem::default().update_coi(&embedding, viewed, cois);
 
         assert_eq!(cois.len(), 3);
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
@@ -384,7 +396,11 @@ mod tests {
 
     #[test]
     fn test_shift_coi_point() {
-        let coi = PositiveCoi::new(CoiId::mocked(0), arr1(&[1., 1., 1.]).into(), None);
+        let coi = PositiveCoi::new(
+            CoiId::mocked(0),
+            arr1(&[1., 1., 1.]).into(),
+            Some(Duration::from_secs(10)),
+        );
         let embedding = arr1(&[2., 3., 4.]).into();
 
         let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);
@@ -396,8 +412,9 @@ mod tests {
     fn test_update_coi_threshold_exclusive() {
         let cois = create_pos_cois(&[[0., 0., 0.]]);
         let embedding = arr1(&[0., 0., 12.]).into();
+        let viewed = Some(Duration::from_secs(10));
 
-        let cois = CoiSystem::default().update_coi(&embedding, cois);
+        let cois = CoiSystem::default().update_coi(&embedding, viewed, cois);
 
         assert_eq!(cois.len(), 2);
         assert_eq!(cois[0].point, arr1(&[0., 0., 0.]));

@@ -61,6 +61,8 @@ fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
 
 #[cfg(test)]
 pub(super) mod tests {
+    use std::time::Duration;
+
     use ndarray::{arr1, FixedInitializer};
 
     use super::*;
@@ -97,13 +99,23 @@ pub(super) mod tests {
         fn coi(&self) -> Option<&CoiComponent> {
             self.coi.as_ref()
         }
+
+        fn viewed(&self) -> Option<Duration> {
+            Some(Duration::from_secs(10))
+        }
     }
 
     fn create_cois<CP: CoiPoint>(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<CP> {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| CP::new(CoiId::mocked(id), arr1(point.as_init_slice()).into(), None))
+            .map(|(id, point)| {
+                CP::new(
+                    CoiId::mocked(id),
+                    arr1(point.as_init_slice()).into(),
+                    Some(Duration::from_secs(10)),
+                )
+            })
             .collect()
     }
 

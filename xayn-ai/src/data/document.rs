@@ -1,6 +1,6 @@
-use derive_more::Display;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::convert::TryFrom;
@@ -100,6 +100,8 @@ pub struct Document {
     pub url: String,
     /// Domain of the document
     pub domain: String,
+    /// Time viewed of the document.
+    pub viewed: Option<Duration>,
 }
 
 /// Represents a historical result from a query.
