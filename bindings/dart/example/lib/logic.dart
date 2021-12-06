@@ -134,7 +134,9 @@ class Logic {
     }
   }
 
-  Future<Stats> benchmark() async {
+  Future<Stats> benchmark(
+    Future<void> Function(int) setStateBenchmarkStatsPending,
+  ) async {
     print('Starting Benchmark');
 
     const preBenchNum = 10;
@@ -153,8 +155,9 @@ class Logic {
     // Though given the complexity of the computations and
     // given that it doesn't really involve JIT the main benefit
     // of this might be how it affects CPU frequencies.
-    for (var i = 0; i < preBenchNum; i++) {
+    for (var i = -preBenchNum; i < 0; i++) {
       await _currentAi.rerank(mode, histories, documents);
+      await setStateBenchmarkStatsPending(i);
     }
 
     final times = List<num>.empty(growable: true);
@@ -166,6 +169,7 @@ class Logic {
 
       await _printFaults();
       print('Iteration: $i');
+      await setStateBenchmarkStatsPending(i);
     }
 
     print('Finished Benchmark');
@@ -199,4 +203,38 @@ class Outcome {
     resultList.sort((l, r) => l.finalRank.compareTo(r.finalRank));
     return resultList;
   }
+}
+
+abstract class BenchmarkStats {
+  static BenchmarkStats none() => _BenchmarkStatsNone();
+
+  static BenchmarkStats pending(int iter) => _BenchmarkStatsPending(iter);
+
+  static BenchmarkStats ready(Stats<num> stats) => _BenchmarkStatsReady(stats);
+}
+
+class _BenchmarkStatsNone extends BenchmarkStats {
+  _BenchmarkStatsNone();
+
+  @override
+  String toString() => '-- no benchmark stats yet --';
+}
+
+class _BenchmarkStatsPending extends BenchmarkStats {
+  final int _iter;
+
+  _BenchmarkStatsPending(this._iter);
+
+  @override
+  String toString() => 'Running warmup/benchmark: $_iter';
+}
+
+class _BenchmarkStatsReady extends BenchmarkStats {
+  final Stats<num> _stats;
+
+  _BenchmarkStatsReady(this._stats);
+
+  @override
+  String toString() =>
+      'Min: ${_stats.min} Median: ${_stats.median} Max: ${_stats.max} Avg: ${_stats.average} Std: ${_stats.standardDeviation}';
 }

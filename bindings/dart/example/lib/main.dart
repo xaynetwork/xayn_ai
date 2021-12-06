@@ -27,14 +27,13 @@ import 'package:flutter/material.dart'
         Widget,
         debugPrint,
         runApp;
-
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:stats/stats.dart' show Stats;
 
 import 'package:xayn_ai_ffi_dart_example/debug/print.dart'
     if (dart.library.io) 'package:xayn_ai_ffi_dart_example/debug/mobile/print.dart'
     show debugPrintLongText;
-import 'package:xayn_ai_ffi_dart_example/logic.dart' show Logic, Outcome;
+import 'package:xayn_ai_ffi_dart_example/logic.dart'
+    show BenchmarkStats, Logic, Outcome;
 
 void main() {
   runApp(MaterialApp(title: 'XaynAi Test/Example App', home: MyApp()));
@@ -49,7 +48,7 @@ class _MyAppState extends State<MyApp> {
   // We cannot use `late`. If we did and loading it takes long enough
   // for the application to be rendered then this can cause an exception.
   Logic? _logic;
-  Stats<num>? _lastBenchmarkStats;
+  BenchmarkStats _lastBenchmarkStats = BenchmarkStats.none();
   List<Outcome>? _lastResults;
 
   @override
@@ -112,23 +111,7 @@ class _MyAppState extends State<MyApp> {
         ));
   }
 
-  Widget benchmarkView() {
-    final stats = _lastBenchmarkStats;
-
-    if (stats == null) {
-      return Center(
-        child: Text('-- no benchmark stats --'),
-      );
-    }
-
-    final min = stats.min;
-    final median = stats.median;
-    final max = stats.max;
-    final avg = stats.average;
-    final std = stats.standardDeviation;
-
-    return Text('Min: $min Median: $median Max: $max Avg: $avg Std: $std');
-  }
+  Widget benchmarkView() => Center(child: Text(_lastBenchmarkStats.toString()));
 
   Widget resultsView() {
     final results = _lastResults;
@@ -221,17 +204,18 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> benchRerank() async {
-    final stats = await _logic!.benchmark();
-
-    setState(() {
-      _lastBenchmarkStats = stats;
-    });
+    final setPending = (int i) async {
+      setState(() => _lastBenchmarkStats = BenchmarkStats.pending(i));
+      await Future<void>.delayed(const Duration(microseconds: 1));
+    };
+    final stats = await _logic!.benchmark(setPending);
+    setState(() => _lastBenchmarkStats = BenchmarkStats.ready(stats));
   }
 
   Future<void> resetAi() async {
     await _logic!.resetXaynAiState();
     setState(() {
-      _lastBenchmarkStats = null;
+      _lastBenchmarkStats = BenchmarkStats.none();
       _lastResults = null;
     });
   }
