@@ -225,16 +225,14 @@ mod tests {
         }
     }
 
-    impl<'a, T> ApproxEqIter<'a> for &'a CBoxedSlice<T>
+    impl<'a, T> ApproxEqIter<'a, f32> for &'a CBoxedSlice<T>
     where
-        &'a T: ApproxEqIter<'a>,
+        &'a T: ApproxEqIter<'a, f32>,
     {
-        type LeafElement = <&'a T as ApproxEqIter<'a>>::LeafElement;
-
         fn indexed_iter_logical_order(
             self,
             prefix: Vec<usize>,
-        ) -> Box<dyn Iterator<Item = (Vec<usize>, Self::LeafElement)> + 'a> {
+        ) -> Box<dyn Iterator<Item = (Vec<usize>, f32)> + 'a> {
             self.as_slice().indexed_iter_logical_order(prefix)
         }
     }
