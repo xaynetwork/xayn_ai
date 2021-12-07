@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::{CoiPoint, CoiView, UserInterests},
+        point::{CoiPoint, CoiStats, UserInterests},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
@@ -125,7 +125,7 @@ impl CoiSystem {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, coi.point()));
                 coi.set_id(Uuid::new_v4().into());
-                coi.update_view(viewed)
+                coi.update_stats(viewed)
             }
             _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone(), viewed)),
         }
@@ -168,10 +168,11 @@ impl CoiSystem {
     /// irrelevant.
     #[allow(dead_code)]
     fn compute_weights<CP: CoiPoint>(&self, cois: &[CP], horizon: Duration) -> Vec<f32> {
-        let counts = cois.iter().map(|coi| coi.view().count).sum::<usize>() as f32 + f32::EPSILON;
+        let counts =
+            cois.iter().map(|coi| coi.stats().view_count).sum::<usize>() as f32 + f32::EPSILON;
         let times = cois
             .iter()
-            .map(|coi| coi.view().time)
+            .map(|coi| coi.stats().view_time)
             .sum::<Duration>()
             .as_secs_f32()
             + f32::EPSILON;
@@ -180,7 +181,12 @@ impl CoiSystem {
 
         cois.iter()
             .map(|coi| {
-                let CoiView { count, time, last } = coi.view();
+                let CoiStats {
+                    view_count: count,
+                    view_time: time,
+                    last_view: last,
+                    ..
+                } = coi.stats();
                 let count = count as f32 / counts;
                 let time = time.as_secs_f32() / times;
                 let days = (-0.1 * now.duration_since(last).unwrap_or_default().as_secs_f32()
@@ -610,8 +616,8 @@ mod tests {
     #[test]
     fn test_compute_weights_count() {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
-        cois[1].view.count += 1;
-        cois[2].view.count += 2;
+        cois[1].stats.view_count += 1;
+        cois[2].stats.view_count += 2;
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
         assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
@@ -620,8 +626,8 @@ mod tests {
     #[test]
     fn test_compute_weights_time() {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
-        cois[1].view.time += Duration::from_secs(10);
-        cois[2].view.time += Duration::from_secs(20);
+        cois[1].stats.view_time += Duration::from_secs(10);
+        cois[2].stats.view_time += Duration::from_secs(20);
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
         assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
@@ -630,9 +636,9 @@ mod tests {
     #[test]
     fn test_compute_weights_last() {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
-        cois[0].view.last -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
-        cois[1].view.last -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
-        cois[2].view.last -= Duration::from_secs_f32(2.5 * SECONDS_PER_DAY);
+        cois[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
+        cois[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
+        cois[2].stats.last_view -= Duration::from_secs_f32(2.5 * SECONDS_PER_DAY);
         let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
         let weights = CoiSystem::default().compute_weights(&cois, horizon);
         assert_approx_eq!(

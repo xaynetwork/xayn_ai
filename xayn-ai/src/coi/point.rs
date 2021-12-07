@@ -8,44 +8,44 @@ use crate::{coi::CoiId, embedding::utils::Embedding, utils::system_time_now};
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[cfg_attr(test, derive(Debug))]
-pub(crate) struct CoiView {
-    pub(crate) count: usize,
-    pub(crate) time: Duration,
-    pub(crate) last: SystemTime,
+pub(crate) struct CoiStats {
+    pub(crate) view_count: usize,
+    pub(crate) view_time: Duration,
+    pub(crate) last_view: SystemTime,
 }
 
-impl CoiView {
+impl CoiStats {
     pub(crate) fn new(viewed: Option<Duration>) -> Self {
         Self {
-            count: 1,
-            time: viewed.unwrap_or_default(),
-            last: system_time_now(),
+            view_count: 1,
+            view_time: viewed.unwrap_or_default(),
+            last_view: system_time_now(),
         }
     }
 
     pub(crate) fn update(&mut self, viewed: Option<Duration>) {
-        self.count += 1;
+        self.view_count += 1;
         if let Some(viewed) = viewed {
-            self.time += viewed;
+            self.view_time += viewed;
         }
-        self.last = system_time_now();
+        self.last_view = system_time_now();
     }
 
     pub(crate) fn merge(self, other: Self) -> Self {
         Self {
-            count: self.count + other.count,
-            time: self.time + other.time,
-            last: self.last.max(other.last),
+            view_count: self.view_count + other.view_count,
+            view_time: self.view_time + other.view_time,
+            last_view: self.last_view.max(other.last_view),
         }
     }
 }
 
-impl Default for CoiView {
+impl Default for CoiStats {
     fn default() -> Self {
         Self {
-            count: 1,
-            time: Duration::ZERO,
-            last: SystemTime::UNIX_EPOCH,
+            view_count: 1,
+            view_time: Duration::ZERO,
+            last_view: SystemTime::UNIX_EPOCH,
         }
     }
 }
@@ -64,7 +64,7 @@ pub(crate) struct PositiveCoi {
     pub(crate) point: Embedding,
     #[obake(cfg(">=0.3"))]
     #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) view: CoiView,
+    pub(crate) stats: CoiStats,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
@@ -98,7 +98,7 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
         Self {
             id: coi.id,
             point: coi.point,
-            view: CoiView::default(),
+            stats: CoiStats::default(),
         }
     }
 }
@@ -121,11 +121,11 @@ pub(crate) trait CoiPoint {
 
     fn set_point(&mut self, embedding: Embedding);
 
-    fn view(&self) -> CoiView {
-        CoiView::default()
+    fn stats(&self) -> CoiStats {
+        CoiStats::default()
     }
 
-    fn update_view(&mut self, viewed: Option<Duration>) {
+    fn update_stats(&mut self, viewed: Option<Duration>) {
         #![allow(unused_variables)]
     }
 }
@@ -192,18 +192,18 @@ impl CoiPoint for PositiveCoi {
         Self {
             id,
             point,
-            view: CoiView::new(viewed),
+            stats: CoiStats::new(viewed),
         }
     }
 
     coi_point_default_impls! {}
 
-    fn view(&self) -> CoiView {
-        self.view
+    fn stats(&self) -> CoiStats {
+        self.stats
     }
 
-    fn update_view(&mut self, viewed: Option<Duration>) {
-        self.view.update(viewed);
+    fn update_stats(&mut self, viewed: Option<Duration>) {
+        self.stats.update(viewed);
     }
 }
 

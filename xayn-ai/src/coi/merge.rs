@@ -20,9 +20,9 @@ pub(crate) trait CoiPointMerge {
 impl CoiPointMerge for PositiveCoi {
     fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
-        let view = self.view.merge(other.view);
+        let stats = self.stats.merge(other.stats);
 
-        Self { id, point, view }
+        Self { id, point, stats }
     }
 }
 
