@@ -19,7 +19,7 @@ pub(crate) trait CoiPointMerge {
 
 impl CoiPointMerge for PositiveCoi {
     fn merge(self, other: Self, id: CoiId) -> Self {
-        let point = mean(&self.point, &other.point);
+        let point = mean(self.point.view(), other.point.view()).into();
         let stats = self.stats.merge(other.stats);
 
         Self { id, point, stats }
@@ -28,7 +28,7 @@ impl CoiPointMerge for PositiveCoi {
 
 impl CoiPointMerge for NegativeCoi {
     fn merge(self, other: Self, id: CoiId) -> Self {
-        let point = mean(&self.point, &other.point);
+        let point = mean(self.point.view(), other.point.view()).into();
 
         Self { id, point }
     }
@@ -108,7 +108,7 @@ impl<C: CoiPoint> Coiple<C> {
 
 /// Computes the l2 distance between two CoI points.
 fn dist<C: CoiPoint>(coi1: &C, coi2: &C) -> f32 {
-    l2_distance(coi1.point(), coi2.point())
+    l2_distance(coi1.point().view(), coi2.point().view())
 }
 
 /// Reduces the given collection of CoIs by successively merging the pair in closest
