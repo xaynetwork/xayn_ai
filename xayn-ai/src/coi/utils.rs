@@ -105,7 +105,11 @@ pub(super) mod tests {
         }
     }
 
-    fn create_cois<CP: CoiPoint>(points: &[impl FixedInitializer<Elem = f32>]) -> Vec<CP> {
+    fn create_cois<FI: FixedInitializer<Elem = f32>, CP: CoiPoint>(points: &[FI]) -> Vec<CP> {
+        if FI::len() == 0 {
+            return Vec::new();
+        }
+
         points
             .iter()
             .enumerate()

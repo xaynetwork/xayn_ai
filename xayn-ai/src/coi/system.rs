@@ -7,13 +7,14 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::{CoiPoint, UserInterests},
+        point::{CoiPoint, CoiStats, UserInterests},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
     embedding::utils::{l2_distance, Embedding},
     reranker::systems::{self, CoiSystemData},
+    utils::{system_time_now, SECONDS_PER_DAY},
     DocumentHistory,
     Error,
 };
@@ -124,7 +125,7 @@ impl CoiSystem {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, coi.point()));
                 coi.set_id(Uuid::new_v4().into());
-                coi.update_view(viewed)
+                coi.update_stats(viewed)
             }
             _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone(), viewed)),
         }
@@ -158,6 +159,45 @@ impl CoiSystem {
             pos_distance,
             neg_distance,
         })
+    }
+
+    /// Computes the relevance/weights of the cois.
+    ///
+    /// The weights are computed from the view counts and view times of each coi and they are not
+    /// normalized. The horizon specifies the time since the last view after which a coi becomes
+    /// irrelevant.
+    #[allow(dead_code)]
+    fn compute_weights<CP: CoiPoint>(&self, cois: &[CP], horizon: Duration) -> Vec<f32> {
+        let counts =
+            cois.iter().map(|coi| coi.stats().view_count).sum::<usize>() as f32 + f32::EPSILON;
+        let times = cois
+            .iter()
+            .map(|coi| coi.stats().view_time)
+            .sum::<Duration>()
+            .as_secs_f32()
+            + f32::EPSILON;
+        let now = system_time_now();
+        const DAYS_SCALE: f32 = -0.1;
+        let horizon = (horizon.as_secs_f32() * DAYS_SCALE / SECONDS_PER_DAY).exp();
+
+        cois.iter()
+            .map(|coi| {
+                let CoiStats {
+                    view_count: count,
+                    view_time: time,
+                    last_view: last,
+                    ..
+                } = coi.stats();
+                let count = count as f32 / counts;
+                let time = time.as_secs_f32() / times;
+                let days = (now.duration_since(last).unwrap_or_default().as_secs_f32()
+                    * DAYS_SCALE
+                    / SECONDS_PER_DAY)
+                    .exp();
+                let last = ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.);
+                (count + time) * last
+            })
+            .collect()
     }
 }
 
@@ -557,5 +597,57 @@ mod tests {
         let error = error.downcast::<CoiSystemError>().unwrap();
 
         assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
+    }
+
+    #[test]
+    fn test_compute_weights_empty_cois() {
+        let cois = create_pos_cois(&[[]]);
+        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert!(weights.is_empty());
+    }
+
+    #[test]
+    fn test_compute_weights_zero_horizon() {
+        let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
+        let horizon = Duration::ZERO;
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(f32, weights, [0., 0.]);
+    }
+
+    #[test]
+    fn test_compute_weights_count() {
+        let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        cois[1].stats.view_count += 1;
+        cois[2].stats.view_count += 2;
+        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
+    }
+
+    #[test]
+    fn test_compute_weights_time() {
+        let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        cois[1].stats.view_time += Duration::from_secs(10);
+        cois[2].stats.view_time += Duration::from_secs(20);
+        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
+    }
+
+    #[test]
+    fn test_compute_weights_last() {
+        let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        cois[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
+        cois[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
+        cois[2].stats.last_view -= Duration::from_secs_f32(2.5 * SECONDS_PER_DAY);
+        let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
+        let weights = CoiSystem::default().compute_weights(&cois, horizon);
+        assert_approx_eq!(
+            f32,
+            weights,
+            [0.48729968, 0.15438259, 0.],
+            epsilon = 0.00001,
+        );
     }
 }

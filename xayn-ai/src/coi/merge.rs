@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     coi::{
-        point::{CoiPoint, CoiPointMerge, NegativeCoi, PositiveCoi},
+        point::{CoiPoint, NegativeCoi, PositiveCoi},
         CoiId,
     },
     embedding::utils::{l2_distance, mean},
@@ -13,26 +13,23 @@ use crate::{
 
 const MERGE_THRESHOLD_DIST: f32 = 4.5;
 
-impl PositiveCoi {
-    pub fn merge(self, other: Self, id: CoiId) -> Self {
-        let point = mean(&self.point, &other.point);
-        let view_count = self.view_count + other.view_count;
-        let view_time = self.view_time + other.view_time;
-        let last_time = self.last_time.max(other.last_time);
+pub(crate) trait CoiPointMerge {
+    fn merge(self, other: Self, id: CoiId) -> Self;
+}
 
-        Self {
-            id,
-            point,
-            view_count,
-            view_time,
-            last_time,
-        }
+impl CoiPointMerge for PositiveCoi {
+    fn merge(self, other: Self, id: CoiId) -> Self {
+        let point = mean(&self.point, &other.point);
+        let stats = self.stats.merge(other.stats);
+
+        Self { id, point, stats }
     }
 }
 
-impl NegativeCoi {
-    pub fn merge(self, other: Self, id: CoiId) -> Self {
+impl CoiPointMerge for NegativeCoi {
+    fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(&self.point, &other.point);
+
         Self { id, point }
     }
 }

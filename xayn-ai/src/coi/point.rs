@@ -6,6 +6,50 @@ use serde::{Deserialize, Serialize};
 
 use crate::{coi::CoiId, embedding::utils::Embedding, utils::system_time_now};
 
+#[derive(Clone, Copy, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Debug))]
+pub(crate) struct CoiStats {
+    pub(crate) view_count: usize,
+    pub(crate) view_time: Duration,
+    pub(crate) last_view: SystemTime,
+}
+
+impl CoiStats {
+    pub(crate) fn new(viewed: Option<Duration>) -> Self {
+        Self {
+            view_count: 1,
+            view_time: viewed.unwrap_or_default(),
+            last_view: system_time_now(),
+        }
+    }
+
+    pub(crate) fn update(&mut self, viewed: Option<Duration>) {
+        self.view_count += 1;
+        if let Some(viewed) = viewed {
+            self.view_time += viewed;
+        }
+        self.last_view = system_time_now();
+    }
+
+    pub(crate) fn merge(self, other: Self) -> Self {
+        Self {
+            view_count: self.view_count + other.view_count,
+            view_time: self.view_time + other.view_time,
+            last_view: self.last_view.max(other.last_view),
+        }
+    }
+}
+
+impl Default for CoiStats {
+    fn default() -> Self {
+        Self {
+            view_count: 1,
+            view_time: Duration::ZERO,
+            last_view: SystemTime::UNIX_EPOCH,
+        }
+    }
+}
+
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
@@ -20,13 +64,7 @@ pub(crate) struct PositiveCoi {
     pub(crate) point: Embedding,
     #[obake(cfg(">=0.3"))]
     #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) view_count: usize,
-    #[obake(cfg(">=0.3"))]
-    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) view_time: Duration,
-    #[obake(cfg(">=0.3"))]
-    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) last_time: SystemTime,
+    pub(crate) stats: CoiStats,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
@@ -60,9 +98,7 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
         Self {
             id: coi.id,
             point: coi.point,
-            view_count: 1,
-            view_time: Duration::default(),
-            last_time: SystemTime::UNIX_EPOCH,
+            stats: CoiStats::default(),
         }
     }
 }
@@ -76,146 +112,107 @@ pub(crate) struct NegativeCoi {
 
 pub(crate) trait CoiPoint {
     fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self;
+
     fn id(&self) -> CoiId;
+
     fn set_id(&mut self, id: CoiId);
+
     fn point(&self) -> &Embedding;
+
     fn set_point(&mut self, embedding: Embedding);
-    fn update_view(&mut self, viewed: Option<Duration>) {
+
+    fn stats(&self) -> CoiStats {
+        CoiStats::default()
+    }
+
+    fn update_stats(&mut self, viewed: Option<Duration>) {
         #![allow(unused_variables)]
     }
 }
 
-macro_rules! impl_coi_point {
-    (
-        $(
-            $(#[$attribute:meta])*
-            $type:ty {
-                fn new(
-                    $id:ident: CoiId,
-                    $point:ident: Embedding,
-                    $new_viewed:ident: Option<Duration> $(,)?
-                ) -> Self
-                    $new_body:block
+macro_rules! coi_point_default_impls {
+    () => {
+        fn id(&self) -> CoiId {
+            self.id
+        }
 
-                $(
-                    fn update_view(
-                        $this:ident: &mut Self,
-                        $update_viewed:ident: Option<Duration> $(,)?
-                    )
-                        $update_body:block
-                )?
-            }
-        ),+ $(,)?
-    ) => {
-        $(
-            $(#[$attribute])*
-            impl CoiPoint for $type {
-                fn new($id: CoiId, $point: Embedding, $new_viewed: Option<Duration>) -> Self
-                    $new_body
+        fn set_id(&mut self, id: CoiId) {
+            self.id = id;
+        }
 
+        fn point(&self) -> &Embedding {
+            &self.point
+        }
 
-                fn id(&self) -> CoiId {
-                    self.id
-                }
-
-                fn set_id(&mut self, id: CoiId) {
-                    self.id = id;
-                }
-
-                fn point(&self) -> &Embedding {
-                    &self.point
-                }
-
-                fn set_point(&mut self, embedding: Embedding) {
-                    self.point = embedding;
-                }
-
-                $(
-                    fn update_view($this: &mut Self, $update_viewed: Option<Duration>)
-                        $update_body
-                )?
-            }
-        )+
+        fn set_point(&mut self, embedding: Embedding) {
+            self.point = embedding;
+        }
     };
 }
 
-impl_coi_point! {
-    #[cfg(test)]
-    PositiveCoi_v0_0_0 {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self {
-                id,
-                point,
-                alpha: 1.,
-                beta: 1.,
-            }
+#[cfg(test)]
+impl CoiPoint for PositiveCoi_v0_0_0 {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self {
+            id,
+            point,
+            alpha: 1.,
+            beta: 1.,
         }
-    },
+    }
 
-    #[cfg(test)]
-    PositiveCoi_v0_1_0 {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self {
-                id,
-                point,
-                alpha: 1.,
-                beta: 1.,
-            }
-        }
-    },
-
-    #[cfg(test)]
-    PositiveCoi_v0_2_0 {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self { id, point }
-        }
-    },
-
-    PositiveCoi {
-        fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self {
-            Self {
-                id,
-                point,
-                view_count: 1,
-                view_time: viewed.unwrap_or_default(),
-                last_time: system_time_now(),
-            }
-        }
-
-        fn update_view(self: &mut Self, viewed: Option<Duration>) {
-            self.view_count += 1;
-            self.view_time += viewed.unwrap_or_default();
-            self.last_time = system_time_now();
-        }
-    },
-
-    NegativeCoi {
-        fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
-            Self { id, point }
-        }
-    },
+    coi_point_default_impls! {}
 }
 
-pub(crate) trait CoiPointMerge {
-    fn merge(self, other: Self, id: CoiId) -> Self;
+#[cfg(test)]
+impl CoiPoint for PositiveCoi_v0_1_0 {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self {
+            id,
+            point,
+            alpha: 1.,
+            beta: 1.,
+        }
+    }
+
+    coi_point_default_impls! {}
 }
 
-macro_rules! impl_coi_point_merge {
-    ($($(#[$attribute:meta])* $type:ty),+ $(,)?) => {
-        $(
-            $(#[$attribute])*
-            impl CoiPointMerge for $type {
-                fn merge(self, other: Self, id: CoiId) -> Self {
-                    self.merge(other, id)
-                }
-            }
-        )+
-    };
+#[cfg(test)]
+impl CoiPoint for PositiveCoi_v0_2_0 {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self { id, point }
+    }
+
+    coi_point_default_impls! {}
 }
 
-impl_coi_point_merge! {
-    PositiveCoi,
-    NegativeCoi,
+impl CoiPoint for PositiveCoi {
+    fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self {
+        Self {
+            id,
+            point,
+            stats: CoiStats::new(viewed),
+        }
+    }
+
+    coi_point_default_impls! {}
+
+    fn stats(&self) -> CoiStats {
+        self.stats
+    }
+
+    fn update_stats(&mut self, viewed: Option<Duration>) {
+        self.stats.update(viewed);
+    }
+}
+
+impl CoiPoint for NegativeCoi {
+    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+        Self { id, point }
+    }
+
+    coi_point_default_impls! {}
 }
 
 // generic types can't be versioned, but aliasing and proper naming in the proc macro call works
