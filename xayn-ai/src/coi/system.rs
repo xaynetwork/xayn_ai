@@ -177,7 +177,8 @@ impl CoiSystem {
             .as_secs_f32()
             + f32::EPSILON;
         let now = system_time_now();
-        let horizon = (-0.1 * horizon.as_secs_f32() / SECONDS_PER_DAY).exp();
+        const DAYS_SCALE: f32 = -0.1;
+        let horizon = (horizon.as_secs_f32() * DAYS_SCALE / SECONDS_PER_DAY).exp();
 
         cois.iter()
             .map(|coi| {
@@ -189,7 +190,8 @@ impl CoiSystem {
                 } = coi.stats();
                 let count = count as f32 / counts;
                 let time = time.as_secs_f32() / times;
-                let days = (-0.1 * now.duration_since(last).unwrap_or_default().as_secs_f32()
+                let days = (now.duration_since(last).unwrap_or_default().as_secs_f32()
+                    * DAYS_SCALE
                     / SECONDS_PER_DAY)
                     .exp();
                 let last = ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.);
