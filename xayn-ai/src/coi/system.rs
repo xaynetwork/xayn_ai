@@ -125,9 +125,15 @@ impl CoiSystem {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, coi.point()));
                 coi.set_id(Uuid::new_v4().into());
-                coi.update_stats(viewed)
+                // TODO: update key phrases
+                coi.update_stats(viewed);
             }
-            _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone(), viewed)),
+            _ => cois.push(CP::new(
+                Uuid::new_v4().into(),
+                embedding.clone(),
+                Vec::new(), // TODO: set key phrases
+                viewed,
+            )),
         }
         cois
     }
@@ -436,14 +442,10 @@ mod tests {
 
     #[test]
     fn test_shift_coi_point() {
-        let coi = PositiveCoi::new(
-            CoiId::mocked(0),
-            arr1(&[1., 1., 1.]).into(),
-            Some(Duration::from_secs(10)),
-        );
+        let coi_point = arr1(&[1., 1., 1.]).into();
         let embedding = arr1(&[2., 3., 4.]).into();
 
-        let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);
+        let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi_point);
 
         assert_eq!(updated_coi, arr1(&[1.1, 1.2, 1.3]));
     }
