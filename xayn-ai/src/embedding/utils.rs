@@ -59,23 +59,24 @@ where
 pub fn pairwise_cosine_similarity<'a, I, S>(iter: I) -> Array2<f32>
 where
     I: IntoIterator<Item = &'a ArrayBase<S, Ix1>>,
-    I::IntoIter: Clone,
+    I::IntoIter: Clone + ExactSizeIterator,
     S: Data<Elem = f32> + 'a,
 {
     let iter = iter.into_iter();
+    let size = iter.len();
+
     let norms = iter.clone().map(|a| l2_norm(a.view())).collect::<Vec<_>>();
-    let size = iter.clone().count();
     let mut similarities = Array2::ones((size, size));
-    iter.clone().enumerate().for_each(|(i, a)| {
+    for (i, a) in iter.clone().enumerate() {
         if norms[i] != 0. {
-            iter.clone().enumerate().skip(i + 1).for_each(|(j, b)| {
+            for (j, b) in iter.clone().enumerate().skip(i + 1) {
                 if norms[j] != 0. {
                     similarities[[i, j]] = a.dot(b) / norms[i] / norms[j];
                     similarities[[j, i]] = similarities[[i, j]];
                 }
-            });
+            }
         }
-    });
+    }
 
     similarities
 }
