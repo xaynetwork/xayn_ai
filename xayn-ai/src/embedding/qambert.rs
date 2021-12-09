@@ -36,7 +36,7 @@ impl QAMBertSystem for QAMBert {
 
                     self.run(&data)
                         .map(|embedding| {
-                            let similarity = l2_distance(&query, &embedding);
+                            let similarity = l2_distance(query.view(), embedding.view());
                             DocumentDataWithQAMBert::from_document(
                                 document,
                                 QAMBertComponent { similarity },

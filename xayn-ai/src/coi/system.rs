@@ -58,7 +58,7 @@ impl CoiSystem {
 
         let mut distances = cois
             .iter()
-            .map(|coi| l2_distance(embedding, coi.point()))
+            .map(|coi| l2_distance(embedding.view(), coi.point().view()))
             .enumerate()
             .collect::<Vec<_>>();
         distances.sort_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap());
@@ -365,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "vectors must consist of real values only")]
+    #[should_panic(expected = "vector must consist of real values only")]
     fn test_find_closest_coi_index_all_nan() {
         let cois = create_pos_cois(&[[1., 2., 3.]]);
         let embedding = arr1(&[NAN, NAN, NAN]).into();
@@ -373,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "vectors must consist of real values only")]
+    #[should_panic(expected = "vector must consist of real values only")]
     fn test_find_closest_coi_index_single_nan() {
         let cois = create_pos_cois(&[[1., 2., 3.]]);
         let embedding = arr1(&[1., NAN, 2.]).into();
@@ -537,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "vectors must consist of real values only")]
+    #[should_panic(expected = "vector must consist of real values only")]
     fn test_compute_coi_all_nan() {
         let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
         let negative = create_neg_cois(&[[4., 5., 6.]]);
@@ -547,7 +547,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "vectors must consist of real values only")]
+    #[should_panic(expected = "vector must consist of real values only")]
     fn test_compute_coi_single_nan() {
         let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
         let negative = create_neg_cois(&[[4., 5., 6.]]);
