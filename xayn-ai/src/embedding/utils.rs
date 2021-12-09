@@ -56,23 +56,26 @@ where
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
 #[allow(dead_code)]
-pub fn pairwise_cosine_similarity<S>(a: &[ArrayBase<S, Ix1>]) -> Array2<f32>
+pub fn pairwise_cosine_similarity<'a, I, S>(iter: I) -> Array2<f32>
 where
-    S: Data<Elem = f32>,
+    I: IntoIterator<Item = &'a ArrayBase<S, Ix1>>,
+    I::IntoIter: Clone,
+    S: Data<Elem = f32> + 'a,
 {
-    let norms = a.iter().map(|a| l2_norm(a.view())).collect::<Vec<_>>();
-    let size = a.len();
+    let iter = iter.into_iter();
+    let norms = iter.clone().map(|a| l2_norm(a.view())).collect::<Vec<_>>();
+    let size = iter.clone().count();
     let mut similarities = Array2::ones((size, size));
-    for i in 0..size {
+    iter.clone().enumerate().for_each(|(i, a)| {
         if norms[i] != 0. {
-            for j in i + 1..size {
+            iter.clone().enumerate().skip(i + 1).for_each(|(j, b)| {
                 if norms[j] != 0. {
-                    similarities[[i, j]] = a[i].dot(&a[j]) / norms[i] / norms[j];
+                    similarities[[i, j]] = a.dot(b) / norms[i] / norms[j];
                     similarities[[j, i]] = similarities[[i, j]];
                 }
-            }
+            });
         }
-    }
+    });
 
     similarities
 }
