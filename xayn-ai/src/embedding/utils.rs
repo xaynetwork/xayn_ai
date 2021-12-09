@@ -53,6 +53,8 @@ where
 
 /// Computes the pairwise cosine similarities of vectors.
 ///
+/// Zero vectors are chosen to be similar to all other vectors, i.e. a similarity of 1.
+///
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
 #[allow(dead_code)]
@@ -82,6 +84,8 @@ where
 }
 
 /// Computes the cosine similarity of two vectors.
+///
+/// Zero vectors are chosen to be similar to all other vectors, i.e. a similarity of 1.
 ///
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
