@@ -107,7 +107,7 @@ fn cois_from_words<CP: CoiPoint>(
             CP::new(
                 CoiId::mocked(start_id + offset),
                 doc.smbert.embedding,
-                vec!["key phrase".into()],
+                Vec::new(),
                 Some(Duration::from_secs(10)),
             )
         })

@@ -117,7 +117,7 @@ pub(super) mod tests {
                 CP::new(
                     CoiId::mocked(id),
                     arr1(point.as_init_slice()).into(),
-                    vec!["key phrase".into()],
+                    Vec::new(),
                     Some(Duration::from_secs(10)),
                 )
             })

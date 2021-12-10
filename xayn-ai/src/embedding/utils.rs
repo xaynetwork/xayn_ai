@@ -57,15 +57,23 @@ where
 ///
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
-#[allow(dead_code)]
-pub fn pairwise_cosine_similarity<'a, I, S>(iter: I) -> Array2<f32>
+///
+/// # Safety
+/// Only use this with [`TrustedLen`] iterators. The bound can't be named currently, because the
+/// trait is nightly-gated. [`ExactSizeIterator`] isn't a feasible replacement, because it isn't
+/// implemented for [`Chain`]ed iterators for example.
+///
+/// [`TrustedLen`]: std::iter::TrustedLen
+/// [`ExactSizeIterator`]: std::iter::ExactSizeIterator
+/// [`Chain`]: std::iter::Chain
+pub unsafe fn pairwise_cosine_similarity<I, S>(iter: I) -> Array2<f32>
 where
-    I: IntoIterator<Item = &'a ArrayBase<S, Ix1>>,
-    I::IntoIter: Clone + ExactSizeIterator,
-    S: Data<Elem = f32> + 'a,
+    I: IntoIterator<Item = ArrayBase<S, Ix1>>,
+    I::IntoIter: Clone,
+    S: Data<Elem = f32>,
 {
     let iter = iter.into_iter();
-    let size = iter.len();
+    let size = iter.size_hint().0;
 
     let norms = iter.clone().map(|a| l2_norm(a.view())).collect::<Vec<_>>();
     let mut similarities = Array2::ones((size, size));
@@ -73,7 +81,7 @@ where
         if norms[i] != 0. {
             for (j, b) in iter.clone().enumerate().skip(i + 1) {
                 if norms[j] != 0. {
-                    similarities[[i, j]] = a.dot(b) / norms[i] / norms[j];
+                    similarities[[i, j]] = a.dot(&b) / norms[i] / norms[j];
                     similarities[[j, i]] = similarities[[i, j]];
                 }
             }
@@ -89,12 +97,14 @@ where
 ///
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
-#[allow(dead_code)]
 pub fn cosine_similarity<S>(a: ArrayBase<S, Ix1>, b: ArrayBase<S, Ix1>) -> f32
 where
     S: Data<Elem = f32>,
 {
-    pairwise_cosine_similarity(&[a, b])[[0, 1]]
+    unsafe {
+        // Safety: array::IntoIter implements TrustedLen
+        pairwise_cosine_similarity([a.view(), b.view()])[[0, 1]]
+    }
 }
 
 #[cfg(test)]
@@ -149,7 +159,10 @@ mod tests {
     fn test_cosine_similarity_empty() {
         assert_approx_eq!(
             f32,
-            pairwise_cosine_similarity(&[] as &[Array1<f32>]),
+            unsafe {
+                // Safety: array::IntoIter implements TrustedLen
+                pairwise_cosine_similarity([] as [Array1<f32>; 0])
+            },
             arr2(&[[]]),
         );
     }
@@ -158,7 +171,10 @@ mod tests {
     fn test_cosine_similarity_single() {
         assert_approx_eq!(
             f32,
-            pairwise_cosine_similarity(&[arr1(&[1., 2., 3.])]),
+            unsafe {
+                // Safety: array::IntoIter implements TrustedLen
+                pairwise_cosine_similarity([arr1(&[1., 2., 3.])])
+            },
             arr2(&[[1.]]),
         );
     }
@@ -167,7 +183,10 @@ mod tests {
     fn test_cosine_similarity_pair() {
         assert_approx_eq!(
             f32,
-            pairwise_cosine_similarity(&[arr1(&[1., 2., 3.]), arr1(&[4., 5., 6.])]),
+            unsafe {
+                // Safety: array::IntoIter implements TrustedLen
+                pairwise_cosine_similarity([arr1(&[1., 2., 3.]), arr1(&[4., 5., 6.])])
+            },
             arr2(&[[1., 0.97463185], [0.97463185, 1.]]),
         );
     }

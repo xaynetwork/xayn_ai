@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    mem::swap,
+    time::{Duration, SystemTime},
+};
 
 #[cfg(test)]
 use derivative::Derivative;
@@ -50,6 +53,13 @@ impl Default for CoiStats {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub(crate) struct KeyPhrase {
+    pub(crate) words: String,
+    pub(crate) point: Embedding,
+}
+
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
@@ -63,7 +73,7 @@ pub(crate) struct PositiveCoi {
     #[obake(cfg(">=0.0"))]
     pub(crate) point: Embedding,
     #[obake(cfg(">=0.3"))]
-    pub(crate) key_phrases: Vec<String>,
+    pub(crate) key_phrases: Vec<KeyPhrase>, // invariant: key phrases must be unique
     #[obake(cfg(">=0.3"))]
     #[cfg_attr(test, derivative(PartialEq = "ignore"))]
     pub(crate) stats: CoiStats,
@@ -114,8 +124,12 @@ pub(crate) struct NegativeCoi {
 }
 
 pub(crate) trait CoiPoint {
-    fn new(id: CoiId, point: Embedding, key_phrases: Vec<String>, viewed: Option<Duration>)
-        -> Self;
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        key_phrases: Vec<KeyPhrase>,
+        viewed: Option<Duration>,
+    ) -> Self;
 
     fn id(&self) -> CoiId;
 
@@ -125,12 +139,13 @@ pub(crate) trait CoiPoint {
 
     fn set_point(&mut self, embedding: Embedding);
 
-    fn key_phrases(&self) -> &[String] {
+    fn key_phrases(&self) -> &[KeyPhrase] {
         &[]
     }
 
-    fn update_key_phrases(&mut self, candidates: &[String]) {
+    fn swap_key_phrases(&mut self, candidates: Vec<KeyPhrase>) -> Vec<KeyPhrase> {
         #![allow(unused_variables)]
+        Vec::new()
     }
 
     fn stats(&self) -> CoiStats {
@@ -167,7 +182,7 @@ impl CoiPoint for PositiveCoi_v0_0_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: Vec<String>,
+        _key_phrases: Vec<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -186,7 +201,7 @@ impl CoiPoint for PositiveCoi_v0_1_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: Vec<String>,
+        _key_phrases: Vec<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -205,7 +220,7 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: Vec<String>,
+        _key_phrases: Vec<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self { id, point }
@@ -218,7 +233,7 @@ impl CoiPoint for PositiveCoi {
     fn new(
         id: CoiId,
         point: Embedding,
-        key_phrases: Vec<String>,
+        key_phrases: Vec<KeyPhrase>,
         viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -231,11 +246,14 @@ impl CoiPoint for PositiveCoi {
 
     coi_point_default_impls! {}
 
-    fn key_phrases(&self) -> &[String] {
+    fn key_phrases(&self) -> &[KeyPhrase] {
         self.key_phrases.as_slice()
     }
 
-    // TODO: update key phrases
+    fn swap_key_phrases(&mut self, mut candidates: Vec<KeyPhrase>) -> Vec<KeyPhrase> {
+        swap(&mut self.key_phrases, &mut candidates);
+        candidates
+    }
 
     fn stats(&self) -> CoiStats {
         self.stats
@@ -250,7 +268,7 @@ impl CoiPoint for NegativeCoi {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: Vec<String>,
+        _key_phrases: Vec<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self { id, point }
