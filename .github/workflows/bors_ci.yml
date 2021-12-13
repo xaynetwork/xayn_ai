@@ -177,7 +177,7 @@ jobs:
         uses: ./.ci/install-gomplate
 
       - name: Download ${{ needs.dev-ci.outputs.cache-key-linux-lib }} artifacts
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.0.10
         with:
           name: ${{ needs.dev-ci.outputs.cache-key-linux-lib }}
           path: ${{ runner.temp }}/${{ needs.dev-ci.outputs.cache-key-linux-lib }}
@@ -190,14 +190,14 @@ jobs:
 
       - name: Download iOS aarch64 artifacts
         if: matrix.target == 'ios'
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.0.10
         with:
           name: build-ios-aarch64-apple-ios-${{ github.sha }}
           path: ${{ runner.temp }}/build-ios-${{ github.sha }}
 
       - name: Download iOS x84_64 artifacts
         if: matrix.target == 'ios'
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.0.10
         with:
           name: build-ios-x86_64-apple-ios-${{ github.sha }}
           path: ${{ runner.temp }}/build-ios-${{ github.sha }}
