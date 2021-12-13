@@ -13,7 +13,7 @@ displaydoc = "0.2.3"
 ndarray = "=0.15.3"
 rand = "0.8.4"
 rand_distr = "0.4.2"
-serde = { version = "1.0.130", features = ["derive"] }
+serde = { version = "1.0.131", features = ["derive"] }
 thiserror = "1.0.30"
 
 [dev-dependencies]
