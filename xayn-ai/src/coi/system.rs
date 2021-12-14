@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::{CoiPoint, CoiStats, UserInterests},
+        point::{CoiPoint, CoiPointStats, CoiStats, UserInterests},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
@@ -115,7 +115,7 @@ impl CoiSystem {
     /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
-    fn update_coi<CP: CoiPoint>(
+    fn update_coi<CP: CoiPoint + CoiPointStats>(
         &self,
         embedding: &Embedding,
         viewed: Option<Duration>,
@@ -139,7 +139,11 @@ impl CoiSystem {
     }
 
     /// Updates the CoIs based on the embeddings of docs.
-    fn update_cois<CP: CoiPoint>(&self, docs: &[&dyn CoiSystemData], cois: Vec<CP>) -> Vec<CP> {
+    fn update_cois<CP: CoiPoint + CoiPointStats>(
+        &self,
+        docs: &[&dyn CoiSystemData],
+        cois: Vec<CP>,
+    ) -> Vec<CP> {
         docs.iter().fold(cois, |cois, doc| {
             self.update_coi(&doc.smbert().embedding, doc.viewed(), cois)
         })
@@ -173,7 +177,11 @@ impl CoiSystem {
     /// normalized. The horizon specifies the time since the last view after which a coi becomes
     /// irrelevant.
     #[allow(dead_code)]
-    fn compute_weights<CP: CoiPoint>(&self, cois: &[CP], horizon: Duration) -> Vec<f32> {
+    fn compute_weights<CP: CoiPoint + CoiPointStats>(
+        &self,
+        cois: &[CP],
+        horizon: Duration,
+    ) -> Vec<f32> {
         let counts =
             cois.iter().map(|coi| coi.stats().view_count).sum::<usize>() as f32 + f32::EPSILON;
         let times = cois

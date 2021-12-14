@@ -58,16 +58,15 @@ where
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
 ///
-/// # Safety
-/// Only use this with [`TrustedLen`] iterators. The bound can't be named currently, because the
-/// trait is nightly-gated. [`ExactSizeIterator`] isn't a feasible replacement, because it isn't
-/// implemented for [`Chain`]ed iterators for example.
+/// Only use this with [`TrustedLen`] iterators, otherwise indexing may panic. The bound can't be
+/// named currently, because the trait is nightly-gated. [`ExactSizeIterator`] isn't a feasible and
+/// trusted replacement, for example it isn't implemented for [`Chain`]ed iterators.
 ///
 /// [`TrustedLen`]: std::iter::TrustedLen
 /// [`ExactSizeIterator`]: std::iter::ExactSizeIterator
 /// [`Chain`]: std::iter::Chain
 #[allow(dead_code)]
-pub unsafe fn pairwise_cosine_similarity<I, S>(iter: I) -> Array2<f32>
+pub fn pairwise_cosine_similarity<I, S>(iter: I) -> Array2<f32>
 where
     I: IntoIterator<Item = ArrayBase<S, Ix1>>,
     I::IntoIter: Clone,
@@ -103,10 +102,7 @@ pub fn cosine_similarity<S>(a: ArrayBase<S, Ix1>, b: ArrayBase<S, Ix1>) -> f32
 where
     S: Data<Elem = f32>,
 {
-    unsafe {
-        // Safety: array::IntoIter implements TrustedLen
-        pairwise_cosine_similarity([a.view(), b.view()])[[0, 1]]
-    }
+    pairwise_cosine_similarity([a.view(), b.view()])[[0, 1]]
 }
 
 #[cfg(test)]
@@ -161,10 +157,7 @@ mod tests {
     fn test_cosine_similarity_empty() {
         assert_approx_eq!(
             f32,
-            unsafe {
-                // Safety: array::IntoIter implements TrustedLen
-                pairwise_cosine_similarity([] as [Array1<f32>; 0])
-            },
+            pairwise_cosine_similarity([] as [Array1<f32>; 0]),
             arr2(&[[]]),
         );
     }
@@ -173,10 +166,7 @@ mod tests {
     fn test_cosine_similarity_single() {
         assert_approx_eq!(
             f32,
-            unsafe {
-                // Safety: array::IntoIter implements TrustedLen
-                pairwise_cosine_similarity([arr1(&[1., 2., 3.])])
-            },
+            pairwise_cosine_similarity([arr1(&[1., 2., 3.])]),
             arr2(&[[1.]]),
         );
     }
@@ -185,10 +175,7 @@ mod tests {
     fn test_cosine_similarity_pair() {
         assert_approx_eq!(
             f32,
-            unsafe {
-                // Safety: array::IntoIter implements TrustedLen
-                pairwise_cosine_similarity([arr1(&[1., 2., 3.]), arr1(&[4., 5., 6.])])
-            },
+            pairwise_cosine_similarity([arr1(&[1., 2., 3.]), arr1(&[4., 5., 6.])]),
             arr2(&[[1., 0.97463185], [0.97463185, 1.]]),
         );
     }

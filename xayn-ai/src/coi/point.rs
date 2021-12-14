@@ -151,23 +151,18 @@ pub(crate) trait CoiPoint {
     fn point(&self) -> &Embedding;
 
     fn set_point(&mut self, embedding: Embedding);
+}
 
-    fn key_phrases(&self) -> &[KeyPhrase] {
-        &[]
-    }
+pub(crate) trait CoiPointKeyPhrases {
+    fn key_phrases(&self) -> &[KeyPhrase];
 
-    fn swap_key_phrases(&mut self, candidates: Vec<KeyPhrase>) -> Vec<KeyPhrase> {
-        #![allow(unused_variables)]
-        Vec::new()
-    }
+    fn swap_key_phrases(&mut self, candidates: Vec<KeyPhrase>) -> Vec<KeyPhrase>;
+}
 
-    fn stats(&self) -> CoiStats {
-        CoiStats::default()
-    }
+pub(crate) trait CoiPointStats {
+    fn stats(&self) -> CoiStats;
 
-    fn update_stats(&mut self, viewed: Option<Duration>) {
-        #![allow(unused_variables)]
-    }
+    fn update_stats(&mut self, viewed: Option<Duration>);
 }
 
 macro_rules! coi_point_default_impls {
@@ -260,7 +255,9 @@ impl CoiPoint for PositiveCoi {
     }
 
     coi_point_default_impls! {}
+}
 
+impl CoiPointKeyPhrases for PositiveCoi {
     fn key_phrases(&self) -> &[KeyPhrase] {
         self.key_phrases.as_slice()
     }
@@ -271,7 +268,9 @@ impl CoiPoint for PositiveCoi {
         swap(&mut self.key_phrases, &mut candidates);
         candidates
     }
+}
 
+impl CoiPointStats for PositiveCoi {
     fn stats(&self) -> CoiStats {
         self.stats
     }
@@ -292,6 +291,24 @@ impl CoiPoint for NegativeCoi {
     }
 
     coi_point_default_impls! {}
+}
+
+impl CoiPointKeyPhrases for NegativeCoi {
+    fn key_phrases(&self) -> &[KeyPhrase] {
+        &[]
+    }
+
+    fn swap_key_phrases(&mut self, _candidates: Vec<KeyPhrase>) -> Vec<KeyPhrase> {
+        Vec::new()
+    }
+}
+
+impl CoiPointStats for NegativeCoi {
+    fn stats(&self) -> CoiStats {
+        CoiStats::default()
+    }
+
+    fn update_stats(&mut self, _viewed: Option<Duration>) {}
 }
 
 // generic types can't be versioned, but aliasing and proper naming in the proc macro call works
