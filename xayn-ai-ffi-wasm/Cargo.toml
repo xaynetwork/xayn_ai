@@ -25,7 +25,7 @@ xayn-ai = { path = "../xayn-ai", features = ["multithreaded"] }
 xayn-ai = { path = "../xayn-ai" }
 
 [dev-dependencies]
-itertools = "0.10.1"
+itertools = "0.10.3"
 wasm-bindgen-test = "0.3.28"
 
 [lib]
