@@ -53,11 +53,25 @@ impl Default for CoiStats {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Deserialize, PartialEq, Serialize)]
+#[cfg_attr(test, derive(Debug))]
 pub(crate) struct KeyPhrase {
-    pub(crate) words: String,
-    pub(crate) point: Embedding,
+    pub(super) words: String,
+    pub(super) point: Embedding,
+}
+
+#[allow(dead_code)]
+impl KeyPhrase {
+    pub(super) fn is_valid(&self) -> bool {
+        !self.words.is_empty() && self.point.iter().copied().all(f32::is_finite)
+    }
+
+    pub(super) fn is_unique(key_phrases: &[KeyPhrase]) -> bool {
+        key_phrases
+            .iter()
+            .enumerate()
+            .all(|(idx, this)| key_phrases.iter().skip(idx + 1).all(|other| this != other))
+    }
 }
 
 #[obake::versioned]
@@ -69,20 +83,20 @@ pub(crate) struct KeyPhrase {
 #[cfg_attr(test, derive(Debug, Derivative), derivative(PartialEq))]
 pub(crate) struct PositiveCoi {
     #[obake(cfg(">=0.0"))]
-    pub(crate) id: CoiId,
+    pub(super) id: CoiId,
     #[obake(cfg(">=0.0"))]
-    pub(crate) point: Embedding,
+    pub(super) point: Embedding,
     #[obake(cfg(">=0.3"))]
-    pub(crate) key_phrases: Vec<KeyPhrase>, // invariant: key phrases must be unique
+    pub(super) key_phrases: Vec<KeyPhrase>, // invariant: key phrases must be unique
     #[obake(cfg(">=0.3"))]
     #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) stats: CoiStats,
+    pub(super) stats: CoiStats,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
-    pub(crate) alpha: f32,
+    pub(super) alpha: f32,
     #[obake(cfg(">=0.0, <0.2"))]
-    pub(crate) beta: f32,
+    pub(super) beta: f32,
 }
 
 impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
