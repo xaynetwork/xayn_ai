@@ -235,7 +235,7 @@ jobs:
         run: flutter pub get
 
       - name: Download headers
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.1.0
         with:
           name: headers-${{ github.sha }}
           path: ${{ runner.temp }}/headers
@@ -317,7 +317,7 @@ jobs:
         run: ./build_wasm.sh ${{ env.OUT_DIR }}/wasm ${{ matrix.wasm_feature }} ${{ matrix.cargo_args }}
 
       - name: Download web worker artifact
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.1.0
         with:
           name: ${{ needs.build-web-worker-asset.outputs.upload-name }}
           path: ${{ needs.build-web-worker-asset.outputs.upload-path }}
@@ -367,7 +367,7 @@ jobs:
         uses: ./.ci/install-gomplate
 
       - name: Download WASM artifacts
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.1.0
         with:
           path: ${{ runner.temp }}/wasm_artifacts
 
@@ -412,13 +412,13 @@ jobs:
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
 
       - name: Download asset artifacts
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.1.0
         with:
           name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
           path: ${{ github.workspace }}
 
       - name: Download WASM artifacts
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.1.0
         with:
           path: ${{ runner.temp }}/wasm_artifacts
 
@@ -484,7 +484,7 @@ jobs:
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.1.0
         with:
           path: /tmp/artifacts/
 
@@ -506,7 +506,7 @@ jobs:
           dart-ws: ${{ env.DART_WORKSPACE }}
 
       - name: Download asset artifacts
-        uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60 # v2.0.10
+        uses: actions/download-artifact@f023be2c48cc18debc3bacd34cb396e0295e2869 # v2.1.0
         with:
           name: ${{ needs.build-asset-artifacts.outputs.upload-name }}
           path: ${{ github.workspace }}
