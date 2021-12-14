@@ -60,7 +60,6 @@ pub(crate) struct KeyPhrase {
     pub(super) point: Embedding,
 }
 
-#[allow(dead_code)]
 impl KeyPhrase {
     pub(super) fn is_valid(&self) -> bool {
         !self.words.is_empty() && self.point.iter().copied().all(f32::is_finite)
@@ -250,6 +249,8 @@ impl CoiPoint for PositiveCoi {
         key_phrases: Vec<KeyPhrase>,
         viewed: Option<Duration>,
     ) -> Self {
+        debug_assert!(key_phrases.iter().all(KeyPhrase::is_valid));
+        debug_assert!(KeyPhrase::is_unique(&key_phrases));
         Self {
             id,
             point,
@@ -265,6 +266,8 @@ impl CoiPoint for PositiveCoi {
     }
 
     fn swap_key_phrases(&mut self, mut candidates: Vec<KeyPhrase>) -> Vec<KeyPhrase> {
+        debug_assert!(candidates.iter().all(KeyPhrase::is_valid));
+        debug_assert!(KeyPhrase::is_unique(&candidates));
         swap(&mut self.key_phrases, &mut candidates);
         candidates
     }
