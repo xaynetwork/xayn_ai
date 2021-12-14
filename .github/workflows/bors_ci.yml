@@ -107,7 +107,7 @@ jobs:
           mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
       - name: Upload library artifacts
-        uses: actions/upload-artifact@da838ae9595ac94171fa2d4de5a2f117b3e7ac32 # v2.2.4
+        uses: actions/upload-artifact@da838ae9595ac94171fa2d4de5a2f117b3e7ac32 # v2.3.0
         with:
           name: build-ios-${{ matrix.target }}-${{ github.sha }}
           retention-days: 1
