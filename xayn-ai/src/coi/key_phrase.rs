@@ -19,7 +19,12 @@ pub(crate) struct KeyPhrase {
 
 impl KeyPhrase {
     #[allow(dead_code)]
-    pub(crate) fn new(words: String, point: Embedding) -> Result<Self, CoiError> {
+    pub(crate) fn new(
+        words: impl Into<String>,
+        point: impl Into<Embedding>,
+    ) -> Result<Self, CoiError> {
+        let words = words.into();
+        let point = point.into();
         if !words.is_empty() && point.iter().copied().all(f32::is_finite) {
             Ok(Self { words, point })
         } else {
