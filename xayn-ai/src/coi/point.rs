@@ -1,103 +1,12 @@
-use std::{
-    mem::swap,
-    time::{Duration, SystemTime},
-};
+use std::time::Duration;
 
 use derivative::Derivative;
-use displaydoc::Display;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
-use crate::{coi::CoiId, embedding::utils::Embedding, utils::system_time_now};
-
-#[derive(Debug, Display, Error)]
-pub(crate) enum CoiError {
-    /// The key phrase is invalid (ie. either empty words or non-finite point)
-    InvalidKeyPhrase,
-    /// The key phrases are not unique
-    DuplicateKeyPhrases,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub(crate) struct CoiStats {
-    pub(crate) view_count: usize,
-    pub(crate) view_time: Duration,
-    pub(crate) last_view: SystemTime,
-}
-
-impl CoiStats {
-    pub(crate) fn new(viewed: Option<Duration>) -> Self {
-        Self {
-            view_count: 1,
-            view_time: viewed.unwrap_or_default(),
-            last_view: system_time_now(),
-        }
-    }
-
-    pub(crate) fn update(&mut self, viewed: Option<Duration>) {
-        self.view_count += 1;
-        if let Some(viewed) = viewed {
-            self.view_time += viewed;
-        }
-        self.last_view = system_time_now();
-    }
-
-    pub(crate) fn merge(self, other: Self) -> Self {
-        Self {
-            view_count: self.view_count + other.view_count,
-            view_time: self.view_time + other.view_time,
-            last_view: self.last_view.max(other.last_view),
-        }
-    }
-}
-
-impl Default for CoiStats {
-    fn default() -> Self {
-        Self {
-            view_count: 1,
-            view_time: Duration::ZERO,
-            last_view: SystemTime::UNIX_EPOCH,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub(crate) struct KeyPhrase {
-    words: String,
-    point: Embedding,
-}
-
-impl KeyPhrase {
-    #[allow(dead_code)]
-    pub(crate) fn new(words: String, point: Embedding) -> Result<Self, CoiError> {
-        if !words.is_empty() && point.iter().copied().all(f32::is_finite) {
-            Ok(Self { words, point })
-        } else {
-            Err(CoiError::InvalidKeyPhrase)
-        }
-    }
-}
-
-// invariant: must be unique
-// note: can't use neither HashMap nor sort & dedup because the underlying ArrayBase doesn't
-// implement any of Eq, Hash, PartialOrd and Ord
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub(crate) struct KeyPhrases(Vec<KeyPhrase>);
-
-impl KeyPhrases {
-    #[allow(dead_code)]
-    pub(crate) fn new(key_phrases: Vec<KeyPhrase>) -> Result<Self, CoiError> {
-        for (i, this) in key_phrases.iter().enumerate() {
-            for other in key_phrases[i + 1..].iter() {
-                if this == other {
-                    return Err(CoiError::DuplicateKeyPhrases);
-                }
-            }
-        }
-
-        Ok(Self(key_phrases))
-    }
-}
+use crate::{
+    coi::{key_phrase::KeyPhrases, stats::CoiStats, CoiId},
+    embedding::utils::Embedding,
+};
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
@@ -171,18 +80,6 @@ pub(crate) trait CoiPoint {
     fn point(&self) -> &Embedding;
 
     fn set_point(&mut self, embedding: Embedding);
-}
-
-pub(crate) trait CoiPointKeyPhrases {
-    fn key_phrases(&self) -> &KeyPhrases;
-
-    fn swap_key_phrases(&mut self, candidates: KeyPhrases) -> KeyPhrases;
-}
-
-pub(crate) trait CoiPointStats {
-    fn stats(&self) -> CoiStats;
-
-    fn update_stats(&mut self, viewed: Option<Duration>);
 }
 
 macro_rules! coi_point_default_impls {
@@ -270,27 +167,6 @@ impl CoiPoint for PositiveCoi {
     coi_point_default_impls! {}
 }
 
-impl CoiPointKeyPhrases for PositiveCoi {
-    fn key_phrases(&self) -> &KeyPhrases {
-        &self.key_phrases
-    }
-
-    fn swap_key_phrases(&mut self, mut candidates: KeyPhrases) -> KeyPhrases {
-        swap(&mut self.key_phrases, &mut candidates);
-        candidates
-    }
-}
-
-impl CoiPointStats for PositiveCoi {
-    fn stats(&self) -> CoiStats {
-        self.stats
-    }
-
-    fn update_stats(&mut self, viewed: Option<Duration>) {
-        self.stats.update(viewed);
-    }
-}
-
 impl CoiPoint for NegativeCoi {
     fn new(
         id: CoiId,
@@ -302,24 +178,6 @@ impl CoiPoint for NegativeCoi {
     }
 
     coi_point_default_impls! {}
-}
-
-impl CoiPointKeyPhrases for NegativeCoi {
-    fn key_phrases(&self) -> &KeyPhrases {
-        unimplemented!()
-    }
-
-    fn swap_key_phrases(&mut self, _candidates: KeyPhrases) -> KeyPhrases {
-        KeyPhrases::default()
-    }
-}
-
-impl CoiPointStats for NegativeCoi {
-    fn stats(&self) -> CoiStats {
-        CoiStats::default()
-    }
-
-    fn update_stats(&mut self, _viewed: Option<Duration>) {}
 }
 
 // generic types can't be versioned, but aliasing and proper naming in the proc macro call works

@@ -7,7 +7,9 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::{CoiPoint, CoiPointStats, CoiStats, KeyPhrases, UserInterests},
+        key_phrase::KeyPhrases,
+        point::{CoiPoint, UserInterests},
+        stats::{CoiPointStats, CoiStats},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },

@@ -5,9 +5,9 @@ use uuid::Uuid;
 
 use crate::{
     coi::{
+        key_phrase::KeyPhrases,
         point::{
             CoiPoint,
-            KeyPhrases,
             NegativeCoi,
             PositiveCoi,
             PositiveCoi_v0_0_0,

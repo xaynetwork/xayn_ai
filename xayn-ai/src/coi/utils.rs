@@ -68,7 +68,8 @@ pub(super) mod tests {
     use super::*;
     use crate::{
         coi::{
-            point::{CoiPoint, KeyPhrases, NegativeCoi, PositiveCoi},
+            key_phrase::KeyPhrases,
+            point::{CoiPoint, NegativeCoi, PositiveCoi},
             CoiId,
         },
         data::document_data::{
