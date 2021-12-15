@@ -1,4 +1,5 @@
-use ndarray::{Array1, Array2, ArrayBase, Data, Ix1};
+use itertools::Itertools;
+use ndarray::{Array1, Array2, ArrayBase, Data, Ix1, RawDataClone};
 use rubert::Embedding1;
 
 pub(crate) type Embedding = Embedding1;
@@ -70,22 +71,25 @@ pub fn pairwise_cosine_similarity<I, S>(iter: I) -> Array2<f32>
 where
     I: IntoIterator<Item = ArrayBase<S, Ix1>>,
     I::IntoIter: Clone,
-    S: Data<Elem = f32>,
+    S: Data<Elem = f32> + RawDataClone,
 {
     let iter = iter.into_iter();
-    let size = iter.size_hint().0;
+    let size = match iter.size_hint() {
+        (lower, Some(upper)) if lower == upper => lower,
+        (lower, None) if lower == usize::MAX => lower,
+        _ => unimplemented!("I::IntoIter: TrustedLen"),
+    };
 
     let norms = iter.clone().map(|a| l2_norm(a.view())).collect::<Vec<_>>();
     let mut similarities = Array2::ones((size, size));
-    for (i, a) in iter.clone().enumerate() {
-        if norms[i] != 0. {
-            for (j, b) in iter.clone().enumerate().skip(i + 1) {
-                if norms[j] != 0. {
-                    similarities[[i, j]] = a.dot(&b) / norms[i] / norms[j];
-                    similarities[[j, i]] = similarities[[i, j]];
-                }
-            }
-        }
+    for ((i, a), (j, b)) in iter
+        .clone()
+        .enumerate()
+        .cartesian_product(iter.enumerate())
+        .filter(|((i, _), (j, _))| j > i && norms[*i] > 0. && norms[*j] > 0.)
+    {
+        similarities[[i, j]] = a.dot(&b) / norms[i] / norms[j];
+        similarities[[j, i]] = similarities[[i, j]];
     }
 
     similarities

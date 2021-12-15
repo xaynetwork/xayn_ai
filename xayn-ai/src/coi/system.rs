@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::{CoiPoint, CoiPointStats, CoiStats, UserInterests},
+        point::{CoiPoint, CoiPointStats, CoiStats, KeyPhrases, UserInterests},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
@@ -131,7 +131,7 @@ impl CoiSystem {
             _ => cois.push(CP::new(
                 Uuid::new_v4().into(),
                 embedding.clone(),
-                Vec::new(), // TODO: set key phrases
+                KeyPhrases::default(), // TODO: set key phrases
                 viewed,
             )),
         }

@@ -7,6 +7,7 @@ use crate::{
     coi::{
         point::{
             CoiPoint,
+            KeyPhrases,
             NegativeCoi,
             PositiveCoi,
             PositiveCoi_v0_0_0,
@@ -107,7 +108,7 @@ fn cois_from_words<CP: CoiPoint>(
             CP::new(
                 CoiId::mocked(start_id + offset),
                 doc.smbert.embedding,
-                Vec::new(),
+                KeyPhrases::default(),
                 Some(Duration::from_secs(10)),
             )
         })

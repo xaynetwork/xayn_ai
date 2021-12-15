@@ -68,7 +68,7 @@ pub(super) mod tests {
     use super::*;
     use crate::{
         coi::{
-            point::{CoiPoint, NegativeCoi, PositiveCoi},
+            point::{CoiPoint, KeyPhrases, NegativeCoi, PositiveCoi},
             CoiId,
         },
         data::document_data::{
@@ -117,7 +117,7 @@ pub(super) mod tests {
                 CP::new(
                     CoiId::mocked(id),
                     arr1(point.as_init_slice()).into(),
-                    Vec::new(),
+                    KeyPhrases::default(),
                     Some(Duration::from_secs(10)),
                 )
             })
