@@ -26,6 +26,16 @@ impl KeyPhrase {
             Err(CoiError::InvalidKeyPhrase)
         }
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn words(&self) -> &str {
+        &self.words
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn point(&self) -> &Embedding {
+        &self.point
+    }
 }
 
 // invariant: must be unique
