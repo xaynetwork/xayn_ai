@@ -39,6 +39,4 @@ impl CoiId {
 pub(crate) enum CoiError {
     /// The key phrase is invalid (ie. either empty words or non-finite point)
     InvalidKeyPhrase,
-    /// The key phrases are not unique
-    DuplicateKeyPhrases,
 }

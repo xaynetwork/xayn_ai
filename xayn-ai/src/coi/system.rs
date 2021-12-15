@@ -1,4 +1,4 @@
-use std::{ops::Deref, time::Duration};
+use std::{collections::HashSet, ops::Deref, time::Duration};
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -7,7 +7,6 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        key_phrase::KeyPhrases,
         point::{CoiPoint, UserInterests},
         stats::{CoiPointStats, CoiStats},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
@@ -133,7 +132,7 @@ impl CoiSystem {
             _ => cois.push(CP::new(
                 Uuid::new_v4().into(),
                 embedding.clone(),
-                KeyPhrases::default(), // TODO: set key phrases
+                HashSet::default(), // TODO: set key phrases
                 viewed,
             )),
         }

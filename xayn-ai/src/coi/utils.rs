@@ -61,14 +61,13 @@ fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
 
 #[cfg(test)]
 pub(super) mod tests {
-    use std::time::Duration;
+    use std::{collections::HashSet, time::Duration};
 
     use ndarray::{arr1, FixedInitializer};
 
     use super::*;
     use crate::{
         coi::{
-            key_phrase::KeyPhrases,
             point::{CoiPoint, NegativeCoi, PositiveCoi},
             CoiId,
         },
@@ -118,7 +117,7 @@ pub(super) mod tests {
                 CP::new(
                     CoiId::mocked(id),
                     arr1(point.as_init_slice()).into(),
-                    KeyPhrases::default(),
+                    HashSet::default(),
                     Some(Duration::from_secs(10)),
                 )
             })

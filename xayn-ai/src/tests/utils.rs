@@ -1,11 +1,10 @@
-use std::{ops::Range, time::Duration};
+use std::{collections::HashSet, ops::Range, time::Duration};
 
 use ndarray::arr1;
 use uuid::Uuid;
 
 use crate::{
     coi::{
-        key_phrase::KeyPhrases,
         point::{
             CoiPoint,
             NegativeCoi,
@@ -108,7 +107,7 @@ fn cois_from_words<CP: CoiPoint>(
             CP::new(
                 CoiId::mocked(start_id + offset),
                 doc.smbert.embedding,
-                KeyPhrases::default(),
+                HashSet::default(),
                 Some(Duration::from_secs(10)),
             )
         })

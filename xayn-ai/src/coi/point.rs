@@ -1,10 +1,10 @@
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    coi::{key_phrase::KeyPhrases, stats::CoiStats, CoiId},
+    coi::{key_phrase::KeyPhrase, stats::CoiStats, CoiId},
     embedding::utils::Embedding,
 };
 
@@ -21,7 +21,7 @@ pub(crate) struct PositiveCoi {
     #[obake(cfg(">=0.0"))]
     pub(super) point: Embedding,
     #[obake(cfg(">=0.3"))]
-    pub(super) key_phrases: KeyPhrases,
+    pub(super) key_phrases: HashSet<KeyPhrase>,
     #[obake(cfg(">=0.3"))]
     #[derivative(PartialEq = "ignore")]
     pub(super) stats: CoiStats,
@@ -58,7 +58,7 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
         Self {
             id: coi.id,
             point: coi.point,
-            key_phrases: KeyPhrases::default(),
+            key_phrases: HashSet::default(),
             stats: CoiStats::default(),
         }
     }
@@ -71,7 +71,12 @@ pub(crate) struct NegativeCoi {
 }
 
 pub(crate) trait CoiPoint {
-    fn new(id: CoiId, point: Embedding, key_phrases: KeyPhrases, viewed: Option<Duration>) -> Self;
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        key_phrases: HashSet<KeyPhrase>,
+        viewed: Option<Duration>,
+    ) -> Self;
 
     fn id(&self) -> CoiId;
 
@@ -107,7 +112,7 @@ impl CoiPoint for PositiveCoi_v0_0_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: KeyPhrases,
+        _key_phrases: HashSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -126,7 +131,7 @@ impl CoiPoint for PositiveCoi_v0_1_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: KeyPhrases,
+        _key_phrases: HashSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -145,7 +150,7 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: KeyPhrases,
+        _key_phrases: HashSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self { id, point }
@@ -155,7 +160,12 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
 }
 
 impl CoiPoint for PositiveCoi {
-    fn new(id: CoiId, point: Embedding, key_phrases: KeyPhrases, viewed: Option<Duration>) -> Self {
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        key_phrases: HashSet<KeyPhrase>,
+        viewed: Option<Duration>,
+    ) -> Self {
         Self {
             id,
             point,
@@ -171,7 +181,7 @@ impl CoiPoint for NegativeCoi {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: KeyPhrases,
+        _key_phrases: HashSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self { id, point }
