@@ -1,19 +1,21 @@
-use std::{collections::BTreeSet, ops::Deref, time::Duration};
+use std::{borrow::Borrow, collections::BTreeSet, iter::once, ops::Deref, time::Duration};
 
 use displaydoc::Display;
+use ndarray::{s, Array1, Array2, ArrayBase, Axis, Data, Ix, Ix2};
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
     coi::{
         config::Configuration,
+        key_phrase::{CoiPointKeyPhrases, KeyPhrase},
         point::{CoiPoint, UserInterests},
         stats::{CoiPointStats, CoiStats},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
-    embedding::utils::{l2_distance, Embedding},
+    embedding::utils::{cosine_similarity, l2_distance, pairwise_cosine_similarity, Embedding},
     reranker::systems::{self, CoiSystemData},
     utils::{system_time_now, SECONDS_PER_DAY},
     DocumentHistory,
@@ -213,6 +215,142 @@ impl CoiSystem {
                 (count + time) * last
             })
             .collect()
+    }
+
+    #[allow(dead_code)]
+    fn select_key_phrases<
+        CP: CoiPoint + CoiPointKeyPhrases,
+        F: Fn(&str) -> Result<Embedding, Error>,
+    >(
+        &self,
+        coi: &mut CP,
+        candidates: Vec<String>,
+        smbert: F,
+    ) -> Result<Vec<f32>, Error> {
+        fn reduce_without_diag<S, F>(a: ArrayBase<S, Ix2>, axis: Axis, f: F) -> Array2<f32>
+        where
+            S: Data<Elem = f32>,
+            F: Fn(f32, f32) -> f32,
+        {
+            let n = a.len_of(axis);
+            a.lanes(axis)
+                .into_iter()
+                .enumerate()
+                .map(|(i, lane)| {
+                    lane.into_iter()
+                        .take(i)
+                        .skip(1)
+                        .take(n - i - 1)
+                        .copied()
+                        .reduce(|reduced, element| f(reduced, element))
+                        .unwrap()
+                })
+                .collect::<Array1<_>>()
+                .insert_axis(Axis((axis.index() + 1) % 2))
+        }
+
+        fn argmax<I, F>(iter: I) -> Ix
+        where
+            I: IntoIterator<Item = F>,
+            F: Borrow<f32>,
+        {
+            iter.into_iter()
+                .enumerate()
+                .reduce(|(arg, max), (index, element)| {
+                    if element.borrow() > max.borrow() {
+                        (index, element)
+                    } else {
+                        (arg, max)
+                    }
+                })
+                .unwrap()
+                .0
+        }
+
+        let candidates = candidates
+            .into_iter()
+            .filter_map(|words| {
+                coi.key_phrases()
+                    .iter()
+                    .all(|key_phrase| key_phrase.words() != words)
+                    .then(|| {
+                        smbert(words.as_str())
+                            .and_then(|point| KeyPhrase::new(words, point).map_err(Into::into))
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let len = coi.key_phrases().len() + candidates.len();
+        let max_key_phrases = self.config.max_key_phrases.min(len);
+        if max_key_phrases == 0 {
+            coi.swap_key_phrases(BTreeSet::default());
+            return Ok(Vec::new());
+        }
+        if candidates.is_empty() && len <= self.config.max_key_phrases {
+            let similarity = coi
+                .key_phrases()
+                .iter()
+                .map(|key_phrase| cosine_similarity(key_phrase.point().view(), coi.point().view()))
+                .collect();
+            return Ok(similarity);
+        }
+
+        let similarity = pairwise_cosine_similarity(
+            coi.key_phrases()
+                .iter()
+                .chain(candidates.iter())
+                .map(|key_phrase| key_phrase.point().view())
+                .chain(once(coi.point().view())),
+        )
+        .slice_move(s![..len, ..]);
+
+        // division by zero: all key phrases are unique, hence max != min and std_dev != 0
+        // unwrap: key phrases aren't empty and at least one is selected, hence iterators yield some
+        let min = reduce_without_diag(similarity.view(), Axis(0), f32::min);
+        let max = reduce_without_diag(similarity.view(), Axis(0), f32::max);
+        let normalized = (&similarity - &min) / (max - min);
+        let mean = normalized.mean_axis(Axis(0)).unwrap().insert_axis(Axis(0));
+        let std_dev = normalized.std_axis(Axis(0), 0.).insert_axis(Axis(0));
+        let normalized = (normalized - mean) / std_dev + 0.5;
+
+        let candidate = argmax(normalized.slice(s![.., len + 1]));
+        let mut selected = vec![false; len];
+        selected[candidate] = true;
+        for _ in 0..max_key_phrases - 1 {
+            let candidate = argmax(selected.iter().zip(normalized.rows()).map(
+                |(&is_selected, normalized)| {
+                    if is_selected {
+                        f32::MIN
+                    } else {
+                        let max = selected
+                            .iter()
+                            .zip(normalized)
+                            .filter_map(|(is_selected, normalized)| {
+                                is_selected.then(|| *normalized)
+                            })
+                            .reduce(f32::max)
+                            .unwrap();
+                        self.config.gamma * normalized[len + 1] - (1. - self.config.gamma) * max
+                    }
+                },
+            ));
+            selected[candidate] = true;
+        }
+
+        let similarity = selected
+            .iter()
+            .zip(similarity.slice(s![.., len + 1]))
+            .filter_map(|(&is_selected, &similarity)| is_selected.then(|| similarity))
+            .collect();
+        let key_phrases = coi.swap_key_phrases(BTreeSet::default());
+        let key_phrases = selected
+            .into_iter()
+            .zip(key_phrases.into_iter().chain(candidates))
+            .filter_map(|(is_selected, key_phrase)| is_selected.then(|| key_phrase))
+            .collect();
+        coi.swap_key_phrases(key_phrases);
+
+        Ok(similarity)
     }
 }
 
