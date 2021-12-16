@@ -61,7 +61,7 @@ fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
 
 #[cfg(test)]
 pub(super) mod tests {
-    use std::{collections::HashSet, time::Duration};
+    use std::{collections::BTreeSet, time::Duration};
 
     use ndarray::{arr1, FixedInitializer};
 
@@ -117,7 +117,7 @@ pub(super) mod tests {
                 CP::new(
                     CoiId::mocked(id),
                     arr1(point.as_init_slice()).into(),
-                    HashSet::default(),
+                    BTreeSet::default(),
                     Some(Duration::from_secs(10)),
                 )
             })

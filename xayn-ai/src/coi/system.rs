@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Deref, time::Duration};
+use std::{collections::BTreeSet, ops::Deref, time::Duration};
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -132,7 +132,7 @@ impl CoiSystem {
             _ => cois.push(CP::new(
                 Uuid::new_v4().into(),
                 embedding.clone(),
-                HashSet::default(), // TODO: set key phrases
+                BTreeSet::default(), // TODO: set key phrases
                 viewed,
             )),
         }

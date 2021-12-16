@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::{collections::BTreeSet, time::Duration};
 
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ pub(crate) struct PositiveCoi {
     #[obake(cfg(">=0.0"))]
     pub(super) point: Embedding,
     #[obake(cfg(">=0.3"))]
-    pub(super) key_phrases: HashSet<KeyPhrase>,
+    pub(super) key_phrases: BTreeSet<KeyPhrase>,
     #[obake(cfg(">=0.3"))]
     #[derivative(PartialEq = "ignore")]
     pub(super) stats: CoiStats,
@@ -58,7 +58,7 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
         Self {
             id: coi.id,
             point: coi.point,
-            key_phrases: HashSet::default(),
+            key_phrases: BTreeSet::default(),
             stats: CoiStats::default(),
         }
     }
@@ -74,7 +74,7 @@ pub(crate) trait CoiPoint {
     fn new(
         id: CoiId,
         point: Embedding,
-        key_phrases: HashSet<KeyPhrase>,
+        key_phrases: BTreeSet<KeyPhrase>,
         viewed: Option<Duration>,
     ) -> Self;
 
@@ -112,7 +112,7 @@ impl CoiPoint for PositiveCoi_v0_0_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: HashSet<KeyPhrase>,
+        _key_phrases: BTreeSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -131,7 +131,7 @@ impl CoiPoint for PositiveCoi_v0_1_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: HashSet<KeyPhrase>,
+        _key_phrases: BTreeSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -150,7 +150,7 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: HashSet<KeyPhrase>,
+        _key_phrases: BTreeSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self { id, point }
@@ -163,7 +163,7 @@ impl CoiPoint for PositiveCoi {
     fn new(
         id: CoiId,
         point: Embedding,
-        key_phrases: HashSet<KeyPhrase>,
+        key_phrases: BTreeSet<KeyPhrase>,
         viewed: Option<Duration>,
     ) -> Self {
         Self {
@@ -181,7 +181,7 @@ impl CoiPoint for NegativeCoi {
     fn new(
         id: CoiId,
         point: Embedding,
-        _key_phrases: HashSet<KeyPhrase>,
+        _key_phrases: BTreeSet<KeyPhrase>,
         _viewed: Option<Duration>,
     ) -> Self {
         Self { id, point }
