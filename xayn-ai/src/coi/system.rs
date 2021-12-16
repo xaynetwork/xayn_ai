@@ -1,4 +1,11 @@
-use std::{borrow::Borrow, collections::BTreeSet, iter::once, ops::Deref, time::Duration};
+use std::{
+    borrow::Borrow,
+    collections::BTreeSet,
+    convert::identity,
+    iter::once,
+    ops::Deref,
+    time::Duration,
+};
 
 use displaydoc::Display;
 use ndarray::{s, Array1, Array2, ArrayBase, Axis, Data, Ix, Ix2};
@@ -217,6 +224,7 @@ impl CoiSystem {
             .collect()
     }
 
+    /// TODO
     #[allow(dead_code)]
     fn select_key_phrases<
         CP: CoiPoint + CoiPointKeyPhrases,
@@ -224,29 +232,29 @@ impl CoiSystem {
     >(
         &self,
         coi: &mut CP,
-        candidates: Vec<String>,
+        mut candidates: Vec<String>,
         smbert: F,
     ) -> Result<Vec<f32>, Error> {
-        fn reduce_without_diag<S, F>(a: ArrayBase<S, Ix2>, axis: Axis, f: F) -> Array2<f32>
+        fn reduce_without_diag<S, F, G>(a: ArrayBase<S, Ix2>, axis: Axis, f: F, g: G) -> Array2<f32>
         where
             S: Data<Elem = f32>,
             F: Fn(f32, f32) -> f32,
+            G: Fn(f32) -> f32,
         {
-            let n = a.len_of(axis);
             a.lanes(axis)
                 .into_iter()
                 .enumerate()
                 .map(|(i, lane)| {
-                    lane.into_iter()
+                    lane.iter()
                         .take(i)
-                        .skip(1)
-                        .take(n - i - 1)
+                        .chain(lane.iter().skip(i + 1))
                         .copied()
                         .reduce(|reduced, element| f(reduced, element))
-                        .unwrap()
+                        .map(|reduced| g(reduced))
+                        .unwrap_or_default()
                 })
                 .collect::<Array1<_>>()
-                .insert_axis(Axis((axis.index() + 1) % 2))
+                .insert_axis(axis)
         }
 
         fn argmax<I, F>(iter: I) -> Ix
@@ -263,10 +271,25 @@ impl CoiSystem {
                         (arg, max)
                     }
                 })
-                .unwrap()
-                .0
+                .map(|(arg, _)| arg)
+                .unwrap_or_default()
         }
 
+        fn collect_relevance<I>(iter: I) -> Vec<f32>
+        where
+            I: Clone + Iterator<Item = f32>,
+        {
+            let min = iter.clone().reduce(f32::min).unwrap_or_default();
+            let max = iter.clone().reduce(f32::max).unwrap_or(1.);
+            iter.map(|relevance| {
+                let relevance = (relevance - min) / (max - min);
+                relevance.is_finite().then(|| relevance).unwrap_or_default()
+            })
+            .collect()
+        }
+
+        candidates.sort_unstable();
+        candidates.dedup();
         let candidates = candidates
             .into_iter()
             .filter_map(|words| {
@@ -286,13 +309,13 @@ impl CoiSystem {
             coi.swap_key_phrases(BTreeSet::default());
             return Ok(Vec::new());
         }
-        if candidates.is_empty() && len <= self.config.max_key_phrases {
-            let similarity = coi
-                .key_phrases()
-                .iter()
-                .map(|key_phrase| cosine_similarity(key_phrase.point().view(), coi.point().view()))
-                .collect();
-            return Ok(similarity);
+        if candidates.is_empty() && max_key_phrases <= self.config.max_key_phrases {
+            let relevance = collect_relevance(coi.key_phrases().iter().map(|key_phrase| {
+                cosine_similarity(key_phrase.point().view(), coi.point().view())
+            }));
+            debug_assert_eq!(relevance.len(), max_key_phrases);
+            debug_assert!(relevance.iter().copied().all(f32::is_finite));
+            return Ok(relevance);
         }
 
         let similarity = pairwise_cosine_similarity(
@@ -303,17 +326,31 @@ impl CoiSystem {
                 .chain(once(coi.point().view())),
         )
         .slice_move(s![..len, ..]);
+        debug_assert_eq!(similarity.shape(), [len, len + 1]);
+        debug_assert!(similarity.iter().copied().all(f32::is_finite));
 
-        // division by zero: all key phrases are unique, hence max != min and std_dev != 0
-        // unwrap: key phrases aren't empty and at least one is selected, hence iterators yield some
-        let min = reduce_without_diag(similarity.view(), Axis(0), f32::min);
-        let max = reduce_without_diag(similarity.view(), Axis(0), f32::max);
+        let min = reduce_without_diag(similarity.view(), Axis(0), f32::min, identity);
+        let max = reduce_without_diag(similarity.view(), Axis(0), f32::max, identity);
         let normalized = (&similarity - &min) / (max - min);
-        let mean = normalized.mean_axis(Axis(0)).unwrap().insert_axis(Axis(0));
-        let std_dev = normalized.std_axis(Axis(0), 0.).insert_axis(Axis(0));
+        let mean = reduce_without_diag(
+            normalized.view(),
+            Axis(0),
+            |reduced, element| reduced + element,
+            |reduced| reduced / (len - 1) as f32,
+        );
+        let std_dev = reduce_without_diag(
+            &normalized - &mean,
+            Axis(0),
+            |reduced, element| reduced + element.powi(2),
+            |reduced| (reduced / (len - 1) as f32).sqrt(),
+        );
         let normalized = (normalized - mean) / std_dev + 0.5;
+        let normalized = normalized
+            .mapv_into(|normalized| normalized.is_finite().then(|| normalized).unwrap_or(0.5));
+        debug_assert_eq!(normalized.shape(), [len, len + 1]);
+        debug_assert!(normalized.iter().copied().all(f32::is_finite));
 
-        let candidate = argmax(normalized.slice(s![.., len + 1]));
+        let candidate = argmax(normalized.slice(s![.., len]));
         let mut selected = vec![false; len];
         selected[candidate] = true;
         for _ in 0..max_key_phrases - 1 {
@@ -329,19 +366,27 @@ impl CoiSystem {
                                 is_selected.then(|| *normalized)
                             })
                             .reduce(f32::max)
-                            .unwrap();
-                        self.config.gamma * normalized[len + 1] - (1. - self.config.gamma) * max
+                            .unwrap_or_default();
+                        self.config.gamma * normalized[len] - (1. - self.config.gamma) * max
                     }
                 },
             ));
             selected[candidate] = true;
         }
+        debug_assert_eq!(
+            selected.iter().filter(|&&is_selected| is_selected).count(),
+            max_key_phrases,
+        );
 
-        let similarity = selected
-            .iter()
-            .zip(similarity.slice(s![.., len + 1]))
-            .filter_map(|(&is_selected, &similarity)| is_selected.then(|| similarity))
-            .collect();
+        let relevance = collect_relevance(
+            selected
+                .iter()
+                .zip(similarity.slice(s![.., len]))
+                .filter_map(|(is_selected, relevance)| is_selected.then(|| relevance))
+                .copied(),
+        );
+        debug_assert_eq!(relevance.len(), max_key_phrases);
+        debug_assert!(relevance.iter().copied().all(f32::is_finite));
         let key_phrases = coi.swap_key_phrases(BTreeSet::default());
         let key_phrases = selected
             .into_iter()
@@ -349,8 +394,9 @@ impl CoiSystem {
             .filter_map(|(is_selected, key_phrase)| is_selected.then(|| key_phrase))
             .collect();
         coi.swap_key_phrases(key_phrases);
+        debug_assert_eq!(coi.key_phrases().len(), max_key_phrases);
 
-        Ok(similarity)
+        Ok(relevance)
     }
 }
 
@@ -798,5 +844,166 @@ mod tests {
             [0.48729968, 0.15438259, 0.],
             epsilon = 0.00001,
         );
+    }
+
+    #[test]
+    fn test_select_key_phrases_empty() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let candidates = Vec::new();
+        let smbert = |_: &str| unreachable!();
+        let similarity = CoiSystem::default()
+            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .unwrap();
+        assert!(coi[0].key_phrases().is_empty());
+        assert!(similarity.is_empty());
+    }
+
+    #[test]
+    fn test_select_key_phrases_no_candidates() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[1., 1., 1.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        coi[0].swap_key_phrases(key_phrases.clone());
+        let candidates = Vec::new();
+        let smbert = |_: &str| unreachable!();
+        let relevance = CoiSystem::default()
+            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .unwrap();
+        assert_eq!(coi[0].key_phrases(), &key_phrases);
+        assert_approx_eq!(f32, relevance, [1., 0.]);
+    }
+
+    #[test]
+    fn test_select_key_phrases_only_candidates() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[1., 1., 1.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        let candidates = key_phrases
+            .iter()
+            .map(|key_phrase| key_phrase.words().to_string())
+            .collect();
+        let smbert = |words: &str| {
+            key_phrases
+                .iter()
+                .find_map(|key_phrase| {
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                })
+                .unwrap()
+        };
+        let relevance = CoiSystem::default()
+            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .unwrap();
+        assert_eq!(coi[0].key_phrases(), &key_phrases);
+        assert_approx_eq!(f32, relevance, [1., 0.]);
+    }
+
+    #[test]
+    fn test_select_key_phrases_max() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[2., 1., 1.])).unwrap(),
+            KeyPhrase::new("test", arr1(&[1., 1., 1.])).unwrap(),
+            KeyPhrase::new("words", arr1(&[2., 1., 0.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        coi[0].swap_key_phrases(key_phrases.iter().cloned().take(2).collect());
+        let candidates = key_phrases
+            .iter()
+            .skip(2)
+            .map(|key_phrase| key_phrase.words().to_string())
+            .collect();
+        let smbert = |words: &str| {
+            key_phrases
+                .iter()
+                .find_map(|key_phrase| {
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                })
+                .unwrap()
+        };
+        let system = CoiSystem::default();
+        let relevance = system
+            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .unwrap();
+        assert_eq!(coi[0].key_phrases().len(), system.config.max_key_phrases);
+        assert_eq!(
+            coi[0].key_phrases().iter().next().unwrap(),
+            key_phrases.iter().next().unwrap(),
+        );
+        assert_eq!(
+            coi[0].key_phrases().iter().nth(1).unwrap(),
+            key_phrases.iter().nth(1).unwrap(),
+        );
+        assert_eq!(
+            coi[0].key_phrases().iter().nth(2).unwrap(),
+            key_phrases.iter().nth(3).unwrap(),
+        );
+        assert_approx_eq!(f32, relevance, [0., 0.58397216, 1.], epsilon = 0.000001);
+    }
+
+    #[test]
+    fn test_select_key_phrases_duplicate() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[1., 1., 1.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        coi[0].swap_key_phrases(key_phrases.iter().cloned().take(1).collect());
+        let candidates = key_phrases
+            .iter()
+            .skip(1)
+            .map(|key_phrase| key_phrase.words().to_string())
+            .cycle()
+            .take(2)
+            .collect();
+        let smbert = |words: &str| {
+            key_phrases
+                .iter()
+                .find_map(|key_phrase| {
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                })
+                .unwrap()
+        };
+        let relevance = CoiSystem::default()
+            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .unwrap();
+        assert_eq!(coi[0].key_phrases(), &key_phrases);
+        assert_approx_eq!(f32, relevance, [1., 0.]);
+    }
+
+    #[test]
+    fn test_select_key_phrases_orthogonal() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[0., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[0., 0., 1.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        coi[0].swap_key_phrases(key_phrases.iter().cloned().take(1).collect());
+        let candidates = key_phrases
+            .iter()
+            .skip(1)
+            .map(|key_phrase| key_phrase.words().to_string())
+            .collect();
+        let smbert = |words: &str| {
+            key_phrases
+                .iter()
+                .find_map(|key_phrase| {
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                })
+                .unwrap()
+        };
+        let relevance = CoiSystem::default()
+            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .unwrap();
+        assert_eq!(coi[0].key_phrases(), &key_phrases);
+        assert_approx_eq!(f32, relevance, [0., 0.]);
     }
 }
