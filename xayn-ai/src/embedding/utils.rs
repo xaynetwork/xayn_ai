@@ -66,7 +66,6 @@ where
 /// [`TrustedLen`]: std::iter::TrustedLen
 /// [`ExactSizeIterator`]: std::iter::ExactSizeIterator
 /// [`Chain`]: std::iter::Chain
-#[allow(dead_code)]
 pub fn pairwise_cosine_similarity<I, S>(iter: I) -> Array2<f32>
 where
     I: IntoIterator<Item = ArrayBase<S, Ix1>>,
@@ -101,7 +100,6 @@ where
 ///
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
-#[allow(dead_code)]
 pub fn cosine_similarity<S>(a: ArrayBase<S, Ix1>, b: ArrayBase<S, Ix1>) -> f32
 where
     S: Data<Elem = f32>,

@@ -26,7 +26,6 @@ lazy_static! {
 }
 
 impl KeyPhrase {
-    #[allow(dead_code)]
     pub(crate) fn new(
         words: impl Into<String>,
         point: impl Into<Embedding>,
@@ -40,12 +39,10 @@ impl KeyPhrase {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn words(&self) -> &str {
         &self.words
     }
 
-    #[allow(dead_code)]
     pub(crate) fn point(&self) -> &Embedding {
         &self.point
     }

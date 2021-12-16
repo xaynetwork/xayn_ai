@@ -224,7 +224,11 @@ impl CoiSystem {
             .collect()
     }
 
-    /// TODO
+    /// Selects the most relevant key phrases for the coi.
+    ///
+    /// The most relevant key phrases are selected from the set of key phrases of the coi and the
+    /// candidates. The returned relevances are a relative score from the interval `[0, 1]` and are
+    /// in the same order as the selected key phrases.
     #[allow(dead_code)]
     fn select_key_phrases<
         CP: CoiPoint + CoiPointKeyPhrases,
@@ -233,8 +237,10 @@ impl CoiSystem {
         &self,
         coi: &mut CP,
         mut candidates: Vec<String>,
+        // TODO: make SMBert available to CoiSystem and remove this argument
         smbert: F,
     ) -> Result<Vec<f32>, Error> {
+        /// Reduces the matrix along the axis while skipping the diagonal elements.
         fn reduce_without_diag<S, F, G>(a: ArrayBase<S, Ix2>, axis: Axis, f: F, g: G) -> Array2<f32>
         where
             S: Data<Elem = f32>,
@@ -257,6 +263,7 @@ impl CoiSystem {
                 .insert_axis(axis)
         }
 
+        /// Gets the index of the maximum element.
         fn argmax<I, F>(iter: I) -> Ix
         where
             I: IntoIterator<Item = F>,
@@ -275,6 +282,7 @@ impl CoiSystem {
                 .unwrap_or_default()
         }
 
+        /// Collects the normalized similarity.
         fn collect_relevance<I>(iter: I) -> Vec<f32>
         where
             I: Clone + Iterator<Item = f32>,
