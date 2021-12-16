@@ -1,76 +1,36 @@
-use std::time::{Duration, SystemTime};
+use std::{collections::BTreeSet, time::Duration};
 
-#[cfg(test)]
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
-use crate::{coi::CoiId, embedding::utils::Embedding, utils::system_time_now};
-
-#[derive(Clone, Copy, Deserialize, Serialize)]
-#[cfg_attr(test, derive(Debug))]
-pub(crate) struct CoiStats {
-    pub(crate) view_count: usize,
-    pub(crate) view_time: Duration,
-    pub(crate) last_view: SystemTime,
-}
-
-impl CoiStats {
-    pub(crate) fn new(viewed: Option<Duration>) -> Self {
-        Self {
-            view_count: 1,
-            view_time: viewed.unwrap_or_default(),
-            last_view: system_time_now(),
-        }
-    }
-
-    pub(crate) fn update(&mut self, viewed: Option<Duration>) {
-        self.view_count += 1;
-        if let Some(viewed) = viewed {
-            self.view_time += viewed;
-        }
-        self.last_view = system_time_now();
-    }
-
-    pub(crate) fn merge(self, other: Self) -> Self {
-        Self {
-            view_count: self.view_count + other.view_count,
-            view_time: self.view_time + other.view_time,
-            last_view: self.last_view.max(other.last_view),
-        }
-    }
-}
-
-impl Default for CoiStats {
-    fn default() -> Self {
-        Self {
-            view_count: 1,
-            view_time: Duration::ZERO,
-            last_view: SystemTime::UNIX_EPOCH,
-        }
-    }
-}
+use crate::{
+    coi::{key_phrase::KeyPhrase, stats::CoiStats, CoiId},
+    embedding::utils::Embedding,
+};
 
 #[obake::versioned]
 #[obake(version("0.0.0"))]
 #[obake(version("0.1.0"))]
 #[obake(version("0.2.0"))]
 #[obake(version("0.3.0"))]
-#[derive(Clone, Deserialize, Serialize)]
-#[cfg_attr(test, derive(Debug, Derivative), derivative(PartialEq))]
+#[derive(Clone, Debug, Derivative, Deserialize, Serialize)]
+#[derivative(PartialEq)]
 pub(crate) struct PositiveCoi {
     #[obake(cfg(">=0.0"))]
-    pub(crate) id: CoiId,
+    pub(super) id: CoiId,
     #[obake(cfg(">=0.0"))]
-    pub(crate) point: Embedding,
+    pub(super) point: Embedding,
     #[obake(cfg(">=0.3"))]
-    #[cfg_attr(test, derivative(PartialEq = "ignore"))]
-    pub(crate) stats: CoiStats,
+    pub(super) key_phrases: BTreeSet<KeyPhrase>,
+    #[obake(cfg(">=0.3"))]
+    #[derivative(PartialEq = "ignore")]
+    pub(super) stats: CoiStats,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
-    pub(crate) alpha: f32,
+    pub(super) alpha: f32,
     #[obake(cfg(">=0.0, <0.2"))]
-    pub(crate) beta: f32,
+    pub(super) beta: f32,
 }
 
 impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
@@ -98,20 +58,25 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
         Self {
             id: coi.id,
             point: coi.point,
+            key_phrases: BTreeSet::default(),
             stats: CoiStats::default(),
         }
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub(crate) struct NegativeCoi {
     pub id: CoiId,
     pub point: Embedding,
 }
 
 pub(crate) trait CoiPoint {
-    fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self;
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        key_phrases: BTreeSet<KeyPhrase>,
+        viewed: Option<Duration>,
+    ) -> Self;
 
     fn id(&self) -> CoiId;
 
@@ -120,14 +85,6 @@ pub(crate) trait CoiPoint {
     fn point(&self) -> &Embedding;
 
     fn set_point(&mut self, embedding: Embedding);
-
-    fn stats(&self) -> CoiStats {
-        CoiStats::default()
-    }
-
-    fn update_stats(&mut self, viewed: Option<Duration>) {
-        #![allow(unused_variables)]
-    }
 }
 
 macro_rules! coi_point_default_impls {
@@ -152,7 +109,12 @@ macro_rules! coi_point_default_impls {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_0_0 {
-    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        _key_phrases: BTreeSet<KeyPhrase>,
+        _viewed: Option<Duration>,
+    ) -> Self {
         Self {
             id,
             point,
@@ -166,7 +128,12 @@ impl CoiPoint for PositiveCoi_v0_0_0 {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_1_0 {
-    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        _key_phrases: BTreeSet<KeyPhrase>,
+        _viewed: Option<Duration>,
+    ) -> Self {
         Self {
             id,
             point,
@@ -180,7 +147,12 @@ impl CoiPoint for PositiveCoi_v0_1_0 {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_2_0 {
-    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        _key_phrases: BTreeSet<KeyPhrase>,
+        _viewed: Option<Duration>,
+    ) -> Self {
         Self { id, point }
     }
 
@@ -188,27 +160,30 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
 }
 
 impl CoiPoint for PositiveCoi {
-    fn new(id: CoiId, point: Embedding, viewed: Option<Duration>) -> Self {
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        key_phrases: BTreeSet<KeyPhrase>,
+        viewed: Option<Duration>,
+    ) -> Self {
         Self {
             id,
             point,
+            key_phrases,
             stats: CoiStats::new(viewed),
         }
     }
 
     coi_point_default_impls! {}
-
-    fn stats(&self) -> CoiStats {
-        self.stats
-    }
-
-    fn update_stats(&mut self, viewed: Option<Duration>) {
-        self.stats.update(viewed);
-    }
 }
 
 impl CoiPoint for NegativeCoi {
-    fn new(id: CoiId, point: Embedding, _viewed: Option<Duration>) -> Self {
+    fn new(
+        id: CoiId,
+        point: Embedding,
+        _key_phrases: BTreeSet<KeyPhrase>,
+        _viewed: Option<Duration>,
+    ) -> Self {
         Self { id, point }
     }
 
@@ -230,8 +205,7 @@ type PositiveCois_v0_3_0 = Vec<PositiveCoi>;
 #[obake(version("0.1.0"))]
 #[obake(version("0.2.0"))]
 #[obake(version("0.3.0"))]
-#[derive(Clone, Default, Deserialize, Serialize)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub(crate) struct UserInterests {
     #[obake(inherit)]
     #[obake(cfg(">=0.0"))]

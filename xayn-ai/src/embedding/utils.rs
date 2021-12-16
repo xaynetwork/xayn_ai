@@ -1,4 +1,5 @@
-use ndarray::{Array1, Array2, ArrayBase, Data, Ix1};
+use itertools::Itertools;
+use ndarray::{Array1, Array2, ArrayBase, Data, Ix1, RawDataClone};
 use rubert::Embedding1;
 
 pub(crate) type Embedding = Embedding1;
@@ -57,27 +58,38 @@ where
 ///
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
+///
+/// Only use this with [`TrustedLen`] iterators, otherwise indexing may panic. The bound can't be
+/// named currently, because the trait is nightly-gated. [`ExactSizeIterator`] isn't a feasible and
+/// trusted replacement, for example it isn't implemented for [`Chain`]ed iterators.
+///
+/// [`TrustedLen`]: std::iter::TrustedLen
+/// [`ExactSizeIterator`]: std::iter::ExactSizeIterator
+/// [`Chain`]: std::iter::Chain
 #[allow(dead_code)]
-pub fn pairwise_cosine_similarity<'a, I, S>(iter: I) -> Array2<f32>
+pub fn pairwise_cosine_similarity<I, S>(iter: I) -> Array2<f32>
 where
-    I: IntoIterator<Item = &'a ArrayBase<S, Ix1>>,
-    I::IntoIter: Clone + ExactSizeIterator,
-    S: Data<Elem = f32> + 'a,
+    I: IntoIterator<Item = ArrayBase<S, Ix1>>,
+    I::IntoIter: Clone,
+    S: Data<Elem = f32> + RawDataClone,
 {
     let iter = iter.into_iter();
-    let size = iter.len();
+    let size = match iter.size_hint() {
+        (lower, Some(upper)) if lower == upper => lower,
+        (lower, None) if lower == usize::MAX => lower,
+        _ => unimplemented!("I::IntoIter: TrustedLen"),
+    };
 
     let norms = iter.clone().map(|a| l2_norm(a.view())).collect::<Vec<_>>();
     let mut similarities = Array2::ones((size, size));
-    for (i, a) in iter.clone().enumerate() {
-        if norms[i] != 0. {
-            for (j, b) in iter.clone().enumerate().skip(i + 1) {
-                if norms[j] != 0. {
-                    similarities[[i, j]] = a.dot(b) / norms[i] / norms[j];
-                    similarities[[j, i]] = similarities[[i, j]];
-                }
-            }
-        }
+    for ((i, a), (j, b)) in iter
+        .clone()
+        .enumerate()
+        .cartesian_product(iter.enumerate())
+        .filter(|((i, _), (j, _))| j > i && norms[*i] > 0. && norms[*j] > 0.)
+    {
+        similarities[[i, j]] = a.dot(&b) / norms[i] / norms[j];
+        similarities[[j, i]] = similarities[[i, j]];
     }
 
     similarities
@@ -94,7 +106,7 @@ pub fn cosine_similarity<S>(a: ArrayBase<S, Ix1>, b: ArrayBase<S, Ix1>) -> f32
 where
     S: Data<Elem = f32>,
 {
-    pairwise_cosine_similarity(&[a, b])[[0, 1]]
+    pairwise_cosine_similarity([a.view(), b.view()])[[0, 1]]
 }
 
 #[cfg(test)]
@@ -149,7 +161,7 @@ mod tests {
     fn test_cosine_similarity_empty() {
         assert_approx_eq!(
             f32,
-            pairwise_cosine_similarity(&[] as &[Array1<f32>]),
+            pairwise_cosine_similarity([] as [Array1<f32>; 0]),
             arr2(&[[]]),
         );
     }
@@ -158,7 +170,7 @@ mod tests {
     fn test_cosine_similarity_single() {
         assert_approx_eq!(
             f32,
-            pairwise_cosine_similarity(&[arr1(&[1., 2., 3.])]),
+            pairwise_cosine_similarity([arr1(&[1., 2., 3.])]),
             arr2(&[[1.]]),
         );
     }
@@ -167,7 +179,7 @@ mod tests {
     fn test_cosine_similarity_pair() {
         assert_approx_eq!(
             f32,
-            pairwise_cosine_similarity(&[arr1(&[1., 2., 3.]), arr1(&[4., 5., 6.])]),
+            pairwise_cosine_similarity([arr1(&[1., 2., 3.]), arr1(&[4., 5., 6.])]),
             arr2(&[[1., 0.97463185], [0.97463185, 1.]]),
         );
     }

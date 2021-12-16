@@ -7,10 +7,12 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.51"
 bincode = "1.3.3"
+derivative = "2.2.0"
 derive_more = { version = "0.99.17", default-features = false, features = ["from", "display"] }
 displaydoc = "0.2.3"
 itertools = "0.10.3"
 layer = { path = "../layer" }
+lazy_static = "1.4.0"
 # to be kept in sync with rubert
 ndarray = "=0.15.3"
 # TODO: use version 1.0.5 once it is released
@@ -31,7 +33,6 @@ js-sys = "0.3.55"
 
 [dev-dependencies]
 csv = "1.1.6"
-derivative = "2.2.0"
 maplit = "1.0.2"
 mockall = "0.11.0"
 once_cell = "1.8.0"

@@ -2386,6 +2386,7 @@ dependencies = [
  "itertools",
  "js-sys",
  "layer",
+ "lazy_static",
  "maplit",
  "mockall",
  "ndarray",

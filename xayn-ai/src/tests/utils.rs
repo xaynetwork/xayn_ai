@@ -1,4 +1,4 @@
-use std::{ops::Range, time::Duration};
+use std::{collections::BTreeSet, ops::Range, time::Duration};
 
 use ndarray::arr1;
 use uuid::Uuid;
@@ -107,6 +107,7 @@ fn cois_from_words<CP: CoiPoint>(
             CP::new(
                 CoiId::mocked(start_id + offset),
                 doc.smbert.embedding,
+                BTreeSet::default(),
                 Some(Duration::from_secs(10)),
             )
         })

@@ -13,16 +13,22 @@ use crate::{
 
 const MERGE_THRESHOLD_DIST: f32 = 4.5;
 
-pub(crate) trait CoiPointMerge {
+pub(crate) trait CoiPointMerge: CoiPoint {
     fn merge(self, other: Self, id: CoiId) -> Self;
 }
 
 impl CoiPointMerge for PositiveCoi {
     fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(self.point.view(), other.point.view()).into();
+        let key_phrases = self.key_phrases; // TODO: update with other.key_phrases
         let stats = self.stats.merge(other.stats);
 
-        Self { id, point, stats }
+        Self {
+            id,
+            point,
+            key_phrases,
+            stats,
+        }
     }
 }
 

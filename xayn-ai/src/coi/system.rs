@@ -1,4 +1,4 @@
-use std::{ops::Deref, time::Duration};
+use std::{collections::BTreeSet, ops::Deref, time::Duration};
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -7,7 +7,8 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        point::{CoiPoint, CoiStats, UserInterests},
+        point::{CoiPoint, UserInterests},
+        stats::{CoiPointStats, CoiStats},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
@@ -115,7 +116,7 @@ impl CoiSystem {
     /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
-    fn update_coi<CP: CoiPoint>(
+    fn update_coi<CP: CoiPoint + CoiPointStats>(
         &self,
         embedding: &Embedding,
         viewed: Option<Duration>,
@@ -125,15 +126,25 @@ impl CoiSystem {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(self.shift_coi_point(embedding, coi.point()));
                 coi.set_id(Uuid::new_v4().into());
-                coi.update_stats(viewed)
+                // TODO: update key phrases
+                coi.update_stats(viewed);
             }
-            _ => cois.push(CP::new(Uuid::new_v4().into(), embedding.clone(), viewed)),
+            _ => cois.push(CP::new(
+                Uuid::new_v4().into(),
+                embedding.clone(),
+                BTreeSet::default(), // TODO: set key phrases
+                viewed,
+            )),
         }
         cois
     }
 
     /// Updates the CoIs based on the embeddings of docs.
-    fn update_cois<CP: CoiPoint>(&self, docs: &[&dyn CoiSystemData], cois: Vec<CP>) -> Vec<CP> {
+    fn update_cois<CP: CoiPoint + CoiPointStats>(
+        &self,
+        docs: &[&dyn CoiSystemData],
+        cois: Vec<CP>,
+    ) -> Vec<CP> {
         docs.iter().fold(cois, |cois, doc| {
             self.update_coi(&doc.smbert().embedding, doc.viewed(), cois)
         })
@@ -167,7 +178,11 @@ impl CoiSystem {
     /// normalized. The horizon specifies the time since the last view after which a coi becomes
     /// irrelevant.
     #[allow(dead_code)]
-    fn compute_weights<CP: CoiPoint>(&self, cois: &[CP], horizon: Duration) -> Vec<f32> {
+    fn compute_weights<CP: CoiPoint + CoiPointStats>(
+        &self,
+        cois: &[CP],
+        horizon: Duration,
+    ) -> Vec<f32> {
         let counts =
             cois.iter().map(|coi| coi.stats().view_count).sum::<usize>() as f32 + f32::EPSILON;
         let times = cois
@@ -436,14 +451,10 @@ mod tests {
 
     #[test]
     fn test_shift_coi_point() {
-        let coi = PositiveCoi::new(
-            CoiId::mocked(0),
-            arr1(&[1., 1., 1.]).into(),
-            Some(Duration::from_secs(10)),
-        );
+        let coi_point = arr1(&[1., 1., 1.]).into();
         let embedding = arr1(&[2., 3., 4.]).into();
 
-        let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi.point);
+        let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi_point);
 
         assert_eq!(updated_coi, arr1(&[1.1, 1.2, 1.3]));
     }

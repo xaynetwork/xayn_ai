@@ -1,6 +1,8 @@
 mod config;
+pub(crate) mod key_phrase;
 mod merge;
 pub(crate) mod point;
+mod stats;
 mod system;
 mod utils;
 
@@ -11,7 +13,9 @@ pub(crate) use system::CoiSystemError;
 pub(crate) use system::{CoiSystem, NeutralCoiSystem};
 
 use derive_more::From;
+use displaydoc::Display;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use uuid::Uuid;
 
 #[cfg(test)]
@@ -29,4 +33,10 @@ impl CoiId {
     pub(crate) const fn mocked(sub_id: usize) -> Self {
         Self(mock_uuid(sub_id))
     }
+}
+
+#[derive(Debug, Display, Error)]
+pub(crate) enum CoiError {
+    /// The key phrase is invalid (ie. either empty words or non-finite point)
+    InvalidKeyPhrase,
 }
