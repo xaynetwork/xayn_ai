@@ -87,7 +87,7 @@ where
         .cartesian_product(iter.enumerate())
         .filter(|((i, _), (j, _))| j > i && norms[*i] > 0. && norms[*j] > 0.)
     {
-        similarities[[i, j]] = a.dot(&b) / norms[i] / norms[j];
+        similarities[[i, j]] = (a.dot(&b) / norms[i] / norms[j]).clamp(-1., 1.);
         similarities[[j, i]] = similarities[[i, j]];
     }
 
@@ -100,6 +100,7 @@ where
 ///
 /// # Panics
 /// Panics if the vectors don't consist solely of real values or their shapes don't match.
+#[allow(dead_code)]
 pub fn cosine_similarity<S>(a: ArrayBase<S, Ix1>, b: ArrayBase<S, Ix1>) -> f32
 where
     S: Data<Elem = f32>,

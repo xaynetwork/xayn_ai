@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, mem::swap};
+use std::{borrow::Borrow, collections::BTreeSet, mem::swap};
 
 use derivative::Derivative;
 use lazy_static::lazy_static;
@@ -18,6 +18,8 @@ pub(crate) struct KeyPhrase {
     words: String,
     #[derivative(Ord = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
     point: Embedding,
+    #[derivative(Ord = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
+    relevance: f32,
 }
 
 lazy_static! {
@@ -32,19 +34,48 @@ impl KeyPhrase {
     ) -> Result<Self, CoiError> {
         let words = words.into();
         let point = point.into();
-        if !words.is_empty() && point.iter().copied().all(f32::is_finite) {
-            Ok(Self { words, point })
+        let relevance = 0.;
+
+        if words.is_empty() || point.is_empty() {
+            return Err(CoiError::EmptyKeyPhrase);
+        }
+        if !point.iter().copied().all(f32::is_finite) {
+            return Err(CoiError::NonFiniteKeyPhrase(point));
+        }
+
+        Ok(Self {
+            words,
+            point,
+            relevance,
+        })
+    }
+
+    pub(crate) fn with_relevance(self, relevance: f32) -> Result<Self, CoiError> {
+        if (0. ..=1.).contains(&relevance) {
+            Ok(Self { relevance, ..self })
         } else {
-            Err(CoiError::InvalidKeyPhrase)
+            Err(CoiError::NonNormalizedKeyPhrase(relevance))
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn words(&self) -> &str {
         &self.words
     }
 
     pub(crate) fn point(&self) -> &Embedding {
         &self.point
+    }
+
+    #[cfg(test)]
+    pub(crate) fn relevance(&self) -> f32 {
+        self.relevance
+    }
+}
+
+impl Borrow<str> for KeyPhrase {
+    fn borrow(&self) -> &str {
+        self.words.as_str()
     }
 }
 
