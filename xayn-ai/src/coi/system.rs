@@ -238,7 +238,7 @@ impl CoiSystem {
         candidates: &[String],
         // TODO: make SMBert available to CoiSystem and remove this argument
         smbert: F,
-    ) -> Result<(), Error> {
+    ) {
         /// Reduces the matrix along the axis while skipping the diagonal elements.
         fn reduce_without_diag<S, F, G>(a: ArrayBase<S, Ix2>, axis: Axis, f: F, g: G) -> Array2<f32>
         where
@@ -280,34 +280,24 @@ impl CoiSystem {
                 .unwrap(/* at least one key phrase is selected */)
         }
 
-        /// Collects the normalized similarity.
-        fn collect_relevance<I>(iter: I) -> Vec<f32>
-        where
-            I: Clone + Iterator<Item = f32>,
-        {
-            let min = iter.clone().reduce(f32::min).unwrap_or_default();
-            let max = iter.clone().reduce(f32::max).unwrap_or(1.);
-            iter.map(|relevance| {
-                let relevance = (relevance - min) / (max - min);
-                relevance.is_finite().then(|| relevance).unwrap_or_default()
-            })
-            .collect()
-        }
-
         let candidates = candidates
             .iter()
             .filter_map(|words| {
-                (!coi.key_phrases().contains(words)).then(|| {
-                    smbert(words).and_then(|point| KeyPhrase::new(words, point).map_err(Into::into))
-                })
+                (!coi.key_phrases().contains(words))
+                    .then(|| {
+                        smbert(words)
+                            .ok()
+                            .and_then(|point| KeyPhrase::new(words, point).ok())
+                    })
+                    .flatten()
             })
-            .collect::<Result<BTreeSet<_>, _>>()?;
+            .collect::<BTreeSet<_>>();
 
         let len = coi.key_phrases().len() + candidates.len();
         let max_key_phrases = self.config.max_key_phrases.min(len);
         if max_key_phrases == 0 {
             coi.swap_key_phrases(BTreeSet::default());
-            return Ok(());
+            return;
         }
 
         let similarity = pairwise_cosine_similarity(
@@ -386,8 +376,6 @@ impl CoiSystem {
             .filter_map(|(key_phrase, relevance)| key_phrase.with_relevance(relevance).ok())
             .collect();
         coi.swap_key_phrases(key_phrases);
-
-        Ok(())
     }
 }
 
@@ -842,9 +830,7 @@ mod tests {
         let mut coi = create_pos_cois(&[[1., 0., 0.]]);
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], candidates, smbert)
-            .is_ok());
+        CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
         assert!(coi[0].key_phrases().is_empty());
     }
 
@@ -857,9 +843,7 @@ mod tests {
         coi[0].swap_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], candidates, smbert)
-            .is_ok());
+        CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -879,9 +863,7 @@ mod tests {
         coi[0].swap_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], candidates, smbert)
-            .is_ok());
+        CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -915,9 +897,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], &candidates, smbert)
-            .is_ok());
+        CoiSystem::default().select_key_phrases(&mut coi[0], &candidates, smbert);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -956,9 +936,7 @@ mod tests {
                 .unwrap()
         };
         let system = CoiSystem::default();
-        assert!(system
-            .select_key_phrases(&mut coi[0], &candidates, smbert)
-            .is_ok());
+        system.select_key_phrases(&mut coi[0], &candidates, smbert);
         assert!(key_phrases.remove("test"));
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
@@ -1002,9 +980,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], &candidates, smbert)
-            .is_ok());
+        CoiSystem::default().select_key_phrases(&mut coi[0], &candidates, smbert);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -1040,9 +1016,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], &candidates, smbert)
-            .is_ok());
+        CoiSystem::default().select_key_phrases(&mut coi[0], &candidates, smbert);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,

@@ -7,7 +7,8 @@ pub(crate) struct Configuration {
     pub threshold: f32,
     /// The positive number of neighbors for the k-nearest-neighbors distance.
     pub neighbors: NonZeroUsize,
-    /// The maximum number of key phrases associated with a coi.
+    /// The maximum number of key phrases picked during the coi key phrase selection. A coi may have
+    /// more key phrases than this, eg because of merging.
     pub max_key_phrases: usize,
     /// The weighting between coi and pairwise candidate similarites in the key phrase selection.
     pub gamma: f32,

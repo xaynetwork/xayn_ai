@@ -20,7 +20,11 @@ pub(crate) trait CoiPointMerge: CoiPoint {
 impl CoiPointMerge for PositiveCoi {
     fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(self.point.view(), other.point.view()).into();
-        let key_phrases = self.key_phrases; // TODO: update with other.key_phrases
+        let key_phrases = self
+            .key_phrases
+            .into_iter()
+            .chain(other.key_phrases)
+            .collect();
         let stats = self.stats.merge(other.stats);
 
         Self {
