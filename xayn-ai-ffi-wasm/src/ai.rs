@@ -175,7 +175,7 @@ mod tests {
 
     use super::*;
 
-    use std::iter::repeat;
+    use std::{iter::repeat, time::Duration};
 
     use itertools::izip;
     use wasm_bindgen_test::wasm_bindgen_test;
@@ -337,7 +337,7 @@ mod tests {
                 query_words: doc.7,
                 url: doc.8,
                 domain: doc.9,
-                viewed: None,
+                viewed: Duration::ZERO,
             })
             .unwrap()
         })

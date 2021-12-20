@@ -100,8 +100,8 @@ pub(super) mod tests {
             self.coi.as_ref()
         }
 
-        fn viewed(&self) -> Option<Duration> {
-            Some(Duration::from_secs(10))
+        fn viewed(&self) -> Duration {
+            Duration::from_secs(10)
         }
     }
 
@@ -118,7 +118,7 @@ pub(super) mod tests {
                     CoiId::mocked(id),
                     arr1(point.as_init_slice()).into(),
                     BTreeSet::default(),
-                    Some(Duration::from_secs(10)),
+                    Duration::from_secs(10),
                 )
             })
             .collect()

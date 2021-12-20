@@ -119,7 +119,7 @@ impl CoiSystem {
     fn update_coi<CP: CoiPoint + CoiPointStats>(
         &self,
         embedding: &Embedding,
-        viewed: Option<Duration>,
+        viewed: Duration,
         mut cois: Vec<CP>,
     ) -> Vec<CP> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
@@ -417,7 +417,7 @@ mod tests {
     fn test_update_coi_add_point() {
         let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
         let embedding = arr1(&[1., 1., 1.]).into();
-        let viewed = Some(Duration::from_secs(10));
+        let viewed = Duration::from_secs(10);
 
         let config = Configuration::default();
         let threshold = config.threshold;
@@ -439,7 +439,7 @@ mod tests {
     fn test_update_coi_update_point() {
         let cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
         let embedding = arr1(&[2., 3., 4.]).into();
-        let viewed = Some(Duration::from_secs(10));
+        let viewed = Duration::from_secs(10);
 
         let cois = CoiSystem::default().update_coi(&embedding, viewed, cois);
 
@@ -463,7 +463,7 @@ mod tests {
     fn test_update_coi_threshold_exclusive() {
         let cois = create_pos_cois(&[[0., 0., 0.]]);
         let embedding = arr1(&[0., 0., 12.]).into();
-        let viewed = Some(Duration::from_secs(10));
+        let viewed = Duration::from_secs(10);
 
         let cois = CoiSystem::default().update_coi(&embedding, viewed, cois);
 

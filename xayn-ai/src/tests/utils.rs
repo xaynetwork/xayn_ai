@@ -108,7 +108,7 @@ fn cois_from_words<CP: CoiPoint>(
                 CoiId::mocked(start_id + offset),
                 doc.smbert.embedding,
                 BTreeSet::default(),
-                Some(Duration::from_secs(10)),
+                Duration::from_secs(10),
             )
         })
         .collect()

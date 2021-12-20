@@ -27,7 +27,7 @@ pub(crate) struct DocumentContentComponent {
     pub(crate) query_words: String,
     pub(crate) url: String,
     pub(crate) domain: String,
-    pub(crate) viewed: Option<Duration>,
+    pub(crate) viewed: Duration,
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
@@ -147,7 +147,7 @@ impl CoiSystemData for DocumentDataWithSMBert {
         None
     }
 
-    fn viewed(&self) -> Option<Duration> {
+    fn viewed(&self) -> Duration {
         self.document_content.viewed
     }
 }
@@ -282,7 +282,7 @@ impl CoiSystemData for DocumentDataWithRank {
         Some(&self.coi)
     }
 
-    fn viewed(&self) -> Option<Duration> {
+    fn viewed(&self) -> Duration {
         self.document_content.viewed
     }
 }

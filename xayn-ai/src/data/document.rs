@@ -101,7 +101,7 @@ pub struct Document {
     /// Domain of the document
     pub domain: String,
     /// Time viewed of the document.
-    pub viewed: Option<Duration>,
+    pub viewed: Duration,
 }
 
 /// Represents a historical result from a query.

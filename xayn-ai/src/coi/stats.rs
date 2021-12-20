@@ -15,19 +15,17 @@ pub(crate) struct CoiStats {
 }
 
 impl CoiStats {
-    pub(crate) fn new(viewed: Option<Duration>) -> Self {
+    pub(crate) fn new(viewed: Duration) -> Self {
         Self {
             view_count: 1,
-            view_time: viewed.unwrap_or_default(),
+            view_time: viewed,
             last_view: system_time_now(),
         }
     }
 
-    pub(crate) fn update(&mut self, viewed: Option<Duration>) {
+    pub(crate) fn update(&mut self, viewed: Duration) {
         self.view_count += 1;
-        if let Some(viewed) = viewed {
-            self.view_time += viewed;
-        }
+        self.view_time += viewed;
         self.last_view = system_time_now();
     }
 
@@ -53,7 +51,7 @@ impl Default for CoiStats {
 pub(crate) trait CoiPointStats {
     fn stats(&self) -> CoiStats;
 
-    fn update_stats(&mut self, viewed: Option<Duration>);
+    fn update_stats(&mut self, viewed: Duration);
 }
 
 impl CoiPointStats for PositiveCoi {
@@ -61,7 +59,7 @@ impl CoiPointStats for PositiveCoi {
         self.stats
     }
 
-    fn update_stats(&mut self, viewed: Option<Duration>) {
+    fn update_stats(&mut self, viewed: Duration) {
         self.stats.update(viewed);
     }
 }
@@ -71,5 +69,5 @@ impl CoiPointStats for NegativeCoi {
         CoiStats::default()
     }
 
-    fn update_stats(&mut self, _viewed: Option<Duration>) {}
+    fn update_stats(&mut self, _viewed: Duration) {}
 }

@@ -1,4 +1,4 @@
-use std::{convert::TryInto, slice};
+use std::{convert::TryInto, slice, time::Duration};
 
 use xayn_ai::Document;
 use xayn_ai_ffi::{CCode, Error};
@@ -136,7 +136,7 @@ impl<'a> CDocuments<'a> {
                         )
                     }?
                     .into();
-                    let viewed = None;
+                    let viewed = Duration::ZERO;
 
                     Ok(Document {
                         id,
