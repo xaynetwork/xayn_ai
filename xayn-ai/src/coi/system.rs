@@ -235,7 +235,7 @@ impl CoiSystem {
     >(
         &self,
         coi: &mut CP,
-        mut candidates: Vec<String>,
+        candidates: &[String],
         // TODO: make SMBert available to CoiSystem and remove this argument
         smbert: F,
     ) -> Result<(), Error> {
@@ -294,14 +294,11 @@ impl CoiSystem {
             .collect()
         }
 
-        candidates.sort_unstable();
-        candidates.dedup();
         let candidates = candidates
-            .into_iter()
+            .iter()
             .filter_map(|words| {
-                (!coi.key_phrases().contains(words.as_str())).then(|| {
-                    smbert(words.as_str())
-                        .and_then(|point| KeyPhrase::new(words, point).map_err(Into::into))
+                (!coi.key_phrases().contains(words)).then(|| {
+                    smbert(words).and_then(|point| KeyPhrase::new(words, point).map_err(Into::into))
                 })
             })
             .collect::<Result<BTreeSet<_>, _>>()?;
@@ -843,7 +840,7 @@ mod tests {
     #[test]
     fn test_select_key_phrases_empty() {
         let mut coi = create_pos_cois(&[[1., 0., 0.]]);
-        let candidates = Vec::new();
+        let candidates = &[];
         let smbert = |_: &str| unreachable!();
         assert!(CoiSystem::default()
             .select_key_phrases(&mut coi[0], candidates, smbert)
@@ -858,7 +855,7 @@ mod tests {
             IntoIterator::into_iter([KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap()])
                 .collect::<BTreeSet<_>>();
         coi[0].swap_key_phrases(key_phrases.clone());
-        let candidates = Vec::new();
+        let candidates = &[];
         let smbert = |_: &str| unreachable!();
         assert!(CoiSystem::default()
             .select_key_phrases(&mut coi[0], candidates, smbert)
@@ -880,7 +877,7 @@ mod tests {
         ])
         .collect::<BTreeSet<_>>();
         coi[0].swap_key_phrases(key_phrases.clone());
-        let candidates = Vec::new();
+        let candidates = &[];
         let smbert = |_: &str| unreachable!();
         assert!(CoiSystem::default()
             .select_key_phrases(&mut coi[0], candidates, smbert)
@@ -909,7 +906,7 @@ mod tests {
         let candidates = key_phrases
             .iter()
             .map(|key_phrase| key_phrase.words().to_string())
-            .collect();
+            .collect::<Vec<_>>();
         let smbert = |words: &str| {
             key_phrases
                 .iter()
@@ -919,7 +916,7 @@ mod tests {
                 .unwrap()
         };
         assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .select_key_phrases(&mut coi[0], &candidates, smbert)
             .is_ok());
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
@@ -949,7 +946,7 @@ mod tests {
             .iter()
             .skip(2)
             .map(|key_phrase| key_phrase.words().to_string())
-            .collect();
+            .collect::<Vec<_>>();
         let smbert = |words: &str| {
             key_phrases
                 .iter()
@@ -960,7 +957,7 @@ mod tests {
         };
         let system = CoiSystem::default();
         assert!(system
-            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .select_key_phrases(&mut coi[0], &candidates, smbert)
             .is_ok());
         assert!(key_phrases.remove("test"));
         assert_eq!(coi[0].key_phrases(), &key_phrases);
@@ -996,7 +993,7 @@ mod tests {
             .map(|key_phrase| key_phrase.words().to_string())
             .cycle()
             .take(2)
-            .collect();
+            .collect::<Vec<_>>();
         let smbert = |words: &str| {
             key_phrases
                 .iter()
@@ -1006,7 +1003,7 @@ mod tests {
                 .unwrap()
         };
         assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .select_key_phrases(&mut coi[0], &candidates, smbert)
             .is_ok());
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
@@ -1034,7 +1031,7 @@ mod tests {
             .iter()
             .skip(1)
             .map(|key_phrase| key_phrase.words().to_string())
-            .collect();
+            .collect::<Vec<_>>();
         let smbert = |words: &str| {
             key_phrases
                 .iter()
@@ -1044,7 +1041,7 @@ mod tests {
                 .unwrap()
         };
         assert!(CoiSystem::default()
-            .select_key_phrases(&mut coi[0], candidates, smbert)
+            .select_key_phrases(&mut coi[0], &candidates, smbert)
             .is_ok());
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
