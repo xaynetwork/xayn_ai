@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
-serde = { version = "1.0.131", features = ["derive"] }
+serde = { version = "1.0.132", features = ["derive"] }
 serde_repr = "0.1.7"
 xayn-ai = { path = "../xayn-ai" }
 
