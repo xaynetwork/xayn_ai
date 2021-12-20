@@ -108,7 +108,7 @@ jobs:
           echo "::set-output name=artifacts::$artifacts"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.0
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
         with:
           name: headers-${{ github.sha }}
           retention-days: 1
@@ -160,7 +160,7 @@ jobs:
             build --release -p xayn-ai-ffi-c
 
       - name: Upload artifact
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.0
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
         with:
           name: android-${{ matrix.target }}-${{ github.sha }}
           retention-days: 1
@@ -204,7 +204,7 @@ jobs:
           mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
       - name: Upload artifact
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.0
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
         with:
           name: ios-${{ matrix.target }}-${{ github.sha }}
           retention-days: 1
@@ -260,7 +260,7 @@ jobs:
         run: echo "::set-output name=name::$(echo build-worker-release)"
 
       - name: Upload web worker artifact
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.0
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
         with:
           name: ${{ steps.upload.outputs.name }}
           retention-days: 1
@@ -339,7 +339,7 @@ jobs:
       - run: mv ${{ env.OUT_DIR }}/wasm/ ${{ steps.wasm-lib.outputs.upload-path }}
 
       - name: Upload WASM library
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.0
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
         with:
           name: ${{ steps.wasm-lib.outputs.upload-name }}
           retention-days: 1
@@ -391,7 +391,7 @@ jobs:
         run: echo "::set-output name=upload-name::$(echo build-asset-artifacts-${{ github.sha }})"
 
       - name: Upload asset artifacts
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.0
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
         with:
           name: ${{ steps.asset-artifacts.outputs.upload-name }}
           retention-days: 1
