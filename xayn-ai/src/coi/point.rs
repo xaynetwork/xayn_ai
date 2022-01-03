@@ -71,12 +71,8 @@ pub(crate) struct NegativeCoi {
 }
 
 pub(crate) trait CoiPoint {
-    fn new(
-        id: CoiId,
-        point: Embedding,
-        key_phrases: BTreeSet<KeyPhrase>,
-        viewed: Option<Duration>,
-    ) -> Self;
+    fn new(id: CoiId, point: Embedding, key_phrases: BTreeSet<KeyPhrase>, viewed: Duration)
+        -> Self;
 
     fn id(&self) -> CoiId;
 
@@ -113,7 +109,7 @@ impl CoiPoint for PositiveCoi_v0_0_0 {
         id: CoiId,
         point: Embedding,
         _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Option<Duration>,
+        _viewed: Duration,
     ) -> Self {
         Self {
             id,
@@ -132,7 +128,7 @@ impl CoiPoint for PositiveCoi_v0_1_0 {
         id: CoiId,
         point: Embedding,
         _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Option<Duration>,
+        _viewed: Duration,
     ) -> Self {
         Self {
             id,
@@ -151,7 +147,7 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
         id: CoiId,
         point: Embedding,
         _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Option<Duration>,
+        _viewed: Duration,
     ) -> Self {
         Self { id, point }
     }
@@ -164,7 +160,7 @@ impl CoiPoint for PositiveCoi {
         id: CoiId,
         point: Embedding,
         key_phrases: BTreeSet<KeyPhrase>,
-        viewed: Option<Duration>,
+        viewed: Duration,
     ) -> Self {
         Self {
             id,
@@ -182,7 +178,7 @@ impl CoiPoint for NegativeCoi {
         id: CoiId,
         point: Embedding,
         _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Option<Duration>,
+        _viewed: Duration,
     ) -> Self {
         Self { id, point }
     }

@@ -1,4 +1,5 @@
 #![cfg(not(tarpaulin))]
+
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
@@ -6,6 +7,7 @@ use std::{
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use anyhow::{bail, Error};
@@ -390,7 +392,7 @@ fn gen_current_query_from_history(
                 query_words: query_words.clone(),
                 url: url.clone(),
                 domain: domain.clone(),
-                viewed: None,
+                viewed: Duration::ZERO,
             }
         })
         .collect()
