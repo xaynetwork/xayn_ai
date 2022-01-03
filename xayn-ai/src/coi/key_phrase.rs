@@ -79,7 +79,6 @@ impl Borrow<String> for KeyPhrase {
     }
 }
 
-#[cfg(test)]
 impl Borrow<str> for KeyPhrase {
     fn borrow(&self) -> &str {
         self.words.as_str()

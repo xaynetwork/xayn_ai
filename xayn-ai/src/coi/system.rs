@@ -240,11 +240,16 @@ impl CoiSystem {
         smbert: F,
     ) {
         /// Reduces the matrix along the axis while skipping the diagonal elements.
-        fn reduce_without_diag<S, F, G>(a: ArrayBase<S, Ix2>, axis: Axis, f: F, g: G) -> Array2<f32>
+        fn reduce_without_diag<S, F, G>(
+            a: ArrayBase<S, Ix2>,
+            axis: Axis,
+            reduce: F,
+            finalize: G,
+        ) -> Array2<f32>
         where
             S: Data<Elem = f32>,
-            F: Fn(f32, f32) -> f32,
-            G: Fn(f32) -> f32,
+            F: Fn(f32, f32) -> f32 + Copy,
+            G: Fn(f32) -> f32 + Copy,
         {
             a.lanes(axis)
                 .into_iter()
@@ -253,8 +258,8 @@ impl CoiSystem {
                     lane.iter()
                         .enumerate()
                         .filter_map(|(j, element)| (i != j).then(|| *element))
-                        .reduce(|reduced, element| f(reduced, element))
-                        .map(|reduced| g(reduced))
+                        .reduce(reduce)
+                        .map(finalize)
                         .unwrap_or_default()
                 })
                 .collect::<Array1<_>>()
