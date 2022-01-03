@@ -522,7 +522,7 @@ jobs:
           # Create a temporary folder to clone the other repo
           CLONE_DIR=$(mktemp -d)
           DST_REPO='xaynetwork/xayn_ai_release'
-          EMAIL='ci@xayn.io'
+          EMAIL='ci@xayn.com'
           USERNAME='ci'
           BRANCH=${{ steps.current_branch.outputs.branch }}
           SRC_COMMIT=$(git rev-parse HEAD)
