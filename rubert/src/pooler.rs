@@ -76,6 +76,33 @@ pub type ArcEmbedding1 = ArcEmbedding<Ix1>;
 /// The embedding is of shape `(token_size, embedding_size)`.
 pub type ArcEmbedding2 = ArcEmbedding<Ix2>;
 
+impl<D> From<Array<f32, D>> for ArcEmbedding<D>
+where
+    D: Dimension,
+{
+    fn from(array: Array<f32, D>) -> Self {
+        ArcArray::from(array).into()
+    }
+}
+
+impl<D> From<Embedding<D>> for ArcEmbedding<D>
+where
+    D: Dimension,
+{
+    fn from(embedding: Embedding<D>) -> Self {
+        embedding.0.into()
+    }
+}
+
+impl<D> From<ArcEmbedding<D>> for Embedding<D>
+where
+    D: Dimension,
+{
+    fn from(embedding: ArcEmbedding<D>) -> Self {
+        embedding.0.into_owned().into()
+    }
+}
+
 /// The potential errors of the pooler.
 #[derive(Debug, Display, Error)]
 pub enum PoolerError {
