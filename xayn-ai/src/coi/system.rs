@@ -953,7 +953,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };
@@ -991,7 +991,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };
@@ -1036,7 +1036,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };
@@ -1072,7 +1072,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };

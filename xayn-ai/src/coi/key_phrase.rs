@@ -9,7 +9,7 @@ use crate::{
         point::{NegativeCoi, PositiveCoi},
         CoiError,
     },
-    embedding::utils::Embedding,
+    embedding::utils::ArcEmbedding,
 };
 
 #[derive(Clone, Debug, Derivative, Deserialize, Serialize)]
@@ -17,7 +17,7 @@ use crate::{
 pub(crate) struct KeyPhrase {
     words: String,
     #[derivative(Ord = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
-    point: Embedding,
+    point: ArcEmbedding,
     #[derivative(Ord = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
     relevance: f32,
 }
@@ -30,7 +30,7 @@ lazy_static! {
 impl KeyPhrase {
     pub(crate) fn new(
         words: impl Into<String>,
-        point: impl Into<Embedding>,
+        point: impl Into<ArcEmbedding>,
     ) -> Result<Self, CoiError> {
         let words = words.into();
         let point = point.into();
@@ -63,7 +63,7 @@ impl KeyPhrase {
         &self.words
     }
 
-    pub(crate) fn point(&self) -> &Embedding {
+    pub(crate) fn point(&self) -> &ArcEmbedding {
         &self.point
     }
 
