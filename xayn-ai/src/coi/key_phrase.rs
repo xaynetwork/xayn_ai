@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::BTreeSet, mem::swap};
+use std::{borrow::Borrow, collections::BTreeSet};
 
 use derivative::Derivative;
 use lazy_static::lazy_static;
@@ -88,7 +88,7 @@ impl Borrow<str> for KeyPhrase {
 pub(crate) trait CoiPointKeyPhrases {
     fn key_phrases(&self) -> &BTreeSet<KeyPhrase>;
 
-    fn swap_key_phrases(&mut self, candidates: BTreeSet<KeyPhrase>) -> BTreeSet<KeyPhrase>;
+    fn set_key_phrases(&mut self, key_phrases: BTreeSet<KeyPhrase>);
 }
 
 impl CoiPointKeyPhrases for PositiveCoi {
@@ -96,9 +96,8 @@ impl CoiPointKeyPhrases for PositiveCoi {
         &self.key_phrases
     }
 
-    fn swap_key_phrases(&mut self, mut candidates: BTreeSet<KeyPhrase>) -> BTreeSet<KeyPhrase> {
-        swap(&mut self.key_phrases, &mut candidates);
-        candidates
+    fn set_key_phrases(&mut self, key_phrases: BTreeSet<KeyPhrase>) {
+        self.key_phrases = key_phrases;
     }
 }
 
@@ -107,7 +106,5 @@ impl CoiPointKeyPhrases for NegativeCoi {
         &EMPTY_KEY_PHRASES
     }
 
-    fn swap_key_phrases(&mut self, _candidates: BTreeSet<KeyPhrase>) -> BTreeSet<KeyPhrase> {
-        BTreeSet::default()
-    }
+    fn set_key_phrases(&mut self, _key_phrases: BTreeSet<KeyPhrase>) {}
 }
