@@ -11,6 +11,7 @@ derivative = "2.2.0"
 derive_more = { version = "0.99.17", default-features = false, features = ["from", "display"] }
 displaydoc = "0.2.3"
 itertools = "0.10.3"
+kpe = { path = "../kpe" }
 layer = { path = "../layer" }
 lazy_static = "1.4.0"
 # to be kept in sync with rubert
