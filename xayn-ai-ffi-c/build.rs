@@ -29,7 +29,7 @@ fn main() {
         .parent()
         .unwrap()
         .join("bindings")
-        .join("dart")
+        .join("flutter")
         .join("ios")
         .join("Classes")
         .join("XaynAiFfiDart.h");

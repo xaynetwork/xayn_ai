@@ -8,3 +8,13 @@ build/
 # Omit committing pubspec.lock for library packages; see
 # https://dart.dev/guides/libraries/private-files#pubspeclock.
 pubspec.lock
+
+# When we push to the release repository
+# we need to upload also the following files.
+# DELETE_AFTER_THIS_IN_RELEASE
+lib/src/common/ffi/genesis.dart
+lib/src/common/reranker/assets.dart
+lib/src/web/reranker/assets.dart
+lib/src/mobile/ffi/genesis.dart
+# Ignore generated dart files.
+*.g.dart
