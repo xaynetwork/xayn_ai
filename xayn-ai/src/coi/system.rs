@@ -306,7 +306,7 @@ impl CoiSystem {
                     }
                 })
                 .map(|(arg, _)| arg)
-                .unwrap(/* at least one key phrase is selected */)
+                .unwrap(/* at least one key phrase exists */)
         }
 
         /// Computes the pairwise similarity and their normalizations of the key phrases.
@@ -367,10 +367,15 @@ impl CoiSystem {
         where
             S: Data<Elem = f32>,
         {
+            let len = normalized.len_of(Axis(0));
+            if len <= max_key_phrases {
+                return vec![true; len];
+            }
+
             let candidate = argmax(normalized.slice(s![.., -1]));
-            let mut selected = vec![false; normalized.len_of(Axis(0))];
+            let mut selected = vec![false; len];
             selected[candidate] = true;
-            for _ in 0..max_key_phrases - 1 {
+            for _ in 0..max_key_phrases.min(len) - 1 {
                 let candidate = argmax(selected.iter().zip(normalized.rows()).map(
                     |(&is_selected, normalized)| {
                         if is_selected {
@@ -409,7 +414,7 @@ impl CoiSystem {
                 .zip(similarity.slice(s![.., -1]))
                 .filter_map(|(is_selected, similarity)| is_selected.then(|| similarity))
                 .copied();
-            let max = relevance.clone().reduce(f32::max).unwrap(/* at least one key phrase is selected */);
+            let max = relevance.clone().reduce(f32::max).unwrap_or_default();
             let relevance = relevance.map(|relevance| {
                 (relevance > 0.)
                     .then(|| (relevance / max).clamp(0., 1.))
@@ -428,17 +433,8 @@ impl CoiSystem {
         }
 
         let candidates = unique_candidates(coi, candidates, smbert);
-        let max_key_phrases = self
-            .config
-            .max_key_phrases
-            .min(coi.key_phrases().len() + candidates.len());
-        if max_key_phrases == 0 {
-            coi.swap_key_phrases(BTreeSet::default());
-            return;
-        }
-
         let (similarity, normalized) = similarities(coi, &candidates);
-        let selected = is_selected(normalized, max_key_phrases, self.config.gamma);
+        let selected = is_selected(normalized, self.config.max_key_phrases, self.config.gamma);
         select(coi, candidates, selected, similarity);
     }
 }
