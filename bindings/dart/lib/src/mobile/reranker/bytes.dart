@@ -1,7 +1,7 @@
 import 'dart:ffi' show nullptr, Pointer, StructPointer, Uint8Pointer;
 import 'dart:typed_data' show Uint8List;
 
-import 'package:flutter/foundation.dart' show listEquals;
+// import 'package:flutter/foundation.dart' show listEquals;
 
 import 'package:xayn_ai_ffi_dart/src/common/utils.dart' show assertNeq;
 import 'package:xayn_ai_ffi_dart/src/mobile/ffi/genesis.dart'
@@ -30,10 +30,10 @@ class Bytes {
         throw error.toException();
       }
       assertNeq(_bytes, nullptr);
-      assert(listEquals(
-        _bytes.ref.data.asTypedList(_bytes.ref.len),
-        Uint8List(bytes.length),
-      ));
+      // assert(listEquals(
+      //   _bytes.ref.data.asTypedList(_bytes.ref.len),
+      //   Uint8List(bytes.length),
+      // ));
     } finally {
       error.free();
     }

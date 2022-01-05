@@ -1,18 +1,10 @@
+# Files and directories created by pub.
 .dart_tool/
-build/
 .packages
-pubspec.lock
 
-# When we push to the release repository
-# we need to upload also the following files.
-# DELETE_AFTER_THIS_IN_RELEASE
-android/src/main/jniLibs/
-ios/Classes/XaynAiFfiCommon.h
-ios/Classes/XaynAiFfiDart.h
-ios/libxayn_ai_ffi_c*.a
-lib/src/common/ffi/genesis.dart
-lib/src/common/reranker/assets.dart
-lib/src/web/reranker/assets.dart
-lib/src/mobile/ffi/genesis.dart
-# Ignore generated dart files.
-*.g.dart
+# Conventional directory for build outputs.
+build/
+
+# Omit committing pubspec.lock for library packages; see
+# https://dart.dev/guides/libraries/private-files#pubspeclock.
+pubspec.lock

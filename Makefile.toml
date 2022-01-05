@@ -2,15 +2,16 @@
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 
 ANDROID_PLATFORM_VERSION = "21"
-ANDROID_LIBS_DIR = "bindings/dart/android/src/main/jniLibs"
+ANDROID_LIBS_DIR = "bindings/flutter/android/src/main/jniLibs"
 ANDROID_TARGETS = "arm64-v8a x86_64 x86"
 
 IOS_TARGETS = "aarch64-apple-ios x86_64-apple-ios"
 
 DART_WORKSPACE = "bindings/dart"
-DART_EXAMPLE_WORKSPACE = "bindings/dart/example"
+FLUTTER_WORKSPACE = "bindings/flutter"
+FLUTTER_EXAMPLE_WORKSPACE = "bindings/flutter/example"
 
-EXAMPLE_ASSETS_DIR = "bindings/dart/example/assets"
+EXAMPLE_ASSETS_DIR = "bindings/flutter/example/assets"
 ASSET_OUT_DIR = "out"
 
 [config]
@@ -39,54 +40,68 @@ run_task = { name = ["build-android", "build-ios", "generate_assets_metadata"] }
 
 [tasks.build-android]
 dependencies = ["build-dart"]
-script = ["""
+script = [
+  """
   cargo ndk $(echo $ANDROID_TARGETS | sed 's/[^ ]* */-t &/g') -p $ANDROID_PLATFORM_VERSION -o $ANDROID_LIBS_DIR build --release -p xayn-ai-ffi-c
-"""]
+""",
+]
 
 [tasks.build-ios]
 dependencies = ["build-dart"]
-script = ["""
+script = [
+  """
   for TARGET in $(echo $IOS_TARGETS | tr " " "\n"); do
     cargo build --target $TARGET --release -p xayn-ai-ffi-c
-    cp target/$TARGET/release/libxayn_ai_ffi_c.a bindings/dart/ios/libxayn_ai_ffi_c_${TARGET}.a
+    cp target/$TARGET/release/libxayn_ai_ffi_c.a bindings/flutter/ios/libxayn_ai_ffi_c_${TARGET}.a
   done
-"""]
+""",
+]
 
 [tasks.build-dart]
-dependencies = ["build-bindgen-dart", "build-codegen-dart"]
+dependencies = ["build-bindgen-dart", "build-codegen-dart", "flutter-pub-get"]
 
 [tasks.build-bindgen-dart]
 workspace = false
-dependencies = ["build-local", "flutter-pub-get"]
-script = ["""
+dependencies = ["build-local", "dart-pub-get"]
+script = [
+  """
   cd "${DART_WORKSPACE}"
-  flutter pub run ffigen --config ffigen_common.yaml
-  flutter pub run ffigen --config ffigen_mobile.yaml
+  dart run ffigen --config ffigen_common.yaml
+  dart run ffigen --config ffigen_mobile.yaml
 
   # remove unused mobile-only dependency from common (can't be configured in dart ffigen)
   cd lib/src/common/ffi
   grep --fixed-strings --invert-match "import 'dart:ffi' as ffi;" genesis.dart > genesis
   mv genesis genesis.dart
-"""]
+""",
+]
 
 # Non bindgen codegen for dart (mainly run `build_runner build`)
 [tasks.build-codegen-dart]
 workspace = false
-dependencies = ["flutter-pub-get"]
+dependencies = ["dart-pub-get"]
 script = ["""
   cd "${DART_WORKSPACE}"
-  flutter pub run build_runner build --delete-conflicting-outputs
+  dart run build_runner build --delete-conflicting-outputs
+"""]
+
+[tasks.dart-pub-get]
+workspace = false
+script = ["""
+  cd "${DART_WORKSPACE}"
+  dart pub get
 """]
 
 [tasks.flutter-pub-get]
 workspace = false
 script = ["""
-  cd "${DART_WORKSPACE}"
+  cd "${FLUTTER_WORKSPACE}"
   flutter pub get
 """]
 
 [tasks.generate_assets_metadata]
-script = ["""
+script = [
+  """
   ./generate_assets_metadata.sh assets_manifest.json "$ASSET_OUT_DIR"
 
   for ASSET in $(cat "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/assets_metadata.json" | jq -c '.upload[]'); do
@@ -96,25 +111,38 @@ script = ["""
     mkdir -p "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$ASSET_DIRNAME"
     cp "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_PATH" "$CARGO_MAKE_WORKING_DIRECTORY/$EXAMPLE_ASSETS_DIR/$ASSET_URL_SUFFIX"
   done
-"""]
+""",
+]
 
 [tasks.serve-web]
 script = ["""
-  ${DART_EXAMPLE_WORKSPACE}/flutter_run_web.sh
+  ${FLUTTER_EXAMPLE_WORKSPACE}/flutter_run_web.sh
 """]
 
 [tasks.build-web]
 # This will run build-local "unnecessarily". This will be fixed in a later PR.
-env = { WASM_VERSION = "wasm_bindings", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = ["DISABLE_WASM_THREADS"] } } }
-run_task = { name = ["build-dart", "build-wasm", "compile-dart-worker", "generate_assets_metadata"] }
+env = { WASM_VERSION = "wasm_bindings", DISABLE_WASM_THREADS = { value = "1", condition = { env_not_set = [
+  "DISABLE_WASM_THREADS",
+] } } }
+run_task = { name = [
+  "build-dart",
+  "build-wasm",
+  "compile-dart-worker",
+  "generate_assets_metadata",
+] }
 
 [tasks.build-wasm]
-dependencies = ["install-webpack", "build-wasm-multithreaded", "build-wasm-sequential"]
+dependencies = [
+  "install-webpack",
+  "build-wasm-multithreaded",
+  "build-wasm-sequential",
+]
 
 [tasks.build-wasm-multithreaded]
-env = { RUSTC_BOOTSTRAP=1 }
+env = { RUSTC_BOOTSTRAP = 1 }
 condition = { env_false = ["DISABLE_WASM_THREADS"] }
-script = ["""
+script = [
+  """
   if ! [ "$(wasm-opt --version | grep -oE "version [0-9]+" | grep -oE "[0-9]+" )" -ge 101 ]; then
     echo "Make sure wasm-opt is in the PATH and has version >= 101" >&2
     echo "Download Url: https://github.com/WebAssembly/binaryen/releases/tag/version_101" >&2
@@ -122,13 +150,16 @@ script = ["""
   fi
   RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
   ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/$WASM_VERSION" multithreaded -Z build-std=panic_abort,std
-"""]
+""",
+]
 
 [tasks.build-wasm-sequential]
 condition = { env_true = ["DISABLE_WASM_THREADS"] }
-script = ["""
+script = [
+  """
   ./build_wasm.sh "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/$WASM_VERSION" sequential
-"""]
+""",
+]
 
 [tasks.install-webpack]
 script = ["""
@@ -136,39 +167,46 @@ script = ["""
 """]
 
 [tasks.compile-dart-worker]
-script = ["""
+script = [
+  """
   dart compile js "${DART_WORKSPACE}/lib/src/web/worker/worker.dart" -m -o "$CARGO_MAKE_WORKING_DIRECTORY/$ASSET_OUT_DIR/$WASM_VERSION/worker.js"
-"""]
+""",
+]
 
 [tasks.test-wasm]
-script = ["""
+script = [
+  """
   # This is (way) faster, if rust would allow it we would love to have target specific profile optimization levels
   CARGO_PROFILE_DEV_OPT_LEVEL="2" \
     CARGO_PROFILE_TEST_OPT_LEVEL="2" \
     wasm-pack test --firefox --headless xayn-ai-ffi-wasm
-"""]
+""",
+]
 
 [tasks.clean-non-rust]
 dependencies = ["clean-bindgen", "clean-flutter-build", "clean-codegen"]
 
 [tasks.clean-bindgen]
-script = ["""
-  rm -f "$DART_WORKSPACE/ios/Classes/XaynAiFFiCommon.h"
-  rm -f "$DART_WORKSPACE/ios/Classes/XaynAiFFiDart.h"
+script = [
+  """
+  rm -f "$FLUTTER_WORKSPACE/ios/Classes/XaynAiFFiCommon.h"
+  rm -f "$FLUTTER_WORKSPACE/ios/Classes/XaynAiFFiDart.h"
   rm -f "$DART_WORKSPACE/lib/src/common/ffi/genesis.dart"
   rm -f "$DART_WORKSPACE/lib/src/mobile/ffi/genesis.dart"
   find "$EXAMPLE_ASSETS_DIR/wasm_bindings" -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
-"""]
+""",
+]
 
 [tasks.clean-flutter-build]
 script = ["""
-  cd "${DART_WORKSPACE}"
+  cd "${FLUTTER_WORKSPACE}"
   rm -rf build
   rm -rf example/build
 """]
 
 [tasks.clean-codegen]
-script = ["""
+script = [
+  """
   find "${DART_WORKSPACE}" -type f -regex '.*\\.g\\.dart' -exec rm {} \\;
   rm -f "${DART_WORKSPACE}"/lib/src/common/reranker/assets.dart
   rm -f "${DART_WORKSPACE}"/lib/src/web/reranker/assets.dart
@@ -178,4 +216,5 @@ script = ["""
   find $EXAMPLE_ASSETS_DIR/smbert_v* -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
   find $EXAMPLE_ASSETS_DIR/ltr_v* -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
   find $EXAMPLE_ASSETS_DIR/wasm_bindings -type f ! -name .gitkeep -exec sh -c "rm {}" \\;
-"""]
+""",
+]

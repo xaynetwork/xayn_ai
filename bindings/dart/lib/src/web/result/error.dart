@@ -20,8 +20,8 @@ class XaynAiError extends Error {
 
 extension ObjectToXaynAiError on Object {
   XaynAiError toXaynAiError() => XaynAiError(
-        getProperty(this, 'code') as int,
-        getProperty(this, 'message') as String,
+        getProperty<int>(this, 'code'),
+        getProperty<String>(this, 'message'),
       );
 }
 
@@ -42,7 +42,7 @@ class RuntimeError extends Error {
 
 extension ObjectToRuntimeError on Object {
   RuntimeError toRuntimeError() =>
-      RuntimeError(getProperty(this, 'message') as String);
+      RuntimeError(getProperty<String>(this, 'message'));
 }
 
 extension RuntimeErrorToException on RuntimeError {

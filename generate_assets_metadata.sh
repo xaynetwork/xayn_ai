@@ -53,10 +53,10 @@ split_asset_into_chunks(){
 
 generate_dart_assets_manifest() {
     gomplate -d assets_manifest="$ASSETS_METADATA_PATH" -f data/asset_templates/base_assets.dart.tmpl -o bindings/dart/lib/src/common/reranker/assets.dart
-    flutter format bindings/dart/lib/src/common/reranker/assets.dart
+    dart format bindings/dart/lib/src/common/reranker/assets.dart
 
     gomplate -d assets_manifest="$ASSETS_METADATA_PATH" -f data/asset_templates/web_assets.dart.tmpl -o bindings/dart/lib/src/web/reranker/assets.dart
-    flutter format bindings/dart/lib/src/web/reranker/assets.dart
+    dart format bindings/dart/lib/src/web/reranker/assets.dart
 }
 
 calc_checksum() {
