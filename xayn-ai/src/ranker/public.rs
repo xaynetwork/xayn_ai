@@ -121,9 +121,9 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
         let coi = CoiSystem::new(CoiSystemConfiguration::default());
         let kpe = self
             .kpe
-            .with_token_size(52)?
+            .with_token_size(150)?
             .with_accents(false)
-            .with_lowercase(true)
+            .with_lowercase(false)
             .build()?;
 
         Ok(Ranker(super::Ranker::new(
