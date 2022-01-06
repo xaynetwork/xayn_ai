@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
+use crate::embedding::utils::Embedding;
 #[cfg(test)]
 use crate::tests::mock_uuid;
 
@@ -36,7 +37,12 @@ impl CoiId {
 }
 
 #[derive(Debug, Display, Error)]
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum CoiError {
-    /// The key phrase is invalid (ie. either empty words or non-finite point)
-    InvalidKeyPhrase,
+    /// A key phrase is empty
+    EmptyKeyPhrase,
+    /// A key phrase has non-finite embedding values: {0:#?}
+    NonFiniteKeyPhrase(Embedding),
+    /// A key phrase has a non-normalized relevance score: {0}
+    NonNormalizedKeyPhrase(f32),
 }

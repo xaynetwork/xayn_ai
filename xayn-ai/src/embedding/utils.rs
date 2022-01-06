@@ -66,7 +66,6 @@ where
 /// [`TrustedLen`]: std::iter::TrustedLen
 /// [`ExactSizeIterator`]: std::iter::ExactSizeIterator
 /// [`Chain`]: std::iter::Chain
-#[allow(dead_code)]
 pub fn pairwise_cosine_similarity<I, S>(iter: I) -> Array2<f32>
 where
     I: IntoIterator<Item = ArrayBase<S, Ix1>>,
@@ -88,7 +87,7 @@ where
         .cartesian_product(iter.enumerate())
         .filter(|((i, _), (j, _))| j > i && norms[*i] > 0. && norms[*j] > 0.)
     {
-        similarities[[i, j]] = a.dot(&b) / norms[i] / norms[j];
+        similarities[[i, j]] = (a.dot(&b) / norms[i] / norms[j]).clamp(-1., 1.);
         similarities[[j, i]] = similarities[[i, j]];
     }
 
