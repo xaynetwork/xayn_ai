@@ -27,6 +27,7 @@ pub use crate::{
         UserFeedback,
     },
     error::Error,
+    ranker::public::{Builder as RankerBuilder, Ranker},
     reranker::{
         public::{Builder, Reranker},
         RerankMode,
