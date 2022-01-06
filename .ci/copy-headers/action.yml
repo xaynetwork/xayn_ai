@@ -21,4 +21,4 @@ runs:
         cp flutter/ios/Classes/XaynAiFfiDart.h ${{ inputs.flutter-ws }}/ios/Classes
         cp dart/lib/src/common/ffi/genesis.dart ${{ inputs.dart-ws }}/lib/src/common/ffi
         cp dart/lib/src/mobile/ffi/genesis.dart ${{ inputs.dart-ws }}/lib/src/mobile/ffi
-        find dart/lib/ -type f -regex ".*\.g\.dart" -exec cp --parents '{}' ${{ inputs.dart-ws }}/ \;
+        find dart/lib/ -type f -regex ".*\.g\.dart" -exec cp --parents '{}' ${{ inputs.dart-ws }}/../ \;
