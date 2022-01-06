@@ -1,3 +1,5 @@
+pub(crate) mod public;
+
 use kpe::Pipeline as KPE;
 use rubert::SMBert;
 
@@ -8,15 +10,15 @@ use crate::{
 };
 
 /// The Ranker.
-#[allow(dead_code)]
 pub(crate) struct Ranker {
+    #[allow(dead_code)]
     coi: CoiSystem,
     smbert: SMBert,
+    #[allow(dead_code)]
     kpe: KPE,
     user_interests: UserInterests,
 }
 
-#[allow(dead_code)]
 impl Ranker {
     /// Creates a new `Ranker`.
     pub(crate) fn new(

@@ -303,7 +303,7 @@ pub enum LoadingLayerFailed {
     #[displaydoc("{0}")]
     DimensionMismatch(#[from] UnexpectedNumberOfDimensions),
 
-    /// Irretrivable parameters.
+    /// Irretrievable parameters.
     #[displaydoc("{0}")]
     FailedToRetrieveParams(#[from] FailedToRetrieveParams),
 
