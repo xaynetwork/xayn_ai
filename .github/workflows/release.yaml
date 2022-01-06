@@ -564,7 +564,8 @@ jobs:
           rsync -a --exclude example ${{ env.FLUTTER_WORKSPACE }}/ ./flutter/
 
           # Remove files from .gitignore that needs to be uploaded to the release repo
-          sed -i -e '/DELETE_AFTER_THIS_IN_RELEASE/,$d' .gitignore
+          sed -i -e '/DELETE_AFTER_THIS_IN_RELEASE/,$d' ./dart/.gitignore
+          sed -i -e '/DELETE_AFTER_THIS_IN_RELEASE/,$d' ./flutter/.gitignore
 
           git add -A
 
