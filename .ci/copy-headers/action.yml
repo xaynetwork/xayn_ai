@@ -17,8 +17,8 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       # this might need some changes
       run: |
-        cp ios/Classes/XaynAiFfiCommon.h ${{ inputs.flutter-ws }}/ios/Classes
-        cp ios/Classes/XaynAiFfiDart.h ${{ inputs.flutter-ws }}/ios/Classes
-        cp lib/src/common/ffi/genesis.dart ${{ inputs.dart-ws }}/lib/src/common/ffi
-        cp lib/src/mobile/ffi/genesis.dart ${{ inputs.dart-ws }}/lib/src/mobile/ffi
-        find lib/ -type f -regex ".*\.g\.dart" -exec cp --parents '{}' ${{ inputs.dart-ws }}/ \;
+        cp flutter/ios/Classes/XaynAiFfiCommon.h ${{ inputs.flutter-ws }}/ios/Classes
+        cp flutter/ios/Classes/XaynAiFfiDart.h ${{ inputs.flutter-ws }}/ios/Classes
+        cp dart/lib/src/common/ffi/genesis.dart ${{ inputs.dart-ws }}/lib/src/common/ffi
+        cp dart/lib/src/mobile/ffi/genesis.dart ${{ inputs.dart-ws }}/lib/src/mobile/ffi
+        find dart/lib/ -type f -regex ".*\.g\.dart" -exec cp --parents '{}' ${{ inputs.dart-ws }}/ \;
