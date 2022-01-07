@@ -198,7 +198,7 @@ jobs:
       - name: Build iOS library
         env:
           RUSTFLAGS: ${{ env.PRODUCTION_RUSTFLAGS }}
-        run: cargo build --target ${{ matrix.target }} -p xayn-ai-ffi-c
+        run: cargo build --target ${{ matrix.target }} --release -p xayn-ai-ffi-c
 
       - name: Strip symbols
         run: |
