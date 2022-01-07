@@ -173,49 +173,49 @@ jobs:
           if-no-files-found: error
           path: ${{ env.ANDROID_LIBS_DIR }}
 
-  # build-release-ios-libs:
-  #   name: build-release-ios-libs
-  #   runs-on: macos-11
-  #   timeout-minutes: 25
-  #   strategy:
-  #     matrix:
-  #       target: [aarch64-apple-ios, x86_64-apple-ios]
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+  build-release-ios-libs:
+    name: build-release-ios-libs
+    runs-on: macos-11
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        target: [aarch64-apple-ios, x86_64-apple-ios]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
 
-  #     - name: Install ${{ env.RUST_STABLE }} toolchain
-  #       id: rust-toolchain
-  #       uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
-  #       with:
-  #         profile: minimal
-  #         toolchain: ${{ env.RUST_STABLE }}
-  #         target: ${{ matrix.target }}
-  #         default: true
+      - name: Install ${{ env.RUST_STABLE }} toolchain
+        id: rust-toolchain
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_STABLE }}
+          target: ${{ matrix.target }}
+          default: true
 
-  #     - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
 
-  #     - name: Build iOS library
-  #       env:
-  #         RUSTFLAGS: ${{ env.PRODUCTION_RUSTFLAGS }}
-  #       run: cargo build --target ${{ matrix.target }} --release -p xayn-ai-ffi-c
+      - name: Build iOS library
+        env:
+          RUSTFLAGS: ${{ env.PRODUCTION_RUSTFLAGS }}
+        run: cargo build --target ${{ matrix.target }} -p xayn-ai-ffi-c
 
-  #     - name: Strip symbols
-  #       run: |
-  #         strip -S -x -r target/${{ matrix.target}}/release/libxayn_ai_ffi_c.a
+      - name: Strip symbols
+        run: |
+          strip -S -x -r target/${{ matrix.target}}/release/libxayn_ai_ffi_c.a
 
-  #     - name: Rename lib
-  #       run: |
-  #         dir=target/${{ matrix.target }}/release
-  #         mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
+      - name: Rename lib
+        run: |
+          dir=target/${{ matrix.target }}/release
+          mv $dir/libxayn_ai_ffi_c.a $dir/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
-  #     - name: Upload artifact
-  #       uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
-  #       with:
-  #         name: ios-${{ matrix.target }}-${{ github.sha }}
-  #         retention-days: 1
-  #         if-no-files-found: error
-  #         path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
+      - name: Upload artifact
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
+        with:
+          name: ios-${{ matrix.target }}-${{ github.sha }}
+          retention-days: 1
+          if-no-files-found: error
+          path: target/${{ matrix.target}}/release/libxayn_ai_ffi_c_${{ matrix.target }}.a
 
   # build-web-worker-asset:
   #   name: build-web-worker-asset
@@ -484,7 +484,7 @@ jobs:
     needs:
       - build-release-headers
       - build-release-android-libs
-      # - build-release-ios-libs
+      - build-release-ios-libs
       - build-asset-artifacts
       - publish-asset-artifacts
     timeout-minutes: 5
@@ -509,10 +509,10 @@ jobs:
           cd /tmp/artifacts
           cp -r android-*/* ${{ env.ANDROID_LIBS_DIR }}
 
-      # - name: Copy iOS lib
-      #   run: |
-      #     cd /tmp/artifacts
-      #     cp -r ios-*/* ${{ env.FLUTTER_WORKSPACE }}/ios
+      - name: Copy iOS lib
+        run: |
+          cd /tmp/artifacts
+          cp -r ios-*/* ${{ env.FLUTTER_WORKSPACE }}/ios
 
       - name: Copy headers
         uses: ./.ci/copy-headers
