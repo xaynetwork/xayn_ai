@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::embedding::utils::Embedding;
+use crate::embedding::utils::ArcEmbedding;
 #[cfg(test)]
 use crate::tests::mock_uuid;
 
@@ -42,7 +42,7 @@ pub(crate) enum CoiError {
     /// A key phrase is empty
     EmptyKeyPhrase,
     /// A key phrase has non-finite embedding values: {0:#?}
-    NonFiniteKeyPhrase(Embedding),
+    NonFiniteKeyPhrase(ArcEmbedding),
     /// A key phrase has a non-normalized relevance score: {0}
     NonNormalizedKeyPhrase(f32),
 }

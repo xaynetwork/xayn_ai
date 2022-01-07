@@ -1,8 +1,9 @@
 use itertools::Itertools;
 use ndarray::{Array1, Array2, ArrayBase, Data, Ix1, RawDataClone};
-use rubert::Embedding1;
+use rubert::{ArcEmbedding1, Embedding1};
 
 pub(crate) type Embedding = Embedding1;
+pub(crate) type ArcEmbedding = ArcEmbedding1;
 
 /// Computes the l2 norm (euclidean metric) of a vector.
 ///

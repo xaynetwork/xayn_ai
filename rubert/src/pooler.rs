@@ -1,7 +1,7 @@
 use derive_more::{Deref, From};
 use displaydoc::Display;
 use float_cmp::{ApproxEq, F32Margin};
-use ndarray::{s, Array, Array1, ArrayBase, Data, Dimension, Ix1, Ix2, Zip};
+use ndarray::{s, ArcArray, Array, Array1, ArrayBase, Data, Dimension, Ix1, Ix2, Zip};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tract_onnx::prelude::TractError;
@@ -57,6 +57,49 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         self.eq(&other.0)
+    }
+}
+
+/// A shared d-dimensional sequence embedding.
+#[derive(Clone, Debug, Deref, From, Serialize, Deserialize, PartialEq)]
+pub struct ArcEmbedding<D>(ArcArray<f32, D>)
+where
+    D: Dimension;
+
+/// A shared 1-dimensional sequence embedding.
+///
+/// The embedding is of shape `(embedding_size,)`.
+pub type ArcEmbedding1 = ArcEmbedding<Ix1>;
+
+/// A shared 2-dimensional sequence embedding.
+///
+/// The embedding is of shape `(token_size, embedding_size)`.
+pub type ArcEmbedding2 = ArcEmbedding<Ix2>;
+
+impl<D> From<Array<f32, D>> for ArcEmbedding<D>
+where
+    D: Dimension,
+{
+    fn from(array: Array<f32, D>) -> Self {
+        ArcArray::from(array).into()
+    }
+}
+
+impl<D> From<Embedding<D>> for ArcEmbedding<D>
+where
+    D: Dimension,
+{
+    fn from(embedding: Embedding<D>) -> Self {
+        embedding.0.into()
+    }
+}
+
+impl<D> From<ArcEmbedding<D>> for Embedding<D>
+where
+    D: Dimension,
+{
+    fn from(embedding: ArcEmbedding<D>) -> Self {
+        embedding.0.into_owned().into()
     }
 }
 

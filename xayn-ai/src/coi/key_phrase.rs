@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::BTreeSet, mem::swap};
+use std::{borrow::Borrow, collections::BTreeSet};
 
 use derivative::Derivative;
 use lazy_static::lazy_static;
@@ -9,7 +9,7 @@ use crate::{
         point::{NegativeCoi, PositiveCoi},
         CoiError,
     },
-    embedding::utils::Embedding,
+    embedding::utils::ArcEmbedding,
 };
 
 #[derive(Clone, Debug, Derivative, Deserialize, Serialize)]
@@ -17,7 +17,7 @@ use crate::{
 pub(crate) struct KeyPhrase {
     words: String,
     #[derivative(Ord = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
-    point: Embedding,
+    point: ArcEmbedding,
     #[derivative(Ord = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
     relevance: f32,
 }
@@ -30,7 +30,7 @@ lazy_static! {
 impl KeyPhrase {
     pub(crate) fn new(
         words: impl Into<String>,
-        point: impl Into<Embedding>,
+        point: impl Into<ArcEmbedding>,
     ) -> Result<Self, CoiError> {
         let words = words.into();
         let point = point.into();
@@ -63,7 +63,7 @@ impl KeyPhrase {
         &self.words
     }
 
-    pub(crate) fn point(&self) -> &Embedding {
+    pub(crate) fn point(&self) -> &ArcEmbedding {
         &self.point
     }
 
@@ -88,7 +88,7 @@ impl Borrow<str> for KeyPhrase {
 pub(crate) trait CoiPointKeyPhrases {
     fn key_phrases(&self) -> &BTreeSet<KeyPhrase>;
 
-    fn swap_key_phrases(&mut self, candidates: BTreeSet<KeyPhrase>) -> BTreeSet<KeyPhrase>;
+    fn set_key_phrases(&mut self, key_phrases: BTreeSet<KeyPhrase>);
 }
 
 impl CoiPointKeyPhrases for PositiveCoi {
@@ -96,9 +96,8 @@ impl CoiPointKeyPhrases for PositiveCoi {
         &self.key_phrases
     }
 
-    fn swap_key_phrases(&mut self, mut candidates: BTreeSet<KeyPhrase>) -> BTreeSet<KeyPhrase> {
-        swap(&mut self.key_phrases, &mut candidates);
-        candidates
+    fn set_key_phrases(&mut self, key_phrases: BTreeSet<KeyPhrase>) {
+        self.key_phrases = key_phrases;
     }
 }
 
@@ -107,7 +106,5 @@ impl CoiPointKeyPhrases for NegativeCoi {
         &EMPTY_KEY_PHRASES
     }
 
-    fn swap_key_phrases(&mut self, _candidates: BTreeSet<KeyPhrase>) -> BTreeSet<KeyPhrase> {
-        BTreeSet::default()
-    }
+    fn set_key_phrases(&mut self, _key_phrases: BTreeSet<KeyPhrase>) {}
 }

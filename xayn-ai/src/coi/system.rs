@@ -1,5 +1,5 @@
 use std::{
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     collections::BTreeSet,
     convert::identity,
     iter::once,
@@ -421,15 +421,21 @@ impl CoiSystem {
                     .unwrap_or_default()
             });
 
-            let key_phrases = coi.swap_key_phrases(BTreeSet::default());
             let key_phrases = selected
                 .iter()
-                .zip(key_phrases.into_iter().chain(candidates))
-                .filter_map(|(is_selected, key_phrase)| is_selected.then(|| key_phrase))
+                .zip(
+                    coi.key_phrases()
+                        .iter()
+                        .map(Cow::Borrowed)
+                        .chain(candidates.into_iter().map(Cow::Owned)),
+                )
+                .filter_map(|(is_selected, key_phrase)| {
+                    is_selected.then(|| key_phrase.into_owned())
+                })
                 .zip(relevance)
                 .filter_map(|(key_phrase, relevance)| key_phrase.with_relevance(relevance).ok())
                 .collect();
-            coi.swap_key_phrases(key_phrases);
+            coi.set_key_phrases(key_phrases);
         }
 
         let candidates = unique_candidates(coi, candidates, smbert);
@@ -900,7 +906,7 @@ mod tests {
         let key_phrases =
             IntoIterator::into_iter([KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap()])
                 .collect::<BTreeSet<_>>();
-        coi[0].swap_key_phrases(key_phrases.clone());
+        coi[0].set_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
         CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
@@ -920,7 +926,7 @@ mod tests {
             KeyPhrase::new("phrase", arr1(&[1., 1., 1.])).unwrap(),
         ])
         .collect::<BTreeSet<_>>();
-        coi[0].swap_key_phrases(key_phrases.clone());
+        coi[0].set_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
         CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
@@ -953,7 +959,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };
@@ -981,7 +987,7 @@ mod tests {
             KeyPhrase::new("words", arr1(&[2., 1., 0.])).unwrap(),
         ])
         .collect::<BTreeSet<_>>();
-        coi[0].swap_key_phrases(key_phrases.iter().cloned().take(2).collect());
+        coi[0].set_key_phrases(key_phrases.iter().cloned().take(2).collect());
         let candidates = key_phrases
             .iter()
             .skip(2)
@@ -991,7 +997,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };
@@ -1024,7 +1030,7 @@ mod tests {
             KeyPhrase::new("phrase", arr1(&[1., 1., 1.])).unwrap(),
         ])
         .collect::<BTreeSet<_>>();
-        coi[0].swap_key_phrases(key_phrases.iter().cloned().take(1).collect());
+        coi[0].set_key_phrases(key_phrases.iter().cloned().take(1).collect());
         let candidates = key_phrases
             .iter()
             .skip(1)
@@ -1036,7 +1042,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };
@@ -1062,7 +1068,7 @@ mod tests {
             KeyPhrase::new("phrase", arr1(&[0., 0., 1.])).unwrap(),
         ])
         .collect::<BTreeSet<_>>();
-        coi[0].swap_key_phrases(key_phrases.iter().cloned().take(1).collect());
+        coi[0].set_key_phrases(key_phrases.iter().cloned().take(1).collect());
         let candidates = key_phrases
             .iter()
             .skip(1)
@@ -1072,7 +1078,7 @@ mod tests {
             key_phrases
                 .iter()
                 .find_map(|key_phrase| {
-                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone()))
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
                 })
                 .unwrap()
         };
