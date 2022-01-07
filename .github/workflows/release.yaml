@@ -15,8 +15,7 @@ env:
   DART_WORKSPACE: ${{ github.workspace }}/bindings/dart
   FLUTTER_WORKSPACE: ${{ github.workspace }}/bindings/flutter
   ANDROID_LIBS_DIR: ${{ github.workspace }}/bindings/flutter/android/src/main/jniLibs
-  # PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
-  PRODUCTION_RUSTFLAGS: ''
+  PRODUCTION_RUSTFLAGS: '-Ccodegen-units=1 -Clto=on -Cembed-bitcode=yes'
   CARGO_INCREMENTAL: 0
 
 permissions:
@@ -163,7 +162,7 @@ jobs:
             -t ${{ matrix.target }} \
             -p ${{ env.ANDROID_PLATFORM_VERSION }} \
             -o ${{ env.ANDROID_LIBS_DIR }} \
-            build -p xayn-ai-ffi-c
+            build --release -p xayn-ai-ffi-c
 
       - name: Upload artifact
         uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
@@ -418,7 +417,7 @@ jobs:
     name: publish-asset-artifacts
     runs-on: ubuntu-20.04
     needs: [
-      # build-release-wasm-libs, 
+      # build-release-wasm-libs,
       build-asset-artifacts,
     ]
     timeout-minutes: 20
