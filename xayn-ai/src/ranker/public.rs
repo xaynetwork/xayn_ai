@@ -44,13 +44,21 @@ impl Default for Builder<(), (), (), ()> {
 }
 
 impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
-    pub fn with_serialized_state(mut self, bytes: Option<impl AsRef<[u8]>>) -> Result<Self, Error> {
-        if let Some(user_interests) = bytes {
-            self.user_interests = bincode::deserialize(user_interests.as_ref())?;
-        }
+    /// Sets the serialized state to use.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the state cannot be deserialized.
+    pub fn with_serialized_state(mut self, bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
+        self.user_interests = bincode::deserialize(bytes.as_ref())?;
         Ok(self)
     }
 
+    /// Sets the reader of the vocabulary, and bert model used to initialize the SMBert.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the data cannot be deserialized.
     pub fn with_smbert_from_reader<W, N>(self, vocab: W, bert: N) -> Builder<W, N, KV, KM> {
         Builder {
             smbert: SMBertBuilder::new(vocab, bert),
@@ -59,6 +67,11 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
         }
     }
 
+    /// Sets the path of the vocabulary, and bert model used to initialize the SMBert.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a file does not exist or if the data cannot be deserialized.
     pub fn with_smbert_from_file(
         self,
         vocab: impl AsRef<Path>,
@@ -71,6 +84,12 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
         })
     }
 
+    /// Sets the reader of the vocabulary, bert model, CNN and classifier used
+    /// to initialize the KPE.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the data cannot be deserialized.
     pub fn with_kpe_from_reader<W, N>(
         self,
         vocab: W,
@@ -90,6 +109,12 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
         })
     }
 
+    /// Sets the path of the vocabulary, bert model, CNN and classifier used
+    /// to initialize the KPE.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a file does not exist or if the data cannot be deserialized.
     pub fn with_kpe_from_file(
         self,
         vocab: impl AsRef<Path>,
@@ -104,6 +129,11 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
         })
     }
 
+    /// Creates a `Reranker`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the SMBert or KPE cannot be initialized.
     pub fn build(self) -> Result<Ranker, Error>
     where
         SV: BufRead,
