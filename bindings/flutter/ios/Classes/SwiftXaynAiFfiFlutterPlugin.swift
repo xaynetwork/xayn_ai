@@ -17,7 +17,7 @@ public class SwiftXaynAiFfiFlutterPlugin: NSObject, FlutterPlugin {
   // call to a component directly related to the ai is just done to ensure
   // that the library is included, independent of the actual return value
   // or failure.
-  public func enforceBinding(){
-    xaynai_new(nil, nil, nil, nil, nil, nil, nil)
-  }
+  // public func enforceBinding(){
+  //   xaynai_new(nil, nil, nil, nil, nil, nil, nil)
+  // }
 }
