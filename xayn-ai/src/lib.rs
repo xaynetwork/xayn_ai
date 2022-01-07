@@ -7,6 +7,7 @@ mod data;
 mod embedding;
 mod error;
 mod ltr;
+mod ranker;
 mod reranker;
 mod utils;
 

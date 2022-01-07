@@ -2391,6 +2391,7 @@ dependencies = [
  "displaydoc",
  "itertools",
  "js-sys",
+ "kpe",
  "layer",
  "lazy_static",
  "maplit",
