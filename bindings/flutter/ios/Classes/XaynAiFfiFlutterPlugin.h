@@ -2,5 +2,3 @@
 
 @interface XaynAiFfiFlutterPlugin : NSObject <FlutterPlugin>
 @end
-
-#include "XaynAiFfiDart.h"
