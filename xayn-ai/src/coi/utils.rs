@@ -85,6 +85,7 @@ pub(super) mod tests {
         id: DocumentId,
         smbert: SMBertComponent,
         coi: Option<CoiComponent>,
+        viewed: Duration,
     }
 
     impl CoiSystemData for MockCoiDoc {
@@ -101,7 +102,7 @@ pub(super) mod tests {
         }
 
         fn viewed(&self) -> Duration {
-            Duration::from_secs(10)
+            self.viewed
         }
     }
 

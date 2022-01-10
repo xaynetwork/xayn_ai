@@ -96,6 +96,16 @@ pub(crate) trait CoiPointKeyPhrases {
     fn key_phrases(&self) -> &BTreeSet<KeyPhrase>;
 
     fn set_key_phrases(&mut self, key_phrases: BTreeSet<KeyPhrase>);
+
+    fn select_key_phrases<F>(
+        &mut self,
+        candidates: &[String],
+        smbert: F,
+        max_key_phrases: usize,
+        gamma: f32,
+    ) where
+        Self: CoiPoint,
+        F: Fn(&str) -> Result<Embedding, Error>;
 }
 
 impl CoiPointKeyPhrases for PositiveCoi {
@@ -106,6 +116,26 @@ impl CoiPointKeyPhrases for PositiveCoi {
     fn set_key_phrases(&mut self, key_phrases: BTreeSet<KeyPhrase>) {
         self.key_phrases = key_phrases;
     }
+
+    /// Selects the most relevant key phrases for the coi.
+    ///
+    /// The most relevant key phrases are selected from the set of key phrases of the coi and the
+    /// candidates. The computed relevances are a relative score from the interval `[0, 1]`.
+    fn select_key_phrases<F>(
+        &mut self,
+        candidates: &[String],
+        smbert: F,
+        max_key_phrases: usize,
+        gamma: f32,
+    ) where
+        Self: CoiPoint,
+        F: Fn(&str) -> Result<Embedding, Error>,
+    {
+        let candidates = unique_candidates(self, candidates, smbert);
+        let (similarity, normalized) = similarities(self, &candidates);
+        let selected = is_selected(normalized, max_key_phrases, gamma);
+        select(self, candidates, selected, similarity);
+    }
 }
 
 impl CoiPointKeyPhrases for NegativeCoi {
@@ -114,6 +144,18 @@ impl CoiPointKeyPhrases for NegativeCoi {
     }
 
     fn set_key_phrases(&mut self, _key_phrases: BTreeSet<KeyPhrase>) {}
+
+    fn select_key_phrases<F>(
+        &mut self,
+        _candidates: &[String],
+        _smbert: F,
+        _max_key_phrases: usize,
+        _gamma: f32,
+    ) where
+        Self: CoiPoint,
+        F: Fn(&str) -> Result<Embedding, Error>,
+    {
+    }
 }
 
 /// Filters the unique candidates wrt the existing key phrases.
@@ -302,27 +344,6 @@ fn select<CP, S>(
     coi.set_key_phrases(key_phrases);
 }
 
-/// Selects the most relevant key phrases for the coi.
-///
-/// The most relevant key phrases are selected from the set of key phrases of the coi and the
-/// candidates. The computed relevances are a relative score from the interval `[0, 1]`.
-#[allow(dead_code)]
-pub(super) fn select_key_phrases<CP, F>(
-    coi: &mut CP,
-    candidates: &[String],
-    smbert: F,
-    max_key_phrases: usize,
-    gamma: f32,
-) where
-    CP: CoiPoint + CoiPointKeyPhrases,
-    F: Fn(&str) -> Result<Embedding, Error>,
-{
-    let candidates = unique_candidates(coi, candidates, smbert);
-    let (similarity, normalized) = similarities(coi, &candidates);
-    let selected = is_selected(normalized, max_key_phrases, gamma);
-    select(coi, candidates, selected, similarity);
-}
-
 #[cfg(test)]
 mod tests {
     use ndarray::arr1;
@@ -337,7 +358,7 @@ mod tests {
         let mut coi = create_pos_cois(&[[1., 0., 0.]]);
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        select_key_phrases(&mut coi[0], candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(candidates, smbert, 3, 0.9);
         assert!(coi[0].key_phrases().is_empty());
     }
 
@@ -350,7 +371,7 @@ mod tests {
         coi[0].set_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        select_key_phrases(&mut coi[0], candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -370,7 +391,7 @@ mod tests {
         coi[0].set_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        select_key_phrases(&mut coi[0], candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -404,7 +425,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(&candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -442,7 +463,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(&candidates, smbert, 3, 0.9);
         assert!(key_phrases.remove("test"));
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
@@ -486,7 +507,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(&candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -522,7 +543,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(&candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -558,7 +579,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(&candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -594,7 +615,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(&candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -630,7 +651,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        coi[0].select_key_phrases(&candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,

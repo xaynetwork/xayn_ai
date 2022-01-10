@@ -89,6 +89,8 @@ fn mocked_coi_system() -> MockCoiSystem {
         shift_factor,
         threshold,
         neighbors,
+        max_key_phrases,
+        gamma,
         ..
     } = CoiConfig::default();
     let neighbors = neighbors.get();
@@ -109,6 +111,9 @@ fn mocked_coi_system() -> MockCoiSystem {
                 neighbors,
                 threshold,
                 shift_factor,
+                |_| unreachable!(),
+                max_key_phrases,
+                gamma,
             )
         });
     system
