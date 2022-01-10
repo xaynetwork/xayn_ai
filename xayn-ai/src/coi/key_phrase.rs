@@ -238,7 +238,7 @@ where
     }
 
     let candidate =
-        argmax(normalized.slice(s![.., -1])).unwrap(/* at least one key phrase is selected */);
+        argmax(normalized.slice(s![.., -1])).unwrap(/* at least one key phrase is available */);
     let mut selected = vec![false; len];
     selected[candidate] = true;
     for _ in 0..max_key_phrases.min(len) - 1 {
@@ -258,7 +258,7 @@ where
                     gamma * normalized.slice(s![-1]).into_scalar() - (1. - gamma) * max
                 }
             },
-        )).unwrap(/* at least one key phrase is selected */);
+        )).unwrap(/* at least one key phrase is available */);
         selected[candidate] = true;
     }
 
@@ -306,17 +306,17 @@ fn select<CP, S>(
 ///
 /// The most relevant key phrases are selected from the set of key phrases of the coi and the
 /// candidates. The computed relevances are a relative score from the interval `[0, 1]`.
-pub(super) fn select_key_phrases<
-    CP: CoiPoint + CoiPointKeyPhrases,
-    F: Fn(&str) -> Result<Embedding, Error>,
->(
+pub(super) fn select_key_phrases<CP, F>(
     coi: &mut CP,
     candidates: &[String],
     // TODO: make SMBert available to CoiSystem and remove this argument
     smbert: F,
     max_key_phrases: usize,
     gamma: f32,
-) {
+) where
+    CP: CoiPoint + CoiPointKeyPhrases,
+    F: Fn(&str) -> Result<Embedding, Error>,
+{
     let candidates = unique_candidates(coi, candidates, smbert);
     let (similarity, normalized) = similarities(coi, &candidates);
     let selected = is_selected(normalized, max_key_phrases, gamma);

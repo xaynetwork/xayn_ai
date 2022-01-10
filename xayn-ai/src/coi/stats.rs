@@ -77,10 +77,10 @@ impl CoiPointStats for NegativeCoi {
 /// The weights are computed from the view counts and view times of each coi and they are not
 /// normalized. The horizon specifies the time since the last view after which a coi becomes
 /// irrelevant.
-pub(super) fn compute_weights<CP: CoiPoint + CoiPointStats>(
-    cois: &[CP],
-    horizon: Duration,
-) -> Vec<f32> {
+pub(super) fn compute_weights<CP>(cois: &[CP], horizon: Duration) -> Vec<f32>
+where
+    CP: CoiPoint + CoiPointStats,
+{
     let counts = cois.iter().map(|coi| coi.stats().view_count).sum::<usize>() as f32 + f32::EPSILON;
     let times = cois
         .iter()
