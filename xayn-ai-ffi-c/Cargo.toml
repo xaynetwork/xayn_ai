@@ -14,7 +14,7 @@ rayon = { version = "1.5.1", optional = true }
 
 [dev-dependencies]
 itertools = "0.10.3"
-tempfile = "3.2.0"
+tempfile = "3.3.0"
 test-utils = { path = "../test-utils" }
 
 [build-dependencies]
