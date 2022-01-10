@@ -44,34 +44,6 @@ impl CoiSystem {
         Self { config }
     }
 
-    /// Finds the closest CoI for the given embedding.
-    ///
-    /// Returns an immutable reference to the CoI along with the weighted distance between the given
-    /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
-    fn find_closest_coi<'coi, CP: CoiPoint>(
-        &self,
-        embedding: &Embedding,
-        cois: &'coi [CP],
-    ) -> Option<(&'coi CP, f32)> {
-        let (index, distance) =
-            find_closest_coi_index(embedding, cois, self.config.neighbors.get())?;
-        Some((&cois[index], distance))
-    }
-
-    /// Finds the closest CoI for the given embedding.
-    ///
-    /// Returns a mutable reference to the CoI along with the weighted distance between the given
-    /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
-    fn find_closest_coi_mut<'coi, CP: CoiPoint>(
-        &self,
-        embedding: &Embedding,
-        cois: &'coi mut [CP],
-    ) -> Option<(&'coi mut CP, f32)> {
-        let (index, distance) =
-            find_closest_coi_index(embedding, cois, self.config.neighbors.get())?;
-        Some((&mut cois[index], distance))
-    }
-
     /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
@@ -81,7 +53,7 @@ impl CoiSystem {
         viewed: Duration,
         mut cois: Vec<CP>,
     ) -> Vec<CP> {
-        match self.find_closest_coi_mut(embedding, &mut cois) {
+        match find_closest_coi_mut(embedding, &mut cois, self.config.neighbors.get()) {
             Some((coi, distance)) if distance < self.config.threshold => {
                 coi.set_point(shift_coi_point(
                     embedding,
@@ -122,8 +94,9 @@ impl CoiSystem {
         embedding: &Embedding,
         user_interests: &UserInterests,
     ) -> Option<CoiComponent> {
-        let (coi, pos_distance) = self.find_closest_coi(embedding, &user_interests.positive)?;
-        let neg_distance = match self.find_closest_coi(embedding, &user_interests.negative) {
+        let neighbors = self.config.neighbors.get();
+        let (coi, pos_distance) = find_closest_coi(embedding, &user_interests.positive, neighbors)?;
+        let neg_distance = match find_closest_coi(embedding, &user_interests.negative, neighbors) {
             Some((_, dis)) => dis,
             None => f32::MAX,
         };
@@ -172,6 +145,32 @@ impl CoiSystem {
             self.config.gamma,
         )
     }
+}
+
+/// Finds the closest CoI for the given embedding.
+///
+/// Returns an immutable reference to the CoI along with the weighted distance between the given
+/// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
+fn find_closest_coi<'coi, CP: CoiPoint>(
+    embedding: &Embedding,
+    cois: &'coi [CP],
+    neighbors: usize,
+) -> Option<(&'coi CP, f32)> {
+    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
+    Some((&cois[index], distance))
+}
+
+/// Finds the closest CoI for the given embedding.
+///
+/// Returns a mutable reference to the CoI along with the weighted distance between the given
+/// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
+fn find_closest_coi_mut<'coi, CP: CoiPoint>(
+    embedding: &Embedding,
+    cois: &'coi mut [CP],
+    neighbors: usize,
+) -> Option<(&'coi mut CP, f32)> {
+    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
+    Some((&mut cois[index], distance))
 }
 
 /// Creates a new CoI that is shifted towards the position of `embedding`.
