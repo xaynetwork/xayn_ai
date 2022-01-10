@@ -9,7 +9,7 @@ use crate::{
         config::Configuration,
         key_phrase::{select_key_phrases, CoiPointKeyPhrases},
         point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
-        stats::{compute_weights, CoiPointStats},
+        stats::CoiPointStats,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
@@ -44,20 +44,6 @@ impl CoiSystem {
         Self { config }
     }
 
-    /// Computes the relevance/weights of the cois.
-    ///
-    /// The weights are computed from the view counts and view times of each coi and they are not
-    /// normalized. The horizon specifies the time since the last view after which a coi becomes
-    /// irrelevant.
-    #[allow(dead_code)]
-    fn compute_weights<CP: CoiPoint + CoiPointStats>(
-        &self,
-        cois: &[CP],
-        horizon: Duration,
-    ) -> Vec<f32> {
-        compute_weights(cois, horizon)
-    }
-
     /// Selects the most relevant key phrases for the coi.
     ///
     /// The most relevant key phrases are selected from the set of key phrases of the coi and the
@@ -81,59 +67,6 @@ impl CoiSystem {
             self.config.gamma,
         )
     }
-}
-
-/// Creates a new CoI that is shifted towards the position of `embedding`.
-fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) -> Embedding {
-    (coi.deref() * (1. - shift_factor) + embedding.deref() * shift_factor).into()
-}
-
-/// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
-/// (within [`Configuration.threshold`]), the centroid's position gets updated,
-/// otherwise a new centroid is created.
-fn update_coi<CP: CoiPoint + CoiPointStats>(
-    embedding: &Embedding,
-    viewed: Duration,
-    mut cois: Vec<CP>,
-    neighbors: usize,
-    threshold: f32,
-    shift_factor: f32,
-) -> Vec<CP> {
-    match find_closest_coi_mut(embedding, &mut cois, neighbors) {
-        Some((coi, distance)) if distance < threshold => {
-            coi.set_point(shift_coi_point(embedding, coi.point(), shift_factor));
-            coi.set_id(Uuid::new_v4().into());
-            // TODO: update key phrases
-            coi.update_stats(viewed);
-        }
-        _ => cois.push(CP::new(
-            Uuid::new_v4().into(),
-            embedding.clone(),
-            BTreeSet::default(), // TODO: set key phrases
-            viewed,
-        )),
-    }
-    cois
-}
-
-/// Updates the CoIs based on the embeddings of docs.
-fn update_cois<CP: CoiPoint + CoiPointStats>(
-    docs: &[&dyn CoiSystemData],
-    cois: Vec<CP>,
-    neighbors: usize,
-    threshold: f32,
-    shift_factor: f32,
-) -> Vec<CP> {
-    docs.iter().fold(cois, |cois, doc| {
-        update_coi(
-            &doc.smbert().embedding,
-            doc.viewed(),
-            cois,
-            neighbors,
-            threshold,
-            shift_factor,
-        )
-    })
 }
 
 impl systems::CoiSystem for CoiSystem {
@@ -198,6 +131,59 @@ fn compute_coi(
                 .ok_or_else(|| CoiSystemError::NoCoi.into())
         })
         .collect()
+}
+
+/// Creates a new CoI that is shifted towards the position of `embedding`.
+fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) -> Embedding {
+    (coi.deref() * (1. - shift_factor) + embedding.deref() * shift_factor).into()
+}
+
+/// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
+/// (within [`Configuration.threshold`]), the centroid's position gets updated,
+/// otherwise a new centroid is created.
+fn update_coi<CP: CoiPoint + CoiPointStats>(
+    embedding: &Embedding,
+    viewed: Duration,
+    mut cois: Vec<CP>,
+    neighbors: usize,
+    threshold: f32,
+    shift_factor: f32,
+) -> Vec<CP> {
+    match find_closest_coi_mut(embedding, &mut cois, neighbors) {
+        Some((coi, distance)) if distance < threshold => {
+            coi.set_point(shift_coi_point(embedding, coi.point(), shift_factor));
+            coi.set_id(Uuid::new_v4().into());
+            // TODO: update key phrases
+            coi.update_stats(viewed);
+        }
+        _ => cois.push(CP::new(
+            Uuid::new_v4().into(),
+            embedding.clone(),
+            BTreeSet::default(), // TODO: set key phrases
+            viewed,
+        )),
+    }
+    cois
+}
+
+/// Updates the CoIs based on the embeddings of docs.
+fn update_cois<CP: CoiPoint + CoiPointStats>(
+    docs: &[&dyn CoiSystemData],
+    cois: Vec<CP>,
+    neighbors: usize,
+    threshold: f32,
+    shift_factor: f32,
+) -> Vec<CP> {
+    docs.iter().fold(cois, |cois, doc| {
+        update_coi(
+            &doc.smbert().embedding,
+            doc.viewed(),
+            cois,
+            neighbors,
+            threshold,
+            shift_factor,
+        )
+    })
 }
 
 fn update_user_interests(
