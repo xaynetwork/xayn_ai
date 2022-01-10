@@ -210,209 +210,13 @@ impl CoiSystem {
         // TODO: make SMBert available to CoiSystem and remove this argument
         smbert: F,
     ) {
-        /// Filters the unique candidates wrt the existing key phrases.
-        fn unique_candidates<CP, F>(
-            coi: &CP,
-            candidates: &[String],
-            smbert: F,
-        ) -> BTreeSet<KeyPhrase>
-        where
-            CP: CoiPoint + CoiPointKeyPhrases,
-            F: Fn(&str) -> Result<Embedding, Error>,
-        {
-            candidates
-                .iter()
-                .filter_map(|words| {
-                    (!coi.key_phrases().contains(words))
-                        .then(|| {
-                            smbert(words)
-                                .ok()
-                                .and_then(|point| KeyPhrase::new(words, point).ok())
-                        })
-                        .flatten()
-                })
-                .collect()
-        }
-
-        /// Reduces the matrix along the axis while skipping the diagonal elements.
-        fn reduce_without_diag<S, F, G>(
-            a: ArrayBase<S, Ix2>,
-            axis: Axis,
-            reduce: F,
-            finalize: G,
-        ) -> Array2<f32>
-        where
-            S: Data<Elem = f32>,
-            F: Fn(f32, f32) -> f32 + Copy,
-            G: Fn(f32) -> f32 + Copy,
-        {
-            a.lanes(axis)
-                .into_iter()
-                .enumerate()
-                .map(|(i, lane)| {
-                    lane.iter()
-                        .enumerate()
-                        .filter_map(|(j, element)| (i != j).then(|| *element))
-                        .reduce(reduce)
-                        .map(finalize)
-                        .unwrap_or_default()
-                })
-                .collect::<Array1<_>>()
-                .insert_axis(axis)
-        }
-
-        /// Gets the index of the maximum element.
-        fn argmax<I, F>(iter: I) -> Ix
-        where
-            I: IntoIterator<Item = F>,
-            F: Borrow<f32>,
-        {
-            iter.into_iter()
-                .enumerate()
-                .reduce(|(arg, max), (index, element)| {
-                    if element.borrow() > max.borrow() {
-                        (index, element)
-                    } else {
-                        (arg, max)
-                    }
-                })
-                .map(|(arg, _)| arg)
-                .unwrap(/* at least one key phrase exists */)
-        }
-
-        /// Computes the pairwise similarity and their normalizations of the key phrases.
-        ///
-        /// The matrices are of shape `(key_phrases_len + candidates_len, key_phrases_len +
-        /// candidates_len + 1)` with the following blockwise layout:
-        /// ```text
-        /// [[sim(kp, kp),   sim(kp, cand),   sim(kp, coi)  ],
-        ///  [sim(cand, kp), sim(cand, cand), sim(cand, coi)]]
-        /// ```
-        fn similarities<CP>(
-            coi: &CP,
-            candidates: &BTreeSet<KeyPhrase>,
-        ) -> (Array2<f32>, Array2<f32>)
-        where
-            CP: CoiPoint + CoiPointKeyPhrases,
-        {
-            let len = coi.key_phrases().len() + candidates.len();
-            let similarity = pairwise_cosine_similarity(
-                coi.key_phrases()
-                    .iter()
-                    .chain(candidates.iter())
-                    .map(|key_phrase| key_phrase.point().view())
-                    .chain(once(coi.point().view())),
-            )
-            .slice_move(s![..len, ..]);
-            debug_assert!(similarity.iter().copied().all(f32::is_finite));
-
-            let min = reduce_without_diag(similarity.view(), Axis(0), f32::min, identity);
-            let max = reduce_without_diag(similarity.view(), Axis(0), f32::max, identity);
-            let normalized = (&similarity - &min) / (max - min);
-            let mean = reduce_without_diag(
-                normalized.view(),
-                Axis(0),
-                |reduced, element| reduced + element,
-                |reduced| reduced / (len - 1) as f32,
-            );
-            let std_dev = reduce_without_diag(
-                &normalized - &mean,
-                Axis(0),
-                |reduced, element| reduced + element.powi(2),
-                |reduced| (reduced / (len - 1) as f32).sqrt(),
-            );
-            let normalized = (normalized - mean) / std_dev + 0.5;
-            let normalized = normalized
-                .mapv_into(|normalized| normalized.is_finite().then(|| normalized).unwrap_or(0.5));
-            debug_assert!(normalized.iter().copied().all(f32::is_finite));
-
-            (similarity, normalized)
-        }
-
-        /// Determines which key phrases should be selected.
-        fn is_selected<S>(
-            normalized: ArrayBase<S, Ix2>,
-            max_key_phrases: usize,
-            gamma: f32,
-        ) -> Vec<bool>
-        where
-            S: Data<Elem = f32>,
-        {
-            let len = normalized.len_of(Axis(0));
-            if len <= max_key_phrases {
-                return vec![true; len];
-            }
-
-            let candidate = argmax(normalized.slice(s![.., -1]));
-            let mut selected = vec![false; len];
-            selected[candidate] = true;
-            for _ in 0..max_key_phrases.min(len) - 1 {
-                let candidate = argmax(selected.iter().zip(normalized.rows()).map(
-                    |(&is_selected, normalized)| {
-                        if is_selected {
-                            f32::MIN
-                        } else {
-                            let max = selected
-                                .iter()
-                                .zip(normalized)
-                                .filter_map(|(is_selected, normalized)| {
-                                    is_selected.then(|| *normalized)
-                                })
-                                .reduce(f32::max)
-                                .unwrap(/* at least one key phrase is selected */);
-                            gamma * normalized.slice(s![-1]).into_scalar() - (1. - gamma) * max
-                        }
-                    },
-                ));
-                selected[candidate] = true;
-            }
-
-            selected
-        }
-
-        /// Selects the determined key phrases.
-        fn select<CP, S>(
-            coi: &mut CP,
-            candidates: BTreeSet<KeyPhrase>,
-            selected: Vec<bool>,
-            similarity: ArrayBase<S, Ix2>,
-        ) where
-            CP: CoiPoint + CoiPointKeyPhrases,
-            S: Data<Elem = f32>,
-        {
-            let relevance = selected
-                .iter()
-                .zip(similarity.slice(s![.., -1]))
-                .filter_map(|(is_selected, similarity)| is_selected.then(|| similarity))
-                .copied();
-            let max = relevance.clone().reduce(f32::max).unwrap_or_default();
-            let relevance = relevance.map(|relevance| {
-                (relevance > 0.)
-                    .then(|| (relevance / max).clamp(0., 1.))
-                    .unwrap_or_default()
-            });
-
-            let key_phrases = selected
-                .iter()
-                .zip(
-                    coi.key_phrases()
-                        .iter()
-                        .map(Cow::Borrowed)
-                        .chain(candidates.into_iter().map(Cow::Owned)),
-                )
-                .filter_map(|(is_selected, key_phrase)| {
-                    is_selected.then(|| key_phrase.into_owned())
-                })
-                .zip(relevance)
-                .filter_map(|(key_phrase, relevance)| key_phrase.with_relevance(relevance).ok())
-                .collect();
-            coi.set_key_phrases(key_phrases);
-        }
-
-        let candidates = unique_candidates(coi, candidates, smbert);
-        let (similarity, normalized) = similarities(coi, &candidates);
-        let selected = is_selected(normalized, self.config.max_key_phrases, self.config.gamma);
-        select(coi, candidates, selected, similarity);
+        select_key_phrases(
+            coi,
+            candidates,
+            smbert,
+            self.config.max_key_phrases,
+            self.config.gamma,
+        )
     }
 }
 
@@ -445,6 +249,213 @@ fn compute_weights<CP: CoiPoint + CoiPointStats>(cois: &[CP], horizon: Duration)
             (count + time) * last
         })
         .collect()
+}
+
+fn select_key_phrases<
+    CP: CoiPoint + CoiPointKeyPhrases,
+    F: Fn(&str) -> Result<Embedding, Error>,
+>(
+    coi: &mut CP,
+    candidates: &[String],
+    // TODO: make SMBert available to CoiSystem and remove this argument
+    smbert: F,
+    max_key_phrases: usize,
+    gamma: f32,
+) {
+    /// Filters the unique candidates wrt the existing key phrases.
+    fn unique_candidates<CP, F>(coi: &CP, candidates: &[String], smbert: F) -> BTreeSet<KeyPhrase>
+    where
+        CP: CoiPoint + CoiPointKeyPhrases,
+        F: Fn(&str) -> Result<Embedding, Error>,
+    {
+        candidates
+            .iter()
+            .filter_map(|words| {
+                (!coi.key_phrases().contains(words))
+                    .then(|| {
+                        smbert(words)
+                            .ok()
+                            .and_then(|point| KeyPhrase::new(words, point).ok())
+                    })
+                    .flatten()
+            })
+            .collect()
+    }
+
+    /// Reduces the matrix along the axis while skipping the diagonal elements.
+    fn reduce_without_diag<S, F, G>(
+        a: ArrayBase<S, Ix2>,
+        axis: Axis,
+        reduce: F,
+        finalize: G,
+    ) -> Array2<f32>
+    where
+        S: Data<Elem = f32>,
+        F: Fn(f32, f32) -> f32 + Copy,
+        G: Fn(f32) -> f32 + Copy,
+    {
+        a.lanes(axis)
+            .into_iter()
+            .enumerate()
+            .map(|(i, lane)| {
+                lane.iter()
+                    .enumerate()
+                    .filter_map(|(j, element)| (i != j).then(|| *element))
+                    .reduce(reduce)
+                    .map(finalize)
+                    .unwrap_or_default()
+            })
+            .collect::<Array1<_>>()
+            .insert_axis(axis)
+    }
+
+    /// Gets the index of the maximum element.
+    fn argmax<I, F>(iter: I) -> Ix
+    where
+        I: IntoIterator<Item = F>,
+        F: Borrow<f32>,
+    {
+        iter.into_iter()
+                .enumerate()
+                .reduce(|(arg, max), (index, element)| {
+                    if element.borrow() > max.borrow() {
+                        (index, element)
+                    } else {
+                        (arg, max)
+                    }
+                })
+                .map(|(arg, _)| arg)
+                .unwrap(/* at least one key phrase exists */)
+    }
+
+    /// Computes the pairwise similarity and their normalizations of the key phrases.
+    ///
+    /// The matrices are of shape `(key_phrases_len + candidates_len, key_phrases_len +
+    /// candidates_len + 1)` with the following blockwise layout:
+    /// ```text
+    /// [[sim(kp, kp),   sim(kp, cand),   sim(kp, coi)  ],
+    ///  [sim(cand, kp), sim(cand, cand), sim(cand, coi)]]
+    /// ```
+    fn similarities<CP>(coi: &CP, candidates: &BTreeSet<KeyPhrase>) -> (Array2<f32>, Array2<f32>)
+    where
+        CP: CoiPoint + CoiPointKeyPhrases,
+    {
+        let len = coi.key_phrases().len() + candidates.len();
+        let similarity = pairwise_cosine_similarity(
+            coi.key_phrases()
+                .iter()
+                .chain(candidates.iter())
+                .map(|key_phrase| key_phrase.point().view())
+                .chain(once(coi.point().view())),
+        )
+        .slice_move(s![..len, ..]);
+        debug_assert!(similarity.iter().copied().all(f32::is_finite));
+
+        let min = reduce_without_diag(similarity.view(), Axis(0), f32::min, identity);
+        let max = reduce_without_diag(similarity.view(), Axis(0), f32::max, identity);
+        let normalized = (&similarity - &min) / (max - min);
+        let mean = reduce_without_diag(
+            normalized.view(),
+            Axis(0),
+            |reduced, element| reduced + element,
+            |reduced| reduced / (len - 1) as f32,
+        );
+        let std_dev = reduce_without_diag(
+            &normalized - &mean,
+            Axis(0),
+            |reduced, element| reduced + element.powi(2),
+            |reduced| (reduced / (len - 1) as f32).sqrt(),
+        );
+        let normalized = (normalized - mean) / std_dev + 0.5;
+        let normalized = normalized
+            .mapv_into(|normalized| normalized.is_finite().then(|| normalized).unwrap_or(0.5));
+        debug_assert!(normalized.iter().copied().all(f32::is_finite));
+
+        (similarity, normalized)
+    }
+
+    /// Determines which key phrases should be selected.
+    fn is_selected<S>(
+        normalized: ArrayBase<S, Ix2>,
+        max_key_phrases: usize,
+        gamma: f32,
+    ) -> Vec<bool>
+    where
+        S: Data<Elem = f32>,
+    {
+        let len = normalized.len_of(Axis(0));
+        if len <= max_key_phrases {
+            return vec![true; len];
+        }
+
+        let candidate = argmax(normalized.slice(s![.., -1]));
+        let mut selected = vec![false; len];
+        selected[candidate] = true;
+        for _ in 0..max_key_phrases.min(len) - 1 {
+            let candidate = argmax(selected.iter().zip(normalized.rows()).map(
+                |(&is_selected, normalized)| {
+                    if is_selected {
+                        f32::MIN
+                    } else {
+                        let max = selected
+                                .iter()
+                                .zip(normalized)
+                                .filter_map(|(is_selected, normalized)| {
+                                    is_selected.then(|| *normalized)
+                                })
+                                .reduce(f32::max)
+                                .unwrap(/* at least one key phrase is selected */);
+                        gamma * normalized.slice(s![-1]).into_scalar() - (1. - gamma) * max
+                    }
+                },
+            ));
+            selected[candidate] = true;
+        }
+
+        selected
+    }
+
+    /// Selects the determined key phrases.
+    fn select<CP, S>(
+        coi: &mut CP,
+        candidates: BTreeSet<KeyPhrase>,
+        selected: Vec<bool>,
+        similarity: ArrayBase<S, Ix2>,
+    ) where
+        CP: CoiPoint + CoiPointKeyPhrases,
+        S: Data<Elem = f32>,
+    {
+        let relevance = selected
+            .iter()
+            .zip(similarity.slice(s![.., -1]))
+            .filter_map(|(is_selected, similarity)| is_selected.then(|| similarity))
+            .copied();
+        let max = relevance.clone().reduce(f32::max).unwrap_or_default();
+        let relevance = relevance.map(|relevance| {
+            (relevance > 0.)
+                .then(|| (relevance / max).clamp(0., 1.))
+                .unwrap_or_default()
+        });
+
+        let key_phrases = selected
+            .iter()
+            .zip(
+                coi.key_phrases()
+                    .iter()
+                    .map(Cow::Borrowed)
+                    .chain(candidates.into_iter().map(Cow::Owned)),
+            )
+            .filter_map(|(is_selected, key_phrase)| is_selected.then(|| key_phrase.into_owned()))
+            .zip(relevance)
+            .filter_map(|(key_phrase, relevance)| key_phrase.with_relevance(relevance).ok())
+            .collect();
+        coi.set_key_phrases(key_phrases);
+    }
+
+    let candidates = unique_candidates(coi, candidates, smbert);
+    let (similarity, normalized) = similarities(coi, &candidates);
+    let selected = is_selected(normalized, max_key_phrases, gamma);
+    select(coi, candidates, selected, similarity);
 }
 
 impl systems::CoiSystem for CoiSystem {
@@ -898,7 +909,7 @@ mod tests {
         let mut coi = create_pos_cois(&[[1., 0., 0.]]);
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
+        select_key_phrases(&mut coi[0], candidates, smbert, 3, 0.9);
         assert!(coi[0].key_phrases().is_empty());
     }
 
@@ -911,7 +922,7 @@ mod tests {
         coi[0].set_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
+        select_key_phrases(&mut coi[0], candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -931,7 +942,7 @@ mod tests {
         coi[0].set_key_phrases(key_phrases.clone());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        CoiSystem::default().select_key_phrases(&mut coi[0], candidates, smbert);
+        select_key_phrases(&mut coi[0], candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -965,7 +976,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        CoiSystem::default().select_key_phrases(&mut coi[0], &candidates, smbert);
+        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -1003,8 +1014,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let system = CoiSystem::default();
-        system.select_key_phrases(&mut coi[0], &candidates, smbert);
+        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
         assert!(key_phrases.remove("test"));
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
@@ -1048,7 +1058,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        CoiSystem::default().select_key_phrases(&mut coi[0], &candidates, smbert);
+        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
@@ -1084,7 +1094,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        CoiSystem::default().select_key_phrases(&mut coi[0], &candidates, smbert);
+        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
         assert_eq!(coi[0].key_phrases(), &key_phrases);
         assert_approx_eq!(
             f32,
