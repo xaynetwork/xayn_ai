@@ -7,7 +7,6 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        key_phrase::{select_key_phrases, CoiPointKeyPhrases},
         point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
         stats::CoiPointStats,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
@@ -42,30 +41,6 @@ impl CoiSystem {
     /// Creates a new centre of interest system.
     pub(crate) fn new(config: Configuration) -> Self {
         Self { config }
-    }
-
-    /// Selects the most relevant key phrases for the coi.
-    ///
-    /// The most relevant key phrases are selected from the set of key phrases of the coi and the
-    /// candidates. The computed relevances are a relative score from the interval `[0, 1]`.
-    #[allow(dead_code)]
-    fn select_key_phrases<
-        CP: CoiPoint + CoiPointKeyPhrases,
-        F: Fn(&str) -> Result<Embedding, Error>,
-    >(
-        &self,
-        coi: &mut CP,
-        candidates: &[String],
-        // TODO: make SMBert available to CoiSystem and remove this argument
-        smbert: F,
-    ) {
-        select_key_phrases(
-            coi,
-            candidates,
-            smbert,
-            self.config.max_key_phrases,
-            self.config.gamma,
-        )
     }
 }
 

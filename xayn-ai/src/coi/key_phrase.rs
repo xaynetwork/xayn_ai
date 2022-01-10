@@ -306,10 +306,10 @@ fn select<CP, S>(
 ///
 /// The most relevant key phrases are selected from the set of key phrases of the coi and the
 /// candidates. The computed relevances are a relative score from the interval `[0, 1]`.
+#[allow(dead_code)]
 pub(super) fn select_key_phrases<CP, F>(
     coi: &mut CP,
     candidates: &[String],
-    // TODO: make SMBert available to CoiSystem and remove this argument
     smbert: F,
     max_key_phrases: usize,
     gamma: f32,
