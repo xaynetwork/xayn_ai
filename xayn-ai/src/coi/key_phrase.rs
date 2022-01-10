@@ -378,7 +378,7 @@ where
                 .into_iter()
                 .rev()
                 .zip(config.penalty.iter())
-                .map(move |((_, key_phrase), &penalty)| {
+                .map(move |((key_phrase, _), &penalty)| {
                     (key_phrase, (relevance * penalty).max(f32::MIN))
                 })
         })
@@ -694,5 +694,92 @@ mod tests {
             coi[0].key_phrases().get("phrase").unwrap().relevance(),
             0.,
         );
+    }
+
+    #[test]
+    fn test_select_top_key_phrases_empty_cois() {
+        let mut cois = create_pos_cois(&[] as &[[f32; 0]]);
+        let smbert = |_: &str| unreachable!();
+        let config = Configuration::default();
+        let top_key_phrases = select_top_key_phrases(&mut cois, usize::MAX, smbert, &config);
+        assert!(top_key_phrases.is_empty());
+    }
+
+    #[test]
+    fn test_select_top_key_phrases_empty_key_phrases() {
+        let mut cois = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
+        let smbert = |_: &str| unreachable!();
+        let config = Configuration::default();
+        let top_key_phrases = select_top_key_phrases(&mut cois, usize::MAX, smbert, &config);
+        assert!(top_key_phrases.is_empty());
+    }
+
+    #[test]
+    fn test_select_top_key_phrases_zero() {
+        let mut cois = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
+        cois[0].set_key_phrases(
+            IntoIterator::into_iter([
+                KeyPhrase::new("key", arr1(&[1., 1., 1.])).unwrap(),
+                KeyPhrase::new("phrase", arr1(&[2., 1., 1.])).unwrap(),
+                KeyPhrase::new("words", arr1(&[3., 1., 1.])).unwrap(),
+            ])
+            .collect(),
+        );
+        cois[1].set_key_phrases(
+            IntoIterator::into_iter([
+                KeyPhrase::new("and", arr1(&[1., 4., 1.])).unwrap(),
+                KeyPhrase::new("more", arr1(&[1., 5., 1.])).unwrap(),
+                KeyPhrase::new("stuff", arr1(&[1., 6., 1.])).unwrap(),
+            ])
+            .collect(),
+        );
+        cois[2].set_key_phrases(
+            IntoIterator::into_iter([
+                KeyPhrase::new("still", arr1(&[1., 1., 7.])).unwrap(),
+                KeyPhrase::new("not", arr1(&[1., 1., 8.])).unwrap(),
+                KeyPhrase::new("enough", arr1(&[1., 1., 9.])).unwrap(),
+            ])
+            .collect(),
+        );
+        let smbert = |_: &str| unreachable!();
+        let config = Configuration::default();
+        let top_key_phrases = select_top_key_phrases(&mut cois, 0, smbert, &config);
+        assert!(top_key_phrases.is_empty());
+    }
+
+    #[test]
+    fn test_select_top_key_phrases_all() {
+        let mut cois = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
+        cois[0].set_key_phrases(
+            IntoIterator::into_iter([
+                KeyPhrase::new("key", arr1(&[1., 1., 1.])).unwrap(),
+                KeyPhrase::new("phrase", arr1(&[2., 1., 1.])).unwrap(),
+                KeyPhrase::new("words", arr1(&[3., 1., 1.])).unwrap(),
+            ])
+            .collect(),
+        );
+        cois[1].set_key_phrases(
+            IntoIterator::into_iter([
+                KeyPhrase::new("and", arr1(&[1., 4., 1.])).unwrap(),
+                KeyPhrase::new("more", arr1(&[1., 5., 1.])).unwrap(),
+                KeyPhrase::new("stuff", arr1(&[1., 6., 1.])).unwrap(),
+            ])
+            .collect(),
+        );
+        cois[2].set_key_phrases(
+            IntoIterator::into_iter([
+                KeyPhrase::new("still", arr1(&[1., 1., 7.])).unwrap(),
+                KeyPhrase::new("not", arr1(&[1., 1., 8.])).unwrap(),
+                KeyPhrase::new("enough", arr1(&[1., 1., 9.])).unwrap(),
+            ])
+            .collect(),
+        );
+        let smbert = |_: &str| todo!();
+        let config = Configuration::default();
+        let top_key_phrases = select_top_key_phrases(&mut cois, usize::MAX, smbert, &config);
+        assert_eq!(
+            top_key_phrases,
+            ["enough", "stuff", "words", "not", "more", "phrase", "still", "and", "key"],
+        )
     }
 }

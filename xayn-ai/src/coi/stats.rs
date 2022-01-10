@@ -72,7 +72,7 @@ impl CoiPointStats for NegativeCoi {
     fn update_stats(&mut self, _viewed: Duration) {}
 }
 
-/// Computes the relevance of the cois.
+/// Computes the relevances of the cois.
 ///
 /// The relevance of each coi is computed from its view count and view time relative to the
 /// other cois. It's an unnormalized score from the interval `[0, ∞)`.
