@@ -1,4 +1,6 @@
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, time::Duration};
+
+use crate::utils::SECONDS_PER_DAY;
 
 #[derive(Clone, Copy)]
 pub(crate) struct Configuration {
@@ -8,6 +10,9 @@ pub(crate) struct Configuration {
     pub threshold: f32,
     /// The positive number of neighbors for the k-nearest-neighbors distance.
     pub neighbors: NonZeroUsize,
+    /// The time since the last view after which a coi becomes irrelevant.
+    #[allow(dead_code)]
+    pub horizon: Duration,
     /// The maximum number of key phrases picked during the coi key phrase selection. A coi may have
     /// more key phrases than this, eg because of merging.
     #[allow(dead_code)]
@@ -23,6 +28,7 @@ impl Default for Configuration {
             shift_factor: 0.1,
             threshold: 12.0,
             neighbors: NonZeroUsize::new(4).unwrap(),
+            horizon: Duration::from_secs(SECONDS_PER_DAY as u64 * 30),
             max_key_phrases: 3,
             gamma: 0.9,
         }
