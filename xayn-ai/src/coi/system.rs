@@ -13,7 +13,7 @@ use crate::{
         CoiId,
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
-    embedding::utils::Embedding,
+    embedding::{smbert::SMBert, utils::Embedding},
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
@@ -29,18 +29,13 @@ pub(crate) enum CoiSystemError {
 
 pub(crate) struct CoiSystem {
     config: Configuration,
-}
-
-impl Default for CoiSystem {
-    fn default() -> Self {
-        Self::new(Configuration::default())
-    }
+    smbert: SMBert,
 }
 
 impl CoiSystem {
     /// Creates a new centre of interest system.
-    pub(crate) fn new(config: Configuration) -> Self {
-        Self { config }
+    pub(crate) fn new(config: Configuration, smbert: SMBert) -> Self {
+        Self { config, smbert }
     }
 }
 
@@ -93,7 +88,7 @@ fn compute_coi_for_embedding(
     })
 }
 
-fn compute_coi(
+pub(crate) fn compute_coi(
     documents: &[DocumentDataWithSMBert],
     user_interests: &UserInterests,
     neighbors: usize,
@@ -161,7 +156,7 @@ fn update_cois<CP: CoiPoint + CoiPointStats>(
     })
 }
 
-fn update_user_interests(
+pub(crate) fn update_user_interests(
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
     mut user_interests: UserInterests,

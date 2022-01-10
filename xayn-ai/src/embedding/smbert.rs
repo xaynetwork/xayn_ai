@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use derive_more::{Deref, From};
 use ndarray::arr1;
 #[cfg(feature = "multithreaded")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -7,7 +10,9 @@ use crate::{
     error::Error,
     reranker::systems::SMBertSystem,
 };
-use rubert::SMBert;
+
+#[derive(Clone, Deref, From)]
+pub struct SMBert(Arc<rubert::SMBert>);
 
 impl SMBertSystem for SMBert {
     fn compute_embedding(
