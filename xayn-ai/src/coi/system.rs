@@ -8,13 +8,13 @@ use crate::{
     coi::{
         config::Configuration,
         key_phrase::{select_key_phrases, CoiPointKeyPhrases},
-        point::{CoiPoint, UserInterests},
+        point::{find_closest_coi_index, CoiPoint, UserInterests},
         stats::{compute_weights, CoiPointStats},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
-    embedding::utils::{l2_distance, Embedding},
+    embedding::utils::Embedding,
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
@@ -177,42 +177,6 @@ impl CoiSystem {
     }
 }
 
-/// Finds the closest centre of interest (CoI) for the given embedding.
-///
-/// Returns the index of the CoI along with the weighted distance between the given embedding
-/// and the k nearest CoIs. If no CoIs were given, `None` will be returned.
-fn find_closest_coi_index(
-    embedding: &Embedding,
-    cois: &[impl CoiPoint],
-    neighbors: usize,
-) -> Option<(usize, f32)> {
-    if cois.is_empty() {
-        return None;
-    }
-
-    let mut distances = cois
-        .iter()
-        .map(|coi| l2_distance(embedding.view(), coi.point().view()))
-        .enumerate()
-        .collect::<Vec<_>>();
-    distances.sort_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap());
-    let index = distances[0].0;
-
-    let total = distances.iter().map(|(_, distance)| *distance).sum::<f32>();
-    let distance = if total > 0.0 {
-        distances
-            .iter()
-            .take(neighbors)
-            .zip(distances.iter().take(neighbors).rev())
-            .map(|((_, distance), (_, reversed))| distance * (reversed / total))
-            .sum()
-    } else {
-        0.0
-    };
-
-    Some((index, distance))
-}
-
 impl systems::CoiSystem for CoiSystem {
     fn compute_coi(
         &self,
@@ -292,7 +256,6 @@ mod tests {
     use super::*;
     use crate::{
         coi::{
-            point::PositiveCoi,
             utils::tests::{
                 create_data_with_embeddings,
                 create_document_history,
@@ -348,60 +311,6 @@ mod tests {
                 rank: RankComponent { rank: 0 },
             })
             .collect()
-    }
-
-    #[test]
-    fn test_find_closest_coi_index() {
-        let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
-        let embedding = arr1(&[1., 5., 9.]).into();
-
-        let (index, distance) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
-
-        assert_eq!(index, 1);
-        assert_approx_eq!(f32, distance, 5.7716017);
-    }
-
-    #[test]
-    fn test_find_closest_coi_index_equal() {
-        let cois = create_pos_cois(&[[1., 2., 3.]]);
-        let embedding = arr1(&[1., 2., 3.]).into();
-
-        let (index, distance) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
-
-        assert_eq!(index, 0);
-        assert_approx_eq!(f32, distance, 0.0, ulps = 0);
-    }
-
-    #[test]
-    #[should_panic(expected = "vector must consist of real values only")]
-    fn test_find_closest_coi_index_all_nan() {
-        let cois = create_pos_cois(&[[1., 2., 3.]]);
-        let embedding = arr1(&[NAN, NAN, NAN]).into();
-        find_closest_coi_index(&embedding, &cois, 4);
-    }
-
-    #[test]
-    #[should_panic(expected = "vector must consist of real values only")]
-    fn test_find_closest_coi_index_single_nan() {
-        let cois = create_pos_cois(&[[1., 2., 3.]]);
-        let embedding = arr1(&[1., NAN, 2.]).into();
-        find_closest_coi_index(&embedding, &cois, 4);
-    }
-
-    #[test]
-    fn test_find_closest_coi_index_empty() {
-        let embedding = arr1(&[1., 2., 3.]).into();
-        let coi = find_closest_coi_index(&embedding, &[] as &[PositiveCoi], 4);
-        assert!(coi.is_none());
-    }
-
-    #[test]
-    fn test_find_closest_coi_index_all_same_distance() {
-        // if the distance is the same for all cois, take the first one
-        let cois = create_pos_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
-        let embedding = arr1(&[1., 1., 1.]).into();
-        let (index, _) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
-        assert_eq!(index, 0);
     }
 
     #[test]
