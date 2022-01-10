@@ -372,22 +372,19 @@ where
                 .map(|key_phrase| (key_phrase.words(), key_phrase.relevance()))
                 .collect::<Vec<_>>();
             key_phrases.sort_unstable_by(|(_, this), (_, other)| {
-                this.partial_cmp(other).unwrap(/* relevance is never nan */)
+                this.partial_cmp(other).unwrap(/* relevance is never nan */).reverse()
             });
-            key_phrases
-                .into_iter()
-                .rev()
-                .zip(config.penalty.iter())
-                .map(move |((key_phrase, _), &penalty)| {
+            key_phrases.into_iter().zip(config.penalty.iter()).map(
+                move |((key_phrase, _), &penalty)| {
                     (key_phrase, (relevance * penalty).max(f32::MIN))
-                })
+                },
+            )
         })
         .flatten()
         .collect::<Vec<_>>();
-    relevant_key_phrases.sort_unstable_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap(/* penalized relevance is never nan */));
+    relevant_key_phrases.sort_unstable_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap(/* penalized relevance is never nan */).reverse());
     relevant_key_phrases
         .iter()
-        .rev()
         .map(|(key_phrase, _)| key_phrase.to_string())
         .take(top)
         .collect()
@@ -395,6 +392,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use ndarray::arr1;
 
     use crate::coi::utils::tests::create_pos_cois;
@@ -758,6 +757,7 @@ mod tests {
             ])
             .collect(),
         );
+        cois[0].update_stats(Duration::from_secs(1));
         cois[1].set_key_phrases(
             IntoIterator::into_iter([
                 KeyPhrase::new("and", arr1(&[1., 4., 1.])).unwrap(),
@@ -766,6 +766,7 @@ mod tests {
             ])
             .collect(),
         );
+        cois[1].update_stats(Duration::from_secs(2));
         cois[2].set_key_phrases(
             IntoIterator::into_iter([
                 KeyPhrase::new("still", arr1(&[1., 1., 7.])).unwrap(),
@@ -774,6 +775,7 @@ mod tests {
             ])
             .collect(),
         );
+        cois[2].update_stats(Duration::from_secs(3));
         let smbert = |_: &str| todo!();
         let config = Configuration::default();
         let top_key_phrases = select_top_key_phrases(&mut cois, usize::MAX, smbert, &config);
