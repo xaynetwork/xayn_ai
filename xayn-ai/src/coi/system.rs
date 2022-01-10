@@ -59,29 +59,6 @@ impl CoiSystem {
         )
     }
 
-    /// Assigns a CoI for the given embedding.
-    /// Returns `None` if no CoI could be found otherwise it returns the Id of
-    /// the CoL along with the positive and negative distance. The negative distance
-    /// will be [`f32::MAX`], if no negative coi could be found.
-    fn compute_coi_for_embedding(
-        &self,
-        embedding: &Embedding,
-        user_interests: &UserInterests,
-    ) -> Option<CoiComponent> {
-        let neighbors = self.config.neighbors.get();
-        let (coi, pos_distance) = find_closest_coi(embedding, &user_interests.positive, neighbors)?;
-        let neg_distance = match find_closest_coi(embedding, &user_interests.negative, neighbors) {
-            Some((_, dis)) => dis,
-            None => f32::MAX,
-        };
-
-        Some(CoiComponent {
-            id: coi.id,
-            pos_distance,
-            neg_distance,
-        })
-    }
-
     /// Computes the relevance/weights of the cois.
     ///
     /// The weights are computed from the view counts and view times of each coi and they are not
@@ -180,14 +157,7 @@ impl systems::CoiSystem for CoiSystem {
         documents: &[DocumentDataWithSMBert],
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
-        documents
-            .iter()
-            .map(|document| {
-                self.compute_coi_for_embedding(&document.smbert.embedding, user_interests)
-                    .map(|coi| DocumentDataWithCoi::from_document(document, coi))
-                    .ok_or_else(|| CoiSystemError::NoCoi.into())
-            })
-            .collect()
+        compute_coi(documents, user_interests, self.config.neighbors.get())
     }
 
     fn update_user_interests(
@@ -210,6 +180,44 @@ impl systems::CoiSystem for CoiSystem {
 
         Ok(user_interests)
     }
+}
+
+/// Assigns a CoI for the given embedding.
+///
+/// Returns `None` if no CoI could be found otherwise it returns the Id of
+/// the CoL along with the positive and negative distance. The negative distance
+/// will be [`f32::MAX`], if no negative coi could be found.
+fn compute_coi_for_embedding(
+    embedding: &Embedding,
+    user_interests: &UserInterests,
+    neighbors: usize,
+) -> Option<CoiComponent> {
+    let (coi, pos_distance) = find_closest_coi(embedding, &user_interests.positive, neighbors)?;
+    let neg_distance = match find_closest_coi(embedding, &user_interests.negative, neighbors) {
+        Some((_, dis)) => dis,
+        None => f32::MAX,
+    };
+
+    Some(CoiComponent {
+        id: coi.id,
+        pos_distance,
+        neg_distance,
+    })
+}
+
+fn compute_coi(
+    documents: &[DocumentDataWithSMBert],
+    user_interests: &UserInterests,
+    neighbors: usize,
+) -> Result<Vec<DocumentDataWithCoi>, Error> {
+    documents
+        .iter()
+        .map(|document| {
+            compute_coi_for_embedding(&document.smbert.embedding, user_interests, neighbors)
+                .map(|coi| DocumentDataWithCoi::from_document(document, coi))
+                .ok_or_else(|| CoiSystemError::NoCoi.into())
+        })
+        .collect()
 }
 
 /// Coi system to run when Coi is disabled
@@ -387,9 +395,7 @@ mod tests {
         let user_interests = UserInterests { positive, negative };
         let embedding = arr1(&[2., 3., 4.]).into();
 
-        let coi_comp = CoiSystem::default()
-            .compute_coi_for_embedding(&embedding, &user_interests)
-            .unwrap();
+        let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, 4).unwrap();
 
         assert_eq!(coi_comp.id, CoiId::mocked(2));
         assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
@@ -405,10 +411,7 @@ mod tests {
         };
         let embedding = arr1(&[2., 3., 4.]).into();
 
-        let coi_system = CoiSystem::default();
-        let coi_comp = coi_system
-            .compute_coi_for_embedding(&embedding, &user_interests)
-            .unwrap();
+        let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, 4).unwrap();
 
         assert_eq!(coi_comp.id, CoiId::mocked(2));
         assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
@@ -422,9 +425,7 @@ mod tests {
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[1., 4., 4.], [3., 6., 6.]]);
 
-        let documents_coi = CoiSystem::default()
-            .compute_coi(&documents, &user_interests)
-            .unwrap();
+        let documents_coi = compute_coi(&documents, &user_interests, 4).unwrap();
 
         assert_eq!(documents_coi[0].coi.id, CoiId::mocked(1));
         assert_approx_eq!(f32, documents_coi[0].coi.pos_distance, 2.8996046);
@@ -442,7 +443,7 @@ mod tests {
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[NAN, NAN, NAN]]);
-        let _ = CoiSystem::default().compute_coi(&documents, &user_interests);
+        let _ = compute_coi(&documents, &user_interests, 4);
     }
 
     #[test]
@@ -452,7 +453,7 @@ mod tests {
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[1., NAN, 2.]]);
-        let _ = CoiSystem::default().compute_coi(&documents, &user_interests);
+        let _ = compute_coi(&documents, &user_interests, 4);
     }
 
     #[test]
