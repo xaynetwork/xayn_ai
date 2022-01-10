@@ -273,6 +273,38 @@ pub(super) fn find_closest_coi_index(
     Some((index, distance))
 }
 
+/// Finds the closest CoI for the given embedding.
+///
+/// Returns an immutable reference to the CoI along with the weighted distance between the given
+/// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
+pub(super) fn find_closest_coi<'coi, CP>(
+    embedding: &Embedding,
+    cois: &'coi [CP],
+    neighbors: usize,
+) -> Option<(&'coi CP, f32)>
+where
+    CP: CoiPoint,
+{
+    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
+    Some((&cois[index], distance))
+}
+
+/// Finds the closest CoI for the given embedding.
+///
+/// Returns a mutable reference to the CoI along with the weighted distance between the given
+/// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
+pub(super) fn find_closest_coi_mut<'coi, CP>(
+    embedding: &Embedding,
+    cois: &'coi mut [CP],
+    neighbors: usize,
+) -> Option<(&'coi mut CP, f32)>
+where
+    CP: CoiPoint,
+{
+    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
+    Some((&mut cois[index], distance))
+}
+
 #[cfg(test)]
 mod tests {
     use std::f32::NAN;

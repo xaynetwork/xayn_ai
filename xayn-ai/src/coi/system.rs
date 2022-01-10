@@ -8,7 +8,7 @@ use crate::{
     coi::{
         config::Configuration,
         key_phrase::{select_key_phrases, CoiPointKeyPhrases},
-        point::{find_closest_coi_index, CoiPoint, UserInterests},
+        point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
         stats::{compute_weights, CoiPointStats},
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
@@ -147,32 +147,6 @@ impl CoiSystem {
     }
 }
 
-/// Finds the closest CoI for the given embedding.
-///
-/// Returns an immutable reference to the CoI along with the weighted distance between the given
-/// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
-fn find_closest_coi<'coi, CP: CoiPoint>(
-    embedding: &Embedding,
-    cois: &'coi [CP],
-    neighbors: usize,
-) -> Option<(&'coi CP, f32)> {
-    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
-    Some((&cois[index], distance))
-}
-
-/// Finds the closest CoI for the given embedding.
-///
-/// Returns a mutable reference to the CoI along with the weighted distance between the given
-/// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
-fn find_closest_coi_mut<'coi, CP: CoiPoint>(
-    embedding: &Embedding,
-    cois: &'coi mut [CP],
-    neighbors: usize,
-) -> Option<(&'coi mut CP, f32)> {
-    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
-    Some((&mut cois[index], distance))
-}
-
 /// Creates a new CoI that is shifted towards the position of `embedding`.
 fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) -> Embedding {
     (coi.deref() * (1. - shift_factor) + embedding.deref() * shift_factor).into()
@@ -257,6 +231,7 @@ mod tests {
     use super::*;
     use crate::{
         coi::{
+            point::find_closest_coi_index,
             utils::tests::{
                 create_data_with_embeddings,
                 create_document_history,
