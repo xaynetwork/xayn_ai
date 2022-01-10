@@ -3,6 +3,7 @@ use rubert::SMBert;
 
 use crate::{
     coi::{point::UserInterests, CoiSystem},
+    embedding::utils::Embedding,
     error::Error,
 };
 
@@ -35,5 +36,10 @@ impl Ranker {
     /// Creates a byte representation of the internal state of the ranker.
     pub(crate) fn serialize(&self) -> Result<Vec<u8>, Error> {
         bincode::serialize(&self.user_interests).map_err(Into::into)
+    }
+
+    /// Computes the SMBert embedding of the given `sequence`.
+    pub(crate) fn compute_smbert(&self, sequence: &str) -> Result<Embedding, Error> {
+        self.smbert.run(sequence).map_err(Into::into)
     }
 }
