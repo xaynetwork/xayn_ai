@@ -535,4 +535,112 @@ mod tests {
             0.,
         );
     }
+
+    #[test]
+    fn test_select_key_phrases_positive_similarity() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[1., 1., 1.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        coi[0].set_key_phrases(key_phrases.iter().cloned().take(1).collect());
+        let candidates = key_phrases
+            .iter()
+            .skip(1)
+            .map(|key_phrase| key_phrase.words().to_string())
+            .collect::<Vec<_>>();
+        let smbert = |words: &str| {
+            key_phrases
+                .iter()
+                .find_map(|key_phrase| {
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
+                })
+                .unwrap()
+        };
+        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        assert_eq!(coi[0].key_phrases(), &key_phrases);
+        assert_approx_eq!(
+            f32,
+            coi[0].key_phrases().get("key").unwrap().relevance(),
+            1.,
+        );
+        assert_approx_eq!(
+            f32,
+            coi[0].key_phrases().get("phrase").unwrap().relevance(),
+            0.8164967,
+        );
+    }
+
+    #[test]
+    fn test_select_key_phrases_negative_similarity() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[-1., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[-1., 1., 1.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        coi[0].set_key_phrases(key_phrases.iter().cloned().take(1).collect());
+        let candidates = key_phrases
+            .iter()
+            .skip(1)
+            .map(|key_phrase| key_phrase.words().to_string())
+            .collect::<Vec<_>>();
+        let smbert = |words: &str| {
+            key_phrases
+                .iter()
+                .find_map(|key_phrase| {
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
+                })
+                .unwrap()
+        };
+        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        assert_eq!(coi[0].key_phrases(), &key_phrases);
+        assert_approx_eq!(
+            f32,
+            coi[0].key_phrases().get("key").unwrap().relevance(),
+            0.,
+        );
+        assert_approx_eq!(
+            f32,
+            coi[0].key_phrases().get("phrase").unwrap().relevance(),
+            0.,
+        );
+    }
+
+    #[test]
+    fn test_select_key_phrases_mixed_similarity() {
+        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
+        let key_phrases = IntoIterator::into_iter([
+            KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[-1., 1., 1.])).unwrap(),
+        ])
+        .collect::<BTreeSet<_>>();
+        coi[0].set_key_phrases(key_phrases.iter().cloned().take(1).collect());
+        let candidates = key_phrases
+            .iter()
+            .skip(1)
+            .map(|key_phrase| key_phrase.words().to_string())
+            .collect::<Vec<_>>();
+        let smbert = |words: &str| {
+            key_phrases
+                .iter()
+                .find_map(|key_phrase| {
+                    (key_phrase.words() == words).then(|| Ok(key_phrase.point().clone().into()))
+                })
+                .unwrap()
+        };
+        select_key_phrases(&mut coi[0], &candidates, smbert, 3, 0.9);
+        assert_eq!(coi[0].key_phrases(), &key_phrases);
+        assert_approx_eq!(
+            f32,
+            coi[0].key_phrases().get("key").unwrap().relevance(),
+            1.,
+        );
+        assert_approx_eq!(
+            f32,
+            coi[0].key_phrases().get("phrase").unwrap().relevance(),
+            0.,
+        );
+    }
 }
