@@ -9,8 +9,10 @@ pub(crate) struct Configuration {
     pub neighbors: NonZeroUsize,
     /// The maximum number of key phrases picked during the coi key phrase selection. A coi may have
     /// more key phrases than this, eg because of merging.
+    #[allow(dead_code)]
     pub max_key_phrases: usize,
     /// The weighting between coi and pairwise candidate similarites in the key phrase selection.
+    #[allow(dead_code)]
     pub gamma: f32,
 }
 
