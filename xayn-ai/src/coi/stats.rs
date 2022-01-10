@@ -72,13 +72,12 @@ impl CoiPointStats for NegativeCoi {
     fn update_stats(&mut self, _viewed: Duration) {}
 }
 
-/// Computes the relevance/weights of the cois.
+/// Computes the relevance of the cois.
 ///
-/// The weights are computed from the view counts and view times of each coi and they are not
-/// normalized. The horizon specifies the time since the last view after which a coi becomes
-/// irrelevant.
+/// The relevance of each coi is computed from its view count and view time relative to the
+/// other cois. It's an unnormalized score from the interval `[0, ∞)`.
 #[allow(dead_code)]
-pub(super) fn compute_weights<CP>(cois: &[CP], horizon: Duration) -> Vec<f32>
+pub(super) fn compute_relevances<CP>(cois: &[CP], horizon: Duration) -> Vec<f32>
 where
     CP: CoiPoint + CoiPointStats,
 {
@@ -107,7 +106,7 @@ where
                 / SECONDS_PER_DAY)
                 .exp();
             let last = ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.);
-            (count + time) * last
+            ((count + time) * last).max(0.).min(f32::MAX)
         })
         .collect()
 }
@@ -120,49 +119,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compute_weights_empty_cois() {
+    fn test_compute_relevances_empty_cois() {
         let cois = create_pos_cois(&[[]]);
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
-        let weights = compute_weights(&cois, horizon);
+        let weights = compute_relevances(&cois, horizon);
         assert!(weights.is_empty());
     }
 
     #[test]
-    fn test_compute_weights_zero_horizon() {
+    fn test_compute_relevances_zero_horizon() {
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
         let horizon = Duration::ZERO;
-        let weights = compute_weights(&cois, horizon);
+        let weights = compute_relevances(&cois, horizon);
         assert_approx_eq!(f32, weights, [0., 0.]);
     }
 
     #[test]
-    fn test_compute_weights_count() {
+    fn test_compute_relevances_count() {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_count += 1;
         cois[2].stats.view_count += 2;
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
-        let weights = compute_weights(&cois, horizon);
+        let weights = compute_relevances(&cois, horizon);
         assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
     }
 
     #[test]
-    fn test_compute_weights_time() {
+    fn test_compute_relevances_time() {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_time += Duration::from_secs(10);
         cois[2].stats.view_time += Duration::from_secs(20);
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
-        let weights = compute_weights(&cois, horizon);
+        let weights = compute_relevances(&cois, horizon);
         assert_approx_eq!(f32, weights, [0.5, 0.6666667, 0.8333333], epsilon = 0.00001);
     }
 
     #[test]
-    fn test_compute_weights_last() {
+    fn test_compute_relevances_last() {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
         cois[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
         cois[2].stats.last_view -= Duration::from_secs_f32(2.5 * SECONDS_PER_DAY);
         let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
-        let weights = compute_weights(&cois, horizon);
+        let weights = compute_relevances(&cois, horizon);
         assert_approx_eq!(
             f32,
             weights,

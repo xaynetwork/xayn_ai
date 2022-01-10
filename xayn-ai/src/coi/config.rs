@@ -2,7 +2,7 @@ use std::{num::NonZeroUsize, time::Duration};
 
 use crate::utils::SECONDS_PER_DAY;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct Configuration {
     /// The shift factor by how much a Coi is shifted towards a new point.
     pub shift_factor: f32,
@@ -20,6 +20,8 @@ pub(crate) struct Configuration {
     /// The weighting between coi and pairwise candidate similarites in the key phrase selection.
     #[allow(dead_code)]
     pub gamma: f32,
+    /// The penalty for less relevant key phrases in the top key phrase selection.
+    pub penalty: Vec<f32>,
 }
 
 impl Default for Configuration {
@@ -31,6 +33,7 @@ impl Default for Configuration {
             horizon: Duration::from_secs(SECONDS_PER_DAY as u64 * 30),
             max_key_phrases: 3,
             gamma: 0.9,
+            penalty: vec![1., 0.75, 0.66],
         }
     }
 }

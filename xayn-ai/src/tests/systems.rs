@@ -102,7 +102,7 @@ fn mocked_coi_system() -> MockCoiSystem {
                 documents,
                 user_interests,
                 |_| unreachable!(),
-                config,
+                &config,
             )
         });
     system

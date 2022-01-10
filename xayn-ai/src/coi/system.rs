@@ -60,7 +60,7 @@ impl systems::CoiSystem for CoiSystem {
             documents,
             user_interests,
             |key_phrase| self.smbert.run(key_phrase).map_err(Into::into),
-            self.config,
+            &self.config,
         )
     }
 }
@@ -120,7 +120,7 @@ fn update_coi<
     viewed: Duration,
     mut cois: Vec<CP>,
     smbert: F,
-    config: Configuration,
+    config: &Configuration,
 ) -> Vec<CP> {
     match find_closest_coi_mut(embedding, &mut cois, config.neighbors.get()) {
         Some((coi, distance)) if distance < config.threshold => {
@@ -151,7 +151,7 @@ fn update_cois<
     docs: &[&dyn CoiSystemData],
     cois: Vec<CP>,
     smbert: F,
-    config: Configuration,
+    config: &Configuration,
 ) -> Vec<CP> {
     docs.iter().fold(cois, |cois, doc| {
         let candidates = &[/* TODO: run KPE on doc */];
@@ -171,7 +171,7 @@ pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Erro
     documents: &[&dyn CoiSystemData],
     mut user_interests: UserInterests,
     smbert: F,
-    config: Configuration,
+    config: &Configuration,
 ) -> Result<UserInterests, Error> {
     let matching_documents = collect_matching_documents(history, documents);
 
@@ -299,7 +299,7 @@ mod tests {
         assert_approx_eq!(f32, distance, 26.747852);
         assert!(config.threshold < distance);
 
-        cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
+        cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), &config);
         assert_eq!(cois.len(), 4);
     }
 
@@ -310,7 +310,7 @@ mod tests {
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
-        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
+        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), &config);
 
         assert_eq!(cois.len(), 3);
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
@@ -336,7 +336,7 @@ mod tests {
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
-        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
+        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), &config);
 
         assert_eq!(cois.len(), 2);
         assert_eq!(cois[0].point, arr1(&[0., 0., 0.]));
@@ -354,7 +354,7 @@ mod tests {
             ..Configuration::default()
         };
 
-        let cois = update_cois(documents.as_slice(), cois, |_| unreachable!(), config);
+        let cois = update_cois(documents.as_slice(), cois, |_| unreachable!(), &config);
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]
@@ -457,7 +457,7 @@ mod tests {
             &documents,
             user_interests,
             |_| unreachable!(),
-            config,
+            &config,
         )
         .unwrap();
 
@@ -477,7 +477,7 @@ mod tests {
             &Vec::new(),
             UserInterests::default(),
             |_| unreachable!(),
-            Configuration::default(),
+            &Configuration::default(),
         )
         .err()
         .unwrap();

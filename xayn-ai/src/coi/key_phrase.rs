@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::{
+        config::Configuration,
         point::{CoiPoint, NegativeCoi, PositiveCoi},
+        stats::{compute_relevances, CoiPointStats},
         CoiError,
     },
     embedding::utils::{pairwise_cosine_similarity, ArcEmbedding, Embedding},
@@ -65,7 +67,6 @@ impl KeyPhrase {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn words(&self) -> &str {
         &self.words
     }
@@ -74,7 +75,6 @@ impl KeyPhrase {
         &self.point
     }
 
-    #[cfg(test)]
     pub(crate) fn relevance(&self) -> f32 {
         self.relevance
     }
@@ -342,6 +342,55 @@ fn select<CP, S>(
         .filter_map(|(key_phrase, relevance)| key_phrase.with_relevance(relevance).ok())
         .collect();
     coi.set_key_phrases(key_phrases);
+}
+
+/// Selects the top key phrases from the cois.
+#[allow(dead_code)]
+fn select_top_key_phrases<CP, F>(
+    cois: &mut [CP],
+    top: usize,
+    smbert: F,
+    config: &Configuration,
+) -> Vec<String>
+where
+    CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
+    F: Copy + Fn(&str) -> Result<Embedding, Error>,
+{
+    if top == 0 {
+        return Vec::new();
+    }
+
+    let relevances = compute_relevances(cois, config.horizon);
+    let mut relevant_key_phrases = cois
+        .iter_mut()
+        .zip(relevances)
+        .map(|(coi, relevance)| {
+            coi.select_key_phrases(&[], smbert, config.max_key_phrases, config.gamma);
+            let mut key_phrases = coi
+                .key_phrases()
+                .iter()
+                .map(|key_phrase| (key_phrase.words(), key_phrase.relevance()))
+                .collect::<Vec<_>>();
+            key_phrases.sort_unstable_by(|(_, this), (_, other)| {
+                this.partial_cmp(other).unwrap(/* relevance is never nan */)
+            });
+            key_phrases
+                .into_iter()
+                .rev()
+                .zip(config.penalty.iter())
+                .map(move |((_, key_phrase), &penalty)| {
+                    (key_phrase, (relevance * penalty).max(f32::MIN))
+                })
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+    relevant_key_phrases.sort_unstable_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap(/* penalized relevance is never nan */));
+    relevant_key_phrases
+        .iter()
+        .rev()
+        .map(|(key_phrase, _)| key_phrase.to_string())
+        .take(top)
+        .collect()
 }
 
 #[cfg(test)]
