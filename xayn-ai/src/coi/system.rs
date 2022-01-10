@@ -44,45 +44,19 @@ impl CoiSystem {
         Self { config }
     }
 
-    /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
-    /// (within [`Configuration.threshold`]), the centroid's position gets updated,
-    /// otherwise a new centroid is created.
-    fn update_coi<CP: CoiPoint + CoiPointStats>(
-        &self,
-        embedding: &Embedding,
-        viewed: Duration,
-        mut cois: Vec<CP>,
-    ) -> Vec<CP> {
-        match find_closest_coi_mut(embedding, &mut cois, self.config.neighbors.get()) {
-            Some((coi, distance)) if distance < self.config.threshold => {
-                coi.set_point(shift_coi_point(
-                    embedding,
-                    coi.point(),
-                    self.config.shift_factor,
-                ));
-                coi.set_id(Uuid::new_v4().into());
-                // TODO: update key phrases
-                coi.update_stats(viewed);
-            }
-            _ => cois.push(CP::new(
-                Uuid::new_v4().into(),
-                embedding.clone(),
-                BTreeSet::default(), // TODO: set key phrases
-                viewed,
-            )),
-        }
-        cois
-    }
-
     /// Updates the CoIs based on the embeddings of docs.
     fn update_cois<CP: CoiPoint + CoiPointStats>(
         &self,
         docs: &[&dyn CoiSystemData],
         cois: Vec<CP>,
     ) -> Vec<CP> {
-        docs.iter().fold(cois, |cois, doc| {
-            self.update_coi(&doc.smbert().embedding, doc.viewed(), cois)
-        })
+        update_cois(
+            docs,
+            cois,
+            self.config.neighbors.get(),
+            self.config.threshold,
+            self.config.shift_factor,
+        )
     }
 
     /// Assigns a CoI for the given embedding.
@@ -150,6 +124,54 @@ impl CoiSystem {
 /// Creates a new CoI that is shifted towards the position of `embedding`.
 fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) -> Embedding {
     (coi.deref() * (1. - shift_factor) + embedding.deref() * shift_factor).into()
+}
+
+/// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
+/// (within [`Configuration.threshold`]), the centroid's position gets updated,
+/// otherwise a new centroid is created.
+fn update_coi<CP: CoiPoint + CoiPointStats>(
+    embedding: &Embedding,
+    viewed: Duration,
+    mut cois: Vec<CP>,
+    neighbors: usize,
+    threshold: f32,
+    shift_factor: f32,
+) -> Vec<CP> {
+    match find_closest_coi_mut(embedding, &mut cois, neighbors) {
+        Some((coi, distance)) if distance < threshold => {
+            coi.set_point(shift_coi_point(embedding, coi.point(), shift_factor));
+            coi.set_id(Uuid::new_v4().into());
+            // TODO: update key phrases
+            coi.update_stats(viewed);
+        }
+        _ => cois.push(CP::new(
+            Uuid::new_v4().into(),
+            embedding.clone(),
+            BTreeSet::default(), // TODO: set key phrases
+            viewed,
+        )),
+    }
+    cois
+}
+
+/// Updates the CoIs based on the embeddings of docs.
+fn update_cois<CP: CoiPoint + CoiPointStats>(
+    docs: &[&dyn CoiSystemData],
+    cois: Vec<CP>,
+    neighbors: usize,
+    threshold: f32,
+    shift_factor: f32,
+) -> Vec<CP> {
+    docs.iter().fold(cois, |cois, doc| {
+        update_coi(
+            &doc.smbert().embedding,
+            doc.viewed(),
+            cois,
+            neighbors,
+            threshold,
+            shift_factor,
+        )
+    })
 }
 
 impl systems::CoiSystem for CoiSystem {
@@ -295,17 +317,14 @@ mod tests {
         let embedding = arr1(&[1., 1., 1.]).into();
         let viewed = Duration::from_secs(10);
 
-        let config = Configuration::default();
-        let threshold = config.threshold;
-
-        let coi_system = CoiSystem::new(config);
+        let threshold = 12.;
         let (index, distance) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
 
         assert_eq!(index, 1);
         assert_approx_eq!(f32, distance, 26.747852);
         assert!(threshold < distance);
 
-        cois = coi_system.update_coi(&embedding, viewed, cois);
+        cois = update_coi(&embedding, viewed, cois, 4, threshold, 0.1);
         assert_eq!(cois.len(), 4);
     }
 
@@ -315,7 +334,7 @@ mod tests {
         let embedding = arr1(&[2., 3., 4.]).into();
         let viewed = Duration::from_secs(10);
 
-        let cois = CoiSystem::default().update_coi(&embedding, viewed, cois);
+        let cois = update_coi(&embedding, viewed, cois, 4, 12., 0.1);
 
         assert_eq!(cois.len(), 3);
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
@@ -339,7 +358,7 @@ mod tests {
         let embedding = arr1(&[0., 0., 12.]).into();
         let viewed = Duration::from_secs(10);
 
-        let cois = CoiSystem::default().update_coi(&embedding, viewed, cois);
+        let cois = update_coi(&embedding, viewed, cois, 4, 12., 0.1);
 
         assert_eq!(cois.len(), 2);
         assert_eq!(cois[0].point, arr1(&[0., 0., 0.]));
@@ -353,12 +372,7 @@ mod tests {
         let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
-        let config = Configuration {
-            threshold: 5.,
-            ..Default::default()
-        };
-
-        let cois = CoiSystem::new(config).update_cois(documents.as_slice(), cois);
+        let cois = update_cois(documents.as_slice(), cois, 4, 5., 0.1);
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]
