@@ -44,21 +44,6 @@ impl CoiSystem {
         Self { config }
     }
 
-    /// Updates the CoIs based on the embeddings of docs.
-    fn update_cois<CP: CoiPoint + CoiPointStats>(
-        &self,
-        docs: &[&dyn CoiSystemData],
-        cois: Vec<CP>,
-    ) -> Vec<CP> {
-        update_cois(
-            docs,
-            cois,
-            self.config.neighbors.get(),
-            self.config.threshold,
-            self.config.shift_factor,
-        )
-    }
-
     /// Computes the relevance/weights of the cois.
     ///
     /// The weights are computed from the view counts and view times of each coi and they are not
@@ -164,21 +149,16 @@ impl systems::CoiSystem for CoiSystem {
         &self,
         history: &[DocumentHistory],
         documents: &[&dyn CoiSystemData],
-        mut user_interests: UserInterests,
+        user_interests: UserInterests,
     ) -> Result<UserInterests, Error> {
-        let matching_documents = collect_matching_documents(history, documents);
-
-        if matching_documents.is_empty() {
-            return Err(CoiSystemError::NoMatchingDocuments.into());
-        }
-
-        let (positive_docs, negative_docs) =
-            classify_documents_based_on_user_feedback(matching_documents);
-
-        user_interests.positive = self.update_cois(&positive_docs, user_interests.positive);
-        user_interests.negative = self.update_cois(&negative_docs, user_interests.negative);
-
-        Ok(user_interests)
+        update_user_interests(
+            history,
+            documents,
+            user_interests,
+            self.config.neighbors.get(),
+            self.config.threshold,
+            self.config.shift_factor,
+        )
     }
 }
 
@@ -218,6 +198,41 @@ fn compute_coi(
                 .ok_or_else(|| CoiSystemError::NoCoi.into())
         })
         .collect()
+}
+
+fn update_user_interests(
+    history: &[DocumentHistory],
+    documents: &[&dyn CoiSystemData],
+    mut user_interests: UserInterests,
+    neighbors: usize,
+    threshold: f32,
+    shift_factor: f32,
+) -> Result<UserInterests, Error> {
+    let matching_documents = collect_matching_documents(history, documents);
+
+    if matching_documents.is_empty() {
+        return Err(CoiSystemError::NoMatchingDocuments.into());
+    }
+
+    let (positive_docs, negative_docs) =
+        classify_documents_based_on_user_feedback(matching_documents);
+
+    user_interests.positive = update_cois(
+        &positive_docs,
+        user_interests.positive,
+        neighbors,
+        threshold,
+        shift_factor,
+    );
+    user_interests.negative = update_cois(
+        &negative_docs,
+        user_interests.negative,
+        neighbors,
+        threshold,
+        shift_factor,
+    );
+
+    Ok(user_interests)
 }
 
 /// Coi system to run when Coi is disabled
@@ -283,7 +298,6 @@ mod tests {
                 SMBertComponent,
             },
         },
-        reranker::systems::CoiSystem as CoiSystemTrait,
         utils::to_vec_of_ref_of,
     };
     use test_utils::assert_approx_eq;
@@ -471,13 +485,8 @@ mod tests {
         let documents = create_data_with_rank(&[[1., 4., 4.], [3., 6., 6.], [1., 1., 1.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
 
-        let coi_system = CoiSystem::new(Configuration {
-            threshold: 5.0,
-            ..Default::default()
-        });
-        let UserInterests { positive, negative } = coi_system
-            .update_user_interests(&history, &documents, user_interests)
-            .unwrap();
+        let UserInterests { positive, negative } =
+            update_user_interests(&history, &documents, user_interests, 4, 5., 0.1).unwrap();
 
         assert_eq!(positive.len(), 3);
         assert_eq!(positive[0].point, arr1(&[2.7999997, 1.9, 1.]));
@@ -490,10 +499,16 @@ mod tests {
 
     #[test]
     fn test_update_user_interests_no_matches() {
-        let error = CoiSystem::default()
-            .update_user_interests(&Vec::new(), &Vec::new(), UserInterests::default())
-            .err()
-            .unwrap();
+        let error = update_user_interests(
+            &Vec::new(),
+            &Vec::new(),
+            UserInterests::default(),
+            4,
+            12.,
+            0.1,
+        )
+        .err()
+        .unwrap();
         let error = error.downcast::<CoiSystemError>().unwrap();
 
         assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
