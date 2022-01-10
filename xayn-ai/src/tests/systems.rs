@@ -85,15 +85,8 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
 }
 
 fn mocked_coi_system() -> MockCoiSystem {
-    let CoiConfig {
-        shift_factor,
-        threshold,
-        neighbors,
-        max_key_phrases,
-        gamma,
-        ..
-    } = CoiConfig::default();
-    let neighbors = neighbors.get();
+    let config = CoiConfig::default();
+    let neighbors = config.neighbors.get();
 
     let mut system = MockCoiSystem::new();
     system
@@ -108,12 +101,8 @@ fn mocked_coi_system() -> MockCoiSystem {
                 history,
                 documents,
                 user_interests,
-                neighbors,
-                threshold,
-                shift_factor,
                 |_| unreachable!(),
-                max_key_phrases,
-                gamma,
+                config,
             )
         });
     system
