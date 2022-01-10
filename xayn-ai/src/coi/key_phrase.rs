@@ -363,24 +363,6 @@ mod tests {
     }
 
     #[test]
-    fn test_select_key_phrases_one() {
-        let mut coi = create_pos_cois(&[[1., 0., 0.]]);
-        let key_phrases =
-            IntoIterator::into_iter([KeyPhrase::new("key", arr1(&[1., 1., 0.])).unwrap()])
-                .collect::<BTreeSet<_>>();
-        coi[0].set_key_phrases(key_phrases.clone());
-        let candidates = &[];
-        let smbert = |_: &str| unreachable!();
-        coi[0].select_key_phrases(candidates, smbert, 3, 0.9);
-        assert_eq!(coi[0].key_phrases(), &key_phrases);
-        assert_approx_eq!(
-            f32,
-            coi[0].key_phrases().get("key").unwrap().relevance(),
-            1.,
-        );
-    }
-
-    #[test]
     fn test_select_key_phrases_no_candidates() {
         let mut coi = create_pos_cois(&[[1., 0., 0.]]);
         let key_phrases = IntoIterator::into_iter([
