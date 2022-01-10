@@ -72,13 +72,6 @@ impl CoiSystem {
         Some((&mut cois[index], distance))
     }
 
-    /// Creates a new CoI that is shifted towards the position of `embedding`.
-    fn shift_coi_point(&self, embedding: &Embedding, coi: &Embedding) -> Embedding {
-        let updated = coi.deref() * (1. - self.config.shift_factor)
-            + embedding.deref() * self.config.shift_factor;
-        updated.into()
-    }
-
     /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
     /// (within [`Configuration.threshold`]), the centroid's position gets updated,
     /// otherwise a new centroid is created.
@@ -90,7 +83,11 @@ impl CoiSystem {
     ) -> Vec<CP> {
         match self.find_closest_coi_mut(embedding, &mut cois) {
             Some((coi, distance)) if distance < self.config.threshold => {
-                coi.set_point(self.shift_coi_point(embedding, coi.point()));
+                coi.set_point(shift_coi_point(
+                    embedding,
+                    coi.point(),
+                    self.config.shift_factor,
+                ));
                 coi.set_id(Uuid::new_v4().into());
                 // TODO: update key phrases
                 coi.update_stats(viewed);
@@ -175,6 +172,11 @@ impl CoiSystem {
             self.config.gamma,
         )
     }
+}
+
+/// Creates a new CoI that is shifted towards the position of `embedding`.
+fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) -> Embedding {
+    (coi.deref() * (1. - shift_factor) + embedding.deref() * shift_factor).into()
 }
 
 impl systems::CoiSystem for CoiSystem {
@@ -352,7 +354,7 @@ mod tests {
         let coi_point = arr1(&[1., 1., 1.]).into();
         let embedding = arr1(&[2., 3., 4.]).into();
 
-        let updated_coi = CoiSystem::default().shift_coi_point(&embedding, &coi_point);
+        let updated_coi = shift_coi_point(&embedding, &coi_point, 0.1);
 
         assert_eq!(updated_coi, arr1(&[1.1, 1.2, 1.3]));
     }
