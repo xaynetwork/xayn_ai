@@ -56,6 +56,10 @@ impl CommonSystems for Systems {
         &self.coi
     }
 
+    fn mut_coi(&mut self) -> &mut dyn CoiSystem {
+        &mut self.coi
+    }
+
     fn ltr(&self) -> &dyn LtrSystem {
         &self.domain
     }

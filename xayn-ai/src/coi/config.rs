@@ -20,7 +20,9 @@ pub(crate) struct Configuration {
     /// The weighting between coi and pairwise candidate similarites in the key phrase selection.
     #[allow(dead_code)]
     pub gamma: f32,
-    /// The penalty for less relevant key phrases in the top key phrase selection.
+    /// The penalty for less relevant key phrases of a coi in increasing order (ie. lowest penalty
+    /// for the most relevant key phrase first and highest penalty for the least relevant key phrase
+    /// last).
     pub penalty: Vec<f32>,
 }
 

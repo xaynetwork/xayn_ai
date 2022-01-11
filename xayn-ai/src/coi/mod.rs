@@ -2,14 +2,18 @@ mod config;
 pub(crate) mod key_phrase;
 mod merge;
 pub(crate) mod point;
+mod relevance;
 mod stats;
 mod system;
 mod utils;
 
+#[cfg(test)]
+pub(crate) use self::{
+    relevance::RelevanceMaps,
+    system::{compute_coi, update_user_interests, CoiSystemError},
+};
 pub(crate) use config::Configuration;
 pub(crate) use merge::reduce_cois;
-#[cfg(test)]
-pub(crate) use system::{compute_coi, update_user_interests, CoiSystemError};
 pub(crate) use system::{CoiSystem, NeutralCoiSystem};
 
 use derive_more::From;
@@ -43,6 +47,6 @@ pub(crate) enum CoiError {
     EmptyKeyPhrase,
     /// A key phrase has non-finite embedding values: {0:#?}
     NonFiniteKeyPhrase(ArcEmbedding),
-    /// A key phrase has a non-normalized relevance score: {0}
-    NonNormalizedKeyPhrase(f32),
+    /// A computed relevance score isn't finite.
+    NonFiniteRelevance,
 }

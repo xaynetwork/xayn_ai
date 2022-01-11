@@ -1,10 +1,10 @@
-use std::{collections::BTreeSet, time::Duration};
+use std::time::Duration;
 
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    coi::{key_phrase::KeyPhrase, stats::CoiStats, CoiId},
+    coi::{stats::CoiStats, CoiId},
     embedding::utils::{l2_distance, Embedding},
 };
 
@@ -20,8 +20,6 @@ pub(crate) struct PositiveCoi {
     pub(super) id: CoiId,
     #[obake(cfg(">=0.0"))]
     pub(super) point: Embedding,
-    #[obake(cfg(">=0.3"))]
-    pub(super) key_phrases: BTreeSet<KeyPhrase>,
     #[obake(cfg(">=0.3"))]
     #[derivative(PartialEq = "ignore")]
     pub(super) stats: CoiStats,
@@ -58,7 +56,6 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
         Self {
             id: coi.id,
             point: coi.point,
-            key_phrases: BTreeSet::default(),
             stats: CoiStats::default(),
         }
     }
@@ -71,8 +68,7 @@ pub(crate) struct NegativeCoi {
 }
 
 pub(crate) trait CoiPoint {
-    fn new(id: CoiId, point: Embedding, key_phrases: BTreeSet<KeyPhrase>, viewed: Duration)
-        -> Self;
+    fn new(id: CoiId, point: Embedding, viewed: Duration) -> Self;
 
     fn id(&self) -> CoiId;
 
@@ -105,12 +101,7 @@ macro_rules! coi_point_default_impls {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_0_0 {
-    fn new(
-        id: CoiId,
-        point: Embedding,
-        _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Duration,
-    ) -> Self {
+    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
         Self {
             id,
             point,
@@ -124,12 +115,7 @@ impl CoiPoint for PositiveCoi_v0_0_0 {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_1_0 {
-    fn new(
-        id: CoiId,
-        point: Embedding,
-        _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Duration,
-    ) -> Self {
+    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
         Self {
             id,
             point,
@@ -143,12 +129,7 @@ impl CoiPoint for PositiveCoi_v0_1_0 {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_2_0 {
-    fn new(
-        id: CoiId,
-        point: Embedding,
-        _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Duration,
-    ) -> Self {
+    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
         Self { id, point }
     }
 
@@ -156,16 +137,10 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
 }
 
 impl CoiPoint for PositiveCoi {
-    fn new(
-        id: CoiId,
-        point: Embedding,
-        key_phrases: BTreeSet<KeyPhrase>,
-        viewed: Duration,
-    ) -> Self {
+    fn new(id: CoiId, point: Embedding, viewed: Duration) -> Self {
         Self {
             id,
             point,
-            key_phrases,
             stats: CoiStats::new(viewed),
         }
     }
@@ -174,12 +149,7 @@ impl CoiPoint for PositiveCoi {
 }
 
 impl CoiPoint for NegativeCoi {
-    fn new(
-        id: CoiId,
-        point: Embedding,
-        _key_phrases: BTreeSet<KeyPhrase>,
-        _viewed: Duration,
-    ) -> Self {
+    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
         Self { id, point }
     }
 
