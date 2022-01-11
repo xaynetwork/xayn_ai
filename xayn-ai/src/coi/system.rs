@@ -75,7 +75,7 @@ impl systems::CoiSystem for CoiSystem {
 /// Returns `None` if no CoI could be found otherwise it returns the Id of
 /// the CoL along with the positive and negative distance. The negative distance
 /// will be [`f32::MAX`], if no negative coi could be found.
-fn compute_coi_for_embedding(
+pub(crate) fn compute_coi_for_embedding(
     embedding: &Embedding,
     user_interests: &UserInterests,
     neighbors: usize,

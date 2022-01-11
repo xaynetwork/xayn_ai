@@ -10,7 +10,7 @@ pub(crate) use config::Configuration;
 pub(crate) use merge::reduce_cois;
 #[cfg(test)]
 pub(crate) use system::CoiSystemError;
-pub(crate) use system::{CoiSystem, NeutralCoiSystem};
+pub(crate) use system::{compute_coi_for_embedding, CoiSystem, NeutralCoiSystem};
 
 use derive_more::From;
 use displaydoc::Display;
