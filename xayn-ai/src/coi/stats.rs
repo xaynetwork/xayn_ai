@@ -176,7 +176,7 @@ mod tests {
         let penalty = Configuration::default().penalty;
 
         maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), 2);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.]);
         assert_approx_eq!(f32, maps[cois[1].id], [0.]);
         assert!(maps.key_phrases_is_empty());
@@ -203,7 +203,7 @@ mod tests {
         let penalty = Configuration::default().penalty;
 
         maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), 3);
+        assert_eq!(maps.relevances_len(), cois.len());
         let penalty = dedup(penalty);
         assert_approx_eq!(
             f32,
@@ -236,7 +236,7 @@ mod tests {
         let penalty = Configuration::default().penalty;
 
         maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), 3);
+        assert_eq!(maps.relevances_len(), cois.len());
         let penalty = dedup(penalty);
         assert_approx_eq!(
             f32,
@@ -270,7 +270,7 @@ mod tests {
         let penalty = Configuration::default().penalty;
 
         maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), 3);
+        assert_eq!(maps.relevances_len(), cois.len());
         let penalty = dedup(penalty);
         assert_approx_eq!(
             f32,

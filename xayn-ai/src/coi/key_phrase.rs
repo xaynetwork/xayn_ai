@@ -1,6 +1,7 @@
 use std::{borrow::Borrow, collections::BTreeSet, convert::identity, iter::once, time::Duration};
 
 use derivative::Derivative;
+use itertools::izip;
 use ndarray::{s, Array1, Array2, ArrayBase, Axis, Data, Ix, Ix2};
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +11,6 @@ use crate::{
         relevance::{Relevance, RelevanceMaps},
         stats::CoiPointStats,
         CoiError,
-        CoiId,
     },
     embedding::utils::{pairwise_cosine_similarity, ArcEmbedding, Embedding},
     error::Error,
@@ -121,73 +121,12 @@ impl CoiPointKeyPhrases for NegativeCoi {
 }
 
 impl RelevanceMaps {
-    /// Unites the key phrases and candidates of the coi.
-    fn unique<F>(&mut self, coi_id: CoiId, candidates: &[String], smbert: F) -> BTreeSet<KeyPhrase>
-    where
-        F: Fn(&str) -> Result<Embedding, Error>,
-    {
-        let mut key_phrases = self
-            .remove_relevances(coi_id)
-            .map(|relevances| {
-                relevances
-                    .into_iter()
-                    .map(|relevance| {
-                        self.remove_key_phrases(relevance, coi_id)
-                            .unwrap_or_default()
-                    })
-                    .flatten()
-                    .collect::<BTreeSet<_>>()
-            })
-            .unwrap_or_default();
-
-        for candidate in candidates {
-            if !key_phrases.contains(candidate) {
-                if let Ok(Ok(candidate)) =
-                    smbert(candidate).map(|point| KeyPhrase::new(candidate, point))
-                {
-                    key_phrases.insert(candidate);
-                }
-            }
-        }
-
-        key_phrases
-    }
-
-    /// Selects the determined key phrases.
-    fn select(
-        &mut self,
-        coi_id: CoiId,
-        key_phrases: BTreeSet<KeyPhrase>,
-        selected: Vec<bool>,
-        similarity: Array2<f32>,
-    ) {
-        let relevances = selected
-            .iter()
-            .zip(similarity.slice(s![.., -1]))
-            .filter_map(|(is_selected, similarity)| is_selected.then(|| similarity))
-            .copied();
-        let max = relevances.clone().reduce(f32::max).unwrap_or_default();
-        let relevances = relevances.map(|relevance| {
-            (relevance > 0.)
-                .then(|| Relevance::new((relevance / max).max(0.).min(1.)).unwrap(/* finite by construction */))
-                .unwrap_or_default()
-        });
-
-        for (key_phrase, relevance) in selected
-            .iter()
-            .zip(key_phrases)
-            .filter_map(|(is_selected, key_phrase)| is_selected.then(|| key_phrase))
-            .zip(relevances)
-        {
-            self.insert_relevance(coi_id, relevance);
-            self.insert_key_phrase(relevance, coi_id, key_phrase);
-        }
-    }
-
     /// Selects the most relevant key phrases for the coi.
     ///
     /// The most relevant key phrases are selected from the set of key phrases of the coi and the
     /// candidates. The computed relevances are a relative score from the interval `[0, 1]`.
+    ///
+    /// The relevances in the maps are replaced by the key phrase relevances.
     fn select_key_phrases<CP, F>(
         &mut self,
         coi: &CP,
@@ -199,15 +138,18 @@ impl RelevanceMaps {
         CP: CoiPoint,
         F: Fn(&str) -> Result<Embedding, Error>,
     {
-        let key_phrases = self.unique(coi.id(), candidates, smbert);
+        let key_phrases = self.remove(coi.id()).unwrap_or_default();
+        let key_phrases = unify(key_phrases, candidates, smbert);
         let (similarity, normalized) = similarities(&key_phrases, coi.point());
         let selected = is_selected(normalized, max_key_phrases, gamma);
-        self.select(coi.id(), key_phrases, selected, similarity);
+        for (relevance, key_phrase) in select(key_phrases, selected, similarity) {
+            self.insert(coi.id(), relevance, key_phrase);
+        }
     }
 
     /// Selects the top key phrases from the cois, sorted in descending relevance.
     ///
-    /// The selected key phrases and their relevances are removed from the maps of this system.
+    /// The selected key phrases and their relevances are removed from the maps.
     #[allow(dead_code)]
     pub(super) fn select_top_key_phrases<CP: CoiPoint + CoiPointStats>(
         &mut self,
@@ -220,13 +162,14 @@ impl RelevanceMaps {
         // TODO: refactor once pop_last() etc are stabilized for BTreeMap
         let (relevance_to_coi, key_phrases) = self
             .iter_key_phrases()
+            .rev()
             .map(|(relevance, coi_id, key_phrases)| {
                 key_phrases
                     .iter()
-                    .map(move |key_phrase| ((relevance, coi_id), key_phrase.clone()))
+                    .cloned()
+                    .map(move |key_phrase| ((relevance, coi_id), key_phrase))
             })
             .flatten()
-            .rev()
             .take(top)
             .unzip::<_, _, Vec<_>, Vec<_>>();
 
@@ -249,6 +192,28 @@ impl RelevanceMaps {
 
         key_phrases
     }
+}
+
+/// Unifies the key phrases and candidates of the coi.
+fn unify<F>(
+    mut key_phrases: BTreeSet<KeyPhrase>,
+    candidates: &[String],
+    smbert: F,
+) -> BTreeSet<KeyPhrase>
+where
+    F: Fn(&str) -> Result<Embedding, Error>,
+{
+    for candidate in candidates {
+        if !key_phrases.contains(candidate) {
+            if let Ok(Ok(candidate)) =
+                smbert(candidate).map(|point| KeyPhrase::new(candidate, point))
+            {
+                key_phrases.insert(candidate);
+            }
+        }
+    }
+
+    key_phrases
 }
 
 /// Reduces the matrix along the axis while skipping the diagonal elements.
@@ -372,6 +337,28 @@ fn is_selected(normalized: Array2<f32>, max_key_phrases: usize, gamma: f32) -> V
     selected
 }
 
+/// Selects the determined key phrases.
+fn select(
+    key_phrases: BTreeSet<KeyPhrase>,
+    selected: Vec<bool>,
+    similarity: Array2<f32>,
+) -> impl Iterator<Item = (Relevance, KeyPhrase)> {
+    let similarity = similarity.slice_move(s![.., -1]);
+    let max = selected
+        .iter()
+        .zip(similarity.iter())
+        .filter_map(|(is_selected, &similarity)| is_selected.then(|| similarity))
+        .reduce(f32::max)
+        .unwrap_or_default();
+    izip!(selected, similarity, key_phrases)
+        .filter_map(move |(is_selected, similarity, key_phrase)| {
+            is_selected.then(|| {
+                let relevance = (similarity > 0.).then(|| Relevance::new((similarity / max).max(0.).min(1.)).unwrap(/* finite by construction */)).unwrap_or_default();
+                (relevance, key_phrase)
+            })
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -379,7 +366,7 @@ mod tests {
     use itertools::izip;
     use ndarray::arr1;
 
-    use crate::coi::{config::Configuration, utils::tests::create_pos_cois};
+    use crate::coi::{config::Configuration, utils::tests::create_pos_cois, CoiId};
     use test_utils::assert_approx_eq;
 
     use super::*;
@@ -442,9 +429,9 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.8164967, 1.]);
-        assert_eq!(maps.key_phrases_len(), 2);
+        assert_eq!(maps.key_phrases_len(), key_phrases.len());
         let mut relevances = maps[cois[0].id].iter().copied();
         assert_eq!(
             maps[(relevances.next().unwrap(), cois[0].id)],
@@ -486,9 +473,9 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.8164967, 1.]);
-        assert_eq!(maps.key_phrases_len(), 2);
+        assert_eq!(maps.key_phrases_len(), key_phrases.len());
         let mut relevances = maps[cois[0].id].iter().copied();
         assert_eq!(
             maps[(relevances.next().unwrap(), cois[0].id)],
@@ -532,9 +519,9 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.7905694, 0.91287094, 1.]);
-        assert_eq!(maps.key_phrases_len(), 3);
+        assert_eq!(maps.key_phrases_len(), config.max_key_phrases);
         let mut relevances = maps[cois[0].id].iter().copied();
         assert_eq!(
             maps[(relevances.next().unwrap(), cois[0].id)],
@@ -582,9 +569,9 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.8164967, 1.]);
-        assert_eq!(maps.key_phrases_len(), 2);
+        assert_eq!(maps.key_phrases_len(), key_phrases.len());
         let mut relevances = maps[cois[0].id].iter().copied();
         assert_eq!(
             maps[(relevances.next().unwrap(), cois[0].id)],
@@ -626,7 +613,7 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.]);
         assert_eq!(maps.key_phrases_len(), 1);
         let mut relevances = maps[cois[0].id].iter().copied();
@@ -663,9 +650,9 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.8164967, 1.]);
-        assert_eq!(maps.key_phrases_len(), 2);
+        assert_eq!(maps.key_phrases_len(), key_phrases.len());
         let mut relevances = maps[cois[0].id].iter().copied();
         assert_eq!(
             maps[(relevances.next().unwrap(), cois[0].id)],
@@ -707,7 +694,7 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0.]);
         assert_eq!(maps.key_phrases_len(), 1);
         let mut relevances = maps[cois[0].id].iter().copied();
@@ -744,9 +731,9 @@ mod tests {
             config.max_key_phrases,
             config.gamma,
         );
-        assert_eq!(maps.relevances_len(), 1);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert_approx_eq!(f32, maps[cois[0].id], [0., 1.]);
-        assert_eq!(maps.key_phrases_len(), 2);
+        assert_eq!(maps.key_phrases_len(), key_phrases.len());
         let mut relevances = maps[cois[0].id].iter().copied();
         assert_eq!(
             maps[(relevances.next().unwrap(), cois[0].id)],
@@ -781,7 +768,7 @@ mod tests {
         let top_key_phrases =
             maps.select_top_key_phrases(&cois, usize::MAX, config.horizon, &config.penalty);
         assert!(top_key_phrases.is_empty());
-        assert_eq!(maps.relevances_len(), 3);
+        assert_eq!(maps.relevances_len(), cois.len());
         assert!(maps.key_phrases_is_empty());
     }
 
@@ -796,15 +783,15 @@ mod tests {
         let mut maps = RelevanceMaps::new(
             [cois[0].id, cois[1].id, cois[2].id],
             [0.; 3],
-            key_phrases.into(),
+            key_phrases.to_vec(),
         );
         let config = Configuration::default();
 
         let top_key_phrases =
             maps.select_top_key_phrases(&cois, 0, config.horizon, &config.penalty);
         assert!(top_key_phrases.is_empty());
-        assert_eq!(maps.relevances_len(), 3);
-        assert_eq!(maps.key_phrases_len(), 3);
+        assert_eq!(maps.relevances_len(), cois.len());
+        assert_eq!(maps.key_phrases_len(), key_phrases.len());
     }
 
     #[test]

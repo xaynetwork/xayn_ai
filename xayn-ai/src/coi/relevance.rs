@@ -102,6 +102,27 @@ impl RelevanceMaps {
             .iter()
             .map(|(&(relevance, coi_id), key_phrases)| (relevance, coi_id, key_phrases.as_slice()))
     }
+
+    pub fn insert(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: KeyPhrase) {
+        self.insert_relevance(coi_id, relevance);
+        self.insert_key_phrase(relevance, coi_id, key_phrase);
+    }
+
+    pub fn remove(&mut self, coi_id: CoiId) -> Option<BTreeSet<KeyPhrase>> {
+        self.remove_relevances(coi_id)
+            .map(|relevances| {
+                let key_phrases = relevances
+                    .into_iter()
+                    .map(|relevance| {
+                        self.remove_key_phrases(relevance, coi_id)
+                            .unwrap_or_default()
+                    })
+                    .flatten()
+                    .collect::<BTreeSet<_>>();
+                (!key_phrases.is_empty()).then(|| key_phrases)
+            })
+            .flatten()
+    }
 }
 
 impl Index<CoiId> for RelevanceMaps {
