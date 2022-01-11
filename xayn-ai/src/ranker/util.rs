@@ -39,7 +39,6 @@ impl TryFrom<&[u8]> for Id {
 
 /// Represents a result from a query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(test, derive(Default))]
 pub struct Document {
     /// Unique identifier of the document.
     pub id: Id,
