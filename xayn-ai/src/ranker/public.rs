@@ -67,7 +67,7 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
     ///
     /// # Errors
     ///
-    /// Fails if a file does not exist or if the data cannot be deserialized.
+    /// Fails if a file cannot be opened.
     pub fn with_smbert_from_file(
         self,
         vocab: impl AsRef<Path>,
