@@ -1,7 +1,6 @@
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet, HashMap},
-    ops::Index,
 };
 
 use derive_more::Into;
@@ -37,84 +36,50 @@ impl Ord for Relevance {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct RelevanceMaps {
+/// Sorted maps from cois to relevances to key phrases.
+#[derive(Debug, Default)]
+pub(crate) struct Relevances {
     coi_to_relevance: HashMap<CoiId, BTreeSet<Relevance>>,
     relevance_to_key_phrase: BTreeMap<(Relevance, CoiId), Vec<KeyPhrase>>,
 }
 
-impl RelevanceMaps {
-    pub fn get_mut_relevances(&mut self, coi_id: CoiId) -> Option<&mut BTreeSet<Relevance>> {
-        self.coi_to_relevance.get_mut(&coi_id)
+impl Relevances {
+    /// Iterates over all tuples in ascending relevance.
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (CoiId, Relevance, &KeyPhrase)> + DoubleEndedIterator {
+        self.relevance_to_key_phrase
+            .iter()
+            .map(|(&(relevance, coi_id), key_phrases)| {
+                key_phrases
+                    .iter()
+                    .map(move |key_phrase| (coi_id, relevance, key_phrase))
+            })
+            .flatten()
     }
 
-    pub fn insert_relevance(&mut self, coi_id: CoiId, relevance: Relevance) {
+    /// Inserts the tuple.
+    pub fn insert(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: KeyPhrase) {
         self.coi_to_relevance
             .entry(coi_id)
             .or_default()
             .insert(relevance);
-    }
-
-    pub fn insert_relevances(
-        &mut self,
-        coi_id: CoiId,
-        relevances: BTreeSet<Relevance>,
-    ) -> Option<BTreeSet<Relevance>> {
-        self.coi_to_relevance.insert(coi_id, relevances)
-    }
-
-    pub fn remove_relevances(&mut self, coi_id: CoiId) -> Option<BTreeSet<Relevance>> {
-        self.coi_to_relevance.remove(&coi_id)
-    }
-
-    pub fn get_mut_key_phrases(
-        &mut self,
-        relevance: Relevance,
-        coi_id: CoiId,
-    ) -> Option<&mut Vec<KeyPhrase>> {
-        self.relevance_to_key_phrase.get_mut(&(relevance, coi_id))
-    }
-
-    pub fn insert_key_phrase(
-        &mut self,
-        relevance: Relevance,
-        coi_id: CoiId,
-        key_phrase: KeyPhrase,
-    ) {
         self.relevance_to_key_phrase
             .entry((relevance, coi_id))
             .or_default()
             .push(key_phrase);
     }
 
-    pub fn remove_key_phrases(
-        &mut self,
-        relevance: Relevance,
-        coi_id: CoiId,
-    ) -> Option<Vec<KeyPhrase>> {
-        self.relevance_to_key_phrase.remove(&(relevance, coi_id))
-    }
-
-    pub fn iter_key_phrases(
-        &self,
-    ) -> impl Iterator<Item = (Relevance, CoiId, &[KeyPhrase])> + DoubleEndedIterator {
-        self.relevance_to_key_phrase
-            .iter()
-            .map(|(&(relevance, coi_id), key_phrases)| (relevance, coi_id, key_phrases.as_slice()))
-    }
-
-    pub fn insert(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: KeyPhrase) {
-        self.insert_relevance(coi_id, relevance);
-        self.insert_key_phrase(relevance, coi_id, key_phrase);
-    }
-
+    /// Removes all tuples with the given id.
     pub fn remove(&mut self, coi_id: CoiId) -> Option<BTreeSet<KeyPhrase>> {
-        self.remove_relevances(coi_id)
+        self.coi_to_relevance
+            .remove(&coi_id)
             .map(|relevances| {
                 let key_phrases = relevances
                     .into_iter()
                     .map(|relevance| {
-                        self.remove_key_phrases(relevance, coi_id)
+                        self.relevance_to_key_phrase
+                            .remove(&(relevance, coi_id))
                             .unwrap_or_default()
                     })
                     .flatten()
@@ -123,27 +88,53 @@ impl RelevanceMaps {
             })
             .flatten()
     }
-}
 
-impl Index<CoiId> for RelevanceMaps {
-    type Output = BTreeSet<Relevance>;
-
-    fn index(&self, coi_id: CoiId) -> &Self::Output {
-        &self.coi_to_relevance[&coi_id]
+    /// Removes the tuple and cleans up empty entries afterwards.
+    pub fn clean(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: &KeyPhrase) {
+        if let Some(key_phrases) = self.relevance_to_key_phrase.get_mut(&(relevance, coi_id)) {
+            key_phrases.retain(|this| this != key_phrase);
+            if key_phrases.is_empty() {
+                self.relevance_to_key_phrase.remove(&(relevance, coi_id));
+                if let Some(relevances) = self.coi_to_relevance.get_mut(&coi_id) {
+                    relevances.remove(&relevance);
+                    if relevances.is_empty() {
+                        self.coi_to_relevance.remove(&coi_id);
+                    }
+                }
+            }
+        }
     }
-}
 
-impl Index<(Relevance, CoiId)> for RelevanceMaps {
-    type Output = [KeyPhrase];
-
-    fn index(&self, (relevance, coi_id): (Relevance, CoiId)) -> &Self::Output {
-        &self.relevance_to_key_phrase[&(relevance, coi_id)]
+    /// Replaces the relevances in the tuples with the given id.
+    pub fn replace(&mut self, coi_id: CoiId, mut relevances: Vec<Relevance>) {
+        if let Some(old_relevances) = self
+            .coi_to_relevance
+            .insert(coi_id, relevances.iter().copied().collect())
+        {
+            relevances.sort_unstable_by(|this, other| this.cmp(other).reverse());
+            let key_phrases = old_relevances
+                .into_iter()
+                .map(|old_relevance| {
+                    self.relevance_to_key_phrase
+                        .remove(&(old_relevance, coi_id))
+                        .unwrap_or_default()
+                })
+                .flatten()
+                .rev()
+                .collect::<Vec<_>>();
+            for (relevance, key_phrase) in relevances.into_iter().zip(key_phrases) {
+                self.relevance_to_key_phrase
+                    .entry((relevance, coi_id))
+                    .or_default()
+                    .push(key_phrase);
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::iter::once;
+    use std::{iter::once, ops::Index};
 
     use ndarray::Ix;
 
@@ -151,21 +142,37 @@ mod tests {
 
     use super::*;
 
-    impl RelevanceMaps {
-        pub fn relevances_len(&self) -> usize {
+    impl Relevances {
+        pub fn cois_len(&self) -> usize {
             self.coi_to_relevance.len()
         }
 
-        pub fn relevances_is_empty(&self) -> bool {
+        pub fn cois_is_empty(&self) -> bool {
             self.coi_to_relevance.is_empty()
         }
 
-        pub fn key_phrases_len(&self) -> usize {
+        pub fn relevances_len(&self) -> usize {
             self.relevance_to_key_phrase.len()
         }
 
-        pub fn key_phrases_is_empty(&self) -> bool {
+        pub fn relevances_is_empty(&self) -> bool {
             self.relevance_to_key_phrase.is_empty()
+        }
+    }
+
+    impl Index<CoiId> for Relevances {
+        type Output = BTreeSet<Relevance>;
+
+        fn index(&self, coi_id: CoiId) -> &Self::Output {
+            &self.coi_to_relevance[&coi_id]
+        }
+    }
+
+    impl Index<(CoiId, Relevance)> for Relevances {
+        type Output = [KeyPhrase];
+
+        fn index(&self, (coi_id, relevance): (CoiId, Relevance)) -> &Self::Output {
+            &self.relevance_to_key_phrase[&(relevance, coi_id)]
         }
     }
 

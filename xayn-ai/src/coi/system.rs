@@ -9,7 +9,7 @@ use crate::{
         config::Configuration,
         key_phrase::CoiPointKeyPhrases,
         point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
-        relevance::RelevanceMaps,
+        relevance::Relevances,
         stats::CoiPointStats,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
@@ -32,7 +32,7 @@ pub(crate) enum CoiSystemError {
 pub(crate) struct CoiSystem {
     config: Configuration,
     smbert: SMBert,
-    relevance_maps: RelevanceMaps,
+    relevances: Relevances,
 }
 
 impl CoiSystem {
@@ -41,7 +41,7 @@ impl CoiSystem {
         Self {
             config,
             smbert,
-            relevance_maps: RelevanceMaps::default(),
+            relevances: Relevances::default(),
         }
     }
 }
@@ -64,7 +64,7 @@ impl systems::CoiSystem for CoiSystem {
         let smbert = &self.smbert;
         update_user_interests(
             user_interests,
-            &mut self.relevance_maps,
+            &mut self.relevances,
             history,
             documents,
             |key_phrase| smbert.run(key_phrase).map_err(Into::into),
@@ -124,7 +124,7 @@ fn update_coi<
     F: Fn(&str) -> Result<Embedding, Error>,
 >(
     mut cois: Vec<CP>,
-    relevance_maps: &mut RelevanceMaps,
+    relevances: &mut Relevances,
     embedding: &Embedding,
     candidates: &[String],
     viewed: Duration,
@@ -136,7 +136,7 @@ fn update_coi<
             coi.set_point(shift_coi_point(embedding, coi.point(), config.shift_factor));
             coi.set_id(Uuid::new_v4().into());
             coi.select_key_phrases(
-                relevance_maps,
+                relevances,
                 candidates,
                 smbert,
                 config.max_key_phrases,
@@ -147,7 +147,7 @@ fn update_coi<
         _ => {
             let coi = CP::new(Uuid::new_v4().into(), embedding.clone(), viewed);
             coi.select_key_phrases(
-                relevance_maps,
+                relevances,
                 candidates,
                 smbert,
                 config.max_key_phrases,
@@ -165,7 +165,7 @@ fn update_cois<
     F: Copy + Fn(&str) -> Result<Embedding, Error>,
 >(
     cois: Vec<CP>,
-    relevance_maps: &mut RelevanceMaps,
+    relevances: &mut Relevances,
     docs: &[&dyn CoiSystemData],
     smbert: F,
     config: &Configuration,
@@ -173,7 +173,7 @@ fn update_cois<
     docs.iter().fold(cois, |cois, doc| {
         update_coi(
             cois,
-            relevance_maps,
+            relevances,
             &doc.smbert().embedding,
             &[/* TODO: run KPE on doc */],
             doc.viewed(),
@@ -185,7 +185,7 @@ fn update_cois<
 
 pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Error>>(
     mut user_interests: UserInterests,
-    relevance_maps: &mut RelevanceMaps,
+    relevances: &mut Relevances,
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
     smbert: F,
@@ -202,14 +202,14 @@ pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Erro
 
     user_interests.positive = update_cois(
         user_interests.positive,
-        relevance_maps,
+        relevances,
         &positive_docs,
         smbert,
         config,
     );
     user_interests.negative = update_cois(
         user_interests.negative,
-        relevance_maps,
+        relevances,
         &negative_docs,
         smbert,
         config,
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_update_coi_add_point() {
         let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let embedding = arr1(&[1., 1., 1.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
@@ -332,7 +332,7 @@ mod tests {
 
         cois = update_coi(
             cois,
-            &mut maps,
+            &mut relevances,
             &embedding,
             &[],
             viewed,
@@ -345,14 +345,14 @@ mod tests {
     #[test]
     fn test_update_coi_update_point() {
         let cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let embedding = arr1(&[2., 3., 4.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
         let cois = update_coi(
             cois,
-            &mut maps,
+            &mut relevances,
             &embedding,
             &[],
             viewed,
@@ -380,14 +380,14 @@ mod tests {
     #[test]
     fn test_update_coi_threshold_exclusive() {
         let cois = create_pos_cois(&[[0., 0., 0.]]);
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let embedding = arr1(&[0., 0., 12.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
         let cois = update_coi(
             cois,
-            &mut maps,
+            &mut relevances,
             &embedding,
             &[],
             viewed,
@@ -404,7 +404,7 @@ mod tests {
     fn test_update_cois_update_the_same_point_twice() {
         // checks that an updated coi is used in the next iteration
         let cois = create_pos_cois(&[[0., 0., 0.]]);
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
         let config = Configuration {
@@ -412,7 +412,13 @@ mod tests {
             ..Configuration::default()
         };
 
-        let cois = update_cois(cois, &mut maps, &documents, |_| unreachable!(), &config);
+        let cois = update_cois(
+            cois,
+            &mut relevances,
+            &documents,
+            |_| unreachable!(),
+            &config,
+        );
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]
@@ -496,7 +502,7 @@ mod tests {
         let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
             (Relevance::Low, UserFeedback::Relevant),
@@ -511,7 +517,7 @@ mod tests {
 
         let UserInterests { positive, negative } = update_user_interests(
             user_interests,
-            &mut maps,
+            &mut relevances,
             &history,
             &documents,
             |_| todo!(/* mock once KPE is used */),
@@ -532,7 +538,7 @@ mod tests {
     fn test_update_user_interests_no_matches() {
         let error = update_user_interests(
             UserInterests::default(),
-            &mut RelevanceMaps::default(),
+            &mut Relevances::default(),
             &[],
             &[],
             |_| unreachable!(),

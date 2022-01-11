@@ -9,7 +9,7 @@ mod utils;
 
 #[cfg(test)]
 pub(crate) use self::{
-    relevance::RelevanceMaps,
+    relevance::Relevances,
     system::{compute_coi, update_user_interests, CoiSystemError},
 };
 pub(crate) use config::Configuration;

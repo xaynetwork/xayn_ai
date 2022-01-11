@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coi::{
         point::{CoiPoint, NegativeCoi, PositiveCoi},
-        relevance::{Relevance, RelevanceMaps},
+        relevance::{Relevance, Relevances},
     },
     utils::{system_time_now, SECONDS_PER_DAY},
 };
@@ -75,7 +75,7 @@ impl CoiPointStats for NegativeCoi {
     fn update_stats(&mut self, _viewed: Duration) {}
 }
 
-impl RelevanceMaps {
+impl Relevances {
     /// Computes the relevances of the cois.
     ///
     /// The relevance of each coi is computed from its view count and view time relative to the
@@ -125,22 +125,7 @@ impl RelevanceMaps {
                 ).unwrap(/* finite by construction */)
                 })
                 .collect::<Vec<_>>();
-            if let Some(old_relevances) =
-                self.insert_relevances(coi_id, new_relevances.iter().copied().collect())
-            {
-                let key_phrases = old_relevances
-                    .into_iter()
-                    .map(|old_relevance| {
-                        self.remove_key_phrases(old_relevance, coi_id)
-                            .unwrap_or_default()
-                    })
-                    .flatten()
-                    .rev()
-                    .collect::<Vec<_>>();
-                for (new_relevance, key_phrase) in new_relevances.into_iter().zip(key_phrases) {
-                    self.insert_key_phrase(new_relevance, coi_id, key_phrase);
-                }
-            }
+            self.replace(coi_id, new_relevances);
         }
     }
 }
@@ -158,28 +143,28 @@ mod tests {
 
     #[test]
     fn test_compute_relevances_empty_cois() {
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let cois = create_pos_cois(&[[]]);
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let penalty = Configuration::default().penalty;
 
-        maps.compute_relevances(&cois, horizon, &penalty);
-        assert!(maps.relevances_is_empty());
-        assert!(maps.key_phrases_is_empty());
+        relevances.compute_relevances(&cois, horizon, &penalty);
+        assert!(relevances.cois_is_empty());
+        assert!(relevances.relevances_is_empty());
     }
 
     #[test]
     fn test_compute_relevances_zero_horizon() {
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
         let horizon = Duration::ZERO;
         let penalty = Configuration::default().penalty;
 
-        maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), cois.len());
-        assert_approx_eq!(f32, maps[cois[0].id], [0.]);
-        assert_approx_eq!(f32, maps[cois[1].id], [0.]);
-        assert!(maps.key_phrases_is_empty());
+        relevances.compute_relevances(&cois, horizon, &penalty);
+        assert_eq!(relevances.cois_len(), cois.len());
+        assert_approx_eq!(f32, relevances[cois[0].id], [0.]);
+        assert_approx_eq!(f32, relevances[cois[1].id], [0.]);
+        assert!(relevances.relevances_is_empty());
     }
 
     fn dedup(vector: Vec<f32>) -> Array1<f32> {
@@ -195,73 +180,73 @@ mod tests {
 
     #[test]
     fn test_compute_relevances_count() {
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_count += 1;
         cois[2].stats.view_count += 2;
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let penalty = Configuration::default().penalty;
 
-        maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), cois.len());
+        relevances.compute_relevances(&cois, horizon, &penalty);
+        assert_eq!(relevances.cois_len(), cois.len());
         let penalty = dedup(penalty);
         assert_approx_eq!(
             f32,
-            maps[cois[0].id],
+            relevances[cois[0].id],
             0.5 * penalty.clone(),
             epsilon = 0.00001,
         );
         assert_approx_eq!(
             f32,
-            maps[cois[1].id],
+            relevances[cois[1].id],
             0.6666667 * penalty.clone(),
             epsilon = 0.00001,
         );
         assert_approx_eq!(
             f32,
-            maps[cois[2].id],
+            relevances[cois[2].id],
             0.8333333 * penalty,
             epsilon = 0.00001,
         );
-        assert!(maps.key_phrases_is_empty());
+        assert!(relevances.relevances_is_empty());
     }
 
     #[test]
     fn test_compute_relevances_time() {
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_time += Duration::from_secs(10);
         cois[2].stats.view_time += Duration::from_secs(20);
         let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
         let penalty = Configuration::default().penalty;
 
-        maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), cois.len());
+        relevances.compute_relevances(&cois, horizon, &penalty);
+        assert_eq!(relevances.cois_len(), cois.len());
         let penalty = dedup(penalty);
         assert_approx_eq!(
             f32,
-            maps[cois[0].id],
+            relevances[cois[0].id],
             0.5 * penalty.clone(),
             epsilon = 0.00001,
         );
         assert_approx_eq!(
             f32,
-            maps[cois[1].id],
+            relevances[cois[1].id],
             0.6666667 * penalty.clone(),
             epsilon = 0.00001,
         );
         assert_approx_eq!(
             f32,
-            maps[cois[2].id],
+            relevances[cois[2].id],
             0.8333333 * penalty,
             epsilon = 0.00001,
         );
-        assert!(maps.key_phrases_is_empty());
+        assert!(relevances.relevances_is_empty());
     }
 
     #[test]
     fn test_compute_relevances_last() {
-        let mut maps = RelevanceMaps::default();
+        let mut relevances = Relevances::default();
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
         cois[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
@@ -269,22 +254,22 @@ mod tests {
         let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
         let penalty = Configuration::default().penalty;
 
-        maps.compute_relevances(&cois, horizon, &penalty);
-        assert_eq!(maps.relevances_len(), cois.len());
+        relevances.compute_relevances(&cois, horizon, &penalty);
+        assert_eq!(relevances.cois_len(), cois.len());
         let penalty = dedup(penalty);
         assert_approx_eq!(
             f32,
-            maps[cois[0].id],
+            relevances[cois[0].id],
             0.48729968 * penalty.clone(),
             epsilon = 0.00001,
         );
         assert_approx_eq!(
             f32,
-            maps[cois[1].id],
+            relevances[cois[1].id],
             0.15438259 * penalty,
             epsilon = 0.00001,
         );
-        assert_approx_eq!(f32, maps[cois[2].id], [0.]);
-        assert!(maps.key_phrases_is_empty());
+        assert_approx_eq!(f32, relevances[cois[2].id], [0.]);
+        assert!(relevances.relevances_is_empty());
     }
 }
