@@ -79,7 +79,7 @@ impl Ranker {
             );
         });
 
-        cois.sort_unstable_by(|a, b| {
+        items.sort_unstable_by(|a, b| {
             nan_safe_f32_cmp(
                 context_for_docs.get(&a.0).unwrap(),
                 context_for_docs.get(&b.0).unwrap(),
