@@ -55,10 +55,6 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
     }
 
     /// Sets the reader of the vocabulary, and bert model used to initialize the SMBert.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the data cannot be deserialized.
     pub fn with_smbert_from_reader<W, N>(self, vocab: W, bert: N) -> Builder<W, N, KV, KM> {
         Builder {
             smbert: SMBertBuilder::new(vocab, bert),
