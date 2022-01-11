@@ -129,7 +129,8 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
     ///
     /// # Errors
     ///
-    /// Fails if the SMBert or KPE cannot be initialized.
+    /// Fails if the SMBert or KPE cannot be initialized. For example because
+    /// reading from a file failed or the bytes read are have an unexpected format.
     pub fn build(self) -> Result<Ranker, Error>
     where
         SV: BufRead,
