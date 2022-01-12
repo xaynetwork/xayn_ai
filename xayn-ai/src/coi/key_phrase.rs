@@ -76,7 +76,7 @@ impl PartialEq<KeyPhrase> for &str {
     }
 }
 
-pub(crate) trait CoiPointKeyPhrases {
+pub(crate) trait CoiPointKeyPhrases: CoiPoint {
     fn select_key_phrases<F>(
         &self,
         relevances: &mut Relevances,
@@ -85,7 +85,6 @@ pub(crate) trait CoiPointKeyPhrases {
         max_key_phrases: usize,
         gamma: f32,
     ) where
-        Self: CoiPoint,
         F: Fn(&str) -> Result<Embedding, Error>;
 }
 

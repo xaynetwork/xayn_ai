@@ -22,6 +22,11 @@ impl CoiPointMerge for PositiveCoi {
         let point = mean(self.point.view(), other.point.view()).into();
         let stats = self.stats.merge(other.stats);
 
+        // NOTE: the key phrases are currently not merged. if the new id is equal to one of the old
+        // ids, then then key phrases of the new coi will be the same as in that old coi. if the new
+        // id is different, then the new coi will have no key phrases. all key phrases from old cois
+        // with unused ids will stay forever in the coi system's relevances maps.
+
         Self { id, point, stats }
     }
 }
