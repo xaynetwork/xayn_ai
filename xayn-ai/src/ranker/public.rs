@@ -1,6 +1,7 @@
 use std::{
     io::{BufRead, Read},
     path::Path,
+    sync::Arc,
 };
 
 use kpe::Builder as KPEBuilder;
@@ -9,7 +10,7 @@ use rubert::{AveragePooler, SMBertBuilder};
 
 use crate::{
     coi::{point::UserInterests, CoiSystem, Configuration as CoiSystemConfiguration},
-    embedding::utils::Embedding,
+    embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
 };
 
@@ -138,14 +139,15 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
         KV: BufRead,
         KM: Read,
     {
-        let smbert = self
-            .smbert
-            .with_token_size(52)?
-            .with_accents(false)
-            .with_lowercase(true)
-            .with_pooling(AveragePooler)
-            .build()?;
-        let coi = CoiSystem::new(CoiSystemConfiguration::default());
+        let smbert = SMBert::from(Arc::new(
+            self.smbert
+                .with_token_size(52)?
+                .with_accents(false)
+                .with_lowercase(true)
+                .with_pooling(AveragePooler)
+                .build()?,
+        ));
+        let coi = CoiSystem::new(CoiSystemConfiguration::default(), smbert.clone());
         let kpe = self
             .kpe
             .with_token_size(150)?
