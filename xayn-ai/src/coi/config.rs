@@ -19,7 +19,7 @@ impl Configuration {
         self.shift_factor
     }
 
-    /// Sets the shift factor for values in the unit interval.
+    /// Sets the shift factor for values from the unit interval.
     #[allow(dead_code)]
     pub(crate) fn with_shift_factor(self, shift_factor: f32) -> Result<Self, CoiError> {
         if (0. ..=1.).contains(&shift_factor) {
@@ -79,7 +79,7 @@ impl Configuration {
         self.gamma
     }
 
-    /// Sets the gamma for values in the unit interval.
+    /// Sets the gamma for values from the unit interval.
     #[allow(dead_code)]
     pub(crate) fn with_gamma(self, gamma: f32) -> Result<Self, CoiError> {
         if (0. ..=1.).contains(&gamma) {
