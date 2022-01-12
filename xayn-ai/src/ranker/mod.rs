@@ -97,7 +97,10 @@ fn compute_context_for_docs(cois_for_docs: &[(Id, CoiComponent)]) -> HashMap<&Id
     let context = Context::from_cois(cois_for_docs);
     let mut context_for_docs = HashMap::new();
     cois_for_docs.iter().for_each(|(id, coi)| {
-        context_for_docs.insert(id, context.calculate(coi.pos_distance, coi.neg_distance));
+        context_for_docs.insert(
+            id,
+            context.calculate_score(coi.pos_distance, coi.neg_distance),
+        );
     });
     context_for_docs
 }
