@@ -52,7 +52,7 @@ impl systems::CoiSystem for CoiSystem {
         documents: &[DocumentDataWithSMBert],
         user_interests: &UserInterests,
     ) -> Result<Vec<DocumentDataWithCoi>, Error> {
-        compute_coi(documents, user_interests, self.config.neighbors.get())
+        compute_coi(documents, user_interests, self.config.neighbors())
     }
 
     fn update_user_interests(
@@ -131,16 +131,20 @@ fn update_coi<
     smbert: F,
     config: &Configuration,
 ) -> Vec<CP> {
-    match find_closest_coi_mut(embedding, &mut cois, config.neighbors.get()) {
-        Some((coi, distance)) if distance < config.threshold => {
-            coi.set_point(shift_coi_point(embedding, coi.point(), config.shift_factor));
+    match find_closest_coi_mut(embedding, &mut cois, config.neighbors()) {
+        Some((coi, distance)) if distance < config.threshold() => {
+            coi.set_point(shift_coi_point(
+                embedding,
+                coi.point(),
+                config.shift_factor(),
+            ));
             coi.set_id(Uuid::new_v4().into());
             coi.select_key_phrases(
                 relevances,
                 candidates,
                 smbert,
-                config.max_key_phrases,
-                config.gamma,
+                config.max_key_phrases(),
+                config.gamma(),
             );
             coi.update_stats(viewed);
         }
@@ -150,8 +154,8 @@ fn update_coi<
                 relevances,
                 candidates,
                 smbert,
-                config.max_key_phrases,
-                config.gamma,
+                config.max_key_phrases(),
+                config.gamma(),
             );
             cois.push(coi);
         }
@@ -328,7 +332,7 @@ mod tests {
 
         assert_eq!(index, 1);
         assert_approx_eq!(f32, distance, 26.747852);
-        assert!(config.threshold < distance);
+        assert!(config.threshold() < distance);
 
         cois = update_coi(
             cois,
@@ -370,7 +374,7 @@ mod tests {
     fn test_shift_coi_point() {
         let coi_point = arr1(&[1., 1., 1.]).into();
         let embedding = arr1(&[2., 3., 4.]).into();
-        let shift_factor = Configuration::default().shift_factor;
+        let shift_factor = Configuration::default().shift_factor();
 
         let updated_coi = shift_coi_point(&embedding, &coi_point, shift_factor);
 
@@ -407,10 +411,7 @@ mod tests {
         let mut relevances = Relevances::default();
         let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
-        let config = Configuration {
-            threshold: 5.,
-            ..Configuration::default()
-        };
+        let config = Configuration::default().with_threshold(5.).unwrap();
 
         let cois = update_cois(
             cois,
@@ -432,7 +433,7 @@ mod tests {
         let negative = create_neg_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
         let user_interests = UserInterests { positive, negative };
         let embedding = arr1(&[2., 3., 4.]).into();
-        let neighbors = Configuration::default().neighbors.get();
+        let neighbors = Configuration::default().neighbors();
 
         let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, neighbors).unwrap();
 
@@ -449,7 +450,7 @@ mod tests {
             negative: Vec::new(),
         };
         let embedding = arr1(&[2., 3., 4.]).into();
-        let neighbors = Configuration::default().neighbors.get();
+        let neighbors = Configuration::default().neighbors();
 
         let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, neighbors).unwrap();
 
@@ -464,7 +465,7 @@ mod tests {
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[1., 4., 4.], [3., 6., 6.]]);
-        let neighbors = Configuration::default().neighbors.get();
+        let neighbors = Configuration::default().neighbors();
 
         let documents_coi = compute_coi(&documents, &user_interests, neighbors).unwrap();
 
@@ -510,10 +511,7 @@ mod tests {
         ]);
         let documents = create_data_with_rank(&[[1., 4., 4.], [3., 6., 6.], [1., 1., 1.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
-        let config = Configuration {
-            threshold: 5.,
-            ..Configuration::default()
-        };
+        let config = Configuration::default().with_threshold(5.).unwrap();
 
         let UserInterests { positive, negative } = update_user_interests(
             user_interests,

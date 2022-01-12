@@ -145,10 +145,10 @@ mod tests {
     fn test_compute_relevances_empty_cois() {
         let mut relevances = Relevances::default();
         let cois = create_pos_cois(&[[]]);
-        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
-        let penalty = Configuration::default().penalty;
+        let config =
+            Configuration::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
 
-        relevances.compute_relevances(&cois, horizon, &penalty);
+        relevances.compute_relevances(&cois, config.horizon(), config.penalty());
         assert!(relevances.cois_is_empty());
         assert!(relevances.relevances_is_empty());
     }
@@ -157,21 +157,20 @@ mod tests {
     fn test_compute_relevances_zero_horizon() {
         let mut relevances = Relevances::default();
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
-        let horizon = Duration::ZERO;
-        let penalty = Configuration::default().penalty;
+        let config = Configuration::default().with_horizon(Duration::ZERO);
 
-        relevances.compute_relevances(&cois, horizon, &penalty);
+        relevances.compute_relevances(&cois, config.horizon(), config.penalty());
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.]);
         assert_approx_eq!(f32, relevances[cois[1].id], [0.]);
         assert!(relevances.relevances_is_empty());
     }
 
-    fn dedup(vector: Vec<f32>) -> Array1<f32> {
-        assert!(vector.iter().copied().all(f32::is_finite));
-        vector
+    fn dedup_penalty(config: Configuration) -> Array1<f32> {
+        config
+            .penalty()
             .iter()
-            .map(|&element| Relevance::new(element).unwrap())
+            .map(|&penalty| Relevance::new(penalty).unwrap())
             .collect::<BTreeSet<_>>()
             .into_iter()
             .map(Into::into)
@@ -184,12 +183,12 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_count += 1;
         cois[2].stats.view_count += 2;
-        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
-        let penalty = Configuration::default().penalty;
+        let config =
+            Configuration::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
 
-        relevances.compute_relevances(&cois, horizon, &penalty);
+        relevances.compute_relevances(&cois, config.horizon(), config.penalty());
         assert_eq!(relevances.cois_len(), cois.len());
-        let penalty = dedup(penalty);
+        let penalty = dedup_penalty(config);
         assert_approx_eq!(
             f32,
             relevances[cois[0].id],
@@ -217,12 +216,12 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_time += Duration::from_secs(10);
         cois[2].stats.view_time += Duration::from_secs(20);
-        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
-        let penalty = Configuration::default().penalty;
+        let config =
+            Configuration::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
 
-        relevances.compute_relevances(&cois, horizon, &penalty);
+        relevances.compute_relevances(&cois, config.horizon(), config.penalty());
         assert_eq!(relevances.cois_len(), cois.len());
-        let penalty = dedup(penalty);
+        let penalty = dedup_penalty(config);
         assert_approx_eq!(
             f32,
             relevances[cois[0].id],
@@ -251,12 +250,12 @@ mod tests {
         cois[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
         cois[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
         cois[2].stats.last_view -= Duration::from_secs_f32(2.5 * SECONDS_PER_DAY);
-        let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
-        let penalty = Configuration::default().penalty;
+        let config =
+            Configuration::default().with_horizon(Duration::from_secs_f32(2. * SECONDS_PER_DAY));
 
-        relevances.compute_relevances(&cois, horizon, &penalty);
+        relevances.compute_relevances(&cois, config.horizon(), config.penalty());
         assert_eq!(relevances.cois_len(), cois.len());
-        let penalty = dedup(penalty);
+        let penalty = dedup_penalty(config);
         assert_approx_eq!(
             f32,
             relevances[cois[0].id],

@@ -86,7 +86,7 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
 
 fn mocked_coi_system() -> MockCoiSystem {
     let config = CoiConfig::default();
-    let neighbors = config.neighbors.get();
+    let neighbors = config.neighbors();
 
     let mut system = MockCoiSystem::new();
     system

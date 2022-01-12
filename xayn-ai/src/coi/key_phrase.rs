@@ -351,8 +351,8 @@ mod tests {
             &cois[0],
             candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert!(relevances.cois_is_empty());
         assert!(relevances.relevances_is_empty());
@@ -392,8 +392,8 @@ mod tests {
             &cois[0],
             candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
@@ -436,8 +436,8 @@ mod tests {
             &cois[0],
             &candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
@@ -482,12 +482,12 @@ mod tests {
             &cois[0],
             &candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.7905694, 0.91287094, 1.]);
-        assert_eq!(relevances.relevances_len(), config.max_key_phrases);
+        assert_eq!(relevances.relevances_len(), config.max_key_phrases());
         let mut relevance = relevances[cois[0].id].iter().copied();
         assert_eq!(
             relevances[(cois[0].id, relevance.next().unwrap())],
@@ -532,8 +532,8 @@ mod tests {
             &cois[0],
             &candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
@@ -576,8 +576,8 @@ mod tests {
             &cois[0],
             &candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.]);
@@ -616,8 +616,8 @@ mod tests {
             &cois[0],
             &candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
@@ -660,8 +660,8 @@ mod tests {
             &cois[0],
             &candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.]);
@@ -700,8 +700,8 @@ mod tests {
             &cois[0],
             &candidates,
             smbert,
-            config.max_key_phrases,
-            config.gamma,
+            config.max_key_phrases(),
+            config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
         assert_approx_eq!(f32, relevances[cois[0].id], [0., 1.]);
@@ -724,8 +724,12 @@ mod tests {
         let mut relevances = Relevances::default();
         let config = Configuration::default();
 
-        let top_key_phrases =
-            relevances.select_top_key_phrases(&cois, usize::MAX, config.horizon, &config.penalty);
+        let top_key_phrases = relevances.select_top_key_phrases(
+            &cois,
+            usize::MAX,
+            config.horizon(),
+            config.penalty(),
+        );
         assert!(top_key_phrases.is_empty());
         assert!(relevances.cois_is_empty());
         assert!(relevances.relevances_is_empty());
@@ -737,8 +741,12 @@ mod tests {
         let mut relevances = Relevances::default();
         let config = Configuration::default();
 
-        let top_key_phrases =
-            relevances.select_top_key_phrases(&cois, usize::MAX, config.horizon, &config.penalty);
+        let top_key_phrases = relevances.select_top_key_phrases(
+            &cois,
+            usize::MAX,
+            config.horizon(),
+            config.penalty(),
+        );
         assert!(top_key_phrases.is_empty());
         assert_eq!(relevances.cois_len(), cois.len());
         assert!(relevances.relevances_is_empty());
@@ -760,7 +768,7 @@ mod tests {
         let config = Configuration::default();
 
         let top_key_phrases =
-            relevances.select_top_key_phrases(&cois, 0, config.horizon, &config.penalty);
+            relevances.select_top_key_phrases(&cois, 0, config.horizon(), config.penalty());
         assert!(top_key_phrases.is_empty());
         assert_eq!(relevances.cois_len(), cois.len());
         assert_eq!(relevances.relevances_len(), key_phrases.len());
@@ -793,8 +801,12 @@ mod tests {
         );
         let config = Configuration::default();
 
-        let top_key_phrases =
-            relevances.select_top_key_phrases(&cois, usize::MAX, config.horizon, &config.penalty);
+        let top_key_phrases = relevances.select_top_key_phrases(
+            &cois,
+            usize::MAX,
+            config.horizon(),
+            config.penalty(),
+        );
         assert_eq!(
             top_key_phrases,
             ["enough", "stuff", "words", "not", "more", "phrase", "still", "and", "key"],
