@@ -12,6 +12,7 @@ use crate::{
     coi::{point::UserInterests, CoiSystem, Configuration as CoiSystemConfiguration},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
+    ranker::util::Document
 };
 
 pub struct Ranker(super::Ranker);
@@ -25,6 +26,10 @@ impl Ranker {
     /// Computes the SMBert embedding of the given `sequence`.
     pub fn compute_smbert(&self, sequence: &str) -> Result<Embedding, Error> {
         self.0.compute_smbert(sequence)
+    }
+
+    pub fn rank(&self, items: &mut [Document]) -> Result<(), Error> {
+        self.0.rank(items)
     }
 }
 
