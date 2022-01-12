@@ -14,7 +14,7 @@ pub(crate) use self::{
 };
 pub(crate) use config::Configuration;
 pub(crate) use merge::reduce_cois;
-pub(crate) use system::{CoiSystem, NeutralCoiSystem};
+pub(crate) use system::{compute_coi_for_embedding, CoiSystem, NeutralCoiSystem};
 
 use derive_more::From;
 use displaydoc::Display;
