@@ -45,7 +45,7 @@ pub(crate) struct Relevances {
 
 impl Relevances {
     /// Iterates over all tuples in ascending relevance.
-    pub fn iter(
+    pub(super) fn iter(
         &self,
     ) -> impl Iterator<Item = (CoiId, Relevance, &KeyPhrase)> + DoubleEndedIterator {
         self.relevance_to_key_phrase
@@ -59,7 +59,7 @@ impl Relevances {
     }
 
     /// Inserts the tuple.
-    pub fn insert(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: KeyPhrase) {
+    pub(super) fn insert(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: KeyPhrase) {
         self.coi_to_relevance
             .entry(coi_id)
             .or_default()
@@ -71,7 +71,7 @@ impl Relevances {
     }
 
     /// Removes all tuples with the given id.
-    pub fn remove(&mut self, coi_id: CoiId) -> Option<BTreeSet<KeyPhrase>> {
+    pub(super) fn remove(&mut self, coi_id: CoiId) -> Option<BTreeSet<KeyPhrase>> {
         self.coi_to_relevance
             .remove(&coi_id)
             .map(|relevances| {
@@ -90,7 +90,7 @@ impl Relevances {
     }
 
     /// Removes the tuple and cleans up empty entries afterwards.
-    pub fn clean(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: &KeyPhrase) {
+    pub(super) fn clean(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: &KeyPhrase) {
         if let Some(key_phrases) = self.relevance_to_key_phrase.get_mut(&(relevance, coi_id)) {
             key_phrases.retain(|this| this != key_phrase);
             if key_phrases.is_empty() {
@@ -106,7 +106,7 @@ impl Relevances {
     }
 
     /// Replaces the relevances in the tuples with the given id.
-    pub fn replace(&mut self, coi_id: CoiId, mut relevances: Vec<Relevance>) {
+    pub(super) fn replace(&mut self, coi_id: CoiId, mut relevances: Vec<Relevance>) {
         if let Some(old_relevances) = self
             .coi_to_relevance
             .insert(coi_id, relevances.iter().copied().collect())

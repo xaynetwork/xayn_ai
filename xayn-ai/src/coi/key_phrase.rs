@@ -58,21 +58,9 @@ impl Borrow<String> for KeyPhrase {
     }
 }
 
-impl Borrow<str> for KeyPhrase {
-    fn borrow(&self) -> &str {
-        self.words.as_str()
-    }
-}
-
 impl PartialEq<&str> for KeyPhrase {
     fn eq(&self, other: &&str) -> bool {
         self.words.eq(other)
-    }
-}
-
-impl PartialEq<KeyPhrase> for &str {
-    fn eq(&self, other: &KeyPhrase) -> bool {
-        other.words.eq(self)
     }
 }
 
