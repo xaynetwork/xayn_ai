@@ -7,13 +7,14 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
+        key_phrase::CoiPointKeyPhrases,
         point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
         stats::CoiPointStats,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
-    embedding::utils::Embedding,
+    embedding::{smbert::SMBert, utils::Embedding},
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
@@ -29,18 +30,13 @@ pub(crate) enum CoiSystemError {
 
 pub(crate) struct CoiSystem {
     config: Configuration,
-}
-
-impl Default for CoiSystem {
-    fn default() -> Self {
-        Self::new(Configuration::default())
-    }
+    smbert: SMBert,
 }
 
 impl CoiSystem {
     /// Creates a new centre of interest system.
-    pub(crate) fn new(config: Configuration) -> Self {
-        Self { config }
+    pub(crate) fn new(config: Configuration, smbert: SMBert) -> Self {
+        Self { config, smbert }
     }
 }
 
@@ -63,9 +59,8 @@ impl systems::CoiSystem for CoiSystem {
             history,
             documents,
             user_interests,
-            self.config.neighbors.get(),
-            self.config.threshold,
-            self.config.shift_factor,
+            |key_phrase| self.smbert.run(key_phrase).map_err(Into::into),
+            self.config,
         )
     }
 }
@@ -93,7 +88,7 @@ fn compute_coi_for_embedding(
     })
 }
 
-fn compute_coi(
+pub(crate) fn compute_coi(
     documents: &[DocumentDataWithSMBert],
     user_interests: &UserInterests,
     neighbors: usize,
@@ -116,58 +111,67 @@ fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) ->
 /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
 /// (within [`Configuration.threshold`]), the centroid's position gets updated,
 /// otherwise a new centroid is created.
-fn update_coi<CP: CoiPoint + CoiPointStats>(
+fn update_coi<
+    CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
+    F: Fn(&str) -> Result<Embedding, Error>,
+>(
     embedding: &Embedding,
+    candidates: &[String],
     viewed: Duration,
     mut cois: Vec<CP>,
-    neighbors: usize,
-    threshold: f32,
-    shift_factor: f32,
+    smbert: F,
+    config: Configuration,
 ) -> Vec<CP> {
-    match find_closest_coi_mut(embedding, &mut cois, neighbors) {
-        Some((coi, distance)) if distance < threshold => {
-            coi.set_point(shift_coi_point(embedding, coi.point(), shift_factor));
+    match find_closest_coi_mut(embedding, &mut cois, config.neighbors.get()) {
+        Some((coi, distance)) if distance < config.threshold => {
+            coi.set_point(shift_coi_point(embedding, coi.point(), config.shift_factor));
             coi.set_id(Uuid::new_v4().into());
-            // TODO: update key phrases
+            coi.select_key_phrases(candidates, smbert, config.max_key_phrases, config.gamma);
             coi.update_stats(viewed);
         }
-        _ => cois.push(CP::new(
-            Uuid::new_v4().into(),
-            embedding.clone(),
-            BTreeSet::default(), // TODO: set key phrases
-            viewed,
-        )),
+        _ => {
+            let mut coi = CP::new(
+                Uuid::new_v4().into(),
+                embedding.clone(),
+                BTreeSet::default(),
+                viewed,
+            );
+            coi.select_key_phrases(candidates, smbert, config.max_key_phrases, config.gamma);
+            cois.push(coi);
+        }
     }
     cois
 }
 
 /// Updates the CoIs based on the embeddings of docs.
-fn update_cois<CP: CoiPoint + CoiPointStats>(
+fn update_cois<
+    CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
+    F: Copy + Fn(&str) -> Result<Embedding, Error>,
+>(
     docs: &[&dyn CoiSystemData],
     cois: Vec<CP>,
-    neighbors: usize,
-    threshold: f32,
-    shift_factor: f32,
+    smbert: F,
+    config: Configuration,
 ) -> Vec<CP> {
     docs.iter().fold(cois, |cois, doc| {
+        let candidates = &[/* TODO: run KPE on doc */];
         update_coi(
             &doc.smbert().embedding,
+            candidates,
             doc.viewed(),
             cois,
-            neighbors,
-            threshold,
-            shift_factor,
+            smbert,
+            config,
         )
     })
 }
 
-fn update_user_interests(
+pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Error>>(
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
     mut user_interests: UserInterests,
-    neighbors: usize,
-    threshold: f32,
-    shift_factor: f32,
+    smbert: F,
+    config: Configuration,
 ) -> Result<UserInterests, Error> {
     let matching_documents = collect_matching_documents(history, documents);
 
@@ -178,20 +182,8 @@ fn update_user_interests(
     let (positive_docs, negative_docs) =
         classify_documents_based_on_user_feedback(matching_documents);
 
-    user_interests.positive = update_cois(
-        &positive_docs,
-        user_interests.positive,
-        neighbors,
-        threshold,
-        shift_factor,
-    );
-    user_interests.negative = update_cois(
-        &negative_docs,
-        user_interests.negative,
-        neighbors,
-        threshold,
-        shift_factor,
-    );
+    user_interests.positive = update_cois(&positive_docs, user_interests.positive, smbert, config);
+    user_interests.negative = update_cois(&negative_docs, user_interests.negative, smbert, config);
 
     Ok(user_interests)
 }
@@ -299,15 +291,15 @@ mod tests {
         let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
         let embedding = arr1(&[1., 1., 1.]).into();
         let viewed = Duration::from_secs(10);
+        let config = Configuration::default();
 
-        let threshold = 12.;
         let (index, distance) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
 
         assert_eq!(index, 1);
         assert_approx_eq!(f32, distance, 26.747852);
-        assert!(threshold < distance);
+        assert!(config.threshold < distance);
 
-        cois = update_coi(&embedding, viewed, cois, 4, threshold, 0.1);
+        cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
         assert_eq!(cois.len(), 4);
     }
 
@@ -316,8 +308,9 @@ mod tests {
         let cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
         let embedding = arr1(&[2., 3., 4.]).into();
         let viewed = Duration::from_secs(10);
+        let config = Configuration::default();
 
-        let cois = update_coi(&embedding, viewed, cois, 4, 12., 0.1);
+        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
 
         assert_eq!(cois.len(), 3);
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
@@ -329,8 +322,9 @@ mod tests {
     fn test_shift_coi_point() {
         let coi_point = arr1(&[1., 1., 1.]).into();
         let embedding = arr1(&[2., 3., 4.]).into();
+        let shift_factor = Configuration::default().shift_factor;
 
-        let updated_coi = shift_coi_point(&embedding, &coi_point, 0.1);
+        let updated_coi = shift_coi_point(&embedding, &coi_point, shift_factor);
 
         assert_eq!(updated_coi, arr1(&[1.1, 1.2, 1.3]));
     }
@@ -340,8 +334,9 @@ mod tests {
         let cois = create_pos_cois(&[[0., 0., 0.]]);
         let embedding = arr1(&[0., 0., 12.]).into();
         let viewed = Duration::from_secs(10);
+        let config = Configuration::default();
 
-        let cois = update_coi(&embedding, viewed, cois, 4, 12., 0.1);
+        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
 
         assert_eq!(cois.len(), 2);
         assert_eq!(cois[0].point, arr1(&[0., 0., 0.]));
@@ -354,8 +349,12 @@ mod tests {
         let cois = create_pos_cois(&[[0., 0., 0.]]);
         let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
+        let config = Configuration {
+            threshold: 5.,
+            ..Configuration::default()
+        };
 
-        let cois = update_cois(documents.as_slice(), cois, 4, 5., 0.1);
+        let cois = update_cois(documents.as_slice(), cois, |_| unreachable!(), config);
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]
@@ -369,8 +368,9 @@ mod tests {
         let negative = create_neg_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
         let user_interests = UserInterests { positive, negative };
         let embedding = arr1(&[2., 3., 4.]).into();
+        let neighbors = Configuration::default().neighbors.get();
 
-        let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, 4).unwrap();
+        let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, neighbors).unwrap();
 
         assert_eq!(coi_comp.id, CoiId::mocked(2));
         assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
@@ -385,8 +385,9 @@ mod tests {
             negative: Vec::new(),
         };
         let embedding = arr1(&[2., 3., 4.]).into();
+        let neighbors = Configuration::default().neighbors.get();
 
-        let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, 4).unwrap();
+        let coi_comp = compute_coi_for_embedding(&embedding, &user_interests, neighbors).unwrap();
 
         assert_eq!(coi_comp.id, CoiId::mocked(2));
         assert_approx_eq!(f32, coi_comp.pos_distance, 4.8904557);
@@ -399,8 +400,9 @@ mod tests {
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
         let documents = create_data_with_embeddings(&[[1., 4., 4.], [3., 6., 6.]]);
+        let neighbors = Configuration::default().neighbors.get();
 
-        let documents_coi = compute_coi(&documents, &user_interests, 4).unwrap();
+        let documents_coi = compute_coi(&documents, &user_interests, neighbors).unwrap();
 
         assert_eq!(documents_coi[0].coi.id, CoiId::mocked(1));
         assert_approx_eq!(f32, documents_coi[0].coi.pos_distance, 2.8996046);
@@ -445,9 +447,19 @@ mod tests {
         ]);
         let documents = create_data_with_rank(&[[1., 4., 4.], [3., 6., 6.], [1., 1., 1.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
+        let config = Configuration {
+            threshold: 5.,
+            ..Configuration::default()
+        };
 
-        let UserInterests { positive, negative } =
-            update_user_interests(&history, &documents, user_interests, 4, 5., 0.1).unwrap();
+        let UserInterests { positive, negative } = update_user_interests(
+            &history,
+            &documents,
+            user_interests,
+            |_| unreachable!(),
+            config,
+        )
+        .unwrap();
 
         assert_eq!(positive.len(), 3);
         assert_eq!(positive[0].point, arr1(&[2.7999997, 1.9, 1.]));
@@ -464,9 +476,8 @@ mod tests {
             &Vec::new(),
             &Vec::new(),
             UserInterests::default(),
-            4,
-            12.,
-            0.1,
+            |_| unreachable!(),
+            Configuration::default(),
         )
         .err()
         .unwrap();

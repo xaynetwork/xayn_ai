@@ -1,15 +1,17 @@
 use std::{
     io::{BufRead, Read},
     path::Path,
+    sync::Arc,
 };
 
-use rubert::{AveragePooler, QAMBert, QAMBertBuilder, SMBert, SMBertBuilder};
+use rubert::{AveragePooler, QAMBert, QAMBertBuilder, SMBertBuilder};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
     coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
+    embedding::smbert::SMBert,
     error::Error,
     ltr::{DomainReranker, DomainRerankerBuilder},
     reranker::{
@@ -208,13 +210,14 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
         DM: Read,
     {
         let database = self.database;
-        let smbert = self
-            .smbert
-            .with_token_size(52)?
-            .with_accents(false)
-            .with_lowercase(true)
-            .with_pooling(AveragePooler)
-            .build()?;
+        let smbert = SMBert::from(Arc::new(
+            self.smbert
+                .with_token_size(52)?
+                .with_accents(false)
+                .with_lowercase(true)
+                .with_pooling(AveragePooler)
+                .build()?,
+        ));
         let qambert = self
             .qambert
             .with_token_size(90)?
@@ -222,7 +225,7 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
             .with_lowercase(true)
             .with_pooling(AveragePooler)
             .build()?;
-        let coi = CoiSystemImpl::new(CoiSystemConfiguration::default());
+        let coi = CoiSystemImpl::new(CoiSystemConfiguration::default(), smbert.clone());
         let domain = self.domain.build()?;
         let context = Context;
         let analytics = AnalyticsSystemImpl;

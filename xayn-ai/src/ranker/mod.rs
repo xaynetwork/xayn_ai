@@ -1,11 +1,10 @@
 pub(crate) mod public;
 
 use kpe::Pipeline as KPE;
-use rubert::SMBert;
 
 use crate::{
     coi::{point::UserInterests, CoiSystem},
-    embedding::utils::Embedding,
+    embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
 };
 

@@ -2,7 +2,7 @@ use ndarray::arr1;
 
 use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
-    coi::CoiSystem as CoiSys,
+    coi::{compute_coi, update_user_interests, Configuration as CoiConfig},
     context::Context,
     data::document_data::{
         DocumentDataWithQAMBert,
@@ -23,7 +23,7 @@ use crate::{
             SMBertSystem,
         },
     },
-    tests::{MemDb, MockQAMBertSystem, MockSMBertSystem},
+    tests::{MemDb, MockCoiSystem, MockQAMBertSystem, MockSMBertSystem},
 };
 
 pub(crate) fn mocked_smbert_system() -> MockSMBertSystem {
@@ -82,6 +82,30 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
     });
 
     mock_qambert
+}
+
+fn mocked_coi_system() -> MockCoiSystem {
+    let config = CoiConfig::default();
+    let neighbors = config.neighbors.get();
+
+    let mut system = MockCoiSystem::new();
+    system
+        .expect_compute_coi()
+        .returning(move |documents, user_interests| {
+            compute_coi(documents, user_interests, neighbors)
+        });
+    system
+        .expect_update_user_interests()
+        .returning(move |history, documents, user_interests| {
+            update_user_interests(
+                history,
+                documents,
+                user_interests,
+                |_| unreachable!(),
+                config,
+            )
+        });
+    system
 }
 
 pub(crate) struct MockCommonSystems<Db, SMBert, QAMBert, Coi, Ltr, Context, Analytics>
@@ -148,7 +172,7 @@ impl
         MemDb,
         MockSMBertSystem,
         MockQAMBertSystem,
-        CoiSys,
+        MockCoiSystem,
         ConstLtr,
         Context,
         AnalyticsSys,
@@ -159,7 +183,7 @@ impl
             database: MemDb::new(),
             smbert: mocked_smbert_system(),
             qambert: mocked_qambert_system(),
-            coi: CoiSys::default(),
+            coi: mocked_coi_system(),
             ltr: ConstLtr,
             context: Context,
             analytics: AnalyticsSys,
@@ -290,7 +314,7 @@ impl Default
         MemDb,
         MockSMBertSystem,
         MockQAMBertSystem,
-        CoiSys,
+        MockCoiSystem,
         ConstLtr,
         Context,
         AnalyticsSys,

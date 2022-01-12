@@ -1,5 +1,6 @@
 use std::num::NonZeroUsize;
 
+#[derive(Clone, Copy)]
 pub(crate) struct Configuration {
     /// The shift factor by how much a Coi is shifted towards a new point.
     pub shift_factor: f32,
