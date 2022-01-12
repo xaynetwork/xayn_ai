@@ -12,7 +12,7 @@ use crate::{
     coi::{point::UserInterests, Configuration as CoiSystemConfiguration},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::util::Document,
+    ranker::utils::Document,
 };
 
 pub struct Ranker(super::Ranker);

@@ -1,6 +1,6 @@
 mod context;
 pub(crate) mod public;
-mod util;
+mod utils;
 
 use std::collections::HashMap;
 
@@ -15,7 +15,7 @@ use crate::{
     error::Error,
     ranker::{
         context::Context,
-        util::{Document, Id},
+        utils::{Document, Id},
     },
     utils::nan_safe_f32_cmp,
 };
@@ -28,8 +28,8 @@ pub(crate) enum RankerError {
 
 /// The Ranker.
 pub(crate) struct Ranker {
-    coi_config: Configuration,
     smbert: SMBert,
+    coi_config: Configuration,
     #[allow(dead_code)]
     kpe: KPE,
     user_interests: UserInterests,
