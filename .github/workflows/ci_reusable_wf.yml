@@ -32,7 +32,7 @@ jobs:
           components: rustfmt
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       # cargo fmt does not create any artifacts, therefore we don't need to cache the target folder
       - name: cargo fmt
@@ -67,7 +67,7 @@ jobs:
           components: clippy
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: cargo clippy
         run: |
@@ -89,7 +89,7 @@ jobs:
           toolchain: ${{ env.RUST_STABLE }}
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Download data
         run: sh download_data.sh
@@ -116,7 +116,7 @@ jobs:
           toolchain: ${{ env.RUST_STABLE }}
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Download data
         run: sh download_data.sh
@@ -145,7 +145,7 @@ jobs:
           profile: minimal
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Download data
         run: sh download_data.sh
@@ -175,7 +175,7 @@ jobs:
           toolchain: ${{ env.RUST_STABLE }}
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Build linux lib
         # compilations options must be kept in sync with cargo-test

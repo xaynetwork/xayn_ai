@@ -63,7 +63,7 @@ jobs:
           echo "${{ env.CROSS_CHECKSUM }} *cross" | shasum -c -
           mv cross ~/.cargo/bin/
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Download data
         run: sh download_data.sh
@@ -95,7 +95,7 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Build iOS library ${{ matrix.target }}
         working-directory: ./xayn-ai-ffi-c
@@ -132,7 +132,7 @@ jobs:
           target: wasm32-unknown-unknown
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Install wasm-pack
         uses: ./.ci/install-wasm-pack

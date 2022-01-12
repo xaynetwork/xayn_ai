@@ -83,7 +83,7 @@ jobs:
           toolchain: ${{ env.RUST_STABLE }}
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Build headers
         run: cargo check
@@ -141,7 +141,7 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Restore ${{ needs.install-cargo-ndk.outputs.cache-key }} cache
         uses: actions/cache@937d24475381cd9c75ae6db12cb4e79714b926ed # v2.1.7
@@ -187,7 +187,7 @@ jobs:
           target: ${{ matrix.target }}
           default: true
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Build iOS library
         env:
@@ -308,7 +308,7 @@ jobs:
       - name: Install webpack
         run: yarn --cwd data/bundler_config
 
-      - uses: Swatinem/rust-cache@842ef286fff290e445b90b4002cc9807c3669641 # 1.3
+      - uses: Swatinem/rust-cache@3bb3a9a087029c7bc392586cdc88cb6f66b9c6ef # 1.3.0+
 
       - name: Build WASM library
         env:
