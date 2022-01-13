@@ -31,6 +31,16 @@ pub(crate) struct PositiveCoi {
     pub(super) beta: f32,
 }
 
+impl PositiveCoi {
+    pub(crate) fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self {
+        Self {
+            id: id.into(),
+            point: point.into(),
+            stats: CoiStats::new(viewed),
+        }
+    }
+}
+
 impl From<PositiveCoi_v0_0_0> for PositiveCoi_v0_1_0 {
     fn from(coi: PositiveCoi_v0_0_0) -> Self {
         Self {
@@ -67,6 +77,15 @@ pub(crate) struct NegativeCoi {
     pub point: Embedding,
 }
 
+impl NegativeCoi {
+    pub(crate) fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self {
+        Self {
+            id: id.into(),
+            point: point.into(),
+        }
+    }
+}
+
 pub(crate) trait CoiPoint {
     fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self;
 
@@ -78,7 +97,7 @@ pub(crate) trait CoiPoint {
 
     fn set_point(&mut self, embedding: Embedding);
 
-    /// Shifts the coi towards another point by a factor.
+    /// Shifts the coi point towards another point by a factor.
     fn shift_point(&mut self, towards: &Embedding, shift_factor: f32);
 }
 
@@ -149,11 +168,7 @@ impl CoiPoint for PositiveCoi_v0_2_0 {
 
 impl CoiPoint for PositiveCoi {
     fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self {
-        Self {
-            id: id.into(),
-            point: point.into(),
-            stats: CoiStats::new(viewed),
-        }
+        Self::new(id, point, viewed)
     }
 
     coi_point_default_impls! {}
@@ -161,10 +176,7 @@ impl CoiPoint for PositiveCoi {
 
 impl CoiPoint for NegativeCoi {
     fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
-        Self {
-            id: id.into(),
-            point: point.into(),
-        }
+        Self::new(id, point)
     }
 
     coi_point_default_impls! {}
