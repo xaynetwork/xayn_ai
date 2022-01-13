@@ -1,8 +1,8 @@
-use std::time::Duration;
+use std::{cmp::Ordering, time::Duration};
 
 use crate::{
-    coi::{relevance::Relevance, CoiError},
-    utils::SECONDS_PER_DAY,
+    coi::CoiError,
+    utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY},
 };
 
 #[derive(Clone)]
@@ -109,7 +109,7 @@ impl Configuration {
     /// last). The length of the penalty also serves as the maximum number of key phrases.
     #[cfg(test)]
     pub(crate) fn penalty(&self) -> &[f32] {
-        self.penalty.as_slice()
+        &self.penalty
     }
 
     /// Sets the penalty for non-empty, finite, sorted values.
@@ -119,17 +119,16 @@ impl Configuration {
     #[allow(dead_code)]
     pub(crate) fn with_penalty(self, penalty: &[f32]) -> Result<Self, CoiError> {
         // TODO: refactor once slice::is_sorted_by() is stabilized
-        fn is_sorted(slice: &[f32]) -> bool {
-            let mut vector = slice
-                .iter()
-                .map(|&element| Relevance::new(element).unwrap(/* finiteness must be checked before */))
-                .collect::<Vec<_>>();
-            vector.sort_unstable_by(|this, other| this.cmp(other).reverse());
+        fn is_sorted_by(slice: &[f32], compare: impl FnMut(&f32, &f32) -> Ordering) -> bool {
+            let mut vector = slice.to_vec();
+            vector.sort_unstable_by(compare);
             vector == slice
         }
 
         let penalty = penalty.to_vec();
-        if !penalty.is_empty() && penalty.iter().copied().all(f32::is_finite) && is_sorted(&penalty)
+        if !penalty.is_empty()
+            && penalty.iter().copied().all(f32::is_finite)
+            && is_sorted_by(&penalty, nan_safe_f32_cmp_desc)
         {
             Ok(Self { penalty, ..self })
         } else {
