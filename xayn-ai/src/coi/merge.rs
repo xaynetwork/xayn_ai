@@ -20,19 +20,14 @@ pub(crate) trait CoiPointMerge: CoiPoint {
 impl CoiPointMerge for PositiveCoi {
     fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(self.point.view(), other.point.view()).into();
-        let key_phrases = self
-            .key_phrases
-            .into_iter()
-            .chain(other.key_phrases)
-            .collect();
         let stats = self.stats.merge(other.stats);
 
-        Self {
-            id,
-            point,
-            key_phrases,
-            stats,
-        }
+        // NOTE: the key phrases are currently not merged. if the new id is equal to one of the old
+        // ids, then then key phrases of the new coi will be the same as in that old coi. if the new
+        // id is different, then the new coi will have no key phrases. all key phrases from old cois
+        // with unused ids will stay forever in the coi system's relevances maps.
+
+        Self { id, point, stats }
     }
 }
 

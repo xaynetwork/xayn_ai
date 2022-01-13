@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, ops::Deref, time::Duration};
+use std::{ops::Deref, time::Duration};
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -9,6 +9,7 @@ use crate::{
         config::Configuration,
         key_phrase::CoiPointKeyPhrases,
         point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
+        relevance::Relevances,
         stats::CoiPointStats,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
@@ -31,12 +32,17 @@ pub(crate) enum CoiSystemError {
 pub(crate) struct CoiSystem {
     config: Configuration,
     smbert: SMBert,
+    relevances: Relevances,
 }
 
 impl CoiSystem {
     /// Creates a new centre of interest system.
     pub(crate) fn new(config: Configuration, smbert: SMBert) -> Self {
-        Self { config, smbert }
+        Self {
+            config,
+            smbert,
+            relevances: Relevances::default(),
+        }
     }
 }
 
@@ -50,17 +56,19 @@ impl systems::CoiSystem for CoiSystem {
     }
 
     fn update_user_interests(
-        &self,
+        &mut self,
         history: &[DocumentHistory],
         documents: &[&dyn CoiSystemData],
         user_interests: UserInterests,
     ) -> Result<UserInterests, Error> {
+        let smbert = &self.smbert;
         update_user_interests(
+            user_interests,
+            &mut self.relevances,
             history,
             documents,
-            user_interests,
-            |key_phrase| self.smbert.run(key_phrase).map_err(Into::into),
-            self.config,
+            |key_phrase| smbert.run(key_phrase).map_err(Into::into),
+            &self.config,
         )
     }
 }
@@ -115,28 +123,36 @@ fn update_coi<
     CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
     F: Fn(&str) -> Result<Embedding, Error>,
 >(
+    mut cois: Vec<CP>,
+    relevances: &mut Relevances,
     embedding: &Embedding,
     candidates: &[String],
     viewed: Duration,
-    mut cois: Vec<CP>,
     smbert: F,
-    config: Configuration,
+    config: &Configuration,
 ) -> Vec<CP> {
     match find_closest_coi_mut(embedding, &mut cois, config.neighbors.get()) {
         Some((coi, distance)) if distance < config.threshold => {
             coi.set_point(shift_coi_point(embedding, coi.point(), config.shift_factor));
             coi.set_id(Uuid::new_v4().into());
-            coi.select_key_phrases(candidates, smbert, config.max_key_phrases, config.gamma);
+            coi.select_key_phrases(
+                relevances,
+                candidates,
+                smbert,
+                config.max_key_phrases,
+                config.gamma,
+            );
             coi.update_stats(viewed);
         }
         _ => {
-            let mut coi = CP::new(
-                Uuid::new_v4().into(),
-                embedding.clone(),
-                BTreeSet::default(),
-                viewed,
+            let coi = CP::new(Uuid::new_v4().into(), embedding.clone(), viewed);
+            coi.select_key_phrases(
+                relevances,
+                candidates,
+                smbert,
+                config.max_key_phrases,
+                config.gamma,
             );
-            coi.select_key_phrases(candidates, smbert, config.max_key_phrases, config.gamma);
             cois.push(coi);
         }
     }
@@ -148,18 +164,19 @@ fn update_cois<
     CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
     F: Copy + Fn(&str) -> Result<Embedding, Error>,
 >(
-    docs: &[&dyn CoiSystemData],
     cois: Vec<CP>,
+    relevances: &mut Relevances,
+    docs: &[&dyn CoiSystemData],
     smbert: F,
-    config: Configuration,
+    config: &Configuration,
 ) -> Vec<CP> {
     docs.iter().fold(cois, |cois, doc| {
-        let candidates = &[/* TODO: run KPE on doc */];
         update_coi(
-            &doc.smbert().embedding,
-            candidates,
-            doc.viewed(),
             cois,
+            relevances,
+            &doc.smbert().embedding,
+            &[/* TODO: run KPE on doc */],
+            doc.viewed(),
             smbert,
             config,
         )
@@ -167,11 +184,12 @@ fn update_cois<
 }
 
 pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Error>>(
+    mut user_interests: UserInterests,
+    relevances: &mut Relevances,
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
-    mut user_interests: UserInterests,
     smbert: F,
-    config: Configuration,
+    config: &Configuration,
 ) -> Result<UserInterests, Error> {
     let matching_documents = collect_matching_documents(history, documents);
 
@@ -182,8 +200,20 @@ pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Erro
     let (positive_docs, negative_docs) =
         classify_documents_based_on_user_feedback(matching_documents);
 
-    user_interests.positive = update_cois(&positive_docs, user_interests.positive, smbert, config);
-    user_interests.negative = update_cois(&negative_docs, user_interests.negative, smbert, config);
+    user_interests.positive = update_cois(
+        user_interests.positive,
+        relevances,
+        &positive_docs,
+        smbert,
+        config,
+    );
+    user_interests.negative = update_cois(
+        user_interests.negative,
+        relevances,
+        &negative_docs,
+        smbert,
+        config,
+    );
 
     Ok(user_interests)
 }
@@ -212,7 +242,7 @@ impl systems::CoiSystem for NeutralCoiSystem {
     }
 
     fn update_user_interests(
-        &self,
+        &mut self,
         _history: &[DocumentHistory],
         _documents: &[&dyn CoiSystemData],
         _user_interests: UserInterests,
@@ -289,6 +319,7 @@ mod tests {
     #[test]
     fn test_update_coi_add_point() {
         let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
+        let mut relevances = Relevances::default();
         let embedding = arr1(&[1., 1., 1.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
@@ -299,18 +330,35 @@ mod tests {
         assert_approx_eq!(f32, distance, 26.747852);
         assert!(config.threshold < distance);
 
-        cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
+        cois = update_coi(
+            cois,
+            &mut relevances,
+            &embedding,
+            &[],
+            viewed,
+            |_| unreachable!(),
+            &config,
+        );
         assert_eq!(cois.len(), 4);
     }
 
     #[test]
     fn test_update_coi_update_point() {
         let cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
+        let mut relevances = Relevances::default();
         let embedding = arr1(&[2., 3., 4.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
-        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
+        let cois = update_coi(
+            cois,
+            &mut relevances,
+            &embedding,
+            &[],
+            viewed,
+            |_| unreachable!(),
+            &config,
+        );
 
         assert_eq!(cois.len(), 3);
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
@@ -332,11 +380,20 @@ mod tests {
     #[test]
     fn test_update_coi_threshold_exclusive() {
         let cois = create_pos_cois(&[[0., 0., 0.]]);
+        let mut relevances = Relevances::default();
         let embedding = arr1(&[0., 0., 12.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
-        let cois = update_coi(&embedding, &[], viewed, cois, |_| unreachable!(), config);
+        let cois = update_coi(
+            cois,
+            &mut relevances,
+            &embedding,
+            &[],
+            viewed,
+            |_| unreachable!(),
+            &config,
+        );
 
         assert_eq!(cois.len(), 2);
         assert_eq!(cois[0].point, arr1(&[0., 0., 0.]));
@@ -347,6 +404,7 @@ mod tests {
     fn test_update_cois_update_the_same_point_twice() {
         // checks that an updated coi is used in the next iteration
         let cois = create_pos_cois(&[[0., 0., 0.]]);
+        let mut relevances = Relevances::default();
         let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
         let config = Configuration {
@@ -354,7 +412,13 @@ mod tests {
             ..Configuration::default()
         };
 
-        let cois = update_cois(documents.as_slice(), cois, |_| unreachable!(), config);
+        let cois = update_cois(
+            cois,
+            &mut relevances,
+            &documents,
+            |_| unreachable!(),
+            &config,
+        );
 
         assert_eq!(cois.len(), 1);
         // updated coi after first embedding = [0., 0., 0.49]
@@ -437,9 +501,8 @@ mod tests {
     fn test_update_user_interests() {
         let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
         let negative = create_neg_cois(&[[4., 5., 6.]]);
-
         let user_interests = UserInterests { positive, negative };
-
+        let mut relevances = Relevances::default();
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
             (Relevance::Low, UserFeedback::Relevant),
@@ -453,11 +516,12 @@ mod tests {
         };
 
         let UserInterests { positive, negative } = update_user_interests(
+            user_interests,
+            &mut relevances,
             &history,
             &documents,
-            user_interests,
-            |_| unreachable!(),
-            config,
+            |_| todo!(/* mock once KPE is used */),
+            &config,
         )
         .unwrap();
 
@@ -473,11 +537,12 @@ mod tests {
     #[test]
     fn test_update_user_interests_no_matches() {
         let error = update_user_interests(
-            &Vec::new(),
-            &Vec::new(),
             UserInterests::default(),
+            &mut Relevances::default(),
+            &[],
+            &[],
             |_| unreachable!(),
-            Configuration::default(),
+            &Configuration::default(),
         )
         .err()
         .unwrap();

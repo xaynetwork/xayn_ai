@@ -2411,7 +2411,6 @@ dependencies = [
  "js-sys",
  "kpe",
  "layer",
- "lazy_static",
  "maplit",
  "mockall",
  "ndarray",

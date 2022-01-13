@@ -60,7 +60,7 @@ pub(crate) trait CoiSystem {
 
     /// Update cois from history and documents
     fn update_user_interests<'a>(
-        &self,
+        &mut self,
         history: &[DocumentHistory],
         documents: &[&'a dyn CoiSystemData],
         user_interests: UserInterests,
@@ -100,6 +100,7 @@ pub(crate) trait CommonSystems {
     fn smbert(&self) -> &dyn SMBertSystem;
     fn qambert(&self) -> &dyn QAMBertSystem;
     fn coi(&self) -> &dyn CoiSystem;
+    fn mut_coi(&mut self) -> &mut dyn CoiSystem;
     fn ltr(&self) -> &dyn LtrSystem;
     fn context(&self) -> &dyn ContextSystem;
     fn analytics(&self) -> &dyn AnalyticsSystem;

@@ -219,7 +219,7 @@ where
     /// Updates cois from user feedback.
     fn learn_user_interests(&mut self, history: &[DocumentHistory]) {
         if let Some(prev_documents) = self.data.prev_documents.to_coi_system_data() {
-            match self.common_systems.coi().update_user_interests(
+            match self.common_systems.mut_coi().update_user_interests(
                 history,
                 &prev_documents,
                 self.data.sync_data.user_interests.clone(),

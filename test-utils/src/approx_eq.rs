@@ -1,4 +1,4 @@
-use std::iter;
+use std::{collections::BTreeSet, iter};
 
 use float_cmp::ApproxEq;
 use ndarray::{ArrayBase, Data, Dimension, IntoDimension, Ix};
@@ -64,12 +64,12 @@ macro_rules! assert_approx_eq {
     ($t:ty, $left:expr, $right:expr, epsilon = $epsilon:expr, ulps = $ulps:expr $(,)?) => {{
         let epsilon = $epsilon;
         let ulps = $ulps;
-        let left = $left;
-        let right = $right;
+        let left = &$left;
+        let right = &$right;
         let mut left_iter =
-            $crate::ApproxEqIter::<$t>::indexed_iter_logical_order(&left, Vec::new());
+            $crate::ApproxEqIter::<$t>::indexed_iter_logical_order(left, Vec::new());
         let mut right_iter =
-            $crate::ApproxEqIter::<$t>::indexed_iter_logical_order(&right, Vec::new());
+            $crate::ApproxEqIter::<$t>::indexed_iter_logical_order(right, Vec::new());
         loop {
             match (left_iter.next(), right_iter.next()) {
                 (std::option::Option::Some((lidx, lv)), std::option::Option::Some((ridx, rv))) => {
@@ -135,7 +135,10 @@ where
 macro_rules! impl_approx_eq_iter {
     ($($t:ty),+ $(,)?) => {
         $(
-            impl<'a> ApproxEqIter<'a, $t> for &'a $t {
+            impl<'a> ApproxEqIter<'a, $t> for &'a $t
+            where
+                $t: Copy,
+            {
                 fn indexed_iter_logical_order(
                     self,
                     index_prefix: Vec<Ix>,
@@ -226,6 +229,22 @@ macro_rules! impl_approx_eq_iter {
                         let mut index_prefix = index_prefix.clone();
                         index_prefix.extend(idx.into_dimension().as_array_view().iter());
                         (index_prefix, *el)
+                    }))
+                }
+            }
+
+            impl<'a, T> ApproxEqIter<'a, $t> for &'a BTreeSet<T>
+            where
+                &'a T: ApproxEqIter<'a, $t>,
+            {
+                fn indexed_iter_logical_order(
+                    self,
+                    index_prefix: Vec<Ix>,
+                ) -> Box<dyn Iterator<Item = (Vec<Ix>, $t)> + 'a> {
+                    Box::new(self.iter().enumerate().flat_map(move |(idx, el)| {
+                        let mut index_prefix = index_prefix.clone();
+                        index_prefix.push(idx);
+                        el.indexed_iter_logical_order(index_prefix)
                     }))
                 }
             }
