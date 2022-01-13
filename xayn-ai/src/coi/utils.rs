@@ -117,7 +117,7 @@ pub(super) mod tests {
             .map(|(id, point)| {
                 CP::new(
                     CoiId::mocked(id),
-                    arr1(point.as_init_slice()).into(),
+                    arr1(point.as_init_slice()),
                     Duration::from_secs(10),
                 )
             })

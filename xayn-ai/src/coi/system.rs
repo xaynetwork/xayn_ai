@@ -136,7 +136,7 @@ fn update_coi<CP: CoiPointKeyPhrases + CoiPointStats, F: Fn(&str) -> Result<Embe
             coi.update_stats(viewed);
         }
         _ => {
-            let coi = CP::new(Uuid::new_v4().into(), embedding.clone(), viewed);
+            let coi = CP::new(Uuid::new_v4(), embedding.clone(), viewed);
             coi.select_key_phrases(
                 relevances,
                 candidates,

@@ -68,7 +68,7 @@ pub(crate) struct NegativeCoi {
 }
 
 pub(crate) trait CoiPoint {
-    fn new(id: CoiId, point: Embedding, viewed: Duration) -> Self;
+    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self;
 
     fn id(&self) -> CoiId;
 
@@ -109,10 +109,10 @@ macro_rules! coi_point_default_impls {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_0_0 {
-    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
+    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
         Self {
-            id,
-            point,
+            id: id.into(),
+            point: point.into(),
             alpha: 1.,
             beta: 1.,
         }
@@ -123,10 +123,10 @@ impl CoiPoint for PositiveCoi_v0_0_0 {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_1_0 {
-    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
+    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
         Self {
-            id,
-            point,
+            id: id.into(),
+            point: point.into(),
             alpha: 1.,
             beta: 1.,
         }
@@ -137,18 +137,21 @@ impl CoiPoint for PositiveCoi_v0_1_0 {
 
 #[cfg(test)]
 impl CoiPoint for PositiveCoi_v0_2_0 {
-    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
-        Self { id, point }
+    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+        Self {
+            id: id.into(),
+            point: point.into(),
+        }
     }
 
     coi_point_default_impls! {}
 }
 
 impl CoiPoint for PositiveCoi {
-    fn new(id: CoiId, point: Embedding, viewed: Duration) -> Self {
+    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self {
         Self {
-            id,
-            point,
+            id: id.into(),
+            point: point.into(),
             stats: CoiStats::new(viewed),
         }
     }
@@ -157,8 +160,11 @@ impl CoiPoint for PositiveCoi {
 }
 
 impl CoiPoint for NegativeCoi {
-    fn new(id: CoiId, point: Embedding, _viewed: Duration) -> Self {
-        Self { id, point }
+    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+        Self {
+            id: id.into(),
+            point: point.into(),
+        }
     }
 
     coi_point_default_impls! {}
