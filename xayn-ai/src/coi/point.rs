@@ -73,8 +73,8 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub(crate) struct NegativeCoi {
-    pub id: CoiId,
-    pub point: Embedding,
+    pub(super) id: CoiId,
+    pub(super) point: Embedding,
 }
 
 impl NegativeCoi {
@@ -87,99 +87,44 @@ impl NegativeCoi {
 }
 
 pub(crate) trait CoiPoint {
-    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self;
-
+    /// Gets the coi id.
     fn id(&self) -> CoiId;
 
-    fn set_id(&mut self, id: CoiId);
-
+    /// Gets the coi point.
     fn point(&self) -> &Embedding;
-
-    fn set_point(&mut self, embedding: Embedding);
 
     /// Shifts the coi point towards another point by a factor.
     fn shift_point(&mut self, towards: &Embedding, shift_factor: f32);
 }
 
-macro_rules! coi_point_default_impls {
-    () => {
-        fn id(&self) -> CoiId {
-            self.id
-        }
+macro_rules! impl_coi_point {
+    ($($(#[$attr:meta])* $coi:ty),* $(,)?) => {
+        $(
+            $(#[$attr])*
+            impl CoiPoint for $coi {
+                fn id(&self) -> CoiId {
+                    self.id
+                }
 
-        fn set_id(&mut self, id: CoiId) {
-            self.id = id;
-        }
+                fn point(&self) -> &Embedding {
+                    &self.point
+                }
 
-        fn point(&self) -> &Embedding {
-            &self.point
-        }
-
-        fn set_point(&mut self, embedding: Embedding) {
-            self.point = embedding;
-        }
-
-        fn shift_point(&mut self, towards: &Embedding, shift_factor: f32) {
-            self.point *= 1. - shift_factor;
-            self.point += towards * shift_factor;
-        }
+                fn shift_point(&mut self, towards: &Embedding, shift_factor: f32) {
+                    self.point *= 1. - shift_factor;
+                    self.point += towards * shift_factor;
+                }
+            }
+        )*
     };
 }
 
-#[cfg(test)]
-impl CoiPoint for PositiveCoi_v0_0_0 {
-    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
-        Self {
-            id: id.into(),
-            point: point.into(),
-            alpha: 1.,
-            beta: 1.,
-        }
-    }
-
-    coi_point_default_impls! {}
-}
-
-#[cfg(test)]
-impl CoiPoint for PositiveCoi_v0_1_0 {
-    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
-        Self {
-            id: id.into(),
-            point: point.into(),
-            alpha: 1.,
-            beta: 1.,
-        }
-    }
-
-    coi_point_default_impls! {}
-}
-
-#[cfg(test)]
-impl CoiPoint for PositiveCoi_v0_2_0 {
-    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
-        Self {
-            id: id.into(),
-            point: point.into(),
-        }
-    }
-
-    coi_point_default_impls! {}
-}
-
-impl CoiPoint for PositiveCoi {
-    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self {
-        Self::new(id, point, viewed)
-    }
-
-    coi_point_default_impls! {}
-}
-
-impl CoiPoint for NegativeCoi {
-    fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
-        Self::new(id, point)
-    }
-
-    coi_point_default_impls! {}
+impl_coi_point! {
+    #[cfg(test)] PositiveCoi_v0_0_0,
+    #[cfg(test)] PositiveCoi_v0_1_0,
+    #[cfg(test)] PositiveCoi_v0_2_0,
+    PositiveCoi,
+    NegativeCoi,
 }
 
 // generic types can't be versioned, but aliasing and proper naming in the proc macro call works
@@ -302,7 +247,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::f32::NAN;
 
     use ndarray::arr1;
@@ -311,6 +256,53 @@ mod tests {
     use test_utils::assert_approx_eq;
 
     use super::*;
+
+    pub(crate) trait CoiPointConstructor {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self;
+    }
+
+    impl CoiPointConstructor for PositiveCoi_v0_0_0 {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+            Self {
+                id: id.into(),
+                point: point.into(),
+                alpha: 1.,
+                beta: 1.,
+            }
+        }
+    }
+
+    impl CoiPointConstructor for PositiveCoi_v0_1_0 {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+            Self {
+                id: id.into(),
+                point: point.into(),
+                alpha: 1.,
+                beta: 1.,
+            }
+        }
+    }
+
+    impl CoiPointConstructor for PositiveCoi_v0_2_0 {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+            Self {
+                id: id.into(),
+                point: point.into(),
+            }
+        }
+    }
+
+    impl CoiPointConstructor for PositiveCoi {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self {
+            Self::new(id, point, viewed)
+        }
+    }
+
+    impl CoiPointConstructor for NegativeCoi {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+            Self::new(id, point)
+        }
+    }
 
     #[test]
     fn test_shift_coi_point() {
