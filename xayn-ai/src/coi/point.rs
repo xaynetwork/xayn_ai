@@ -77,6 +77,9 @@ pub(crate) trait CoiPoint {
     fn point(&self) -> &Embedding;
 
     fn set_point(&mut self, embedding: Embedding);
+
+    /// Shifts the coi towards another point by a factor.
+    fn shift_point(&mut self, towards: &Embedding, shift_factor: f32);
 }
 
 macro_rules! coi_point_default_impls {
@@ -95,6 +98,11 @@ macro_rules! coi_point_default_impls {
 
         fn set_point(&mut self, embedding: Embedding) {
             self.point = embedding;
+        }
+
+        fn shift_point(&mut self, towards: &Embedding, shift_factor: f32) {
+            self.point *= 1. - shift_factor;
+            self.point += towards * shift_factor;
         }
     };
 }
@@ -285,6 +293,16 @@ mod tests {
     use test_utils::assert_approx_eq;
 
     use super::*;
+
+    #[test]
+    fn test_shift_coi_point() {
+        let mut cois = create_pos_cois(&[[1., 1., 1.]]);
+        let towards = arr1(&[2., 3., 4.]).into();
+        let shift_factor = 0.1;
+
+        cois[0].shift_point(&towards, shift_factor);
+        assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
+    }
 
     #[test]
     fn test_find_closest_coi_index() {

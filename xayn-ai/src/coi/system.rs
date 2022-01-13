@@ -1,4 +1,4 @@
-use std::{ops::Deref, time::Duration};
+use std::time::Duration;
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -8,7 +8,7 @@ use crate::{
     coi::{
         config::Configuration,
         key_phrase::CoiPointKeyPhrases,
-        point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
+        point::{find_closest_coi, find_closest_coi_mut, UserInterests},
         relevance::Relevances,
         stats::CoiPointStats,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
@@ -111,18 +111,10 @@ pub(crate) fn compute_coi(
         .collect()
 }
 
-/// Creates a new CoI that is shifted towards the position of `embedding`.
-fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) -> Embedding {
-    (coi.deref() * (1. - shift_factor) + embedding.deref() * shift_factor).into()
-}
-
 /// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
 /// (within [`Configuration.threshold`]), the centroid's position gets updated,
 /// otherwise a new centroid is created.
-fn update_coi<
-    CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
-    F: Fn(&str) -> Result<Embedding, Error>,
->(
+fn update_coi<CP: CoiPointKeyPhrases + CoiPointStats, F: Fn(&str) -> Result<Embedding, Error>>(
     mut cois: Vec<CP>,
     relevances: &mut Relevances,
     embedding: &Embedding,
@@ -133,12 +125,7 @@ fn update_coi<
 ) -> Vec<CP> {
     match find_closest_coi_mut(embedding, &mut cois, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
-            coi.set_point(shift_coi_point(
-                embedding,
-                coi.point(),
-                config.shift_factor(),
-            ));
-            coi.set_id(Uuid::new_v4().into());
+            coi.shift_point(embedding, config.shift_factor());
             coi.select_key_phrases(
                 relevances,
                 candidates,
@@ -165,7 +152,7 @@ fn update_coi<
 
 /// Updates the CoIs based on the embeddings of docs.
 fn update_cois<
-    CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
+    CP: CoiPointKeyPhrases + CoiPointStats,
     F: Copy + Fn(&str) -> Result<Embedding, Error>,
 >(
     cois: Vec<CP>,
@@ -368,17 +355,6 @@ mod tests {
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
         assert_eq!(cois[1].point, arr1(&[10., 10., 10.]));
         assert_eq!(cois[2].point, arr1(&[20., 20., 20.]));
-    }
-
-    #[test]
-    fn test_shift_coi_point() {
-        let coi_point = arr1(&[1., 1., 1.]).into();
-        let embedding = arr1(&[2., 3., 4.]).into();
-        let shift_factor = Configuration::default().shift_factor();
-
-        let updated_coi = shift_coi_point(&embedding, &coi_point, shift_factor);
-
-        assert_eq!(updated_coi, arr1(&[1.1, 1.2, 1.3]));
     }
 
     #[test]
