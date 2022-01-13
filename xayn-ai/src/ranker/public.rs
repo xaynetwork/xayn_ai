@@ -28,6 +28,11 @@ impl Ranker {
         self.0.compute_smbert(sequence)
     }
 
+    /// Ranks the given documents based on the learned user interests.
+    ///
+    /// # Errors
+    ///
+    /// Fails if no user interests are known.
     pub fn rank(&self, items: &mut [Document]) -> Result<(), Error> {
         self.0.rank(items)
     }

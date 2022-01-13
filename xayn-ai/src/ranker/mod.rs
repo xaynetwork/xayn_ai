@@ -15,23 +15,27 @@ use crate::{
     error::Error,
     ranker::{
         context::Context,
-        utils::{Document, Id},
+        utils::{Document, Id as DocumentId},
     },
     utils::nan_safe_f32_cmp,
 };
 
 #[derive(Error, Debug, Display)]
 pub(crate) enum RankerError {
-    /// No CoI could be found for the given embedding
-    NoCoi,
+    /// No user interests are known.
+    NoUserInterests,
 }
 
 /// The Ranker.
 pub(crate) struct Ranker {
+    /// SMBert system.
     smbert: SMBert,
+    /// CoI configuration.
     coi_config: Configuration,
     #[allow(dead_code)]
+    /// Key phrase extraction system.
     kpe: KPE,
+    /// The learned user interests.
     user_interests: UserInterests,
 }
 
@@ -61,10 +65,15 @@ impl Ranker {
         self.smbert.run(sequence).map_err(Into::into)
     }
 
+    /// Ranks the given documents based on the learned user interests.
+    ///
+    /// # Errors
+    ///
+    /// Fails if no user interests are known.
     pub(crate) fn rank(&self, items: &mut [Document]) -> Result<(), Error> {
         let cois_for_docs =
             compute_cois_for_docs(items, &self.user_interests, self.coi_config.neighbors.get())?;
-        let context_for_docs = compute_context_for_docs(cois_for_docs.as_slice());
+        let context_for_docs = compute_score_for_docs(cois_for_docs.as_slice());
 
         items.sort_unstable_by(|a, b| {
             nan_safe_f32_cmp(
@@ -81,26 +90,28 @@ fn compute_cois_for_docs(
     documents: &[Document],
     user_interests: &UserInterests,
     neighbors: usize,
-) -> Result<Vec<(Id, CoiComponent)>, Error> {
+) -> Result<Vec<(DocumentId, CoiComponent)>, Error> {
     documents
         .iter()
         .map(|document| {
             let coi =
                 compute_coi_for_embedding(&document.smbert_embedding, user_interests, neighbors)
-                    .ok_or(RankerError::NoCoi)?;
-            Ok::<(Id, CoiComponent), Error>((document.id, coi))
+                    .ok_or(RankerError::NoUserInterests)?;
+            Ok::<(DocumentId, CoiComponent), Error>((document.id, coi))
         })
         .collect()
 }
 
-fn compute_context_for_docs(cois_for_docs: &[(Id, CoiComponent)]) -> HashMap<&Id, f32> {
+fn compute_score_for_docs(
+    cois_for_docs: &[(DocumentId, CoiComponent)],
+) -> HashMap<&DocumentId, f32> {
     let context = Context::from_cois(cois_for_docs);
-    let mut context_for_docs = HashMap::new();
+    let mut scores = HashMap::new();
     cois_for_docs.iter().for_each(|(id, coi)| {
-        context_for_docs.insert(
+        scores.insert(
             id,
             context.calculate_score(coi.pos_distance, coi.neg_distance),
         );
     });
-    context_for_docs
+    scores
 }
