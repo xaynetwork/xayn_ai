@@ -70,20 +70,31 @@ impl Ranker {
     /// # Errors
     ///
     /// Fails if no user interests are known.
-    pub(crate) fn rank(&self, items: &mut [Document]) -> Result<(), Error> {
-        let cois_for_docs =
-            compute_cois_for_docs(items, &self.user_interests, self.coi_config.neighbors.get())?;
-        let context_for_docs = compute_score_for_docs(cois_for_docs.as_slice());
-
-        items.sort_unstable_by(|a, b| {
-            nan_safe_f32_cmp(
-                context_for_docs.get(&b.id).unwrap(),
-                context_for_docs.get(&a.id).unwrap(),
-            )
-        });
-
-        Ok(())
+    pub(crate) fn rank(&self, documents: &mut [Document]) -> Result<(), Error> {
+        rank(
+            documents,
+            &self.user_interests,
+            self.coi_config.neighbors.get(),
+        )
     }
+}
+
+fn rank(
+    documents: &mut [Document],
+    user_interests: &UserInterests,
+    neighbors: usize,
+) -> Result<(), Error> {
+    let cois_for_docs = compute_cois_for_docs(documents, user_interests, neighbors)?;
+    let context_for_docs = compute_score_for_docs(cois_for_docs.as_slice());
+
+    documents.sort_unstable_by(|a, b| {
+        nan_safe_f32_cmp(
+            context_for_docs.get(&b.id).unwrap(),
+            context_for_docs.get(&a.id).unwrap(),
+        )
+    });
+
+    Ok(())
 }
 
 fn compute_cois_for_docs(
@@ -114,4 +125,82 @@ fn compute_score_for_docs(
         );
     });
     scores
+}
+
+#[cfg(test)]
+mod tests {
+    use ndarray::arr1;
+
+    use crate::coi::create_pos_cois;
+
+    use super::*;
+
+    #[test]
+    fn test_rank() {
+        let mut documents = vec![
+            Document {
+                id: DocumentId::from_u128(0),
+                smbert_embedding: arr1(&[3., 0., 0.]).into(),
+            },
+            Document {
+                id: DocumentId::from_u128(1),
+                smbert_embedding: arr1(&[1., 1., 0.]).into(),
+            },
+            Document {
+                id: DocumentId::from_u128(2),
+                smbert_embedding: arr1(&[1., 0., 0.]).into(),
+            },
+            Document {
+                id: DocumentId::from_u128(3),
+                smbert_embedding: arr1(&[5., 0., 0.]).into(),
+            },
+        ];
+
+        let positive = create_pos_cois(&[[1., 0., 0.]]);
+        let user_interests = UserInterests {
+            positive,
+            ..Default::default()
+        };
+
+        let res = rank(
+            &mut documents,
+            &user_interests,
+            Configuration::default().neighbors.get(),
+        );
+
+        assert!(res.is_ok());
+        assert_eq!(documents[0].id, DocumentId::from_u128(2));
+        assert_eq!(documents[1].id, DocumentId::from_u128(1));
+        assert_eq!(documents[2].id, DocumentId::from_u128(0));
+        assert_eq!(documents[3].id, DocumentId::from_u128(3));
+    }
+
+    #[test]
+    fn test_rank_no_user_interests() {
+        let mut documents = vec![Document {
+            id: DocumentId::from_u128(0),
+            smbert_embedding: arr1(&[0., 0., 0.]).into(),
+        }];
+
+        let res = rank(
+            &mut documents,
+            &UserInterests::default(),
+            Configuration::default().neighbors.get(),
+        );
+
+        assert!(matches!(
+            res.unwrap_err().downcast_ref(),
+            Some(RankerError::NoUserInterests)
+        ));
+    }
+
+    #[test]
+    fn test_rank_no_documents() {
+        let res = rank(
+            &mut [],
+            &UserInterests::default(),
+            Configuration::default().neighbors.get(),
+        );
+        assert!(res.is_ok())
+    }
 }

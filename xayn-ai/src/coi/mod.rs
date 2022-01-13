@@ -11,6 +11,7 @@ mod utils;
 pub(crate) use self::{
     relevance::Relevances,
     system::{compute_coi, update_user_interests, CoiSystemError},
+    utils::tests::create_pos_cois,
 };
 pub(crate) use config::Configuration;
 pub(crate) use merge::reduce_cois;
