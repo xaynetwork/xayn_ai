@@ -183,8 +183,8 @@ impl From<UserInterests_v0_2_0> for UserInterests {
 /// Returns the index of the CoI along with the weighted distance between the given embedding
 /// and the k nearest CoIs. If no CoIs were given, `None` will be returned.
 pub(super) fn find_closest_coi_index(
-    embedding: &Embedding,
     cois: &[impl CoiPoint],
+    embedding: &Embedding,
     neighbors: usize,
 ) -> Option<(usize, f32)> {
     if cois.is_empty() {
@@ -219,14 +219,14 @@ pub(super) fn find_closest_coi_index(
 /// Returns an immutable reference to the CoI along with the weighted distance between the given
 /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
 pub(super) fn find_closest_coi<'coi, CP>(
-    embedding: &Embedding,
     cois: &'coi [CP],
+    embedding: &Embedding,
     neighbors: usize,
 ) -> Option<(&'coi CP, f32)>
 where
     CP: CoiPoint,
 {
-    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
+    let (index, distance) = find_closest_coi_index(cois, embedding, neighbors)?;
     Some((&cois[index], distance))
 }
 
@@ -235,14 +235,14 @@ where
 /// Returns a mutable reference to the CoI along with the weighted distance between the given
 /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
 pub(super) fn find_closest_coi_mut<'coi, CP>(
-    embedding: &Embedding,
     cois: &'coi mut [CP],
+    embedding: &Embedding,
     neighbors: usize,
 ) -> Option<(&'coi mut CP, f32)>
 where
     CP: CoiPoint,
 {
-    let (index, distance) = find_closest_coi_index(embedding, cois, neighbors)?;
+    let (index, distance) = find_closest_coi_index(cois, embedding, neighbors)?;
     Some((&mut cois[index], distance))
 }
 
@@ -319,7 +319,7 @@ pub(crate) mod tests {
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         let embedding = arr1(&[1., 5., 9.]).into();
 
-        let (index, distance) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
+        let (index, distance) = find_closest_coi_index(&cois, &embedding, 4).unwrap();
 
         assert_eq!(index, 1);
         assert_approx_eq!(f32, distance, 5.7716017);
@@ -330,7 +330,7 @@ pub(crate) mod tests {
         let cois = create_pos_cois(&[[1., 2., 3.]]);
         let embedding = arr1(&[1., 2., 3.]).into();
 
-        let (index, distance) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
+        let (index, distance) = find_closest_coi_index(&cois, &embedding, 4).unwrap();
 
         assert_eq!(index, 0);
         assert_approx_eq!(f32, distance, 0.0, ulps = 0);
@@ -341,7 +341,7 @@ pub(crate) mod tests {
     fn test_find_closest_coi_index_all_nan() {
         let cois = create_pos_cois(&[[1., 2., 3.]]);
         let embedding = arr1(&[NAN, NAN, NAN]).into();
-        find_closest_coi_index(&embedding, &cois, 4);
+        find_closest_coi_index(&cois, &embedding, 4);
     }
 
     #[test]
@@ -349,13 +349,13 @@ pub(crate) mod tests {
     fn test_find_closest_coi_index_single_nan() {
         let cois = create_pos_cois(&[[1., 2., 3.]]);
         let embedding = arr1(&[1., NAN, 2.]).into();
-        find_closest_coi_index(&embedding, &cois, 4);
+        find_closest_coi_index(&cois, &embedding, 4);
     }
 
     #[test]
     fn test_find_closest_coi_index_empty() {
         let embedding = arr1(&[1., 2., 3.]).into();
-        let coi = find_closest_coi_index(&embedding, &[] as &[PositiveCoi], 4);
+        let coi = find_closest_coi_index(&[] as &[PositiveCoi], &embedding, 4);
         assert!(coi.is_none());
     }
 
@@ -364,7 +364,7 @@ pub(crate) mod tests {
         // if the distance is the same for all cois, take the first one
         let cois = create_pos_cois(&[[10., 0., 0.], [0., 10., 0.], [0., 0., 10.]]);
         let embedding = arr1(&[1., 1., 1.]).into();
-        let (index, _) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
+        let (index, _) = find_closest_coi_index(&cois, &embedding, 4).unwrap();
         assert_eq!(index, 0);
     }
 }

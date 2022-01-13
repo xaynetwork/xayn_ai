@@ -3,15 +3,19 @@ mod context;
 pub(crate) mod public;
 mod utils;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use displaydoc::Display;
+
 use kpe::Pipeline as KPE;
 use thiserror::Error;
 
 use crate::{
-    coi::{compute_coi_for_embedding, point::UserInterests, CoiSystem},
-    data::document_data::CoiComponent,
+    coi::{compute_coi_for_embedding, point::UserInterests, CoiSystem, DocumentRelevance},
+    data::{
+        document::{Relevance, UserFeedback},
+        document_data::CoiComponent,
+    },
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
     ranker::{
@@ -35,10 +39,8 @@ pub(crate) struct Ranker {
     /// SMBert system.
     smbert: SMBert,
     /// CoI system.
-    #[allow(dead_code)]
     coi: CoiSystem,
     /// Key phrase extraction system.
-    #[allow(dead_code)]
     kpe: KPE,
     /// The learned user interests.
     user_interests: UserInterests,
@@ -79,6 +81,37 @@ impl Ranker {
     /// Fails if no user interests are known.
     pub(crate) fn rank(&self, documents: &mut [Document]) -> Result<(), Error> {
         rank(documents, &self.user_interests, self.config.neighbors())
+    }
+
+    /// Updates the user interests based on the given information.
+    #[allow(dead_code)]
+    fn update_user_interests(
+        &mut self,
+        relevance: Relevance,
+        user_feedback: UserFeedback,
+        snippet: &str,
+        embedding: &Embedding,
+        viewed: Duration,
+    ) {
+        match (relevance, user_feedback).into() {
+            DocumentRelevance::Positive => {
+                let smbert = &self.smbert;
+                let key_phrases = self.kpe.run(snippet).unwrap_or_default();
+                self.coi.update_positive_coi(
+                    &mut self.user_interests.positive,
+                    embedding,
+                    &self.config,
+                    |words| smbert.run(words).map_err(Into::into),
+                    key_phrases.as_slice(),
+                    viewed,
+                )
+            }
+            DocumentRelevance::Negative => self.coi.update_negative_coi(
+                &mut self.user_interests.negative,
+                embedding,
+                &self.config,
+            ),
+        }
     }
 }
 

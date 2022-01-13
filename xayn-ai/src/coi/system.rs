@@ -49,6 +49,37 @@ impl CoiSystem {
             relevances: Relevances::default(),
         }
     }
+
+    /// Updates the positive coi closest to the embedding or creates a new one if it's too far away.
+    pub(crate) fn update_positive_coi(
+        &mut self,
+        cois: &mut Vec<PositiveCoi>,
+        embedding: &Embedding,
+        config: &Configuration,
+        smbert: impl Fn(&str) -> Result<Embedding, Error>,
+        candidates: &[String],
+        viewed: Duration,
+    ) {
+        update_positive_coi(
+            cois,
+            embedding,
+            config,
+            &mut self.relevances,
+            smbert,
+            candidates,
+            viewed,
+        );
+    }
+
+    /// Updates the negative coi closest to the embedding or creates a new one if it's too far away.
+    pub(crate) fn update_negative_coi(
+        &self,
+        cois: &mut Vec<NegativeCoi>,
+        embedding: &Embedding,
+        config: &Configuration,
+    ) {
+        update_negative_coi(cois, embedding, config);
+    }
 }
 
 impl systems::CoiSystem for CoiSystem {
@@ -88,8 +119,8 @@ pub(crate) fn compute_coi_for_embedding(
     user_interests: &UserInterests,
     neighbors: usize,
 ) -> Option<CoiComponent> {
-    let (coi, pos_distance) = find_closest_coi(embedding, &user_interests.positive, neighbors)?;
-    let neg_distance = match find_closest_coi(embedding, &user_interests.negative, neighbors) {
+    let (coi, pos_distance) = find_closest_coi(&user_interests.positive, embedding, neighbors)?;
+    let neg_distance = match find_closest_coi(&user_interests.negative, embedding, neighbors) {
         Some((_, dis)) => dis,
         None => f32::MAX,
     };
@@ -117,7 +148,7 @@ pub(crate) fn compute_coi(
 }
 
 /// Updates the positive coi closest to the embedding or creates a new one if it's too far away.
-pub(crate) fn update_positive_coi(
+fn update_positive_coi(
     cois: &mut Vec<PositiveCoi>,
     embedding: &Embedding,
     config: &Configuration,
@@ -126,7 +157,7 @@ pub(crate) fn update_positive_coi(
     candidates: &[String],
     viewed: Duration,
 ) {
-    match find_closest_coi_mut(embedding, cois, config.neighbors()) {
+    match find_closest_coi_mut(cois, embedding, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
             coi.shift_point(embedding, config.shift_factor());
             coi.select_key_phrases(
@@ -175,12 +206,8 @@ fn update_positive_cois(
 }
 
 /// Updates the negative coi closest to the embedding or creates a new one if it's too far away.
-pub(crate) fn update_negative_coi(
-    cois: &mut Vec<NegativeCoi>,
-    embedding: &Embedding,
-    config: &Configuration,
-) {
-    match find_closest_coi_mut(embedding, cois, config.neighbors()) {
+fn update_negative_coi(cois: &mut Vec<NegativeCoi>, embedding: &Embedding, config: &Configuration) {
+    match find_closest_coi_mut(cois, embedding, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
             coi.shift_point(embedding, config.shift_factor());
         }
@@ -335,7 +362,7 @@ mod tests {
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
-        let (index, distance) = find_closest_coi_index(&embedding, &cois, 4).unwrap();
+        let (index, distance) = find_closest_coi_index(&cois, &embedding, 4).unwrap();
 
         assert_eq!(index, 1);
         assert_approx_eq!(f32, distance, 26.747852);
