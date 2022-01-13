@@ -25,6 +25,12 @@ impl Relevance {
     }
 }
 
+impl PartialEq<f32> for Relevance {
+    fn eq(&self, other: &f32) -> bool {
+        self.0.eq(other)
+    }
+}
+
 impl Eq for Relevance {
     // never nan by construction
 }

@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use crate::{coi::CoiError, utils::SECONDS_PER_DAY};
+use crate::{
+    coi::{relevance::Relevance, CoiError},
+    utils::SECONDS_PER_DAY,
+};
 
 #[derive(Clone)]
 pub(crate) struct Configuration {
@@ -19,7 +22,10 @@ impl Configuration {
         self.shift_factor
     }
 
-    /// Sets the shift factor for values from the unit interval.
+    /// Sets the shift factor.
+    ///
+    /// # Errors
+    /// Fails if the shift factor is outside of the unit interval.
     #[allow(dead_code)]
     pub(crate) fn with_shift_factor(self, shift_factor: f32) -> Result<Self, CoiError> {
         if (0. ..=1.).contains(&shift_factor) {
@@ -37,7 +43,10 @@ impl Configuration {
         self.threshold
     }
 
-    /// Sets the threshold for non-negative values.
+    /// Sets the threshold.
+    ///
+    /// # Errors
+    /// Fails if the threshold is negative.
     #[cfg(test)]
     pub(crate) fn with_threshold(self, threshold: f32) -> Result<Self, CoiError> {
         if threshold >= 0. {
@@ -52,7 +61,10 @@ impl Configuration {
         self.neighbors
     }
 
-    /// Sets the neighbors for positive values.
+    /// Sets the neighbors.
+    ///
+    /// # Errors
+    /// Fails if the neighbors is zero.
     #[allow(dead_code)]
     pub(crate) fn with_neighbors(self, neighbors: usize) -> Result<Self, CoiError> {
         if neighbors > 0 {
@@ -79,7 +91,10 @@ impl Configuration {
         self.gamma
     }
 
-    /// Sets the gamma for values from the unit interval.
+    /// Sets the gamma.
+    ///
+    /// # Errors
+    /// Fails if the gamma is outside of the unit interval.
     #[allow(dead_code)]
     pub(crate) fn with_gamma(self, gamma: f32) -> Result<Self, CoiError> {
         if (0. ..=1.).contains(&gamma) {
@@ -97,11 +112,25 @@ impl Configuration {
         self.penalty.as_slice()
     }
 
-    /// Sets the penalty for non-empty, finite values.
+    /// Sets the penalty for non-empty, finite, sorted values.
+    ///
+    /// # Errors
+    /// Fails if the penalty is empty, has non-finite values or is unsorted.
     #[allow(dead_code)]
     pub(crate) fn with_penalty(self, penalty: &[f32]) -> Result<Self, CoiError> {
+        // TODO: refactor once slice::is_sorted_by() is stabilized
+        fn is_sorted(slice: &[f32]) -> bool {
+            let mut vector = slice
+                .iter()
+                .map(|&element| Relevance::new(element).unwrap(/* finiteness must be checked before */))
+                .collect::<Vec<_>>();
+            vector.sort_unstable_by(|this, other| this.cmp(other).reverse());
+            vector == slice
+        }
+
         let penalty = penalty.to_vec();
-        if !penalty.is_empty() && penalty.iter().copied().all(f32::is_finite) {
+        if !penalty.is_empty() && penalty.iter().copied().all(f32::is_finite) && is_sorted(&penalty)
+        {
             Ok(Self { penalty, ..self })
         } else {
             Err(CoiError::InvalidPenalty(penalty))

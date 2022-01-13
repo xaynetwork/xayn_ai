@@ -58,6 +58,6 @@ pub(crate) enum CoiError {
     InvalidNeighbors(usize),
     /// Invalid coi gamma, expected value from the unit interval, got {0}
     InvalidGamma(f32),
-    /// Invalid coi penalty, expected non-empty and finite values, got {0:?}
+    /// Invalid coi penalty, expected non-empty, finite and sorted values, got {0:?}
     InvalidPenalty(Vec<f32>),
 }
