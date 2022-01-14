@@ -71,11 +71,7 @@ impl Ranker {
     ///
     /// Fails if no user interests are known.
     pub(crate) fn rank(&self, documents: &mut [Document]) -> Result<(), Error> {
-        rank(
-            documents,
-            &self.user_interests,
-            self.coi_config.neighbors.get(),
-        )
+        rank(documents, &self.user_interests, self.coi_config.neighbors())
     }
 }
 
@@ -170,7 +166,7 @@ mod tests {
         let res = rank(
             &mut documents,
             &user_interests,
-            Configuration::default().neighbors.get(),
+            Configuration::default().neighbors(),
         );
 
         assert!(res.is_ok());
@@ -190,7 +186,7 @@ mod tests {
         let res = rank(
             &mut documents,
             &UserInterests::default(),
-            Configuration::default().neighbors.get(),
+            Configuration::default().neighbors(),
         );
 
         assert!(matches!(
@@ -204,7 +200,7 @@ mod tests {
         let res = rank(
             &mut [],
             &UserInterests::default(),
-            Configuration::default().neighbors.get(),
+            Configuration::default().neighbors(),
         );
         assert!(res.is_ok())
     }

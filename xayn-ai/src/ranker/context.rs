@@ -23,7 +23,9 @@ impl Context {
     }
 
     /// Calculates score from given positive distance and negative distance.
+    /// Both positive and negative distance must be >= 0.
     pub(crate) fn calculate_score(&self, pos: f32, neg: f32) -> f32 {
+        debug_assert!(pos >= 0. && neg >= 0.);
         let frac_pos = (self.pos_avg > 0.)
             .then(|| (1. + pos / self.pos_avg).recip())
             .unwrap_or(1.);
