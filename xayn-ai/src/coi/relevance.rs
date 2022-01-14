@@ -149,19 +149,19 @@ mod tests {
     use super::*;
 
     impl Relevances {
-        pub fn cois_len(&self) -> usize {
+        pub(crate) fn cois_len(&self) -> usize {
             self.coi_to_relevance.len()
         }
 
-        pub fn cois_is_empty(&self) -> bool {
+        pub(crate) fn cois_is_empty(&self) -> bool {
             self.coi_to_relevance.is_empty()
         }
 
-        pub fn relevances_len(&self) -> usize {
+        pub(crate) fn relevances_len(&self) -> usize {
             self.relevance_to_key_phrase.len()
         }
 
-        pub fn relevances_is_empty(&self) -> bool {
+        pub(crate) fn relevances_is_empty(&self) -> bool {
             self.relevance_to_key_phrase.is_empty()
         }
     }

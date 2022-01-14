@@ -34,7 +34,7 @@ impl Configuration {
                 ..self
             })
         } else {
-            Err(CoiError::InvalidShiftFactor(shift_factor))
+            Err(CoiError::InvalidShiftFactor)
         }
     }
 
@@ -52,7 +52,7 @@ impl Configuration {
         if threshold >= 0. {
             Ok(Self { threshold, ..self })
         } else {
-            Err(CoiError::InvalidThreshold(threshold))
+            Err(CoiError::InvalidThreshold)
         }
     }
 
@@ -70,7 +70,7 @@ impl Configuration {
         if neighbors > 0 {
             Ok(Self { neighbors, ..self })
         } else {
-            Err(CoiError::InvalidNeighbors(neighbors))
+            Err(CoiError::InvalidNeighbors)
         }
     }
 
@@ -100,7 +100,7 @@ impl Configuration {
         if (0. ..=1.).contains(&gamma) {
             Ok(Self { gamma, ..self })
         } else {
-            Err(CoiError::InvalidGamma(gamma))
+            Err(CoiError::InvalidGamma)
         }
     }
 
@@ -112,7 +112,7 @@ impl Configuration {
         &self.penalty
     }
 
-    /// Sets the penalty for non-empty, finite, sorted values.
+    /// Sets the penalty.
     ///
     /// # Errors
     /// Fails if the penalty is empty, has non-finite values or is unsorted.
@@ -125,14 +125,16 @@ impl Configuration {
             vector == slice
         }
 
-        let penalty = penalty.to_vec();
         if !penalty.is_empty()
             && penalty.iter().copied().all(f32::is_finite)
-            && is_sorted_by(&penalty, nan_safe_f32_cmp_desc)
+            && is_sorted_by(penalty, nan_safe_f32_cmp_desc)
         {
-            Ok(Self { penalty, ..self })
+            Ok(Self {
+                penalty: penalty.to_vec(),
+                ..self
+            })
         } else {
-            Err(CoiError::InvalidPenalty(penalty))
+            Err(CoiError::InvalidPenalty)
         }
     }
 

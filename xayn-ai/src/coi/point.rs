@@ -175,9 +175,9 @@ type PositiveCois_v0_3_0 = Vec<PositiveCoi>;
 pub(crate) struct UserInterests {
     #[obake(inherit)]
     #[obake(cfg(">=0.0"))]
-    pub positive: PositiveCois,
+    pub(crate) positive: PositiveCois,
     #[obake(cfg(">=0.0"))]
-    pub negative: Vec<NegativeCoi>,
+    pub(crate) negative: Vec<NegativeCoi>,
 }
 
 impl From<UserInterests_v0_0_0> for UserInterests_v0_1_0 {

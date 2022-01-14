@@ -132,11 +132,12 @@ impl Relevances {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use ndarray::Array1;
 
-    use crate::coi::{config::Configuration, utils::tests::create_pos_cois};
+    use crate::{
+        coi::{config::Configuration, utils::tests::create_pos_cois},
+        utils::nan_safe_f32_cmp,
+    };
     use test_utils::assert_approx_eq;
 
     use super::*;
@@ -167,14 +168,10 @@ mod tests {
     }
 
     fn dedup_penalty(config: Configuration) -> Array1<f32> {
-        config
-            .penalty()
-            .iter()
-            .map(|&penalty| Relevance::new(penalty).unwrap())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .map(Into::into)
-            .collect()
+        let mut penalty = config.penalty().to_vec();
+        penalty.sort_unstable_by(nan_safe_f32_cmp);
+        penalty.dedup();
+        penalty.into()
     }
 
     #[test]
