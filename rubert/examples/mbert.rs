@@ -2,40 +2,36 @@
 //! - `s` for SMBert
 //! - `qa` for QAMBert
 
-use rubert::{FirstPooler, QAMBertBuilder, SMBertBuilder};
+use rubert::{Configuration, FirstPooler, Pipeline, QAMBertConfig, SMBertConfig};
 use test_utils::{qambert, smbert};
-
-macro_rules! build_and_run {
-    ($builder:expr) => {{
-        let mbert = $builder
-            .unwrap()
-            .with_accents(false)
-            .with_lowercase(true)
-            .with_token_size(64)
-            .unwrap()
-            .with_pooling(FirstPooler)
-            .build()
-            .unwrap();
-        (
-            mbert.run("This is a sequence.").unwrap(),
-            mbert.embedding_size(),
-        )
-    }};
-}
 
 fn main() {
     let (embedding, size) = match std::env::args().nth(1).unwrap().as_str() {
         "s" => {
-            build_and_run!(SMBertBuilder::from_files(
-                smbert::vocab().unwrap(),
-                smbert::model().unwrap(),
-            ))
+            let config: SMBertConfig<_> =
+                Configuration::from_files(smbert::vocab().unwrap(), smbert::model().unwrap())
+                    .unwrap()
+                    .with_pooling(FirstPooler)
+                    .with_token_size(64)
+                    .unwrap();
+
+            let mbert = Pipeline::from(config).unwrap();
+            (
+                mbert.run("This is a sequence.").unwrap(),
+                mbert.embedding_size(),
+            )
         }
         "qa" => {
-            build_and_run!(QAMBertBuilder::from_files(
-                qambert::vocab().unwrap(),
-                qambert::model().unwrap(),
-            ))
+            let config: QAMBertConfig<_> =
+                Configuration::from_files(qambert::vocab().unwrap(), qambert::model().unwrap())
+                    .unwrap()
+                    .with_pooling(FirstPooler);
+
+            let mbert = Pipeline::from(config).unwrap();
+            (
+                mbert.run("This is a sequence.").unwrap(),
+                mbert.embedding_size(),
+            )
         }
         _ => panic!("unknown MBert kind"),
     };

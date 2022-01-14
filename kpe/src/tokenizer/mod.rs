@@ -11,7 +11,6 @@ use thiserror::Error;
 #[derive(Debug)]
 pub struct Tokenizer<const KEY_PHRASE_SIZE: usize> {
     tokenizer: BertTokenizer<i64>,
-    token_size: usize,
     key_phrase_max_count: Option<usize>,
     key_phrase_min_score: Option<f32>,
 }
@@ -50,7 +49,6 @@ impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
 
         Ok(Tokenizer {
             tokenizer,
-            token_size,
             key_phrase_max_count,
             key_phrase_min_score,
         })

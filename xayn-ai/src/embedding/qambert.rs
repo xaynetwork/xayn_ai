@@ -80,7 +80,7 @@ impl QAMBertSystem for NeutralQAMBert {
 
 #[cfg(test)]
 mod tests {
-    use rubert::{AveragePooler, QAMBertBuilder};
+    use rubert::{AveragePooler, QAMBertConfig};
     use test_utils::{
         assert_approx_eq,
         qambert::{model, vocab},
@@ -90,15 +90,15 @@ mod tests {
     use crate::tests::documents_with_embeddings_from_snippet_and_query;
 
     fn qambert() -> QAMBert {
-        QAMBertBuilder::from_files(vocab().unwrap(), model().unwrap())
+        let config = QAMBertConfig::from_files(vocab().unwrap(), model().unwrap())
             .unwrap()
             .with_token_size(90)
             .unwrap()
             .with_accents(false)
             .with_lowercase(true)
-            .with_pooling(AveragePooler)
-            .build()
-            .unwrap()
+            .with_pooling(AveragePooler);
+
+        QAMBert::from(config).unwrap()
     }
 
     fn check_similarity<Q: QAMBertSystem>(system: Q, values: &[f32]) {

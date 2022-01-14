@@ -6,6 +6,7 @@ use crate::{
     pooler::{Embedding1, Embedding2, PoolerError},
     tokenizer::{Tokenizer, TokenizerError},
     AveragePooler,
+    Configuration,
     FirstPooler,
     NonePooler,
 };
@@ -30,6 +31,34 @@ pub enum PipelineError {
     Model(#[from] ModelError),
     /// Failed to run the pooler: {0}
     Pooler(#[from] PoolerError),
+    /// Failed to build the tokenizer: {0}
+    TokenizerBuild(#[source] TokenizerError),
+    /// Failed to build the model: {0}
+    ModelBuild(#[source] ModelError),
+}
+
+impl<K, P> Pipeline<K, P>
+where
+    K: BertModel,
+{
+    pub fn from(config: Configuration<K, P>) -> Result<Self, PipelineError> {
+        let tokenizer = Tokenizer::new(
+            config.vocab,
+            config.accents,
+            config.lowercase,
+            config.token_size,
+        )
+        .map_err(PipelineError::TokenizerBuild)?;
+
+        let model =
+            Model::new(config.model, config.token_size).map_err(PipelineError::ModelBuild)?;
+
+        Ok(Pipeline {
+            tokenizer,
+            model,
+            pooler: config.pooler,
+        })
+    }
 }
 
 impl<K> Pipeline<K, NonePooler>
@@ -92,21 +121,16 @@ mod tests {
 
     use super::*;
     use crate::{
-        builder::Builder,
         model::kinds::SMBert,
         pooler::{AveragePooler, FirstPooler, NonePooler},
     };
 
     fn pipeline<P>(pooler: P) -> Pipeline<SMBert, P> {
-        Builder::from_files(vocab().unwrap(), model().unwrap())
+        let config = Configuration::from_files(vocab().unwrap(), model().unwrap())
             .unwrap()
-            .with_accents(false)
-            .with_lowercase(true)
-            .with_token_size(64)
-            .unwrap()
-            .with_pooling(pooler)
-            .build()
-            .unwrap()
+            .with_pooling(pooler);
+
+        Pipeline::from(config).unwrap()
     }
 
     #[test]

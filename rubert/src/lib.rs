@@ -8,32 +8,16 @@
 //! Sequences are anything string-like and can also be single words or snippets. The embeddings are
 //! f32-arrays and their shape depends on the pooling strategy.
 //!
-//! ```no_run
-//! use rubert::{FirstPooler, SMBertBuilder};
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let smbert = SMBertBuilder::from_files("vocab.txt", "model.onnx")?
-//!         .with_accents(false)
-//!         .with_lowercase(true)
-//!         .with_token_size(64)?
-//!         .with_pooling(FirstPooler)
-//!         .build()?;
-//!
-//!     let embedding = smbert.run("This is a sequence.")?;
-//!     assert_eq!(embedding.shape(), [smbert.embedding_size()]);
-//!
-//!     Ok(())
-//! }
-//! ```
+//! See the example in this crate for usage details.
 
-mod builder;
+mod configuration;
 mod model;
 mod pipeline;
 mod pooler;
 mod tokenizer;
 
 pub use crate::{
-    builder::{Builder, BuilderError},
+    configuration::{Configuration, ConfigurationError},
     model::kinds,
     pipeline::{Pipeline, PipelineError},
     pooler::{
@@ -50,18 +34,12 @@ pub use crate::{
 /// A sentence (embedding) multilingual Bert pipeline.
 #[allow(clippy::upper_case_acronyms)]
 pub type SMBert = Pipeline<kinds::SMBert, AveragePooler>;
+pub type SMBertConfig<'a, P> = Configuration<'a, kinds::SMBert, P>;
 
 /// A question answering (embedding) multilingual Bert pipeline.
 #[allow(clippy::upper_case_acronyms)]
 pub type QAMBert = Pipeline<kinds::QAMBert, AveragePooler>;
-
-/// A builder to create a [`SMBert`] pipeline.
-#[allow(clippy::upper_case_acronyms)]
-pub type SMBertBuilder<V, M> = Builder<V, M, kinds::SMBert, NonePooler>;
-
-/// A builder to create a [`QAMBert`] pipeline.
-#[allow(clippy::upper_case_acronyms)]
-pub type QAMBertBuilder<V, M> = Builder<V, M, kinds::QAMBert, NonePooler>;
+pub type QAMBertConfig<'a, P> = Configuration<'a, kinds::QAMBert, P>;
 
 #[cfg(doc)]
 pub use crate::{

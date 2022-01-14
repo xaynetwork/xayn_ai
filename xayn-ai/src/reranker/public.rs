@@ -1,10 +1,6 @@
-use std::{
-    io::{BufRead, Read},
-    path::Path,
-    sync::Arc,
-};
+use std::{io::Read, path::Path, sync::Arc};
 
-use rubert::{AveragePooler, QAMBert, QAMBertBuilder, SMBertBuilder};
+use rubert::{AveragePooler, QAMBert, QAMBertConfig, SMBertConfig};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
@@ -107,25 +103,28 @@ impl Reranker {
     }
 }
 
-pub struct Builder<SV, SM, QAV, QAM, DM> {
+pub struct Builder<'a, SP, QP, DM> {
     database: Db,
-    smbert: SMBertBuilder<SV, SM>,
-    qambert: QAMBertBuilder<QAV, QAM>,
+    smbert_config: SMBertConfig<'a, SP>,
+    qambert_config: QAMBertConfig<'a, QP>,
     domain: DomainRerankerBuilder<DM>,
 }
 
-impl Default for Builder<(), (), (), (), ()> {
-    fn default() -> Self {
-        Self {
+impl<'a, SP, QP> Builder<'a, SP, QP, ()> {
+    pub fn from(
+        smbert_config: SMBertConfig<'a, SP>,
+        qambert_config: QAMBertConfig<'a, QP>,
+    ) -> Self {
+        Builder {
             database: Db::default(),
-            smbert: SMBertBuilder::new((), ()),
-            qambert: QAMBertBuilder::new((), ()),
+            smbert_config,
+            qambert_config,
             domain: DomainRerankerBuilder::new(()),
         }
     }
 }
 
-impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
+impl<'a, SP, QP, DM> Builder<'a, SP, QP, DM> {
     /// Sets the serialized database to use.
     ///
     /// This accepts an option as this makes the builder pattern easier to use
@@ -141,55 +140,11 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
         Ok(self)
     }
 
-    pub fn with_smbert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<W, N, QAV, QAM, DM> {
+    pub fn with_domain_from_reader<N>(self, model: N) -> Builder<'a, SP, QP, N> {
         Builder {
             database: self.database,
-            smbert: SMBertBuilder::new(vocab, model),
-            qambert: self.qambert,
-            domain: self.domain,
-        }
-    }
-
-    pub fn with_smbert_from_file(
-        self,
-        vocab: impl AsRef<Path>,
-        model: impl AsRef<Path>,
-    ) -> Result<Builder<impl BufRead, impl Read, QAV, QAM, DM>, Error> {
-        Ok(Builder {
-            database: self.database,
-            smbert: SMBertBuilder::from_files(vocab, model)?,
-            qambert: self.qambert,
-            domain: self.domain,
-        })
-    }
-
-    pub fn with_qambert_from_reader<W, N>(self, vocab: W, model: N) -> Builder<SV, SM, W, N, DM> {
-        Builder {
-            database: self.database,
-            smbert: self.smbert,
-            qambert: QAMBertBuilder::new(vocab, model),
-            domain: self.domain,
-        }
-    }
-
-    pub fn with_qambert_from_file(
-        self,
-        vocab: impl AsRef<Path>,
-        model: impl AsRef<Path>,
-    ) -> Result<Builder<SV, SM, impl BufRead, impl Read, DM>, Error> {
-        Ok(Builder {
-            database: self.database,
-            smbert: self.smbert,
-            qambert: QAMBertBuilder::from_files(vocab, model)?,
-            domain: self.domain,
-        })
-    }
-
-    pub fn with_domain_from_reader<N>(self, model: N) -> Builder<SV, SM, QAV, QAM, N> {
-        Builder {
-            database: self.database,
-            smbert: self.smbert,
-            qambert: self.qambert,
+            smbert_config: self.smbert_config,
+            qambert_config: self.qambert_config,
             domain: DomainRerankerBuilder::new(model),
         }
     }
@@ -197,52 +152,47 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
     pub fn with_domain_from_file(
         self,
         model: impl AsRef<Path>,
-    ) -> Result<Builder<SV, SM, QAV, QAM, impl Read>, Error> {
+    ) -> Result<Builder<'a, SP, QP, impl Read>, Error> {
         Ok(Builder {
             database: self.database,
-            smbert: self.smbert,
-            qambert: self.qambert,
+            smbert_config: self.smbert_config,
+            qambert_config: self.qambert_config,
             domain: DomainRerankerBuilder::from_file(model)?,
         })
     }
 
     pub fn build(self) -> Result<Reranker, Error>
     where
-        SV: BufRead,
-        SM: Read,
-        QAV: BufRead,
-        QAM: Read,
         DM: Read,
     {
-        let database = self.database;
-        let smbert = SMBert::from(Arc::new(
-            self.smbert
-                .with_token_size(52)?
-                .with_accents(false)
-                .with_lowercase(true)
-                .with_pooling(AveragePooler)
-                .build()?,
-        ));
-        let qambert = self
-            .qambert
+        let smbert_config = self
+            .smbert_config
+            .with_token_size(52)?
+            .with_accents(false)
+            .with_lowercase(true)
+            .with_pooling(AveragePooler);
+
+        let smbert_pipeline = rubert::SMBert::from(smbert_config)?;
+        let smbert = SMBert::from(Arc::new(smbert_pipeline));
+
+        let qambert_config = self
+            .qambert_config
             .with_token_size(90)?
             .with_accents(false)
             .with_lowercase(true)
-            .with_pooling(AveragePooler)
-            .build()?;
+            .with_pooling(AveragePooler);
+
         let coi = CoiSystemImpl::new(Configuration::default(), smbert.clone());
         let domain = self.domain.build()?;
-        let context = Context;
-        let analytics = AnalyticsSystemImpl;
 
         super::Reranker::new(Systems {
-            database,
+            database: self.database,
             smbert,
-            qambert,
+            qambert: QAMBert::from(qambert_config)?,
             coi,
             domain,
-            context,
-            analytics,
+            context: Context,
+            analytics: AnalyticsSystemImpl,
         })
         .map(Reranker)
     }
