@@ -49,4 +49,15 @@ pub(crate) enum CoiError {
     NonFiniteKeyPhrase(ArcEmbedding),
     /// A computed relevance score isn't finite.
     NonFiniteRelevance,
+    /// Invalid coi shift factor, expected value from the unit interval
+    InvalidShiftFactor,
+    /// Invalid coi threshold, expected non-negative value
+    #[cfg(test)]
+    InvalidThreshold,
+    /// Invalid coi neighbors, expected positive value
+    InvalidNeighbors,
+    /// Invalid coi gamma, expected value from the unit interval
+    InvalidGamma,
+    /// Invalid coi penalty, expected non-empty, finite and sorted values
+    InvalidPenalty,
 }

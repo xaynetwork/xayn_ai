@@ -13,7 +13,7 @@ use crate::{
 
 const MERGE_THRESHOLD_DIST: f32 = 4.5;
 
-pub(crate) trait CoiPointMerge: CoiPoint {
+pub(crate) trait CoiPointMerge {
     fn merge(self, other: Self, id: CoiId) -> Self;
 }
 
