@@ -108,7 +108,7 @@ fn compute_cois_for_docs(
             let coi =
                 compute_coi_for_embedding(&document.smbert_embedding, user_interests, neighbors)
                     .ok_or(RankerError::NoUserInterests)?;
-            Ok::<(DocumentId, CoiComponent), Error>((document.id, coi))
+            Ok((document.id, coi))
         })
         .collect()
 }
