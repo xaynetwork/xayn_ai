@@ -117,14 +117,15 @@ fn compute_score_for_docs(
     cois_for_docs: &[(DocumentId, CoiComponent)],
 ) -> HashMap<&DocumentId, f32> {
     let context = Context::from_cois(cois_for_docs);
-    let mut scores = HashMap::new();
-    cois_for_docs.iter().for_each(|(id, coi)| {
-        scores.insert(
-            id,
-            context.calculate_score(coi.pos_distance, coi.neg_distance),
-        );
-    });
-    scores
+    cois_for_docs
+        .iter()
+        .map(|(id, coi)| {
+            (
+                id,
+                context.calculate_score(coi.pos_distance, coi.neg_distance),
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]
