@@ -84,13 +84,17 @@ fn rank(
     user_interests: &UserInterests,
     neighbors: usize,
 ) -> Result<(), Error> {
+    if documents.is_empty() {
+        return Ok(());
+    }
+
     let cois_for_docs = compute_cois_for_docs(documents, user_interests, neighbors)?;
-    let context_for_docs = compute_score_for_docs(cois_for_docs.as_slice());
+    let score_for_docs = compute_score_for_docs(cois_for_docs.as_slice());
 
     documents.sort_unstable_by(|a, b| {
         nan_safe_f32_cmp(
-            context_for_docs.get(&b.id).unwrap(),
-            context_for_docs.get(&a.id).unwrap(),
+            score_for_docs.get(&b.id).unwrap(),
+            score_for_docs.get(&a.id).unwrap(),
         )
     });
 
