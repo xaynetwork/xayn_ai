@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::{
-        point::{CoiPoint, NegativeCoi, PositiveCoi},
+        point::PositiveCoi,
         relevance::{Relevance, Relevances},
     },
     utils::{system_time_now, SECONDS_PER_DAY},
@@ -51,47 +51,30 @@ impl Default for CoiStats {
     }
 }
 
-pub(crate) trait CoiPointStats {
-    fn stats(&self) -> CoiStats;
-
-    fn update_stats(&mut self, viewed: Duration);
-}
-
-impl CoiPointStats for PositiveCoi {
-    fn stats(&self) -> CoiStats {
-        self.stats
-    }
-
-    fn update_stats(&mut self, viewed: Duration) {
+impl PositiveCoi {
+    pub(crate) fn update_stats(&mut self, viewed: Duration) {
         self.stats.update(viewed);
     }
 }
 
-impl CoiPointStats for NegativeCoi {
-    fn stats(&self) -> CoiStats {
-        CoiStats::default()
-    }
-
-    fn update_stats(&mut self, _viewed: Duration) {}
-}
-
 impl Relevances {
-    /// Computes the relevances of the cois.
+    /// Computes the relevances of the positive cois.
     ///
     /// The relevance of each coi is computed from its view count and view time relative to the
     /// other cois. It's an unnormalized score from the interval `[0, ∞)`.
     ///
     /// The relevances in the maps are replaced by the penalized coi relevances.
-    #[allow(dead_code)]
-    pub(super) fn compute_relevances<CP>(&mut self, cois: &[CP], horizon: Duration, penalty: &[f32])
-    where
-        CP: CoiPoint + CoiPointStats,
-    {
+    pub(super) fn compute_relevances(
+        &mut self,
+        cois: &[PositiveCoi],
+        horizon: Duration,
+        penalty: &[f32],
+    ) {
         let counts =
-            cois.iter().map(|coi| coi.stats().view_count).sum::<usize>() as f32 + f32::EPSILON;
+            cois.iter().map(|coi| coi.stats.view_count).sum::<usize>() as f32 + f32::EPSILON;
         let times = cois
             .iter()
-            .map(|coi| coi.stats().view_time)
+            .map(|coi| coi.stats.view_time)
             .sum::<Duration>()
             .as_secs_f32()
             + f32::EPSILON;
@@ -100,21 +83,18 @@ impl Relevances {
         let horizon = (horizon.as_secs_f32() * DAYS_SCALE / SECONDS_PER_DAY).exp();
 
         for coi in cois {
-            let CoiStats {
-                view_count: count,
-                view_time: time,
-                last_view: last,
-                ..
-            } = coi.stats();
-            let count = count as f32 / counts;
-            let time = time.as_secs_f32() / times;
-            let days = (now.duration_since(last).unwrap_or_default().as_secs_f32() * DAYS_SCALE
+            let count = coi.stats.view_count as f32 / counts;
+            let time = coi.stats.view_time.as_secs_f32() / times;
+            let days = (now
+                .duration_since(coi.stats.last_view)
+                .unwrap_or_default()
+                .as_secs_f32()
+                * DAYS_SCALE
                 / SECONDS_PER_DAY)
                 .exp();
             let last = ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.);
             let new_relevance = Relevance::new(((count + time) * last).max(0.).min(f32::MAX)).unwrap(/* finite by construction */);
 
-            let coi_id = coi.id();
             let new_relevances = penalty
                 .iter()
                 .map(|&penalty| {
@@ -125,7 +105,7 @@ impl Relevances {
                 ).unwrap(/* finite by construction */)
                 })
                 .collect::<Vec<_>>();
-            self.replace(coi_id, new_relevances);
+            self.replace(coi.id, new_relevances);
         }
     }
 }

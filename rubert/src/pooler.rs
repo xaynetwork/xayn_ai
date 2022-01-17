@@ -1,3 +1,5 @@
+use std::ops::{AddAssign, Mul, MulAssign};
+
 use derive_more::{Deref, From};
 use displaydoc::Display;
 use float_cmp::{ApproxEq, F32Margin};
@@ -57,6 +59,35 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         self.eq(&other.0)
+    }
+}
+
+impl<D> AddAssign for Embedding<D>
+where
+    D: Dimension,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += &rhs.0;
+    }
+}
+
+impl<D> Mul<f32> for &Embedding<D>
+where
+    D: Dimension,
+{
+    type Output = Embedding<D>;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        (&self.0 * rhs).into()
+    }
+}
+
+impl<D> MulAssign<f32> for Embedding<D>
+where
+    D: Dimension,
+{
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
     }
 }
 

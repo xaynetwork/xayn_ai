@@ -68,7 +68,7 @@ pub(super) mod tests {
     use super::*;
     use crate::{
         coi::{
-            point::{CoiPoint, NegativeCoi, PositiveCoi},
+            point::{tests::CoiPointConstructor, NegativeCoi, PositiveCoi},
             CoiId,
         },
         data::document_data::{
@@ -106,7 +106,9 @@ pub(super) mod tests {
         }
     }
 
-    fn create_cois<FI: FixedInitializer<Elem = f32>, CP: CoiPoint>(points: &[FI]) -> Vec<CP> {
+    fn create_cois<FI: FixedInitializer<Elem = f32>, CP: CoiPointConstructor>(
+        points: &[FI],
+    ) -> Vec<CP> {
         if FI::len() == 0 {
             return Vec::new();
         }
@@ -117,7 +119,7 @@ pub(super) mod tests {
             .map(|(id, point)| {
                 CP::new(
                     CoiId::mocked(id),
-                    arr1(point.as_init_slice()).into(),
+                    arr1(point.as_init_slice()),
                     Duration::from_secs(10),
                 )
             })

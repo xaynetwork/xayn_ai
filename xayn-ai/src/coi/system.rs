@@ -1,4 +1,4 @@
-use std::{ops::Deref, time::Duration};
+use std::time::Duration;
 
 use displaydoc::Display;
 use thiserror::Error;
@@ -7,10 +7,15 @@ use uuid::Uuid;
 use crate::{
     coi::{
         config::Configuration,
-        key_phrase::CoiPointKeyPhrases,
-        point::{find_closest_coi, find_closest_coi_mut, CoiPoint, UserInterests},
+        point::{
+            find_closest_coi,
+            find_closest_coi_mut,
+            CoiPoint,
+            NegativeCoi,
+            PositiveCoi,
+            UserInterests,
+        },
         relevance::Relevances,
-        stats::CoiPointStats,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
@@ -111,34 +116,19 @@ pub(crate) fn compute_coi(
         .collect()
 }
 
-/// Creates a new CoI that is shifted towards the position of `embedding`.
-fn shift_coi_point(embedding: &Embedding, coi: &Embedding, shift_factor: f32) -> Embedding {
-    (coi.deref() * (1. - shift_factor) + embedding.deref() * shift_factor).into()
-}
-
-/// Updates the CoIs based on the given embedding. If the embedding is close to the nearest centroid
-/// (within [`Configuration.threshold`]), the centroid's position gets updated,
-/// otherwise a new centroid is created.
-fn update_coi<
-    CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
-    F: Fn(&str) -> Result<Embedding, Error>,
->(
-    mut cois: Vec<CP>,
-    relevances: &mut Relevances,
+/// Updates the positive coi closest to the embedding or creates a new one if it's too far away.
+fn update_positive_coi(
+    mut cois: Vec<PositiveCoi>,
     embedding: &Embedding,
+    config: &Configuration,
+    relevances: &mut Relevances,
+    smbert: impl Fn(&str) -> Result<Embedding, Error>,
     candidates: &[String],
     viewed: Duration,
-    smbert: F,
-    config: &Configuration,
-) -> Vec<CP> {
+) -> Vec<PositiveCoi> {
     match find_closest_coi_mut(embedding, &mut cois, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
-            coi.set_point(shift_coi_point(
-                embedding,
-                coi.point(),
-                config.shift_factor(),
-            ));
-            coi.set_id(Uuid::new_v4().into());
+            coi.shift_point(embedding, config.shift_factor());
             coi.select_key_phrases(
                 relevances,
                 candidates,
@@ -149,7 +139,7 @@ fn update_coi<
             coi.update_stats(viewed);
         }
         _ => {
-            let coi = CP::new(Uuid::new_v4().into(), embedding.clone(), viewed);
+            let coi = PositiveCoi::new(Uuid::new_v4(), embedding.clone(), viewed);
             coi.select_key_phrases(
                 relevances,
                 candidates,
@@ -163,36 +153,59 @@ fn update_coi<
     cois
 }
 
-/// Updates the CoIs based on the embeddings of docs.
-fn update_cois<
-    CP: CoiPoint + CoiPointKeyPhrases + CoiPointStats,
-    F: Copy + Fn(&str) -> Result<Embedding, Error>,
->(
-    cois: Vec<CP>,
-    relevances: &mut Relevances,
+/// Updates the positive cois based on the documents data.
+fn update_positive_cois(
+    cois: Vec<PositiveCoi>,
     docs: &[&dyn CoiSystemData],
-    smbert: F,
     config: &Configuration,
-) -> Vec<CP> {
+    relevances: &mut Relevances,
+    smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
+) -> Vec<PositiveCoi> {
     docs.iter().fold(cois, |cois, doc| {
-        update_coi(
+        update_positive_coi(
             cois,
-            relevances,
             &doc.smbert().embedding,
+            config,
+            relevances,
+            smbert,
             &[/* TODO: run KPE on doc */],
             doc.viewed(),
-            smbert,
-            config,
         )
     })
 }
 
-pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Error>>(
+/// Updates the negative coi closest to the embedding or creates a new one if it's too far away.
+fn update_negative_coi(
+    mut cois: Vec<NegativeCoi>,
+    embedding: &Embedding,
+    config: &Configuration,
+) -> Vec<NegativeCoi> {
+    match find_closest_coi_mut(embedding, &mut cois, config.neighbors()) {
+        Some((coi, distance)) if distance < config.threshold() => {
+            coi.shift_point(embedding, config.shift_factor());
+        }
+        _ => cois.push(NegativeCoi::new(Uuid::new_v4(), embedding.clone())),
+    }
+    cois
+}
+
+/// Updates the negative cois based on the documents data.
+fn update_negative_cois(
+    cois: Vec<NegativeCoi>,
+    docs: &[&dyn CoiSystemData],
+    config: &Configuration,
+) -> Vec<NegativeCoi> {
+    docs.iter().fold(cois, |cois, doc| {
+        update_negative_coi(cois, &doc.smbert().embedding, config)
+    })
+}
+
+pub(crate) fn update_user_interests(
     mut user_interests: UserInterests,
     relevances: &mut Relevances,
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
-    smbert: F,
+    smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
     config: &Configuration,
 ) -> Result<UserInterests, Error> {
     let matching_documents = collect_matching_documents(history, documents);
@@ -204,20 +217,14 @@ pub(crate) fn update_user_interests<F: Copy + Fn(&str) -> Result<Embedding, Erro
     let (positive_docs, negative_docs) =
         classify_documents_based_on_user_feedback(matching_documents);
 
-    user_interests.positive = update_cois(
+    user_interests.positive = update_positive_cois(
         user_interests.positive,
-        relevances,
         &positive_docs,
-        smbert,
         config,
-    );
-    user_interests.negative = update_cois(
-        user_interests.negative,
         relevances,
-        &negative_docs,
         smbert,
-        config,
     );
+    user_interests.negative = update_negative_cois(user_interests.negative, &negative_docs, config);
 
     Ok(user_interests)
 }
@@ -334,14 +341,14 @@ mod tests {
         assert_approx_eq!(f32, distance, 26.747852);
         assert!(config.threshold() < distance);
 
-        cois = update_coi(
+        cois = update_positive_coi(
             cois,
-            &mut relevances,
             &embedding,
+            &config,
+            &mut relevances,
+            |_| unreachable!(),
             &[],
             viewed,
-            |_| unreachable!(),
-            &config,
         );
         assert_eq!(cois.len(), 4);
     }
@@ -354,31 +361,20 @@ mod tests {
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
-        let cois = update_coi(
+        let cois = update_positive_coi(
             cois,
-            &mut relevances,
             &embedding,
+            &config,
+            &mut relevances,
+            |_| unreachable!(),
             &[],
             viewed,
-            |_| unreachable!(),
-            &config,
         );
 
         assert_eq!(cois.len(), 3);
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
         assert_eq!(cois[1].point, arr1(&[10., 10., 10.]));
         assert_eq!(cois[2].point, arr1(&[20., 20., 20.]));
-    }
-
-    #[test]
-    fn test_shift_coi_point() {
-        let coi_point = arr1(&[1., 1., 1.]).into();
-        let embedding = arr1(&[2., 3., 4.]).into();
-        let shift_factor = Configuration::default().shift_factor();
-
-        let updated_coi = shift_coi_point(&embedding, &coi_point, shift_factor);
-
-        assert_eq!(updated_coi, arr1(&[1.1, 1.2, 1.3]));
     }
 
     #[test]
@@ -389,14 +385,14 @@ mod tests {
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
-        let cois = update_coi(
+        let cois = update_positive_coi(
             cois,
-            &mut relevances,
             &embedding,
+            &config,
+            &mut relevances,
+            |_| unreachable!(),
             &[],
             viewed,
-            |_| unreachable!(),
-            &config,
         );
 
         assert_eq!(cois.len(), 2);
@@ -413,12 +409,12 @@ mod tests {
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
         let config = Configuration::default().with_threshold(5.).unwrap();
 
-        let cois = update_cois(
+        let cois = update_positive_cois(
             cois,
-            &mut relevances,
             &documents,
-            |_| unreachable!(),
             &config,
+            &mut relevances,
+            |_| unreachable!(),
         );
 
         assert_eq!(cois.len(), 1);

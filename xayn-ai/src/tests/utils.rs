@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::{
     coi::{
         point::{
-            CoiPoint,
+            tests::CoiPointConstructor,
             NegativeCoi,
             PositiveCoi,
             PositiveCoi_v0_0_0,
@@ -76,7 +76,7 @@ pub(crate) fn documents_from_words(
     .collect()
 }
 
-fn cois_from_words<CP: CoiPoint>(
+fn cois_from_words<CP: CoiPointConstructor>(
     titles: &[&str],
     smbert: impl SMBertSystem,
     start_id: usize,

@@ -7,9 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::{
-        point::{CoiPoint, NegativeCoi, PositiveCoi},
+        point::PositiveCoi,
         relevance::{Relevance, Relevances},
-        stats::CoiPointStats,
         CoiError,
     },
     embedding::utils::{pairwise_cosine_similarity, ArcEmbedding, Embedding},
@@ -64,83 +63,50 @@ impl PartialEq<&str> for KeyPhrase {
     }
 }
 
-pub(crate) trait CoiPointKeyPhrases: CoiPoint {
-    fn select_key_phrases<F>(
+impl PositiveCoi {
+    pub(crate) fn select_key_phrases(
         &self,
         relevances: &mut Relevances,
         candidates: &[String],
-        smbert: F,
+        smbert: impl Fn(&str) -> Result<Embedding, Error>,
         max_key_phrases: usize,
         gamma: f32,
-    ) where
-        F: Fn(&str) -> Result<Embedding, Error>;
-}
-
-impl CoiPointKeyPhrases for PositiveCoi {
-    fn select_key_phrases<F>(
-        &self,
-        relevances: &mut Relevances,
-        candidates: &[String],
-        smbert: F,
-        max_key_phrases: usize,
-        gamma: f32,
-    ) where
-        Self: CoiPoint,
-        F: Fn(&str) -> Result<Embedding, Error>,
-    {
+    ) {
         relevances.select_key_phrases(self, candidates, smbert, max_key_phrases, gamma);
     }
 }
 
-impl CoiPointKeyPhrases for NegativeCoi {
-    fn select_key_phrases<F>(
-        &self,
-        _relevances: &mut Relevances,
-        _candidates: &[String],
-        _smbert: F,
-        _max_key_phrases: usize,
-        _gamma: f32,
-    ) where
-        Self: CoiPoint,
-        F: Fn(&str) -> Result<Embedding, Error>,
-    {
-    }
-}
-
 impl Relevances {
-    /// Selects the most relevant key phrases for the coi.
+    /// Selects the most relevant key phrases for the positive coi.
     ///
     /// The most relevant key phrases are selected from the set of key phrases of the coi and the
     /// candidates. The computed relevances are a relative score from the interval `[0, 1]`.
     ///
     /// The relevances in the maps are replaced by the key phrase relevances.
-    fn select_key_phrases<CP, F>(
+    fn select_key_phrases(
         &mut self,
-        coi: &CP,
+        coi: &PositiveCoi,
         candidates: &[String],
-        smbert: F,
+        smbert: impl Fn(&str) -> Result<Embedding, Error>,
         max_key_phrases: usize,
         gamma: f32,
-    ) where
-        CP: CoiPoint,
-        F: Fn(&str) -> Result<Embedding, Error>,
-    {
-        let key_phrases = self.remove(coi.id()).unwrap_or_default();
+    ) {
+        let key_phrases = self.remove(coi.id).unwrap_or_default();
         let key_phrases = unify(key_phrases, candidates, smbert);
-        let (similarity, normalized) = similarities(&key_phrases, coi.point());
+        let (similarity, normalized) = similarities(&key_phrases, &coi.point);
         let selected = is_selected(normalized, max_key_phrases, gamma);
         for (relevance, key_phrase) in select(key_phrases, selected, similarity) {
-            self.insert(coi.id(), relevance, key_phrase);
+            self.insert(coi.id, relevance, key_phrase);
         }
     }
 
-    /// Selects the top key phrases from the cois, sorted in descending relevance.
+    /// Selects the top key phrases from the positive cois, sorted in descending relevance.
     ///
     /// The selected key phrases and their relevances are removed from the maps.
     #[allow(dead_code)]
-    pub(super) fn select_top_key_phrases<CP: CoiPoint + CoiPointStats>(
+    pub(super) fn select_top_key_phrases(
         &mut self,
-        cois: &[CP],
+        cois: &[PositiveCoi],
         top: usize,
         horizon: Duration,
         penalty: &[f32],
