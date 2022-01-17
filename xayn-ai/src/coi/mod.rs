@@ -21,9 +21,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
+use crate::embedding::utils::ArcEmbedding;
 #[cfg(test)]
 use crate::tests::mock_uuid;
-use crate::{embedding::utils::ArcEmbedding, ranker::config::Error as ConfigError};
 
 #[repr(transparent)] // needed for FFI
 #[derive(
@@ -47,6 +47,4 @@ pub(crate) enum CoiError {
     NonFiniteKeyPhrase(ArcEmbedding),
     /// A computed relevance score isn't finite.
     NonFiniteRelevance,
-    /// Invalid configuration: {0}
-    InvalidConfiguration(#[from] ConfigError),
 }
