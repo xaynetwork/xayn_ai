@@ -1,4 +1,3 @@
-mod config;
 pub(crate) mod key_phrase;
 mod merge;
 pub(crate) mod point;
@@ -13,7 +12,6 @@ pub(crate) use self::{
     system::{compute_coi, update_user_interests, CoiSystemError},
     utils::tests::create_pos_cois,
 };
-pub(crate) use config::Configuration;
 pub(crate) use merge::reduce_cois;
 pub(crate) use system::{compute_coi_for_embedding, CoiSystem, NeutralCoiSystem};
 
@@ -42,7 +40,6 @@ impl CoiId {
 }
 
 #[derive(Debug, Display, Error)]
-#[allow(clippy::enum_variant_names)]
 pub(crate) enum CoiError {
     /// A key phrase is empty
     EmptyKeyPhrase,
@@ -50,15 +47,4 @@ pub(crate) enum CoiError {
     NonFiniteKeyPhrase(ArcEmbedding),
     /// A computed relevance score isn't finite.
     NonFiniteRelevance,
-    /// Invalid coi shift factor, expected value from the unit interval
-    InvalidShiftFactor,
-    /// Invalid coi threshold, expected non-negative value
-    #[cfg(test)]
-    InvalidThreshold,
-    /// Invalid coi neighbors, expected positive value
-    InvalidNeighbors,
-    /// Invalid coi gamma, expected value from the unit interval
-    InvalidGamma,
-    /// Invalid coi penalty, expected non-empty, finite and sorted values
-    InvalidPenalty,
 }

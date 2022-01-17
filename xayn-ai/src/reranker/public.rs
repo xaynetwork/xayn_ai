@@ -8,12 +8,13 @@ use rubert::{AveragePooler, QAMBert, QAMBertBuilder, SMBertBuilder};
 
 use crate::{
     analytics::{Analytics, AnalyticsSystem as AnalyticsSystemImpl},
-    coi::{CoiSystem as CoiSystemImpl, Configuration as CoiSystemConfiguration},
+    coi::CoiSystem as CoiSystemImpl,
     context::Context,
     data::document::{Document, DocumentHistory, RerankingOutcomes},
     embedding::smbert::SMBert,
     error::Error,
     ltr::{DomainReranker, DomainRerankerBuilder},
+    ranker::config::Configuration,
     reranker::{
         database::{Database, Db},
         systems::{
@@ -229,7 +230,7 @@ impl<SV, SM, QAV, QAM, DM> Builder<SV, SM, QAV, QAM, DM> {
             .with_lowercase(true)
             .with_pooling(AveragePooler)
             .build()?;
-        let coi = CoiSystemImpl::new(CoiSystemConfiguration::default(), smbert.clone());
+        let coi = CoiSystemImpl::new(Configuration::default(), smbert.clone());
         let domain = self.domain.build()?;
         let context = Context;
         let analytics = AnalyticsSystemImpl;

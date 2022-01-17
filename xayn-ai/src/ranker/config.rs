@@ -1,11 +1,12 @@
 use std::{cmp::Ordering, time::Duration};
 
-use crate::{
-    coi::CoiError,
-    utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY},
-};
+use displaydoc::Display;
+use thiserror::Error;
 
-#[derive(Clone)]
+use crate::utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY};
+
+/// The configuration of the ranker.
+#[derive(Clone, Debug)]
 pub(crate) struct Configuration {
     shift_factor: f32,
     threshold: f32,
@@ -14,6 +15,22 @@ pub(crate) struct Configuration {
     max_key_phrases: usize,
     gamma: f32,
     penalty: Vec<f32>,
+}
+
+/// Potential errors of the ranker configuration.
+#[derive(Copy, Clone, Debug, Display, Error)]
+pub(crate) enum Error {
+    /// Invalid coi shift factor, expected value from the unit interval
+    ShiftFactor,
+    /// Invalid coi threshold, expected non-negative value
+    #[cfg(test)]
+    Threshold,
+    /// Invalid coi neighbors, expected positive value
+    Neighbors,
+    /// Invalid coi gamma, expected value from the unit interval
+    Gamma,
+    /// Invalid coi penalty, expected non-empty, finite and sorted values
+    Penalty,
 }
 
 impl Configuration {
@@ -27,14 +44,14 @@ impl Configuration {
     /// # Errors
     /// Fails if the shift factor is outside of the unit interval.
     #[allow(dead_code)]
-    pub(crate) fn with_shift_factor(self, shift_factor: f32) -> Result<Self, CoiError> {
+    pub(crate) fn with_shift_factor(self, shift_factor: f32) -> Result<Self, Error> {
         if (0. ..=1.).contains(&shift_factor) {
             Ok(Self {
                 shift_factor,
                 ..self
             })
         } else {
-            Err(CoiError::InvalidShiftFactor)
+            Err(Error::ShiftFactor)
         }
     }
 
@@ -48,11 +65,11 @@ impl Configuration {
     /// # Errors
     /// Fails if the threshold is negative.
     #[cfg(test)]
-    pub(crate) fn with_threshold(self, threshold: f32) -> Result<Self, CoiError> {
+    pub(crate) fn with_threshold(self, threshold: f32) -> Result<Self, Error> {
         if threshold >= 0. {
             Ok(Self { threshold, ..self })
         } else {
-            Err(CoiError::InvalidThreshold)
+            Err(Error::Threshold)
         }
     }
 
@@ -66,11 +83,11 @@ impl Configuration {
     /// # Errors
     /// Fails if the neighbors is zero.
     #[allow(dead_code)]
-    pub(crate) fn with_neighbors(self, neighbors: usize) -> Result<Self, CoiError> {
+    pub(crate) fn with_neighbors(self, neighbors: usize) -> Result<Self, Error> {
         if neighbors > 0 {
             Ok(Self { neighbors, ..self })
         } else {
-            Err(CoiError::InvalidNeighbors)
+            Err(Error::Neighbors)
         }
     }
 
@@ -96,11 +113,11 @@ impl Configuration {
     /// # Errors
     /// Fails if the gamma is outside of the unit interval.
     #[allow(dead_code)]
-    pub(crate) fn with_gamma(self, gamma: f32) -> Result<Self, CoiError> {
+    pub(crate) fn with_gamma(self, gamma: f32) -> Result<Self, Error> {
         if (0. ..=1.).contains(&gamma) {
             Ok(Self { gamma, ..self })
         } else {
-            Err(CoiError::InvalidGamma)
+            Err(Error::Gamma)
         }
     }
 
@@ -117,7 +134,7 @@ impl Configuration {
     /// # Errors
     /// Fails if the penalty is empty, has non-finite values or is unsorted.
     #[allow(dead_code)]
-    pub(crate) fn with_penalty(self, penalty: &[f32]) -> Result<Self, CoiError> {
+    pub(crate) fn with_penalty(self, penalty: &[f32]) -> Result<Self, Error> {
         // TODO: refactor once slice::is_sorted_by() is stabilized
         fn is_sorted_by(slice: &[f32], compare: impl FnMut(&f32, &f32) -> Ordering) -> bool {
             let mut vector = slice.to_vec();
@@ -134,7 +151,7 @@ impl Configuration {
                 ..self
             })
         } else {
-            Err(CoiError::InvalidPenalty)
+            Err(Error::Penalty)
         }
     }
 

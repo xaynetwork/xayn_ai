@@ -115,7 +115,8 @@ mod tests {
     use ndarray::Array1;
 
     use crate::{
-        coi::{config::Configuration, utils::tests::create_pos_cois},
+        coi::utils::tests::create_pos_cois,
+        ranker::config::Configuration,
         utils::nan_safe_f32_cmp,
     };
     use test_utils::assert_approx_eq;

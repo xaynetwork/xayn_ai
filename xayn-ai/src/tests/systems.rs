@@ -2,7 +2,7 @@ use ndarray::arr1;
 
 use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
-    coi::{compute_coi, update_user_interests, Configuration as CoiConfig, Relevances},
+    coi::{compute_coi, update_user_interests, Relevances},
     context::Context,
     data::document_data::{
         DocumentDataWithQAMBert,
@@ -11,6 +11,7 @@ use crate::{
         SMBertComponent,
     },
     ltr::ConstLtr,
+    ranker::config::Configuration,
     reranker::{
         database::Database,
         systems::{
@@ -85,7 +86,7 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
 }
 
 fn mocked_coi_system() -> MockCoiSystem {
-    let config = CoiConfig::default();
+    let config = Configuration::default();
     let neighbors = config.neighbors();
 
     let mut system = MockCoiSystem::new();

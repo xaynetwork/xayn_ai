@@ -1,7 +1,7 @@
 use crate::{data::document_data::CoiComponent, ranker::utils::Id};
 
 /// The context used to calculate a document's score.
-/// https://xainag.atlassian.net/wiki/spaces/M2D/pages/770670607/Production+AI+Workflow#3.2-Context-calculations.
+/// <https://xainag.atlassian.net/wiki/spaces/M2D/pages/770670607/Production+AI+Workflow#3.2-Context-calculations>.
 /// outlines the calculation of positive and negative distance factor.
 pub(crate) struct Context {
     /// Average positive distance.

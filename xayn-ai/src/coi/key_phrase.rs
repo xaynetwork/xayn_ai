@@ -300,7 +300,10 @@ mod tests {
     use itertools::izip;
     use ndarray::arr1;
 
-    use crate::coi::{config::Configuration, utils::tests::create_pos_cois, CoiId};
+    use crate::{
+        coi::{utils::tests::create_pos_cois, CoiId},
+        ranker::config::Configuration,
+    };
     use test_utils::assert_approx_eq;
 
     use super::*;
