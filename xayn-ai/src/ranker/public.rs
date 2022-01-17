@@ -9,10 +9,10 @@ use layer::io::BinParams;
 use rubert::{AveragePooler, SMBertBuilder};
 
 use crate::{
-    coi::{point::UserInterests, Configuration as CoiSystemConfiguration},
+    coi::{point::UserInterests, CoiSystem},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::utils::Document,
+    ranker::{config::Configuration, utils::Document},
 };
 
 pub struct Ranker(super::Ranker);
@@ -149,6 +149,7 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
         KV: BufRead,
         KM: Read,
     {
+        let config = Configuration::default();
         let smbert = SMBert::from(Arc::new(
             self.smbert
                 .with_token_size(52)?
@@ -157,6 +158,7 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
                 .with_pooling(AveragePooler)
                 .build()?,
         ));
+        let coi = CoiSystem::new(config.clone(), smbert.clone());
         let kpe = self
             .kpe
             .with_token_size(150)?
@@ -165,8 +167,9 @@ impl<SV, SM, KV, KM> Builder<SV, SM, KV, KM> {
             .build()?;
 
         Ok(Ranker(super::Ranker::new(
+            config,
             smbert,
-            CoiSystemConfiguration::default(),
+            coi,
             kpe,
             self.user_interests,
         )))

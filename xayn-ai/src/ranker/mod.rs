@@ -1,3 +1,4 @@
+pub(crate) mod config;
 mod context;
 pub(crate) mod public;
 mod utils;
@@ -9,11 +10,12 @@ use kpe::Pipeline as KPE;
 use thiserror::Error;
 
 use crate::{
-    coi::{compute_coi_for_embedding, point::UserInterests, Configuration},
+    coi::{compute_coi_for_embedding, point::UserInterests, CoiSystem},
     data::document_data::CoiComponent,
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
     ranker::{
+        config::Configuration,
         context::Context,
         utils::{Document, Id as DocumentId},
     },
@@ -28,12 +30,15 @@ pub(crate) enum RankerError {
 
 /// The Ranker.
 pub(crate) struct Ranker {
+    /// Ranker configuration.
+    config: Configuration,
     /// SMBert system.
     smbert: SMBert,
-    /// CoI configuration.
-    coi_config: Configuration,
+    /// CoI system.
     #[allow(dead_code)]
+    coi: CoiSystem,
     /// Key phrase extraction system.
+    #[allow(dead_code)]
     kpe: KPE,
     /// The learned user interests.
     user_interests: UserInterests,
@@ -42,14 +47,16 @@ pub(crate) struct Ranker {
 impl Ranker {
     /// Creates a new `Ranker`.
     pub(crate) fn new(
+        config: Configuration,
         smbert: SMBert,
-        coi_config: Configuration,
+        coi: CoiSystem,
         kpe: KPE,
         user_interests: UserInterests,
     ) -> Self {
         Self {
+            config,
             smbert,
-            coi_config,
+            coi,
             kpe,
             user_interests,
         }
@@ -71,7 +78,7 @@ impl Ranker {
     ///
     /// Fails if no user interests are known.
     pub(crate) fn rank(&self, documents: &mut [Document]) -> Result<(), Error> {
-        rank(documents, &self.user_interests, self.coi_config.neighbors())
+        rank(documents, &self.user_interests, self.config.neighbors())
     }
 }
 

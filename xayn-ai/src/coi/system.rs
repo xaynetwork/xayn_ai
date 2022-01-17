@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 use crate::{
     coi::{
-        config::Configuration,
         point::{
             find_closest_coi,
             find_closest_coi_mut,
@@ -21,6 +20,7 @@ use crate::{
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
     embedding::{smbert::SMBert, utils::Embedding},
+    ranker::config::Configuration,
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,

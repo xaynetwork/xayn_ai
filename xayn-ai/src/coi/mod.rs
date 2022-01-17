@@ -1,4 +1,3 @@
-mod config;
 pub(crate) mod key_phrase;
 mod merge;
 pub(crate) mod point;
@@ -13,7 +12,6 @@ pub(crate) use self::{
     system::{compute_coi, update_user_interests, CoiSystemError},
     utils::tests::create_pos_cois,
 };
-pub(crate) use config::Configuration;
 pub(crate) use merge::reduce_cois;
 pub(crate) use system::{compute_coi_for_embedding, CoiSystem, NeutralCoiSystem};
 
