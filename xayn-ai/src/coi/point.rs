@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coi::{stats::CoiStats, CoiId},
     embedding::utils::{l2_distance, Embedding},
+    utils::nan_safe_f32_cmp,
 };
 
 #[obake::versioned]
@@ -196,20 +197,20 @@ pub(super) fn find_closest_coi_index(
         .map(|coi| l2_distance(embedding.view(), coi.point().view()))
         .enumerate()
         .collect::<Vec<_>>();
-    distances.sort_by(|(_, this), (_, other)| this.partial_cmp(other).unwrap());
+    distances.sort_by(|(_, this), (_, other)| nan_safe_f32_cmp(this, other));
     let index = distances[0].0;
 
-    let total = distances.iter().map(|(_, distance)| *distance).sum::<f32>();
-    let distance = if total > 0.0 {
-        distances
-            .iter()
-            .take(neighbors)
-            .zip(distances.iter().take(neighbors).rev())
-            .map(|((_, distance), (_, reversed))| distance * (reversed / total))
-            .sum()
-    } else {
-        0.0
-    };
+    let total = distances.iter().map(|&(_, distance)| distance).sum::<f32>();
+    let distance = (total > 0.)
+        .then(|| {
+            distances
+                .iter()
+                .take(neighbors)
+                .zip(distances.iter().take(neighbors).rev())
+                .map(|((_, distance), (_, reversed))| distance * (reversed / total))
+                .sum()
+        })
+        .unwrap_or_default();
 
     Some((index, distance))
 }
@@ -226,8 +227,8 @@ pub(super) fn find_closest_coi<'coi, CP>(
 where
     CP: CoiPoint,
 {
-    let (index, distance) = find_closest_coi_index(cois, embedding, neighbors)?;
-    Some((&cois[index], distance))
+    find_closest_coi_index(cois, embedding, neighbors)
+        .map(|(index, distance)| (&cois[index], distance))
 }
 
 /// Finds the closest CoI for the given embedding.
@@ -242,8 +243,8 @@ pub(super) fn find_closest_coi_mut<'coi, CP>(
 where
     CP: CoiPoint,
 {
-    let (index, distance) = find_closest_coi_index(cois, embedding, neighbors)?;
-    Some((&mut cois[index], distance))
+    find_closest_coi_index(cois, embedding, neighbors)
+        .map(move |(index, distance)| (&mut cois[index], distance))
 }
 
 #[cfg(test)]
