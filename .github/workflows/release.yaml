@@ -71,7 +71,7 @@ jobs:
         run: sudo apt-get install libclang-10-dev
 
       - name: Install flutter
-        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.0.4
+        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.2.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
@@ -226,7 +226,7 @@ jobs:
         uses: actions/checkout@1e204e9a9253d643386038d443f96446fa156a97 # v2.3.5
 
       - name: Install flutter
-        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.0.4
+        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.2.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
@@ -359,7 +359,7 @@ jobs:
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
 
       - name: Install flutter
-        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.0.4
+        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.2.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 

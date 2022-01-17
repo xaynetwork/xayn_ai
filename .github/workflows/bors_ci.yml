@@ -210,7 +210,7 @@ jobs:
           find . -iname '*.a' -exec cp \{\} ${{ env.DART_WORKSPACE }}/ios \;
 
       - name: Install flutter
-        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.0.4
+        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.2.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
