@@ -72,10 +72,12 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Derivative, Deserialize, Serialize)]
+#[derivative(PartialEq)]
 pub(crate) struct NegativeCoi {
     pub(super) id: CoiId,
     pub(super) point: Embedding,
+    #[derivative(PartialEq = "ignore")]
     pub(super) last_view: SystemTime,
 }
 
