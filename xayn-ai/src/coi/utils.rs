@@ -7,9 +7,20 @@ use crate::{
     DocumentId,
 };
 
-enum DocumentRelevance {
+pub(crate) enum DocumentRelevance {
     Positive,
     Negative,
+}
+
+impl From<(Relevance, UserFeedback)> for DocumentRelevance {
+    fn from(history: (Relevance, UserFeedback)) -> DocumentRelevance {
+        match history {
+            (Relevance::Low, UserFeedback::Irrelevant | UserFeedback::NotGiven) => {
+                DocumentRelevance::Negative
+            }
+            _ => DocumentRelevance::Positive,
+        }
+    }
 }
 
 /// Collects all documents that are present in the history.
@@ -39,24 +50,13 @@ pub(super) fn classify_documents_based_on_user_feedback<D>(
     let mut negative_docs = Vec::<D>::new();
 
     for (history_doc, doc) in matching_documents.into_iter() {
-        match document_relevance(history_doc) {
+        match (history_doc.relevance, history_doc.user_feedback).into() {
             DocumentRelevance::Positive => positive_docs.push(doc),
             DocumentRelevance::Negative => negative_docs.push(doc),
         }
     }
 
     (positive_docs, negative_docs)
-}
-
-/// Determines the [`DocumentRelevance`] based on the user feedback
-/// and the relevance of the result.
-fn document_relevance(history: &DocumentHistory) -> DocumentRelevance {
-    match (history.relevance, history.user_feedback) {
-        (Relevance::Low, UserFeedback::Irrelevant) | (Relevance::Low, UserFeedback::NotGiven) => {
-            DocumentRelevance::Negative
-        }
-        _ => DocumentRelevance::Positive,
-    }
 }
 
 #[cfg(test)]
@@ -186,94 +186,48 @@ pub(super) mod tests {
 
     #[test]
     fn test_user_feedback() {
-        let mut history = DocumentHistory {
-            id: DocumentId::from_u128(1),
-            relevance: Relevance::Low,
-            user_feedback: UserFeedback::Irrelevant,
-            ..Default::default()
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::Low, UserFeedback::Irrelevant).into(),
             DocumentRelevance::Negative,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::Medium,
-            user_feedback: UserFeedback::Irrelevant,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::Medium, UserFeedback::Irrelevant).into(),
             DocumentRelevance::Positive,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::High,
-            user_feedback: UserFeedback::Irrelevant,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::High, UserFeedback::Irrelevant).into(),
             DocumentRelevance::Positive,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::High,
-            user_feedback: UserFeedback::Relevant,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::High, UserFeedback::Relevant).into(),
             DocumentRelevance::Positive,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::Medium,
-            user_feedback: UserFeedback::Relevant,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::Medium, UserFeedback::Relevant).into(),
             DocumentRelevance::Positive,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::Low,
-            user_feedback: UserFeedback::Relevant,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::Low, UserFeedback::Relevant).into(),
             DocumentRelevance::Positive,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::High,
-            user_feedback: UserFeedback::NotGiven,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::High, UserFeedback::NotGiven).into(),
             DocumentRelevance::Positive,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::Medium,
-            user_feedback: UserFeedback::NotGiven,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::Medium, UserFeedback::NotGiven).into(),
             DocumentRelevance::Positive,
         ));
 
-        history = DocumentHistory {
-            relevance: Relevance::Low,
-            user_feedback: UserFeedback::NotGiven,
-            ..history
-        };
         assert!(matches!(
-            document_relevance(&history),
+            (Relevance::Low, UserFeedback::NotGiven).into(),
             DocumentRelevance::Negative,
         ));
     }

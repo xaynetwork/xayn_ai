@@ -14,6 +14,7 @@ pub(crate) use self::{
 };
 pub(crate) use merge::reduce_cois;
 pub(crate) use system::{compute_coi_for_embedding, CoiSystem, NeutralCoiSystem};
+pub(crate) use utils::DocumentRelevance;
 
 use derive_more::From;
 use displaydoc::Display;
