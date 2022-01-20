@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coi::{stats::CoiStats, CoiId},
     embedding::utils::{l2_distance, Embedding},
-    utils::nan_safe_f32_cmp,
+    utils::{nan_safe_f32_cmp, system_time_now},
 };
 
 #[obake::versioned]
@@ -76,6 +76,7 @@ impl From<PositiveCoi_v0_2_0> for PositiveCoi {
 pub(crate) struct NegativeCoi {
     pub(super) id: CoiId,
     pub(super) point: Embedding,
+    pub(super) last_view: SystemTime,
 }
 
 impl NegativeCoi {
@@ -83,6 +84,7 @@ impl NegativeCoi {
         Self {
             id: id.into(),
             point: point.into(),
+            last_view: system_time_now(),
         }
     }
 }
