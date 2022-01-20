@@ -34,8 +34,13 @@ impl CoiPointMerge for PositiveCoi {
 impl CoiPointMerge for NegativeCoi {
     fn merge(self, other: Self, id: CoiId) -> Self {
         let point = mean(self.point.view(), other.point.view()).into();
+        let last_view = self.last_view.max(other.last_view);
 
-        Self { id, point }
+        Self {
+            id,
+            point,
+            last_view,
+        }
     }
 }
 
