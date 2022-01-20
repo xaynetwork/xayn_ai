@@ -97,6 +97,7 @@ void main() {
           queryWords: 'abc',
           url: 'url',
           domain: 'dom',
+          viewed: 0,
         ),
         Document(
           id: 'fcb6a685-eb92-4d36-8686-8a70a3a33004',
@@ -109,6 +110,7 @@ void main() {
           queryWords: 'abc',
           url: 'url2',
           domain: 'dom2',
+          viewed: 0,
         ),
       ];
 
@@ -154,6 +156,7 @@ void main() {
       expect(jsonMap['documents'][1]['query_words'], equals('abc'));
       expect(jsonMap['documents'][1]['url'], equals('url2'));
       expect(jsonMap['documents'][1]['domain'], equals('dom2'));
+      expect(jsonMap['documents'][1]['viewed'], equals(0));
 
       expect(jsonMap['serialized_state'], equals('AQIDBAUGChQH'));
 
@@ -225,6 +228,7 @@ void main() {
       expect(callData.documents[0].queryWords, equals('abc'));
       expect(callData.documents[0].url, equals('url'));
       expect(callData.documents[0].domain, equals('dom'));
+      expect(callData.documents[0].viewed, equals(0));
 
       expect(callData.documents[1].id,
           equals('fcb6a685-eb92-4d36-8686-8a70a3a33004'));
@@ -239,6 +243,7 @@ void main() {
       expect(callData.documents[1].queryWords, equals('abc'));
       expect(callData.documents[1].url, equals('url2'));
       expect(callData.documents[1].domain, equals('dom2'));
+      expect(callData.documents[1].viewed, equals(0));
 
       expect(callData.documents.length, equals(2));
 

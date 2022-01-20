@@ -24,6 +24,7 @@ void main() {
           queryWords: 'query words',
           url: 'url',
           domain: 'domain',
+          viewed: 0,
         ),
         throwsArgumentError,
       );
@@ -39,6 +40,7 @@ void main() {
           queryWords: 'query words',
           url: 'url',
           domain: 'domain',
+          viewed: 0,
         ),
         throwsArgumentError,
       );
@@ -54,6 +56,7 @@ void main() {
           queryWords: 'query words',
           url: 'url',
           domain: 'domain',
+          viewed: 0,
         ),
         throwsArgumentError,
       );
@@ -69,6 +72,7 @@ void main() {
           queryWords: 'query words',
           url: 'url',
           domain: 'domain',
+          viewed: 0,
         ),
         throwsArgumentError,
       );
@@ -84,6 +88,7 @@ void main() {
           queryWords: 'query words',
           url: 'url',
           domain: 'domain',
+          viewed: 0,
         ),
         throwsArgumentError,
       );
@@ -99,6 +104,7 @@ void main() {
           queryWords: '', // empty query words
           url: 'url',
           domain: 'domain',
+          viewed: 0,
         ),
         throwsArgumentError,
       );
@@ -114,6 +120,7 @@ void main() {
           queryWords: 'query words',
           url: '', // empty url
           domain: 'domain',
+          viewed: 0,
         ),
         throwsArgumentError,
       );
@@ -129,6 +136,23 @@ void main() {
           queryWords: 'query words',
           url: 'url',
           domain: '', // empty domain
+          viewed: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Document(
+          id: id,
+          title: 'title',
+          snippet: 'snippet',
+          rank: 0,
+          session: id,
+          queryCount: 1,
+          queryId: id,
+          queryWords: 'query words',
+          url: 'url',
+          domain: 'domain',
+          viewed: -1, // negative viewed
         ),
         throwsArgumentError,
       );
@@ -176,6 +200,7 @@ void main() {
           doc.domain.cast<Utf8>().toDartString(),
           equals(document.domain),
         );
+        expect(doc.viewed, equals(document.viewed));
       });
       expect(docs.ptr.ref.len, equals(documents.length));
       docs.free();

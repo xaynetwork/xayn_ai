@@ -28,6 +28,8 @@ pub struct CDocument<'a> {
     pub url: Option<&'a u8>,
     /// The raw pointer to the document domain.
     pub domain: Option<&'a u8>,
+    /// Seconds viewed of the document.
+    pub viewed: u64,
 }
 
 /// A raw slice of documents.
@@ -136,7 +138,7 @@ impl<'a> CDocuments<'a> {
                         )
                     }?
                     .into();
-                    let viewed = Duration::ZERO;
+                    let viewed = Duration::from_secs(document.viewed);
 
                     Ok(Document {
                         id,
@@ -228,6 +230,7 @@ pub(crate) mod tests {
             let len = self.len();
             let ranks = 0..len as u32;
             let query_counts = iter::repeat(1).take(len);
+            let views = iter::repeat(0).take(len);
 
             let document = izip!(
                 self.ids.iter(),
@@ -240,6 +243,7 @@ pub(crate) mod tests {
                 self.query_words.iter(),
                 self.urls.iter(),
                 self.domains.iter(),
+                views,
             )
             .map(
                 |(
@@ -253,6 +257,7 @@ pub(crate) mod tests {
                     query_words,
                     url,
                     domain,
+                    viewed,
                 )| {
                     CDocument {
                         id: unsafe { id.as_ptr().cast::<u8>().as_ref() },
@@ -265,6 +270,7 @@ pub(crate) mod tests {
                         query_words: unsafe { query_words.as_ptr().cast::<u8>().as_ref() },
                         url: unsafe { url.as_ptr().cast::<u8>().as_ref() },
                         domain: unsafe { domain.as_ptr().cast::<u8>().as_ref() },
+                        viewed,
                     }
                 },
             )

@@ -6,6 +6,3 @@ headers:
     - 'ios/Classes/XaynAiFfiCommon.h'
   include-directives:
     - 'ios/Classes/XaynAiFfiCommon.h'
-compiler-opts-automatic:
-  macos:
-    include-c-standard-library: false
