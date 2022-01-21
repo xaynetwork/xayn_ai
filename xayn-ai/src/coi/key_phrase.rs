@@ -1,7 +1,7 @@
 use std::{borrow::Borrow, collections::BTreeSet, convert::identity, iter::once, time::Duration};
 
 use derivative::Derivative;
-use itertools::{izip, Itertools};
+use itertools::izip;
 use ndarray::{s, Array1, Array2, ArrayBase, Axis, Data, Ix, Ix2};
 use serde::{Deserialize, Serialize};
 
@@ -111,24 +111,30 @@ impl Relevances {
         horizon: Duration,
         penalty: &[f32],
     ) -> Vec<KeyPhrase> {
-        self.compute_relevances(cois, horizon, penalty);
+        self.compute_relevances(cois, horizon);
 
         // TODO: refactor once pop_last() etc are stabilized for BTreeMap
-        let (ids, relevances, key_phrases) = self
-            .iter()
-            .rev()
+        let mut relevances = self
+            .filter(cois.iter().map(|coi| coi.id))
+            .flat_map(|(coi_id, relevance, key_phrases)| {
+                penalty.iter().zip(key_phrases.iter().rev()).map(move |(&penalty, key_phrase)| {
+                    let penalized_relevance = Relevance::new((f32::from(relevance) * penalty).max(f32::MIN).min(f32::MAX)).unwrap(/* finite by construction */);
+                    (coi_id, relevance, penalized_relevance, key_phrase.clone())
+                })
+            }).collect::<Vec<_>>();
+        relevances.sort_unstable_by(|(_, _, this, _), (_, _, other, _)| this.cmp(other).reverse());
+        relevances
+            .into_iter()
             .take(top)
-            .map(|(relevance, coi_id, key_phrase)| (relevance, coi_id, key_phrase.clone()))
-            .multiunzip::<(Vec<_>, Vec<_>, Vec<_>)>();
-        for (coi_id, relevance, key_phrase) in izip!(ids, relevances, &key_phrases) {
-            self.clean(coi_id, relevance, key_phrase);
-        }
-
-        key_phrases
+            .map(|(coi_id, relevance, _, key_phrase)| {
+                self.clean(coi_id, relevance, &key_phrase);
+                key_phrase
+            })
+            .collect()
     }
 }
 
-/// Unifies the key phrases and candidates of the coi.
+/// Unifies the key phrases and candidates.
 fn unify<F>(
     mut key_phrases: BTreeSet<KeyPhrase>,
     candidates: &[String],
@@ -297,13 +303,9 @@ fn select(
 mod tests {
     use std::time::Duration;
 
-    use itertools::izip;
     use ndarray::arr1;
 
-    use crate::{
-        coi::{utils::tests::create_pos_cois, CoiId},
-        ranker::config::Configuration,
-    };
+    use crate::{coi::utils::tests::create_pos_cois, ranker::config::Configuration};
     use test_utils::assert_approx_eq;
 
     use super::*;
@@ -325,24 +327,6 @@ mod tests {
         );
         assert!(relevances.cois_is_empty());
         assert!(relevances.relevances_is_empty());
-    }
-
-    impl Relevances {
-        fn new<const N: usize>(
-            ids: [CoiId; N],
-            relevances: [f32; N],
-            key_phrases: Vec<KeyPhrase>,
-        ) -> Self {
-            assert!(IntoIterator::into_iter(relevances).all(f32::is_finite));
-            assert_eq!(key_phrases.len(), N);
-
-            let mut this = Self::default();
-            for (coi_id, relevance, key_phrase) in izip!(ids, relevances, key_phrases) {
-                this.insert(coi_id, Relevance::new(relevance).unwrap(), key_phrase);
-            }
-
-            this
-        }
     }
 
     #[test]

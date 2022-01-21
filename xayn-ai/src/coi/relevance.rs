@@ -50,18 +50,19 @@ pub(crate) struct Relevances {
 }
 
 impl Relevances {
-    /// Iterates over all tuples in ascending relevance.
-    pub(super) fn iter(
+    /// Iterates over all tuples with matching ids in ascending relevance.
+    pub(super) fn filter(
         &self,
-    ) -> impl Iterator<Item = (CoiId, Relevance, &KeyPhrase)> + DoubleEndedIterator {
-        self.relevance_to_key_phrase
-            .iter()
-            .map(|(&(relevance, coi_id), key_phrases)| {
-                key_phrases
-                    .iter()
-                    .map(move |key_phrase| (coi_id, relevance, key_phrase))
-            })
-            .flatten()
+        coi_ids: impl Clone + Iterator<Item = CoiId>,
+    ) -> impl Iterator<Item = (CoiId, Relevance, &[KeyPhrase])> + DoubleEndedIterator {
+        self.relevance_to_key_phrase.iter().filter_map(
+            move |(&(relevance, coi_id), key_phrases)| {
+                coi_ids
+                    .clone()
+                    .any(|id| id == coi_id)
+                    .then(move || (coi_id, relevance, key_phrases.as_slice()))
+            },
+        )
     }
 
     /// Inserts the tuple.
@@ -76,7 +77,7 @@ impl Relevances {
             .push(key_phrase);
     }
 
-    /// Removes all tuples with the given id.
+    /// Removes all tuples with a matching id.
     pub(super) fn remove(&mut self, coi_id: CoiId) -> Option<BTreeSet<KeyPhrase>> {
         self.coi_to_relevance
             .remove(&coi_id)
@@ -111,28 +112,38 @@ impl Relevances {
         }
     }
 
-    /// Replaces the relevances in the tuples with the given id.
-    pub(super) fn replace(&mut self, coi_id: CoiId, mut relevances: Vec<Relevance>) {
+    /// Replaces the relevances in the tuples with a matching id.
+    ///
+    /// If old key phrases exist, then their order is preserved under the new relevance.
+    pub(super) fn replace(&mut self, coi_id: CoiId, relevance: Relevance) {
         if let Some(old_relevances) = self
             .coi_to_relevance
-            .insert(coi_id, relevances.iter().copied().collect())
+            .insert(coi_id, IntoIterator::into_iter([relevance]).collect())
         {
-            relevances.sort_unstable_by(|this, other| this.cmp(other).reverse());
-            let key_phrases = old_relevances
-                .into_iter()
-                .map(|old_relevance| {
+            let len = old_relevances
+                .iter()
+                .filter_map(|&old_relevance| {
                     self.relevance_to_key_phrase
-                        .remove(&(old_relevance, coi_id))
-                        .unwrap_or_default()
+                        .get(&(old_relevance, coi_id))
+                        .map(|key_phrases| key_phrases.len())
                 })
-                .flatten()
-                .rev()
-                .collect::<Vec<_>>();
-            for (relevance, key_phrase) in relevances.into_iter().zip(key_phrases) {
+                .sum::<usize>();
+            if len > 0 {
                 self.relevance_to_key_phrase
                     .entry((relevance, coi_id))
-                    .or_default()
-                    .push(key_phrase);
+                    .and_modify(|key_phrases| key_phrases.reserve_exact(len))
+                    .or_insert_with(|| Vec::with_capacity(len));
+                for old_relevance in old_relevances {
+                    if let Some(old_key_phrases) = self
+                        .relevance_to_key_phrase
+                        .remove(&(old_relevance, coi_id))
+                    {
+                        self.relevance_to_key_phrase
+                            .entry((relevance, coi_id))
+                            .or_default()
+                            .extend(old_key_phrases);
+                    }
+                }
             }
         }
     }
@@ -140,8 +151,12 @@ impl Relevances {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter::once, ops::Index};
+    use std::{
+        iter::{once, repeat},
+        ops::Index,
+    };
 
+    use itertools::izip;
     use ndarray::Ix;
 
     use test_utils::ApproxEqIter;
@@ -149,6 +164,38 @@ mod tests {
     use super::*;
 
     impl Relevances {
+        pub(crate) fn new<const N: usize>(
+            ids: [CoiId; N],
+            relevances: [f32; N],
+            key_phrases: Vec<KeyPhrase>,
+        ) -> Self {
+            assert!(IntoIterator::into_iter(relevances).all(f32::is_finite));
+            let len = key_phrases.len();
+            assert!(len <= N);
+            let key_phrases = key_phrases
+                .into_iter()
+                .map(Some)
+                .chain(repeat(None).take(N - len))
+                .collect::<Vec<_>>();
+
+            let mut this = Self::default();
+            for (coi_id, relevance, key_phrase) in izip!(ids, relevances, key_phrases) {
+                let relevance = Relevance::new(relevance).unwrap();
+                this.coi_to_relevance
+                    .entry(coi_id)
+                    .or_default()
+                    .insert(relevance);
+                if let Some(key_phrase) = key_phrase {
+                    this.relevance_to_key_phrase
+                        .entry((relevance, coi_id))
+                        .or_default()
+                        .push(key_phrase);
+                }
+            }
+
+            this
+        }
+
         pub(crate) fn cois_len(&self) -> usize {
             self.coi_to_relevance.len()
         }
