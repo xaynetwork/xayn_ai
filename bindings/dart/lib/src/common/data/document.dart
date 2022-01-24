@@ -37,6 +37,9 @@ class Document {
   /// Domain of the document
   final String domain;
 
+  /// Seconds viewed of the document.
+  final int viewed;
+
   /// Creates the document.
   Document({
     required this.id,
@@ -49,6 +52,7 @@ class Document {
     required this.queryWords,
     required this.url,
     required this.domain,
+    required this.viewed,
   }) {
     if (id.isEmpty) {
       throw ArgumentError('empty document id');
@@ -73,6 +77,9 @@ class Document {
     }
     if (domain.isEmpty) {
       throw ArgumentError('empty document domain');
+    }
+    if (viewed < 0) {
+      throw ArgumentError('negative view time');
     }
   }
 

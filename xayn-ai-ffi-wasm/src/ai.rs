@@ -312,6 +312,7 @@ mod tests {
         let domains = (0..len)
             .map(|idx| format!("domain-{}", idx))
             .collect::<Vec<_>>();
+        let views = repeat(Duration::ZERO).take(len);
 
         izip!(
             ids,
@@ -323,7 +324,8 @@ mod tests {
             query_ids,
             query_words,
             urls,
-            domains
+            domains,
+            views,
         )
         .map(|doc| {
             JsValue::from_serde(&Document {
@@ -337,7 +339,7 @@ mod tests {
                 query_words: doc.7,
                 url: doc.8,
                 domain: doc.9,
-                viewed: Duration::ZERO,
+                viewed: doc.10,
             })
             .unwrap()
         })

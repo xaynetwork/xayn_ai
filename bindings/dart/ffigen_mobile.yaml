@@ -6,6 +6,3 @@ headers:
     - 'ios/Classes/XaynAiFfiDart.h'
   include-directives:
     - 'ios/Classes/XaynAiFfiDart.h'
-compiler-opts-automatic:
-  macos:
-    include-c-standard-library: false
