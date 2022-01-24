@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coi::{
         point::PositiveCoi,
-        relevance::{Relevance, Relevances},
+        relevance::{Relevance, RelevanceMap},
     },
     utils::{system_time_now, SECONDS_PER_DAY},
 };
@@ -57,7 +57,7 @@ impl PositiveCoi {
     }
 }
 
-impl Relevances {
+impl RelevanceMap {
     /// Computes the relevances of the positive cois.
     ///
     /// The relevance of each coi is computed from its view count and view time relative to the
@@ -88,7 +88,7 @@ impl Relevances {
                 / SECONDS_PER_DAY)
                 .exp();
             let last = ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.);
-            let relevance = Relevance::new(((count + time) * last).max(0.).min(f32::MAX)).unwrap(/* finite by construction */);
+            let relevance = Relevance::coi(((count + time) * last).max(0.).min(f32::MAX)).unwrap(/* finite by construction */);
             self.replace(coi.id, relevance);
         }
     }
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_compute_relevances_empty_cois() {
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let cois = create_pos_cois(&[[]]);
         let config = Configuration::default();
 
@@ -119,20 +119,20 @@ mod tests {
 
     #[test]
     fn test_compute_relevances_zero_horizon() {
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
         let config = Configuration::default().with_horizon(Duration::ZERO);
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
-        assert_approx_eq!(f32, relevances[cois[0].id], [0.]);
-        assert_approx_eq!(f32, relevances[cois[1].id], [0.]);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.);
         assert!(relevances.relevances_is_empty());
     }
 
     #[test]
     fn test_compute_relevances_count() {
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_count += 1;
         cois[2].stats.view_count += 2;
@@ -141,15 +141,15 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
-        assert_approx_eq!(f32, relevances[cois[0].id], [0.5], epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], [0.6666667], epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[2].id], [0.8333333], epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.5, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[2].id], 0.8333333, epsilon = 1e-5);
         assert!(relevances.relevances_is_empty());
     }
 
     #[test]
     fn test_compute_relevances_time() {
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_time += Duration::from_secs(10);
         cois[2].stats.view_time += Duration::from_secs(20);
@@ -158,15 +158,15 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
-        assert_approx_eq!(f32, relevances[cois[0].id], [0.5], epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], [0.6666667], epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[2].id], [0.8333333], epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.5, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[2].id], 0.8333333, epsilon = 1e-5);
         assert!(relevances.relevances_is_empty());
     }
 
     #[test]
     fn test_compute_relevances_last() {
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
         cois[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
@@ -176,9 +176,9 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
-        assert_approx_eq!(f32, relevances[cois[0].id], [0.48729968], epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], [0.15438259], epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[2].id], [0.]);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.48729968, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.15438259, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[2].id], 0.);
         assert!(relevances.relevances_is_empty());
     }
 
@@ -192,7 +192,7 @@ mod tests {
             KeyPhrase::new("test", Array1::default((3,))).unwrap(),
             KeyPhrase::new("words", Array1::default((3,))).unwrap(),
         ];
-        let mut relevances = Relevances::new(
+        let mut relevances = RelevanceMap::kp(
             [
                 cois[0].id, cois[0].id, cois[0].id, cois[1].id, cois[1].id, cois[2].id,
             ],
@@ -203,13 +203,17 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), 3);
-        assert_eq!(relevances[cois[0].id].len(), 1);
-        assert_eq!(relevances[cois[1].id].len(), 1);
-        assert_eq!(relevances[cois[2].id].len(), 1);
+        assert!(relevances[cois[0].id].is_coi());
+        assert!(relevances[cois[1].id].is_coi());
+        assert!(relevances[cois[2].id].is_coi());
         assert_eq!(relevances.relevances_len(), 2);
-        let relevance = relevances[cois[0].id].iter().copied().next().unwrap();
-        assert_eq!(relevances[(cois[0].id, relevance)], key_phrases[..3]);
-        let relevance = relevances[cois[1].id].iter().copied().next().unwrap();
-        assert_eq!(relevances[(cois[1].id, relevance)], key_phrases[3..]);
+        assert_eq!(
+            relevances[(cois[0].id, relevances[cois[0].id].to_relevance(0))],
+            key_phrases[..3],
+        );
+        assert_eq!(
+            relevances[(cois[1].id, relevances[cois[1].id].to_relevance(0))],
+            key_phrases[3..],
+        );
     }
 }
