@@ -11,7 +11,13 @@ use kpe::Pipeline as KPE;
 use thiserror::Error;
 
 use crate::{
-    coi::{compute_coi_for_embedding, point::UserInterests, CoiSystem, DocumentRelevance},
+    coi::{
+        compute_coi_for_embedding,
+        key_phrase::KeyPhrase,
+        point::UserInterests,
+        CoiSystem,
+        DocumentRelevance,
+    },
     data::{
         document::{Relevance, UserFeedback},
         document_data::CoiComponent,
@@ -112,6 +118,12 @@ impl Ranker {
                 &self.config,
             ),
         }
+    }
+
+    /// Selects the top key phrases from the positive cois, sorted in descending relevance.
+    pub(crate) fn select_top_key_phrases(&mut self, top: usize) -> Vec<KeyPhrase> {
+        self.coi
+            .select_top_key_phrases(&self.user_interests.positive, &self.config, top)
     }
 }
 

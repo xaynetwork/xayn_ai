@@ -17,7 +17,7 @@ use crate::{
 
 #[derive(Clone, Debug, Derivative, Deserialize, Serialize)]
 #[derivative(Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) struct KeyPhrase {
+pub struct KeyPhrase {
     words: String,
     #[derivative(Ord = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
     point: ArcEmbedding,
@@ -103,7 +103,6 @@ impl Relevances {
     /// Selects the top key phrases from the positive cois, sorted in descending relevance.
     ///
     /// The selected key phrases and their relevances are removed from the maps.
-    #[allow(dead_code)]
     pub(super) fn select_top_key_phrases(
         &mut self,
         cois: &[PositiveCoi],

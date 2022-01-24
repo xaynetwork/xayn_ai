@@ -92,7 +92,6 @@ impl Configuration {
     }
 
     /// The time since the last view after which a coi becomes irrelevant.
-    #[cfg(test)]
     pub(crate) fn horizon(&self) -> Duration {
         self.horizon
     }
@@ -124,7 +123,6 @@ impl Configuration {
     /// The penalty for less relevant key phrases of a coi in increasing order (ie. lowest penalty
     /// for the most relevant key phrase first and highest penalty for the least relevant key phrase
     /// last). The length of the penalty also serves as the maximum number of key phrases.
-    #[cfg(test)]
     pub(crate) fn penalty(&self) -> &[f32] {
         &self.penalty
     }
