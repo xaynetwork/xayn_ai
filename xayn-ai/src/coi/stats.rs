@@ -125,6 +125,8 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_coi());
+        assert!(relevances[cois[1].id].is_coi());
         assert_approx_eq!(f32, relevances[cois[0].id], 0.);
         assert_approx_eq!(f32, relevances[cois[1].id], 0.);
         assert!(relevances.relevances_is_empty());
@@ -141,6 +143,9 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_coi());
+        assert!(relevances[cois[1].id].is_coi());
+        assert!(relevances[cois[2].id].is_coi());
         assert_approx_eq!(f32, relevances[cois[0].id], 0.5, epsilon = 1e-5);
         assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-5);
         assert_approx_eq!(f32, relevances[cois[2].id], 0.8333333, epsilon = 1e-5);
@@ -158,6 +163,9 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_coi());
+        assert!(relevances[cois[1].id].is_coi());
+        assert!(relevances[cois[2].id].is_coi());
         assert_approx_eq!(f32, relevances[cois[0].id], 0.5, epsilon = 1e-5);
         assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-5);
         assert_approx_eq!(f32, relevances[cois[2].id], 0.8333333, epsilon = 1e-5);
@@ -176,6 +184,9 @@ mod tests {
 
         relevances.compute_relevances(&cois, config.horizon());
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_coi());
+        assert!(relevances[cois[1].id].is_coi());
+        assert!(relevances[cois[2].id].is_coi());
         assert_approx_eq!(f32, relevances[cois[0].id], 0.48729968, epsilon = 1e-5);
         assert_approx_eq!(f32, relevances[cois[1].id], 0.15438259, epsilon = 1e-5);
         assert_approx_eq!(f32, relevances[cois[2].id], 0.);

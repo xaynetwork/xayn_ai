@@ -286,6 +286,11 @@ mod tests {
         pub(crate) fn is_coi(&self) -> bool {
             matches!(self, Self(Rels::Coi(_)))
         }
+
+        /// Checks if these are key phrase relevances.
+        pub(crate) fn is_kp(&self) -> bool {
+            matches!(self, Self(Rels::Kps(_)))
+        }
     }
 
     impl RelevanceMap {

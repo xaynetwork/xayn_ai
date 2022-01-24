@@ -348,6 +348,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
         assert_eq!(relevances.relevances_len(), key_phrases.len());
         assert_eq!(
@@ -390,6 +391,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
         assert_eq!(relevances.relevances_len(), key_phrases.len());
         assert_eq!(
@@ -434,6 +436,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.7905694, 0.91287094, 1.]);
         assert_eq!(relevances.relevances_len(), config.max_key_phrases());
         assert_eq!(
@@ -482,6 +485,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
         assert_eq!(relevances.relevances_len(), key_phrases.len());
         assert_eq!(
@@ -524,6 +528,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.]);
         assert_eq!(relevances.relevances_len(), 1);
         assert_eq!(
@@ -562,6 +567,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.8164967, 1.]);
         assert_eq!(relevances.relevances_len(), key_phrases.len());
         assert_eq!(
@@ -604,6 +610,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0.]);
         assert_eq!(relevances.relevances_len(), 1);
         assert_eq!(
@@ -642,6 +649,7 @@ mod tests {
             config.gamma(),
         );
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_kp());
         assert_approx_eq!(f32, relevances[cois[0].id], [0., 1.]);
         assert_eq!(relevances.relevances_len(), key_phrases.len());
         assert_eq!(
@@ -685,6 +693,9 @@ mod tests {
         );
         assert!(top_key_phrases.is_empty());
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_coi());
+        assert!(relevances[cois[1].id].is_coi());
+        assert!(relevances[cois[2].id].is_coi());
         assert!(relevances.relevances_is_empty());
     }
 
@@ -707,6 +718,9 @@ mod tests {
             relevances.select_top_key_phrases(&cois, 0, config.horizon(), config.penalty());
         assert!(top_key_phrases.is_empty());
         assert_eq!(relevances.cois_len(), cois.len());
+        assert!(relevances[cois[0].id].is_coi());
+        assert!(relevances[cois[1].id].is_coi());
+        assert!(relevances[cois[2].id].is_coi());
         assert_eq!(relevances.relevances_len(), key_phrases.len());
     }
 
