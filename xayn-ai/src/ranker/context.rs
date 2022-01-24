@@ -1,4 +1,4 @@
-use crate::{data::document_data::CoiComponent, ranker::utils::Id};
+use crate::{data::document_data::CoiComponent, ranker::document::Id};
 
 /// The context used to calculate a document's score.
 /// <https://xainag.atlassian.net/wiki/spaces/M2D/pages/770670607/Production+AI+Workflow#3.2-Context-calculations>.
@@ -39,7 +39,7 @@ impl Context {
 mod tests {
     use crate::{
         data::document_data::CoiComponent,
-        ranker::{context::Context, utils::Id},
+        ranker::{context::Context, document::Id},
         CoiId,
     };
     use test_utils::assert_approx_eq;
