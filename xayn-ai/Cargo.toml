@@ -19,7 +19,7 @@ ndarray = "=0.15.3"
 obake = { git = "https://github.com/doctorn/obake", rev = "d6bea07e355ca4adf353c1e627f13c8c3286361b" }
 rand = "0.8.4"
 rubert = { path = "../rubert" }
-serde = { version = "1.0.133", features = ["derive"] }
+serde = { version = "1.0.135", features = ["derive"] }
 serde_repr = "0.1.7"
 smallvec = "1.8.0"
 thiserror = "1.0.30"
