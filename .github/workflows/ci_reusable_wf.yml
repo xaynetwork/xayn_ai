@@ -205,7 +205,7 @@ jobs:
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
 
       - name: Install flutter
-        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.2.0
+        uses: subosito/flutter-action@d5878a0492e1bc2b588e8e7480e4f12150ddf393 # v2.2.1
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
@@ -233,7 +233,7 @@ jobs:
         uses: ./.ci/install-gomplate
 
       - name: Install flutter
-        uses: subosito/flutter-action@31089a7435740bf0fd0a0d59e70be45bdc6390ee # v2.2.0
+        uses: subosito/flutter-action@d5878a0492e1bc2b588e8e7480e4f12150ddf393 # v2.2.1
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
 
