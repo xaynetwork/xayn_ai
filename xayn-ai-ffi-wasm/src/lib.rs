@@ -4,6 +4,8 @@
     forbid(rustdoc::broken_intra_doc_links, rustdoc::private_intra_doc_links)
 )]
 #![forbid(unsafe_op_in_unsafe_fn)]
+// TODO: remove clippy lint once wasm-bindgen fixes the regression from 0.2.79
+#![allow(clippy::unused_unit)]
 
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use ::{
