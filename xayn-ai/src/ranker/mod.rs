@@ -18,12 +18,9 @@ use crate::{
     },
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::{
-        config::Configuration,
-        context::Context,
-        document::{Document, Id as DocumentId},
-    },
+    ranker::{config::Configuration, context::Context, document::Document},
     utils::nan_safe_f32_cmp,
+    DocumentId,
 };
 
 #[derive(Error, Debug, Display)]
@@ -172,7 +169,7 @@ fn compute_score_for_docs(
 mod tests {
     use ndarray::arr1;
 
-    use crate::{coi::create_pos_cois, ranker::document::TestDocument};
+    use crate::{coi::create_pos_cois, ranker::document::TestDocument, DocumentId};
 
     use super::*;
 

@@ -1,4 +1,4 @@
-use crate::{data::document_data::CoiComponent, ranker::document::Id};
+use crate::{data::document_data::CoiComponent, ranker::DocumentId};
 
 /// The context used to calculate a document's score.
 /// <https://xainag.atlassian.net/wiki/spaces/M2D/pages/770670607/Production+AI+Workflow#3.2-Context-calculations>.
@@ -11,7 +11,7 @@ pub(crate) struct Context {
 }
 
 impl Context {
-    pub(crate) fn from_cois(cois: &[(Id, CoiComponent)]) -> Self {
+    pub(crate) fn from_cois(cois: &[(DocumentId, CoiComponent)]) -> Self {
         let cois_len = cois.len() as f32;
         let pos_avg = cois.iter().map(|(_, coi)| coi.pos_distance).sum::<f32>() / cois_len;
         let neg_max = cois
@@ -39,7 +39,7 @@ impl Context {
 mod tests {
     use crate::{
         data::document_data::CoiComponent,
-        ranker::{context::Context, document::Id},
+        ranker::{context::Context, DocumentId},
         CoiId,
     };
     use test_utils::assert_approx_eq;
@@ -87,7 +87,7 @@ mod tests {
     fn test_from_cois() {
         let cois = vec![
             (
-                Id::from_u128(0),
+                DocumentId::from_u128(0),
                 CoiComponent {
                     id: CoiId::mocked(1),
                     pos_distance: 1.,
@@ -95,7 +95,7 @@ mod tests {
                 },
             ),
             (
-                Id::from_u128(0),
+                DocumentId::from_u128(0),
                 CoiComponent {
                     id: CoiId::mocked(2),
                     pos_distance: 6.,
@@ -103,7 +103,7 @@ mod tests {
                 },
             ),
             (
-                Id::from_u128(0),
+                DocumentId::from_u128(0),
                 CoiComponent {
                     id: CoiId::mocked(3),
                     pos_distance: 8.,

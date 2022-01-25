@@ -1,22 +1,9 @@
 // Copy of the document struct of the DE
-use uuid::Uuid;
-
-use crate::embedding::utils::Embedding;
-
-/// Unique identifier of the [`Document`].
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct Id(pub Uuid);
-
-impl Id {
-    /// Creates a [`Id`] from a 128bit value in big-endian order.
-    pub fn from_u128(id: u128) -> Self {
-        Id(Uuid::from_u128(id))
-    }
-}
+use crate::{embedding::utils::Embedding, DocumentId};
 
 pub trait Document {
     /// Gets the document id.
-    fn id(&self) -> Id;
+    fn id(&self) -> DocumentId;
 
     /// Gets the SMBert embedding of the document.
     fn smbert_embedding(&self) -> &Embedding;
@@ -24,13 +11,13 @@ pub trait Document {
 
 #[cfg(test)]
 pub(super) struct TestDocument {
-    pub(super) id: Id,
+    pub(super) id: DocumentId,
     pub(super) smbert_embedding: Embedding,
 }
 
 #[cfg(test)]
 impl Document for TestDocument {
-    fn id(&self) -> Id {
+    fn id(&self) -> DocumentId {
         self.id
     }
 
