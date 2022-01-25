@@ -33,9 +33,12 @@ impl Ord for F32 {
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct Relevance(Rel);
 
+/// Relevance score variants.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum Rel {
+    /// A coi relevance score.
     Coi(F32),
+    /// A key phrase relevance score.
     Kp(F32),
 }
 
@@ -78,9 +81,12 @@ impl From<Relevance> for f32 {
 #[derive(Debug)]
 pub(crate) struct Relevances(Rels);
 
+/// Relevance scores variants.
 #[derive(Debug)]
 enum Rels {
+    /// Coi relevance scores.
     Coi(F32),
+    /// Key phrases relevance scores.
     Kps(BTreeSet<F32>),
 }
 
