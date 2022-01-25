@@ -16,10 +16,9 @@ use onnxruntime::{environment::Environment, session::Session, GraphOptimizationL
 
 use rubert::{
     kinds::{QAMBert, SMBert},
-    Builder as BertBuilder,
+    Configuration,
     Embedding2,
     NonePooler,
-    Pipeline as BertPipeline,
 };
 use rubert_tokenizer::{Builder as TokenizerBuilder, Padding, Tokenizer, Truncation};
 #[allow(unused_imports)]
@@ -116,9 +115,9 @@ enum Pipeline {
         _environment: Pin<Box<(Environment, PhantomPinned)>>,
     },
     /// A SMBert model pipeline for the tract runtime.
-    TractSMBert(BertPipeline<SMBert, NonePooler>),
+    TractSMBert(rubert::Pipeline<SMBert, NonePooler>),
     /// A QAMBert model pipeline for the tract runtime.
-    TractQAMBert(BertPipeline<QAMBert, NonePooler>),
+    TractQAMBert(rubert::Pipeline<QAMBert, NonePooler>),
 }
 
 // prevent moving out of the pipeline, since we can't pin the session together with the environment
@@ -165,32 +164,28 @@ impl Pipeline {
                 }
             }
             ModelKind::TractSMBert => {
-                let pipeline =
-                    BertBuilder::from_files(model.vocab.as_path(), model.model.as_path())
+                let config =
+                    Configuration::from_files(model.vocab.as_path(), model.model.as_path())
                         .unwrap()
                         .with_accents(tokenizer.accents)
                         .with_lowercase(tokenizer.lowercase)
                         .with_token_size(tokenizer.token_size)
                         .unwrap()
-                        .with_pooling(NonePooler)
-                        .build()
-                        .unwrap();
+                        .with_pooling(NonePooler);
 
-                Self::TractSMBert(pipeline)
+                Self::TractSMBert(rubert::Pipeline::from(config).unwrap())
             }
             ModelKind::TractQAMBert => {
-                let pipeline =
-                    BertBuilder::from_files(model.vocab.as_path(), model.model.as_path())
+                let config =
+                    Configuration::from_files(model.vocab.as_path(), model.model.as_path())
                         .unwrap()
                         .with_accents(tokenizer.accents)
                         .with_lowercase(tokenizer.lowercase)
                         .with_token_size(tokenizer.token_size)
                         .unwrap()
-                        .with_pooling(NonePooler)
-                        .build()
-                        .unwrap();
+                        .with_pooling(NonePooler);
 
-                Self::TractQAMBert(pipeline)
+                Self::TractQAMBert(rubert::Pipeline::from(config).unwrap())
             }
         }
     }

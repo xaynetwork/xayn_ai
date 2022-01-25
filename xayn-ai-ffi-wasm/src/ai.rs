@@ -1,6 +1,17 @@
+use std::io::BufReader;
+
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
-use xayn_ai::{Builder, Document, DocumentHistory, RerankMode, Reranker};
+
+use xayn_ai::{
+    Builder,
+    Document,
+    DocumentHistory,
+    QAMBertConfig,
+    RerankMode,
+    Reranker,
+    SMBertConfig,
+};
 use xayn_ai_ffi::CCode;
 
 use crate::error::IntoJsResult;
@@ -31,7 +42,17 @@ impl WXaynAi {
     ) -> Result<WXaynAi, JsValue> {
         console_error_panic_hook::set_once();
 
-        Builder::default()
+        let smbert_config = SMBertConfig::from_readers(
+            Box::new(BufReader::new(smbert_vocab)),
+            Box::new(smbert_model),
+        );
+
+        let qambert_config = QAMBertConfig::from_readers(
+            Box::new(BufReader::new(qambert_vocab)),
+            Box::new(qambert_model),
+        );
+
+        Builder::from(smbert_config, qambert_config)
             .with_serialized_database(serialized)
             .map_err(|cause| {
                 CCode::RerankerDeserialization.with_context(format!(
@@ -40,8 +61,6 @@ impl WXaynAi {
                 ))
             })
             .into_js_result()?
-            .with_smbert_from_reader(smbert_vocab, smbert_model)
-            .with_qambert_from_reader(qambert_vocab, qambert_model)
             .with_domain_from_reader(ltr_model)
             .build()
             .map(WXaynAi)

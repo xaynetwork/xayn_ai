@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Error};
 use serde::Serialize;
 use structopt::StructOpt;
 
-use xayn_ai::{Analytics, Builder as AiBuilder, RerankingOutcomes};
+use xayn_ai::{Analytics, Builder as AiBuilder, QAMBertConfig, RerankingOutcomes, SMBertConfig};
 
 use crate::{
     exit_code::{NON_FATAL_ERROR, NO_ERROR},
@@ -63,19 +63,14 @@ impl RunCallDataCmd {
 
         let call_data = CallData::load_from_file(&call_data).context("Parsing Call Data Failed")?;
 
-        let mut xayn_ai = AiBuilder::default()
+        let smbert_config =
+            SMBertConfig::from_files(Self::SMBERT_VOCAB_PATH, Self::SMBERT_MODEL_PATH)?;
+        let qambert_config =
+            QAMBertConfig::from_files(Self::QAMBERT_VOCAB_PATH, Self::QAMBERT_MODEL_PATH)?;
+
+        let mut xayn_ai = AiBuilder::from(smbert_config, qambert_config)
             .with_serialized_database(call_data.serialized_state)
             .context("Deserializing database failed.")?
-            .with_qambert_from_file(
-                data_dir.join(Self::QAMBERT_VOCAB_PATH),
-                data_dir.join(Self::QAMBERT_MODEL_PATH),
-            )
-            .context("Loading QA-mBert failed.")?
-            .with_smbert_from_file(
-                data_dir.join(Self::SMBERT_VOCAB_PATH),
-                data_dir.join(Self::SMBERT_MODEL_PATH),
-            )
-            .context("Loading S-mBert failed.")?
             .with_domain_from_file(data_dir.join(Self::LTR_MODEL_PATH))
             .context("Loading LTR failed.")?
             .build()

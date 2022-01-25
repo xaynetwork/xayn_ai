@@ -34,6 +34,10 @@ pub use crate::{
     },
 };
 
+// We need to re-export these, since they encapsulate the arguments
+// required for pipeline construction, and are passed to builders.
+pub use rubert::{QAMBertConfig, SMBertConfig};
+
 #[cfg(test)]
 mod tests;
 

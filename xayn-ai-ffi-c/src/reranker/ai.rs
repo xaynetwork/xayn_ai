@@ -1,6 +1,6 @@
 use std::panic::AssertUnwindSafe;
 
-use xayn_ai::{Builder, RerankMode, Reranker};
+use xayn_ai::{Builder, QAMBertConfig, RerankMode, Reranker, SMBertConfig};
 use xayn_ai_ffi::{CCode, Error};
 
 #[cfg(feature = "multithreaded")]
@@ -75,11 +75,17 @@ impl CXaynAi {
             unsafe { as_str(qambert_model, CCode::QAMBertModelPointer, FAIL_INIT_AI) }?;
         let ltr_model = unsafe { as_str(ltr_model, CCode::LtrModelPointer, FAIL_INIT_AI) }?;
 
-        Builder::default()
-            .with_smbert_from_file(smbert_vocab, smbert_model)
-            .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
-            .with_qambert_from_file(qambert_vocab, qambert_model)
-            .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
+        let smbert_config =
+            SMBertConfig::from_files(smbert_vocab, smbert_model).map_err(|cause| {
+                CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause))
+            })?;
+
+        let qambert_config =
+            QAMBertConfig::from_files(qambert_vocab, qambert_model).map_err(|cause| {
+                CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause))
+            })?;
+
+        Builder::from(smbert_config, qambert_config)
             .with_domain_from_file(ltr_model)
             .map_err(|cause| CCode::ReadFile.with_context(format!("{}: {}", FAIL_INIT_AI, cause)))?
             .with_serialized_database(serialized)

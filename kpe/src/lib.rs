@@ -1,39 +1,19 @@
 //! The KPE pipeline extracts key phrases from a sequence.
 //!
-//! ```no_run
-//! use kpe::Builder;
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let kpe = Builder::from_files(
-//!         "vocab.txt",
-//!         "bert.onnx",
-//!         "cnn.binparams",
-//!         "classifier.binparams",
-//!     )?
-//!     .with_accents(false)
-//!     .with_lowercase(false)
-//!     .with_token_size(64)?
-//!     .build()?;
-//!
-//!     let key_phrases = kpe.run("This is a sequence.")?;
-//!     assert_eq!(key_phrases.len(), 12);
-//!
-//!     Ok(())
-//! }
-//! ```
+//! See `examples/` for a usage example.
 #![cfg_attr(
     doc,
     forbid(rustdoc::broken_intra_doc_links, rustdoc::private_intra_doc_links)
 )]
 #![forbid(unsafe_op_in_unsafe_fn)]
 
-mod builder;
+mod configuration;
 mod model;
 mod pipeline;
 mod tokenizer;
 
 pub use crate::{
-    builder::{Builder, BuilderError},
+    configuration::{Configuration, ConfigurationError},
     pipeline::{Pipeline, PipelineError},
     tokenizer::key_phrase::RankedKeyPhrases,
 };
