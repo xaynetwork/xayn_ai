@@ -26,6 +26,8 @@ use crate::{
     Error,
 };
 
+use super::key_phrase::KeyPhrase;
+
 #[derive(Error, Debug, Display)]
 pub(crate) enum CoiSystemError {
     /// No CoI could be found for the given embedding
@@ -79,6 +81,17 @@ impl CoiSystem {
         config: &Configuration,
     ) {
         update_negative_coi(cois, embedding, config);
+    }
+
+    /// Selects the top key phrases from the positive cois, sorted in descending relevance.
+    pub(crate) fn select_top_key_phrases(
+        &mut self,
+        cois: &[PositiveCoi],
+        config: &Configuration,
+        top: usize,
+    ) -> Vec<KeyPhrase> {
+        self.relevances
+            .select_top_key_phrases(cois, top, config.horizon(), config.penalty())
     }
 }
 

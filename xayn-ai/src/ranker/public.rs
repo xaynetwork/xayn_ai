@@ -9,7 +9,7 @@ use layer::io::BinParams;
 use rubert::{AveragePooler, SMBertBuilder};
 
 use crate::{
-    coi::{point::UserInterests, CoiSystem},
+    coi::{key_phrase::KeyPhrase, point::UserInterests, CoiSystem},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
     ranker::{config::Configuration, utils::Document},
@@ -35,6 +35,11 @@ impl Ranker {
     /// Fails if no user interests are known.
     pub fn rank(&self, items: &mut [Document]) -> Result<(), Error> {
         self.0.rank(items)
+    }
+
+    /// Selects the top key phrases from the positive cois, sorted in descending relevance.
+    pub fn select_top_key_phrases(&mut self, top: usize) -> Vec<KeyPhrase> {
+        self.0.select_top_key_phrases(top)
     }
 }
 
