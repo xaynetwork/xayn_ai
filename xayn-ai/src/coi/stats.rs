@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coi::{
-        point::PositiveCoi,
+        point::{NegativeCoi, PositiveCoi},
         relevance::{Relevance, RelevanceMap},
     },
     utils::{system_time_now, SECONDS_PER_DAY},
@@ -54,6 +54,12 @@ impl Default for CoiStats {
 impl PositiveCoi {
     pub(crate) fn update_stats(&mut self, viewed: Duration) {
         self.stats.update(viewed);
+    }
+}
+
+impl NegativeCoi {
+    pub(crate) fn update_stats(&mut self) {
+        self.last_view = system_time_now()
     }
 }
 
