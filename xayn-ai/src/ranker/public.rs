@@ -7,7 +7,7 @@ use crate::{
     coi::{key_phrase::KeyPhrase, point::UserInterests, CoiSystem},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::{config::Configuration, utils::Document},
+    ranker::{config::Configuration, document::Document},
 };
 
 pub struct Ranker(super::Ranker);
@@ -28,7 +28,7 @@ impl Ranker {
     /// # Errors
     ///
     /// Fails if no user interests are known.
-    pub fn rank(&self, items: &mut [Document]) -> Result<(), Error> {
+    pub fn rank(&self, items: &mut [impl Document]) -> Result<(), Error> {
         self.0.rank(items)
     }
 

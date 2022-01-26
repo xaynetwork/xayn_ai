@@ -1,7 +1,7 @@
 pub(crate) mod config;
 mod context;
+mod document;
 pub(crate) mod public;
-mod utils;
 
 use std::{collections::HashMap, time::Duration};
 
@@ -24,12 +24,9 @@ use crate::{
     },
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::{
-        config::Configuration,
-        context::Context,
-        utils::{Document, Id as DocumentId},
-    },
+    ranker::{config::Configuration, context::Context, document::Document},
     utils::nan_safe_f32_cmp,
+    DocumentId,
 };
 
 #[derive(Error, Debug, Display)]
@@ -85,7 +82,7 @@ impl Ranker {
     /// # Errors
     ///
     /// Fails if no user interests are known.
-    pub(crate) fn rank(&self, documents: &mut [Document]) -> Result<(), Error> {
+    pub(crate) fn rank(&self, documents: &mut [impl Document]) -> Result<(), Error> {
         rank(documents, &self.user_interests, self.config.neighbors())
     }
 
@@ -128,7 +125,7 @@ impl Ranker {
 }
 
 fn rank(
-    documents: &mut [Document],
+    documents: &mut [impl Document],
     user_interests: &UserInterests,
     neighbors: usize,
 ) -> Result<(), Error> {
@@ -141,8 +138,8 @@ fn rank(
 
     documents.sort_unstable_by(|a, b| {
         nan_safe_f32_cmp(
-            score_for_docs.get(&b.id).unwrap(),
-            score_for_docs.get(&a.id).unwrap(),
+            score_for_docs.get(&b.id()).unwrap(),
+            score_for_docs.get(&a.id()).unwrap(),
         )
     });
 
@@ -150,7 +147,7 @@ fn rank(
 }
 
 fn compute_cois_for_docs(
-    documents: &[Document],
+    documents: &[impl Document],
     user_interests: &UserInterests,
     neighbors: usize,
 ) -> Result<Vec<(DocumentId, CoiComponent)>, Error> {
@@ -158,9 +155,9 @@ fn compute_cois_for_docs(
         .iter()
         .map(|document| {
             let coi =
-                compute_coi_for_embedding(&document.smbert_embedding, user_interests, neighbors)
+                compute_coi_for_embedding(document.smbert_embedding(), user_interests, neighbors)
                     .ok_or(RankerError::NoUserInterests)?;
-            Ok((document.id, coi))
+            Ok((document.id(), coi))
         })
         .collect()
 }
@@ -184,29 +181,17 @@ fn compute_score_for_docs(
 mod tests {
     use ndarray::arr1;
 
-    use crate::coi::create_pos_cois;
+    use crate::{coi::create_pos_cois, ranker::document::TestDocument, DocumentId};
 
     use super::*;
 
     #[test]
     fn test_rank() {
         let mut documents = vec![
-            Document {
-                id: DocumentId::from_u128(0),
-                smbert_embedding: arr1(&[3., 0., 0.]).into(),
-            },
-            Document {
-                id: DocumentId::from_u128(1),
-                smbert_embedding: arr1(&[1., 1., 0.]).into(),
-            },
-            Document {
-                id: DocumentId::from_u128(2),
-                smbert_embedding: arr1(&[1., 0., 0.]).into(),
-            },
-            Document {
-                id: DocumentId::from_u128(3),
-                smbert_embedding: arr1(&[5., 0., 0.]).into(),
-            },
+            TestDocument::new(0, arr1(&[3., 0., 0.])),
+            TestDocument::new(1, arr1(&[1., 1., 0.])),
+            TestDocument::new(2, arr1(&[1., 0., 0.])),
+            TestDocument::new(3, arr1(&[5., 0., 0.])),
         ];
 
         let positive = create_pos_cois(&[[1., 0., 0.]]);
@@ -222,18 +207,15 @@ mod tests {
         );
 
         assert!(res.is_ok());
-        assert_eq!(documents[0].id, DocumentId::from_u128(2));
-        assert_eq!(documents[1].id, DocumentId::from_u128(1));
-        assert_eq!(documents[2].id, DocumentId::from_u128(0));
-        assert_eq!(documents[3].id, DocumentId::from_u128(3));
+        assert_eq!(documents[0].id(), DocumentId::from_u128(2));
+        assert_eq!(documents[1].id(), DocumentId::from_u128(1));
+        assert_eq!(documents[2].id(), DocumentId::from_u128(0));
+        assert_eq!(documents[3].id(), DocumentId::from_u128(3));
     }
 
     #[test]
     fn test_rank_no_user_interests() {
-        let mut documents = vec![Document {
-            id: DocumentId::from_u128(0),
-            smbert_embedding: arr1(&[0., 0., 0.]).into(),
-        }];
+        let mut documents = vec![TestDocument::new(0, arr1(&[0., 0., 0.]))];
 
         let res = rank(
             &mut documents,
@@ -250,7 +232,7 @@ mod tests {
     #[test]
     fn test_rank_no_documents() {
         let res = rank(
-            &mut [],
+            &mut [] as &mut [TestDocument],
             &UserInterests::default(),
             Configuration::default().neighbors(),
         );
