@@ -8,7 +8,7 @@ mod utils;
 
 #[cfg(test)]
 pub(crate) use self::{
-    relevance::Relevances,
+    relevance::RelevanceMap,
     system::{compute_coi, update_user_interests, CoiSystemError},
     utils::tests::create_pos_cois,
 };

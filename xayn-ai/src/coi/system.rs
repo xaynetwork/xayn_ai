@@ -14,7 +14,7 @@ use crate::{
             PositiveCoi,
             UserInterests,
         },
-        relevance::Relevances,
+        relevance::RelevanceMap,
         utils::{classify_documents_based_on_user_feedback, collect_matching_documents},
         CoiId,
     },
@@ -39,7 +39,7 @@ pub(crate) enum CoiSystemError {
 pub(crate) struct CoiSystem {
     config: Configuration,
     smbert: SMBert,
-    relevances: Relevances,
+    relevances: RelevanceMap,
 }
 
 impl CoiSystem {
@@ -48,7 +48,7 @@ impl CoiSystem {
         Self {
             config,
             smbert,
-            relevances: Relevances::default(),
+            relevances: RelevanceMap::default(),
         }
     }
 
@@ -165,7 +165,7 @@ fn update_positive_coi(
     cois: &mut Vec<PositiveCoi>,
     embedding: &Embedding,
     config: &Configuration,
-    relevances: &mut Relevances,
+    relevances: &mut RelevanceMap,
     smbert: impl Fn(&str) -> Result<Embedding, Error>,
     candidates: &[String],
     viewed: Duration,
@@ -201,7 +201,7 @@ fn update_positive_cois(
     cois: &mut Vec<PositiveCoi>,
     docs: &[&dyn CoiSystemData],
     config: &Configuration,
-    relevances: &mut Relevances,
+    relevances: &mut RelevanceMap,
     smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
 ) {
     docs.iter().fold(cois, |cois, doc| {
@@ -242,7 +242,7 @@ fn update_negative_cois(
 
 pub(crate) fn update_user_interests(
     mut user_interests: UserInterests,
-    relevances: &mut Relevances,
+    relevances: &mut RelevanceMap,
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
     smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn test_update_coi_add_point() {
         let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[1., 1., 1.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
@@ -396,7 +396,7 @@ mod tests {
     #[test]
     fn test_update_coi_update_point() {
         let mut cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[2., 3., 4.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
@@ -420,7 +420,7 @@ mod tests {
     #[test]
     fn test_update_coi_threshold_exclusive() {
         let mut cois = create_pos_cois(&[[0., 0., 0.]]);
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[0., 0., 12.]).into();
         let viewed = Duration::from_secs(10);
         let config = Configuration::default();
@@ -444,7 +444,7 @@ mod tests {
     fn test_update_cois_update_the_same_point_twice() {
         // checks that an updated coi is used in the next iteration
         let mut cois = create_pos_cois(&[[0., 0., 0.]]);
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
         let config = Configuration::default().with_threshold(5.).unwrap();
@@ -539,7 +539,7 @@ mod tests {
         let positive = create_pos_cois(&[[3., 2., 1.], [1., 2., 3.]]);
         let negative = create_neg_cois(&[[4., 5., 6.]]);
         let user_interests = UserInterests { positive, negative };
-        let mut relevances = Relevances::default();
+        let mut relevances = RelevanceMap::default();
         let history = create_document_history(vec![
             (Relevance::Low, UserFeedback::Irrelevant),
             (Relevance::Low, UserFeedback::Relevant),
@@ -572,7 +572,7 @@ mod tests {
     fn test_update_user_interests_no_matches() {
         let error = update_user_interests(
             UserInterests::default(),
-            &mut Relevances::default(),
+            &mut RelevanceMap::default(),
             &[],
             &[],
             |_| unreachable!(),

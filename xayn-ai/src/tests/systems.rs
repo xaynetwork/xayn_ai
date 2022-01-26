@@ -2,7 +2,7 @@ use ndarray::arr1;
 
 use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
-    coi::{compute_coi, update_user_interests, Relevances},
+    coi::{compute_coi, update_user_interests, RelevanceMap},
     context::Context,
     data::document_data::{
         DocumentDataWithQAMBert,
@@ -100,7 +100,7 @@ fn mocked_coi_system() -> MockCoiSystem {
         .returning(move |history, documents, user_interests| {
             update_user_interests(
                 user_interests,
-                &mut Relevances::default(),
+                &mut RelevanceMap::default(),
                 history,
                 documents,
                 |_| todo!(/* mock once KPE is used */),
