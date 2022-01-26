@@ -3,36 +3,35 @@ mod context;
 mod document;
 pub(crate) mod public;
 
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use displaydoc::Display;
-
 use kpe::Pipeline as KPE;
 use thiserror::Error;
 
 use crate::{
     coi::{
-        compute_coi_for_embedding,
         key_phrase::KeyPhrase,
         point::UserInterests,
         CoiSystem,
         DocumentRelevance,
+        RelevanceMap,
     },
-    data::{
-        document::{Relevance, UserFeedback},
-        document_data::CoiComponent,
-    },
+    data::document::{Relevance, UserFeedback},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::{config::Configuration, context::Context, document::Document},
+    ranker::{
+        config::Configuration,
+        context::{compute_score_for_docs, Error as ContextError},
+        document::Document,
+    },
     utils::nan_safe_f32_cmp,
-    DocumentId,
 };
 
 #[derive(Error, Debug, Display)]
 pub(crate) enum RankerError {
     /// No user interests are known.
-    NoUserInterests,
+    Context(#[from] ContextError),
 }
 
 /// The Ranker.
@@ -81,9 +80,14 @@ impl Ranker {
     ///
     /// # Errors
     ///
-    /// Fails if no user interests are known.
-    pub(crate) fn rank(&self, documents: &mut [impl Document]) -> Result<(), Error> {
-        rank(documents, &self.user_interests, self.config.neighbors())
+    /// Fails if the scores of the documents cannot be computed.
+    pub(crate) fn rank(&mut self, documents: &mut [impl Document]) -> Result<(), Error> {
+        rank(
+            documents,
+            &self.user_interests,
+            &mut self.coi.relevances_mut(),
+            &self.config,
+        )
     }
 
     /// Updates the user interests based on the given information.
@@ -127,61 +131,34 @@ impl Ranker {
 fn rank(
     documents: &mut [impl Document],
     user_interests: &UserInterests,
-    neighbors: usize,
+    relevances: &mut RelevanceMap,
+    config: &Configuration,
 ) -> Result<(), Error> {
-    if documents.is_empty() {
+    if documents.len() < 2 {
         return Ok(());
     }
 
-    let cois_for_docs = compute_cois_for_docs(documents, user_interests, neighbors)?;
-    let score_for_docs = compute_score_for_docs(cois_for_docs.as_slice());
+    let score_for_docs = compute_score_for_docs(documents, user_interests, relevances, config)?;
 
     documents.sort_unstable_by(|a, b| {
         nan_safe_f32_cmp(
-            score_for_docs.get(&b.id()).unwrap(),
             score_for_docs.get(&a.id()).unwrap(),
+            score_for_docs.get(&b.id()).unwrap(),
         )
     });
 
     Ok(())
 }
 
-fn compute_cois_for_docs(
-    documents: &[impl Document],
-    user_interests: &UserInterests,
-    neighbors: usize,
-) -> Result<Vec<(DocumentId, CoiComponent)>, Error> {
-    documents
-        .iter()
-        .map(|document| {
-            let coi =
-                compute_coi_for_embedding(document.smbert_embedding(), user_interests, neighbors)
-                    .ok_or(RankerError::NoUserInterests)?;
-            Ok((document.id(), coi))
-        })
-        .collect()
-}
-
-fn compute_score_for_docs(
-    cois_for_docs: &[(DocumentId, CoiComponent)],
-) -> HashMap<&DocumentId, f32> {
-    let context = Context::from_cois(cois_for_docs);
-    cois_for_docs
-        .iter()
-        .map(|(id, coi)| {
-            (
-                id,
-                context.calculate_score(coi.pos_distance, coi.neg_distance),
-            )
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use ndarray::arr1;
 
-    use crate::{coi::create_pos_cois, ranker::document::TestDocument, DocumentId};
+    use crate::{
+        coi::{create_neg_cois, create_pos_cois},
+        ranker::document::TestDocument,
+        DocumentId,
+    };
 
     use super::*;
 
@@ -194,16 +171,21 @@ mod tests {
             TestDocument::new(3, arr1(&[5., 0., 0.])),
         ];
 
+        let config = Configuration::default()
+            .with_min_positive_cois(1)
+            .unwrap()
+            .with_min_negative_cois(1)
+            .unwrap();
         let positive = create_pos_cois(&[[1., 0., 0.]]);
-        let user_interests = UserInterests {
-            positive,
-            ..Default::default()
-        };
+        let negative = create_neg_cois(&[[100., 0., 0.]]);
+
+        let user_interests = UserInterests { positive, negative };
 
         let res = rank(
             &mut documents,
             &user_interests,
-            Configuration::default().neighbors(),
+            &mut RelevanceMap::default(),
+            &config,
         );
 
         assert!(res.is_ok());
@@ -215,17 +197,23 @@ mod tests {
 
     #[test]
     fn test_rank_no_user_interests() {
-        let mut documents = vec![TestDocument::new(0, arr1(&[0., 0., 0.]))];
+        let mut documents = vec![
+            TestDocument::new(0, arr1(&[0., 0., 0.])),
+            TestDocument::new(1, arr1(&[0., 0., 0.])),
+        ];
+
+        let config = Configuration::default().with_min_positive_cois(1).unwrap();
 
         let res = rank(
             &mut documents,
             &UserInterests::default(),
-            Configuration::default().neighbors(),
+            &mut RelevanceMap::default(),
+            &config,
         );
 
         assert!(matches!(
             res.unwrap_err().downcast_ref(),
-            Some(RankerError::NoUserInterests)
+            Some(ContextError::NotEnoughPositiveCois { has: 0, .. })
         ));
     }
 
@@ -234,7 +222,8 @@ mod tests {
         let res = rank(
             &mut [] as &mut [TestDocument],
             &UserInterests::default(),
-            Configuration::default().neighbors(),
+            &mut RelevanceMap::default(),
+            &Configuration::default(),
         );
         assert!(res.is_ok())
     }

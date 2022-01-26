@@ -93,6 +93,11 @@ impl CoiSystem {
         self.relevances
             .select_top_key_phrases(cois, top, config.horizon(), config.penalty())
     }
+
+    /// Returns a mutable reference to the inner [`RelevanceMap`].
+    pub(crate) fn relevances_mut(&mut self) -> &mut RelevanceMap {
+        &mut self.relevances
+    }
 }
 
 impl systems::CoiSystem for CoiSystem {

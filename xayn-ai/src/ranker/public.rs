@@ -27,8 +27,8 @@ impl Ranker {
     ///
     /// # Errors
     ///
-    /// Fails if no user interests are known.
-    pub fn rank(&self, items: &mut [impl Document]) -> Result<(), Error> {
+    /// Fails if the scores of the documents cannot be computed.
+    pub fn rank(&mut self, items: &mut [impl Document]) -> Result<(), Error> {
         self.0.rank(items)
     }
 

@@ -23,7 +23,7 @@ pub(crate) struct PositiveCoi {
     pub(super) point: Embedding,
     #[obake(cfg(">=0.3"))]
     #[derivative(PartialEq = "ignore")]
-    pub(super) stats: CoiStats,
+    pub(crate) stats: CoiStats,
 
     // removed fields go below this line
     #[obake(cfg(">=0.0, <0.2"))]
@@ -78,7 +78,7 @@ pub(crate) struct NegativeCoi {
     pub(super) id: CoiId,
     pub(super) point: Embedding,
     #[derivative(PartialEq = "ignore")]
-    pub(super) last_view: SystemTime,
+    pub(crate) last_view: SystemTime,
 }
 
 impl NegativeCoi {
@@ -223,7 +223,7 @@ pub(super) fn find_closest_coi_index(
 ///
 /// Returns an immutable reference to the CoI along with the weighted distance between the given
 /// embedding and the k nearest CoIs. If no CoIs were given, `None` will be returned.
-pub(super) fn find_closest_coi<'coi, CP>(
+pub(crate) fn find_closest_coi<'coi, CP>(
     cois: &'coi [CP],
     embedding: &Embedding,
     neighbors: usize,

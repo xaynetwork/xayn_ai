@@ -64,7 +64,7 @@ impl RelevanceMap {
     /// other cois. It's an unnormalized score from the interval `[0, ∞)`.
     ///
     /// The relevances in the maps are replaced by the coi relevances.
-    pub(super) fn compute_relevances(&mut self, cois: &[PositiveCoi], horizon: Duration) {
+    pub(crate) fn compute_relevances(&mut self, cois: &[PositiveCoi], horizon: Duration) {
         let counts =
             cois.iter().map(|coi| coi.stats.view_count).sum::<usize>() as f32 + f32::EPSILON;
         let times = cois
@@ -74,24 +74,35 @@ impl RelevanceMap {
             .as_secs_f32()
             + f32::EPSILON;
         let now = system_time_now();
-        const DAYS_SCALE: f32 = -0.1;
-        let horizon = (horizon.as_secs_f32() * DAYS_SCALE / SECONDS_PER_DAY).exp();
 
         for coi in cois {
             let count = coi.stats.view_count as f32 / counts;
             let time = coi.stats.view_time.as_secs_f32() / times;
-            let days = (now
-                .duration_since(coi.stats.last_view)
-                .unwrap_or_default()
-                .as_secs_f32()
-                * DAYS_SCALE
-                / SECONDS_PER_DAY)
-                .exp();
-            let last = ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.);
+
+            let last = compute_coi_decay_factor(horizon, now, coi.stats.last_view);
             let relevance = Relevance::coi(((count + time) * last).max(0.).min(f32::MAX)).unwrap(/* finite by construction */);
             self.replace(coi.id, relevance);
         }
     }
+}
+
+/// Computes the time decay factor for a coi based on its last_view stat.
+pub(crate) fn compute_coi_decay_factor(
+    horizon: Duration,
+    now: SystemTime,
+    last_view: SystemTime,
+) -> f32 {
+    const DAYS_SCALE: f32 = -0.1;
+    let horizon = (horizon.as_secs_f32() * DAYS_SCALE / SECONDS_PER_DAY).exp();
+    let days = (now
+        .duration_since(last_view)
+        .unwrap_or_default()
+        .as_secs_f32()
+        * DAYS_SCALE
+        / SECONDS_PER_DAY)
+        .exp();
+
+    ((horizon - days) / (horizon - 1. - f32::EPSILON)).max(0.)
 }
 
 #[cfg(test)]
@@ -226,5 +237,22 @@ mod tests {
             relevances[(cois[1].id, relevances[cois[1].id].to_relevance(0))],
             key_phrases[3..],
         );
+    }
+
+    #[test]
+    fn test_compute_coi_decay_factor() {
+        let horizon = Duration::from_secs_f32(30. * SECONDS_PER_DAY);
+
+        let epoch = SystemTime::UNIX_EPOCH;
+        let factor = compute_coi_decay_factor(horizon, epoch, epoch);
+        assert_approx_eq!(f32, factor, 1.);
+
+        let now = epoch + Duration::from_secs_f32(5. * SECONDS_PER_DAY);
+        let factor = compute_coi_decay_factor(horizon, now, epoch);
+        assert_approx_eq!(f32, factor, 0.5859145);
+
+        let now = epoch + Duration::from_secs_f32(30. * SECONDS_PER_DAY);
+        let factor = compute_coi_decay_factor(horizon, now, epoch);
+        assert_approx_eq!(f32, factor, 0.);
     }
 }
