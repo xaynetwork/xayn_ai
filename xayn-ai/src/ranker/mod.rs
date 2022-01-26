@@ -237,7 +237,7 @@ mod tests {
         let mut documents: Vec<TestDocument> = vec![];
 
         let res = rank(
-            &mut documents,
+            &mut [] as &mut [TestDocument],
             &UserInterests::default(),
             Configuration::default().neighbors(),
         );
