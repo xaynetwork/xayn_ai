@@ -176,22 +176,10 @@ mod tests {
     #[test]
     fn test_rank() {
         let mut documents = vec![
-            TestDocument {
-                id: DocumentId::from_u128(0),
-                smbert_embedding: arr1(&[3., 0., 0.]).into(),
-            },
-            TestDocument {
-                id: DocumentId::from_u128(1),
-                smbert_embedding: arr1(&[1., 1., 0.]).into(),
-            },
-            TestDocument {
-                id: DocumentId::from_u128(2),
-                smbert_embedding: arr1(&[1., 0., 0.]).into(),
-            },
-            TestDocument {
-                id: DocumentId::from_u128(3),
-                smbert_embedding: arr1(&[5., 0., 0.]).into(),
-            },
+            TestDocument::new(0, arr1(&[3., 0., 0.])),
+            TestDocument::new(1, arr1(&[1., 1., 0.])),
+            TestDocument::new(2, arr1(&[1., 0., 0.])),
+            TestDocument::new(3, arr1(&[5., 0., 0.])),
         ];
 
         let positive = create_pos_cois(&[[1., 0., 0.]]);
@@ -215,10 +203,7 @@ mod tests {
 
     #[test]
     fn test_rank_no_user_interests() {
-        let mut documents = vec![TestDocument {
-            id: DocumentId::from_u128(0),
-            smbert_embedding: arr1(&[0., 0., 0.]).into(),
-        }];
+        let mut documents = vec![TestDocument::new(0, arr1(&[0., 0., 0.]))];
 
         let res = rank(
             &mut documents,
@@ -234,8 +219,6 @@ mod tests {
 
     #[test]
     fn test_rank_no_documents() {
-        let mut documents: Vec<TestDocument> = vec![];
-
         let res = rank(
             &mut [] as &mut [TestDocument],
             &UserInterests::default(),

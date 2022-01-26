@@ -11,8 +11,18 @@ pub trait Document {
 
 #[cfg(test)]
 pub(super) struct TestDocument {
-    pub(super) id: DocumentId,
-    pub(super) smbert_embedding: Embedding,
+    pub id: DocumentId,
+    pub smbert_embedding: Embedding,
+}
+
+#[cfg(test)]
+impl TestDocument {
+    pub(super) fn new(id: u128, embedding: impl Into<Embedding>) -> Self {
+        Self {
+            id: DocumentId::from_u128(id),
+            smbert_embedding: embedding.into(),
+        }
+    }
 }
 
 #[cfg(test)]
