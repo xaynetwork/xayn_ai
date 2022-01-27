@@ -13,6 +13,7 @@ use crate::{
     },
     embedding::utils::{pairwise_cosine_similarity, ArcEmbedding, Embedding},
     error::Error,
+    utils::system_time_now,
 };
 
 #[derive(Clone, Debug, Derivative, Deserialize, Serialize)]
@@ -110,7 +111,7 @@ impl RelevanceMap {
         horizon: Duration,
         penalty: &[f32],
     ) -> Vec<KeyPhrase> {
-        self.compute_relevances(cois, horizon);
+        self.compute_relevances(cois, horizon, system_time_now());
 
         // TODO: refactor once pop_last() etc are stabilized for BTreeMap
         let mut relevances = self

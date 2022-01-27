@@ -111,7 +111,7 @@ pub(super) fn compute_score_for_docs(
     }
 
     let now = system_time_now();
-    relevances.compute_relevances(&user_interests.positive, config.horizon());
+    relevances.compute_relevances(&user_interests.positive, config.horizon(), now);
     documents
         .iter()
         .map(|document| {
@@ -167,18 +167,18 @@ mod tests {
         let mut relevances = RelevanceMap::default();
         let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
 
-        relevances.compute_relevances(&user_interests.positive, horizon);
+        relevances.compute_relevances(&user_interests.positive, horizon, now);
         let score = compute_score_for_embedding(
             &embedding,
             &user_interests,
-            &mut relevances,
+            &relevances,
             1,
             horizon,
             now,
         )
         .unwrap();
-        // 1.1185127 * 0.99999934 + 0.73094887 - 0 * 100 = 1.8494608
-        assert_approx_eq!(f32, score, 1.8494608, epsilon = 1e-5);
+        // 1.1185127 * 0.99999934 + 0.99999934 - 0 * 100 = 2.1185114
+        assert_approx_eq!(f32, score, 2.1185114, epsilon = 1e-5);
     }
 
     #[test]
@@ -189,7 +189,7 @@ mod tests {
         let res = compute_score_for_embedding(
             &embedding,
             &UserInterests::default(),
-            &mut RelevanceMap::default(),
+            &RelevanceMap::default(),
             1,
             horizon,
             system_time_now(),

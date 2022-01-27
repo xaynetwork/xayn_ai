@@ -64,7 +64,12 @@ impl RelevanceMap {
     /// other cois. It's an unnormalized score from the interval `[0, ∞)`.
     ///
     /// The relevances in the maps are replaced by the coi relevances.
-    pub(crate) fn compute_relevances(&mut self, cois: &[PositiveCoi], horizon: Duration) {
+    pub(crate) fn compute_relevances(
+        &mut self,
+        cois: &[PositiveCoi],
+        horizon: Duration,
+        now: SystemTime,
+    ) {
         let counts =
             cois.iter().map(|coi| coi.stats.view_count).sum::<usize>() as f32 + f32::EPSILON;
         let times = cois
@@ -73,7 +78,6 @@ impl RelevanceMap {
             .sum::<Duration>()
             .as_secs_f32()
             + f32::EPSILON;
-        let now = system_time_now();
 
         for coi in cois {
             let count = coi.stats.view_count as f32 / counts;
@@ -123,7 +127,7 @@ mod tests {
         let cois = create_pos_cois(&[[]]);
         let config = Configuration::default();
 
-        relevances.compute_relevances(&cois, config.horizon());
+        relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert!(relevances.cois_is_empty());
         assert!(relevances.relevances_is_empty());
     }
@@ -134,7 +138,7 @@ mod tests {
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
         let config = Configuration::default().with_horizon(Duration::ZERO);
 
-        relevances.compute_relevances(&cois, config.horizon());
+        relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
@@ -152,7 +156,7 @@ mod tests {
         let config =
             Configuration::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
 
-        relevances.compute_relevances(&cois, config.horizon());
+        relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
@@ -172,7 +176,7 @@ mod tests {
         let config =
             Configuration::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
 
-        relevances.compute_relevances(&cois, config.horizon());
+        relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
@@ -193,7 +197,7 @@ mod tests {
         let config =
             Configuration::default().with_horizon(Duration::from_secs_f32(2. * SECONDS_PER_DAY));
 
-        relevances.compute_relevances(&cois, config.horizon());
+        relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
@@ -223,7 +227,7 @@ mod tests {
         );
         let config = Configuration::default();
 
-        relevances.compute_relevances(&cois, config.horizon());
+        relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), 3);
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
