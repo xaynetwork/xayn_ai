@@ -213,7 +213,7 @@ mod tests {
 
         assert!(matches!(
             res.unwrap_err().downcast_ref(),
-            Some(ContextError::NotEnoughPositiveCois { has: 0, .. })
+            Some(ContextError::NotEnoughCois)
         ));
     }
 

@@ -15,8 +15,8 @@ pub(crate) struct Configuration {
     max_key_phrases: usize,
     gamma: f32,
     penalty: Vec<f32>,
-    min_positive_cois: u32,
-    min_negative_cois: u32,
+    min_positive_cois: usize,
+    min_negative_cois: usize,
 }
 
 /// Potential errors of the ranker configuration.
@@ -165,7 +165,7 @@ impl Configuration {
     }
 
     /// The minimum number of positive cois required for the context calculation.
-    pub(crate) fn min_positive_cois(&self) -> u32 {
+    pub(crate) fn min_positive_cois(&self) -> usize {
         self.min_positive_cois
     }
 
@@ -174,7 +174,7 @@ impl Configuration {
     /// # Errors
     /// Fails if the minimum number is zero.
     #[allow(dead_code)]
-    pub(crate) fn with_min_positive_cois(self, min_positive_cois: u32) -> Result<Self, Error> {
+    pub(crate) fn with_min_positive_cois(self, min_positive_cois: usize) -> Result<Self, Error> {
         if min_positive_cois > 0 {
             Ok(Self {
                 min_positive_cois,
@@ -186,7 +186,7 @@ impl Configuration {
     }
 
     /// The minimum number of negative cois required for the context calculation.
-    pub(crate) fn min_negative_cois(&self) -> u32 {
+    pub(crate) fn min_negative_cois(&self) -> usize {
         self.min_negative_cois
     }
 
@@ -195,7 +195,7 @@ impl Configuration {
     /// # Errors
     /// Fails if the minimum number is zero.
     #[allow(dead_code)]
-    pub(crate) fn with_min_negative_cois(self, min_negative_cois: u32) -> Result<Self, Error> {
+    pub(crate) fn with_min_negative_cois(self, min_negative_cois: usize) -> Result<Self, Error> {
         if min_negative_cois > 0 {
             Ok(Self {
                 min_negative_cois,

@@ -23,10 +23,8 @@ use crate::{
 #[derive(Error, Debug, Display)]
 #[allow(clippy::enum_variant_names)]
 pub(crate) enum Error {
-    /// Not enough positive cois (expected {expected:?}, has {has:?})
-    NotEnoughPositiveCois { expected: u32, has: u32 },
-    /// Not enough negative cois (expected {expected:?}, has {has:?})
-    NotEnoughNegativeCois { expected: u32, has: u32 },
+    /// Not enough cois
+    NotEnoughCois,
     /// Failed to find the closest cois
     FailedToFindTheClosestCois,
 }
@@ -65,7 +63,7 @@ fn find_closest_cois(
 fn compute_score_for_embedding(
     embedding: &Embedding,
     user_interests: &UserInterests,
-    relevances: &mut RelevanceMap,
+    relevances: &RelevanceMap,
     neighbors: usize,
     horizon: Duration,
     now: SystemTime,
@@ -76,36 +74,19 @@ fn compute_score_for_embedding(
     let pos_decay = compute_coi_decay_factor(horizon, now, cois.pos_last_view);
     let neg_decay = compute_coi_decay_factor(horizon, now, cois.neg_last_view);
 
-    relevances.compute_relevances(&user_interests.positive, horizon);
     let pos_coi_relevance = relevances
         .relevance_for_coi(&cois.pos_id).unwrap(/* we calculate relevance for all positive cois one line above */);
 
     Ok(cois.pos_distance * pos_decay + pos_coi_relevance - cois.neg_distance * neg_decay)
-
-    Ok(score)
 }
 
 fn has_enough_cois(
     user_interests: &UserInterests,
-    min_positive_cois: u32,
-    min_negative_cois: u32,
-) -> Result<(), Error> {
-    let pos_cois = user_interests.positive.len() as u32;
-    if pos_cois < min_positive_cois {
-        return Err(Error::NotEnoughPositiveCois {
-            expected: min_positive_cois,
-            has: pos_cois,
-        });
-    }
-
-    let neg_cois = user_interests.negative.len() as u32;
-    if neg_cois < min_negative_cois {
-        return Err(Error::NotEnoughNegativeCois {
-            expected: min_negative_cois,
-            has: neg_cois,
-        });
-    }
-    Ok(())
+    min_positive_cois: usize,
+    min_negative_cois: usize,
+) -> bool {
+    user_interests.positive.len() >= min_positive_cois
+        && user_interests.negative.len() >= min_negative_cois
 }
 
 /// Computes the score for all documents based on the given information.
@@ -114,21 +95,23 @@ fn has_enough_cois(
 /// outlines parts of the score calculation.
 ///
 /// # Errors
-/// Fails if the required number of positive or negative cois is not present or
-/// if coi relevance is not present in the relevances map.
+/// Fails if the required number of positive or negative cois is not present.
 pub(super) fn compute_score_for_docs(
     documents: &mut [impl Document],
     user_interests: &UserInterests,
     relevances: &mut RelevanceMap,
     config: &Configuration,
 ) -> Result<HashMap<DocumentId, f32>, Error> {
-    has_enough_cois(
+    if !has_enough_cois(
         user_interests,
         config.min_positive_cois(),
         config.min_negative_cois(),
-    )?;
+    ) {
+        return Err(Error::NotEnoughCois);
+    }
 
     let now = system_time_now();
+    relevances.compute_relevances(&user_interests.positive, config.horizon());
     documents
         .iter()
         .map(|document| {
@@ -161,21 +144,9 @@ mod tests {
     fn test_has_enough_cois() {
         let user_interests = UserInterests::default();
 
-        assert!(has_enough_cois(&user_interests, 0, 0).is_ok());
-        assert!(matches!(
-            has_enough_cois(&user_interests, 1, 0).unwrap_err(),
-            Error::NotEnoughPositiveCois {
-                has: 0,
-                expected: 1
-            }
-        ));
-        assert!(matches!(
-            has_enough_cois(&user_interests, 0, 1).unwrap_err(),
-            Error::NotEnoughNegativeCois {
-                has: 0,
-                expected: 1
-            }
-        ));
+        assert!(has_enough_cois(&user_interests, 0, 0));
+        assert!(!has_enough_cois(&user_interests, 1, 0));
+        assert!(!has_enough_cois(&user_interests, 0, 1));
     }
 
     #[test]
@@ -196,6 +167,7 @@ mod tests {
         let mut relevances = RelevanceMap::default();
         let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
 
+        relevances.compute_relevances(&user_interests.positive, horizon);
         let score = compute_score_for_embedding(
             &embedding,
             &user_interests,
@@ -205,7 +177,7 @@ mod tests {
             now,
         )
         .unwrap();
-        // 1.1185127 * 0.99999934 + 0.73094887 - 0 * 100 = 12
+        // 1.1185127 * 0.99999934 + 0.73094887 - 0 * 100 = 1.8494608
         assert_approx_eq!(f32, score, 1.8494608, epsilon = 1e-5);
     }
 
