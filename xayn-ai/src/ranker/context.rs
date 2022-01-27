@@ -80,7 +80,7 @@ fn compute_score_for_embedding(
     let pos_coi_relevance = relevances
         .relevance_for_coi(&cois.pos_id).unwrap(/* we calculate relevance for all positive cois one line above */);
 
-    let score = cois.pos_distance * pos_decay + pos_coi_relevance - cois.neg_distance * neg_decay;
+    Ok(cois.pos_distance * pos_decay + pos_coi_relevance - cois.neg_distance * neg_decay)
 
     Ok(score)
 }
