@@ -223,6 +223,7 @@ fn update_negative_coi(cois: &mut Vec<NegativeCoi>, embedding: &Embedding, confi
     match find_closest_coi_mut(cois, embedding, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
             coi.shift_point(embedding, config.shift_factor());
+            coi.update_stats();
         }
         _ => cois.push(NegativeCoi::new(Uuid::new_v4(), embedding.clone())),
     }
@@ -583,5 +584,15 @@ mod tests {
         let error = error.downcast::<CoiSystemError>().unwrap();
 
         assert!(matches!(error, CoiSystemError::NoMatchingDocuments));
+    }
+
+    #[test]
+    fn test_update_negative_coi_last_view() {
+        let mut cois = create_neg_cois(&[[1., 2., 3.]]);
+        let config = Configuration::default().with_threshold(10.).unwrap();
+        let before = cois[0].last_view;
+        update_negative_coi(&mut cois, &arr1(&[1., 2., 4.]).into(), &config);
+        assert!(cois[0].last_view > before);
+        assert_eq!(cois.len(), 1);
     }
 }
