@@ -60,6 +60,9 @@ fn find_closest_cois(
     .into()
 }
 
+///# Panics
+///
+/// Panics if the coi relevance is not present in the [`RelevanceMap`].
 fn compute_score_for_embedding(
     embedding: &Embedding,
     user_interests: &UserInterests,
@@ -74,10 +77,13 @@ fn compute_score_for_embedding(
     let pos_decay = compute_coi_decay_factor(horizon, now, cois.pos_last_view);
     let neg_decay = compute_coi_decay_factor(horizon, now, cois.neg_last_view);
 
-    let pos_coi_relevance = relevances
-        .relevance_for_coi(&cois.pos_id).unwrap(/* we calculate relevance for all positive cois one line above */);
+    let pos_coi_relevance = relevances.relevance_for_coi(&cois.pos_id).unwrap();
 
-    Ok(cois.pos_distance * pos_decay + pos_coi_relevance - cois.neg_distance * neg_decay)
+    Ok(
+        (cois.pos_distance * pos_decay + pos_coi_relevance - cois.neg_distance * neg_decay)
+            .max(f32::MIN)
+            .min(f32::MAX),
+    )
 }
 
 fn has_enough_cois(
@@ -115,6 +121,8 @@ pub(super) fn compute_score_for_docs(
     documents
         .iter()
         .map(|document| {
+            // `compute_score_for_embedding` cannot panic because we calculate
+            // the relevances for all positive cois before
             let score = compute_score_for_embedding(
                 document.smbert_embedding(),
                 user_interests,
@@ -168,15 +176,9 @@ mod tests {
         let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
 
         relevances.compute_relevances(&user_interests.positive, horizon, now);
-        let score = compute_score_for_embedding(
-            &embedding,
-            &user_interests,
-            &relevances,
-            1,
-            horizon,
-            now,
-        )
-        .unwrap();
+        let score =
+            compute_score_for_embedding(&embedding, &user_interests, &relevances, 1, horizon, now)
+                .unwrap();
         // 1.1185127 * 0.99999934 + 0.99999934 - 0 * 100 = 2.1185114
         assert_approx_eq!(f32, score, 2.1185114, epsilon = 1e-5);
     }
