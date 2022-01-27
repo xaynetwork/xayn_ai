@@ -33,13 +33,13 @@ pub(crate) enum Error {
 
 /// Helper struct for [`find_closest_cois`].
 struct ClosestCois {
-    /// The ID of the positive centre of interest
+    /// The ID of the closest positive centre of interest
     pos_id: CoiId,
-    /// Distance from the positive centre of interest
+    /// Distance from the closest positive centre of interest
     pos_distance: f32,
     pos_last_view: SystemTime,
 
-    /// Distance from the negative centre of interest
+    /// Distance from the closest negative centre of interest
     neg_distance: f32,
     neg_last_view: SystemTime,
 }
