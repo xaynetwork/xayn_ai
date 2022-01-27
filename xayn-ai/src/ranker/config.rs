@@ -164,7 +164,7 @@ impl Configuration {
         self.penalty.len()
     }
 
-    /// The minimum number of positive cois required for the context calculation
+    /// The minimum number of positive cois required for the context calculation.
     pub(crate) fn min_positive_cois(&self) -> u32 {
         self.min_positive_cois
     }
