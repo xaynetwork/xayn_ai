@@ -85,7 +85,7 @@ impl Ranker {
         rank(
             documents,
             &self.user_interests,
-            &mut self.coi.relevances_mut(),
+            self.coi.relevances_mut(),
             &self.config,
         )
     }
