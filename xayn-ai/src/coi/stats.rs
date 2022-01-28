@@ -175,9 +175,9 @@ mod tests {
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
         assert!(relevances[cois[2].id].is_coi());
-        assert_approx_eq!(f32, relevances[cois[0].id], 0.16666646, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], 0.33333293, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[2].id], 0.49999937, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.16666646, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.33333293, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[2].id], 0.49999937, epsilon = 1e-6);
         assert!(relevances.relevances_is_empty());
     }
 
@@ -195,9 +195,9 @@ mod tests {
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
         assert!(relevances[cois[2].id].is_coi());
-        assert_approx_eq!(f32, relevances[cois[0].id], 0.33333293, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[2].id], 0.99999875, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.33333293, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[2].id], 0.99999875, epsilon = 1e-6);
         assert!(relevances.relevances_is_empty());
     }
 
@@ -216,8 +216,8 @@ mod tests {
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
         assert!(relevances[cois[2].id].is_coi());
-        assert_approx_eq!(f32, relevances[cois[0].id], 0.24364972, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], 0.07719126, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.24364972, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.07719126, epsilon = 1e-6);
         assert_approx_eq!(f32, relevances[cois[2].id], 0.);
         assert!(relevances.relevances_is_empty());
     }
