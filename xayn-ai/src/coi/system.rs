@@ -72,7 +72,7 @@ impl CoiSystem {
         smbert: impl Fn(&str) -> Result<Embedding, Error>,
         candidates: &[String],
     ) {
-        update_positive_coi(
+        log_positive_user_reaction(
             cois,
             embedding,
             config,
@@ -89,7 +89,7 @@ impl CoiSystem {
         embedding: &Embedding,
         config: &Configuration,
     ) {
-        update_negative_coi(cois, embedding, config);
+        log_negative_user_reaction(cois, embedding, config);
     }
 
     /// Selects the top key phrases from the positive cois, sorted in descending relevance.
@@ -175,7 +175,7 @@ pub(crate) fn compute_coi(
 }
 
 /// Updates the positive coi closest to the embedding or creates a new one if it's too far away.
-fn update_positive_coi(
+fn log_positive_user_reaction(
     cois: &mut Vec<PositiveCoi>,
     embedding: &Embedding,
     config: &Configuration,
@@ -218,7 +218,7 @@ fn update_positive_cois(
     smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
 ) {
     docs.iter().fold(cois, |cois, doc| {
-        update_positive_coi(
+        log_positive_user_reaction(
             cois,
             &doc.smbert().embedding,
             config,
@@ -231,7 +231,11 @@ fn update_positive_cois(
 }
 
 /// Updates the negative coi closest to the embedding or creates a new one if it's too far away.
-fn update_negative_coi(cois: &mut Vec<NegativeCoi>, embedding: &Embedding, config: &Configuration) {
+fn log_negative_user_reaction(
+    cois: &mut Vec<NegativeCoi>,
+    embedding: &Embedding,
+    config: &Configuration,
+) {
     match find_closest_coi_mut(cois, embedding, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
             coi.shift_point(embedding, config.shift_factor());
@@ -248,7 +252,7 @@ fn update_negative_cois(
     config: &Configuration,
 ) {
     docs.iter().fold(cois, |cois, doc| {
-        update_negative_coi(cois, &doc.smbert().embedding, config);
+        log_negative_user_reaction(cois, &doc.smbert().embedding, config);
         cois
     });
 }
@@ -404,7 +408,7 @@ mod tests {
         assert_approx_eq!(f32, distance, 26.747852);
         assert!(config.threshold() < distance);
 
-        update_positive_coi(
+        log_positive_user_reaction(
             &mut cois,
             &embedding,
             &config,
@@ -424,7 +428,7 @@ mod tests {
 
         let last_view_before = cois[0].stats.last_view;
 
-        update_positive_coi(
+        log_positive_user_reaction(
             &mut cois,
             &embedding,
             &config,
@@ -449,7 +453,7 @@ mod tests {
         let embedding = arr1(&[0., 0., 12.]).into();
         let config = Configuration::default();
 
-        update_positive_coi(
+        log_positive_user_reaction(
             &mut cois,
             &embedding,
             &config,
@@ -609,11 +613,11 @@ mod tests {
     }
 
     #[test]
-    fn test_update_negative_coi_last_view() {
+    fn test_log_negative_user_reaction_last_view() {
         let mut cois = create_neg_cois(&[[1., 2., 3.]]);
         let config = Configuration::default().with_threshold(10.).unwrap();
         let before = cois[0].last_view;
-        update_negative_coi(&mut cois, &arr1(&[1., 2., 4.]).into(), &config);
+        log_negative_user_reaction(&mut cois, &arr1(&[1., 2., 4.]).into(), &config);
         assert!(cois[0].last_view > before);
         assert_eq!(cois.len(), 1);
     }
