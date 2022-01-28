@@ -146,10 +146,6 @@ impl CoiSystemData for DocumentDataWithSMBert {
     fn coi(&self) -> Option<&CoiComponent> {
         None
     }
-
-    fn viewed(&self) -> Duration {
-        self.document_content.viewed
-    }
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -280,10 +276,6 @@ impl CoiSystemData for DocumentDataWithRank {
 
     fn coi(&self) -> Option<&CoiComponent> {
         Some(&self.coi)
-    }
-
-    fn viewed(&self) -> Duration {
-        self.document_content.viewed
     }
 }
 

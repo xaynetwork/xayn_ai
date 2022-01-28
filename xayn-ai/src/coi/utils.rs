@@ -61,8 +61,6 @@ pub(super) fn classify_documents_based_on_user_feedback<D>(
 
 #[cfg(test)]
 pub(super) mod tests {
-    use std::time::Duration;
-
     use ndarray::{arr1, FixedInitializer};
 
     use super::*;
@@ -85,7 +83,6 @@ pub(super) mod tests {
         id: DocumentId,
         smbert: SMBertComponent,
         coi: Option<CoiComponent>,
-        viewed: Duration,
     }
 
     impl CoiSystemData for MockCoiDoc {
@@ -100,10 +97,6 @@ pub(super) mod tests {
         fn coi(&self) -> Option<&CoiComponent> {
             self.coi.as_ref()
         }
-
-        fn viewed(&self) -> Duration {
-            self.viewed
-        }
     }
 
     fn create_cois<FI: FixedInitializer<Elem = f32>, CP: CoiPointConstructor>(
@@ -116,13 +109,7 @@ pub(super) mod tests {
         points
             .iter()
             .enumerate()
-            .map(|(id, point)| {
-                CP::new(
-                    CoiId::mocked(id),
-                    arr1(point.as_init_slice()),
-                    Duration::from_secs(10),
-                )
-            })
+            .map(|(id, point)| CP::new(CoiId::mocked(id), arr1(point.as_init_slice())))
             .collect()
     }
 

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::{
     analytics::Analytics,
     coi::point::UserInterests,
@@ -46,7 +44,6 @@ pub(crate) trait CoiSystemData {
     fn id(&self) -> DocumentId;
     fn smbert(&self) -> &SMBertComponent;
     fn coi(&self) -> Option<&CoiComponent>;
-    fn viewed(&self) -> Duration;
 }
 
 #[cfg_attr(test, automock)]

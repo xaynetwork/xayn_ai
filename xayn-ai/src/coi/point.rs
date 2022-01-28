@@ -253,7 +253,7 @@ where
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::{f32::NAN, time::Duration};
+    use std::f32::NAN;
 
     use ndarray::arr1;
 
@@ -263,11 +263,11 @@ pub(crate) mod tests {
     use super::*;
 
     pub(crate) trait CoiPointConstructor {
-        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self;
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self;
     }
 
     impl CoiPointConstructor for PositiveCoi_v0_0_0 {
-        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self {
             Self {
                 id: id.into(),
                 point: point.into(),
@@ -278,7 +278,7 @@ pub(crate) mod tests {
     }
 
     impl CoiPointConstructor for PositiveCoi_v0_1_0 {
-        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self {
             Self {
                 id: id.into(),
                 point: point.into(),
@@ -289,7 +289,7 @@ pub(crate) mod tests {
     }
 
     impl CoiPointConstructor for PositiveCoi_v0_2_0 {
-        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self {
             Self {
                 id: id.into(),
                 point: point.into(),
@@ -298,13 +298,13 @@ pub(crate) mod tests {
     }
 
     impl CoiPointConstructor for PositiveCoi {
-        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self {
             Self::new(id, point)
         }
     }
 
     impl CoiPointConstructor for NegativeCoi {
-        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self {
             Self::new(id, point)
         }
     }
