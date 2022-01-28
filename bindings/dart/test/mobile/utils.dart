@@ -27,7 +27,6 @@ Document mkTestDoc(String id, String title, int rank) => Document(
       queryWords: 'query words',
       url: 'url',
       domain: 'domain',
-      viewed: 0,
     );
 
 History mkTestHist(String id, Relevance relevance, UserFeedback feedback) =>

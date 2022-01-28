@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -27,7 +25,6 @@ pub(crate) struct DocumentContentComponent {
     pub(crate) query_words: String,
     pub(crate) url: String,
     pub(crate) domain: String,
-    pub(crate) viewed: Duration,
 }
 
 // TODO: the test-derived impls are temporarily available from rubert::utils::test_utils
@@ -102,7 +99,6 @@ impl From<&Document> for DocumentDataWithDocument {
                 query_words: document.query_words.clone(),
                 url: document.url.clone(),
                 domain: document.domain.clone(),
-                viewed: document.viewed,
             },
         }
     }

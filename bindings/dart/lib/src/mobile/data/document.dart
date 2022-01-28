@@ -32,7 +32,6 @@ class Documents {
         cdoc.query_words = document.queryWords.toNativeUtf8().cast<Uint8>();
         cdoc.url = document.url.toNativeUtf8().cast<Uint8>();
         cdoc.domain = document.domain.toNativeUtf8().cast<Uint8>();
-        cdoc.viewed = document.viewed;
       });
     }
   }

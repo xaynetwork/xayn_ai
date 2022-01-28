@@ -30,7 +30,6 @@ void main() {
           queryWords: 'abc',
           url: 'url',
           domain: 'dom',
-          viewed: 0,
         ),
         Document(
           id: 'fcb6a685-eb92-4d36-8686-8a70a3a33004',
@@ -43,7 +42,6 @@ void main() {
           queryWords: 'abc',
           url: 'url2',
           domain: 'dom2',
-          viewed: 0,
         ),
       ];
 

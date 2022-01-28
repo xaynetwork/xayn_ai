@@ -433,8 +433,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_0.test/0",
-      "domain": "dom_0.test",
-      "viewed": 0
+      "domain": "dom_0.test"
     },
     {
       "id": "e1bd92a5-2db4-41a4-8393-7da242926d93",
@@ -446,8 +445,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_0.test/1",
-      "domain": "dom_0.test",
-      "viewed": 0
+      "domain": "dom_0.test"
     },
     {
       "id": "5d9a722d-c961-413c-adc3-8f3bde1f39ec",
@@ -459,8 +457,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_1.test/0",
-      "domain": "dom_1.test",
-      "viewed": 0
+      "domain": "dom_1.test"
     },
     {
       "id": "ec374420-3151-4f43-89e6-872db2c3db3a",
@@ -472,8 +469,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_2.test/0",
-      "domain": "dom_2.test",
-      "viewed": 0
+      "domain": "dom_2.test"
     },
     {
       "id": "998c9fd4-c124-4d39-8ae9-9f46eb8d3c83",
@@ -485,8 +481,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_3.test/0",
-      "domain": "dom_3.test",
-      "viewed": 0
+      "domain": "dom_3.test"
     },
     {
       "id": "1fc20ed5-b70b-4147-b911-e98752872d67",
@@ -498,8 +493,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_4.test/0",
-      "domain": "dom_4.test",
-      "viewed": 0
+      "domain": "dom_4.test"
     },
     {
       "id": "725b6dc2-7db2-452c-84cb-1b2ea14f8b5b",
@@ -511,8 +505,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_3.test/1",
-      "domain": "dom_3.test",
-      "viewed": 0
+      "domain": "dom_3.test"
     },
     {
       "id": "c7923fa0-aac2-4683-b523-d6d0995e76a5",
@@ -524,8 +517,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_2.test/1",
-      "domain": "dom_2.test",
-      "viewed": 0
+      "domain": "dom_2.test"
     },
     {
       "id": "1ccc0b33-ffbf-43c2-89f9-b0288cd7725f",
@@ -537,8 +529,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_5.test/0",
-      "domain": "dom_5.test",
-      "viewed": 0
+      "domain": "dom_5.test"
     },
     {
       "id": "7e81cc2b-da81-496e-8576-9aa2bd0ba0b7",
@@ -550,8 +541,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_4.test/1",
-      "domain": "dom_4.test",
-      "viewed": 0
+      "domain": "dom_4.test"
     },
     {
       "id": "7e5cd897-1f4a-4ada-914b-67a36449f89d",
@@ -563,8 +553,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_6.test/0",
-      "domain": "dom_6.test",
-      "viewed": 0
+      "domain": "dom_6.test"
     },
     {
       "id": "d1c41b13-435d-4e37-938a-9302438898dd",
@@ -576,8 +565,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_7.test/0",
-      "domain": "dom_7.test",
-      "viewed": 0
+      "domain": "dom_7.test"
     },
     {
       "id": "eb8448af-d04f-49c1-84a3-975d6f73040b",
@@ -589,8 +577,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_8.test/0",
-      "domain": "dom_8.test",
-      "viewed": 0
+      "domain": "dom_8.test"
     },
     {
       "id": "95a617dd-3eb3-41b7-ac1d-d24b94a1f91a",
@@ -602,8 +589,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_9.test/0",
-      "domain": "dom_9.test",
-      "viewed": 0
+      "domain": "dom_9.test"
     },
     {
       "id": "aedbf1fe-925f-4368-a62a-203d9e7cff66",
@@ -615,8 +601,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_7.test/1",
-      "domain": "dom_7.test",
-      "viewed": 0
+      "domain": "dom_7.test"
     },
     {
       "id": "bb58ab1b-2c58-4f52-93c6-61524fd19aa5",
@@ -628,8 +613,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_2.test/2",
-      "domain": "dom_2.test",
-      "viewed": 0
+      "domain": "dom_2.test"
     },
     {
       "id": "c6c2e2eb-3e73-49d0-88f2-1a0a7a89ea64",
@@ -641,8 +625,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_10.test/0",
-      "domain": "dom_10.test",
-      "viewed": 0
+      "domain": "dom_10.test"
     },
     {
       "id": "90c7a1ed-dd4d-4b91-8dfd-ccbb775168bb",
@@ -654,8 +637,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_11.test/0",
-      "domain": "dom_11.test",
-      "viewed": 0
+      "domain": "dom_11.test"
     },
     {
       "id": "12b269f2-3d7a-4805-b5cd-40efba201b91",
@@ -667,8 +649,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_2.test/3",
-      "domain": "dom_2.test",
-      "viewed": 0
+      "domain": "dom_2.test"
     },
     {
       "id": "98e788f6-eddc-4eb8-bdd5-1a5650f58773",
@@ -680,8 +661,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_3.test/2",
-      "domain": "dom_3.test",
-      "viewed": 0
+      "domain": "dom_3.test"
     },
     {
       "id": "15d6f6dc-6135-45e0-b6ab-391d12f98981",
@@ -693,8 +673,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_10.test/1",
-      "domain": "dom_10.test",
-      "viewed": 0
+      "domain": "dom_10.test"
     },
     {
       "id": "67c5b182-b852-43ff-9a52-7f65c7a37923",
@@ -706,8 +685,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_12.test/0",
-      "domain": "dom_12.test",
-      "viewed": 0
+      "domain": "dom_12.test"
     },
     {
       "id": "6cdcfbbf-7bc9-47f3-a7e8-4880869dadd3",
@@ -719,8 +697,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_5.test/1",
-      "domain": "dom_5.test",
-      "viewed": 0
+      "domain": "dom_5.test"
     },
     {
       "id": "73b88e65-97de-4d1e-a120-5dceca8f0016",
@@ -732,8 +709,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_6.test/1",
-      "domain": "dom_6.test",
-      "viewed": 0
+      "domain": "dom_6.test"
     },
     {
       "id": "111b7d1d-2c9a-4b7f-854a-234048d4f1ae",
@@ -745,8 +721,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_13.test/0",
-      "domain": "dom_13.test",
-      "viewed": 0
+      "domain": "dom_13.test"
     },
     {
       "id": "b361a764-f18b-42b4-816d-7c323863fd1f",
@@ -758,8 +733,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_14.test/0",
-      "domain": "dom_14.test",
-      "viewed": 0
+      "domain": "dom_14.test"
     },
     {
       "id": "7cdcd428-8151-48ee-980a-398cad299df6",
@@ -771,8 +745,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_15.test/0",
-      "domain": "dom_15.test",
-      "viewed": 0
+      "domain": "dom_15.test"
     },
     {
       "id": "62b6ba27-4e1a-4beb-bdf0-67184f67eee6",
@@ -784,8 +757,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_9.test/1",
-      "domain": "dom_9.test",
-      "viewed": 0
+      "domain": "dom_9.test"
     },
     {
       "id": "afa22ef6-c6de-46cb-966b-9bc34804d444",
@@ -797,8 +769,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_16.test/0",
-      "domain": "dom_16.test",
-      "viewed": 0
+      "domain": "dom_16.test"
     },
     {
       "id": "18c67eca-efbb-4690-85d5-2e1e0f7df42b",
@@ -810,8 +781,7 @@
       "query_id": "e04dd090-2b57-4100-befa-4fa050560a06",
       "query_words": "birds",
       "url": "url://dom_17.test/0",
-      "domain": "dom_17.test",
-      "viewed": 0
+      "domain": "dom_17.test"
     }
   ],
   "serialized_state": null
