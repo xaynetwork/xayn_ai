@@ -67,7 +67,7 @@ impl PositiveCoi {
 
 impl NegativeCoi {
     pub(crate) fn log_reaction(&mut self) {
-        self.last_view = system_time_now()
+        self.last_view = system_time_now();
     }
 }
 
