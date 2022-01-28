@@ -11,7 +11,7 @@ use crate::{
     UserFeedback,
 };
 
-pub struct Ranker(super::Ranker);
+pub struct Ranker(super::system::Ranker);
 
 impl Ranker {
     /// Creates a byte representation of the internal state of the ranker.
@@ -114,7 +114,7 @@ impl<'a, P> Builder<'a, P> {
 
         let config = Configuration::default();
         let coi = CoiSystem::new(config.clone(), smbert.clone());
-        Ok(Ranker(super::Ranker::new(
+        Ok(Ranker(super::system::Ranker::new(
             config,
             smbert,
             coi,

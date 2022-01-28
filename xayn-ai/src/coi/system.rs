@@ -20,7 +20,7 @@ use crate::{
     },
     data::document_data::{CoiComponent, DocumentDataWithCoi, DocumentDataWithSMBert},
     embedding::{smbert::SMBert, utils::Embedding},
-    ranker::config::Configuration,
+    ranker::Configuration,
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,

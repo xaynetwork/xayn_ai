@@ -1,4 +1,4 @@
-pub(crate) mod config;
+mod config;
 mod context;
 mod document;
 mod public;

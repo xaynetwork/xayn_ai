@@ -7,7 +7,7 @@ use crate::utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY};
 
 /// The configuration of the ranker.
 #[derive(Clone, Debug)]
-pub(crate) struct Configuration {
+pub struct Configuration {
     shift_factor: f32,
     threshold: f32,
     neighbors: usize,
@@ -21,11 +21,10 @@ pub(crate) struct Configuration {
 
 /// Potential errors of the ranker configuration.
 #[derive(Copy, Clone, Debug, Display, Error)]
-pub(crate) enum Error {
+pub enum Error {
     /// Invalid coi shift factor, expected value from the unit interval
     ShiftFactor,
     /// Invalid coi threshold, expected non-negative value
-    #[cfg(test)]
     Threshold,
     /// Invalid coi neighbors, expected positive value
     Neighbors,
@@ -41,7 +40,7 @@ pub(crate) enum Error {
 
 impl Configuration {
     /// The shift factor by how much a Coi is shifted towards a new point.
-    pub(crate) fn shift_factor(&self) -> f32 {
+    pub fn shift_factor(&self) -> f32 {
         self.shift_factor
     }
 
@@ -49,8 +48,7 @@ impl Configuration {
     ///
     /// # Errors
     /// Fails if the shift factor is outside of the unit interval.
-    #[allow(dead_code)]
-    pub(crate) fn with_shift_factor(self, shift_factor: f32) -> Result<Self, Error> {
+    pub fn with_shift_factor(self, shift_factor: f32) -> Result<Self, Error> {
         if (0. ..=1.).contains(&shift_factor) {
             Ok(Self {
                 shift_factor,
@@ -62,7 +60,7 @@ impl Configuration {
     }
 
     /// The minimum distance between distinct cois.
-    pub(crate) fn threshold(&self) -> f32 {
+    pub fn threshold(&self) -> f32 {
         self.threshold
     }
 
@@ -70,8 +68,7 @@ impl Configuration {
     ///
     /// # Errors
     /// Fails if the threshold is negative.
-    #[cfg(test)]
-    pub(crate) fn with_threshold(self, threshold: f32) -> Result<Self, Error> {
+    pub fn with_threshold(self, threshold: f32) -> Result<Self, Error> {
         if threshold >= 0. {
             Ok(Self { threshold, ..self })
         } else {
@@ -80,7 +77,7 @@ impl Configuration {
     }
 
     /// The positive number of neighbors for the k-nearest-neighbors distance.
-    pub(crate) fn neighbors(&self) -> usize {
+    pub fn neighbors(&self) -> usize {
         self.neighbors
     }
 
@@ -88,8 +85,7 @@ impl Configuration {
     ///
     /// # Errors
     /// Fails if the neighbors is zero.
-    #[allow(dead_code)]
-    pub(crate) fn with_neighbors(self, neighbors: usize) -> Result<Self, Error> {
+    pub fn with_neighbors(self, neighbors: usize) -> Result<Self, Error> {
         if neighbors > 0 {
             Ok(Self { neighbors, ..self })
         } else {
@@ -98,18 +94,17 @@ impl Configuration {
     }
 
     /// The time since the last view after which a coi becomes irrelevant.
-    pub(crate) fn horizon(&self) -> Duration {
+    pub fn horizon(&self) -> Duration {
         self.horizon
     }
 
     /// Sets the horizon.
-    #[cfg(test)]
-    pub(crate) fn with_horizon(self, horizon: Duration) -> Self {
+    pub fn with_horizon(self, horizon: Duration) -> Self {
         Self { horizon, ..self }
     }
 
     /// The weighting between coi and pairwise candidate similarities in the key phrase selection.
-    pub(crate) fn gamma(&self) -> f32 {
+    pub fn gamma(&self) -> f32 {
         self.gamma
     }
 
@@ -117,8 +112,7 @@ impl Configuration {
     ///
     /// # Errors
     /// Fails if the gamma is outside of the unit interval.
-    #[allow(dead_code)]
-    pub(crate) fn with_gamma(self, gamma: f32) -> Result<Self, Error> {
+    pub fn with_gamma(self, gamma: f32) -> Result<Self, Error> {
         if (0. ..=1.).contains(&gamma) {
             Ok(Self { gamma, ..self })
         } else {
@@ -129,7 +123,7 @@ impl Configuration {
     /// The penalty for less relevant key phrases of a coi in increasing order (ie. lowest penalty
     /// for the most relevant key phrase first and highest penalty for the least relevant key phrase
     /// last). The length of the penalty also serves as the maximum number of key phrases.
-    pub(crate) fn penalty(&self) -> &[f32] {
+    pub fn penalty(&self) -> &[f32] {
         &self.penalty
     }
 
@@ -137,8 +131,7 @@ impl Configuration {
     ///
     /// # Errors
     /// Fails if the penalty is empty, has non-finite values or is unsorted.
-    #[allow(dead_code)]
-    pub(crate) fn with_penalty(self, penalty: &[f32]) -> Result<Self, Error> {
+    pub fn with_penalty(self, penalty: &[f32]) -> Result<Self, Error> {
         // TODO: refactor once slice::is_sorted_by() is stabilized
         fn is_sorted_by(slice: &[f32], compare: impl FnMut(&f32, &f32) -> Ordering) -> bool {
             let mut vector = slice.to_vec();
@@ -160,7 +153,7 @@ impl Configuration {
     }
 
     /// The maximum number of key phrases picked during the coi key phrase selection.
-    pub(crate) fn max_key_phrases(&self) -> usize {
+    pub fn max_key_phrases(&self) -> usize {
         self.penalty.len()
     }
 

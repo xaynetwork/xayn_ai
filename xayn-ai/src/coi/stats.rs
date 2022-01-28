@@ -129,7 +129,7 @@ mod tests {
 
     use crate::{
         coi::{key_phrase::KeyPhrase, utils::tests::create_pos_cois},
-        ranker::config::Configuration,
+        ranker::Configuration,
     };
     use test_utils::assert_approx_eq;
 
