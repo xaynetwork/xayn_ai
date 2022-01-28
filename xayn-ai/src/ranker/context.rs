@@ -179,8 +179,8 @@ mod tests {
         let score =
             compute_score_for_embedding(&embedding, &user_interests, &relevances, 1, horizon, now)
                 .unwrap();
-        // 1.1185127 * 0.99999934 + 0.99999934 - 0 * 100 = 2.1185114
-        assert_approx_eq!(f32, score, 2.1185114, epsilon = 1e-5);
+        // 1.1185127 * 0.99999934 + 0.49999967 - 0 * 100 = 1.6185117
+        assert_approx_eq!(f32, score, 1.6185117, epsilon = 1e-5);
     }
 
     #[test]

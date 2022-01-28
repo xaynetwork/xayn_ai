@@ -728,9 +728,9 @@ mod tests {
     #[test]
     fn test_select_top_key_phrases_all() {
         let mut cois = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
-        cois[0].update_stats(Duration::from_secs(1));
-        cois[1].update_stats(Duration::from_secs(2));
-        cois[2].update_stats(Duration::from_secs(3));
+        cois[0].log_time(Duration::from_secs(11));
+        cois[1].log_time(Duration::from_secs(12));
+        cois[2].log_time(Duration::from_secs(13));
         let key_phrases = [
             KeyPhrase::new("key", arr1(&[1., 1., 1.])).unwrap(),
             KeyPhrase::new("phrase", arr1(&[2., 1., 1.])).unwrap(),

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use kpe::Configuration as KpeConfiguration;
 use rubert::{AveragePooler, SMBertConfig};
@@ -8,6 +8,7 @@ use crate::{
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
     ranker::{config::Configuration, document::Document},
+    UserFeedback,
 };
 
 pub struct Ranker(super::Ranker);
@@ -30,6 +31,27 @@ impl Ranker {
     /// Fails if the scores of the documents cannot be computed.
     pub fn rank(&mut self, items: &mut [impl Document]) -> Result<(), Error> {
         self.0.rank(items)
+    }
+
+    /// Logs the document view time and updates the user interests based on the given information.
+    pub fn log_document_view_time(
+        &mut self,
+        user_feedback: UserFeedback,
+        embedding: &Embedding,
+        viewed: Duration,
+    ) {
+        self.0
+            .log_document_view_time(user_feedback, embedding, viewed)
+    }
+
+    /// Logs the user reaction and updates the user interests based on the given information.
+    pub fn log_user_reaction(
+        &mut self,
+        user_feedback: UserFeedback,
+        snippet: &str,
+        embedding: &Embedding,
+    ) {
+        self.0.log_user_reaction(user_feedback, snippet, embedding)
     }
 
     /// Selects the top key phrases from the positive cois, sorted in descending relevance.

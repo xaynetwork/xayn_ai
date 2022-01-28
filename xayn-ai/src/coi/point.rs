@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -33,11 +33,11 @@ pub(crate) struct PositiveCoi {
 }
 
 impl PositiveCoi {
-    pub(crate) fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self {
+    pub(crate) fn new(id: impl Into<CoiId>, point: impl Into<Embedding>) -> Self {
         Self {
             id: id.into(),
             point: point.into(),
-            stats: CoiStats::new(viewed),
+            stats: CoiStats::new(),
         }
     }
 }
@@ -253,7 +253,7 @@ where
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::f32::NAN;
+    use std::{f32::NAN, time::Duration};
 
     use ndarray::arr1;
 
@@ -298,8 +298,8 @@ pub(crate) mod tests {
     }
 
     impl CoiPointConstructor for PositiveCoi {
-        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, viewed: Duration) -> Self {
-            Self::new(id, point, viewed)
+        fn new(id: impl Into<CoiId>, point: impl Into<Embedding>, _viewed: Duration) -> Self {
+            Self::new(id, point)
         }
     }
 

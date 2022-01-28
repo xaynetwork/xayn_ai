@@ -52,15 +52,25 @@ impl CoiSystem {
         }
     }
 
+    /// Updates the view time of the positive coi closest to the embedding.
+    pub(crate) fn log_document_view_time(
+        &mut self,
+        cois: &mut Vec<PositiveCoi>,
+        embedding: &Embedding,
+        config: &Configuration,
+        viewed: Duration,
+    ) {
+        log_document_view_time(cois, embedding, config, viewed);
+    }
+
     /// Updates the positive coi closest to the embedding or creates a new one if it's too far away.
-    pub(crate) fn update_positive_coi(
+    pub(crate) fn log_positive_user_reaction(
         &mut self,
         cois: &mut Vec<PositiveCoi>,
         embedding: &Embedding,
         config: &Configuration,
         smbert: impl Fn(&str) -> Result<Embedding, Error>,
         candidates: &[String],
-        viewed: Duration,
     ) {
         update_positive_coi(
             cois,
@@ -69,12 +79,11 @@ impl CoiSystem {
             &mut self.relevances,
             smbert,
             candidates,
-            viewed,
         );
     }
 
     /// Updates the negative coi closest to the embedding or creates a new one if it's too far away.
-    pub(crate) fn update_negative_coi(
+    pub(crate) fn log_negative_user_reaction(
         &self,
         cois: &mut Vec<NegativeCoi>,
         embedding: &Embedding,
@@ -173,7 +182,6 @@ fn update_positive_coi(
     relevances: &mut RelevanceMap,
     smbert: impl Fn(&str) -> Result<Embedding, Error>,
     candidates: &[String],
-    viewed: Duration,
 ) {
     match find_closest_coi_mut(cois, embedding, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
@@ -185,10 +193,10 @@ fn update_positive_coi(
                 config.max_key_phrases(),
                 config.gamma(),
             );
-            coi.update_stats(viewed);
+            coi.log_reaction();
         }
         _ => {
-            let coi = PositiveCoi::new(Uuid::new_v4(), embedding.clone(), viewed);
+            let coi = PositiveCoi::new(Uuid::new_v4(), embedding.clone());
             coi.select_key_phrases(
                 relevances,
                 candidates,
@@ -217,7 +225,6 @@ fn update_positive_cois(
             relevances,
             smbert,
             &[/* TODO: run KPE on doc */],
-            doc.viewed(),
         );
         cois
     });
@@ -228,7 +235,7 @@ fn update_negative_coi(cois: &mut Vec<NegativeCoi>, embedding: &Embedding, confi
     match find_closest_coi_mut(cois, embedding, config.neighbors()) {
         Some((coi, distance)) if distance < config.threshold() => {
             coi.shift_point(embedding, config.shift_factor());
-            coi.update_stats();
+            coi.log_reaction();
         }
         _ => cois.push(NegativeCoi::new(Uuid::new_v4(), embedding.clone())),
     }
@@ -273,6 +280,17 @@ pub(crate) fn update_user_interests(
     update_negative_cois(&mut user_interests.negative, &negative_docs, config);
 
     Ok(user_interests)
+}
+
+fn log_document_view_time(
+    cois: &mut Vec<PositiveCoi>,
+    embedding: &Embedding,
+    config: &Configuration,
+    viewed: Duration,
+) {
+    if let Some((coi, _)) = find_closest_coi_mut(cois, embedding, config.neighbors()) {
+        coi.log_time(viewed);
+    }
 }
 
 /// Coi system to run when Coi is disabled
@@ -378,7 +396,6 @@ mod tests {
         let mut cois = create_pos_cois(&[[30., 0., 0.], [0., 20., 0.], [0., 0., 40.]]);
         let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[1., 1., 1.]).into();
-        let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
         let (index, distance) = find_closest_coi_index(&cois, &embedding, 4).unwrap();
@@ -394,7 +411,6 @@ mod tests {
             &mut relevances,
             |_| unreachable!(),
             &[],
-            viewed,
         );
         assert_eq!(cois.len(), 4);
     }
@@ -404,8 +420,9 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
         let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[2., 3., 4.]).into();
-        let viewed = Duration::from_secs(10);
         let config = Configuration::default();
+
+        let last_view_before = cois[0].stats.last_view;
 
         update_positive_coi(
             &mut cois,
@@ -414,13 +431,15 @@ mod tests {
             &mut relevances,
             |_| unreachable!(),
             &[],
-            viewed,
         );
 
         assert_eq!(cois.len(), 3);
         assert_eq!(cois[0].point, arr1(&[1.1, 1.2, 1.3]));
         assert_eq!(cois[1].point, arr1(&[10., 10., 10.]));
         assert_eq!(cois[2].point, arr1(&[20., 20., 20.]));
+
+        assert_eq!(cois[0].stats.view_count, 2);
+        assert!(cois[0].stats.last_view > last_view_before);
     }
 
     #[test]
@@ -428,7 +447,6 @@ mod tests {
         let mut cois = create_pos_cois(&[[0., 0., 0.]]);
         let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[0., 0., 12.]).into();
-        let viewed = Duration::from_secs(10);
         let config = Configuration::default();
 
         update_positive_coi(
@@ -438,7 +456,6 @@ mod tests {
             &mut relevances,
             |_| unreachable!(),
             &[],
-            viewed,
         );
 
         assert_eq!(cois.len(), 2);
@@ -599,5 +616,27 @@ mod tests {
         update_negative_coi(&mut cois, &arr1(&[1., 2., 4.]).into(), &config);
         assert!(cois[0].last_view > before);
         assert_eq!(cois.len(), 1);
+    }
+
+    #[test]
+    fn test_log_document_view_time() {
+        let mut cois = create_pos_cois(&[[1., 2., 3.]]);
+        let config = Configuration::default().with_threshold(10.).unwrap();
+
+        log_document_view_time(
+            &mut cois,
+            &arr1(&[1., 2., 4.]).into(),
+            &config,
+            Duration::from_secs(10),
+        );
+        assert_eq!(Duration::from_secs(10), cois[0].stats.view_time);
+
+        log_document_view_time(
+            &mut cois,
+            &arr1(&[1., 2., 4.]).into(),
+            &config,
+            Duration::from_secs(10),
+        );
+        assert_eq!(Duration::from_secs(20), cois[0].stats.view_time);
     }
 }
