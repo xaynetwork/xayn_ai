@@ -244,6 +244,13 @@ impl RelevanceMap {
             }
         }
     }
+
+    pub(crate) fn relevance_for_coi(&self, id: &CoiId) -> Option<f32> {
+        match self.coi_to_relevance.get(id) {
+            Some(Relevances(Rels::Coi(F32(relevance)))) => Some(*relevance),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

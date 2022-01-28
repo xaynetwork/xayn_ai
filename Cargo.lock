@@ -2411,7 +2411,6 @@ dependencies = [
  "js-sys",
  "kpe",
  "layer",
- "maplit",
  "mockall",
  "ndarray",
  "obake",

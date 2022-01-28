@@ -15,6 +15,8 @@ pub(crate) struct Configuration {
     max_key_phrases: usize,
     gamma: f32,
     penalty: Vec<f32>,
+    min_positive_cois: usize,
+    min_negative_cois: usize,
 }
 
 /// Potential errors of the ranker configuration.
@@ -31,6 +33,10 @@ pub(crate) enum Error {
     Gamma,
     /// Invalid coi penalty, expected non-empty, finite and sorted values
     Penalty,
+    /// Invalid minimum number of positive cois, expected positive value
+    MinPositiveCois,
+    /// Invalid minimum number of negative cois, expected positive value
+    MinNegativeCois,
 }
 
 impl Configuration {
@@ -102,7 +108,7 @@ impl Configuration {
         Self { horizon, ..self }
     }
 
-    /// The weighting between coi and pairwise candidate similarites in the key phrase selection.
+    /// The weighting between coi and pairwise candidate similarities in the key phrase selection.
     pub(crate) fn gamma(&self) -> f32 {
         self.gamma
     }
@@ -157,6 +163,48 @@ impl Configuration {
     pub(crate) fn max_key_phrases(&self) -> usize {
         self.penalty.len()
     }
+
+    /// The minimum number of positive cois required for the context calculation.
+    pub(crate) fn min_positive_cois(&self) -> usize {
+        self.min_positive_cois
+    }
+
+    /// Sets the minimum number of positive cois.
+    ///
+    /// # Errors
+    /// Fails if the minimum number is zero.
+    #[allow(dead_code)]
+    pub(crate) fn with_min_positive_cois(self, min_positive_cois: usize) -> Result<Self, Error> {
+        if min_positive_cois > 0 {
+            Ok(Self {
+                min_positive_cois,
+                ..self
+            })
+        } else {
+            Err(Error::MinPositiveCois)
+        }
+    }
+
+    /// The minimum number of negative cois required for the context calculation.
+    pub(crate) fn min_negative_cois(&self) -> usize {
+        self.min_negative_cois
+    }
+
+    /// Sets the minimum number of negative cois.
+    ///
+    /// # Errors
+    /// Fails if the minimum number is zero.
+    #[allow(dead_code)]
+    pub(crate) fn with_min_negative_cois(self, min_negative_cois: usize) -> Result<Self, Error> {
+        if min_negative_cois > 0 {
+            Ok(Self {
+                min_negative_cois,
+                ..self
+            })
+        } else {
+            Err(Error::MinNegativeCois)
+        }
+    }
 }
 
 impl Default for Configuration {
@@ -169,6 +217,8 @@ impl Default for Configuration {
             max_key_phrases: 3,
             gamma: 0.9,
             penalty: vec![1., 0.75, 0.66],
+            min_positive_cois: 2,
+            min_negative_cois: 2,
         }
     }
 }

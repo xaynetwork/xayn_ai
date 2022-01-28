@@ -1,119 +1,205 @@
-use crate::{data::document_data::CoiComponent, ranker::DocumentId};
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime},
+};
 
-/// The context used to calculate a document's score.
-/// <https://xainag.atlassian.net/wiki/spaces/M2D/pages/770670607/Production+AI+Workflow#3.2-Context-calculations>.
-/// outlines the calculation of positive and negative distance factor.
-pub(crate) struct Context {
-    /// Average positive distance.
-    pos_avg: f32,
-    /// Maximum negative distance.
-    neg_max: f32,
+use displaydoc::Display;
+use thiserror::Error;
+
+use crate::{
+    coi::{
+        compute_coi_decay_factor,
+        find_closest_coi,
+        point::{CoiPoint, UserInterests},
+        RelevanceMap,
+    },
+    embedding::utils::Embedding,
+    ranker::{document::Document, Configuration},
+    utils::system_time_now,
+    CoiId,
+    DocumentId,
+};
+
+#[derive(Error, Debug, Display)]
+#[allow(clippy::enum_variant_names)]
+pub(crate) enum Error {
+    /// Not enough cois
+    NotEnoughCois,
+    /// Failed to find the closest cois
+    FailedToFindTheClosestCois,
 }
 
-impl Context {
-    pub(crate) fn from_cois(cois: &[(DocumentId, CoiComponent)]) -> Self {
-        let cois_len = cois.len() as f32;
-        let pos_avg = cois.iter().map(|(_, coi)| coi.pos_distance).sum::<f32>() / cois_len;
-        let neg_max = cois
-            .iter()
-            .map(|(_, coi)| coi.neg_distance)
-            .fold(f32::MIN, f32::max); // NOTE f32::max considers NaN as smallest value
+/// Helper struct for [`find_closest_cois`].
+struct ClosestCois {
+    /// The ID of the closest positive centre of interest
+    pos_id: CoiId,
+    /// Distance from the closest positive centre of interest
+    pos_distance: f32,
+    pos_last_view: SystemTime,
 
-        Self { pos_avg, neg_max }
+    /// Distance from the closest negative centre of interest
+    neg_distance: f32,
+    neg_last_view: SystemTime,
+}
+
+fn find_closest_cois(
+    embedding: &Embedding,
+    user_interests: &UserInterests,
+    neighbors: usize,
+) -> Option<ClosestCois> {
+    let (pos_coi, pos_distance) = find_closest_coi(&user_interests.positive, embedding, neighbors)?;
+    let (neg_coi, neg_distance) = find_closest_coi(&user_interests.negative, embedding, neighbors)?;
+
+    ClosestCois {
+        pos_id: pos_coi.id(),
+        pos_distance,
+        pos_last_view: pos_coi.stats.last_view,
+        neg_distance,
+        neg_last_view: neg_coi.last_view,
+    }
+    .into()
+}
+
+///# Panics
+///
+/// Panics if the coi relevance is not present in the [`RelevanceMap`].
+fn compute_score_for_embedding(
+    embedding: &Embedding,
+    user_interests: &UserInterests,
+    relevances: &RelevanceMap,
+    neighbors: usize,
+    horizon: Duration,
+    now: SystemTime,
+) -> Result<f32, Error> {
+    let cois = find_closest_cois(embedding, user_interests, neighbors)
+        .ok_or(Error::FailedToFindTheClosestCois)?;
+
+    let pos_decay = compute_coi_decay_factor(horizon, now, cois.pos_last_view);
+    let neg_decay = compute_coi_decay_factor(horizon, now, cois.neg_last_view);
+
+    let pos_coi_relevance = relevances.relevance_for_coi(&cois.pos_id).unwrap();
+
+    Ok(
+        (cois.pos_distance * pos_decay + pos_coi_relevance - cois.neg_distance * neg_decay)
+            .max(f32::MIN)
+            .min(f32::MAX),
+    )
+}
+
+fn has_enough_cois(
+    user_interests: &UserInterests,
+    min_positive_cois: usize,
+    min_negative_cois: usize,
+) -> bool {
+    user_interests.positive.len() >= min_positive_cois
+        && user_interests.negative.len() >= min_negative_cois
+}
+
+/// Computes the score for all documents based on the given information.
+///
+/// <https://xainag.atlassian.net/wiki/spaces/M2D/pages/2240708609/Discovery+engine+workflow#The-weighting-of-the-CoI>
+/// outlines parts of the score calculation.
+///
+/// # Errors
+/// Fails if the required number of positive or negative cois is not present.
+pub(super) fn compute_score_for_docs(
+    documents: &mut [impl Document],
+    user_interests: &UserInterests,
+    relevances: &mut RelevanceMap,
+    config: &Configuration,
+) -> Result<HashMap<DocumentId, f32>, Error> {
+    if !has_enough_cois(
+        user_interests,
+        config.min_positive_cois(),
+        config.min_negative_cois(),
+    ) {
+        return Err(Error::NotEnoughCois);
     }
 
-    /// Calculates score from given positive distance and negative distance.
-    /// Both positive and negative distance must be >= 0.
-    pub(crate) fn calculate_score(&self, pos: f32, neg: f32) -> f32 {
-        debug_assert!(pos >= 0. && neg >= 0.);
-        let frac_pos = (self.pos_avg > 0.)
-            .then(|| (1. + pos / self.pos_avg).recip())
-            .unwrap_or(1.);
-        let frac_neg = (1. + (self.neg_max - neg)).recip();
-
-        (frac_pos + frac_neg) / 2.
-    }
+    let now = system_time_now();
+    relevances.compute_relevances(&user_interests.positive, config.horizon(), now);
+    documents
+        .iter()
+        .map(|document| {
+            // `compute_score_for_embedding` cannot panic because we calculate
+            // the relevances for all positive cois before
+            let score = compute_score_for_embedding(
+                document.smbert_embedding(),
+                user_interests,
+                relevances,
+                config.neighbors(),
+                config.horizon(),
+                now,
+            )?;
+            Ok((document.id(), score))
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        data::document_data::CoiComponent,
-        ranker::{context::Context, DocumentId},
-        CoiId,
-    };
+    use ndarray::arr1;
     use test_utils::assert_approx_eq;
 
-    #[allow(clippy::eq_op)]
+    use crate::{
+        coi::{create_neg_cois, create_pos_cois},
+        utils::SECONDS_PER_DAY,
+    };
+
+    use super::*;
+
     #[test]
-    fn test_calculate() {
-        let calc = Context {
-            pos_avg: 4.,
-            neg_max: 8.,
-        };
+    fn test_has_enough_cois() {
+        let user_interests = UserInterests::default();
 
-        // In the `assert_approx_eq!`s below, the result expectations are
-        // expressions instead of constants to make it easier to understand how
-        // the values come into existence. The format is (frac_pos + frac_neg) / 2.
-
-        let cxt = calc.calculate_score(0., calc.neg_max);
-        assert_approx_eq!(f32, cxt, (1. + 1.) / 2.);
-
-        let cxt = calc.calculate_score(1., calc.neg_max);
-        assert_approx_eq!(f32, cxt, ((4. / 5.) + 1.) / 2.);
-
-        let cxt = calc.calculate_score(calc.pos_avg, calc.neg_max);
-        assert_approx_eq!(f32, cxt, (1. / 2. + 1.) / 2.);
-
-        let cxt = calc.calculate_score(8., 7.);
-        assert_approx_eq!(f32, cxt, ((1. / 3.) + (1. / 2.)) / 2.);
-    }
-
-    #[allow(clippy::eq_op)]
-    #[test]
-    fn test_calculate_neg_max_f32_max() {
-        // when calculating the negative distance in the `CoiSystem`,
-        // we assign `f32::MAX` if we don't have negative cois
-        let calc = Context {
-            pos_avg: 4.,
-            neg_max: f32::MAX,
-        };
-
-        let ctx = calc.calculate_score(0., calc.neg_max);
-        assert_approx_eq!(f32, ctx, (1. + 1.) / 2.);
+        assert!(has_enough_cois(&user_interests, 0, 0));
+        assert!(!has_enough_cois(&user_interests, 1, 0));
+        assert!(!has_enough_cois(&user_interests, 0, 1));
     }
 
     #[test]
-    fn test_from_cois() {
-        let cois = vec![
-            (
-                DocumentId::from_u128(0),
-                CoiComponent {
-                    id: CoiId::mocked(1),
-                    pos_distance: 1.,
-                    neg_distance: 10.,
-                },
-            ),
-            (
-                DocumentId::from_u128(0),
-                CoiComponent {
-                    id: CoiId::mocked(2),
-                    pos_distance: 6.,
-                    neg_distance: 4.,
-                },
-            ),
-            (
-                DocumentId::from_u128(0),
-                CoiComponent {
-                    id: CoiId::mocked(3),
-                    pos_distance: 8.,
-                    neg_distance: 2.,
-                },
-            ),
-        ];
+    fn test_compute_score_for_embedding() {
+        let embedding = arr1(&[0., 0., 0.]).into();
 
-        let calc = Context::from_cois(cois.as_slice());
-        assert_approx_eq!(f32, calc.pos_avg, 5.);
-        assert_approx_eq!(f32, calc.neg_max, 10.);
+        let epoch = SystemTime::UNIX_EPOCH;
+        let now = epoch + Duration::from_secs_f32(2. * SECONDS_PER_DAY);
+
+        let mut positive = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
+        positive[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
+        positive[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
+
+        let mut negative = create_neg_cois(&[[100., 0., 0.]]);
+        negative[0].last_view = epoch;
+        let user_interests = UserInterests { positive, negative };
+
+        let mut relevances = RelevanceMap::default();
+        let horizon = Duration::from_secs_f32(2. * SECONDS_PER_DAY);
+
+        relevances.compute_relevances(&user_interests.positive, horizon, now);
+        let score =
+            compute_score_for_embedding(&embedding, &user_interests, &relevances, 1, horizon, now)
+                .unwrap();
+        // 1.1185127 * 0.99999934 + 0.99999934 - 0 * 100 = 2.1185114
+        assert_approx_eq!(f32, score, 2.1185114, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_compute_score_for_embedding_no_cois() {
+        let embedding = arr1(&[0., 0., 0.]).into();
+        let horizon = Duration::from_secs_f32(SECONDS_PER_DAY);
+
+        let res = compute_score_for_embedding(
+            &embedding,
+            &UserInterests::default(),
+            &RelevanceMap::default(),
+            1,
+            horizon,
+            system_time_now(),
+        );
+
+        assert!(matches!(
+            res.unwrap_err(),
+            Error::FailedToFindTheClosestCois
+        ));
     }
 }
