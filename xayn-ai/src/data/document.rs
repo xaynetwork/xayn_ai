@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
@@ -100,8 +100,6 @@ pub struct Document {
     pub url: String,
     /// Domain of the document
     pub domain: String,
-    /// Time viewed of the document.
-    pub viewed: Duration,
 }
 
 /// Represents a historical result from a query.

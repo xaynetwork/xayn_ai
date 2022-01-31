@@ -11,7 +11,7 @@ use crate::{
         SMBertComponent,
     },
     ltr::ConstLtr,
-    ranker::config::Configuration,
+    ranker::Configuration,
     reranker::{
         database::Database,
         systems::{

@@ -10,7 +10,7 @@ use crate::{
     embedding::smbert::SMBert,
     error::Error,
     ltr::{DomainReranker, DomainRerankerBuilder},
-    ranker::config::Configuration,
+    ranker::Configuration,
     reranker::{
         database::{Database, Db},
         systems::{

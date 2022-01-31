@@ -11,7 +11,7 @@ use tract_onnx::prelude::TractError;
 use crate::{model::Prediction, tokenizer::AttentionMask};
 
 /// A d-dimensional sequence embedding.
-#[derive(Clone, Debug, Deref, From, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deref, From, Default, Serialize, Deserialize)]
 pub struct Embedding<D>(Array<f32, D>)
 where
     D: Dimension;

@@ -18,17 +18,21 @@ pub(crate) struct CoiStats {
 }
 
 impl CoiStats {
-    pub(crate) fn new(viewed: Duration) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             view_count: 1,
-            view_time: viewed,
+            view_time: Duration::ZERO,
             last_view: system_time_now(),
         }
     }
 
-    pub(crate) fn update(&mut self, viewed: Duration) {
+    pub(crate) fn log_time(&mut self, viewed: Duration) {
         self.view_count += 1;
         self.view_time += viewed;
+    }
+
+    pub(crate) fn log_reaction(&mut self) {
+        self.view_count += 1;
         self.last_view = system_time_now();
     }
 
@@ -52,14 +56,18 @@ impl Default for CoiStats {
 }
 
 impl PositiveCoi {
-    pub(crate) fn update_stats(&mut self, viewed: Duration) {
-        self.stats.update(viewed);
+    pub(crate) fn log_time(&mut self, viewed: Duration) {
+        self.stats.log_time(viewed);
+    }
+
+    pub(crate) fn log_reaction(&mut self) {
+        self.stats.log_reaction();
     }
 }
 
 impl NegativeCoi {
-    pub(crate) fn update_stats(&mut self) {
-        self.last_view = system_time_now()
+    pub(crate) fn log_reaction(&mut self) {
+        self.last_view = system_time_now();
     }
 }
 
@@ -121,7 +129,7 @@ mod tests {
 
     use crate::{
         coi::{key_phrase::KeyPhrase, utils::tests::create_pos_cois},
-        ranker::config::Configuration,
+        ranker::Configuration,
     };
     use test_utils::assert_approx_eq;
 
@@ -167,9 +175,9 @@ mod tests {
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
         assert!(relevances[cois[2].id].is_coi());
-        assert_approx_eq!(f32, relevances[cois[0].id], 0.5, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[2].id], 0.8333333, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.16666646, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.33333293, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[2].id], 0.49999937, epsilon = 1e-6);
         assert!(relevances.relevances_is_empty());
     }
 
@@ -187,9 +195,9 @@ mod tests {
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
         assert!(relevances[cois[2].id].is_coi());
-        assert_approx_eq!(f32, relevances[cois[0].id], 0.5, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[2].id], 0.8333333, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.33333293, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.6666667, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[2].id], 0.99999875, epsilon = 1e-6);
         assert!(relevances.relevances_is_empty());
     }
 
@@ -208,8 +216,8 @@ mod tests {
         assert!(relevances[cois[0].id].is_coi());
         assert!(relevances[cois[1].id].is_coi());
         assert!(relevances[cois[2].id].is_coi());
-        assert_approx_eq!(f32, relevances[cois[0].id], 0.48729968, epsilon = 1e-5);
-        assert_approx_eq!(f32, relevances[cois[1].id], 0.15438259, epsilon = 1e-5);
+        assert_approx_eq!(f32, relevances[cois[0].id], 0.24364972, epsilon = 1e-6);
+        assert_approx_eq!(f32, relevances[cois[1].id], 0.07719126, epsilon = 1e-6);
         assert_approx_eq!(f32, relevances[cois[2].id], 0.);
         assert!(relevances.relevances_is_empty());
     }

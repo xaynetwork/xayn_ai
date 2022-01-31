@@ -7,7 +7,7 @@ mod data;
 mod embedding;
 mod error;
 mod ltr;
-mod ranker;
+pub mod ranker;
 mod reranker;
 mod utils;
 
@@ -27,7 +27,6 @@ pub use crate::{
         UserFeedback,
     },
     error::Error,
-    ranker::public::{Builder as RankerBuilder, Ranker},
     reranker::{
         public::{Builder, Reranker},
         RerankMode,

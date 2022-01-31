@@ -7,15 +7,6 @@ import 'package:xayn_ai_ffi_dart/src/common/data/document.dart' show Document;
 
 @JS()
 @anonymous
-class JsDuration {
-  external factory JsDuration({
-    int secs,
-    int nanos,
-  });
-}
-
-@JS()
-@anonymous
 class JsDocument {
   external factory JsDocument({
     String id,
@@ -31,7 +22,6 @@ class JsDocument {
     String query_words,
     String url,
     String domain,
-    JsDuration viewed,
   });
 }
 
@@ -50,7 +40,6 @@ extension ToJsDocuments on List<Document> {
           query_words: this[i].queryWords,
           url: this[i].url,
           domain: this[i].domain,
-          viewed: JsDuration(secs: this[i].viewed, nanos: 0),
         ),
         growable: false,
       );

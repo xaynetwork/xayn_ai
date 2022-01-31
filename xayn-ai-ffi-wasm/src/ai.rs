@@ -194,7 +194,7 @@ mod tests {
 
     use super::*;
 
-    use std::{iter::repeat, time::Duration};
+    use std::iter::repeat;
 
     use itertools::izip;
     use wasm_bindgen_test::wasm_bindgen_test;
@@ -331,7 +331,6 @@ mod tests {
         let domains = (0..len)
             .map(|idx| format!("domain-{}", idx))
             .collect::<Vec<_>>();
-        let views = repeat(Duration::ZERO).take(len);
 
         izip!(
             ids,
@@ -344,7 +343,6 @@ mod tests {
             query_words,
             urls,
             domains,
-            views,
         )
         .map(|doc| {
             JsValue::from_serde(&Document {
@@ -358,7 +356,6 @@ mod tests {
                 query_words: doc.7,
                 url: doc.8,
                 domain: doc.9,
-                viewed: doc.10,
             })
             .unwrap()
         })

@@ -16,7 +16,6 @@ pub(crate) use point::find_closest_coi;
 pub(crate) use relevance::RelevanceMap;
 pub(crate) use stats::compute_coi_decay_factor;
 pub(crate) use system::{CoiSystem, NeutralCoiSystem};
-pub(crate) use utils::DocumentRelevance;
 
 use derive_more::From;
 use displaydoc::Display;
