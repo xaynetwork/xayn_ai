@@ -194,7 +194,7 @@ mod tests {
 
     use super::*;
 
-    use std::{iter::repeat, time::Duration};
+    use std::iter::repeat;
 
     use itertools::izip;
     use wasm_bindgen_test::wasm_bindgen_test;
