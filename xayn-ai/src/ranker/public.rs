@@ -64,14 +64,16 @@ pub struct Builder<'a, P> {
     smbert_config: SMBertConfig<'a, P>,
     kpe_config: KpeConfiguration<'a>,
     user_interests: UserInterests,
+    ranker_config: Configuration,
 }
 
-impl<'a, P> Builder<'a, P> {
-    pub fn from(smbert: SMBertConfig<'a, P>, kpe: KpeConfiguration<'a>) -> Self {
+impl<'a> Builder<'a, AveragePooler> {
+    pub fn from(smbert: SMBertConfig<'a, AveragePooler>, kpe: KpeConfiguration<'a>) -> Self {
         Builder {
             smbert_config: smbert,
             kpe_config: kpe,
             user_interests: UserInterests::default(),
+            ranker_config: Configuration::default(),
         }
     }
 
@@ -85,37 +87,26 @@ impl<'a, P> Builder<'a, P> {
         Ok(self)
     }
 
-    /// Creates a `Reranker`.
+    /// Sets the ranker [`Configuration`] to use.
+    pub fn with_ranker_config(mut self, config: Configuration) -> Self {
+        self.ranker_config = config;
+        self
+    }
+
+    /// Creates a [`Ranker`].
     ///
     /// # Errors
     ///
     /// Fails if the SMBert or KPE cannot be initialized. For example because
     /// reading from a file failed or the bytes read are have an unexpected format.
     pub fn build(self) -> Result<Ranker, Error> {
-        // TODO: (lj): Overriding passed-in configuration here seems somewhat surprising.
-        //             It would make sense to pull these default out of the builder.
-        let smbert_config = self
-            .smbert_config
-            .with_token_size(52)?
-            .with_accents(false)
-            .with_lowercase(true)
-            .with_pooling(AveragePooler);
-
-        let smbert_pipeline = rubert::Pipeline::from(smbert_config)?;
+        let smbert_pipeline = rubert::Pipeline::from(self.smbert_config)?;
         let smbert = SMBert::from(Arc::new(smbert_pipeline));
+        let kpe = kpe::Pipeline::from(self.kpe_config)?;
 
-        let kpe_config = self
-            .kpe_config
-            .with_token_size(150)?
-            .with_accents(false)
-            .with_lowercase(false);
-
-        let kpe = kpe::Pipeline::from(kpe_config)?;
-
-        let config = Configuration::default();
-        let coi = CoiSystem::new(config.clone(), smbert.clone());
+        let coi = CoiSystem::new(self.ranker_config.clone(), smbert.clone());
         Ok(Ranker(super::system::Ranker::new(
-            config,
+            self.ranker_config,
             smbert,
             coi,
             kpe,

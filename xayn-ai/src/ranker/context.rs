@@ -96,7 +96,7 @@ fn has_enough_cois(
 /// # Errors
 /// Fails if the required number of positive or negative cois is not present.
 pub(super) fn compute_score_for_docs(
-    documents: &mut [impl Document],
+    documents: &[impl Document],
     user_interests: &UserInterests,
     relevances: &mut RelevanceMap,
     config: &Configuration,
