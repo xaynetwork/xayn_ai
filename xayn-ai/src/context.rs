@@ -18,8 +18,8 @@ impl ContextSystem for Context {
             .map(|doc| {
                 let context_value = cxt_calc.calculate(
                     doc.ltr.ltr_score,
-                    doc.coi.pos_distance,
-                    doc.coi.neg_distance,
+                    doc.coi.pos_similarity,
+                    doc.coi.neg_similarity,
                     doc.qambert.similarity,
                 );
                 DocumentDataWithContext::from_document(doc, ContextComponent { context_value })
@@ -41,10 +41,10 @@ struct ContextCalc {
 impl ContextCalc {
     fn from_docs(docs: &[DocumentDataWithLtr]) -> Self {
         let docs_len = docs.len() as f32;
-        let pos_avg = docs.iter().map(|doc| doc.coi.pos_distance).sum::<f32>() / docs_len;
+        let pos_avg = docs.iter().map(|doc| doc.coi.pos_similarity).sum::<f32>() / docs_len;
         let neg_max = docs
             .iter()
-            .map(|doc| doc.coi.neg_distance)
+            .map(|doc| doc.coi.neg_similarity)
             .fold(f32::MIN, f32::max); // NOTE f32::max considers NaN as smallest value
         let similarity_avg = docs.iter().map(|doc| doc.qambert.similarity).sum::<f32>() / docs_len;
 
@@ -123,8 +123,8 @@ mod tests {
                 qambert: QAMBertComponent { similarity },
                 coi: CoiComponent {
                     id: CoiId::mocked(0),
-                    pos_distance,
-                    neg_distance,
+                    pos_similarity: pos_distance,
+                    neg_similarity: neg_distance,
                 },
                 ltr: LtrComponent { ltr_score },
             });

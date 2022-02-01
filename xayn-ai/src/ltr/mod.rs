@@ -211,8 +211,8 @@ mod tests {
         let embedding = arr1(&[1., 2., 3., 4.]).into();
         let coi = CoiComponent {
             id: CoiId::mocked(9),
-            pos_distance: 0.7,
-            neg_distance: 0.2,
+            pos_similarity: 0.7,
+            neg_similarity: 0.2,
         };
         let doc1 = DocumentDataWithQAMBert {
             document_base: DocumentBaseComponent {
@@ -231,8 +231,8 @@ mod tests {
         let embedding = arr1(&[5., 6., 7.]).into();
         let coi = CoiComponent {
             id: CoiId::mocked(5),
-            pos_distance: 0.3,
-            neg_distance: 0.9,
+            pos_similarity: 0.3,
+            neg_similarity: 0.9,
         };
         let doc2 = DocumentDataWithQAMBert {
             document_base: DocumentBaseComponent {

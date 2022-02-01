@@ -87,14 +87,11 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
 
 fn mocked_coi_system() -> MockCoiSystem {
     let config = Configuration::default();
-    let neighbors = config.neighbors();
 
     let mut system = MockCoiSystem::new();
     system
         .expect_compute_coi()
-        .returning(move |documents, user_interests| {
-            compute_coi(documents, user_interests, neighbors)
-        });
+        .returning(move |documents, user_interests| compute_coi(documents, user_interests));
     system
         .expect_update_user_interests()
         .returning(move |history, documents, user_interests| {
