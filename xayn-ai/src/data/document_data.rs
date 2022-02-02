@@ -53,10 +53,10 @@ pub(crate) struct LtrComponent {
 pub(crate) struct CoiComponent {
     /// The ID of the positive centre of interest
     pub(crate) id: CoiId,
-    /// Distance from the positive centre of interest
-    pub(crate) pos_distance: f32,
-    /// Distance from the negative centre of interest
-    pub(crate) neg_distance: f32,
+    /// Similarity to the positive centre of interest
+    pub(crate) pos_similarity: f32,
+    /// Similarity to the negative centre of interest
+    pub(crate) neg_similarity: f32,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
@@ -310,8 +310,8 @@ mod tests {
 
         let coi = CoiComponent {
             id: CoiId::mocked(9),
-            pos_distance: 0.7,
-            neg_distance: 0.2,
+            pos_similarity: 0.7,
+            neg_similarity: 0.2,
         };
 
         let document_data = DocumentDataWithCoi::from_document(&document_data, coi.clone());

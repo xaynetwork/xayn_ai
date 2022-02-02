@@ -193,9 +193,9 @@ mod tests {
         );
 
         assert!(res.is_ok());
-        assert_eq!(documents[0].id(), DocumentId::from_u128(2));
+        assert_eq!(documents[0].id(), DocumentId::from_u128(0));
         assert_eq!(documents[1].id(), DocumentId::from_u128(1));
-        assert_eq!(documents[2].id(), DocumentId::from_u128(0));
+        assert_eq!(documents[2].id(), DocumentId::from_u128(2));
         assert_eq!(documents[3].id(), DocumentId::from_u128(3));
     }
 

@@ -34,27 +34,23 @@ struct ClosestCois {
     /// The ID of the closest positive centre of interest
     pos_id: CoiId,
     /// Distance from the closest positive centre of interest
-    pos_distance: f32,
+    pos_similarity: f32,
     pos_last_view: SystemTime,
 
     /// Distance from the closest negative centre of interest
-    neg_distance: f32,
+    neg_similarity: f32,
     neg_last_view: SystemTime,
 }
 
-fn find_closest_cois(
-    embedding: &Embedding,
-    user_interests: &UserInterests,
-    neighbors: usize,
-) -> Option<ClosestCois> {
-    let (pos_coi, pos_distance) = find_closest_coi(&user_interests.positive, embedding, neighbors)?;
-    let (neg_coi, neg_distance) = find_closest_coi(&user_interests.negative, embedding, neighbors)?;
+fn find_closest_cois(embedding: &Embedding, user_interests: &UserInterests) -> Option<ClosestCois> {
+    let (pos_coi, pos_similarity) = find_closest_coi(&user_interests.positive, embedding)?;
+    let (neg_coi, neg_similarity) = find_closest_coi(&user_interests.negative, embedding)?;
 
     ClosestCois {
         pos_id: pos_coi.id(),
-        pos_distance,
+        pos_similarity,
         pos_last_view: pos_coi.stats.last_view,
-        neg_distance,
+        neg_similarity,
         neg_last_view: neg_coi.last_view,
     }
     .into()
@@ -67,23 +63,20 @@ fn compute_score_for_embedding(
     embedding: &Embedding,
     user_interests: &UserInterests,
     relevances: &RelevanceMap,
-    neighbors: usize,
     horizon: Duration,
     now: SystemTime,
 ) -> Result<f32, Error> {
-    let cois = find_closest_cois(embedding, user_interests, neighbors)
-        .ok_or(Error::FailedToFindTheClosestCois)?;
+    let cois =
+        find_closest_cois(embedding, user_interests).ok_or(Error::FailedToFindTheClosestCois)?;
 
     let pos_decay = compute_coi_decay_factor(horizon, now, cois.pos_last_view);
     let neg_decay = compute_coi_decay_factor(horizon, now, cois.neg_last_view);
 
     let pos_coi_relevance = relevances.relevance_for_coi(&cois.pos_id).unwrap();
 
-    Ok(
-        (cois.pos_distance * pos_decay + pos_coi_relevance - cois.neg_distance * neg_decay)
-            .max(f32::MIN)
-            .min(f32::MAX),
-    )
+    let result =
+        cois.pos_similarity * pos_decay + pos_coi_relevance - cois.neg_similarity * neg_decay;
+    Ok(result.clamp(f32::MIN, f32::MAX)) // Avoid positive or negative infinity
 }
 
 fn has_enough_cois(
@@ -127,7 +120,6 @@ pub(super) fn compute_score_for_docs(
                 document.smbert_embedding(),
                 user_interests,
                 relevances,
-                config.neighbors(),
                 config.horizon(),
                 now,
             )?;
@@ -159,16 +151,16 @@ mod tests {
 
     #[test]
     fn test_compute_score_for_embedding() {
-        let embedding = arr1(&[0., 0., 0.]).into();
+        let embedding = arr1(&[1., 4., 4.]).into();
 
         let epoch = SystemTime::UNIX_EPOCH;
         let now = epoch + Duration::from_secs_f32(2. * SECONDS_PER_DAY);
 
-        let mut positive = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
+        let mut positive = create_pos_cois(&[[62., 55., 11.], [76., 30., 80.]]);
         positive[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
         positive[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
 
-        let mut negative = create_neg_cois(&[[100., 0., 0.]]);
+        let mut negative = create_neg_cois(&[[6., 61., 6.]]);
         negative[0].last_view = epoch;
         let user_interests = UserInterests { positive, negative };
 
@@ -177,10 +169,16 @@ mod tests {
 
         relevances.compute_relevances(&user_interests.positive, horizon, now);
         let score =
-            compute_score_for_embedding(&embedding, &user_interests, &relevances, 1, horizon, now)
+            compute_score_for_embedding(&embedding, &user_interests, &relevances, horizon, now)
                 .unwrap();
-        // 1.1185127 * 0.99999934 + 0.49999967 - 0 * 100 = 1.6185117
-        assert_approx_eq!(f32, score, 1.6185117, epsilon = 1e-6);
+
+        let pos_similarity = 0.78551644;
+        let pos_decay = 0.99999934;
+        let neg_similarity = 0.7744656;
+        let neg_decay = 0.;
+        let relevance = 0.49999967;
+        let expected = pos_similarity * pos_decay + relevance - neg_similarity * neg_decay;
+        assert_approx_eq!(f32, score, expected, epsilon = 1e-6);
     }
 
     #[test]
@@ -192,7 +190,6 @@ mod tests {
             &embedding,
             &UserInterests::default(),
             &RelevanceMap::default(),
-            1,
             horizon,
             system_time_now(),
         );

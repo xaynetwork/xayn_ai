@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, time::Duration};
 
+use crate::embedding::utils::COSINE_SIMILARITY_RANGE;
 use displaydoc::Display;
 use thiserror::Error;
 
@@ -10,7 +11,6 @@ use crate::utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY};
 pub struct Configuration {
     shift_factor: f32,
     threshold: f32,
-    neighbors: usize,
     horizon: Duration,
     max_key_phrases: usize,
     gamma: f32,
@@ -26,8 +26,6 @@ pub enum Error {
     ShiftFactor,
     /// Invalid coi threshold, expected non-negative value
     Threshold,
-    /// Invalid coi neighbors, expected positive value
-    Neighbors,
     /// Invalid coi gamma, expected value from the unit interval
     Gamma,
     /// Invalid coi penalty, expected non-empty, finite and sorted values
@@ -67,29 +65,13 @@ impl Configuration {
     /// Sets the threshold.
     ///
     /// # Errors
-    /// Fails if the threshold is negative.
+    /// Fails if the threshold is not within [`COSINE_SIMILARITY_RANGE`]
+    #[allow(dead_code)]
     pub fn with_threshold(self, threshold: f32) -> Result<Self, Error> {
-        if threshold >= 0. {
+        if COSINE_SIMILARITY_RANGE.contains(&threshold) {
             Ok(Self { threshold, ..self })
         } else {
             Err(Error::Threshold)
-        }
-    }
-
-    /// The positive number of neighbors for the k-nearest-neighbors distance.
-    pub fn neighbors(&self) -> usize {
-        self.neighbors
-    }
-
-    /// Sets the neighbors.
-    ///
-    /// # Errors
-    /// Fails if the neighbors is zero.
-    pub fn with_neighbors(self, neighbors: usize) -> Result<Self, Error> {
-        if neighbors > 0 {
-            Ok(Self { neighbors, ..self })
-        } else {
-            Err(Error::Neighbors)
         }
     }
 
@@ -204,8 +186,7 @@ impl Default for Configuration {
     fn default() -> Self {
         Self {
             shift_factor: 0.1,
-            threshold: 12.0,
-            neighbors: 4,
+            threshold: 0.67,
             horizon: Duration::from_secs(SECONDS_PER_DAY as u64 * 30),
             max_key_phrases: 3,
             gamma: 0.9,

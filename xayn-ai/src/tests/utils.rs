@@ -185,8 +185,8 @@ pub(crate) fn data_with_rank(
             qambert: QAMBertComponent { similarity: 0.5 },
             coi: CoiComponent {
                 id: CoiId::mocked(1),
-                pos_distance: 0.1,
-                neg_distance: 0.1,
+                pos_similarity: 0.1,
+                neg_similarity: 0.1,
             },
             ltr: LtrComponent { ltr_score: 0.5 },
             context: ContextComponent { context_value: 0.5 },
@@ -232,8 +232,8 @@ pub(crate) fn documents_with_embeddings_from_snippet_and_query(
             smbert: SMBertComponent { embedding },
             coi: CoiComponent {
                 id: CoiId::mocked(1),
-                pos_distance: 0.,
-                neg_distance: 0.,
+                pos_similarity: 0.,
+                neg_similarity: 0.,
             },
         })
         .collect()
