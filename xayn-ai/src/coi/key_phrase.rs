@@ -42,12 +42,11 @@ impl KeyPhrase {
         Ok(Self { words, point })
     }
 
-    #[cfg(test)]
-    pub(crate) fn words(&self) -> &str {
+    pub fn words(&self) -> &str {
         &self.words
     }
 
-    pub(crate) fn point(&self) -> &ArcEmbedding {
+    pub fn point(&self) -> &ArcEmbedding {
         &self.point
     }
 }

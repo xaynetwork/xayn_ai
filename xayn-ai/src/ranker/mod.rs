@@ -4,7 +4,13 @@ mod document;
 mod public;
 mod system;
 
-pub use self::document::Document;
-pub use crate::{embedding::utils::Embedding, DocumentId};
-pub use config::Configuration;
-pub use public::{Builder, Ranker};
+pub use self::{
+    config::Configuration,
+    document::Document,
+    public::{Builder, Ranker},
+};
+pub use crate::{
+    coi::key_phrase::KeyPhrase,
+    embedding::utils::{ArcEmbedding, Embedding},
+    DocumentId,
+};
