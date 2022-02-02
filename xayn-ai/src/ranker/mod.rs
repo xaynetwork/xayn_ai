@@ -14,3 +14,4 @@ pub use crate::{
     embedding::utils::{ArcEmbedding, Embedding},
     DocumentId,
 };
+pub use rubert::AveragePooler;
