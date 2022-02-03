@@ -88,12 +88,8 @@ impl Ranker {
         viewed: Duration,
     ) {
         if let UserFeedback::Relevant | UserFeedback::NotGiven = user_feedback {
-            self.coi.log_document_view_time(
-                &mut self.user_interests.positive,
-                embedding,
-                &self.config,
-                viewed,
-            )
+            self.coi
+                .log_document_view_time(&mut self.user_interests.positive, embedding, viewed)
         }
     }
 
