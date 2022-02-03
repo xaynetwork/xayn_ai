@@ -60,10 +60,9 @@ impl CoiSystem {
         &mut self,
         cois: &mut Vec<PositiveCoi>,
         embedding: &Embedding,
-        config: &Configuration,
         viewed: Duration,
     ) {
-        log_document_view_time(cois, embedding, config, viewed);
+        log_document_view_time(cois, embedding, viewed);
     }
 
     /// Updates the positive coi closest to the embedding or creates a new one if it's too far away.
@@ -290,12 +289,7 @@ pub(crate) fn update_user_interests(
     Ok(user_interests)
 }
 
-fn log_document_view_time(
-    cois: &mut Vec<PositiveCoi>,
-    embedding: &Embedding,
-    _config: &Configuration,
-    viewed: Duration,
-) {
+fn log_document_view_time(cois: &mut Vec<PositiveCoi>, embedding: &Embedding, viewed: Duration) {
     if let Some((coi, _)) = find_closest_coi_mut(cois, embedding) {
         coi.log_time(viewed);
     }
@@ -625,12 +619,10 @@ mod tests {
     #[test]
     fn test_log_document_view_time() {
         let mut cois = create_pos_cois(&[[1., 2., 3.]]);
-        let config = Configuration::default();
 
         log_document_view_time(
             &mut cois,
             &arr1(&[1., 2., 4.]).into(),
-            &config,
             Duration::from_secs(10),
         );
         assert_eq!(Duration::from_secs(10), cois[0].stats.view_time);
@@ -638,7 +630,6 @@ mod tests {
         log_document_view_time(
             &mut cois,
             &arr1(&[1., 2., 4.]).into(),
-            &config,
             Duration::from_secs(10),
         );
         assert_eq!(Duration::from_secs(20), cois[0].stats.view_time);
