@@ -2,7 +2,7 @@ use std::{io::Result, path::PathBuf};
 
 use crate::asset::{resolve_path, DATA_DIR};
 
-const ASSET: &str = "kpe_v0000";
+const ASSET: &str = "kpe_v0001";
 
 /// Resolves the path to the Bert vocabulary.
 pub fn vocab() -> Result<PathBuf> {

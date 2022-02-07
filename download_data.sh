@@ -39,4 +39,4 @@ download qambert v0001
 download ltr v0000
 download bench_matmul v0000
 download ltr_test_data v0001
-download kpe v0000
+download kpe v0001

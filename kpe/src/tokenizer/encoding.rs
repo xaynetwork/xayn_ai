@@ -37,19 +37,6 @@ impl AttentionMask {
     }
 }
 
-/// The type ids of the encoded sequence.
-///
-/// The type ids are of shape `(1, token_size)`.
-#[derive(Clone, Debug, Deref, From)]
-pub struct TypeIds(pub Array2<i64>);
-
-impl TypeIds {
-    /// Checks if the type ids are valid, i.e. `0`.
-    pub fn is_valid(&self) -> bool {
-        self.iter().copied().all(|type_id| type_id == 0)
-    }
-}
-
 /// The starting tokens mask of the encoded sequence.
 ///
 /// The valid mask is of shape `(token_size,)`.
@@ -88,7 +75,6 @@ impl ActiveMask {
 pub struct Encoding {
     pub token_ids: TokenIds,
     pub attention_mask: AttentionMask,
-    pub type_ids: TypeIds,
     pub valid_mask: ValidMask,
     pub active_mask: ActiveMask,
 }
@@ -98,7 +84,6 @@ impl Encoding {
     pub fn is_valid(&self, vocab_size: usize, key_phrase_size: usize) -> bool {
         self.token_ids.is_valid(vocab_size)
             && self.attention_mask.is_valid()
-            && self.type_ids.is_valid()
             && self.valid_mask.is_valid(key_phrase_size)
             && self.active_mask.is_valid()
     }
@@ -111,12 +96,10 @@ impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
     pub fn encode(&self, sequence: impl AsRef<str>) -> (Encoding, KeyPhrases<KEY_PHRASE_SIZE>) {
         let sequence = sequence.as_ref();
         let encoding = self.tokenizer.encode(sequence);
-        let (token_ids, type_ids, _, _, ref offsets, _, attention_mask, overflowing) =
-            encoding.into();
+        let (token_ids, _, _, _, ref offsets, _, attention_mask, overflowing) = encoding.into();
 
         let token_ids = Array1::from(token_ids).insert_axis(Axis(0)).into();
         let attention_mask = Array1::from(attention_mask).insert_axis(Axis(0)).into();
-        let type_ids = Array1::from(type_ids).insert_axis(Axis(0)).into();
 
         let valid_mask = valid_mask(offsets);
         let words = decode_words(sequence, offsets, overflowing);
@@ -127,7 +110,6 @@ impl<const KEY_PHRASE_SIZE: usize> Tokenizer<KEY_PHRASE_SIZE> {
         let encoding = Encoding {
             token_ids,
             attention_mask,
-            type_ids,
             valid_mask,
             active_mask,
         };
@@ -258,10 +240,6 @@ mod tests {
             ArrayView2::from_shape(shape, &[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
         );
         assert_eq!(
-            encoding.type_ids.0,
-            ArrayView2::from_shape(shape, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
-        );
-        assert_eq!(
             encoding.valid_mask.0,
             [false, true, true, false, true, false, true, false, false, false],
         );
@@ -299,10 +277,6 @@ mod tests {
             ArrayView2::from_shape(shape, &[1, 1, 1, 1, 1, 1, 1, 1, 0, 0]).unwrap(),
         );
         assert_eq!(
-            encoding.type_ids.0,
-            ArrayView2::from_shape(shape, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
-        );
-        assert_eq!(
             encoding.valid_mask.0,
             [false, true, true, true, true, false, false, false, false, false],
         );
@@ -338,10 +312,6 @@ mod tests {
         assert_eq!(
             encoding.attention_mask.0,
             ArrayView2::from_shape(shape, &[1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
-        );
-        assert_eq!(
-            encoding.type_ids.0,
-            ArrayView2::from_shape(shape, &[0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
         );
         assert_eq!(
             encoding.valid_mask.0,

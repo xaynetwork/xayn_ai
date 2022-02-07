@@ -60,11 +60,7 @@ impl Pipeline {
     /// Extracts the key phrases from the sequence ranked in descending order.
     pub fn run(&self, sequence: impl AsRef<str>) -> Result<RankedKeyPhrases, PipelineError> {
         let (encoding, key_phrases) = self.tokenizer.encode(sequence);
-        let embeddings = self.bert.run(
-            encoding.token_ids,
-            encoding.attention_mask,
-            encoding.type_ids,
-        )?;
+        let embeddings = self.bert.run(encoding.token_ids, encoding.attention_mask)?;
         let features = self.cnn.run(embeddings, encoding.valid_mask)?;
         let scores = self.classifier.run(features, encoding.active_mask)?;
 
@@ -74,9 +70,11 @@ impl Pipeline {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Configuration, Pipeline};
-    use std::error::Error;
+    use std::{collections::HashSet, error::Error};
+
     use test_utils::kpe::{bert, classifier, cnn, vocab};
+
+    use super::*;
 
     #[test]
     fn test_run_unique() -> Result<(), Box<dyn Error>> {
@@ -84,26 +82,32 @@ mod tests {
             .with_token_size(8)?
             .with_lowercase(false);
 
-        let actual = Pipeline::from(config)?.run("A b c d e.")?;
+        let actual = Pipeline::from(config)?
+            .run("A b c d e.")?
+            .0
+            .into_iter()
+            .collect::<HashSet<_>>();
         let expected = [
-            // quantized, non-quantized
             "a",
             "b",
-            "d",  // c
-            "e.", // d
-            "c",  // e.
-            "a b c d e.",
-            "a b c",
-            "a b",     // a b c d
-            "a b c d", // a b
-            "b c d e.",
-            "d e.",   // c d e.
-            "c d e.", // d e.
-            "b c d",
+            "c",
+            "d",
+            "e.",
+            "a b",
             "b c",
             "c d",
-        ];
-        assert_eq!(actual.0, expected);
+            "d e.",
+            "a b c",
+            "b c d",
+            "c d e.",
+            "a b c d",
+            "b c d e.",
+            "a b c d e.",
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect::<HashSet<_>>();
+        assert_eq!(actual, expected);
         Ok(())
     }
 
@@ -113,9 +117,16 @@ mod tests {
             .with_token_size(7)?
             .with_lowercase(false);
 
-        let actual = Pipeline::from(config)?.run("A a A a A")?;
-        let expected = ["a", "a a", "a a a", "a a a a", "a a a a a"];
-        assert_eq!(actual.0, expected);
+        let actual = Pipeline::from(config)?
+            .run("A a A a A")?
+            .0
+            .into_iter()
+            .collect::<HashSet<_>>();
+        let expected = ["a", "a a", "a a a", "a a a a", "a a a a a"]
+            .iter()
+            .map(ToString::to_string)
+            .collect::<HashSet<_>>();
+        assert_eq!(actual, expected);
         Ok(())
     }
 }
