@@ -12,7 +12,7 @@ use crate::{
     error::Error,
     ranker::{
         context::{compute_score_for_docs, Error as ContextError},
-        Configuration,
+        Config,
         Document,
     },
     utils::nan_safe_f32_cmp,
@@ -27,7 +27,7 @@ pub(crate) enum RankerError {
 /// The Ranker.
 pub(crate) struct Ranker {
     /// Ranker configuration.
-    config: Configuration,
+    config: Config,
     /// SMBert system.
     smbert: SMBert,
     /// CoI system.
@@ -41,7 +41,7 @@ pub(crate) struct Ranker {
 impl Ranker {
     /// Creates a new `Ranker`.
     pub(crate) fn new(
-        config: Configuration,
+        config: Config,
         smbert: SMBert,
         coi: CoiSystem,
         kpe: KPE,
@@ -132,7 +132,7 @@ fn rank(
     documents: &mut [impl Document],
     user_interests: &UserInterests,
     relevances: &mut RelevanceMap,
-    config: &Configuration,
+    config: &Config,
 ) -> Result<(), Error> {
     if documents.len() < 2 {
         return Ok(());
@@ -171,7 +171,7 @@ mod tests {
             TestDocument::new(3, arr1(&[5., 0., 0.])),
         ];
 
-        let config = Configuration::default()
+        let config = Config::default()
             .with_min_positive_cois(1)
             .unwrap()
             .with_min_negative_cois(1)
@@ -202,7 +202,7 @@ mod tests {
             TestDocument::new(1, arr1(&[0., 0., 0.])),
         ];
 
-        let config = Configuration::default().with_min_positive_cois(1).unwrap();
+        let config = Config::default().with_min_positive_cois(1).unwrap();
 
         let res = rank(
             &mut documents,
@@ -223,7 +223,7 @@ mod tests {
             &mut [] as &mut [TestDocument],
             &UserInterests::default(),
             &mut RelevanceMap::default(),
-            &Configuration::default(),
+            &Config::default(),
         );
         assert!(res.is_ok())
     }

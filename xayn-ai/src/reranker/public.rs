@@ -10,7 +10,7 @@ use crate::{
     embedding::smbert::SMBert,
     error::Error,
     ltr::{DomainReranker, DomainRerankerBuilder},
-    ranker::Configuration,
+    ranker::Config,
     reranker::{
         database::{Database, Db},
         systems::{
@@ -182,7 +182,7 @@ impl<'a, SP, QP, DM> Builder<'a, SP, QP, DM> {
             .with_lowercase(true)
             .with_pooling(AveragePooler);
 
-        let coi = CoiSystemImpl::new(Configuration::default(), smbert.clone());
+        let coi = CoiSystemImpl::new(Config::default(), smbert.clone());
         let domain = self.domain.build()?;
 
         super::Reranker::new(Systems {

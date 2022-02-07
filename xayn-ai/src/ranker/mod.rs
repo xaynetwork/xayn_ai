@@ -5,7 +5,7 @@ mod public;
 mod system;
 
 pub use self::{
-    config::Configuration,
+    config::Config,
     document::Document,
     public::{Builder, Ranker},
 };
@@ -14,3 +14,4 @@ pub use crate::{
     embedding::utils::{ArcEmbedding, Embedding},
     DocumentId,
 };
+pub use rubert::AveragePooler;

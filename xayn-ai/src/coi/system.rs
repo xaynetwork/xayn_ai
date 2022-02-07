@@ -23,7 +23,7 @@ use crate::{
         smbert::SMBert,
         utils::{Embedding, MINIMUM_COSINE_SIMILARITY},
     },
-    ranker::Configuration,
+    ranker::Config,
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
@@ -40,14 +40,14 @@ pub(crate) enum CoiSystemError {
 }
 
 pub(crate) struct CoiSystem {
-    config: Configuration,
+    config: Config,
     smbert: SMBert,
     relevances: RelevanceMap,
 }
 
 impl CoiSystem {
     /// Creates a new centre of interest system.
-    pub(crate) fn new(config: Configuration, smbert: SMBert) -> Self {
+    pub(crate) fn new(config: Config, smbert: SMBert) -> Self {
         Self {
             config,
             smbert,
@@ -70,7 +70,7 @@ impl CoiSystem {
         &mut self,
         cois: &mut Vec<PositiveCoi>,
         embedding: &Embedding,
-        config: &Configuration,
+        config: &Config,
         smbert: impl Fn(&str) -> Result<Embedding, Error>,
         candidates: &[String],
     ) {
@@ -89,7 +89,7 @@ impl CoiSystem {
         &self,
         cois: &mut Vec<NegativeCoi>,
         embedding: &Embedding,
-        config: &Configuration,
+        config: &Config,
     ) {
         log_negative_user_reaction(cois, embedding, config);
     }
@@ -98,7 +98,7 @@ impl CoiSystem {
     pub(crate) fn select_top_key_phrases(
         &mut self,
         cois: &[PositiveCoi],
-        config: &Configuration,
+        config: &Config,
         top: usize,
     ) -> Vec<KeyPhrase> {
         self.relevances
@@ -177,7 +177,7 @@ pub(crate) fn compute_coi(
 fn log_positive_user_reaction(
     cois: &mut Vec<PositiveCoi>,
     embedding: &Embedding,
-    config: &Configuration,
+    config: &Config,
     relevances: &mut RelevanceMap,
     smbert: impl Fn(&str) -> Result<Embedding, Error>,
     candidates: &[String],
@@ -216,7 +216,7 @@ fn log_positive_user_reaction(
 fn update_positive_cois(
     cois: &mut Vec<PositiveCoi>,
     docs: &[&dyn CoiSystemData],
-    config: &Configuration,
+    config: &Config,
     relevances: &mut RelevanceMap,
     smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
 ) {
@@ -234,11 +234,7 @@ fn update_positive_cois(
 }
 
 /// Updates the negative coi closest to the embedding or creates a new one if it's too far away.
-fn log_negative_user_reaction(
-    cois: &mut Vec<NegativeCoi>,
-    embedding: &Embedding,
-    config: &Configuration,
-) {
+fn log_negative_user_reaction(cois: &mut Vec<NegativeCoi>, embedding: &Embedding, config: &Config) {
     match find_closest_coi_mut(cois, embedding) {
         Some((coi, similarity)) if similarity >= config.threshold() => {
             coi.shift_point(embedding, config.shift_factor());
@@ -249,11 +245,7 @@ fn log_negative_user_reaction(
 }
 
 /// Updates the negative cois based on the documents data.
-fn update_negative_cois(
-    cois: &mut Vec<NegativeCoi>,
-    docs: &[&dyn CoiSystemData],
-    config: &Configuration,
-) {
+fn update_negative_cois(cois: &mut Vec<NegativeCoi>, docs: &[&dyn CoiSystemData], config: &Config) {
     docs.iter().fold(cois, |cois, doc| {
         log_negative_user_reaction(cois, &doc.smbert().embedding, config);
         cois
@@ -266,7 +258,7 @@ pub(crate) fn update_user_interests(
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
     smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
-    config: &Configuration,
+    config: &Config,
 ) -> Result<UserInterests, Error> {
     let matching_documents = collect_matching_documents(history, documents);
 
@@ -397,7 +389,7 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 0., 0.], [1., 0.2, 1.], [0.5, 0.5, 0.1]]);
         let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[1.91, 73.78, 72.35]).into();
-        let config = Configuration::default();
+        let config = Config::default();
 
         let (closest, similarity) = find_closest_coi(&cois, &embedding).unwrap();
 
@@ -421,7 +413,7 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 1., 1.], [10., 10., 10.], [20., 20., 20.]]);
         let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[2., 3., 4.]).into();
-        let config = Configuration::default();
+        let config = Config::default();
 
         let last_view_before = cois[0].stats.last_view;
 
@@ -448,7 +440,7 @@ mod tests {
         let mut cois = create_pos_cois(&[[0., 1.]]);
         let mut relevances = RelevanceMap::default();
         let embedding = arr1(&[1., 0.]).into();
-        let config = Configuration::default();
+        let config = Config::default();
 
         log_positive_user_reaction(
             &mut cois,
@@ -471,7 +463,7 @@ mod tests {
         let mut relevances = RelevanceMap::default();
         let documents = create_data_with_rank(&[[0., 0., 4.9], [0., 0., 5.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
-        let config = Configuration::default();
+        let config = Config::default();
 
         update_positive_cois(
             &mut cois,
@@ -568,7 +560,7 @@ mod tests {
         ]);
         let documents = create_data_with_rank(&[[1., 4., 4.], [4., 47., 4.], [1., 1., 1.]]);
         let documents = to_vec_of_ref_of!(documents, &dyn CoiSystemData);
-        let config = Configuration::default();
+        let config = Config::default();
 
         let UserInterests { positive, negative } = update_user_interests(
             user_interests,
@@ -597,7 +589,7 @@ mod tests {
             &[],
             &[],
             |_| unreachable!(),
-            &Configuration::default(),
+            &Config::default(),
         )
         .err()
         .unwrap();
@@ -609,7 +601,7 @@ mod tests {
     #[test]
     fn test_log_negative_user_reaction_last_view() {
         let mut cois = create_neg_cois(&[[1., 2., 3.]]);
-        let config = Configuration::default();
+        let config = Config::default();
         let before = cois[0].last_view;
         log_negative_user_reaction(&mut cois, &arr1(&[1., 2., 4.]).into(), &config);
         assert!(cois[0].last_view > before);

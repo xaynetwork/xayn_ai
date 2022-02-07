@@ -8,7 +8,7 @@ use crate::utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY};
 
 /// The configuration of the ranker.
 #[derive(Clone, Debug)]
-pub struct Configuration {
+pub struct Config {
     shift_factor: f32,
     threshold: f32,
     horizon: Duration,
@@ -35,7 +35,7 @@ pub enum Error {
     MinNegativeCois,
 }
 
-impl Configuration {
+impl Config {
     /// The shift factor by how much a Coi is shifted towards a new point.
     pub fn shift_factor(&self) -> f32 {
         self.shift_factor
@@ -181,7 +181,7 @@ impl Configuration {
     }
 }
 
-impl Default for Configuration {
+impl Default for Config {
     fn default() -> Self {
         Self {
             shift_factor: 0.1,
