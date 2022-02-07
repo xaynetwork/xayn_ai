@@ -7,7 +7,7 @@ use crate::{
     coi::{key_phrase::KeyPhrase, point::UserInterests, CoiSystem},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::{config::Configuration, document::Document},
+    ranker::{config::Config, document::Document},
     UserFeedback,
 };
 
@@ -64,7 +64,7 @@ pub struct Builder<'a, P> {
     smbert_config: SMBertConfig<'a, P>,
     kpe_config: KpeConfiguration<'a>,
     user_interests: UserInterests,
-    ranker_config: Configuration,
+    ranker_config: Config,
 }
 
 impl<'a> Builder<'a, AveragePooler> {
@@ -73,7 +73,7 @@ impl<'a> Builder<'a, AveragePooler> {
             smbert_config: smbert,
             kpe_config: kpe,
             user_interests: UserInterests::default(),
-            ranker_config: Configuration::default(),
+            ranker_config: Config::default(),
         }
     }
 
@@ -87,8 +87,8 @@ impl<'a> Builder<'a, AveragePooler> {
         Ok(self)
     }
 
-    /// Sets the ranker [`Configuration`] to use.
-    pub fn with_ranker_config(mut self, config: Configuration) -> Self {
+    /// Sets the ranker [`Config`] to use.
+    pub fn with_ranker_config(mut self, config: Config) -> Self {
         self.ranker_config = config;
         self
     }

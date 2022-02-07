@@ -11,7 +11,7 @@ use crate::{
         SMBertComponent,
     },
     ltr::ConstLtr,
-    ranker::Configuration,
+    ranker::Config,
     reranker::{
         database::Database,
         systems::{
@@ -86,7 +86,7 @@ pub(crate) fn mocked_qambert_system() -> MockQAMBertSystem {
 }
 
 fn mocked_coi_system() -> MockCoiSystem {
-    let config = Configuration::default();
+    let config = Config::default();
 
     let mut system = MockCoiSystem::new();
     system

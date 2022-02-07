@@ -14,7 +14,7 @@ use crate::{
         RelevanceMap,
     },
     embedding::utils::Embedding,
-    ranker::{document::Document, Configuration},
+    ranker::{document::Document, Config},
     utils::system_time_now,
     CoiId,
     DocumentId,
@@ -99,7 +99,7 @@ pub(super) fn compute_score_for_docs(
     documents: &[impl Document],
     user_interests: &UserInterests,
     relevances: &mut RelevanceMap,
-    config: &Configuration,
+    config: &Config,
 ) -> Result<HashMap<DocumentId, f32>, Error> {
     if !has_enough_cois(
         user_interests,

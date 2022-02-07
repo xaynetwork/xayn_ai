@@ -304,7 +304,7 @@ mod tests {
 
     use ndarray::arr1;
 
-    use crate::{coi::utils::tests::create_pos_cois, ranker::Configuration};
+    use crate::{coi::utils::tests::create_pos_cois, ranker::Config};
     use test_utils::assert_approx_eq;
 
     use super::*;
@@ -315,7 +315,7 @@ mod tests {
         let cois = create_pos_cois(&[[1., 0., 0.]]);
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -338,7 +338,7 @@ mod tests {
         let mut relevances = RelevanceMap::kp([cois[0].id; 2], [0.; 2], key_phrases.to_vec());
         let candidates = &[];
         let smbert = |_: &str| unreachable!();
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -381,7 +381,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -426,7 +426,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -475,7 +475,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -518,7 +518,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -557,7 +557,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -600,7 +600,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -639,7 +639,7 @@ mod tests {
                 })
                 .unwrap()
         };
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.select_key_phrases(
             &cois[0],
@@ -666,7 +666,7 @@ mod tests {
     fn test_select_top_key_phrases_empty_cois() {
         let cois = create_pos_cois(&[] as &[[f32; 0]]);
         let mut relevances = RelevanceMap::default();
-        let config = Configuration::default();
+        let config = Config::default();
 
         let top_key_phrases = relevances.select_top_key_phrases(
             &cois,
@@ -683,7 +683,7 @@ mod tests {
     fn test_select_top_key_phrases_empty_key_phrases() {
         let cois = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
         let mut relevances = RelevanceMap::default();
-        let config = Configuration::default();
+        let config = Config::default();
 
         let top_key_phrases = relevances.select_top_key_phrases(
             &cois,
@@ -712,7 +712,7 @@ mod tests {
             [0.; 3],
             key_phrases.to_vec(),
         );
-        let config = Configuration::default();
+        let config = Config::default();
 
         let top_key_phrases =
             relevances.select_top_key_phrases(&cois, 0, config.horizon(), config.penalty());
@@ -749,7 +749,7 @@ mod tests {
             [0.; 9],
             key_phrases.into(),
         );
-        let config = Configuration::default();
+        let config = Config::default();
 
         let top_key_phrases = relevances.select_top_key_phrases(
             &cois,

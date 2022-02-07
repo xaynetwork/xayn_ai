@@ -129,7 +129,7 @@ mod tests {
 
     use crate::{
         coi::{key_phrase::KeyPhrase, utils::tests::create_pos_cois},
-        ranker::Configuration,
+        ranker::Config,
     };
     use test_utils::assert_approx_eq;
 
@@ -139,7 +139,7 @@ mod tests {
     fn test_compute_relevances_empty_cois() {
         let mut relevances = RelevanceMap::default();
         let cois = create_pos_cois(&[[]]);
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert!(relevances.cois_is_empty());
@@ -150,7 +150,7 @@ mod tests {
     fn test_compute_relevances_zero_horizon() {
         let mut relevances = RelevanceMap::default();
         let cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.]]);
-        let config = Configuration::default().with_horizon(Duration::ZERO);
+        let config = Config::default().with_horizon(Duration::ZERO);
 
         relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
@@ -167,8 +167,7 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_count += 1;
         cois[2].stats.view_count += 2;
-        let config =
-            Configuration::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
+        let config = Config::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
 
         relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
@@ -187,8 +186,7 @@ mod tests {
         let mut cois = create_pos_cois(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         cois[1].stats.view_time += Duration::from_secs(10);
         cois[2].stats.view_time += Duration::from_secs(20);
-        let config =
-            Configuration::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
+        let config = Config::default().with_horizon(Duration::from_secs_f32(SECONDS_PER_DAY));
 
         relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
@@ -208,8 +206,7 @@ mod tests {
         cois[0].stats.last_view -= Duration::from_secs_f32(0.5 * SECONDS_PER_DAY);
         cois[1].stats.last_view -= Duration::from_secs_f32(1.5 * SECONDS_PER_DAY);
         cois[2].stats.last_view -= Duration::from_secs_f32(2.5 * SECONDS_PER_DAY);
-        let config =
-            Configuration::default().with_horizon(Duration::from_secs_f32(2. * SECONDS_PER_DAY));
+        let config = Config::default().with_horizon(Duration::from_secs_f32(2. * SECONDS_PER_DAY));
 
         relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), cois.len());
@@ -239,7 +236,7 @@ mod tests {
             [0., 0., 1., 0., 0., 0.],
             key_phrases.to_vec(),
         );
-        let config = Configuration::default();
+        let config = Config::default();
 
         relevances.compute_relevances(&cois, config.horizon(), system_time_now());
         assert_eq!(relevances.cois_len(), 3);
