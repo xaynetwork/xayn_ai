@@ -7,13 +7,13 @@
 )]
 #![forbid(unsafe_op_in_unsafe_fn)]
 
-mod configuration;
+mod config;
 mod model;
 mod pipeline;
 mod tokenizer;
 
 pub use crate::{
-    configuration::{Configuration, ConfigurationError},
+    config::{Configuration, ConfigurationError},
     pipeline::{Pipeline, PipelineError},
     tokenizer::key_phrase::RankedKeyPhrases,
 };

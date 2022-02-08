@@ -10,14 +10,14 @@
 //!
 //! See the example in this crate for usage details.
 
-mod configuration;
+mod config;
 mod model;
 mod pipeline;
 mod pooler;
 mod tokenizer;
 
 pub use crate::{
-    configuration::{Configuration, ConfigurationError},
+    config::{Configuration, ConfigurationError},
     model::kinds,
     pipeline::{Pipeline, PipelineError},
     pooler::{

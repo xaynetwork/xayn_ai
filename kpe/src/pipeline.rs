@@ -3,7 +3,7 @@ use layer::io::{BinParams, LoadingBinParamsFailed};
 use thiserror::Error;
 
 use crate::{
-    configuration::Configuration,
+    config::Configuration,
     model::{bert::Bert, classifier::Classifier, cnn::Cnn, ModelError},
     tokenizer::{key_phrase::RankedKeyPhrases, Tokenizer, TokenizerError},
 };
