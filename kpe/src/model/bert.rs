@@ -15,7 +15,7 @@ use tract_onnx::prelude::{
 
 use crate::{
     model::ModelError,
-    tokenizer::encoding::{AttentionMask, TokenIds, TypeIds, ValidMask},
+    tokenizer::encoding::{AttentionMask, TokenIds, ValidMask},
 };
 
 /// A Bert onnx model.
@@ -61,8 +61,7 @@ impl Bert {
         let plan = tract_onnx::onnx()
             .model_for_read(&mut model)?
             .with_input_fact(0, input_fact.clone())? // token ids
-            .with_input_fact(1, input_fact.clone())? // attention mask
-            .with_input_fact(2, input_fact)? // type ids
+            .with_input_fact(1, input_fact)? // attention mask
             .into_optimized()?
             .into_runnable()?;
 
@@ -80,19 +79,12 @@ impl Bert {
         &self,
         token_ids: TokenIds,
         attention_mask: AttentionMask,
-        type_ids: TypeIds,
     ) -> Result<Embeddings, ModelError> {
         debug_assert_eq!(token_ids.shape(), [1, self.token_size]);
         debug_assert!(token_ids.is_valid(isize::MAX as usize));
         debug_assert_eq!(attention_mask.shape(), [1, self.token_size]);
         debug_assert!(attention_mask.is_valid());
-        debug_assert_eq!(type_ids.shape(), [1, self.token_size]);
-        debug_assert!(type_ids.is_valid());
-        let inputs = tvec![
-            token_ids.0.into(),
-            attention_mask.0.into(),
-            type_ids.0.into(),
-        ];
+        let inputs = tvec![token_ids.0.into(), attention_mask.0.into()];
         let outputs = self.plan.run(inputs)?;
         let embeddings = Embeddings(outputs[0].clone());
         debug_assert_eq!(
@@ -239,8 +231,7 @@ mod tests {
 
         let token_ids = Array2::default((1, token_size)).into();
         let attention_mask = Array2::ones((1, token_size)).into();
-        let type_ids = Array2::default((1, token_size)).into();
-        let embeddings = model.run(token_ids, attention_mask, type_ids).unwrap();
+        let embeddings = model.run(token_ids, attention_mask).unwrap();
         assert_eq!(embeddings.shape(), [1, token_size, Bert::EMBEDDING_SIZE]);
     }
 }
