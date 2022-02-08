@@ -3,7 +3,7 @@ use layer::io::{BinParams, LoadingBinParamsFailed};
 use thiserror::Error;
 
 use crate::{
-    config::Configuration,
+    config::Config,
     model::{bert::Bert, classifier::Classifier, cnn::Cnn, ModelError},
     tokenizer::{key_phrase::RankedKeyPhrases, Tokenizer, TokenizerError},
 };
@@ -35,7 +35,7 @@ pub enum PipelineError {
 }
 
 impl Pipeline {
-    pub fn from(config: Configuration) -> Result<Self, PipelineError> {
+    pub fn from(config: Config) -> Result<Self, PipelineError> {
         let tokenizer = Tokenizer::new(
             config.vocab,
             config.accents,
@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_run_unique() -> Result<(), Box<dyn Error>> {
-        let config = Configuration::from_files(vocab()?, bert()?, cnn()?, classifier()?)?
+        let config = Config::from_files(vocab()?, bert()?, cnn()?, classifier()?)?
             .with_token_size(8)?
             .with_lowercase(false);
 
@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_run_duplicate() -> Result<(), Box<dyn Error>> {
-        let config = Configuration::from_files(vocab()?, bert()?, cnn()?, classifier()?)?
+        let config = Config::from_files(vocab()?, bert()?, cnn()?, classifier()?)?
             .with_token_size(7)?
             .with_lowercase(false);
 

@@ -17,7 +17,7 @@ mod pooler;
 mod tokenizer;
 
 pub use crate::{
-    config::{Configuration, ConfigurationError},
+    config::{Config, ConfigError},
     model::kinds,
     pipeline::{Pipeline, PipelineError},
     pooler::{
@@ -34,12 +34,12 @@ pub use crate::{
 /// A sentence (embedding) multilingual Bert pipeline.
 #[allow(clippy::upper_case_acronyms)]
 pub type SMBert = Pipeline<kinds::SMBert, AveragePooler>;
-pub type SMBertConfig<'a, P> = Configuration<'a, kinds::SMBert, P>;
+pub type SMBertConfig<'a, P> = Config<'a, kinds::SMBert, P>;
 
 /// A question answering (embedding) multilingual Bert pipeline.
 #[allow(clippy::upper_case_acronyms)]
 pub type QAMBert = Pipeline<kinds::QAMBert, AveragePooler>;
-pub type QAMBertConfig<'a, P> = Configuration<'a, kinds::QAMBert, P>;
+pub type QAMBertConfig<'a, P> = Config<'a, kinds::QAMBert, P>;
 
 #[cfg(doc)]
 pub use crate::{

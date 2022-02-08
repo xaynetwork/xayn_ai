@@ -16,7 +16,7 @@ use onnxruntime::{environment::Environment, session::Session, GraphOptimizationL
 
 use rubert::{
     kinds::{QAMBert, SMBert},
-    Configuration,
+    Config,
     Embedding2,
     NonePooler,
 };
@@ -62,7 +62,7 @@ enum ModelKind {
     TractQAMBert,
 }
 
-/// Tokenizer configurations.
+/// Tokenizer Configs.
 struct TokenizerConfig {
     /// Whether to keep the accents on characters.
     accents: bool,
@@ -72,7 +72,7 @@ struct TokenizerConfig {
     token_size: usize,
 }
 
-/// Source or target model configurations.
+/// Source or target model Configs.
 struct ModelConfig {
     /// The model kind.
     kind: ModelKind,
@@ -82,7 +82,7 @@ struct ModelConfig {
     model: PathBuf,
 }
 
-/// Ted talks data configurations.
+/// Ted talks data Configs.
 struct DataConfig<R: RangeBounds<usize>> {
     /// The path to the talks.
     talks: PathBuf,
@@ -90,7 +90,7 @@ struct DataConfig<R: RangeBounds<usize>> {
     range: R,
 }
 
-/// Combined validation configurations.
+/// Combined validation Configs.
 struct ValidatorConfig<R: RangeBounds<usize>> {
     tokenizer: TokenizerConfig,
     source: ModelConfig,
@@ -99,7 +99,7 @@ struct ValidatorConfig<R: RangeBounds<usize>> {
 }
 
 impl<R: RangeBounds<usize>> ValidatorConfig<R> {
-    /// Builds a validator from this configuration.
+    /// Builds a validator from this Config.
     fn build(self) -> Validator {
         Validator::build(self)
     }
@@ -126,7 +126,7 @@ impl Drop for Pipeline {
 }
 
 impl Pipeline {
-    /// Builds a pipeline from a tokenizer and model configuration.
+    /// Builds a pipeline from a tokenizer and model Config.
     fn build(tokenizer: &TokenizerConfig, model: &ModelConfig) -> Self {
         match model.kind {
             ModelKind::OnnxMBert => {
@@ -164,26 +164,24 @@ impl Pipeline {
                 }
             }
             ModelKind::TractSMBert => {
-                let config =
-                    Configuration::from_files(model.vocab.as_path(), model.model.as_path())
-                        .unwrap()
-                        .with_accents(tokenizer.accents)
-                        .with_lowercase(tokenizer.lowercase)
-                        .with_token_size(tokenizer.token_size)
-                        .unwrap()
-                        .with_pooling(NonePooler);
+                let config = Config::from_files(model.vocab.as_path(), model.model.as_path())
+                    .unwrap()
+                    .with_accents(tokenizer.accents)
+                    .with_lowercase(tokenizer.lowercase)
+                    .with_token_size(tokenizer.token_size)
+                    .unwrap()
+                    .with_pooling(NonePooler);
 
                 Self::TractSMBert(rubert::Pipeline::from(config).unwrap())
             }
             ModelKind::TractQAMBert => {
-                let config =
-                    Configuration::from_files(model.vocab.as_path(), model.model.as_path())
-                        .unwrap()
-                        .with_accents(tokenizer.accents)
-                        .with_lowercase(tokenizer.lowercase)
-                        .with_token_size(tokenizer.token_size)
-                        .unwrap()
-                        .with_pooling(NonePooler);
+                let config = Config::from_files(model.vocab.as_path(), model.model.as_path())
+                    .unwrap()
+                    .with_accents(tokenizer.accents)
+                    .with_lowercase(tokenizer.lowercase)
+                    .with_token_size(tokenizer.token_size)
+                    .unwrap()
+                    .with_pooling(NonePooler);
 
                 Self::TractQAMBert(rubert::Pipeline::from(config).unwrap())
             }
@@ -224,7 +222,7 @@ struct Validator {
 }
 
 impl Validator {
-    /// Builds a validator from a configuration.
+    /// Builds a validator from a Config.
     fn build<R: RangeBounds<usize>>(config: ValidatorConfig<R>) -> Self {
         let talks = config.data.talks;
         let skip = match config.data.range.start_bound() {

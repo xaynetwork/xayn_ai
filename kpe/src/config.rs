@@ -10,7 +10,7 @@ use thiserror::Error;
 use crate::model::bert::Bert;
 
 #[derive(Debug, Display, Error)]
-pub enum ConfigurationError {
+pub enum ConfigError {
     /// The token size must be at least two to allow for special tokens
     TokenSize,
     /// The maximum number of returned key phrases must be at least one if given
@@ -21,7 +21,7 @@ pub enum ConfigurationError {
     DataFile(#[from] std::io::Error),
 }
 
-pub struct Configuration<'a> {
+pub struct Config<'a> {
     pub(crate) vocab: Box<dyn BufRead + Send + 'a>,
     pub(crate) model: Box<dyn Read + Send + 'a>,
     pub(crate) cnn: Box<dyn Read + Send + 'a>,
@@ -33,14 +33,14 @@ pub struct Configuration<'a> {
     pub(crate) key_phrase_min_score: Option<f32>,
 }
 
-impl<'a> Configuration<'a> {
+impl<'a> Config<'a> {
     pub fn from_readers(
         vocab: Box<dyn BufRead + Send + 'a>,
         model: Box<dyn Read + Send + 'a>,
         cnn: Box<dyn Read + Send + 'a>,
         classifier: Box<dyn Read + Send + 'a>,
     ) -> Self {
-        Configuration {
+        Config {
             vocab,
             model,
             cnn,
@@ -58,7 +58,7 @@ impl<'a> Configuration<'a> {
         model: impl AsRef<Path>,
         cnn: impl AsRef<Path>,
         classifier: impl AsRef<Path>,
-    ) -> Result<Self, ConfigurationError> {
+    ) -> Result<Self, ConfigError> {
         let vocab = Box::new(BufReader::new(File::open(vocab)?));
         let model = Box::new(BufReader::new(File::open(model)?));
         let cnn = Box::new(BufReader::new(File::open(cnn)?));
@@ -88,12 +88,12 @@ impl<'a> Configuration<'a> {
     ///
     /// # Errors
     /// Fails if `size` is less than two or greater than 512.
-    pub fn with_token_size(mut self, size: usize) -> Result<Self, ConfigurationError> {
+    pub fn with_token_size(mut self, size: usize) -> Result<Self, ConfigError> {
         if Bert::TOKEN_RANGE.contains(&size) {
             self.token_size = size;
             Ok(self)
         } else {
-            Err(ConfigurationError::TokenSize)
+            Err(ConfigError::TokenSize)
         }
     }
 
@@ -104,15 +104,12 @@ impl<'a> Configuration<'a> {
     ///
     /// # Errors
     /// Fails if `count` is given and less than one.
-    pub fn with_key_phrase_max_count(
-        mut self,
-        count: Option<usize>,
-    ) -> Result<Self, ConfigurationError> {
+    pub fn with_key_phrase_max_count(mut self, count: Option<usize>) -> Result<Self, ConfigError> {
         if count.is_none() || count > Some(0) {
             self.key_phrase_max_count = count;
             Ok(self)
         } else {
-            Err(ConfigurationError::KeyPhraseMaxCount)
+            Err(ConfigError::KeyPhraseMaxCount)
         }
     }
 
@@ -123,15 +120,12 @@ impl<'a> Configuration<'a> {
     ///
     /// # Errors
     /// Fails if `score` is given and not finite.
-    pub fn with_key_phrase_min_score(
-        mut self,
-        score: Option<f32>,
-    ) -> Result<Self, ConfigurationError> {
+    pub fn with_key_phrase_min_score(mut self, score: Option<f32>) -> Result<Self, ConfigError> {
         if score.is_none() || score.map(f32::is_finite).unwrap_or_default() {
             self.key_phrase_min_score = score;
             Ok(self)
         } else {
-            Err(ConfigurationError::KeyPhraseMinScore)
+            Err(ConfigError::KeyPhraseMinScore)
         }
     }
 }

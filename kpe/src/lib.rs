@@ -13,7 +13,7 @@ mod pipeline;
 mod tokenizer;
 
 pub use crate::{
-    config::{Configuration, ConfigurationError},
+    config::{Config, ConfigError},
     pipeline::{Pipeline, PipelineError},
     tokenizer::key_phrase::RankedKeyPhrases,
 };
