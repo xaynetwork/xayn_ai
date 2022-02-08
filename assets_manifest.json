@@ -1,25 +1,25 @@
 {
   "data_assets": [
     {
-      "dart_enum_name": "smbertVocab",
+      "id": "smbertVocab",
       "url_suffix": "smbert_v0000/vocab.txt"
     },
     {
-      "dart_enum_name": "smbertModel",
+      "id": "smbertModel",
       "url_suffix": "smbert_v0000/smbert.onnx",
       "chunk_size": "11MB"
     },
     {
-      "dart_enum_name": "qambertVocab",
+      "id": "qambertVocab",
       "url_suffix": "qambert_v0001/vocab.txt"
     },
     {
-      "dart_enum_name": "qambertModel",
+      "id": "qambertModel",
       "url_suffix": "qambert_v0001/qambert.onnx",
       "chunk_size": "11MB"
     },
     {
-      "dart_enum_name": "ltrModel",
+      "id": "ltrModel",
       "url_suffix": "ltr_v0000/ltr.binparams"
     }
   ]

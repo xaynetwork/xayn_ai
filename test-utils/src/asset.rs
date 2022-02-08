@@ -27,7 +27,7 @@ pub fn resolve_path(path: &[impl AsRef<Path>]) -> Result<PathBuf> {
 
 #[derive(Deserialize)]
 struct Asset {
-    #[serde(rename(deserialize = "dart_enum_name"))]
+    #[serde(rename(deserialize = "id"))]
     name: String,
     url_suffix: String,
 }
