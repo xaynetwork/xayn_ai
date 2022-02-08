@@ -20,8 +20,8 @@ pub enum ConfigurationError {
 
 pub struct Configuration<'a, K, P> {
     pub(crate) model_kind: PhantomData<K>,
-    pub(crate) vocab: Box<dyn BufRead + 'a>,
-    pub(crate) model: Box<dyn Read + 'a>,
+    pub(crate) vocab: Box<dyn BufRead + Send + 'a>,
+    pub(crate) model: Box<dyn Read + Send + 'a>,
     pub(crate) accents: bool,
     pub(crate) lowercase: bool,
     pub(crate) token_size: usize,
@@ -29,7 +29,10 @@ pub struct Configuration<'a, K, P> {
 }
 
 impl<'a, K: BertModel> Configuration<'a, K, NonePooler> {
-    pub fn from_readers(vocab: Box<dyn BufRead + 'a>, model: Box<dyn Read + 'a>) -> Self {
+    pub fn from_readers(
+        vocab: Box<dyn BufRead + Send + 'a>,
+        model: Box<dyn Read + Send + 'a>,
+    ) -> Self {
         Configuration {
             model_kind: Default::default(),
             vocab,

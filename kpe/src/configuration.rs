@@ -22,10 +22,10 @@ pub enum ConfigurationError {
 }
 
 pub struct Configuration<'a> {
-    pub(crate) vocab: Box<dyn BufRead + 'a>,
-    pub(crate) model: Box<dyn Read + 'a>,
-    pub(crate) cnn: Box<dyn Read + 'a>,
-    pub(crate) classifier: Box<dyn Read + 'a>,
+    pub(crate) vocab: Box<dyn BufRead + Send + 'a>,
+    pub(crate) model: Box<dyn Read + Send + 'a>,
+    pub(crate) cnn: Box<dyn Read + Send + 'a>,
+    pub(crate) classifier: Box<dyn Read + Send + 'a>,
     pub(crate) accents: bool,
     pub(crate) lowercase: bool,
     pub(crate) token_size: usize,
@@ -35,10 +35,10 @@ pub struct Configuration<'a> {
 
 impl<'a> Configuration<'a> {
     pub fn from_readers(
-        vocab: Box<dyn BufRead + 'a>,
-        model: Box<dyn Read + 'a>,
-        cnn: Box<dyn Read + 'a>,
-        classifier: Box<dyn Read + 'a>,
+        vocab: Box<dyn BufRead + Send + 'a>,
+        model: Box<dyn Read + Send + 'a>,
+        cnn: Box<dyn Read + Send + 'a>,
+        classifier: Box<dyn Read + Send + 'a>,
     ) -> Self {
         Configuration {
             vocab,
