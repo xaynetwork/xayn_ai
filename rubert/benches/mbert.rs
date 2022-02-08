@@ -9,10 +9,11 @@ use onnxruntime::{environment::Environment, GraphOptimizationLevel};
 use rubert::{
     kinds::{QAMBert, SMBert},
     AveragePooler,
-    Builder,
+    Config,
     Embedding2,
     FirstPooler,
     NonePooler,
+    Pipeline,
 };
 use rubert_tokenizer::{Builder as TokenizerBuilder, Padding, Truncation};
 use test_utils::{qambert, smbert};
@@ -30,15 +31,14 @@ macro_rules! bench_tract {
     ) => {
         let mut group = $manager.benchmark_group(format!("{} {}", $group, TOKEN_SIZE));
         $(
-            let pipeline = Builder::<_, _, $kind, _>::from_files($vocab.unwrap(), $model.unwrap())
+            let config = Config::<$kind, _>::from_files($vocab.unwrap(), $model.unwrap())
                 .unwrap()
                 .with_accents(false)
                 .with_lowercase(true)
                 .with_token_size(TOKEN_SIZE)
                 .unwrap()
-                .with_pooling($pooler)
-                .build()
-                .unwrap();
+                .with_pooling($pooler);
+            let pipeline = Pipeline::from(config).unwrap();
             group.bench_function($name, |bencher| {
                 bencher.iter(|| pipeline.run(black_box(SEQUENCE)).unwrap())
             });

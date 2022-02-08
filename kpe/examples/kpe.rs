@@ -1,10 +1,10 @@
-use kpe::{Configuration, Pipeline};
+use kpe::{Config, Pipeline};
 
 use test_utils::kpe::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = Configuration::from_files(vocab()?, bert()?, cnn()?, classifier()?)?
-        .with_token_size(128)?;
+    let config =
+        Config::from_files(vocab()?, bert()?, cnn()?, classifier()?)?.with_token_size(128)?;
 
     let kpe = Pipeline::from(config)?;
 
