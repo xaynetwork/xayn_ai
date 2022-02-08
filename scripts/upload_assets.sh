@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# Generates the metadata of the data assets. If an asset of the `data_assets` array
-# contains a `chunk_size` key, the script splits the asset into chunks where each chunk has
-# a maximum size of `chunk_size`. The format of the `chunk_size` value is equivalent to the
-# `SIZE` argument in `split` or `gsplit` on macOS. See `split`/`gsplit` man page for more details.
+# Generates a manifest file for the data assets in `assets_manifest.json` and uploads them to the
+# given bucket URL. If an asset of the `data_assets` array contains a `chunk_size` key, the script
+# splits the asset into chunks where each chunk has a maximum size of `chunk_size`. The format of
+# the `chunk_size` value is equivalent to the `SIZE` argument in `split` or `gsplit` on macOS.
+# See `split`/`gsplit` man page for more details. The manifest file is written to the `out`
+# directory.
 #
 # Usage:
 # ./upload_assets <path of assets_manifest.json> <bucket url e.g. s3://xayn-yellow-bert>
