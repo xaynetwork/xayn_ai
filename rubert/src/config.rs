@@ -11,26 +11,29 @@ use thiserror::Error;
 use crate::{model::BertModel, NonePooler};
 
 #[derive(Debug, Display, Error)]
-pub enum ConfigurationError {
+pub enum ConfigError {
     /// The token size must be greater than two to allow for special tokens
     TokenSize,
     /// Failed to load a data file: {0}
     DataFile(#[from] std::io::Error),
 }
 
-pub struct Configuration<'a, K, P> {
+pub struct Config<'a, K, P> {
     pub(crate) model_kind: PhantomData<K>,
-    pub(crate) vocab: Box<dyn BufRead + 'a>,
-    pub(crate) model: Box<dyn Read + 'a>,
+    pub(crate) vocab: Box<dyn BufRead + Send + 'a>,
+    pub(crate) model: Box<dyn Read + Send + 'a>,
     pub(crate) accents: bool,
     pub(crate) lowercase: bool,
     pub(crate) token_size: usize,
     pub(crate) pooler: P,
 }
 
-impl<'a, K: BertModel> Configuration<'a, K, NonePooler> {
-    pub fn from_readers(vocab: Box<dyn BufRead + 'a>, model: Box<dyn Read + 'a>) -> Self {
-        Configuration {
+impl<'a, K: BertModel> Config<'a, K, NonePooler> {
+    pub fn from_readers(
+        vocab: Box<dyn BufRead + Send + 'a>,
+        model: Box<dyn Read + Send + 'a>,
+    ) -> Self {
+        Config {
             model_kind: Default::default(),
             vocab,
             model,
@@ -44,14 +47,14 @@ impl<'a, K: BertModel> Configuration<'a, K, NonePooler> {
     pub fn from_files(
         vocab: impl AsRef<Path>,
         model: impl AsRef<Path>,
-    ) -> Result<Self, ConfigurationError> {
+    ) -> Result<Self, ConfigError> {
         let vocab = Box::new(BufReader::new(File::open(vocab)?));
         let model = Box::new(BufReader::new(File::open(model)?));
         Ok(Self::from_readers(vocab, model))
     }
 }
 
-impl<'a, K: BertModel, P> Configuration<'a, K, P> {
+impl<'a, K: BertModel, P> Config<'a, K, P> {
     /// Whether the tokenizer keeps accents.
     ///
     /// Defaults to `false`.
@@ -74,20 +77,20 @@ impl<'a, K: BertModel, P> Configuration<'a, K, P> {
     ///
     /// # Errors
     /// Fails if `size` is less than two or greater than 512.
-    pub fn with_token_size(mut self, size: usize) -> Result<Self, ConfigurationError> {
+    pub fn with_token_size(mut self, size: usize) -> Result<Self, ConfigError> {
         if K::TOKEN_RANGE.contains(&size) {
             self.token_size = size;
             Ok(self)
         } else {
-            Err(ConfigurationError::TokenSize)
+            Err(ConfigError::TokenSize)
         }
     }
 
     /// Sets pooling for the model.
     ///
     /// Defaults to `NonePooler`.
-    pub fn with_pooling<NP>(self, pooler: NP) -> Configuration<'a, K, NP> {
-        Configuration {
+    pub fn with_pooling<NP>(self, pooler: NP) -> Config<'a, K, NP> {
+        Config {
             vocab: self.vocab,
             model: self.model,
             model_kind: self.model_kind,

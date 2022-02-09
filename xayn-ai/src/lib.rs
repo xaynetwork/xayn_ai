@@ -35,7 +35,7 @@ pub use crate::{
 
 // We need to re-export these, since they encapsulate the arguments
 // required for pipeline construction, and are passed to builders.
-pub use kpe::Configuration as KpeConfig;
+pub use kpe::Config as KpeConfig;
 pub use rubert::{QAMBertConfig, SMBertConfig};
 
 #[cfg(test)]

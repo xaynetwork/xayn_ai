@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use kpe::Configuration as KpeConfiguration;
+use kpe::Config as KpeConfig;
 use rubert::{AveragePooler, SMBertConfig};
 
 use crate::{
@@ -62,13 +62,13 @@ impl Ranker {
 
 pub struct Builder<'a, P> {
     smbert_config: SMBertConfig<'a, P>,
-    kpe_config: KpeConfiguration<'a>,
+    kpe_config: KpeConfig<'a>,
     user_interests: UserInterests,
     ranker_config: Config,
 }
 
 impl<'a> Builder<'a, AveragePooler> {
-    pub fn from(smbert: SMBertConfig<'a, AveragePooler>, kpe: KpeConfiguration<'a>) -> Self {
+    pub fn from(smbert: SMBertConfig<'a, AveragePooler>, kpe: KpeConfig<'a>) -> Self {
         Builder {
             smbert_config: smbert,
             kpe_config: kpe,

@@ -2,14 +2,14 @@
 //! - `s` for SMBert
 //! - `qa` for QAMBert
 
-use rubert::{Configuration, FirstPooler, Pipeline, QAMBertConfig, SMBertConfig};
+use rubert::{Config, FirstPooler, Pipeline, QAMBertConfig, SMBertConfig};
 use test_utils::{qambert, smbert};
 
 fn main() {
     let (embedding, size) = match std::env::args().nth(1).unwrap().as_str() {
         "s" => {
             let config: SMBertConfig<_> =
-                Configuration::from_files(smbert::vocab().unwrap(), smbert::model().unwrap())
+                Config::from_files(smbert::vocab().unwrap(), smbert::model().unwrap())
                     .unwrap()
                     .with_pooling(FirstPooler)
                     .with_token_size(64)
@@ -23,7 +23,7 @@ fn main() {
         }
         "qa" => {
             let config: QAMBertConfig<_> =
-                Configuration::from_files(qambert::vocab().unwrap(), qambert::model().unwrap())
+                Config::from_files(qambert::vocab().unwrap(), qambert::model().unwrap())
                     .unwrap()
                     .with_pooling(FirstPooler);
 

@@ -9,7 +9,8 @@ use rayon::{
 use rubert::{
     kinds::{QAMBert, SMBert},
     AveragePooler,
-    Builder,
+    Config,
+    Pipeline,
 };
 use test_utils::{qambert, smbert};
 
@@ -25,17 +26,16 @@ fn sequences(n: usize) -> Vec<String> {
 
 /// Builds a MBert pipeline of the given kind with the corresponding vocabulary and model files.
 macro_rules! mbert {
-    ($kind:ty, $vocab:expr, $model:expr $(,)?) => {
-        Builder::<_, _, $kind, _>::from_files($vocab.unwrap(), $model.unwrap())
+    ($kind:ty, $vocab:expr, $model:expr $(,)?) => {{
+        let config = Config::<$kind, _>::from_files($vocab.unwrap(), $model.unwrap())
             .unwrap()
             .with_accents(false)
             .with_lowercase(true)
             .with_token_size(TOKEN_SIZE)
             .unwrap()
-            .with_pooling(AveragePooler)
-            .build()
-            .unwrap()
-    };
+            .with_pooling(AveragePooler);
+        Pipeline::from(config).unwrap()
+    }};
 }
 
 /// Benches the SMBert pipeline sequentially.

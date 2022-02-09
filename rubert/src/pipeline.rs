@@ -6,7 +6,7 @@ use crate::{
     pooler::{Embedding1, Embedding2, PoolerError},
     tokenizer::{Tokenizer, TokenizerError},
     AveragePooler,
-    Configuration,
+    Config,
     FirstPooler,
     NonePooler,
 };
@@ -41,7 +41,7 @@ impl<K, P> Pipeline<K, P>
 where
     K: BertModel,
 {
-    pub fn from(config: Configuration<K, P>) -> Result<Self, PipelineError> {
+    pub fn from(config: Config<K, P>) -> Result<Self, PipelineError> {
         let tokenizer = Tokenizer::new(
             config.vocab,
             config.accents,
@@ -126,7 +126,7 @@ mod tests {
     };
 
     fn pipeline<P>(pooler: P) -> Pipeline<SMBert, P> {
-        let config = Configuration::from_files(vocab().unwrap(), model().unwrap())
+        let config = Config::from_files(vocab().unwrap(), model().unwrap())
             .unwrap()
             .with_pooling(pooler);
 
