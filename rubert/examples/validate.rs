@@ -62,7 +62,7 @@ enum ModelKind {
     TractQAMBert,
 }
 
-/// Tokenizer Configs.
+/// Tokenizer configurations.
 struct TokenizerConfig {
     /// Whether to keep the accents on characters.
     accents: bool,
@@ -72,7 +72,7 @@ struct TokenizerConfig {
     token_size: usize,
 }
 
-/// Source or target model Configs.
+/// Source or target model configurations.
 struct ModelConfig {
     /// The model kind.
     kind: ModelKind,
@@ -82,7 +82,7 @@ struct ModelConfig {
     model: PathBuf,
 }
 
-/// Ted talks data Configs.
+/// Ted talks data configurations.
 struct DataConfig<R: RangeBounds<usize>> {
     /// The path to the talks.
     talks: PathBuf,
@@ -90,7 +90,7 @@ struct DataConfig<R: RangeBounds<usize>> {
     range: R,
 }
 
-/// Combined validation Configs.
+/// Combined validation configurations.
 struct ValidatorConfig<R: RangeBounds<usize>> {
     tokenizer: TokenizerConfig,
     source: ModelConfig,
@@ -99,7 +99,7 @@ struct ValidatorConfig<R: RangeBounds<usize>> {
 }
 
 impl<R: RangeBounds<usize>> ValidatorConfig<R> {
-    /// Builds a validator from this Config.
+    /// Builds a validator from this configuration.
     fn build(self) -> Validator {
         Validator::build(self)
     }
@@ -126,7 +126,7 @@ impl Drop for Pipeline {
 }
 
 impl Pipeline {
-    /// Builds a pipeline from a tokenizer and model Config.
+    /// Builds a pipeline from a tokenizer and model configuration.
     fn build(tokenizer: &TokenizerConfig, model: &ModelConfig) -> Self {
         match model.kind {
             ModelKind::OnnxMBert => {
@@ -222,7 +222,7 @@ struct Validator {
 }
 
 impl Validator {
-    /// Builds a validator from a Config.
+    /// Builds a validator from a configuration.
     fn build<R: RangeBounds<usize>>(config: ValidatorConfig<R>) -> Self {
         let talks = config.data.talks;
         let skip = match config.data.range.start_bound() {
