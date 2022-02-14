@@ -30,9 +30,8 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-
   dev-ci:
-    uses: xaynetwork/xayn_ai/.github/workflows/ci_reusable_wf.yml@fix_ci_clippy
+    uses: ./.github/workflows/ci_reusable_wf.yml
 
   test-android-libs:
     name: test-android-libs
