@@ -17,7 +17,7 @@ layer = { path = "../layer" }
 ndarray = "=0.15.3"
 # TODO: use version 1.0.5 once it is released
 obake = { git = "https://github.com/doctorn/obake", rev = "d6bea07e355ca4adf353c1e627f13c8c3286361b" }
-rand = "0.8.4"
+rand = "0.8.5"
 rubert = { path = "../rubert" }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_repr = "0.1.7"
