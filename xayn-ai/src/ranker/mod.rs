@@ -5,7 +5,7 @@ mod public;
 mod system;
 
 pub use self::{
-    config::Config,
+    config::{Config, Error as ConfigError},
     document::Document,
     public::{Builder, Ranker},
 };
