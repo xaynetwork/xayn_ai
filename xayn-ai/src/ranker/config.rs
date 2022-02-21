@@ -64,8 +64,7 @@ impl Config {
     /// Sets the threshold.
     ///
     /// # Errors
-    /// Fails if the threshold is not within [`COSINE_SIMILARITY_RANGE`]
-    #[allow(dead_code)]
+    /// Fails if the threshold is not within [`COSINE_SIMILARITY_RANGE`].
     pub fn with_threshold(self, threshold: f32) -> Result<Self, Error> {
         if COSINE_SIMILARITY_RANGE.contains(&threshold) {
             Ok(Self { threshold, ..self })
@@ -139,7 +138,7 @@ impl Config {
     }
 
     /// The minimum number of positive cois required for the context calculation.
-    pub(crate) fn min_positive_cois(&self) -> usize {
+    pub fn min_positive_cois(&self) -> usize {
         self.min_positive_cois
     }
 
@@ -147,8 +146,7 @@ impl Config {
     ///
     /// # Errors
     /// Fails if the minimum number is zero.
-    #[allow(dead_code)]
-    pub(crate) fn with_min_positive_cois(self, min_positive_cois: usize) -> Result<Self, Error> {
+    pub fn with_min_positive_cois(self, min_positive_cois: usize) -> Result<Self, Error> {
         if min_positive_cois > 0 {
             Ok(Self {
                 min_positive_cois,
@@ -160,7 +158,7 @@ impl Config {
     }
 
     /// The minimum number of negative cois required for the context calculation.
-    pub(crate) fn min_negative_cois(&self) -> usize {
+    pub fn min_negative_cois(&self) -> usize {
         self.min_negative_cois
     }
 
@@ -168,8 +166,7 @@ impl Config {
     ///
     /// # Errors
     /// Fails if the minimum number is zero.
-    #[allow(dead_code)]
-    pub(crate) fn with_min_negative_cois(self, min_negative_cois: usize) -> Result<Self, Error> {
+    pub fn with_min_negative_cois(self, min_negative_cois: usize) -> Result<Self, Error> {
         if min_negative_cois > 0 {
             Ok(Self {
                 min_negative_cois,
