@@ -12,7 +12,8 @@ use crate::{
     error::Error,
     ranker::{
         context::{compute_score_for_docs, Error as ContextError},
-        Config, Document,
+        Config,
+        Document,
     },
     utils::nan_safe_f32_cmp,
 };
@@ -149,7 +150,10 @@ fn rank(
     } else {
         documents.sort_unstable_by(|a, b| {
             a.score()
-                .and_then(|a_score| b.score().map(|b_score| nan_safe_f32_cmp(&b_score, &a_score)))
+                .and_then(|a_score| {
+                    b.score()
+                        .map(|b_score| nan_safe_f32_cmp(&b_score, &a_score))
+                })
                 .unwrap_or_else(|| a.rank().cmp(&b.rank()))
         });
     }
