@@ -12,8 +12,7 @@ use crate::{
     error::Error,
     ranker::{
         context::{compute_score_for_docs, Error as ContextError},
-        Config,
-        Document,
+        Config, Document,
     },
     utils::nan_safe_f32_cmp,
 };
@@ -138,14 +137,22 @@ fn rank(
         return Ok(());
     }
 
-    let score_for_docs = compute_score_for_docs(documents, user_interests, relevances, config)?;
-
-    documents.sort_unstable_by(|a, b| {
-        nan_safe_f32_cmp(
-            score_for_docs.get(&a.id()).unwrap(),
-            score_for_docs.get(&b.id()).unwrap(),
-        )
-    });
+    if let Ok(score_for_docs) =
+        compute_score_for_docs(documents, user_interests, relevances, config)
+    {
+        documents.sort_unstable_by(|a, b| {
+            nan_safe_f32_cmp(
+                score_for_docs.get(&a.id()).unwrap(),
+                score_for_docs.get(&b.id()).unwrap(),
+            )
+        });
+    } else {
+        documents.sort_unstable_by(|a, b| {
+            a.score()
+                .and_then(|a_score| b.score().map(|b_score| nan_safe_f32_cmp(&b_score, &a_score)))
+                .unwrap_or_else(|| a.rank().cmp(&b.rank()))
+        });
+    }
 
     Ok(())
 }
@@ -165,10 +172,10 @@ mod tests {
     #[test]
     fn test_rank() {
         let mut documents = vec![
-            TestDocument::new(0, arr1(&[3., 0., 0.])),
-            TestDocument::new(1, arr1(&[1., 1., 0.])),
-            TestDocument::new(2, arr1(&[1., 0., 0.])),
-            TestDocument::new(3, arr1(&[5., 0., 0.])),
+            TestDocument::new(0, arr1(&[3., 0., 0.]), None, 0),
+            TestDocument::new(1, arr1(&[1., 1., 0.]), None, 1),
+            TestDocument::new(2, arr1(&[1., 0., 0.]), None, 2),
+            TestDocument::new(3, arr1(&[5., 0., 0.]), None, 3),
         ];
 
         let config = Config::default()
@@ -196,10 +203,10 @@ mod tests {
     }
 
     #[test]
-    fn test_rank_no_user_interests() {
+    fn test_rank_no_user_interests_no_score() {
         let mut documents = vec![
-            TestDocument::new(0, arr1(&[0., 0., 0.])),
-            TestDocument::new(1, arr1(&[0., 0., 0.])),
+            TestDocument::new(0, arr1(&[0., 0., 0.]), None, 1),
+            TestDocument::new(1, arr1(&[0., 0., 0.]), None, 0),
         ];
 
         let config = Config::default().with_min_positive_cois(1).unwrap();
@@ -211,10 +218,67 @@ mod tests {
             &config,
         );
 
-        assert!(matches!(
-            res.unwrap_err().downcast_ref(),
-            Some(ContextError::NotEnoughCois)
-        ));
+        assert!(res.is_ok());
+        assert_eq!(documents[0].id(), DocumentId::from_u128(1));
+        assert_eq!(documents[1].id(), DocumentId::from_u128(0));
+    }
+
+    #[test]
+    fn test_rank_no_user_interests_one_score() {
+        let mut documents = vec![
+            TestDocument::new(0, arr1(&[0., 0., 0.]), Some(1.), 1),
+            TestDocument::new(1, arr1(&[0., 0., 0.]), None, 0),
+        ];
+
+        let config = Config::default().with_min_positive_cois(1).unwrap();
+
+        let res = rank(
+            &mut documents,
+            &UserInterests::default(),
+            &mut RelevanceMap::default(),
+            &config,
+        );
+
+        assert!(res.is_ok());
+        assert_eq!(documents[0].id(), DocumentId::from_u128(1));
+        assert_eq!(documents[1].id(), DocumentId::from_u128(0));
+
+        let mut documents = vec![
+            TestDocument::new(0, arr1(&[0., 0., 0.]), None, 1),
+            TestDocument::new(1, arr1(&[0., 0., 0.]), Some(1.), 0),
+        ];
+
+        let res = rank(
+            &mut documents,
+            &UserInterests::default(),
+            &mut RelevanceMap::default(),
+            &config,
+        );
+
+        assert!(res.is_ok());
+        assert_eq!(documents[0].id(), DocumentId::from_u128(1));
+        assert_eq!(documents[1].id(), DocumentId::from_u128(0));
+    }
+
+    #[test]
+    fn test_rank_no_user_interests_with_score() {
+        let mut documents = vec![
+            TestDocument::new(0, arr1(&[0., 0., 0.]), Some(4.), 1),
+            TestDocument::new(1, arr1(&[0., 0., 0.]), Some(3.), 0),
+        ];
+
+        let config = Config::default().with_min_positive_cois(1).unwrap();
+
+        let res = rank(
+            &mut documents,
+            &UserInterests::default(),
+            &mut RelevanceMap::default(),
+            &config,
+        );
+
+        assert!(res.is_ok());
+        assert_eq!(documents[0].id(), DocumentId::from_u128(0));
+        assert_eq!(documents[1].id(), DocumentId::from_u128(1));
     }
 
     #[test]
@@ -225,6 +289,6 @@ mod tests {
             &mut RelevanceMap::default(),
             &Config::default(),
         );
-        assert!(res.is_ok())
+        assert!(res.is_ok());
     }
 }
