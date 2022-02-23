@@ -2412,6 +2412,7 @@ dependencies = [
  "rstest_reuse",
  "rubert",
  "serde",
+ "serde_json",
  "serde_repr",
  "smallvec",
  "test-utils",

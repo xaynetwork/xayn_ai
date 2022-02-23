@@ -1,21 +1,25 @@
 use std::{cmp::Ordering, time::Duration};
 
 use displaydoc::Display;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
     embedding::utils::COSINE_SIMILARITY_RANGE,
-    utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY},
+    utils::{nan_safe_f32_cmp_desc, serde_duration_as_days, SECONDS_PER_DAY},
 };
 
 /// The configuration of the cois.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 struct CoiConfig {
     shift_factor: f32,
     threshold: f32,
     min_positive_cois: usize,
     min_negative_cois: usize,
 }
+
+// the f32 fields are never NaN by construction
+impl Eq for CoiConfig {}
 
 impl Default for CoiConfig {
     fn default() -> Self {
@@ -29,12 +33,16 @@ impl Default for CoiConfig {
 }
 
 /// The configuration of the kpe.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 struct KPEConfig {
+    #[serde(with = "serde_duration_as_days")]
     horizon: Duration,
     gamma: f32,
     penalty: Vec<f32>,
 }
+
+// the f32 fields are never NaN by construction
+impl Eq for KPEConfig {}
 
 impl Default for KPEConfig {
     fn default() -> Self {
@@ -47,7 +55,7 @@ impl Default for KPEConfig {
 }
 
 /// The configuration of the coi system.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Config {
     coi: CoiConfig,
     kpe: KPEConfig,
