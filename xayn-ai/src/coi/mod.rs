@@ -1,3 +1,4 @@
+pub(crate) mod config;
 pub(crate) mod key_phrase;
 mod merge;
 pub(crate) mod point;

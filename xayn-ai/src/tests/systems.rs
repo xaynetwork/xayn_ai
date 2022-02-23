@@ -2,7 +2,7 @@ use ndarray::arr1;
 
 use crate::{
     analytics::AnalyticsSystem as AnalyticsSys,
-    coi::{compute_coi, update_user_interests, RelevanceMap},
+    coi::{compute_coi, config::Config, update_user_interests, RelevanceMap},
     context::Context,
     data::document_data::{
         DocumentDataWithQAMBert,
@@ -11,7 +11,6 @@ use crate::{
         SMBertComponent,
     },
     ltr::ConstLtr,
-    ranker::Config,
     reranker::{
         database::Database,
         systems::{

@@ -4,10 +4,15 @@ use kpe::Config as KpeConfig;
 use rubert::{AveragePooler, SMBertConfig};
 
 use crate::{
-    coi::{key_phrase::KeyPhrase, point::UserInterests, CoiSystem},
+    coi::{
+        config::Config as CoiSystemConfig,
+        key_phrase::KeyPhrase,
+        point::UserInterests,
+        CoiSystem,
+    },
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::{config::Config, document::Document},
+    ranker::document::Document,
     UserFeedback,
 };
 
@@ -62,18 +67,18 @@ impl Ranker {
 
 pub struct Builder<'a, P> {
     smbert_config: SMBertConfig<'a, P>,
+    coi_config: CoiSystemConfig,
     kpe_config: KpeConfig<'a>,
     user_interests: UserInterests,
-    ranker_config: Config,
 }
 
 impl<'a> Builder<'a, AveragePooler> {
     pub fn from(smbert: SMBertConfig<'a, AveragePooler>, kpe: KpeConfig<'a>) -> Self {
         Builder {
             smbert_config: smbert,
+            coi_config: CoiSystemConfig::default(),
             kpe_config: kpe,
             user_interests: UserInterests::default(),
-            ranker_config: Config::default(),
         }
     }
 
@@ -87,9 +92,9 @@ impl<'a> Builder<'a, AveragePooler> {
         Ok(self)
     }
 
-    /// Sets the ranker [`Config`] to use.
-    pub fn with_ranker_config(mut self, config: Config) -> Self {
-        self.ranker_config = config;
+    /// Sets the [`CoiSystemConfig`] to use.
+    pub fn with_coi_system_config(mut self, config: CoiSystemConfig) -> Self {
+        self.coi_config = config;
         self
     }
 
@@ -100,13 +105,11 @@ impl<'a> Builder<'a, AveragePooler> {
     /// Fails if the SMBert or KPE cannot be initialized. For example because
     /// reading from a file failed or the bytes read are have an unexpected format.
     pub fn build(self) -> Result<Ranker, Error> {
-        let smbert_pipeline = rubert::Pipeline::from(self.smbert_config)?;
-        let smbert = SMBert::from(Arc::new(smbert_pipeline));
+        let smbert = SMBert::from(Arc::new(rubert::Pipeline::from(self.smbert_config)?));
+        let coi = CoiSystem::new(self.coi_config, smbert.clone());
         let kpe = kpe::Pipeline::from(self.kpe_config)?;
 
-        let coi = CoiSystem::new(self.ranker_config.clone(), smbert.clone());
         Ok(Ranker(super::system::Ranker::new(
-            self.ranker_config,
             smbert,
             coi,
             kpe,

@@ -304,7 +304,7 @@ mod tests {
 
     use ndarray::arr1;
 
-    use crate::{coi::utils::tests::create_pos_cois, ranker::Config};
+    use crate::coi::{config::Config, utils::tests::create_pos_cois};
     use test_utils::assert_approx_eq;
 
     use super::*;

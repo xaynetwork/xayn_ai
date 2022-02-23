@@ -9,12 +9,13 @@ use thiserror::Error;
 use crate::{
     coi::{
         compute_coi_decay_factor,
+        config::Config,
         find_closest_coi,
         point::{CoiPoint, UserInterests},
         RelevanceMap,
     },
     embedding::utils::Embedding,
-    ranker::{document::Document, Config},
+    ranker::document::Document,
     utils::system_time_now,
     CoiId,
     DocumentId,

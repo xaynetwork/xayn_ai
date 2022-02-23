@@ -127,10 +127,7 @@ pub(crate) fn compute_coi_decay_factor(
 mod tests {
     use ndarray::Array1;
 
-    use crate::{
-        coi::{key_phrase::KeyPhrase, utils::tests::create_pos_cois},
-        ranker::Config,
-    };
+    use crate::coi::{config::Config, key_phrase::KeyPhrase, utils::tests::create_pos_cois};
     use test_utils::assert_approx_eq;
 
     use super::*;
