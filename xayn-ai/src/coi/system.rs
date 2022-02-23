@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     coi::{
+        config::Config,
         point::{
             find_closest_coi,
             find_closest_coi_mut,
@@ -23,7 +24,6 @@ use crate::{
         smbert::SMBert,
         utils::{Embedding, MINIMUM_COSINE_SIMILARITY},
     },
-    ranker::Config,
     reranker::systems::{self, CoiSystemData},
     DocumentHistory,
     Error,
@@ -40,9 +40,9 @@ pub(crate) enum CoiSystemError {
 }
 
 pub(crate) struct CoiSystem {
-    config: Config,
+    pub(crate) config: Config,
     smbert: SMBert,
-    relevances: RelevanceMap,
+    pub(crate) relevances: RelevanceMap,
 }
 
 impl CoiSystem {
@@ -70,14 +70,13 @@ impl CoiSystem {
         &mut self,
         cois: &mut Vec<PositiveCoi>,
         embedding: &Embedding,
-        config: &Config,
         smbert: impl Fn(&str) -> Result<Embedding, Error>,
         candidates: &[String],
     ) {
         log_positive_user_reaction(
             cois,
             embedding,
-            config,
+            &self.config,
             &mut self.relevances,
             smbert,
             candidates,
@@ -89,25 +88,22 @@ impl CoiSystem {
         &self,
         cois: &mut Vec<NegativeCoi>,
         embedding: &Embedding,
-        config: &Config,
     ) {
-        log_negative_user_reaction(cois, embedding, config);
+        log_negative_user_reaction(cois, embedding, &self.config);
     }
 
     /// Selects the top key phrases from the positive cois, sorted in descending relevance.
     pub(crate) fn select_top_key_phrases(
         &mut self,
         cois: &[PositiveCoi],
-        config: &Config,
         top: usize,
     ) -> Vec<KeyPhrase> {
-        self.relevances
-            .select_top_key_phrases(cois, top, config.horizon(), config.penalty())
-    }
-
-    /// Returns a mutable reference to the inner [`RelevanceMap`].
-    pub(crate) fn relevances_mut(&mut self) -> &mut RelevanceMap {
-        &mut self.relevances
+        self.relevances.select_top_key_phrases(
+            cois,
+            top,
+            self.config.horizon(),
+            self.config.penalty(),
+        )
     }
 }
 

@@ -6,13 +6,12 @@ use kpe::Pipeline as KPE;
 use thiserror::Error;
 
 use crate::{
-    coi::{key_phrase::KeyPhrase, point::UserInterests, CoiSystem, RelevanceMap},
+    coi::{config::Config, key_phrase::KeyPhrase, point::UserInterests, CoiSystem, RelevanceMap},
     data::document::UserFeedback,
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
     ranker::{
         context::{compute_score_for_docs, Error as ContextError},
-        Config,
         Document,
     },
     utils::nan_safe_f32_cmp,
@@ -26,8 +25,6 @@ pub(crate) enum RankerError {
 
 /// The Ranker.
 pub(crate) struct Ranker {
-    /// Ranker configuration.
-    config: Config,
     /// SMBert system.
     smbert: SMBert,
     /// CoI system.
@@ -41,14 +38,12 @@ pub(crate) struct Ranker {
 impl Ranker {
     /// Creates a new `Ranker`.
     pub(crate) fn new(
-        config: Config,
         smbert: SMBert,
         coi: CoiSystem,
         kpe: KPE,
         user_interests: UserInterests,
     ) -> Self {
         Self {
-            config,
             smbert,
             coi,
             kpe,
@@ -75,8 +70,8 @@ impl Ranker {
         rank(
             documents,
             &self.user_interests,
-            self.coi.relevances_mut(),
-            &self.config,
+            &mut self.coi.relevances,
+            &self.coi.config,
         )
     }
 
@@ -107,16 +102,13 @@ impl Ranker {
                 self.coi.log_positive_user_reaction(
                     &mut self.user_interests.positive,
                     embedding,
-                    &self.config,
                     |words| smbert.run(words).map_err(Into::into),
                     key_phrases.as_slice(),
                 )
             }
-            UserFeedback::Irrelevant => self.coi.log_negative_user_reaction(
-                &mut self.user_interests.negative,
-                embedding,
-                &self.config,
-            ),
+            UserFeedback::Irrelevant => self
+                .coi
+                .log_negative_user_reaction(&mut self.user_interests.negative, embedding),
             _ => (),
         }
     }
@@ -124,7 +116,7 @@ impl Ranker {
     /// Selects the top key phrases from the positive cois, sorted in descending relevance.
     pub(crate) fn select_top_key_phrases(&mut self, top: usize) -> Vec<KeyPhrase> {
         self.coi
-            .select_top_key_phrases(&self.user_interests.positive, &self.config, top)
+            .select_top_key_phrases(&self.user_interests.positive, top)
     }
 }
 
