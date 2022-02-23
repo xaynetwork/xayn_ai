@@ -1,15 +1,15 @@
 use std::{cmp::Ordering, time::Duration};
 
 use displaydoc::Display;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{
-    embedding::utils::COSINE_SIMILARITY_RANGE,
-    utils::{nan_safe_f32_cmp_desc, SECONDS_PER_DAY},
-};
+use crate::{embedding::utils::COSINE_SIMILARITY_RANGE, utils::nan_safe_f32_cmp_desc};
+
+const SECONDS_PER_DAY: u64 = crate::utils::SECONDS_PER_DAY as u64;
 
 /// The configuration of the cois.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct CoiConfig {
     shift_factor: f32,
     threshold: f32,
@@ -29,8 +29,9 @@ impl Default for CoiConfig {
 }
 
 /// The configuration of the kpe.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct KPEConfig {
+    #[serde(with = "serde_horizon_days")]
     horizon: Duration,
     gamma: f32,
     penalty: Vec<f32>,
@@ -47,7 +48,7 @@ impl Default for KPEConfig {
 }
 
 /// The configuration of the coi system.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Config {
     coi: CoiConfig,
     kpe: KPEConfig,
@@ -205,5 +206,63 @@ impl Config {
     /// The maximum number of key phrases picked during the coi key phrase selection.
     pub fn max_key_phrases(&self) -> usize {
         self.kpe.penalty.len()
+    }
+}
+
+mod serde_horizon_days {
+    use std::time::Duration;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::SECONDS_PER_DAY;
+
+    pub(super) fn serialize<S>(horizon: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (horizon.as_secs() / SECONDS_PER_DAY).serialize(serializer)
+    }
+
+    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        u64::deserialize(deserializer).map(|days| Duration::from_secs(SECONDS_PER_DAY * days))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::error::Error;
+
+        use serde_json::{from_str, to_string};
+
+        use super::*;
+
+        #[derive(Deserialize, Serialize)]
+        struct Days(#[serde(with = "super")] Duration);
+
+        #[test]
+        fn test_less() -> Result<(), Box<dyn Error>> {
+            let horizon = Duration::from_secs(SECONDS_PER_DAY - 1);
+            let days = from_str::<Days>(&to_string(&Days(horizon))?)?;
+            assert_eq!(days.0, Duration::ZERO);
+            Ok(())
+        }
+
+        #[test]
+        fn test_equal() -> Result<(), Box<dyn Error>> {
+            let horizon = Duration::from_secs(SECONDS_PER_DAY);
+            let days = from_str::<Days>(&to_string(&Days(horizon))?)?;
+            assert_eq!(days.0, horizon);
+            Ok(())
+        }
+
+        #[test]
+        fn test_greater() -> Result<(), Box<dyn Error>> {
+            let horizon = Duration::from_secs(SECONDS_PER_DAY + 1);
+            let days = from_str::<Days>(&to_string(&Days(horizon))?)?;
+            assert_eq!(days.0, Duration::from_secs(SECONDS_PER_DAY));
+            Ok(())
+        }
     }
 }
