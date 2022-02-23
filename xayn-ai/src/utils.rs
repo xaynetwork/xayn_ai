@@ -102,8 +102,36 @@ pub(crate) fn system_time_now() -> SystemTime {
     return SystemTime::now();
 }
 
+pub(crate) mod serde_duration_as_days {
+    use std::time::Duration;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use crate::utils::SECONDS_PER_DAY;
+
+    pub(crate) fn serialize<S>(horizon: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (horizon.as_secs() / SECONDS_PER_DAY as u64).serialize(serializer)
+    }
+
+    pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        u64::deserialize(deserializer)
+            .map(|days| Duration::from_secs(SECONDS_PER_DAY as u64 * days))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::{error::Error, time::Duration};
+
+    use serde::Deserialize;
+    use serde_json::{from_str, to_string};
+
     use super::*;
     use test_utils::assert_approx_eq;
 
@@ -142,5 +170,38 @@ mod tests {
         assert_eq!(nan_safe_f32_cmp_desc(&12., &f32::NAN), Ordering::Less);
         assert_eq!(nan_safe_f32_cmp(&f32::NAN, &12.), Ordering::Less);
         assert_eq!(nan_safe_f32_cmp_desc(&f32::NAN, &12.), Ordering::Greater);
+    }
+
+    #[derive(Deserialize, Serialize)]
+    struct Days(#[serde(with = "serde_duration_as_days")] Duration);
+
+    #[test]
+    fn test_less() -> Result<(), Box<dyn Error>> {
+        let duration = Duration::from_secs(SECONDS_PER_DAY as u64 - 1);
+        let serialized = to_string(&Days(duration))?;
+        assert_eq!(serialized, "0");
+        let deserialized = from_str::<Days>(&serialized)?.0;
+        assert_eq!(deserialized, Duration::ZERO);
+        Ok(())
+    }
+
+    #[test]
+    fn test_equal() -> Result<(), Box<dyn Error>> {
+        let duration = Duration::from_secs(SECONDS_PER_DAY as u64);
+        let serialized = to_string(&Days(duration))?;
+        assert_eq!(serialized, "1");
+        let deserialized = from_str::<Days>(&serialized)?.0;
+        assert_eq!(deserialized, duration);
+        Ok(())
+    }
+
+    #[test]
+    fn test_greater() -> Result<(), Box<dyn Error>> {
+        let duration = Duration::from_secs(SECONDS_PER_DAY as u64 + 1);
+        let serialized = to_string(&Days(duration))?;
+        assert_eq!(serialized, "1");
+        let deserialized = from_str::<Days>(&serialized)?.0;
+        assert_eq!(deserialized, Duration::from_secs(SECONDS_PER_DAY as u64));
+        Ok(())
     }
 }
