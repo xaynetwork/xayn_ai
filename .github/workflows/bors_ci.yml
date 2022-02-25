@@ -5,9 +5,12 @@ name: Merge master CI
 
 on:
   push:
-    branches:
-    - '_bors_staging'
-    - '_bors_trying'
+    branches-ignore:
+      # we push on release only from staging and release represent
+      # a snapshot of staging in a given point in time
+      - 'master'
+      - 'release'
+      - '_bors*'
 
 concurrency:
   group: ${{ github.ref }}
@@ -36,7 +39,7 @@ jobs:
   test-android-libs:
     name: test-android-libs
     needs: dev-ci
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -116,7 +119,7 @@ jobs:
   test-wasm-libs:
     name: test-wasm-libs
     needs: dev-ci
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -156,20 +159,20 @@ jobs:
         target: [android, ios, web]
         include:
           - target: android
-            os: ubuntu-20.04
+            os: azure-vm
             cmd: flutter build apk --debug --split-per-abi
           - target: ios
             os: macos-11
             cmd: flutter build ios --debug --no-codesign
           - target: web
-            os: ubuntu-20.04
+            os: azure-vm
             cmd: flutter build web
     steps:
       - name: Checkout repository
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
 
       - name: Install libclang-10-dev
-        if: matrix.os == 'ubuntu-20.04'
+        if: matrix.os == 'azure-vm'
         run: sudo apt-get install libclang-10-dev
 
       - name: Install gomplate
@@ -253,7 +256,7 @@ jobs:
       - test-android-libs
       - flutter-build-example
       - dev-ci
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     steps:
       - run: echo "Helper job"
 
@@ -263,7 +266,7 @@ jobs:
     # always() allows to run even if ci-ok is not successful
     # we only want this to run on the staging branch
     if: always() && github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     steps:
       - name: Notify failure
         if: needs.ci-ok.result != 'success'

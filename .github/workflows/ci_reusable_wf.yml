@@ -18,7 +18,7 @@ env:
 
 jobs:
   cargo-format:
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 10
     steps:
       - name: Checkout repository
@@ -39,7 +39,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   cargo-sort:
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 10
     steps:
       - name: Checkout repository
@@ -52,7 +52,7 @@ jobs:
         run: cargo sort --grouped --workspace --check
 
   cargo-clippy:
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -76,7 +76,7 @@ jobs:
           cargo clippy --benches --features bench -- --deny warnings
 
   cargo-test:
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -103,7 +103,7 @@ jobs:
 
   cargo-more-test:
     needs: cargo-test
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -132,7 +132,7 @@ jobs:
 
   cargo-tarpaulin:
     needs: cargo-test
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -160,7 +160,7 @@ jobs:
 
   build-linux-lib:
     needs: cargo-test
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
     timeout-minutes: 10
@@ -199,7 +199,7 @@ jobs:
             ${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h
 
   flutter-format:
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 10
     steps:
       - name: Checkout repository
@@ -216,7 +216,7 @@ jobs:
 
   flutter-checks:
     needs: build-linux-lib
-    runs-on: ubuntu-20.04
+    runs-on: azure-vm
     timeout-minutes: 15
     strategy:
       fail-fast: false
