@@ -110,6 +110,8 @@ impl RelevanceMap {
         horizon: Duration,
         penalty: &[f32],
     ) -> Vec<KeyPhrase> {
+        self.insert_cleaned_if_empty();
+
         self.compute_relevances(cois, horizon, system_time_now());
 
         // TODO: refactor once pop_last() etc are stabilized for BTreeMap

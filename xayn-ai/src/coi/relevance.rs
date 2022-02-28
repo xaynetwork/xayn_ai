@@ -95,6 +95,7 @@ enum Rels {
 pub(crate) struct RelevanceMap {
     coi_to_relevance: HashMap<CoiId, Relevances>,
     relevance_to_key_phrase: BTreeMap<(Relevance, CoiId), Vec<KeyPhrase>>,
+    cleaned: HashMap<CoiId, Vec<(Relevance, KeyPhrase)>>,
 }
 
 impl RelevanceMap {
@@ -144,6 +145,7 @@ impl RelevanceMap {
         self.coi_to_relevance
             .remove(&coi_id)
             .map(|relevances| {
+                self.cleaned.remove(&coi_id);
                 let key_phrases = match relevances {
                     Relevances(Rels::Coi(relevance)) => self
                         .relevance_to_key_phrase
@@ -189,6 +191,10 @@ impl RelevanceMap {
                 _ => {}
             }
         }
+        self.cleaned
+            .entry(coi_id)
+            .or_default()
+            .push((relevance, key_phrase.clone()));
     }
 
     /// Replaces the relevances in the tuples with a matching id.
@@ -249,6 +255,20 @@ impl RelevanceMap {
         match self.coi_to_relevance.get(id) {
             Some(Relevances(Rels::Coi(F32(relevance)))) => Some(*relevance),
             _ => None,
+        }
+    }
+
+    pub(super) fn insert_cleaned_if_empty(&mut self) {
+        if self.relevance_to_key_phrase.is_empty() {
+            // we need to collect to avoid to take 2 mutable ref
+            #[allow(clippy::needless_collect)]
+            let to_insert: Vec<_> = self.cleaned.drain().collect();
+
+            for (coi_id, value) in to_insert.into_iter() {
+                for (relevance, key_phrase) in value {
+                    self.insert(coi_id, relevance, key_phrase);
+                }
+            }
         }
     }
 }
