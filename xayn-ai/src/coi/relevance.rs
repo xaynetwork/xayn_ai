@@ -265,7 +265,9 @@ impl RelevanceMap {
             let to_insert: Vec<_> = self.cleaned.drain().collect();
 
             for (coi_id, value) in to_insert.into_iter() {
-                for (relevance, key_phrase) in value {
+                // we need to insert in reverse order to keep the order in which
+                // the key phrases were originally
+                for (relevance, key_phrase) in value.into_iter().rev() {
                     self.insert(coi_id, relevance, key_phrase);
                 }
             }

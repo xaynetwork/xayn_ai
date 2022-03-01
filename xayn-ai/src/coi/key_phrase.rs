@@ -123,7 +123,8 @@ impl RelevanceMap {
                     (coi_id, relevance, penalized_relevance, key_phrase.clone())
                 })
             }).collect::<Vec<_>>();
-        relevances.sort_unstable_by(|(_, _, this, _), (_, _, other, _)| this.cmp(other).reverse());
+        relevances.sort_by(|(_, _, this, _), (_, _, other, _)| this.cmp(other).reverse());
+
         relevances
             .into_iter()
             .take(top)
@@ -765,5 +766,52 @@ mod tests {
         );
         assert!(relevances.cois_is_empty());
         assert!(relevances.relevances_is_empty());
+    }
+
+    #[test]
+    fn test_select_top_key_phrases_restore_key_phrases_if_empty() {
+        let mut cois = create_pos_cois(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
+        cois[0].log_time(Duration::from_secs(11));
+        cois[1].log_time(Duration::from_secs(12));
+        cois[2].log_time(Duration::from_secs(13));
+        let key_phrases = [
+            KeyPhrase::new("key", arr1(&[1., 1., 1.])).unwrap(),
+            KeyPhrase::new("phrase", arr1(&[2., 1., 1.])).unwrap(),
+            KeyPhrase::new("words", arr1(&[3., 1., 1.])).unwrap(),
+            KeyPhrase::new("and", arr1(&[1., 4., 1.])).unwrap(),
+            KeyPhrase::new("more", arr1(&[1., 5., 1.])).unwrap(),
+            KeyPhrase::new("stuff", arr1(&[1., 6., 1.])).unwrap(),
+            KeyPhrase::new("still", arr1(&[1., 1., 7.])).unwrap(),
+            KeyPhrase::new("not", arr1(&[1., 1., 8.])).unwrap(),
+            KeyPhrase::new("enough", arr1(&[1., 1., 9.])).unwrap(),
+        ];
+        let mut relevances = RelevanceMap::kp(
+            [
+                cois[0].id, cois[0].id, cois[0].id, cois[1].id, cois[1].id, cois[1].id, cois[2].id,
+                cois[2].id, cois[2].id,
+            ],
+            [0.; 9],
+            key_phrases.into(),
+        );
+        let config = Config::default();
+
+        let top_key_phrases_first = relevances.select_top_key_phrases(
+            &cois,
+            usize::MAX,
+            config.horizon(),
+            config.penalty(),
+        );
+
+        let top_key_phrases_second = relevances.select_top_key_phrases(
+            &cois,
+            usize::MAX,
+            config.horizon(),
+            config.penalty(),
+        );
+
+        assert_eq!(
+            top_key_phrases_first,
+            top_key_phrases_second
+        );
     }
 }
