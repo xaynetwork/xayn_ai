@@ -142,10 +142,10 @@ impl RelevanceMap {
 
     /// Removes all tuples with a matching id.
     pub(super) fn remove(&mut self, coi_id: CoiId) -> Option<BTreeSet<KeyPhrase>> {
+        self.cleaned.remove(&coi_id);
         self.coi_to_relevance
             .remove(&coi_id)
             .map(|relevances| {
-                self.cleaned.remove(&coi_id);
                 let key_phrases = match relevances {
                     Relevances(Rels::Coi(relevance)) => self
                         .relevance_to_key_phrase
@@ -171,6 +171,10 @@ impl RelevanceMap {
     pub(super) fn clean(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: &KeyPhrase) {
         if let Some(key_phrases) = self.relevance_to_key_phrase.get_mut(&(relevance, coi_id)) {
             key_phrases.retain(|this| this != key_phrase);
+            self.cleaned
+                .entry(coi_id)
+                .or_default()
+                .push((relevance, key_phrase.clone()));
             if key_phrases.is_empty() {
                 self.relevance_to_key_phrase.remove(&(relevance, coi_id));
             }
@@ -191,10 +195,6 @@ impl RelevanceMap {
                 _ => {}
             }
         }
-        self.cleaned
-            .entry(coi_id)
-            .or_default()
-            .push((relevance, key_phrase.clone()));
     }
 
     /// Replaces the relevances in the tuples with a matching id.
