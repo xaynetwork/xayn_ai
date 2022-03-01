@@ -176,7 +176,7 @@ impl RelevanceMap {
                 self.cleaned
                     .entry(coi_id)
                     .or_default()
-                    .push((relevance, key_phrase.clone()));
+                    .push((relevance, key_phrase));
             }
             if key_phrases.is_empty() {
                 self.relevance_to_key_phrase.remove(&(relevance, coi_id));
