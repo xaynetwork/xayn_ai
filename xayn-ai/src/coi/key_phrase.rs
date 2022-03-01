@@ -809,9 +809,6 @@ mod tests {
             config.penalty(),
         );
 
-        assert_eq!(
-            top_key_phrases_first,
-            top_key_phrases_second
-        );
+        assert_eq!(top_key_phrases_first, top_key_phrases_second);
     }
 }
