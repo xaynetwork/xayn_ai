@@ -95,6 +95,7 @@ enum Rels {
 pub(crate) struct RelevanceMap {
     coi_to_relevance: HashMap<CoiId, Relevances>,
     relevance_to_key_phrase: BTreeMap<(Relevance, CoiId), Vec<KeyPhrase>>,
+    cleaned: HashMap<CoiId, Vec<(Relevance, KeyPhrase)>>,
 }
 
 impl RelevanceMap {
@@ -141,6 +142,7 @@ impl RelevanceMap {
 
     /// Removes all tuples with a matching id.
     pub(super) fn remove(&mut self, coi_id: CoiId) -> Option<BTreeSet<KeyPhrase>> {
+        self.cleaned.remove(&coi_id);
         self.coi_to_relevance
             .remove(&coi_id)
             .map(|relevances| {
@@ -168,7 +170,14 @@ impl RelevanceMap {
     /// Removes the tuple and cleans up empty entries afterwards.
     pub(super) fn clean(&mut self, coi_id: CoiId, relevance: Relevance, key_phrase: &KeyPhrase) {
         if let Some(key_phrases) = self.relevance_to_key_phrase.get_mut(&(relevance, coi_id)) {
-            key_phrases.retain(|this| this != key_phrase);
+            if let Some(idx) = key_phrases.iter().position(|kp| kp == key_phrase) {
+                let key_phrase = key_phrases.remove(idx);
+
+                self.cleaned
+                    .entry(coi_id)
+                    .or_default()
+                    .push((relevance, key_phrase));
+            }
             if key_phrases.is_empty() {
                 self.relevance_to_key_phrase.remove(&(relevance, coi_id));
             }
@@ -249,6 +258,22 @@ impl RelevanceMap {
         match self.coi_to_relevance.get(id) {
             Some(Relevances(Rels::Coi(F32(relevance)))) => Some(*relevance),
             _ => None,
+        }
+    }
+
+    pub(super) fn insert_cleaned_if_empty(&mut self) {
+        if self.relevance_to_key_phrase.is_empty() {
+            let to_insert = std::mem::take(&mut self.cleaned);
+
+            for (coi_id, value) in to_insert.into_iter() {
+                // we need to insert in reverse order to keep the order in which
+                // the key phrases were originally. this is due to the fact that in
+                // select_top_key_phrases() we collect and sort the key phrases in
+                // descending order wrt the penalized relevances.
+                for (relevance, key_phrase) in value.into_iter().rev() {
+                    self.insert(coi_id, relevance, key_phrase);
+                }
+            }
         }
     }
 }
