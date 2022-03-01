@@ -260,7 +260,7 @@ impl RelevanceMap {
 
     pub(super) fn insert_cleaned_if_empty(&mut self) {
         if self.relevance_to_key_phrase.is_empty() {
-            let to_insert = std::mem::take(self.cleaned);
+            let to_insert = std::mem::take(&mut self.cleaned);
 
             for (coi_id, value) in to_insert.into_iter() {
                 // we need to insert in reverse order to keep the order in which
