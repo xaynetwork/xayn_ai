@@ -105,7 +105,7 @@ fn bench_tract_smbert_dynquant(manager: &mut Criterion) {
         manager,
         "Tract SMBert Quantized" => SMBert,
         smbert::vocab(),
-        smbert::model_quant(),
+        smbert::model(), // NOTE: smbert v0001 is already quantized
         [
             "None Pooler" => NonePooler,
             "First Pooler" => FirstPooler,
@@ -151,7 +151,7 @@ fn bench_onnx_smbert_dynquant(manager: &mut Criterion) {
         manager,
         "Onnx SMBert Quantized",
         smbert::vocab(),
-        smbert::model_quant(),
+        smbert::model(), // NOTE: smbert v0001 is already quantized
     );
 }
 

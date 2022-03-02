@@ -2,11 +2,11 @@
   "data_assets": [
     {
       "id": "smbertVocab",
-      "url_suffix": "smbert_v0000/vocab.txt"
+      "url_suffix": "smbert_v0001/vocab.txt"
     },
     {
       "id": "smbertModel",
-      "url_suffix": "smbert_v0000/smbert.onnx",
+      "url_suffix": "smbert_v0001/smbert-quantized.onnx",
       "chunk_size": "11MB"
     },
     {
