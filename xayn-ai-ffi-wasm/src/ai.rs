@@ -212,10 +212,10 @@ mod tests {
     use xayn_ai_ffi::Error;
 
     /// Path to the current smbert vocabulary file.
-    const SMBERT_VOCAB: &[u8] = include_bytes!("../../data/smbert_v0000/vocab.txt");
+    const SMBERT_VOCAB: &[u8] = include_bytes!("../../data/smbert_v0001/vocab.txt");
 
     /// Path to the current smbert onnx model file.
-    const SMBERT_MODEL: &[u8] = include_bytes!("../../data/smbert_v0000/smbert.onnx");
+    const SMBERT_MODEL: &[u8] = include_bytes!("../../data/smbert_v0001/smbert-quantized.onnx");
 
     /// Path to the current qambert vocabulary file.
     const QAMBERT_VOCAB: &[u8] = include_bytes!("../../data/qambert_v0001/vocab.txt");

@@ -12,11 +12,6 @@ pub fn model() -> Result<PathBuf> {
     resolve_asset("smbertModel")
 }
 
-/// Resolves the path to the quantized SMBert model.
-pub fn model_quant() -> Result<PathBuf> {
-    Ok(resolve_asset("smbertModel")?.with_file_name("smbert-quant.onnx"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -34,7 +34,7 @@ download()
   shasum -c "$CHECKSUM_FILE"
 }
 
-download smbert v0000
+download smbert v0001
 download qambert v0001
 download ltr v0000
 download bench_matmul v0000
