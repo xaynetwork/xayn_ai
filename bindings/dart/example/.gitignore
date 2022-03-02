@@ -50,7 +50,7 @@ assets/ltr_v0000/*
 !assets/ltr_v0000/.gitkeep
 assets/qambert_v0001/*
 !assets/qambert_v0001/.gitkeep
-assets/smbert_v0000/*
-!assets/smbert_v0000/.gitkeep
+assets/smbert_v0001/*
+!assets/smbert_v0001/.gitkeep
 assets/wasm_bindings/*
 !assets/wasm_bindings/.gitkeep

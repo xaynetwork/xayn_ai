@@ -42,8 +42,8 @@ pub struct RunCallDataCmd {
 impl RunCallDataCmd {
     const QAMBERT_MODEL_PATH: &'static str = "qambert_v0001/qambert.onnx";
     const QAMBERT_VOCAB_PATH: &'static str = "qambert_v0001/vocab.txt";
-    const SMBERT_MODEL_PATH: &'static str = "smbert_v0000/smbert.onnx";
-    const SMBERT_VOCAB_PATH: &'static str = "smbert_v0000/vocab.txt";
+    const SMBERT_MODEL_PATH: &'static str = "smbert_v0001/smbert-quantized.onnx";
+    const SMBERT_VOCAB_PATH: &'static str = "smbert_v0001/vocab.txt";
     const LTR_MODEL_PATH: &'static str = "ltr_v0000/ltr.binparams";
 
     pub fn run(self) -> Result<i32, Error> {

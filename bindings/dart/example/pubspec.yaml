@@ -45,7 +45,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - 'assets/smbert_v0000/'
+    - 'assets/smbert_v0001/'
     - 'assets/qambert_v0001/'
     - 'assets/ltr_v0000/'
     - 'assets/call_data/'
