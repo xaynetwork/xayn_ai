@@ -188,7 +188,7 @@ jobs:
         run: echo "::set-output name=key::$(echo ${{ github.job }}-x86_64-unknown-linux-gnu-${{ hashFiles('target/debug/libxayn_ai_ffi_c.so', '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiCommon.h', '${{ env.DART_WORKSPACE }}/ios/Classes/XaynAiFfiDart.h') }})"
 
       - name: Upload library artifacts
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
+        uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535 # v2.3.1
         with:
           name: ${{ steps.cache-key.outputs.key }}
           retention-days: 1
