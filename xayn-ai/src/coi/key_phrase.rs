@@ -146,8 +146,8 @@ where
     F: Fn(&str) -> Result<Embedding, Error>,
 {
     for candidate in candidates {
-        let candidate = clean_key_phrase(&candidate);
-        if !key_phrases.contains(candidate) {
+        let candidate = clean_key_phrase(candidate);
+        if !key_phrases.contains(&candidate) {
             if let Ok(Ok(candidate)) =
                 smbert(&candidate).map(|point| KeyPhrase::new(candidate, point))
             {
