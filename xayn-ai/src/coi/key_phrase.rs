@@ -427,6 +427,30 @@ mod tests {
     }
 
     #[test]
+    fn test_select_key_phrases_candidates_words_cleaned() {
+        let cois = create_pos_cois(&[[1., 0., 0.]]);
+        let coi = &cois[0];
+        let mut relevances = RelevanceMap::default();
+        let candidates = ["  a  !@#$%  b  ".to_string()];
+
+        let smbert = |_: &str| Ok(arr1(&[1., 1., 0.]).into());
+        let config = Config::default();
+
+        relevances.select_key_phrases(
+            coi,
+            &candidates[..],
+            smbert,
+            config.max_key_phrases(),
+            config.gamma(),
+        );
+
+        let key_phrases = relevances.remove(coi.id).unwrap();
+        let key_phrase = key_phrases.iter().last().unwrap();
+
+        assert_eq!(key_phrase.words, "a b");
+    }
+
+    #[test]
     fn test_select_key_phrases_max() {
         let cois = create_pos_cois(&[[1., 0., 0.]]);
         let key_phrases = [
