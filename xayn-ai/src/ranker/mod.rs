@@ -12,7 +12,7 @@ pub use crate::{
         config::{Config as CoiSystemConfig, Error as CoiSystemConfigError},
         key_phrase::KeyPhrase,
     },
-    embedding::utils::{cosine_similarity, ArcEmbedding, Embedding},
+    embedding::utils::{cosine_similarity, pairwise_cosine_similarity, ArcEmbedding, Embedding},
     DocumentId,
 };
 pub use rubert::AveragePooler;
