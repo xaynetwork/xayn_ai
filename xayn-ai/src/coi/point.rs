@@ -1,3 +1,5 @@
+#![allow(unused_macros)] // obake
+
 use std::time::SystemTime;
 
 use derivative::Derivative;

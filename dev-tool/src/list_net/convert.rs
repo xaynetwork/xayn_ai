@@ -262,7 +262,7 @@ impl SoundgardenUserDfRecord {
             session: SessionId(id2uuid(session_id, None)),
             query_count: query_counter,
             query_id: QueryId(id2uuid(query_id, None)),
-            query_words: query_words.replace(",", " "),
+            query_words: query_words.replace(',', " "),
             day: DayOfWeek::from_day_offset(day),
             url,
             domain,

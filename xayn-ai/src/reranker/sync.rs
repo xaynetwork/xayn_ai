@@ -1,3 +1,5 @@
+#![allow(unused_macros)] // obake
+
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
 

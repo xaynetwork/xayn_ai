@@ -132,8 +132,7 @@ mod tests {
         let token_size = 10;
         let embeddings = Embeddings(
             (1..=token_size)
-                .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
-                .flatten()
+                .flat_map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
                 .collect::<Array1<_>>()
                 .into_shape((1, token_size, Bert::EMBEDDING_SIZE))
                 .unwrap()
@@ -141,8 +140,7 @@ mod tests {
         );
         let valid_mask = vec![true; token_size].into();
         let valid_embeddings = (1..=token_size)
-            .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
-            .flatten()
+            .flat_map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
             .collect::<Array1<_>>()
             .into_shape((token_size, Bert::EMBEDDING_SIZE))
             .unwrap();
@@ -154,8 +152,7 @@ mod tests {
         let token_size = 10;
         let embeddings = Embeddings(
             (1..=token_size)
-                .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
-                .flatten()
+                .flat_map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
                 .collect::<Array1<_>>()
                 .into_shape((1, token_size, Bert::EMBEDDING_SIZE))
                 .unwrap()
@@ -180,8 +177,7 @@ mod tests {
         let token_size = 10;
         let embeddings = Embeddings(
             (1..=token_size)
-                .map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
-                .flatten()
+                .flat_map(|e| vec![e as f32; Bert::EMBEDDING_SIZE])
                 .collect::<Array1<_>>()
                 .into_shape((1, token_size, Bert::EMBEDDING_SIZE))
                 .unwrap()
