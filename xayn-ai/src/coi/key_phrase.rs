@@ -3,6 +3,8 @@ use std::{borrow::Borrow, collections::BTreeSet, convert::identity, iter::once, 
 use derivative::Derivative;
 use itertools::izip;
 use ndarray::{s, Array1, Array2, ArrayBase, Axis, Data, Ix, Ix2};
+#[cfg(feature = "multithreaded")]
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -68,7 +70,7 @@ impl PositiveCoi {
         &self,
         relevances: &mut RelevanceMap,
         candidates: &[String],
-        smbert: impl Fn(&str) -> Result<Embedding, Error>,
+        smbert: impl Fn(&str) -> Result<Embedding, Error> + Sync,
         max_key_phrases: usize,
         gamma: f32,
     ) {
@@ -87,7 +89,7 @@ impl RelevanceMap {
         &mut self,
         coi: &PositiveCoi,
         candidates: &[String],
-        smbert: impl Fn(&str) -> Result<Embedding, Error>,
+        smbert: impl Fn(&str) -> Result<Embedding, Error> + Sync,
         max_key_phrases: usize,
         gamma: f32,
     ) {
@@ -137,25 +139,27 @@ impl RelevanceMap {
 }
 
 /// Unifies the key phrases and candidates.
-fn unify<F>(
+fn unify(
     mut key_phrases: BTreeSet<KeyPhrase>,
     candidates: &[String],
-    smbert: F,
-) -> BTreeSet<KeyPhrase>
-where
-    F: Fn(&str) -> Result<Embedding, Error>,
-{
-    for candidate in candidates {
-        let candidate = clean_key_phrase(candidate);
-        if !key_phrases.contains(&candidate) {
-            if let Ok(Ok(candidate)) =
-                smbert(&candidate).map(|point| KeyPhrase::new(candidate, point))
-            {
-                key_phrases.insert(candidate);
-            }
-        }
-    }
+    smbert: impl Fn(&str) -> Result<Embedding, Error> + Sync,
+) -> BTreeSet<KeyPhrase> {
+    #[cfg(not(feature = "multithreaded"))]
+    let candidates = candidates.iter();
+    #[cfg(feature = "multithreaded")]
+    let candidates = candidates.into_par_iter();
 
+    let mut candidates = candidates
+        .filter(|candidate| !key_phrases.contains(*candidate))
+        .map(clean_key_phrase)
+        .filter_map(|candidate| {
+            smbert(&candidate)
+                .and_then(|point| KeyPhrase::new(candidate, point).map_err(|e| e.into()))
+                .ok()
+        })
+        .collect::<BTreeSet<_>>();
+
+    key_phrases.append(&mut candidates);
     key_phrases
 }
 
@@ -303,7 +307,7 @@ fn select(
 }
 
 /// Clean a key phrase from symbols and multiple spaces.
-fn clean_key_phrase(key_phrase: &str) -> String {
+fn clean_key_phrase(key_phrase: impl AsRef<str>) -> String {
     use lazy_static::lazy_static;
     use regex::Regex;
 
@@ -315,7 +319,7 @@ fn clean_key_phrase(key_phrase: &str) -> String {
     }
 
     // we replace a symbol with a space
-    let no_symbols = SYMBOLS.replace_all(key_phrase, " ");
+    let no_symbols = SYMBOLS.replace_all(key_phrase.as_ref(), " ");
     // we collapse sequence of spaces to only one
     SEPARATORS.replace_all(&no_symbols, " ").trim().to_string()
 }

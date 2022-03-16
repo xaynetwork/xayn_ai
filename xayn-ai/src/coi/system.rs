@@ -70,7 +70,7 @@ impl CoiSystem {
         &mut self,
         cois: &mut Vec<PositiveCoi>,
         embedding: &Embedding,
-        smbert: impl Fn(&str) -> Result<Embedding, Error>,
+        smbert: impl Fn(&str) -> Result<Embedding, Error> + Sync,
         candidates: &[String],
     ) {
         log_positive_user_reaction(
@@ -175,7 +175,7 @@ fn log_positive_user_reaction(
     embedding: &Embedding,
     config: &Config,
     relevances: &mut RelevanceMap,
-    smbert: impl Fn(&str) -> Result<Embedding, Error>,
+    smbert: impl Fn(&str) -> Result<Embedding, Error> + Sync,
     candidates: &[String],
 ) {
     match find_closest_coi_mut(cois, embedding) {
@@ -214,7 +214,7 @@ fn update_positive_cois(
     docs: &[&dyn CoiSystemData],
     config: &Config,
     relevances: &mut RelevanceMap,
-    smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
+    smbert: impl Fn(&str) -> Result<Embedding, Error> + Copy + Sync,
 ) {
     docs.iter().fold(cois, |cois, doc| {
         log_positive_user_reaction(
@@ -253,7 +253,7 @@ pub(crate) fn update_user_interests(
     relevances: &mut RelevanceMap,
     history: &[DocumentHistory],
     documents: &[&dyn CoiSystemData],
-    smbert: impl Copy + Fn(&str) -> Result<Embedding, Error>,
+    smbert: impl Fn(&str) -> Result<Embedding, Error> + Copy + Sync,
     config: &Config,
 ) -> Result<UserInterests, Error> {
     let matching_documents = collect_matching_documents(history, documents);
