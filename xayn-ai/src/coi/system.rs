@@ -58,7 +58,7 @@ impl CoiSystem {
     /// Updates the view time of the positive coi closest to the embedding.
     pub(crate) fn log_document_view_time(
         &mut self,
-        cois: &mut Vec<PositiveCoi>,
+        cois: &mut [PositiveCoi],
         embedding: &Embedding,
         viewed: Duration,
     ) {
@@ -277,7 +277,7 @@ pub(crate) fn update_user_interests(
     Ok(user_interests)
 }
 
-fn log_document_view_time(cois: &mut Vec<PositiveCoi>, embedding: &Embedding, viewed: Duration) {
+fn log_document_view_time(cois: &mut [PositiveCoi], embedding: &Embedding, viewed: Duration) {
     if let Some((coi, _)) = find_closest_coi_mut(cois, embedding) {
         coi.log_time(viewed);
     }

@@ -1,3 +1,5 @@
+#![allow(unused_macros)] // obake
+
 use std::cell::RefCell;
 
 use anyhow::bail;

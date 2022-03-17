@@ -407,13 +407,10 @@ impl InMemoryStorage {
     }
 
     fn load_sample_helper(&self, id: DataId) -> Result<SampleView, StorageError> {
-        let raw = &self
-            .data
-            .get(id)
-            .ok_or_else(|| StorageError::OutOfBoundsId {
-                id,
-                exclusive_id_upper_bound: self.data.len(),
-            })?;
+        let raw = &self.data.get(id).ok_or(StorageError::OutOfBoundsId {
+            id,
+            exclusive_id_upper_bound: self.data.len(),
+        })?;
 
         // len == nr_document * nr_features + nr_documents * 1
         let nr_documents = raw.len() / (ListNet::INPUT_NR_FEATURES + 1);

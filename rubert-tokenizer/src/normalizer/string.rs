@@ -119,8 +119,7 @@ where
             sequence
                 .alignments
                 .get(target)
-                .map(Offsets::expand_alignments)
-                .flatten()
+                .and_then(Offsets::expand_alignments)
         }
     }
 }

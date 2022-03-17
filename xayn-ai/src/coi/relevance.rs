@@ -145,7 +145,7 @@ impl RelevanceMap {
         self.cleaned.remove(&coi_id);
         self.coi_to_relevance
             .remove(&coi_id)
-            .map(|relevances| {
+            .and_then(|relevances| {
                 let key_phrases = match relevances {
                     Relevances(Rels::Coi(relevance)) => self
                         .relevance_to_key_phrase
@@ -164,7 +164,6 @@ impl RelevanceMap {
                 };
                 (!key_phrases.is_empty()).then(|| key_phrases)
             })
-            .flatten()
     }
 
     /// Removes the tuple and cleans up empty entries afterwards.
