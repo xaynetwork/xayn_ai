@@ -18,7 +18,7 @@ tempfile = "3.3.0"
 test-utils = { path = "../test-utils" }
 
 [build-dependencies]
-cbindgen = "=0.20.0"
+cbindgen = "=0.21.0"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
