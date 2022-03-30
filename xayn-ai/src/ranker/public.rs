@@ -1,18 +1,17 @@
 use std::{sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use kpe::Config as KpeConfig;
 use rubert::{AveragePooler, SMBertConfig};
 
 use crate::{
-    coi::{
-        config::Config as CoiSystemConfig,
-        key_phrase::KeyPhrase,
-        point::UserInterests,
-        CoiSystem,
-    },
+    coi::{config::Config as CoiSystemConfig, key_phrase::KeyPhrase, CoiSystem},
     embedding::{smbert::SMBert, utils::Embedding},
     error::Error,
-    ranker::document::Document,
+    ranker::{
+        document::Document,
+        system::{State, STATE_VERSION},
+    },
     UserFeedback,
 };
 
@@ -69,7 +68,7 @@ pub struct Builder<'a, P> {
     smbert_config: SMBertConfig<'a, P>,
     coi_config: CoiSystemConfig,
     kpe_config: KpeConfig<'a>,
-    user_interests: UserInterests,
+    state: State,
 }
 
 impl<'a> Builder<'a, AveragePooler> {
@@ -78,7 +77,7 @@ impl<'a> Builder<'a, AveragePooler> {
             smbert_config: smbert,
             coi_config: CoiSystemConfig::default(),
             kpe_config: kpe,
-            user_interests: UserInterests::default(),
+            state: State::default(),
         }
     }
 
@@ -88,7 +87,27 @@ impl<'a> Builder<'a, AveragePooler> {
     ///
     /// Fails if the state cannot be deserialized.
     pub fn with_serialized_state(mut self, bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
-        self.user_interests = bincode::deserialize(bytes.as_ref())?;
+        let bytes = bytes.as_ref();
+
+        let state = match bytes[0] {
+            STATE_VERSION => bincode::deserialize(&bytes[1..]).map_err(Into::into),
+            version => Err(anyhow!(
+                "Unsupported serialized data. Found version {} expected {}",
+                version,
+                STATE_VERSION,
+            )),
+        }
+        .or_else(|e|
+                  // Serialized data could be the unversioned data we had before
+                  bincode::deserialize(bytes).map(|user_interests|
+                                                  State {
+                                                      user_interests,
+                                                      ..State::default()
+                                                  }
+                  ).map_err(|_| e))?;
+
+        self.state = state;
+
         Ok(self)
     }
 
@@ -110,10 +129,7 @@ impl<'a> Builder<'a, AveragePooler> {
         let kpe = kpe::Pipeline::from(self.kpe_config)?;
 
         Ok(Ranker(super::system::Ranker::new(
-            smbert,
-            coi,
-            kpe,
-            self.user_interests,
+            smbert, coi, kpe, self.state,
         )))
     }
 }

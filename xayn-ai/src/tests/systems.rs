@@ -89,9 +89,8 @@ fn mocked_coi_system() -> MockCoiSystem {
 
     let mut system = MockCoiSystem::new();
     system.expect_compute_coi().returning(compute_coi);
-    system
-        .expect_update_user_interests()
-        .returning(move |history, documents, user_interests| {
+    system.expect_update_user_interests().returning(
+        move |history, documents, user_interests, _| {
             update_user_interests(
                 user_interests,
                 &mut RelevanceMap::default(),
@@ -100,7 +99,8 @@ fn mocked_coi_system() -> MockCoiSystem {
                 |_| todo!(/* mock once KPE is used */),
                 &config,
             )
-        });
+        },
+    );
     system
 }
 

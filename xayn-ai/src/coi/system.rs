@@ -42,17 +42,12 @@ pub(crate) enum CoiSystemError {
 pub(crate) struct CoiSystem {
     pub(crate) config: Config,
     smbert: SMBert,
-    pub(crate) relevances: RelevanceMap,
 }
 
 impl CoiSystem {
     /// Creates a new centre of interest system.
     pub(crate) fn new(config: Config, smbert: SMBert) -> Self {
-        Self {
-            config,
-            smbert,
-            relevances: RelevanceMap::default(),
-        }
+        Self { config, smbert }
     }
 
     /// Updates the view time of the positive coi closest to the embedding.
@@ -69,6 +64,7 @@ impl CoiSystem {
     pub(crate) fn log_positive_user_reaction(
         &mut self,
         cois: &mut Vec<PositiveCoi>,
+        relevances: &mut RelevanceMap,
         embedding: &Embedding,
         smbert: impl Fn(&str) -> Result<Embedding, Error> + Sync,
         candidates: &[String],
@@ -77,7 +73,7 @@ impl CoiSystem {
             cois,
             embedding,
             &self.config,
-            &mut self.relevances,
+            relevances,
             smbert,
             candidates,
         );
@@ -96,14 +92,10 @@ impl CoiSystem {
     pub(crate) fn select_top_key_phrases(
         &mut self,
         cois: &[PositiveCoi],
+        relevances: &mut RelevanceMap,
         top: usize,
     ) -> Vec<KeyPhrase> {
-        self.relevances.select_top_key_phrases(
-            cois,
-            top,
-            self.config.horizon(),
-            self.config.penalty(),
-        )
+        relevances.select_top_key_phrases(cois, top, self.config.horizon(), self.config.penalty())
     }
 }
 
@@ -121,11 +113,12 @@ impl systems::CoiSystem for CoiSystem {
         history: &[DocumentHistory],
         documents: &[&dyn CoiSystemData],
         user_interests: UserInterests,
+        relevances: &mut RelevanceMap,
     ) -> Result<UserInterests, Error> {
         let smbert = &self.smbert;
         update_user_interests(
             user_interests,
-            &mut self.relevances,
+            relevances,
             history,
             documents,
             |key_phrase| smbert.run(key_phrase).map_err(Into::into),
@@ -311,6 +304,7 @@ impl systems::CoiSystem for NeutralCoiSystem {
         _history: &[DocumentHistory],
         _documents: &[&dyn CoiSystemData],
         _user_interests: UserInterests,
+        _relevances: &mut RelevanceMap,
     ) -> Result<UserInterests, Error> {
         unreachable!(/* should never be called on this system */)
     }

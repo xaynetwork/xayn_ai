@@ -4,11 +4,12 @@ use std::{
 };
 
 use derive_more::Into;
+use serde::{Deserialize, Serialize};
 
 use crate::coi::{key_phrase::KeyPhrase, CoiError, CoiId};
 
 /// A finite f32.
-#[derive(Clone, Copy, Debug, Default, Into, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Into, PartialEq, PartialOrd, Serialize, Deserialize)]
 // invariant: the wrapped value must always be finite
 struct F32(f32);
 
@@ -30,11 +31,11 @@ impl Ord for F32 {
 }
 
 /// A relevance score.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub(crate) struct Relevance(Rel);
 
 /// Relevance score variants.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 enum Rel {
     /// A coi relevance score.
     Coi(F32),
@@ -78,20 +79,19 @@ impl From<Relevance> for f32 {
 }
 
 /// Relevance scores.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Relevances(Rels);
 
 /// Relevance scores variants.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 enum Rels {
     /// Coi relevance scores.
     Coi(F32),
-    /// Key phrases relevance scores.
     Kps(BTreeSet<F32>),
 }
 
 /// Sorted maps from cois to relevances to key phrases.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub(crate) struct RelevanceMap {
     coi_to_relevance: HashMap<CoiId, Relevances>,
     relevance_to_key_phrase: BTreeMap<(Relevance, CoiId), Vec<KeyPhrase>>,
