@@ -10,7 +10,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::{
     analytics::Analytics,
-    coi::NeutralCoiSystem,
+    coi::{NeutralCoiSystem, RelevanceMap},
     data::{
         document::{Document, DocumentHistory, RerankingOutcomes},
         document_data::{
@@ -223,6 +223,7 @@ where
                 history,
                 &prev_documents,
                 self.data.sync_data.user_interests.clone(),
+                &mut RelevanceMap::default(),
             ) {
                 Ok(user_interests) => self.data.sync_data.user_interests = user_interests,
                 Err(e) => self.errors.push(e),
@@ -822,7 +823,7 @@ mod tests {
             let mut coi = MockCoiSystem::new();
             // we need to set this otherwise it will panic when called
             coi.expect_update_user_interests()
-                .returning(|_, _, _| bail!(CoiSystemError::NoMatchingDocuments));
+                .returning(|_, _, _, _| bail!(CoiSystemError::NoMatchingDocuments));
             coi.expect_compute_coi()
                 .returning(|_, _| bail!(MockError::Fail));
             coi

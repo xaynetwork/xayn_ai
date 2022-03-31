@@ -3,6 +3,7 @@ use std::time::Duration;
 use displaydoc::Display;
 
 use kpe::Pipeline as KPE;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -14,13 +15,24 @@ use crate::{
         context::{compute_score_for_docs, Error as ContextError},
         Document,
     },
-    utils::nan_safe_f32_cmp,
+    utils::{nan_safe_f32_cmp, serialize_with_version},
 };
 
 #[derive(Error, Debug, Display)]
 pub(crate) enum RankerError {
     /// No user interests are known.
     Context(#[from] ContextError),
+}
+
+pub(super) const STATE_VERSION: u8 = 0;
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub(super) struct State {
+    /// The learned user interests.
+    pub(super) user_interests: UserInterests,
+
+    /// Key phrases.
+    pub(super) relevances: RelevanceMap,
 }
 
 /// The Ranker.
@@ -31,29 +43,23 @@ pub(crate) struct Ranker {
     coi: CoiSystem,
     /// Key phrase extraction system.
     kpe: KPE,
-    /// The learned user interests.
-    user_interests: UserInterests,
+    state: State,
 }
 
 impl Ranker {
     /// Creates a new `Ranker`.
-    pub(crate) fn new(
-        smbert: SMBert,
-        coi: CoiSystem,
-        kpe: KPE,
-        user_interests: UserInterests,
-    ) -> Self {
+    pub(super) fn new(smbert: SMBert, coi: CoiSystem, kpe: KPE, state: State) -> Self {
         Self {
             smbert,
             coi,
             kpe,
-            user_interests,
+            state,
         }
     }
 
     /// Creates a byte representation of the internal state of the ranker.
     pub(crate) fn serialize(&self) -> Result<Vec<u8>, Error> {
-        bincode::serialize(&self.user_interests).map_err(Into::into)
+        serialize_with_version(&self.state, STATE_VERSION)
     }
 
     /// Computes the SMBert embedding of the given `sequence`.
@@ -69,8 +75,8 @@ impl Ranker {
     pub(crate) fn rank(&mut self, documents: &mut [impl Document]) -> Result<(), Error> {
         rank(
             documents,
-            &self.user_interests,
-            &mut self.coi.relevances,
+            &self.state.user_interests,
+            &mut self.state.relevances,
             &self.coi.config,
         )
     }
@@ -83,8 +89,11 @@ impl Ranker {
         viewed: Duration,
     ) {
         if let UserFeedback::Relevant | UserFeedback::NotGiven = user_feedback {
-            self.coi
-                .log_document_view_time(&mut self.user_interests.positive, embedding, viewed)
+            self.coi.log_document_view_time(
+                &mut self.state.user_interests.positive,
+                embedding,
+                viewed,
+            )
         }
     }
 
@@ -100,7 +109,8 @@ impl Ranker {
                 let smbert = &self.smbert;
                 let key_phrases = self.kpe.run(snippet).unwrap_or_default();
                 self.coi.log_positive_user_reaction(
-                    &mut self.user_interests.positive,
+                    &mut self.state.user_interests.positive,
+                    &mut self.state.relevances,
                     embedding,
                     |words| smbert.run(words).map_err(Into::into),
                     key_phrases.as_slice(),
@@ -108,15 +118,18 @@ impl Ranker {
             }
             UserFeedback::Irrelevant => self
                 .coi
-                .log_negative_user_reaction(&mut self.user_interests.negative, embedding),
+                .log_negative_user_reaction(&mut self.state.user_interests.negative, embedding),
             _ => (),
         }
     }
 
     /// Selects the top key phrases from the positive cois, sorted in descending relevance.
     pub(crate) fn select_top_key_phrases(&mut self, top: usize) -> Vec<KeyPhrase> {
-        self.coi
-            .select_top_key_phrases(&self.user_interests.positive, top)
+        self.coi.select_top_key_phrases(
+            &self.state.user_interests.positive,
+            &mut self.state.relevances,
+            top,
+        )
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     analytics::Analytics,
-    coi::point::UserInterests,
+    coi::{point::UserInterests, RelevanceMap},
     data::{
         document::{DocumentHistory, DocumentId},
         document_data::{
@@ -61,6 +61,7 @@ pub(crate) trait CoiSystem {
         history: &[DocumentHistory],
         documents: &[&'a dyn CoiSystemData],
         user_interests: UserInterests,
+        relevances: &mut RelevanceMap,
     ) -> Result<UserInterests, Error>;
 }
 
