@@ -59,7 +59,7 @@ impl Ranker {
 
     /// Creates a byte representation of the internal state of the ranker.
     pub(crate) fn serialize(&self) -> Result<Vec<u8>, Error> {
-        serialize_with_version(&self.state, 0)
+        serialize_with_version(&self.state, STATE_VERSION)
     }
 
     /// Computes the SMBert embedding of the given `sequence`.
