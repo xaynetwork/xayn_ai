@@ -29,7 +29,7 @@ thiserror = "1.0.30"
 uuid = { version = "0.8.2", features = ["serde", "wasm-bindgen", "v4"] }
 
 # multithreaded feature
-rayon = { version = "1.5.1", optional = true }
+rayon = { version = "1.5.2", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3.56"
