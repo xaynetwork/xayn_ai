@@ -1,3 +1,8 @@
+`xain_ai` is no longer actively maintained. Parts of the code have been copied to
+[xayn_discovery_engine](https://github.com/xaynetwork/xayn_discovery_engine) and will be further developed there.
+
+---
+
 # Xayn-AI
 
 ## Models
