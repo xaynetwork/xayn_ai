@@ -215,11 +215,8 @@ version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
 dependencies = [
- "libc",
  "num-integer",
  "num-traits",
- "time",
- "winapi",
 ]
 
 [[package]]
@@ -782,9 +779,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.105"
+version = "0.2.125"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "869d572136620d55835903746bcb5cdc54cb2851fd0aeec53220b4bb65ef3013"
+checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
 
 [[package]]
 name = "libm"
@@ -794,9 +791,9 @@ checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
 
 [[package]]
 name = "liquid"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d7b354744435fa481a73167dc69afe4af3ecd8056607ef05996c83b85003f83"
+checksum = "cb6e6551b4c8a2045351f0853b54807b21080176a055b754dc0ad29428edf293"
 dependencies = [
  "doc-comment",
  "kstring",
@@ -808,12 +805,11 @@ dependencies = [
 
 [[package]]
 name = "liquid-core"
-version = "0.23.0"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85f6116d9b0d5b3bac6dc2930120f63bc16046b2fe6df48c29de26a36c2bff63"
+checksum = "8ea8f6c13e8ae36bce67fc1eaacf32c13b26d16576b7ee2ec9de33a3980cefd6"
 dependencies = [
  "anymap2",
- "chrono",
  "itertools",
  "kstring",
  "liquid-derive",
@@ -821,13 +817,14 @@ dependencies = [
  "pest",
  "pest_derive",
  "serde",
+ "time 0.3.9",
 ]
 
 [[package]]
 name = "liquid-derive"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "705ae18edfe0d7357a69275ee4442769790e5a40ca7033cb973eff12d15c8f20"
+checksum = "d82d81028aba7e869d0aa423ae926a7f15fd55ca576baac279ed38020b180a56"
 dependencies = [
  "proc-macro2",
  "proc-quote",
@@ -836,17 +833,17 @@ dependencies = [
 
 [[package]]
 name = "liquid-lib"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48db452cd6d948eb5e0800d1d185353f447a2b5d0cd6f3059a0c7301f31d501f"
+checksum = "8256326835eae262affdc6df8743d9e1b917354ba3c8c380e6238426a8097564"
 dependencies = [
- "chrono",
  "itertools",
  "kstring",
  "liquid-core",
  "once_cell",
  "percent-encoding",
  "regex",
+ "time 0.3.9",
  "unicode-segmentation",
 ]
 
@@ -1032,6 +1029,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05499f3756671c15885fee9034446956fff3f243d6077b91e5767df161f766b3"
 dependencies = [
  "hermit-abi",
+ "libc",
+]
+
+[[package]]
+name = "num_threads"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
+dependencies = [
  "libc",
 ]
 
@@ -1854,6 +1860,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "time"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2702e08a7a860f005826c6815dcac101b19b5eb330c27fe4a5928fec1d20ddd"
+dependencies = [
+ "itoa 1.0.1",
+ "libc",
+ "num_threads",
+ "time-macros",
+]
+
+[[package]]
+name = "time-macros"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
+
+[[package]]
 name = "tinytemplate"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1921,9 +1945,9 @@ dependencies = [
 
 [[package]]
 name = "tract-core"
-version = "0.16.1"
+version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3dae90e816dea4439c86dc0b691d33f06b210c88db4a4f717b0576d8f06171e"
+checksum = "7ae63f5e21145b87b7812ac050f692ebd9fae5c31146c37e03f07b1a31ff7ab4"
 dependencies = [
  "anyhow",
  "bit-set",
@@ -1944,9 +1968,9 @@ dependencies = [
 
 [[package]]
 name = "tract-data"
-version = "0.16.1"
+version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1241dc05ad240997e0106db8538efbbf7c03ce4f37060b3dac662acb9530fbba"
+checksum = "9aeb135db1d5d5824666edf10be35b01c8a84bf993cc64a5321bc13070624840"
 dependencies = [
  "anyhow",
  "educe",
@@ -1963,9 +1987,9 @@ dependencies = [
 
 [[package]]
 name = "tract-hir"
-version = "0.16.1"
+version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8d49d3b0e441151f5fcdad555906061c7a2cfcb2500594eb00fbd5702848700"
+checksum = "dd9b6e42023e0949688b47f512e36f0d4691e6ee7ddb014bc514ea03d2d5122f"
 dependencies = [
  "derive-new",
  "educe",
@@ -1975,9 +1999,9 @@ dependencies = [
 
 [[package]]
 name = "tract-linalg"
-version = "0.16.1"
+version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3192f979d3130039a117a95f84cd23c8769569abb703da12cdc3d6d5e1f0a7b"
+checksum = "a98190bce172d691ee230d423e5881cbb546b61df768f521611c51d52511d660"
 dependencies = [
  "cc",
  "derive-new",
@@ -1999,9 +2023,9 @@ dependencies = [
 
 [[package]]
 name = "tract-nnef"
-version = "0.16.1"
+version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "933e8a261237086429684bc8c47cdadeaaebe644fe44b91eba8439dd9c868ed8"
+checksum = "3b2cc0350faa927c1d895e06ed28cebf4e4e9437642aa5ac65942462006ab342"
 dependencies = [
  "byteorder",
  "flate2",
@@ -2014,9 +2038,9 @@ dependencies = [
 
 [[package]]
 name = "tract-onnx"
-version = "0.16.1"
+version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73af98ea69d0bd9a2b181acb71cda5a7917caf09a69c9cab882d38b281b6e25c"
+checksum = "9a904657135f9baeffc0f6ef6eca0a805788e82f517e956f2c632e6238c88594"
 dependencies = [
  "bytes",
  "derive-new",
@@ -2034,9 +2058,9 @@ dependencies = [
 
 [[package]]
 name = "tract-onnx-opl"
-version = "0.16.1"
+version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f2b96c7cefa72342053445d03a1d465b1ea426302faba6d121dd544bc70294f"
+checksum = "22d3210700af398abe3279e7116cdf0fe09b7726061fc9bded590166f0c3d07a"
 dependencies = [
  "educe",
  "tract-nnef",
@@ -2456,5 +2480,5 @@ dependencies = [
  "crc32fast",
  "flate2",
  "thiserror",
- "time",
+ "time 0.1.43",
 ]
