@@ -22,7 +22,7 @@ obake = { git = "https://github.com/doctorn/obake", rev = "d6bea07e355ca4adf353c
 rand = "0.8.5"
 regex = { version = "1.5.5", features = ["unicode-gencat"] }
 rubert = { path = "../rubert" }
-serde = { version = "1.0.136", features = ["derive"] }
+serde = { version = "1.0.137", features = ["derive"] }
 serde_repr = "0.1.7"
 smallvec = "1.8.0"
 thiserror = "1.0.30"
