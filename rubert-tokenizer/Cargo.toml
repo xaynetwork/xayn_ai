@@ -7,7 +7,7 @@ license = "Apache-2.0"
 
 [dependencies]
 displaydoc = "0.2.3"
-num-traits = "0.2.14"
+num-traits = "0.2.15"
 regex = "1.5.4"
 regex-syntax = "0.6.25"
 smallstr = "0.3.0"
