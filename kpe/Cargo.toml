@@ -11,7 +11,7 @@ layer = { path = "../layer" }
 # to be kept in sync with tract-core
 ndarray = "=0.15.3"
 rubert-tokenizer = { path = "../rubert-tokenizer" }
-thiserror = "1.0.29"
+thiserror = "1.0.31"
 tract-onnx = "0.16.1"
 
 [dev-dependencies]

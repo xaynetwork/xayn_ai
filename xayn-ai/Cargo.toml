@@ -25,7 +25,7 @@ rubert = { path = "../rubert" }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_repr = "0.1.7"
 smallvec = "1.8.0"
-thiserror = "1.0.30"
+thiserror = "1.0.31"
 uuid = { version = "0.8.2", features = ["serde", "wasm-bindgen", "v4"] }
 
 # multithreaded feature

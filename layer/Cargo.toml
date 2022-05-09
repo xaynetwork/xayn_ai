@@ -12,7 +12,7 @@ ndarray = "=0.15.3"
 rand = "0.8.5"
 rand_distr = "0.4.3"
 serde = { version = "1.0.136", features = ["derive"] }
-thiserror = "1.0.30"
+thiserror = "1.0.31"
 
 [dev-dependencies]
 test-utils = { path = "../test-utils" }
